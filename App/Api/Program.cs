@@ -17,6 +17,7 @@ builder.Services.AddSingleton<IDbConnectionFactory, SqlConnectionFactory>();
 builder.Services.AddScoped<IdentityProviderRepository>();
 builder.Services.AddScoped<AppUserRepository>();
 builder.Services.AddScoped<AccountProgressRepository>();
+builder.Services.AddScoped<ReportsRepository>();
 
 var app = builder.Build();
 
