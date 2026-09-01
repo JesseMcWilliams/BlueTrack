@@ -18,6 +18,13 @@ builder.Services.AddScoped<IdentityProviderRepository>();
 builder.Services.AddScoped<AppUserRepository>();
 builder.Services.AddScoped<AccountProgressRepository>();
 builder.Services.AddScoped<ReportsRepository>();
+builder.Services.AddScoped<AuthorizationRepository>();
+builder.Services.AddScoped<UserRightsResolver>();
+
+// One authorization policy per permission (D-05/D-61) -- see
+// AuthorizationExtensions for how [Authorize(Policy = Permissions.X)] maps
+// onto the "permission" claim PermissionClaimsTransformation adds.
+builder.Services.AddBlueTrackAuthorization();
 
 var app = builder.Build();
 

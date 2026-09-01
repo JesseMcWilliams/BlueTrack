@@ -32,8 +32,6 @@ public static class AuthenticationExtensions
             .AddAuthentication(NegotiateDefaults.AuthenticationScheme)
             .AddNegotiate();
 
-        services.AddAuthorizationBuilder();
-
         return services;
     }
 }
