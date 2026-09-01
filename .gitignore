@@ -1,0 +1,11 @@
+Reference/
+Logs/
+
+# .NET
+App/**/bin/
+App/**/obj/
+App/*.user
+
+# Node / Vite
+App/Web/node_modules/
+App/Web/dist/

@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/Api/">
+    <Project Path="Api/BlueTrack.Api.csproj" />
+  </Folder>
+  <Folder Name="/Migrator/">
+    <Project Path="Migrator/BlueTrack.Migrator.csproj" />
+  </Folder>
+</Solution>

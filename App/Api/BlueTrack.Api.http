@@ -1,0 +1,6 @@
+@BlueTrack.Api_HostAddress = http://localhost:5106
+
+GET {{BlueTrack.Api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
