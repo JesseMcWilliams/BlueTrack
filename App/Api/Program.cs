@@ -1,3 +1,4 @@
+using BlueTrack.Api.Audit;
 using BlueTrack.Api.Auth;
 using BlueTrack.Api.Data;
 
@@ -8,6 +9,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers();
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
+builder.Services.AddHttpContextAccessor(); // AuditLogger needs the request's source IP
 
 builder.Services.AddBlueTrackAuthentication();
 
@@ -23,6 +25,13 @@ builder.Services.AddScoped<UserRightsResolver>();
 builder.Services.AddScoped<CurrentUserResolver>();
 builder.Services.AddScoped<RiskExceptionRepository>();
 builder.Services.AddScoped<ApplicationRepository>();
+builder.Services.AddScoped<AuditLogger>();
+builder.Services.AddScoped<FieldMetadataRepository>();
+builder.Services.AddScoped<AppConfigRepository>();
+builder.Services.AddScoped<RoleRepository>();
+builder.Services.AddScoped<GroupRoleMappingRepository>();
+builder.Services.AddScoped<SecretsStoreRepository>();
+builder.Services.AddScoped<AuditRepository>();
 
 // One authorization policy per permission (D-05/D-61) -- see
 // AuthorizationExtensions for how [Authorize(Policy = Permissions.X)] maps

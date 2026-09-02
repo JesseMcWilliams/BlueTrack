@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using BlueTrack.Api.Audit;
 using BlueTrack.Api.Auth;
 using BlueTrack.Api.Data;
 using BlueTrack.Api.Models;
@@ -11,7 +12,8 @@ namespace BlueTrack.Api.Controllers;
 [Authorize]
 public sealed class RiskExceptionsController(
     RiskExceptionRepository repository,
-    CurrentUserResolver currentUserResolver) : ControllerBase
+    CurrentUserResolver currentUserResolver,
+    AuditLogger auditLogger) : ControllerBase
 {
     [HttpGet]
     public async Task<IActionResult> GetList([FromQuery] string? status = null)
@@ -63,6 +65,20 @@ public sealed class RiskExceptionsController(
         }
 
         var exceptionKey = await repository.CreateAsync(request, user.UserKey);
+
+        await auditLogger.LogAsync(
+            "ExceptionApproved",
+            user.UserKey,
+            entityName: "risk_exception",
+            entityKey: exceptionKey.ToString(),
+            detail: $"Exception created, scoped to {(hasAccount ? $"AccountKey {request.AccountKey}" : $"ApplicationKey {request.ApplicationKey}")}",
+            fieldChanges:
+            [
+                new FieldChange("Justification", null, request.Justification),
+                new FieldChange("ReviewDate", null, request.ReviewDate.ToString("yyyy-MM-dd")),
+                new FieldChange("ExternalTicketReference", null, request.ExternalTicketReference)
+            ]);
+
         return CreatedAtAction(nameof(GetByKey), new { exceptionKey }, new { exceptionKey });
     }
 
@@ -71,7 +87,27 @@ public sealed class RiskExceptionsController(
     [Authorize(Policy = Permissions.ApproveExceptions)]
     public async Task<IActionResult> ExtendReview(int exceptionKey, [FromBody] ExtendReviewRequest request)
     {
+        var before = await repository.GetByKeyAsync(exceptionKey);
+        if (before is null)
+        {
+            return NotFound();
+        }
+
+        var user = await currentUserResolver.ResolveAsync(User);
+        if (user is null)
+        {
+            return Unauthorized();
+        }
+
         await repository.ExtendReviewAsync(exceptionKey, request.NewReviewDate);
+
+        await auditLogger.LogAsync(
+            "ExceptionReviewExtended",
+            user.UserKey,
+            entityName: "risk_exception",
+            entityKey: exceptionKey.ToString(),
+            fieldChanges: [new FieldChange("ReviewDate", before.ReviewDate.ToString("yyyy-MM-dd"), request.NewReviewDate.ToString("yyyy-MM-dd"))]);
+
         return NoContent();
     }
 
@@ -80,7 +116,27 @@ public sealed class RiskExceptionsController(
     [Authorize(Policy = Permissions.ApproveExceptions)]
     public async Task<IActionResult> Revoke(int exceptionKey)
     {
+        var before = await repository.GetByKeyAsync(exceptionKey);
+        if (before is null)
+        {
+            return NotFound();
+        }
+
+        var user = await currentUserResolver.ResolveAsync(User);
+        if (user is null)
+        {
+            return Unauthorized();
+        }
+
         await repository.RevokeAsync(exceptionKey);
+
+        await auditLogger.LogAsync(
+            "ExceptionRevoked",
+            user.UserKey,
+            entityName: "risk_exception",
+            entityKey: exceptionKey.ToString(),
+            fieldChanges: [new FieldChange("StatusName", before.StatusName, "Revoked")]);
+
         return NoContent();
     }
 }
