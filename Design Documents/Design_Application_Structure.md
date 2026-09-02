@@ -22,7 +22,7 @@ Confirmed 2026-08-27 as a first pass — revise here as screens are added or spl
 - Account Progress — detail/edit (the field-metadata-driven form from `Design_Interface_Extensibility.md`)
 - Risk Exceptions — list (Active/Expired/Revoked)
 - Risk Exceptions — create/edit (account- or application-scoped, D-18/D-31)
-- Risk Exceptions — approval worklist (requires `ApproveExceptions`)
+- Risk Exceptions — approval worklist (requires `ApproveExceptions`). **Resolved 2026-09-01 (D-70):** shows every currently-Active exception — the schema has no separate "pending approval" state, so this is the permission-gated overview of what's in effect right now, distinct from the plain list (every status) and the overdue-review worklist below (only past-`ReviewDate` ones).
 - Risk Exceptions — overdue-review worklist (D-19 — specifically exceptions past their `ReviewDate`, not the same as the Reports overdue worklist below)
 - Reports (in-app analyst reporting, D-22 — distinct from Power BI) — see sub-navigation, D-56
 - My Profile — self-service "Reload My Rights" (D-14)
@@ -80,6 +80,13 @@ More report types can be added the same way later; this isn't meant to be exhaus
 ### Login Provider Display
 
 **Resolved 2026-08-27 (D-41, cross-referenced from `Design_Authentication_Architecture.md`):** displayed provider/module names are admin-configurable (`DisplayName` on `identity_provider_config`, already part of the Authentication Architecture data model) — this is reaffirmed here as a UI-structure requirement, not a new field.
+
+## Implementation Status (added 2026-09-01)
+
+Every page in the inventory above is now built: Reports (its three sub-pages), Risk Exceptions (list/create/edit/approval/overdue-review), and all eight Admin sub-pages, each backed by a real controller/repository and verified against the live Dev database. Two gaps in this document's own cross-cutting conventions remain unimplemented:
+
+- **D-42 (multi-layer filter/sort)** — every list/grid page shipped with only basic single-value filtering (e.g. Account Progress by stage), not the stacked multi-column filter/sort this section calls for. Needs a proper dynamic query builder or an OData-style endpoint.
+- **Frontend permission-gating** — no page yet reads `rights.permissionNames` from `/api/me` to hide/disable UI a user can't use; permission-gated pages currently rely entirely on the API's real policy enforcement returning a 403, which the frontend surfaces as a plain error message rather than not showing the control at all.
 
 ## Open Questions
 

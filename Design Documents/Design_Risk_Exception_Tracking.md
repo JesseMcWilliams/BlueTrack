@@ -45,7 +45,7 @@ A Risk Accepted / Excluded status represents a deliberate decision not to bring 
 | Field | Type | Purpose |
 |---|---|---|
 | ExceptionKey | int, PK | Surrogate key |
-| ExceptionID | text, unique, human-readable | e.g. EXC-2026-0001 — the identifier referenced in tickets/audits. **Resolved 2026-08-27:** the numbering scheme must be flexible/configurable rather than a single fixed global sequence, since it differs by organization (D-17). |
+| ExceptionID | text, unique, human-readable | e.g. EXC-2026-0001 — the identifier referenced in tickets/audits. **Resolved 2026-08-27:** the numbering scheme must be flexible/configurable rather than a single fixed global sequence, since it differs by organization (D-17). **Implemented 2026-09-01 (D-71):** a configurable pattern string in `web.app_config.ExceptionIdPattern` (default `EXC-{yyyy}-{seq:0000}`), backed by an atomically-incremented, year-scoped sequence counter. See `App/Api/Data/ExceptionIdGenerator.cs`. |
 | AccountKey | FK to fact_account, **nullable** | Which account this exception applies to, when scoped to a single account — stored directly here, not only inferred through `fact_account_progress`, so history survives even if the account's current status later changes. |
 | ApplicationKey | FK to dim_application, **nullable** | Which application this exception applies to, when scoped to an entire application rather than one account (D-18). **Resolved 2026-08-27** (Q-25): exactly one of `AccountKey` / `ApplicationKey` must be set per exception — enforced at the application layer, consistent with how this project avoids database triggers for business rules (see the workflow step below). |
 | Justification | text | Why the exception was granted |
@@ -72,8 +72,14 @@ If an exception later expires and a new one is granted for the same account or a
 3. A new exception is assigned the next `ExceptionID` per the org's configured numbering scheme, captures `Justification`/`ApprovedBy`/`ApprovalDate`/`ReviewDate`, and is marked Active.
 4. When `ReviewDate` passes, the exception surfaces on a worklist for re-approval or revocation. **Resolved 2026-08-27:** active notification (email, Teams, etc.) will be offered as an **optional/configurable** capability, not a mandatory feature for every exception (D-19).
 
+## Implementation Status (added 2026-09-01)
+
+Built end to end: the exception List, Approval Worklist, Overdue-Review Worklist, and create/extend-review/revoke actions (`RiskExceptionsController`/`RiskExceptionRepository`), each write action logged to `audit_event`/`audit_field_change` (D-73). The Approval Worklist's exact scope — every currently-Active exception — was ambiguous in this document and resolved directly by the user during implementation (**D-70**), since the schema has no separate "pending approval" state: an exception is created Active in one step by whoever holds `ApproveExceptions`.
+
+**Known gap:** creating an exception doesn't yet update the scoped account's `fact_account_progress.CurrentStatusKey`/`ExceptionKey`, even though workflow step 1 above describes the action starting from an Account Progress status change to Risk Accepted / Excluded. That requires the Account Progress edit form to exist first — it's still a placeholder as of this writing.
+
 ## Open Questions
 
 None remaining as of 2026-08-27. Q-25 (how an Application relates to `dim_safe`/`fact_account`) was resolved this session — see `dim_application` above.
 
-Resolved this session: ExceptionID numbering flexibility (D-17), exception scope covering account-or-application (D-18), application entity design (Q-25/D-31), and optional review notifications (D-19).
+Resolved this session: ExceptionID numbering flexibility (D-17), exception scope covering account-or-application (D-18), application entity design (Q-25/D-31), and optional review notifications (D-19). Resolved during implementation, 2026-09-01: the ExceptionID numbering mechanism (D-71) and the Approval Worklist's scope (D-70).

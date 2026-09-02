@@ -32,6 +32,10 @@ Adding a new governed field then looks like: run the schema migration (as alread
 
 Considered and explicitly rejected: every new field will continue to go through a proper schema migration, consistent with how `dim_account_type`, `dim_source_of_record`, and `dim_risk_level` were all added earlier in this project. Nothing further is needed here — this section exists to record that the option was considered, not to leave it as an unresolved gap. (D-08)
 
+## Implementation Status (added 2026-09-01)
+
+The admin side is built: Field Metadata Management (CRUD against `account_progress_field_metadata`, `FieldMetadataController`) lets an admin curate the field-definition list itself. **The consuming side — the field-metadata-driven pattern actually generating the Account Progress edit form and API contract from that list, which is this document's whole point — is not built yet.** That's the next piece of work; until it exists, `account_progress_field_metadata` rows describe a form that doesn't read them yet.
+
 ## Open Questions
 
 **Resolved 2026-08-27:** Per-field permission granularity is deferred, not needed from day one. Ship with a single blanket "can edit this record at all" permission initially; `RequiredPermission` stays in the field-metadata model for later use, but per-field enforcement isn't built now. Revisit if a concrete need for differentiated field-level permissions actually comes up. (D-20)

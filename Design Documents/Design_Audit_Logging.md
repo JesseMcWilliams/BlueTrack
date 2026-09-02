@@ -29,7 +29,7 @@ This is distinct from two things already in the schema:
 | Field | Type | Purpose |
 |---|---|---|
 | AuditEventTypeKey | int, PK | Surrogate key |
-| EventTypeName | text, unique | e.g. Logon, LogonFailed, FieldEdit, ExceptionApproved, ProviderConfigChanged, ReloadRights |
+| EventTypeName | text, unique | Logon, LogonFailed, FieldEdit, ExceptionApproved, ProviderConfigChanged, ReloadRights, plus **ExceptionReviewExtended** and **ExceptionRevoked** (added 2026-09-01, D-73 — the original catalog covered exception creation but not the workflow's other two actions, found while wiring real audit logging into the Risk Exceptions pages) |
 | Description | text | What this event type represents, for the admin screen |
 
 ### audit_event
@@ -94,6 +94,16 @@ The purge run itself is recorded in a new **`audit_purge_log`** table, mirroring
 - A global application configuration page including, at minimum, the audit retention period (`audit_config.RetentionDays`).
 - A searchable/filterable audit log view (by user, date range, event type, affected entity) — gated behind a `ViewAuditLog` (or equivalent) permission.
 - Visibility into field-level changes for a given event, not just the top-level action description.
+
+## Implementation Status (added 2026-09-01, D-73)
+
+Real audit logging is now wired in: `AuditLogger` writes to `audit_event`/`audit_field_change` from every write action across the Risk Exceptions pages and all Admin pages, and the Audit Log Viewer (search/filter by user, event type, entity, date range, plus field-level drill-down) is built against it. This was a deliberate retrofit — the user chose to wire it in immediately rather than ship the viewer as an empty shell.
+
+**Explicitly not covered yet, same root cause for both:** this app has no session/cookie layer (Windows Negotiate authenticates per request, nothing persists a session server-side). That means:
+- **Logon auditing** isn't wired — there's no way to distinguish a real logon from a routine `/api/me` call without a session concept, and logging every call would flood the log.
+- **`LogReadEvents`** is stored and admin-editable (via the Global Application Configuration page), but nothing enforces it — no request pipeline hook checks the flag, so read/view actions are never logged regardless of the setting.
+
+Tracked together in `Design_Decision_Register.md`'s "Session-layer-dependent follow-ups" — revisit once a real session layer is designed.
 
 ## Open Questions
 

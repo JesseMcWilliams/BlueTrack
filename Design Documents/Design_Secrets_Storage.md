@@ -64,6 +64,8 @@ Two ways to address this if a multi-server deployment is in scope: DPAPI-NG with
 | IsActive | bit | Which backend is currently in use — designed to allow exactly one active backend at a time, though the abstraction doesn't prevent supporting more than one simultaneously if that's ever needed |
 | BackendSettings | structured | Backend-specific connection info (e.g., Key Vault URI, Vault namespace) — itself non-secret configuration |
 
+**Implementation note (D-72, 2026-09-01):** this table was fully specified above but never actually added to the schema until the Secrets Store Configuration admin page was built — found as an implementation-time gap, not a design-phase review. Added via `14_BlueTrack_SecretsStoreSchema.sql`, matching this Data Model exactly, seeded with all six backends and `WindowsDpapi` active by default (D-36). `SecretsStoreController`/`SecretsStoreRepository` manage this record only — "exactly one active" is enforced at the application layer, not a database constraint. **No actual backend (Windows DPAPI, CyberArk CP, or any other) is implemented anywhere in the app** — this is configuration data only, same as how the Identity Providers admin page can store an OIDC/SAML row without those providers actually being wired to authenticate anyone.
+
 ## Recommendation
 
 **Resolved 2026-08-27:** **Windows DPAPI is the first backend built overall** (D-36) — no external dependency, works immediately in the confirmed single-server dev environment (D-09). **CyberArk CP is the designated first CyberArk backend** (D-32), built after DPAPI. Where Azure Key Vault and AWS Secrets Manager fall in the order after that is not yet decided, but is no longer blocking — DPAPI unblocks development now. This fully resolves Q-05.

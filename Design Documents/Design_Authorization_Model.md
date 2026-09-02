@@ -45,7 +45,7 @@ Revised to a permission-based model: rather than a fixed role hierarchy with ass
 |---|---|---|
 | MappingKey | int, PK | Surrogate key |
 | ProviderKey | FK to identity_provider_config | Scopes this mapping to a specific provider (a group name can mean different things across providers) |
-| IdentityGroupName | text | The AD/Entra/Okta group identifier, or a DevFakeAuth simulated group name |
+| IdentityGroupName | text | The AD/Entra/Okta group identifier, or a DevFakeAuth simulated group name. **Resolved 2026-09-01 (D-69):** for WindowsIntegrated specifically, this is the raw Windows group SID (e.g. `S-1-5-32-544`) read straight off the access token — not a friendly group name. Found ambiguous during implementation (a seeded row used a friendly name instead) and corrected; see `App/Api/Auth/GroupIdentifierExtractor.cs`. The admin screen's lookup/test tool (below) still takes a friendly name and resolves it to the SID server-side, so nobody has to hand-type one. |
 | AppRoleKey | FK to app_role | The role granted to members of this group |
 
 A user can belong to more than one mapped group, and therefore hold more than one role simultaneously — confirmed by design decision. A user's effective permissions are the union of every permission reachable through every role granted by every group they belong to, not just their "highest" role.
@@ -91,6 +91,14 @@ Microsoft Entra ID currently caps the number of groups included directly in a to
 - Add/edit/remove `identity_group_role_map` entries, scoped per provider.
 - A lookup/test tool: given a group name and provider, show which role(s) and resulting permission set it resolves to — useful for verifying a mapping before relying on it.
 - Trigger a Reload Rights action for another user's active session (requires the `ManageGroupRoleMapping` or an equivalent admin permission).
+
+## Implementation Status (added 2026-09-01)
+
+Permission-based authorization is fully built: `GroupIdentifierExtractor` → `AuthorizationRepository` → `PermissionClaimsTransformation` resolves effective permissions on every authenticated request, backing one ASP.NET Core policy per permission (`AuthorizationExtensions`). The Group → Role Mapping admin page's lookup/test tool is built (`WindowsGroupResolver`, using `NTAccount`/`SecurityIdentifier` translation) and was verified resolving `BUILTIN\Administrators` correctly.
+
+**Known gaps, both tracked in `Design_Decision_Register.md`'s "Session-layer-dependent follow-ups"** (this app has no session/cookie layer yet):
+- Permission resolution re-runs on every request rather than being cached per session and refreshed only by Reload Rights, per the design above — functionally correct (same live query), just not the cheaper cached version.
+- Reload Rights is self-service only — the admin-triggered "reload another user's active session" path from the Admin UI Requirements below isn't implemented, since there's no session registry to target.
 
 ## Open Questions
 
