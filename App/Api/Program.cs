@@ -20,6 +20,9 @@ builder.Services.AddScoped<AccountProgressRepository>();
 builder.Services.AddScoped<ReportsRepository>();
 builder.Services.AddScoped<AuthorizationRepository>();
 builder.Services.AddScoped<UserRightsResolver>();
+builder.Services.AddScoped<CurrentUserResolver>();
+builder.Services.AddScoped<RiskExceptionRepository>();
+builder.Services.AddScoped<ApplicationRepository>();
 
 // One authorization policy per permission (D-05/D-61) -- see
 // AuthorizationExtensions for how [Authorize(Policy = Permissions.X)] maps
