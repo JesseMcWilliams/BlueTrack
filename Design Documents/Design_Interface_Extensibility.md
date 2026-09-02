@@ -32,9 +32,13 @@ Adding a new governed field then looks like: run the schema migration (as alread
 
 Considered and explicitly rejected: every new field will continue to go through a proper schema migration, consistent with how `dim_account_type`, `dim_source_of_record`, and `dim_risk_level` were all added earlier in this project. Nothing further is needed here — this section exists to record that the option was considered, not to leave it as an unresolved gap. (D-08)
 
-## Implementation Status (added 2026-09-01)
+## Implementation Status (updated 2026-09-01)
 
-The admin side is built: Field Metadata Management (CRUD against `account_progress_field_metadata`, `FieldMetadataController`) lets an admin curate the field-definition list itself. **The consuming side — the field-metadata-driven pattern actually generating the Account Progress edit form and API contract from that list, which is this document's whole point — is not built yet.** That's the next piece of work; until it exists, `account_progress_field_metadata` rows describe a form that doesn't read them yet.
+Both sides are now built. The admin side: Field Metadata Management (CRUD against `account_progress_field_metadata`, `FieldMetadataController`) lets an admin curate the field-definition list itself. The consuming side: the Account Progress edit form (`AccountProgressDetail.vue`) reads that same list (via a separate, non-admin-gated `GET /api/account-progress/field-metadata` — any user with `EditAccountProgress` needs to read it, not just admins) and renders one input per row, ordered by `DisplayOrder`, typed by `FieldType` (`Text`/`Date`/`Dropdown`/`TextArea` — the last one a self-evident addition beyond the doc's own "etc." list, for `Notes`). `Dropdown` fields pull their options from `GET /api/account-progress/reference-data`, keyed by `ReferenceTable`.
+
+Seeded with one row per editable `fact_account_progress` column (`16_BlueTrack_AccountProgressFieldMetadataSeed.sql`) — everything except `ExceptionKey`, which the Risk Exception workflow sets, not this form.
+
+`RequiredPermission` stays unused (null on every seeded row) per D-20's deferral of per-field permission granularity — every field is currently gated only by the form-level `EditAccountProgress` permission.
 
 ## Open Questions
 

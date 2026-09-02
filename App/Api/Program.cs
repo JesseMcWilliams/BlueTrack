@@ -32,6 +32,8 @@ builder.Services.AddScoped<RoleRepository>();
 builder.Services.AddScoped<GroupRoleMappingRepository>();
 builder.Services.AddScoped<SecretsStoreRepository>();
 builder.Services.AddScoped<AuditRepository>();
+builder.Services.AddScoped<ReferenceDataRepository>();
+builder.Services.AddScoped<AccountProgressLockRepository>();
 
 // One authorization policy per permission (D-05/D-61) -- see
 // AuthorizationExtensions for how [Authorize(Policy = Permissions.X)] maps

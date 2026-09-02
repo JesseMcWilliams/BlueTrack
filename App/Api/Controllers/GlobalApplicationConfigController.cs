@@ -34,6 +34,8 @@ public sealed class GlobalApplicationConfigController(
             changes.Add(new FieldChange("BreadcrumbPosition", before.BreadcrumbPosition, request.BreadcrumbPosition));
         if (before.ExceptionIdPattern != request.ExceptionIdPattern)
             changes.Add(new FieldChange("ExceptionIdPattern", before.ExceptionIdPattern, request.ExceptionIdPattern));
+        if (before.LockTimeoutMinutes != request.LockTimeoutMinutes)
+            changes.Add(new FieldChange("LockTimeoutMinutes", before.LockTimeoutMinutes.ToString(), request.LockTimeoutMinutes.ToString()));
         if (before.RetentionDays != request.RetentionDays)
             changes.Add(new FieldChange("RetentionDays", before.RetentionDays?.ToString(), request.RetentionDays?.ToString()));
         if (before.LogReadEvents != request.LogReadEvents)

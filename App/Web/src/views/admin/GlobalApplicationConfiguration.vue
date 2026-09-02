@@ -65,6 +65,9 @@ async function save() {
         <br /><small>Tokens: {yyyy}, {yy}, {seq:0000} (padding width from the number of zeros)</small>
       </p>
       <p>
+        <label>Account Progress Lock Timeout (minutes): <input v-model.number="config.lockTimeoutMinutes" type="number" required /></label>
+      </p>
+      <p>
         <label>Audit Retention (days, blank = keep forever): <input v-model.number="config.retentionDays" type="number" /></label>
       </p>
       <p>

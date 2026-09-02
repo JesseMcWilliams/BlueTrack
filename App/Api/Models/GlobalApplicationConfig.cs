@@ -11,6 +11,7 @@ public sealed class GlobalApplicationConfig
     public int IdleTimeoutMinutes { get; init; }
     public required string BreadcrumbPosition { get; init; }
     public required string ExceptionIdPattern { get; init; }
+    public int LockTimeoutMinutes { get; init; }
     public int? RetentionDays { get; init; }
     public bool LogReadEvents { get; init; }
 }
@@ -20,6 +21,7 @@ public sealed class SaveGlobalApplicationConfigRequest
     public int IdleTimeoutMinutes { get; init; }
     public required string BreadcrumbPosition { get; init; }
     public required string ExceptionIdPattern { get; init; }
+    public int LockTimeoutMinutes { get; init; }
     public int? RetentionDays { get; init; }
     public bool LogReadEvents { get; init; }
 }

@@ -39,4 +39,63 @@ public sealed class AccountProgressRepository(IDbConnectionFactory connectionFac
         var rows = await connection.QueryAsync<AccountProgressSummary>(sql, new { StageName = stageName });
         return rows.AsList();
     }
+
+    public async Task<AccountProgressDetail?> GetDetailAsync(long accountKey)
+    {
+        using var connection = connectionFactory.Create();
+        const string sql = """
+            SELECT
+                fap.ProgressKey, fap.AccountKey, fa.AccountName,
+                fap.CurrentStageKey, fap.CurrentStatusKey, fap.RiskLevelKey, fap.AccountTypeKey, fap.SORKey,
+                fap.OwnerName, fap.BusinessUnit, fap.TargetRemediationDate, fap.ActualCompletionDate, fap.Notes,
+                fap.LastUpdated, fap.ExceptionKey
+            FROM dbo.fact_account_progress fap
+            JOIN dbo.fact_account fa ON fa.AccountKey = fap.AccountKey
+            WHERE fap.AccountKey = @AccountKey
+            """;
+        return await connection.QuerySingleOrDefaultAsync<AccountProgressDetail>(sql, new { AccountKey = accountKey });
+    }
+
+    public async Task UpdateAsync(long accountKey, SaveAccountProgressRequest request)
+    {
+        using var connection = connectionFactory.Create();
+        const string sql = """
+            UPDATE dbo.fact_account_progress
+            SET CurrentStageKey = @CurrentStageKey, CurrentStatusKey = @CurrentStatusKey, RiskLevelKey = @RiskLevelKey,
+                AccountTypeKey = @AccountTypeKey, SORKey = @SORKey, OwnerName = @OwnerName, BusinessUnit = @BusinessUnit,
+                TargetRemediationDate = @TargetRemediationDate, ActualCompletionDate = @ActualCompletionDate,
+                Notes = @Notes, LastUpdated = SYSUTCDATETIME()
+            WHERE AccountKey = @AccountKey
+            """;
+        await connection.ExecuteAsync(sql, new
+        {
+            AccountKey = accountKey,
+            request.CurrentStageKey,
+            request.CurrentStatusKey,
+            request.RiskLevelKey,
+            request.AccountTypeKey,
+            request.SORKey,
+            request.OwnerName,
+            request.BusinessUnit,
+            request.TargetRemediationDate,
+            request.ActualCompletionDate,
+            request.Notes
+        });
+    }
+
+    /// <summary>D-51 rule 1: Complete requires ActualCompletionDate -- looked up by name, not a hardcoded key.</summary>
+    public async Task<string?> GetStatusNameAsync(int statusKey)
+    {
+        using var connection = connectionFactory.Create();
+        return await connection.QuerySingleOrDefaultAsync<string>(
+            "SELECT StatusName FROM dbo.dim_progress_status WHERE StatusKey = @StatusKey", new { StatusKey = statusKey });
+    }
+
+    /// <summary>D-51 rule 2: a stage regression (lower StageOrder) requires a Reason.</summary>
+    public async Task<int?> GetStageOrderAsync(int stageKey)
+    {
+        using var connection = connectionFactory.Create();
+        return await connection.QuerySingleOrDefaultAsync<int?>(
+            "SELECT StageOrder FROM dbo.dim_blueprint_stage WHERE StageKey = @StageKey", new { StageKey = stageKey });
+    }
 }
