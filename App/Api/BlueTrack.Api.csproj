@@ -22,15 +22,26 @@
     git raises its own licensing/redistribution questions this project
     hasn't needed to answer for any other dependency. This DOES mean a
     build only succeeds on a machine with the CP's Application Password SDK
-    installed at this path, an accepted constraint, consistent with how
+    installed and findable, an accepted constraint, consistent with how
     this whole app already assumes a specific environment (D-09 single
     server, domain-joined, Windows-only per BlueTrack.Api's
-    SupportedOSPlatform). Update Development_Host_Setup_Guide.docx if this
-    path or install location ever changes.
+    SupportedOSPlatform).
+
+    CyberArkSdkPath below defaults to this box's actual install path.
+    Override it, rather than editing this tracked file, if another
+    machine's CP is installed somewhere else: create a local,
+    git-ignored BlueTrack.Api.csproj.user next to this file with a
+    CyberArkSdkPath element in a PropertyGroup (MSBuild auto-imports
+    *.csproj.user; see App/Api/BlueTrack.Api.csproj.user on this box for
+    a template), or set a CyberArkSdkPath environment variable, which
+    MSBuild falls back to for any property nothing else sets.
   -->
+  <PropertyGroup>
+    <CyberArkSdkPath Condition="'$(CyberArkSdkPath)' == ''">C:\Program Files\CyberArk\ApplicationPasswordSdk</CyberArkSdkPath>
+  </PropertyGroup>
   <ItemGroup>
     <Reference Include="NetStandardPasswordSDK">
-      <HintPath>C:\Program Files\CyberArk\ApplicationPasswordSdk\NetStandardPasswordSDK.dll</HintPath>
+      <HintPath>$(CyberArkSdkPath)\NetStandardPasswordSDK.dll</HintPath>
       <Private>true</Private>
     </Reference>
   </ItemGroup>
