@@ -1,6 +1,7 @@
 using BlueTrack.Api.Audit;
 using BlueTrack.Api.Auth;
 using BlueTrack.Api.Data;
+using BlueTrack.Api.Secrets;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -34,6 +35,11 @@ builder.Services.AddScoped<SecretsStoreRepository>();
 builder.Services.AddScoped<AuditRepository>();
 builder.Services.AddScoped<ReferenceDataRepository>();
 builder.Services.AddScoped<AccountProgressLockRepository>();
+
+// CyberArk CP integration (D-16/D-32) -- Scoped, not Singleton, since it
+// depends on SecretsStoreRepository (Scoped, per the SqlConnectionFactory
+// pattern every other repository here follows).
+builder.Services.AddScoped<ISecretsProvider, CyberArkCpSecretsProvider>();
 
 // One authorization policy per permission (D-05/D-61) -- see
 // AuthorizationExtensions for how [Authorize(Policy = Permissions.X)] maps

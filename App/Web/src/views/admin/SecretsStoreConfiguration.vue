@@ -10,6 +10,12 @@ const error = ref(null)
 const loading = ref(true)
 const settingsDraft = ref({})
 
+const testSafe = ref('')
+const testFolder = ref('Root')
+const testObject = ref('')
+const testResult = ref(null)
+const testing = ref(false)
+
 async function load() {
   loading.value = true
   try {
@@ -40,6 +46,21 @@ async function activate(backend) {
   }
   await load()
 }
+
+async function testConnection() {
+  testing.value = true
+  testResult.value = null
+  try {
+    const response = await fetch('/api/admin/secrets-store/test', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ safe: testSafe.value, folder: testFolder.value, object: testObject.value })
+    })
+    testResult.value = response.ok ? await response.json() : { success: false, error: `Request failed: ${response.status}` }
+  } finally {
+    testing.value = false
+  }
+}
 </script>
 
 <template>
@@ -62,5 +83,21 @@ async function activate(backend) {
         </tr>
       </tbody>
     </table>
+
+    <h3>Test Connection</h3>
+    <p>Attempts a real retrieval against the active backend. Never shows the retrieved secret -- only whether it succeeded and non-secret metadata (username/address).</p>
+    <form @submit.prevent="testConnection">
+      <label>Safe: <input v-model="testSafe" required /></label>
+      <label>Folder: <input v-model="testFolder" required /></label>
+      <label>Object: <input v-model="testObject" required size="50" /></label>
+      <button type="submit" :disabled="testing">Test</button>
+    </form>
+    <div v-if="testResult">
+      <p v-if="testResult.success">
+        Success. UserName: {{ testResult.userName }}, Address: {{ testResult.address }}, password length: {{ testResult.passwordLength }}
+        <span v-if="testResult.fromFallbackCache"> (served from fallback cache, D-49)</span>
+      </p>
+      <p v-else>Failed{{ testResult.errorCategory ? ` (${testResult.errorCategory})` : '' }}: {{ testResult.error }}</p>
+    </div>
   </div>
 </template>

@@ -14,4 +14,25 @@
     <PackageReference Include="Microsoft.Data.SqlClient" Version="7.0.2" />
   </ItemGroup>
 
+  <!--
+    CyberArk CP integration (D-32/D-38/D-40, Design_Secrets_Storage.md).
+    Referenced directly from the Credential Provider's local install rather
+    than a NuGet package or a copy checked into this repo: CyberArk
+    doesn't publish this SDK to NuGet, and committing a vendor binary into
+    git raises its own licensing/redistribution questions this project
+    hasn't needed to answer for any other dependency. This DOES mean a
+    build only succeeds on a machine with the CP's Application Password SDK
+    installed at this path, an accepted constraint, consistent with how
+    this whole app already assumes a specific environment (D-09 single
+    server, domain-joined, Windows-only per BlueTrack.Api's
+    SupportedOSPlatform). Update Development_Host_Setup_Guide.docx if this
+    path or install location ever changes.
+  -->
+  <ItemGroup>
+    <Reference Include="NetStandardPasswordSDK">
+      <HintPath>C:\Program Files\CyberArk\ApplicationPasswordSdk\NetStandardPasswordSDK.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
+  </ItemGroup>
+
 </Project>

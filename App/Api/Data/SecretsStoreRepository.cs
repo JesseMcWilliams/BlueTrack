@@ -19,6 +19,13 @@ public sealed class SecretsStoreRepository(IDbConnectionFactory connectionFactor
         return rows.AsList();
     }
 
+    public async Task<SecretsStoreBackend?> GetByTypeAsync(string backendType)
+    {
+        using var connection = connectionFactory.Create();
+        const string sql = "SELECT SecretStoreKey, BackendType, IsActive, BackendSettings FROM web.secrets_store WHERE BackendType = @BackendType";
+        return await connection.QuerySingleOrDefaultAsync<SecretsStoreBackend>(sql, new { BackendType = backendType });
+    }
+
     /// <summary>
     /// Exactly one active backend at a time (Design_Secrets_Storage.md) --
     /// enforced here at the application layer via a transaction, not a
