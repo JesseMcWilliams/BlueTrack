@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using BlueTrack.Api.Audit;
 using BlueTrack.Api.Auth;
 
 namespace BlueTrack.Api.Controllers;
@@ -18,7 +19,8 @@ namespace BlueTrack.Api.Controllers;
 [Authorize]
 public sealed class MeController(
     CurrentUserResolver currentUserResolver,
-    UserRightsResolver rightsResolver) : ControllerBase
+    UserRightsResolver rightsResolver,
+    AuditLogger auditLogger) : ControllerBase
 {
     [HttpGet]
     public async Task<IActionResult> GetCurrentUser()
@@ -50,18 +52,23 @@ public sealed class MeController(
     }
 
     /// <summary>
-    /// Self-service "Reload My Rights" (D-14). See
-    /// PermissionClaimsTransformation's own comment on why this doesn't yet
-    /// mean anything different from a normal request -- there's no session
-    /// cache to actually invalidate here yet, so every request is already a
-    /// live re-resolution. This endpoint exists so the frontend has a real
-    /// action to call and a fresh result to show, matching the design's
-    /// intended UX ahead of that session-cache follow-up.
+    /// Self-service "Reload My Rights" (D-14). Now genuinely meaningful
+    /// (D-82): permissions are cached per identity (UserRightsCache), so
+    /// this bypasses that cache and re-resolves live from current group
+    /// membership, then refreshes the cache -- exactly the behavior D-13
+    /// describes ("re-fetches current group membership... in real time").
     /// </summary>
     [HttpPost("reload-rights")]
     public async Task<IActionResult> ReloadRights()
     {
-        var rights = await rightsResolver.ResolveAsync(User);
+        var rights = await rightsResolver.RefreshAsync(User);
+
+        var user = await currentUserResolver.ResolveAsync(User);
+        if (user is not null)
+        {
+            await auditLogger.LogAsync("ReloadRights", user.UserKey, "app_user", user.UserKey.ToString(), detail: "Self-service Reload My Rights");
+        }
+
         return Ok(rights);
     }
 }

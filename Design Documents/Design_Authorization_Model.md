@@ -96,9 +96,7 @@ Microsoft Entra ID currently caps the number of groups included directly in a to
 
 Permission-based authorization is fully built: `GroupIdentifierExtractor` → `AuthorizationRepository` → `PermissionClaimsTransformation` resolves effective permissions on every authenticated request, backing one ASP.NET Core policy per permission (`AuthorizationExtensions`). The Group → Role Mapping admin page's lookup/test tool is built (`WindowsGroupResolver`, using `NTAccount`/`SecurityIdentifier` translation) and was verified resolving `BUILTIN\Administrators` correctly.
 
-**Known gaps, both tracked in `Design_Decision_Register.md`'s "Session-layer-dependent follow-ups"** (this app has no session/cookie layer yet):
-- Permission resolution re-runs on every request rather than being cached per session and refreshed only by Reload Rights, per the design above — functionally correct (same live query), just not the cheaper cached version.
-- Reload Rights is self-service only — the admin-triggered "reload another user's active session" path from the Admin UI Requirements below isn't implemented, since there's no session registry to target.
+**Resolved 2026-09-04 (D-82).** Both gaps above are closed: `UserRightsResolver` now resolves cache-first (`UserRightsCache`, a per-identity entry in `web.distributed_cache` — not an ASP.NET Core cookie session, since Negotiate doesn't need one for anything else this app does) — a cache miss triggers exactly the live re-fetch the design calls for. Self-service Reload Rights (`POST /api/me/reload-rights`) bypasses the cache and refreshes it. The admin-triggered path (`POST /api/admin/users/{userKey}/reload-rights`, gated by the `ReloadRights` permission — matching this section's "an equivalent admin permission") invalidates the target user's cache entry rather than querying AD on the admin's behalf; their own next request re-resolves live via their own Negotiate token. Verified end to end: repeated requests produced exactly one live resolution until an explicit reload or invalidation forced another.
 
 ## Open Questions
 

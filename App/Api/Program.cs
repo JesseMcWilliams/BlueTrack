@@ -37,6 +37,19 @@ builder.Services.AddScoped<AuditRepository>();
 builder.Services.AddScoped<ReferenceDataRepository>();
 builder.Services.AddScoped<AccountProgressLockRepository>();
 
+// D-13/D-82: cached rights per identity, backed by
+// Microsoft.Extensions.Caching.SqlServer (web.distributed_cache) -- see
+// UserRightsCache's own comment on why this isn't an ASP.NET Core
+// cookie-based Session.
+builder.Services.AddDistributedSqlServerCache(options =>
+{
+    options.ConnectionString = builder.Configuration.GetConnectionString("BlueTrackDb")
+        ?? throw new InvalidOperationException("Missing ConnectionStrings:BlueTrackDb in configuration.");
+    options.SchemaName = "web";
+    options.TableName = "distributed_cache";
+});
+builder.Services.AddScoped<UserRightsCache>();
+
 // Secrets Storage (D-16/D-32/D-79/D-80). Vault-lookup backends (CyberArk
 // CP/CCP so far) register as IVaultSecretProvider -- Scoped, not Singleton,
 // since they depend on SecretsStoreRepository (Scoped, per the

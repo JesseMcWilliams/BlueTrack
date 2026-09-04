@@ -99,11 +99,9 @@ The purge run itself is recorded in a new **`audit_purge_log`** table, mirroring
 
 Real audit logging is now wired in: `AuditLogger` writes to `audit_event`/`audit_field_change` from every write action across the Risk Exceptions pages and all Admin pages, and the Audit Log Viewer (search/filter by user, event type, entity, date range, plus field-level drill-down) is built against it. This was a deliberate retrofit — the user chose to wire it in immediately rather than ship the viewer as an empty shell.
 
-**Explicitly not covered yet, same root cause for both:** this app has no session/cookie layer (Windows Negotiate authenticates per request, nothing persists a session server-side). That means:
-- **Logon auditing** isn't wired — there's no way to distinguish a real logon from a routine `/api/me` call without a session concept, and logging every call would flood the log.
-- **`LogReadEvents`** is stored and admin-editable (via the Global Application Configuration page), but nothing enforces it — no request pipeline hook checks the flag, so read/view actions are never logged regardless of the setting.
+**Logon auditing: resolved 2026-09-04 (D-82).** A real session concept now exists (`UserRightsCache`, a per-identity entry in `web.distributed_cache`) — a cache miss (no live resolution has happened recently for this identity) is what logs a `Logon` event, since there's no other reliable way to distinguish a real logon from a routine call without a session. Verified: three requests in a row from the same identity produced exactly one `Logon` event, not three.
 
-Tracked together in `Design_Decision_Register.md`'s "Session-layer-dependent follow-ups" — revisit once a real session layer is designed.
+**`LogReadEvents` is still not enforced** — it's stored and admin-editable (Global Application Configuration page), and this app now has a real session concept to hang the enforcement on, but no request-pipeline hook actually checks the flag and logs a read yet. That's a separate, larger feature (deciding what counts as a "read" worth logging across every GET endpoint) — not done as part of D-82, which only closed the session-layer gap Logon auditing needed.
 
 ## Open Questions
 

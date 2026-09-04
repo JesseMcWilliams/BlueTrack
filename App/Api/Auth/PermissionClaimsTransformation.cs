@@ -9,15 +9,10 @@ namespace BlueTrack.Api.Auth;
 /// (AuthorizationExtensions.AddBlueTrackAuthorization) can just check for a
 /// claim instead of touching group/role lookup logic directly.
 ///
-/// KNOWN GAP: the design calls for permissions to be resolved once (at
-/// login) and cached for the session, refreshed only by an explicit Reload
-/// Rights action (D-13/D-14) -- not re-evaluated on every single request,
-/// for performance. There's no session/cookie layer in this scaffold yet
-/// (Negotiate alone doesn't provide one), so this transformation currently
-/// re-resolves on every request instead. Still functionally correct -- it's
-/// the same live query Reload Rights itself would run -- just not yet the
-/// cheaper cached version the design calls for. Add a session cache once
-/// this app actually has a session store.
+/// D-13/D-82: UserRightsResolver.ResolveAsync is cache-first (per identity,
+/// via UserRightsCache/web.distributed_cache) -- this transformation itself
+/// doesn't need to know or care whether a given call was a cache hit or a
+/// live re-resolution, only that it gets an up-to-date UserRights back.
 /// </summary>
 public sealed class PermissionClaimsTransformation(UserRightsResolver rightsResolver) : IClaimsTransformation
 {
