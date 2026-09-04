@@ -313,6 +313,35 @@ public class AdminControllersFunctionalTests : IClassFixture<BlueTrackWebApplica
         }
     }
 
+    /// <summary>
+    /// WindowsDpapi is the default active backend (seeded, and every other
+    /// test here restores it) and has no IVaultSecretProvider implementation
+    /// at all (its own doc comment: "DPAPI does NOT implement this
+    /// interface"), so this exercises VaultSecretProviderResolver's
+    /// no-provider-for-active-backend branch without ever reaching a real
+    /// vault -- in scope per Design_Testing_Strategy.md, unlike the actual
+    /// live-call paths of the CyberArk/Azure/AWS providers.
+    /// </summary>
+    [Fact]
+    public async Task SecretsStore_TestConnection_NoProviderForActiveBackend_ReturnsFailureNotError()
+    {
+        var client = AdminClient();
+
+        var response = await client.PostAsJsonAsync("/api/admin/secrets-store/test", new
+        {
+            safe = "TestSafe01",
+            folder = "Root",
+            @object = "AnyObject"
+        });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var result = await response.Content.ReadFromJsonAsync<TestSecretResultResponse>();
+        Assert.NotNull(result);
+        Assert.False(result!.Success);
+        Assert.Equal("Other", result.ErrorCategory);
+        Assert.Contains("no provider implementation", result.Error);
+    }
+
     [Fact]
     public async Task AuditLog_GetEvents_FiltersByEntityKeyAndReturnsFieldChangesForThatEvent()
     {
@@ -431,6 +460,13 @@ public class AdminControllersFunctionalTests : IClassFixture<BlueTrackWebApplica
     private sealed class MappingKeyResponse
     {
         public int MappingKey { get; set; }
+    }
+
+    private sealed class TestSecretResultResponse
+    {
+        public bool Success { get; set; }
+        public string? Error { get; set; }
+        public string? ErrorCategory { get; set; }
     }
 
     private sealed class ProviderKeyResponse

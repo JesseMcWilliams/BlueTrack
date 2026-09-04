@@ -110,5 +110,18 @@ describe('rights store', () => {
       expect(store.hasPermission('ApproveExceptions')).toBe(true)
       expect(globalThis.fetch).toHaveBeenCalledWith('/api/me/reload-rights', { method: 'POST' })
     })
+
+    it('sets error and leaves roleNames/permissionNames unchanged on a failed response', async () => {
+      const store = useRightsStore()
+      store.roleNames = ['Viewer']
+      store.permissionNames = ['ViewDashboard']
+      globalThis.fetch.mockResolvedValueOnce(jsonResponse(null, false, 403))
+
+      await store.reload()
+
+      expect(store.error).toContain('403')
+      expect(store.roleNames).toEqual(['Viewer'])
+      expect(store.permissionNames).toEqual(['ViewDashboard'])
+    })
   })
 })
