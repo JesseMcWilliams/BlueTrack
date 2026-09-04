@@ -2,7 +2,9 @@
 // Calls GET /api/risk-exceptions (RiskExceptionsController) -- every
 // exception regardless of status, with an optional status filter.
 import { ref, onMounted, watch } from 'vue'
+import { useRightsStore } from '../stores/rights'
 
+const rights = useRightsStore()
 const exceptions = ref([])
 const error = ref(null)
 const loading = ref(true)
@@ -32,7 +34,7 @@ watch(statusFilter, load)
 <template>
   <div>
     <h1>Risk Exceptions</h1>
-    <p>
+    <p v-if="rights.hasPermission('ApproveExceptions')">
       <router-link :to="{ name: 'risk-exception-create' }">+ New Exception</router-link>
     </p>
     <p>

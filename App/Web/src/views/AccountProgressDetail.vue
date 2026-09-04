@@ -3,8 +3,10 @@
 // pessimistic locking (D-50) and the two validation rules from D-51
 // (enforced server-side; this form just surfaces whatever error comes back).
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+import { useRightsStore } from '../stores/rights'
 
 const props = defineProps({ accountKey: { type: [String, Number], required: true } })
+const rights = useRightsStore()
 
 // Maps account_progress_field_metadata.FieldName (PascalCase, matches the
 // C# property) to the camelCase key System.Text.Json actually serializes
@@ -129,7 +131,14 @@ async function load() {
 
     resetFormFromDetail()
 
-    if (!lockStatus.value) {
+    // Don't attempt to acquire the edit lock for a user who can't edit
+    // anyway -- that's a 403 from AcquireLock, not a real "someone else has
+    // it" conflict, and shouldn't read as an error on a page someone is
+    // legitimately just viewing. await, not assume: ensureLoaded() might
+    // not have resolved yet even though App.vue also calls it (Vue mounts
+    // children before parents).
+    await rights.ensureLoaded()
+    if (!lockStatus.value && rights.hasPermission('EditAccountProgress')) {
       await acquireLock()
     }
   } catch (err) {
@@ -261,7 +270,7 @@ onUnmounted(releaseLock)
     <template v-else>
       <p v-if="lockStatus && !lockedByMe">
         Currently being edited by {{ lockStatus.lockedByName }} since {{ lockStatus.lockedAt }}.
-        <button @click="forceRelease">Force Release Lock</button>
+        <button v-if="rights.hasPermission('EditAccountProgress')" @click="forceRelease">Force Release Lock</button>
       </p>
 
       <form v-if="lockedByMe" @submit.prevent="save">

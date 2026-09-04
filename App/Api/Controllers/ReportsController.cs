@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using BlueTrack.Api.Auth;
 using BlueTrack.Api.Data;
 
 namespace BlueTrack.Api.Controllers;
@@ -23,7 +24,13 @@ public sealed class ReportsController(ReportsRepository repository) : Controller
         return Ok(results);
     }
 
+    /// <summary>
+    /// Gated by ConfirmReconciliation per D-56 -- found ungated while
+    /// building frontend permission-aware UI (which needs the backend gate
+    /// to actually exist before it means anything to hide the link).
+    /// </summary>
     [HttpGet("reconciliation-review-queue")]
+    [Authorize(Policy = Permissions.ConfirmReconciliation)]
     public async Task<IActionResult> GetReconciliationReviewQueue()
     {
         var results = await repository.GetReconciliationReviewQueueAsync();

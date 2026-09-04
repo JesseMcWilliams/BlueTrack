@@ -83,10 +83,13 @@ More report types can be added the same way later; this isn't meant to be exhaus
 
 ## Implementation Status (added 2026-09-01)
 
-Every page in the inventory above is now built: Reports (its three sub-pages), Risk Exceptions (list/create/edit/approval/overdue-review), and all eight Admin sub-pages, each backed by a real controller/repository and verified against the live Dev database. Two gaps in this document's own cross-cutting conventions remain unimplemented:
+Every page in the inventory above is now built: Reports (its three sub-pages), Risk Exceptions (list/create/edit/approval/overdue-review), and all eight Admin sub-pages, each backed by a real controller/repository and verified against the live Dev database. One gap in this document's own cross-cutting conventions remains unimplemented:
 
 - **D-42 (multi-layer filter/sort)** — every list/grid page shipped with only basic single-value filtering (e.g. Account Progress by stage), not the stacked multi-column filter/sort this section calls for. Needs a proper dynamic query builder or an OData-style endpoint.
-- **Frontend permission-gating** — no page yet reads `rights.permissionNames` from `/api/me` to hide/disable UI a user can't use; permission-gated pages currently rely entirely on the API's real policy enforcement returning a 403, which the frontend surfaces as a plain error message rather than not showing the control at all.
+
+**Frontend permission-gating — resolved 2026-09-04 (D-78).** A Pinia store (`App/Web/src/stores/rights.js`) loads `/api/me` once per session and exposes `hasPermission(name)`, mirroring the API's own real `[Authorize(Policy = ...)]` gates rather than a separately-invented list. Wired into: the Admin hub sidebar (each section checks its actual required permission), the Reports hub (Reconciliation Review link checks `ConfirmReconciliation`), the Risk Exceptions list's "+ New Exception" link (`ApproveExceptions`), and the Account Progress edit form (skips attempting to acquire the edit lock entirely for a viewer without `EditAccountProgress`, rather than surfacing a raw 403 as if someone else had it locked). My Profile now has a real self-service "Reload My Rights" button (D-14) backed by the same store. Found and fixed a real gap along the way: the Reconciliation Review Queue's own API endpoint had no `ConfirmReconciliation` policy at all despite D-56 calling for one — the frontend gate would have been cosmetic without it.
+
+Verified: the API endpoints involved (including the newly-gated one) respond correctly for a permission-holding session, and every changed Vue module transforms cleanly under Vite's dev server (no syntax/import errors). **Not verified in an actual browser** — this environment has no browser-automation tooling, so the hide/show behavior itself (as opposed to the code and API responses it depends on) was checked by careful review, not by watching it render.
 
 ## Open Questions
 
