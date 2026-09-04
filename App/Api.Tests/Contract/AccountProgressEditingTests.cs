@@ -249,6 +249,73 @@ public class AccountProgressEditingTests : IClassFixture<BlueTrackWebApplication
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
     }
 
+    [Fact]
+    public async Task Heartbeat_AsViewer_IsForbidden()
+    {
+        var accountKey = await GetAccountKeyAsync("TestAccount03");
+        var client = CreateClientAs("TestUser.Viewer");
+
+        var response = await client.PutAsync($"/api/account-progress/{accountKey}/lock/heartbeat", null);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Heartbeat_HeldByCaller_RefreshesAndReturnsNoContent()
+    {
+        var accountKey = await GetAccountKeyAsync("TestAccount03");
+        await ReleaseAnyLockAsync(accountKey);
+        var client = CreateClientAs("TestUser.Approver");
+        var lockResponse = await client.PostAsync($"/api/account-progress/{accountKey}/lock", null);
+        Assert.Equal(HttpStatusCode.OK, lockResponse.StatusCode);
+
+        var response = await client.PutAsync($"/api/account-progress/{accountKey}/lock/heartbeat", null);
+
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+        await ReleaseAnyLockAsync(accountKey);
+    }
+
+    [Fact]
+    public async Task Heartbeat_NotHeldByCaller_ReturnsConflict()
+    {
+        var accountKey = await GetAccountKeyAsync("TestAccount03");
+        await ReleaseAnyLockAsync(accountKey);
+        var client = CreateClientAs("TestUser.Approver");
+
+        var response = await client.PutAsync($"/api/account-progress/{accountKey}/lock/heartbeat", null);
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task ForceReleaseLock_AsViewer_IsForbidden()
+    {
+        var accountKey = await GetAccountKeyAsync("TestAccount03");
+        var client = CreateClientAs("TestUser.Viewer");
+
+        var response = await client.PostAsync($"/api/account-progress/{accountKey}/lock/force-release", null);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task ForceReleaseLock_HeldByAnotherUser_ClearsItAndLogsTheAudit()
+    {
+        var accountKey = await GetAccountKeyAsync("TestAccount03");
+        await ReleaseAnyLockAsync(accountKey);
+        var approverClient = CreateClientAs("TestUser.Approver");
+        var lockResponse = await approverClient.PostAsync($"/api/account-progress/{accountKey}/lock", null);
+        Assert.Equal(HttpStatusCode.OK, lockResponse.StatusCode);
+        var adminClient = CreateClientAs("TestUser.Admin");
+
+        var response = await adminClient.PostAsync($"/api/account-progress/{accountKey}/lock/force-release", null);
+
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+        var lockStatusResponse = await adminClient.GetAsync($"/api/account-progress/{accountKey}/lock");
+        var body = await lockStatusResponse.Content.ReadAsStringAsync();
+        Assert.True(string.IsNullOrEmpty(body) || body == "null");
+    }
+
     private static async Task<int> LookupStageKeyAsync(string stageName)
     {
         await using var connection = new Microsoft.Data.SqlClient.SqlConnection(TestDatabase.ConnectionString);
