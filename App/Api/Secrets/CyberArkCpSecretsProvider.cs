@@ -11,8 +11,10 @@ namespace BlueTrack.Api.Secrets;
 /// Calls the local NetStandardPasswordSDK directly (CP is installed on the
 /// app server itself, D-09) -- no network/REST call.
 /// </summary>
-public sealed class CyberArkCpSecretsProvider(SecretsStoreRepository secretsStoreRepository) : ISecretsProvider
+public sealed class CyberArkCpSecretsProvider(SecretsStoreRepository secretsStoreRepository) : IVaultSecretProvider
 {
+    public string BackendType => "CyberArkCP";
+
     // D-49: fetch-first, cache-as-fallback -- always attempt a live GetPassword
     // call first (favoring freshness), and only fall back to the last
     // successfully-fetched value if that call fails with a transient error

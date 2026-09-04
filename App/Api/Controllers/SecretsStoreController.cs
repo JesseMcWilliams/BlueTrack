@@ -15,7 +15,7 @@ public sealed class SecretsStoreController(
     SecretsStoreRepository repository,
     CurrentUserResolver currentUserResolver,
     AuditLogger auditLogger,
-    ISecretsProvider secretsProvider) : ControllerBase
+    VaultSecretProviderResolver vaultSecretProviderResolver) : ControllerBase
 {
     [HttpGet]
     public async Task<IActionResult> GetAll() => Ok(await repository.GetAllAsync());
@@ -33,15 +33,20 @@ public sealed class SecretsStoreController(
     }
 
     /// <summary>
-    /// Attempts a real retrieval against the active backend (currently only
-    /// CyberArkCP has an implementation) and reports success/failure --
+    /// Attempts a real retrieval against whichever backend is currently
+    /// active (VaultSecretProviderResolver) and reports success/failure --
     /// never the retrieved secret itself, only non-secret metadata (D-39).
+    /// Only meaningful for vault-lookup backends (CyberArk CP/CCP/Conjur,
+    /// Azure Key Vault, AWS Secrets Manager) -- Windows DPAPI doesn't fit
+    /// this shape at all (D-79), so activating it makes this endpoint
+    /// correctly fail with "no provider implementation."
     /// </summary>
     [HttpPost("test")]
     public async Task<IActionResult> TestConnection([FromBody] TestSecretRequest request)
     {
         try
         {
+            var secretsProvider = await vaultSecretProviderResolver.ResolveActiveAsync();
             var result = await secretsProvider.GetSecretAsync(new SecretQuery(request.Safe, request.Folder, request.Object));
             return Ok(new TestSecretResult
             {

@@ -37,10 +37,18 @@ builder.Services.AddScoped<AuditRepository>();
 builder.Services.AddScoped<ReferenceDataRepository>();
 builder.Services.AddScoped<AccountProgressLockRepository>();
 
-// CyberArk CP integration (D-16/D-32) -- Scoped, not Singleton, since it
-// depends on SecretsStoreRepository (Scoped, per the SqlConnectionFactory
-// pattern every other repository here follows).
-builder.Services.AddScoped<ISecretsProvider, CyberArkCpSecretsProvider>();
+// Secrets Storage (D-16/D-32/D-79/D-80). Vault-lookup backends (CyberArk
+// CP/CCP so far) register as IVaultSecretProvider -- Scoped, not Singleton,
+// since they depend on SecretsStoreRepository (Scoped, per the
+// SqlConnectionFactory pattern every other repository here follows).
+// VaultSecretProviderResolver picks whichever one matches the currently-
+// active web.secrets_store row. Windows DPAPI doesn't fit that shape at
+// all (D-79) -- it registers as the separate ILocalSecretProtector instead.
+builder.Services.AddScoped<IVaultSecretProvider, CyberArkCpSecretsProvider>();
+builder.Services.AddHttpClient(nameof(CyberArkCcpSecretsProvider));
+builder.Services.AddScoped<IVaultSecretProvider, CyberArkCcpSecretsProvider>();
+builder.Services.AddScoped<VaultSecretProviderResolver>();
+builder.Services.AddSingleton<ILocalSecretProtector, WindowsDpapiProtector>();
 
 // One authorization policy per permission (D-05/D-61) -- see
 // AuthorizationExtensions for how [Authorize(Policy = Permissions.X)] maps

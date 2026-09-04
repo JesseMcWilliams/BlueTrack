@@ -17,7 +17,7 @@ Windows DPAPI is structurally different. It isn't a vault with named objects at 
 - Split into two interfaces/concepts: one for "query an external vault by name" (CyberArk *, Azure KV, AWS SM) and a distinct one for "encrypt/decrypt a locally-stored blob" (DPAPI) — acknowledges they're genuinely different operations rather than forcing a shared shape.
 - Something else — e.g., maybe DPAPI doesn't belong behind `ISecretsProvider` at all, and should just be a small standalone `IDpapiProtector`-style helper used directly wherever a locally-stored secret needs protecting, separate from the "query a remote vault" abstraction that D-16 was really describing.
 
-**Answer:**
+**Answer: Split into two interfaces (2026-09-04).** Done — `IVaultSecretProvider` (CyberArk CP/CCP/Conjur, Azure Key Vault, AWS Secrets Manager) and `ILocalSecretProtector` (Windows DPAPI). See D-79 in the Decision Register and `Design_Secrets_Storage.md`'s Implementation Status. `WindowsDpapiProtector` is built and verified with a real round trip, though nothing calls it yet.
 
 ---
 
@@ -70,4 +70,6 @@ Windows DPAPI is structurally different. It isn't a vault with named objects at 
 
 Without real values, anything built here would be unverified against a real backend — the same gap CyberArk CP had until real values arrived. Also see Question 1 above: Azure Key Vault/AWS Secrets Manager likely fit the `ISecretsProvider` vault-lookup shape reasonably well (each with its own reference format), so that question doesn't block starting these the way it blocks DPAPI specifically.
 
-**Answer:**
+**Answer (2026-09-04): CyberArk CCP done.** Real details provided (AppID `APP_BlueTrack`, Safe `P-App-User-01`, Folder `root`, the same account object as CP, PVWA URL `https://pvwa.company.com`) — built `CyberArkCcpSecretsProvider` and verified end to end against the real, live CCP service (found at `C:\inetpub\wwwroot\AIMWebService` on this host). See D-80. CCP is now the active backend.
+
+**Azure Key Vault, AWS Secrets Manager, and CyberArk Conjur are still pending** — no real connection details yet.
