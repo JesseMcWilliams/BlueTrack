@@ -16,22 +16,25 @@ public sealed record UserRights(IReadOnlyList<string> RoleNames, IReadOnlyList<s
 /// </summary>
 public sealed class UserRightsResolver(
     AuthorizationRepository authorizationRepository,
-    IdentityProviderRepository identityProviderRepository)
+    NegotiateProviderResolver negotiateProviderResolver)
 {
     private static readonly UserRights None = new([], []);
 
     public async Task<UserRights> ResolveAsync(ClaimsPrincipal principal)
     {
-        // Only WindowsIntegrated is wired (AuthenticationExtensions.cs) -- once
-        // OIDC/SAML are added, the provider needs to come from the scheme that
-        // actually authenticated this request, not be hardcoded here.
-        var provider = await identityProviderRepository.GetByTypeAsync("WindowsIntegrated");
+        // WindowsIntegrated vs. DevFakeAuth (both Negotiate) is resolved by
+        // NegotiateProviderResolver; OIDC/SAML still aren't wired
+        // (AuthenticationExtensions.cs), so there's no third case here yet.
+        var provider = await negotiateProviderResolver.ResolveAsync();
         if (provider is null)
         {
             return None;
         }
 
-        var groupIdentifiers = GroupIdentifierExtractor.GetGroupIdentifiers(principal);
+        var groupIdentifiers = provider.ProviderType == "DevFakeAuth"
+            ? GroupIdentifierExtractor.GetDevFakeAuthIdentifiers(principal)
+            : GroupIdentifierExtractor.GetGroupIdentifiers(principal);
+
         if (groupIdentifiers.Count == 0)
         {
             return None;

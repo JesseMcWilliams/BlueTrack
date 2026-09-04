@@ -12,7 +12,7 @@ namespace BlueTrack.Api.Auth;
 /// risk_exception.ApprovedBy), not just MeController.
 /// </summary>
 public sealed class CurrentUserResolver(
-    IdentityProviderRepository identityProviderRepository,
+    NegotiateProviderResolver negotiateProviderResolver,
     AppUserRepository appUserRepository)
 {
     public async Task<AppUser?> ResolveAsync(ClaimsPrincipal principal)
@@ -23,10 +23,13 @@ public sealed class CurrentUserResolver(
             return null;
         }
 
-        // Only WindowsIntegrated is wired (AuthenticationExtensions.cs) --
-        // once OIDC/SAML are added, the provider needs to come from the
-        // scheme that actually authenticated this request.
-        var provider = await identityProviderRepository.GetByTypeAsync("WindowsIntegrated");
+        // WindowsIntegrated vs. DevFakeAuth (both Negotiate) is resolved by
+        // NegotiateProviderResolver -- a person who authenticates the same
+        // way but under DevFakeAuth's substituted group mapping gets a
+        // distinct app_user row from their WindowsIntegrated one (same
+        // ExternalIdentifier, different ProviderKey), consistent with
+        // UQ_app_user's (ProviderKey, ExternalIdentifier) uniqueness.
+        var provider = await negotiateProviderResolver.ResolveAsync();
         if (provider is null)
         {
             return null;
@@ -37,8 +40,9 @@ public sealed class CurrentUserResolver(
     }
 
     // web.app_user.ExternalIdentifier is documented as "Windows SID, OIDC
-    // sub/object ID, or SAML NameID" -- for WindowsIntegrated that's the SID
-    // off the Windows access token, not the display name (DOMAIN\user).
+    // sub/object ID, or SAML NameID" -- for both WindowsIntegrated and
+    // DevFakeAuth (still real Negotiate underneath) that's the SID off the
+    // Windows access token, not the display name (DOMAIN\user).
     private static string? ResolveExternalIdentifier(ClaimsPrincipal principal) =>
         principal.Identity is WindowsIdentity { User: not null } windowsIdentity
             ? windowsIdentity.User.Value

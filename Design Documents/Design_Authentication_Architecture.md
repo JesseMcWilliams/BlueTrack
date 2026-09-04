@@ -54,6 +54,12 @@ DevFakeAuth is therefore not a separate authentication mechanism — it's the sa
 
 The simulated group mapping lives in the same `identity_group_role_map` table used for real providers (see `Design_Authorization_Model.md`), scoped to the DevFakeAuth provider — no separate mapping mechanism to maintain.
 
+**Implementation Status (added 2026-09-04).** Built and verified end to end. `App/Api/Auth/NegotiateProviderResolver.cs` decides, per request, whether WindowsIntegrated or DevFakeAuth's `identity_group_role_map` rows apply — both authenticate through the same Negotiate handler, so this is the only place that actually distinguishes them, and it enforces the guard condition in code (`IHostEnvironment.IsDevelopment()`), not just DevFakeAuth's own `IsEnabled` toggle. `GroupIdentifierExtractor.GetDevFakeAuthIdentifiers` supplies the authenticated Windows username as the lookup key instead of group SIDs. Seeded via `18_BlueTrack_DevFakeAuthSeed.sql` (provider row disabled by default; the username-to-role mapping is a placeholder, same pattern as the WindowsIntegrated admin group seed, since a guessed-at real username would be worse than none).
+
+Verified directly on this dev host: with DevFakeAuth enabled and the current Windows user mapped to a narrow test role, `/api/me` correctly switched from the WindowsIntegrated Admin mapping (14 permissions) to the DevFakeAuth mapping (1 permission) — including resolving to a *distinct* `app_user` row, consistent with `UQ_app_user`'s `(ProviderKey, ExternalIdentifier)` uniqueness. Then, running the compiled app with `ASPNETCORE_ENVIRONMENT=Production` (bypassing `launchSettings.json`, which pins `dotnet run` to Development), the same enabled-and-mapped DevFakeAuth configuration had zero effect — resolution correctly fell back to WindowsIntegrated, proving the guard actually blocks it outside Development rather than only in the common case.
+
+**Scope note:** the Group → Role Mapping admin page's lookup/test tool (`WindowsGroupResolver`, `GroupRoleMappingsController`) stays WindowsIntegrated-only — it's built around AD group name → SID translation, which doesn't apply to DevFakeAuth's plain-username mapping. Adding/removing a DevFakeAuth mapping is direct SQL for now (matching this project's general SQL-first convention for dev-only tooling), not a web admin flow.
+
 ## Login Flow
 
 1. User requests a protected page.

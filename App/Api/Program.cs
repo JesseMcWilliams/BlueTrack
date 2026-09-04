@@ -22,6 +22,7 @@ builder.Services.AddScoped<AppUserRepository>();
 builder.Services.AddScoped<AccountProgressRepository>();
 builder.Services.AddScoped<ReportsRepository>();
 builder.Services.AddScoped<AuthorizationRepository>();
+builder.Services.AddScoped<NegotiateProviderResolver>();
 builder.Services.AddScoped<UserRightsResolver>();
 builder.Services.AddScoped<CurrentUserResolver>();
 builder.Services.AddScoped<RiskExceptionRepository>();
