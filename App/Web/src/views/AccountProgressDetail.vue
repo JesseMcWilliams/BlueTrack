@@ -117,6 +117,15 @@ function optionsFor(field) {
   return referenceData.value[field.referenceTable] ?? []
 }
 
+// GetLockStatus/GetApplicationExceptions return a genuinely empty 200 body
+// (not literal "null"/"[]") when there's nothing to report -- .json() throws
+// "Unexpected end of JSON input" on that, so read as text first.
+async function readJsonOrDefault(response, defaultValue) {
+  if (!response.ok) return defaultValue
+  const text = await response.text()
+  return text ? JSON.parse(text) : defaultValue
+}
+
 async function load() {
   loading.value = true
   error.value = null
@@ -135,8 +144,8 @@ async function load() {
     fieldMetadata.value = await metaResponse.json()
     referenceData.value = await refResponse.json()
     detail.value = await detailResponse.json()
-    lockStatus.value = lockResponse.ok ? await lockResponse.json() : null
-    applicationExceptions.value = appExceptionsResponse.ok ? await appExceptionsResponse.json() : []
+    lockStatus.value = await readJsonOrDefault(lockResponse, null)
+    applicationExceptions.value = await readJsonOrDefault(appExceptionsResponse, [])
 
     resetFormFromDetail()
 

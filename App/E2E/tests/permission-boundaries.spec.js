@@ -45,10 +45,14 @@ test.describe('Exception Approval Worklist enforces ApproveExceptions', () => {
     await page.goto('/exceptions/approvals')
 
     await expect(page.getByRole('heading', { name: 'Exception Approval Worklist' })).toBeVisible()
-    // BlueTrackTest carries no fact_account_progress/exception data (D-58's
-    // synthetic-only principle) -- an empty worklist is the correct result,
-    // not a failure to seed.
-    await expect(page.getByText('No Active exceptions.')).toBeVisible()
+    // Not asserting the worklist is empty: other tests in this suite
+    // (account-progress-and-risk-exceptions.spec.js) legitimately create
+    // real Active exceptions against the same BlueTrackTest database, so
+    // "empty" stopped being a safe invariant once that coverage existed.
+    // The real thing this test guards is "loads successfully as Approver,
+    // not a permission error" -- confirmed by the heading rendering at all
+    // (the Viewer-denied case below is what checks for the error text).
+    await expect(page.getByText('Loading...')).toHaveCount(0)
   })
 
   test('Viewer is denied with the permission-specific message, not a generic failure', async ({ page }) => {
