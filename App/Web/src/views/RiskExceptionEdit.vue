@@ -8,7 +8,7 @@
 // built anywhere in this app yet. Account scope takes a raw AccountKey for
 // now; Application scope gets a real dropdown since dim_application is a
 // small curated list (ApplicationRepository.GetAllAsync loads it in full).
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 
 const props = defineProps({ exceptionKey: { type: [String, Number], required: false, default: null } })
@@ -31,6 +31,23 @@ const externalTicketReference = ref('')
 
 const newReviewDate = ref('')
 
+async function loadDetail() {
+  loading.value = true
+  error.value = null
+  try {
+    const response = await fetch(`/api/risk-exceptions/${props.exceptionKey}`)
+    if (!response.ok) {
+      throw new Error(`Request failed: ${response.status}`)
+    }
+    detail.value = await response.json()
+    newReviewDate.value = detail.value.reviewDate?.slice(0, 10) ?? ''
+  } catch (err) {
+    error.value = err.message
+  } finally {
+    loading.value = false
+  }
+}
+
 onMounted(async () => {
   try {
     const appsResponse = await fetch('/api/applications')
@@ -42,18 +59,16 @@ onMounted(async () => {
   }
 
   if (isEditMode.value) {
-    try {
-      const response = await fetch(`/api/risk-exceptions/${props.exceptionKey}`)
-      if (!response.ok) {
-        throw new Error(`Request failed: ${response.status}`)
-      }
-      detail.value = await response.json()
-      newReviewDate.value = detail.value.reviewDate?.slice(0, 10) ?? ''
-    } catch (err) {
-      error.value = err.message
-    } finally {
-      loading.value = false
-    }
+    await loadDetail()
+  }
+})
+
+// createException() navigates create -> edit via router.push on this same
+// route component (only the param changes, no remount), so onMounted alone
+// never re-fires -- watch the prop directly to load the new detail.
+watch(() => props.exceptionKey, (newKey) => {
+  if (newKey !== null && newKey !== undefined) {
+    loadDetail()
   }
 })
 
