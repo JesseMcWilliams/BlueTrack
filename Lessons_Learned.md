@@ -28,6 +28,18 @@ A running log of things discovered during development that aren't obvious from r
 
 **Resolution (2026-08-27, same day, D-55):** went through every gap column-by-column instead of guessing. Added to the schema: `stg_sh_owners.CAOViewAudit`/`CAOViewOwners`/`CAOUsePassword`, and `stg_sh_files.CAFLockDate`/`CAFLockBy`/`CAFLockByID`/`CAFAccessed`/`CAFNew`/`CAFRetrieved`/`CAFModified`/`CAFIsRequestNeeded`. Confirmed as genuinely not needed (not added): `stg_sh_users`'s hour/retention fields, `stg_sh_safes`'s 12 legacy fields, `stg_sh_objectproperties`'s VaultID, and staging mirrors for `CAEvents`/`CAITALog`/`CALog`/`CALocations`/`CAMasterPolicySettings`. Lesson stands regardless: "looks irrelevant" isn't the same as "confirmed irrelevant" — this project's working agreement is to ask rather than assume on exactly this kind of call.
 
+## 2026-09-04 — BULK INSERT's ROWTERMINATOR must match the file's actual line endings, especially under FORMAT = 'CSV' (fixed same day)
+
+`EXEC usp_Import_PC_Platforms @FilePath = '...\Export_PlatformsList.csv';` failed with `Cannot obtain the required interface ("IID_IColumnsInfo") from OLE DB provider "BULK" for linked server "(null)".` — the same failure applied to all six `usp_Import_PC_*` procedures in `05_BlueTrack_SourceImport.sql`, not just Platforms, since they all share the same `BULK INSERT ... WITH (FORMAT = 'CSV', ...)` pattern.
+
+**This error text is misleading** — it reads like a permissions or linked-server problem, and the stored procedure's own comments (correctly) warn that BULK INSERT needs the SQL Server *service account* to have file read access, which is the more common real-world cause of BULK INSERT failures in general. That wasn't it here, and it was confirmed directly rather than assumed: a plain `BULK INSERT` with no `FORMAT` option read the same file fine (all rows), which is what pointed away from file access entirely.
+
+**Root cause, isolated by removing options one at a time:** `FORMAT = 'CSV'` alone (no `FIELDQUOTE`, no other options) reproduced the exact error. Every real Privilege Cloud export file (all seven, checked byte-for-byte) uses Windows-style CRLF line endings, but the `ROWTERMINATOR` was `'0x0a'` (LF only). Classic (non-CSV) BULK INSERT tolerates a row-terminator mismatch like this reasonably gracefully (usually just a stray trailing `\r` on the last field); the newer `FORMAT = 'CSV'` parser does not — it fails outright on every row, before any data is read, with this specific cryptic OLE DB interface error rather than a clear terminator-mismatch message.
+
+**Fixed:** `ROWTERMINATOR` changed to `'0x0d0a'` in all seven occurrences in `05_BlueTrack_SourceImport.sql`, redeployed against the real `BlueTrack` database (`CREATE OR ALTER PROCEDURE` is safe to re-run — it only redefines procedure bodies, doesn't touch table data), and re-verified against the exact failing command (37 rows loaded). Also documented in `Database/Import_Load_Process_Guide.docx`'s Troubleshooting section, since this is exactly the kind of error a future operator would hit and not know where to start.
+
+**General lesson:** when a `BULK INSERT`/OLE DB error mentions an interface name or a linked server that clearly isn't part of your actual setup, don't stop at the literal error text — isolate variables (try the plain/classic form first, add options back one at a time) rather than assuming the most commonly-cited cause (permissions) applies without checking.
+
 ## Process notes
 
 - **Check the Decision Register first.** `Design Documents/Design_Decision_Register.md` is the index of every design decision made so far, resolved and open. Don't re-derive or re-litigate something it already answers.

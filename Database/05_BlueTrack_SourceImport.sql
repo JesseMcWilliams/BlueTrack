@@ -42,6 +42,19 @@
      - The CSV BULK INSERT options (FORMAT = 'CSV', FIELDQUOTE) require SQL
        Server 2017+ or Azure SQL Database. Confirm your instance version
        before relying on this.
+     - ROWTERMINATOR is '0x0d0a' (CRLF) below, matching every real Privilege
+       Cloud export file checked (all of them, byte-for-byte). Originally
+       written as '0x0a' (LF-only) here -- that mismatch, specifically
+       under FORMAT = 'CSV', doesn't degrade gracefully into a data-quality
+       issue the way it would under classic BULK INSERT; it fails outright
+       with "Cannot obtain the required interface (IID_IColumnsInfo) from
+       OLE DB provider BULK" on every affected proc, confirmed directly
+       (2026-09-04) by isolating FORMAT = 'CSV' + the wrong terminator as
+       the exact trigger, independent of file permissions/access (a plain
+       BULK INSERT with no FORMAT option read the same file fine). If your
+       actual exports ever use bare LF instead, change this back --
+       PowerShell's own CSV export (Export-Csv) writes CRLF by default on
+       Windows, which is where '0x0d0a' comes from.
      - Date parsing in the CSV-to-staging conversion uses TRY_CONVERT(DATE, ...)
        against whatever string is in each cell. I don't know what locale/
        format your actual exports use (e.g. MM/DD/YYYY vs YYYY-MM-DD) --
@@ -102,7 +115,7 @@ BEGIN
         -- server itself, not a path only your client machine can see.
         SET @sql = N'BULK INSERT #landing FROM ''' + REPLACE(@FilePath, '''', '''''') + N''' WITH (
             FORMAT = ''CSV'', FIRSTROW = 2, FIELDQUOTE = ''"'', FIELDTERMINATOR = '','',
-            ROWTERMINATOR = ''0x0a'', CODEPAGE = ''65001'', TABLOCK
+            ROWTERMINATOR = ''0x0d0a'', CODEPAGE = ''65001'', TABLOCK
         );';
         EXEC sp_executesql @sql;
 
@@ -171,7 +184,7 @@ BEGIN
         -- server itself, not a path only your client machine can see.
         SET @sql = N'BULK INSERT #landing FROM ''' + REPLACE(@FilePath, '''', '''''') + N''' WITH (
             FORMAT = ''CSV'', FIRSTROW = 2, FIELDQUOTE = ''"'', FIELDTERMINATOR = '','',
-            ROWTERMINATOR = ''0x0a'', CODEPAGE = ''65001'', TABLOCK
+            ROWTERMINATOR = ''0x0d0a'', CODEPAGE = ''65001'', TABLOCK
         );';
         EXEC sp_executesql @sql;
 
@@ -241,7 +254,7 @@ BEGIN
         -- server itself, not a path only your client machine can see.
         SET @sql = N'BULK INSERT #landing FROM ''' + REPLACE(@FilePath, '''', '''''') + N''' WITH (
             FORMAT = ''CSV'', FIRSTROW = 2, FIELDQUOTE = ''"'', FIELDTERMINATOR = '','',
-            ROWTERMINATOR = ''0x0a'', CODEPAGE = ''65001'', TABLOCK
+            ROWTERMINATOR = ''0x0d0a'', CODEPAGE = ''65001'', TABLOCK
         );';
         EXEC sp_executesql @sql;
 
@@ -318,7 +331,7 @@ BEGIN
         -- server itself, not a path only your client machine can see.
         SET @sql = N'BULK INSERT #landing FROM ''' + REPLACE(@FilePath, '''', '''''') + N''' WITH (
             FORMAT = ''CSV'', FIRSTROW = 2, FIELDQUOTE = ''"'', FIELDTERMINATOR = '','',
-            ROWTERMINATOR = ''0x0a'', CODEPAGE = ''65001'', TABLOCK
+            ROWTERMINATOR = ''0x0d0a'', CODEPAGE = ''65001'', TABLOCK
         );';
         EXEC sp_executesql @sql;
 
@@ -408,7 +421,7 @@ BEGIN
         -- server itself, not a path only your client machine can see.
         SET @sql = N'BULK INSERT #landing FROM ''' + REPLACE(@FilePath, '''', '''''') + N''' WITH (
             FORMAT = ''CSV'', FIRSTROW = 2, FIELDQUOTE = ''"'', FIELDTERMINATOR = '','',
-            ROWTERMINATOR = ''0x0a'', CODEPAGE = ''65001'', TABLOCK
+            ROWTERMINATOR = ''0x0d0a'', CODEPAGE = ''65001'', TABLOCK
         );';
         EXEC sp_executesql @sql;
 
@@ -514,7 +527,7 @@ BEGIN
         -- server itself, not a path only your client machine can see.
         SET @sql = N'BULK INSERT #landing FROM ''' + REPLACE(@FilePath, '''', '''''') + N''' WITH (
             FORMAT = ''CSV'', FIRSTROW = 2, FIELDQUOTE = ''"'', FIELDTERMINATOR = '','',
-            ROWTERMINATOR = ''0x0a'', CODEPAGE = ''65001'', TABLOCK
+            ROWTERMINATOR = ''0x0d0a'', CODEPAGE = ''65001'', TABLOCK
         );';
         EXEC sp_executesql @sql;
 
@@ -606,7 +619,7 @@ BEGIN
         -- server itself, not a path only your client machine can see.
         SET @sql = N'BULK INSERT #landing FROM ''' + REPLACE(@FilePath, '''', '''''') + N''' WITH (
             FORMAT = ''CSV'', FIRSTROW = 2, FIELDQUOTE = ''"'', FIELDTERMINATOR = '','',
-            ROWTERMINATOR = ''0x0a'', CODEPAGE = ''65001'', TABLOCK
+            ROWTERMINATOR = ''0x0d0a'', CODEPAGE = ''65001'', TABLOCK
         );';
         EXEC sp_executesql @sql;
 
