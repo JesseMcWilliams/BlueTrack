@@ -58,7 +58,11 @@ Windows DPAPI is structurally different. It isn't a vault with named objects at 
 
 **Context:** `App/Api/Auth/AuthenticationExtensions.cs` only registers Windows Integrated. Per D-25, IdP metadata and signing certificates must be pulled once and embedded as local config — never fetched dynamically at runtime — and no real IdP metadata exists for this environment. This isn't something I can resolve myself; it needs real values from you or your identity team (tenant ID/issuer, client ID/secret or certificate, redirect URIs, signing cert thumbprint for SAML).
 
-**Answer (paste real values here, or say when they'll be available):**
+**Answer (2026-09-04): framework built, real values still pending.** Per your instruction ("Use placeholders for now, these will be populated after deployment. Create the necessary framework and management pages for managing them") — OIDC and SAML are both now real, working code (D-85/D-86), disabled by default with placeholder config, manageable through the existing Identity Providers admin page (which now also has a write-only Secret field for OIDC's client secret). Still genuinely needed before either is usable:
+- **OIDC**: real Authority/tenant issuer URL, ClientId, client secret, and confirmation of the redirect URI (`https://<host>/signin-oidc` by default) to register with the IdP. Enabling/reconfiguring OIDC needs an app restart to take effect (a real ASP.NET Core constraint — startup-time scheme registration — documented in `Design_Authentication_Architecture.md`, not something worth building around for a placeholder framework).
+- **SAML**: the IdP's Entity ID, SSO destination URL, and signing certificate (installed to the Windows Certificate Store, referenced here by thumbprint per D-25/D-34) — plus this app's own SP certificate, if request signing is wanted. SAML takes effect immediately, no restart needed.
+
+Both were verified against placeholder/self-signed test material (see D-85/D-86) — the remaining gap is purely real IdP values, not open implementation work.
 
 ---
 
@@ -74,4 +78,7 @@ Without real values, anything built here would be unverified against a real back
 
 **Answer (2026-09-04): CyberArk CCP done.** Real details provided (AppID `APP_BlueTrack`, Safe `P-App-User-01`, Folder `root`, the same account object as CP, PVWA URL `https://pvwa.company.com`) — built `CyberArkCcpSecretsProvider` and verified end to end against the real, live CCP service (found at `C:\inetpub\wwwroot\AIMWebService` on this host). See D-80. CCP is now the active backend.
 
-**Azure Key Vault, AWS Secrets Manager, and CyberArk Conjur are still pending** — no real connection details yet.
+**Azure Key Vault, AWS Secrets Manager, and CyberArk Conjur: framework built 2026-09-04 (D-84), real values still pending.** Per your instruction to use placeholders for now — all three are real SDK/REST integrations, manageable through the Secrets Store Configuration admin page (which now also has a write-only Credential field for whichever auth method needs one), verified end to end against real or realistically-unreachable endpoints (see D-84 for exactly what was tested and two real bugs that testing caught). Still genuinely needed:
+- **Azure Key Vault**: vault URI, and Managed Identity vs. Service Principal (+ TenantId/ClientId/client secret if the latter).
+- **AWS Secrets Manager**: region, and IAM Role vs. an explicit Access Key (+ the key itself if the latter).
+- **CyberArk Conjur**: D-33's deferral with the platform team still stands — the placeholder implementation is built against Conjur's *public* Authn API documentation, not a confirmed contract, so treat it as unverified until a real appliance is available. If Conjur is genuinely in scope, its appliance URL/account/login/API key are still needed.

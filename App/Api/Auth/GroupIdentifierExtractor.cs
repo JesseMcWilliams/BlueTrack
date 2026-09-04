@@ -9,10 +9,16 @@ namespace BlueTrack.Api.Auth;
 /// WindowsIntegrated shape reads SIDs straight off the Windows access token
 /// (no extra AD/LDAP round trip), matching that design doc's own "Windows
 /// token SIDs" wording and web.app_user's ExternalIdentifier contract
-/// ("Windows SID, OIDC sub/object ID, or SAML NameID"). OIDC's groups claim
-/// and SAML's group attribute aren't implemented here yet, matching
-/// AuthenticationExtensions.cs's own note that those providers aren't
-/// registered yet either.
+/// ("Windows SID, OIDC sub/object ID, or SAML NameID").
+///
+/// OIDC/SAML (D-84): neither protocol has one universally-fixed claim type
+/// for group membership the way a Windows token does -- an OIDC IdP's
+/// "groups" claim name and a SAML IdP's group attribute URI both vary by
+/// IdP. Rather than hardcode a specific IdP's convention (which would be
+/// guessing, with no real IdP to confirm against yet), the claim type/name
+/// to read is itself part of that provider's ConfigurationValues
+/// (OidcProviderSettings.GroupsClaimType / SamlProviderSettings.GroupClaimType),
+/// resolved by the caller and passed in here.
 /// </summary>
 public static class GroupIdentifierExtractor
 {
@@ -24,6 +30,17 @@ public static class GroupIdentifierExtractor
         }
 
         return [];
+    }
+
+    /// <summary>OIDC/SAML (D-84): reads every claim matching the provider-configured group claim type/name.</summary>
+    public static IReadOnlyList<string> GetClaimBasedGroupIdentifiers(ClaimsPrincipal principal, string groupClaimType)
+    {
+        if (string.IsNullOrWhiteSpace(groupClaimType))
+        {
+            return [];
+        }
+
+        return principal.FindAll(groupClaimType).Select(c => c.Value).ToList();
     }
 
     /// <summary>

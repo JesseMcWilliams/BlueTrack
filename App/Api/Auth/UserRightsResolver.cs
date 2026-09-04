@@ -28,7 +28,7 @@ public sealed class UserRightsResolver(
     /// <summary>Cache-first. Populates the cache and logs a Logon event (D-11) on a miss. Shared by PermissionClaimsTransformation and /api/me.</summary>
     public async Task<UserRights> ResolveAsync(ClaimsPrincipal principal)
     {
-        var provider = await negotiateProviderResolver.ResolveAsync();
+        var provider = await negotiateProviderResolver.ResolveAsync(principal);
         if (provider is null)
         {
             return None;
@@ -61,7 +61,7 @@ public sealed class UserRightsResolver(
     /// <summary>Bypasses the cache, always resolves live, and refreshes the cache -- self-service Reload Rights (D-14). Not a logon: no audit event here.</summary>
     public async Task<UserRights> RefreshAsync(ClaimsPrincipal principal)
     {
-        var provider = await negotiateProviderResolver.ResolveAsync();
+        var provider = await negotiateProviderResolver.ResolveAsync(principal);
         if (provider is null)
         {
             return None;
@@ -80,9 +80,13 @@ public sealed class UserRightsResolver(
 
     private async Task<UserRights> ResolveLiveAsync(ClaimsPrincipal principal, IdentityProviderConfig provider)
     {
-        var groupIdentifiers = provider.ProviderType == "DevFakeAuth"
-            ? GroupIdentifierExtractor.GetDevFakeAuthIdentifiers(principal)
-            : GroupIdentifierExtractor.GetGroupIdentifiers(principal);
+        var groupIdentifiers = provider.ProviderType switch
+        {
+            "DevFakeAuth" => GroupIdentifierExtractor.GetDevFakeAuthIdentifiers(principal),
+            "OIDC" => GroupIdentifierExtractor.GetClaimBasedGroupIdentifiers(principal, ProviderSettingsReader.ReadGroupClaimType(provider)),
+            "SAML" => GroupIdentifierExtractor.GetClaimBasedGroupIdentifiers(principal, ProviderSettingsReader.ReadGroupClaimType(provider)),
+            _ => GroupIdentifierExtractor.GetGroupIdentifiers(principal)
+        };
 
         if (groupIdentifiers.Count == 0)
         {

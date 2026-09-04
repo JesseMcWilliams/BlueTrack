@@ -1,9 +1,11 @@
 <script setup>
 // CRUD against /api/admin/identity-providers (IdentityProvidersController).
-// Only WindowsIntegrated is actually wired at runtime
-// (App/Api/Auth/AuthenticationExtensions.cs) -- adding an OIDC/SAML/
-// DevFakeAuth row here stores configuration data but has no live effect
-// yet, matching that file's own note on why they aren't registered.
+// WindowsIntegrated, DevFakeAuth, OIDC, and SAML are all wired at runtime
+// now (D-84) -- OIDC's scheme is registered once at startup though
+// (App/Api/Auth/AuthenticationExtensions.cs), so enabling/disabling it or
+// changing its Authority/ClientId/secret here needs an app restart to take
+// effect; SAML is read fresh on every request (Saml2ConfigurationFactory),
+// so it needs no restart.
 import { ref, onMounted } from 'vue'
 
 const providers = ref([])
@@ -27,10 +29,12 @@ async function load() {
 onMounted(load)
 
 function startCreate() {
-  editing.value = { providerType: 'OIDC', displayName: '', isEnabled: false, displayOrder: 0, configurationValues: '', secretReference: '' }
+  editing.value = { providerType: 'OIDC', displayName: '', isEnabled: false, displayOrder: 0, configurationValues: '', plaintextSecret: '' }
 }
 function startEdit(provider) {
-  editing.value = { ...provider }
+  // secretReference comes back redacted ("***") when set -- never round-tripped
+  // as an editable value. plaintextSecret is a separate write-only field.
+  editing.value = { ...provider, plaintextSecret: '' }
 }
 function cancelEdit() {
   editing.value = null
@@ -39,10 +43,14 @@ function cancelEdit() {
 async function save() {
   const isNew = editing.value.providerKey === undefined
   const url = isNew ? '/api/admin/identity-providers' : `/api/admin/identity-providers/${editing.value.providerKey}`
+  // secretReference is never sent back -- it may hold the redacted "***"
+  // placeholder loaded from GET, and the server derives the real value
+  // from plaintextSecret instead (or leaves the stored one alone if blank).
+  const { providerType, displayName, isEnabled, displayOrder, configurationValues, plaintextSecret } = editing.value
   const response = await fetch(url, {
     method: isNew ? 'POST' : 'PUT',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(editing.value)
+    body: JSON.stringify({ providerType, displayName, isEnabled, displayOrder, configurationValues, plaintextSecret: plaintextSecret || null })
   })
   if (!response.ok) {
     error.value = `Save failed: ${response.status}`
@@ -106,7 +114,13 @@ async function remove(provider) {
         <p><label><input v-model="editing.isEnabled" type="checkbox" /> Enabled</label></p>
         <p><label>Display Order: <input v-model.number="editing.displayOrder" type="number" /></label></p>
         <p><label>Configuration Values (JSON): <textarea v-model="editing.configurationValues"></textarea></label></p>
-        <p><label>Secret Reference: <input v-model="editing.secretReference" /></label></p>
+        <p>
+          <label>
+            Secret (e.g. OIDC client secret):
+            <input v-model="editing.plaintextSecret" type="password" size="30"
+              :placeholder="editing.secretReference ? '(already set -- leave blank to keep)' : '(none set)'" />
+          </label>
+        </p>
         <button type="submit">Save</button>
         <button type="button" @click="cancelEdit">Cancel</button>
       </form>

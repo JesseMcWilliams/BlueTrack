@@ -1,14 +1,17 @@
 <script setup>
-// Against /api/admin/secrets-store (SecretsStoreController). This manages
-// the config record only (which backend is active, plus its non-secret
-// settings) -- no actual backend (Windows DPAPI, CyberArk CP, etc.) is
-// implemented in this app yet (Design_Secrets_Storage.md).
+// Against /api/admin/secrets-store (SecretsStoreController). Windows DPAPI,
+// CyberArk CP/CCP, Azure Key Vault, AWS Secrets Manager, and CyberArk
+// Conjur are all implemented (Design_Secrets_Storage.md, D-84) -- this page
+// manages the config record (which backend is active, its non-secret
+// settings, and a write-only credential field for backends that need one
+// to authenticate to their own remote service).
 import { ref, onMounted } from 'vue'
 
 const backends = ref([])
 const error = ref(null)
 const loading = ref(true)
 const settingsDraft = ref({})
+const credentialDraft = ref({})
 
 const testSafe = ref('')
 const testFolder = ref('Root')
@@ -38,12 +41,21 @@ async function activate(backend) {
   const response = await fetch('/api/admin/secrets-store/active', {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ backendType: backend.backendType, backendSettings: settingsDraft.value[backend.backendType] || null })
+    body: JSON.stringify({
+      backendType: backend.backendType,
+      backendSettings: settingsDraft.value[backend.backendType] || null,
+      // D-84: write-only -- protected server-side (ILocalSecretProtector)
+      // and merged into BackendSettings as "ProtectedCredential", never
+      // sent back on read. Left blank keeps whatever credential (if any)
+      // is already stored.
+      plaintextCredential: credentialDraft.value[backend.backendType] || null
+    })
   })
   if (!response.ok) {
     error.value = `Save failed: ${response.status}`
     return
   }
+  credentialDraft.value[backend.backendType] = ''
   await load()
 }
 
@@ -66,20 +78,28 @@ async function testConnection() {
 <template>
   <div>
     <h2>Secrets Store Configuration</h2>
-    <p>Exactly one backend is active at a time. Configures the record only -- no backend is actually implemented yet.</p>
+    <p>Exactly one backend is active at a time.</p>
     <p v-if="error">{{ error }}</p>
     <p v-if="loading">Loading...</p>
 
     <table v-else>
       <thead>
-        <tr><th>Backend</th><th>Active</th><th>Settings (JSON)</th><th></th></tr>
+        <tr><th>Backend</th><th>Active</th><th>Settings (JSON)</th><th>Credential</th><th></th></tr>
       </thead>
       <tbody>
         <tr v-for="backend in backends" :key="backend.secretStoreKey">
           <td>{{ backend.backendType }}</td>
           <td>{{ backend.isActive ? 'Yes' : '' }}</td>
           <td><input v-model="settingsDraft[backend.backendType]" size="40" /></td>
-          <td><button :disabled="backend.isActive" @click="activate(backend)">Make Active</button></td>
+          <td>
+            <input
+              v-model="credentialDraft[backend.backendType]"
+              type="password"
+              size="20"
+              :placeholder="backend.backendSettings?.includes('ProtectedCredential') ? '(already set -- leave blank to keep)' : '(none set)'"
+            />
+          </td>
+          <td><button @click="activate(backend)">{{ backend.isActive ? 'Save' : 'Make Active' }}</button></td>
         </tr>
       </tbody>
     </table>
