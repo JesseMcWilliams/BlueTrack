@@ -101,11 +101,11 @@ Real audit logging is now wired in: `AuditLogger` writes to `audit_event`/`audit
 
 **Logon auditing: resolved 2026-09-04 (D-82).** A real session concept now exists (`UserRightsCache`, a per-identity entry in `web.distributed_cache`) — a cache miss (no live resolution has happened recently for this identity) is what logs a `Logon` event, since there's no other reliable way to distinguish a real logon from a routine call without a session. Verified: three requests in a row from the same identity produced exactly one `Logon` event, not three.
 
-**`LogReadEvents` is still not enforced** — it's stored and admin-editable (Global Application Configuration page), and this app now has a real session concept to hang the enforcement on, but no request-pipeline hook actually checks the flag and logs a read yet. That's a separate, larger feature (deciding what counts as a "read" worth logging across every GET endpoint) — not done as part of D-82, which only closed the session-layer gap Logon auditing needed.
+**`LogReadEvents` enforcement: resolved 2026-09-04 (D-83).** Scoped to **detail views only** — GET-by-key endpoints for governed entities (Account Progress detail, Risk Exception detail), not list/search/report endpoints, to avoid flooding the log on every page load. A new `RecordViewed` event type (`21_BlueTrack_ReadEventType.sql`) is logged via `AuditLogger.LogReadIfEnabledAsync`, checked against `audit_config.LogReadEvents` on each call. If a future page adds another detail-view endpoint, it needs to call the same method explicitly — nothing enforces that automatically across new endpoints. Verified: with the flag off, no event is logged; with it on, each detail-view GET logs exactly one `RecordViewed` event, and list endpoints log nothing.
 
 ## Open Questions
 
-None remaining as of 2026-08-27 — Q-32 was resolved this session as D-63 above.
+None remaining as of 2026-09-04 — Q-32 was resolved 2026-08-27 as D-63 above; `LogReadEvents` enforcement scope (the last open item from the session-layer follow-ups) was resolved 2026-09-04 as D-83.
 
 Resolved: audit scope defaults to writes/logons/approvals with reads as an off-by-default option (Q-26/D-35); break-glass alerting resolved separately as D-24 in `Design_Authentication_Architecture.md`; app-user identity resolved as D-59 in `Design_Authentication_Architecture.md`.
 

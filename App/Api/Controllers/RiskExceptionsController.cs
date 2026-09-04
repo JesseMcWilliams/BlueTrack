@@ -46,7 +46,18 @@ public sealed class RiskExceptionsController(
     public async Task<IActionResult> GetByKey(int exceptionKey)
     {
         var detail = await repository.GetByKeyAsync(exceptionKey);
-        return detail is null ? NotFound() : Ok(detail);
+        if (detail is null)
+        {
+            return NotFound();
+        }
+
+        var user = await currentUserResolver.ResolveAsync(User);
+        if (user is not null)
+        {
+            await auditLogger.LogReadIfEnabledAsync(user.UserKey, "risk_exception", exceptionKey.ToString());
+        }
+
+        return Ok(detail);
     }
 
     [HttpPost]

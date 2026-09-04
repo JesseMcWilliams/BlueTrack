@@ -5,15 +5,10 @@ namespace BlueTrack.Api.Audit;
 
 /// <summary>
 /// Writes to web.audit_event/web.audit_field_change (Design_Audit_Logging.md,
-/// D-10/D-11). Scoped to writes/approvals only, per D-35 -- logons and reads
-/// aren't wired here yet: Logon would fire on every /api/me call rather
-/// than once per real session (there's no session layer to distinguish
-/// them, the same gap PermissionClaimsTransformation's own comment
-/// documents), and LogReadEvents has no enforcement point yet even though
-/// the config field exists (GlobalApplicationConfiguration admin page).
-/// Both are follow-ups once this app has a real session concept.
+/// D-10/D-11). Logon auditing is handled separately by UserRightsResolver's
+/// cache-miss detection (D-82), not through this class directly.
 /// </summary>
-public sealed class AuditLogger(IDbConnectionFactory connectionFactory, IHttpContextAccessor httpContextAccessor)
+public sealed class AuditLogger(IDbConnectionFactory connectionFactory, IHttpContextAccessor httpContextAccessor, AppConfigRepository appConfigRepository)
 {
     public async Task LogAsync(
         string eventTypeName,
@@ -67,5 +62,22 @@ public sealed class AuditLogger(IDbConnectionFactory connectionFactory, IHttpCon
                 change.NewValue
             });
         }
+    }
+
+    /// <summary>
+    /// D-35/D-83: logs a RecordViewed event for a detail-view GET, but only
+    /// when audit_config.LogReadEvents is on -- scoped to GET-by-key detail
+    /// endpoints only (Account Progress detail, Risk Exception detail), not
+    /// list/search/report endpoints, per the user's explicit choice
+    /// 2026-09-04 to avoid flooding the log on every list page load.
+    /// </summary>
+    public async Task LogReadIfEnabledAsync(int performedByUserKey, string entityName, string entityKey)
+    {
+        if (!await appConfigRepository.IsLogReadEventsEnabledAsync())
+        {
+            return;
+        }
+
+        await LogAsync("RecordViewed", performedByUserKey, entityName, entityKey);
     }
 }

@@ -22,6 +22,13 @@ public sealed class AppConfigRepository(IDbConnectionFactory connectionFactory)
         return await connection.QuerySingleAsync<GlobalApplicationConfig>(sql);
     }
 
+    /// <summary>D-35/D-83: checked on every detail-view GET before logging a RecordViewed event.</summary>
+    public async Task<bool> IsLogReadEventsEnabledAsync()
+    {
+        using var connection = connectionFactory.Create();
+        return await connection.QuerySingleAsync<bool>("SELECT LogReadEvents FROM web.audit_config");
+    }
+
     public async Task UpdateAsync(SaveGlobalApplicationConfigRequest request, int modifiedByUserKey)
     {
         using var connection = connectionFactory.Create();

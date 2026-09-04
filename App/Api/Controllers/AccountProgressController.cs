@@ -58,7 +58,18 @@ public sealed class AccountProgressController(
     public async Task<IActionResult> GetDetail(long accountKey)
     {
         var detail = await repository.GetDetailAsync(accountKey);
-        return detail is null ? NotFound() : Ok(detail);
+        if (detail is null)
+        {
+            return NotFound();
+        }
+
+        var user = await currentUserResolver.ResolveAsync(User);
+        if (user is not null)
+        {
+            await auditLogger.LogReadIfEnabledAsync(user.UserKey, "fact_account_progress", accountKey.ToString());
+        }
+
+        return Ok(detail);
     }
 
     /// <summary>
