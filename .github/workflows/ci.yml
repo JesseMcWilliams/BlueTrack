@@ -70,6 +70,19 @@ jobs:
         shell: powershell
         run: dotnet test App/Api.Tests --configuration Release --logger "console;verbosity=normal"
 
+      - name: DIAGNOSTIC - environment
+        shell: powershell
+        run: |
+          whoami
+          Write-Output "PATH:"
+          $env:Path -split ';'
+          Write-Output "---Get-Command npm---"
+          try { Get-Command npm -All | Format-List } catch { Write-Output "ERROR: $_" }
+          Write-Output "---test path---"
+          Test-Path "C:\Program Files\nodejs\npm.cmd"
+          Test-Path "C:\Program Files\nodejs"
+          Get-Item "C:\Program Files\nodejs" -Force | Format-List *
+
       # Layer 1 (Web/Vitest): isolated component/store logic, no backend,
       # independent of the database work above -- runs any time.
       - name: Install Web dependencies
