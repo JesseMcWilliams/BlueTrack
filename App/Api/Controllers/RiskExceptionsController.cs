@@ -15,10 +15,16 @@ public sealed class RiskExceptionsController(
     CurrentUserResolver currentUserResolver,
     AuditLogger auditLogger) : ControllerBase
 {
+    /// <summary>D-42: stacked filters (status/accountKey/scopeType) plus multi-column sort.</summary>
     [HttpGet]
-    public async Task<IActionResult> GetList([FromQuery] string? status = null, [FromQuery] long? accountKey = null)
+    public async Task<IActionResult> GetList(
+        [FromQuery] string? status = null,
+        [FromQuery] long? accountKey = null,
+        [FromQuery] string? scopeType = null,
+        [FromQuery] string? sort = null)
     {
-        return Ok(await repository.GetListAsync(status, accountKey));
+        var sortBy = SortParser.Parse(sort);
+        return Ok(await repository.GetListAsync(status, accountKey, scopeType, sortBy));
     }
 
     /// <summary>Approval worklist: every currently-Active exception (requires ApproveExceptions, D-07).</summary>

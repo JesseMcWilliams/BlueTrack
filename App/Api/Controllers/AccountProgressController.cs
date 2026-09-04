@@ -31,27 +31,9 @@ public sealed class AccountProgressController(
         [FromQuery] string? owner = null,
         [FromQuery] string? sort = null)
     {
-        var sortBy = ParseSort(sort);
+        var sortBy = SortParser.Parse(sort);
         var results = await repository.GetSummaryListAsync(stage, status, riskLevel, owner, sortBy);
         return Ok(results);
-    }
-
-    private static IReadOnlyList<(string Field, bool Descending)> ParseSort(string? sort)
-    {
-        if (string.IsNullOrWhiteSpace(sort))
-        {
-            return [];
-        }
-
-        return sort.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-            .Select(part =>
-            {
-                var pieces = part.Split(':', 2);
-                var field = pieces[0];
-                var descending = pieces.Length > 1 && pieces[1].Equals("desc", StringComparison.OrdinalIgnoreCase);
-                return (Field: field, Descending: descending);
-            })
-            .ToList();
     }
 
     /// <summary>

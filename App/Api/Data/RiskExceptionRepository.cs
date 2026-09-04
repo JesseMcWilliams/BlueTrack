@@ -12,17 +12,71 @@ namespace BlueTrack.Api.Data;
 /// </summary>
 public sealed class RiskExceptionRepository(IDbConnectionFactory connectionFactory)
 {
-    public async Task<IReadOnlyList<RiskExceptionSummary>> GetListAsync(string? statusName = null, long? accountKey = null)
+    private static readonly IReadOnlyDictionary<string, string> SortableColumns = new Dictionary<string, string>
+    {
+        ["exceptionID"] = "re.ExceptionID",
+        ["scopeName"] = "ScopeName",
+        ["approvedByName"] = "au.DisplayName",
+        ["approvalDate"] = "re.ApprovalDate",
+        ["reviewDate"] = "re.ReviewDate",
+        ["statusName"] = "des.StatusName"
+    };
+
+    /// <summary>
+    /// D-42: stacked filters (status/accountKey/scopeType) plus multi-column
+    /// sort, validated against a fixed whitelist -- the requested sort
+    /// field comes straight from the query string, so this is the
+    /// SQL-injection guard, not just tidiness (same pattern as
+    /// AccountProgressRepository).
+    /// </summary>
+    public async Task<IReadOnlyList<RiskExceptionSummary>> GetListAsync(
+        string? statusName = null,
+        long? accountKey = null,
+        string? scopeType = null,
+        IReadOnlyList<(string Field, bool Descending)>? sortBy = null)
     {
         using var connection = connectionFactory.Create();
-        var rows = await connection.QueryAsync<RiskExceptionSummary>(ListSql, new { StatusName = statusName, AccountKey = accountKey });
+
+        var sql = ListSqlBase + $"""
+              AND (@StatusName IS NULL OR des.StatusName = @StatusName)
+              AND (@AccountKey IS NULL OR re.AccountKey = @AccountKey)
+              AND (@ScopeType IS NULL OR (CASE WHEN re.AccountKey IS NOT NULL THEN 'Account' ELSE 'Application' END) = @ScopeType)
+            ORDER BY {BuildOrderByClause(sortBy)}
+            """;
+
+        var rows = await connection.QueryAsync<RiskExceptionSummary>(sql, new
+        {
+            StatusName = statusName,
+            AccountKey = accountKey,
+            ScopeType = scopeType
+        });
         return rows.AsList();
+    }
+
+    private static string BuildOrderByClause(IReadOnlyList<(string Field, bool Descending)>? sortBy)
+    {
+        if (sortBy is not { Count: > 0 })
+        {
+            return "re.ReviewDate ASC";
+        }
+
+        var clauses = sortBy
+            .Where(s => SortableColumns.ContainsKey(s.Field))
+            .Select(s => $"{SortableColumns[s.Field]} {(s.Descending ? "DESC" : "ASC")}")
+            .ToList();
+
+        return clauses.Count > 0 ? string.Join(", ", clauses) : "re.ReviewDate ASC";
     }
 
     public async Task<IReadOnlyList<RiskExceptionSummary>> GetActiveAsync()
     {
         using var connection = connectionFactory.Create();
-        var rows = await connection.QueryAsync<RiskExceptionSummary>(ListSql, new { StatusName = "Active" });
+        // ListSql's WHERE clause references @AccountKey too -- must supply
+        // it even as null, or SQL Server rejects the batch with "Must
+        // declare the scalar variable @AccountKey" (a real regression
+        // introduced when D-77 added that filter here without updating
+        // this caller, caught while testing D-42's Risk Exceptions sort).
+        var rows = await connection.QueryAsync<RiskExceptionSummary>(ListSql, new { StatusName = "Active", AccountKey = (long?)null });
         return rows.AsList();
     }
 
