@@ -451,6 +451,69 @@ GO
 
 
 /* ============================================================================
+   6b. Auto-advance to "Onboarded to Vault" (Stage 3)
+
+   Business rule, direct from the user (2026-09-04): any account found in
+   either source's data is considered onboarded to the vault unless it
+   sits in a "pending accounts" safe -- matched by safe name containing
+   "_Pending" (e.g. PasswordManager_Pending), not a single fixed name,
+   since more than one such safe can exist. An account with no safe at
+   all (SafeKey NULL) is NOT excluded by this rule (it isn't "in" a
+   Pending safe), so it advances too.
+
+   SAFEGUARD -- only ever touches a row still at its untouched default
+   (CurrentStageKey = Discovered AND CurrentStatusKey = Not Started).
+   Deliberately re-evaluated on every Load run (not just for brand-new
+   accounts, unlike usp_Load_FactAccountProgress above) so the 2,432
+   accounts already stuck at Discovered before this procedure existed get
+   picked up retroactively -- but the same untouched-default check means
+   it will never move an account a person has already started curating
+   (changed its status, stage, owner, notes, etc.), which would otherwise
+   silently fight Design_Data_Editing_Behavior.md's regression-requires-
+   a-reason rule the next time this runs.
+
+   NOT written to web.audit_event -- that table's PerformedByUserKey is
+   NOT NULL, FK'd to web.app_user (a real logged-in person), and this
+   runs from the ETL/Load pipeline with no such context. The daily
+   usp_Load_FactAccountProgressHistory snapshot (run after this in
+   usp_RunFullLoad) already gives a de facto record of exactly which day
+   an account's StageKey changed, which is enough for a first cut; a
+   dedicated system/service app_user row for ETL-originated audit events
+   is a bigger decision left for later if it's actually needed.
+
+   Stage 4 ("Managed / Rotation Enabled") is deliberately NOT handled
+   here yet: it needs the safe to have a CPM assigned (dim_safe.ManagingCPM
+   -- present in the schema and the source export, but empty for every
+   safe in this test tenant's actual data) AND platform-level automatic-
+   management/rotation settings, which the current Platforms export
+   doesn't carry at all (only PlatformID/Name/Description/Active/
+   PlatformType). Confirmed directly with the user (2026-09-04) to hold
+   off on Stage 4 until a fuller Platform export is available, rather
+   than build it against half the real rule.
+   ============================================================================ */
+CREATE OR ALTER PROCEDURE usp_Load_AccountProgressAutoAdvance
+AS
+BEGIN
+    SET NOCOUNT ON;
+    DECLARE @DiscoveredStageKey INT = (SELECT StageKey FROM dim_blueprint_stage WHERE StageName = 'Discovered');
+    DECLARE @OnboardedStageKey INT = (SELECT StageKey FROM dim_blueprint_stage WHERE StageName = 'Onboarded to Vault');
+    DECLARE @NotStartedStatusKey INT = (SELECT StatusKey FROM dim_progress_status WHERE StatusName = 'Not Started');
+
+    UPDATE fap
+    SET fap.CurrentStageKey = @OnboardedStageKey,
+        fap.LastUpdated = SYSUTCDATETIME()
+    FROM fact_account_progress fap
+    JOIN fact_account fa ON fa.AccountKey = fap.AccountKey
+    LEFT JOIN dim_safe ds ON ds.SafeKey = fa.SafeKey
+    WHERE fap.CurrentStageKey = @DiscoveredStageKey
+      AND fap.CurrentStatusKey = @NotStartedStatusKey
+      AND fa.IsDeleted = 0
+      AND (ds.SafeKey IS NULL OR ds.SafeName NOT LIKE '%[_]Pending%');
+END
+GO
+
+
+/* ============================================================================
    7. fact_safe_entitlement + bridge_entitlement_permission  (both sources)
 
    Uses CROSS APPLY (VALUES ...) to unpivot each source's wide boolean

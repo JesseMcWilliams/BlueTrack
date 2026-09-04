@@ -197,6 +197,7 @@ BEGIN
         EXEC usp_Load_GroupMembership;
         EXEC usp_Load_FactAccount;
         EXEC usp_Load_FactAccountProgress;
+        EXEC usp_Load_AccountProgressAutoAdvance;
         EXEC usp_Load_FactSafeEntitlement;
         EXEC usp_Load_AccountReconciliation;
         EXEC usp_Load_FactAccountProgressHistory;
