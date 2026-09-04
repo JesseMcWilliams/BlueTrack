@@ -56,7 +56,14 @@ public sealed class AccountProgressRepository(IDbConnectionFactory connectionFac
         return await connection.QuerySingleOrDefaultAsync<AccountProgressDetail>(sql, new { AccountKey = accountKey });
     }
 
-    public async Task UpdateAsync(long accountKey, SaveAccountProgressRequest request)
+    /// <summary>
+    /// exceptionKey is passed separately from the rest of the request,
+    /// rather than read off SaveAccountProgressRequest.ExceptionKey
+    /// directly -- the caller (AccountProgressController) validates and
+    /// resolves it first (required + must be an Active exception on this
+    /// account when status = Risk Accepted / Excluded; cleared otherwise).
+    /// </summary>
+    public async Task UpdateAsync(long accountKey, SaveAccountProgressRequest request, int? exceptionKey)
     {
         using var connection = connectionFactory.Create();
         const string sql = """
@@ -64,7 +71,7 @@ public sealed class AccountProgressRepository(IDbConnectionFactory connectionFac
             SET CurrentStageKey = @CurrentStageKey, CurrentStatusKey = @CurrentStatusKey, RiskLevelKey = @RiskLevelKey,
                 AccountTypeKey = @AccountTypeKey, SORKey = @SORKey, OwnerName = @OwnerName, BusinessUnit = @BusinessUnit,
                 TargetRemediationDate = @TargetRemediationDate, ActualCompletionDate = @ActualCompletionDate,
-                Notes = @Notes, LastUpdated = SYSUTCDATETIME()
+                Notes = @Notes, ExceptionKey = @ExceptionKey, LastUpdated = SYSUTCDATETIME()
             WHERE AccountKey = @AccountKey
             """;
         await connection.ExecuteAsync(sql, new
@@ -79,7 +86,8 @@ public sealed class AccountProgressRepository(IDbConnectionFactory connectionFac
             request.BusinessUnit,
             request.TargetRemediationDate,
             request.ActualCompletionDate,
-            request.Notes
+            request.Notes,
+            ExceptionKey = exceptionKey
         });
     }
 

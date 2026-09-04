@@ -2,7 +2,7 @@
 // Field-metadata-driven edit form (Design_Interface_Extensibility.md) with
 // pessimistic locking (D-50) and the two validation rules from D-51
 // (enforced server-side; this form just surfaces whatever error comes back).
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 
 const props = defineProps({ accountKey: { type: [String, Number], required: true } })
 
@@ -41,6 +41,68 @@ const saving = ref(false)
 let heartbeatTimer = null
 
 const sortedFields = computed(() => [...fieldMetadata.value].sort((a, b) => a.displayOrder - b.displayOrder))
+
+// Risk Exception wiring (Design_Risk_Exception_Tracking.md workflow steps
+// 1-2): status can't be set to Risk Accepted / Excluded without linking an
+// Active exception scoped to this account -- the API enforces this, this
+// just gives the form a way to pick or create one before saving.
+const selectedExceptionKey = ref('')
+const linkableExceptions = ref([])
+const exceptionError = ref(null)
+const showCreateExceptionForm = ref(false)
+const newException = ref({ justification: '', reviewDate: '', externalTicketReference: '' })
+const creatingException = ref(false)
+
+const riskAcceptedStatusKey = computed(() =>
+  (referenceData.value.dim_progress_status ?? []).find(o => o.name === 'Risk Accepted / Excluded')?.key ?? null)
+const isRiskAccepted = computed(() =>
+  riskAcceptedStatusKey.value !== null && Number(form.value.currentStatusKey) === riskAcceptedStatusKey.value)
+
+watch(isRiskAccepted, async (nowRiskAccepted) => {
+  if (nowRiskAccepted) {
+    await loadLinkableExceptions()
+    selectedExceptionKey.value = detail.value?.exceptionKey ?? ''
+  }
+})
+
+async function loadLinkableExceptions() {
+  exceptionError.value = null
+  try {
+    const response = await fetch(`/api/risk-exceptions?accountKey=${props.accountKey}&status=Active`)
+    if (!response.ok) throw new Error(`Request failed: ${response.status}`)
+    linkableExceptions.value = await response.json()
+  } catch (err) {
+    exceptionError.value = err.message
+  }
+}
+
+async function createInlineException() {
+  creatingException.value = true
+  exceptionError.value = null
+  try {
+    const response = await fetch('/api/risk-exceptions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        accountKey: Number(props.accountKey),
+        justification: newException.value.justification,
+        reviewDate: newException.value.reviewDate,
+        externalTicketReference: newException.value.externalTicketReference || null
+      })
+    })
+    if (!response.ok) {
+      exceptionError.value = `Could not create exception: ${response.status}`
+      return
+    }
+    const created = await response.json()
+    await loadLinkableExceptions()
+    selectedExceptionKey.value = created.exceptionKey
+    showCreateExceptionForm.value = false
+    newException.value = { justification: '', reviewDate: '', externalTicketReference: '' }
+  } finally {
+    creatingException.value = false
+  }
+}
 
 function optionsFor(field) {
   return referenceData.value[field.referenceTable] ?? []
@@ -90,6 +152,7 @@ function resetFormFromDetail() {
     actualCompletionDate: detail.value.actualCompletionDate?.slice(0, 10) ?? '',
     notes: detail.value.notes
   }
+  selectedExceptionKey.value = detail.value.exceptionKey ?? ''
 }
 
 async function acquireLock() {
@@ -135,7 +198,8 @@ async function save() {
       targetRemediationDate: form.value.targetRemediationDate || null,
       actualCompletionDate: form.value.actualCompletionDate || null,
       notes: form.value.notes || null,
-      reason: reason.value || null
+      reason: reason.value || null,
+      exceptionKey: selectedExceptionKey.value ? Number(selectedExceptionKey.value) : null
     }
     const response = await fetch(`/api/account-progress/${props.accountKey}`, {
       method: 'PUT',
@@ -218,6 +282,31 @@ onUnmounted(releaseLock)
             <input v-else v-model="form[formKeyByFieldName[field.fieldName]]" type="text" />
           </label>
         </p>
+        <div v-if="isRiskAccepted">
+          <h3>Risk Exception</h3>
+          <p>Status is Risk Accepted / Excluded -- link an existing Active exception for this account, or create one.</p>
+          <p v-if="exceptionError">{{ exceptionError }}</p>
+          <p>
+            <label>
+              Linked Exception:
+              <select v-model="selectedExceptionKey" required>
+                <option value="" disabled>Select an exception</option>
+                <option v-for="ex in linkableExceptions" :key="ex.exceptionKey" :value="ex.exceptionKey">
+                  {{ ex.exceptionID }} -- {{ ex.justification }}
+                </option>
+              </select>
+            </label>
+          </p>
+          <button type="button" @click="showCreateExceptionForm = !showCreateExceptionForm">
+            {{ showCreateExceptionForm ? 'Cancel New Exception' : '+ Create New Exception' }}
+          </button>
+          <div v-if="showCreateExceptionForm">
+            <p><label>Justification: <textarea v-model="newException.justification" required></textarea></label></p>
+            <p><label>Review Date: <input v-model="newException.reviewDate" type="date" required /></label></p>
+            <p><label>External Ticket Reference: <input v-model="newException.externalTicketReference" type="text" /></label></p>
+            <button type="button" :disabled="creatingException" @click="createInlineException">Create Exception</button>
+          </div>
+        </div>
         <p>
           <label>Reason (required only if regressing to an earlier stage): <input v-model="reason" type="text" /></label>
         </p>

@@ -16,9 +16,9 @@ public sealed class RiskExceptionsController(
     AuditLogger auditLogger) : ControllerBase
 {
     [HttpGet]
-    public async Task<IActionResult> GetList([FromQuery] string? status = null)
+    public async Task<IActionResult> GetList([FromQuery] string? status = null, [FromQuery] long? accountKey = null)
     {
-        return Ok(await repository.GetListAsync(status));
+        return Ok(await repository.GetListAsync(status, accountKey));
     }
 
     /// <summary>Approval worklist: every currently-Active exception (requires ApproveExceptions, D-07).</summary>

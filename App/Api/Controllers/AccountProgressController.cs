@@ -15,6 +15,7 @@ public sealed class AccountProgressController(
     FieldMetadataRepository fieldMetadataRepository,
     ReferenceDataRepository referenceDataRepository,
     AccountProgressLockRepository lockRepository,
+    RiskExceptionRepository riskExceptionRepository,
     CurrentUserResolver currentUserResolver,
     AuditLogger auditLogger) : ControllerBase
 {
@@ -156,7 +157,38 @@ public sealed class AccountProgressController(
             }
         }
 
-        await repository.UpdateAsync(accountKey, request);
+        // Risk Exception wiring (Design_Risk_Exception_Tracking.md workflow
+        // steps 1-2): status can't be set to Risk Accepted / Excluded
+        // without linking an Active exception scoped to this account.
+        // Cleared for every other status -- ExceptionKey only means anything
+        // while the account is actually in that status (per the column's
+        // own documented contract in 06_BlueTrack_WebInterface_Schema.sql).
+        // Application-scoped exceptions can't be linked from here yet -- the
+        // design itself leaves the batch propagation to every account under
+        // that application as "an implementation detail for later, not
+        // decided here."
+        int? resolvedExceptionKey = null;
+        if (newStatusName == "Risk Accepted / Excluded")
+        {
+            if (request.ExceptionKey is null)
+            {
+                return Problem(title: "Validation failed",
+                    detail: "An Active exception must be linked (or created) before setting status to Risk Accepted / Excluded.",
+                    statusCode: StatusCodes.Status400BadRequest);
+            }
+
+            var exception = await riskExceptionRepository.GetByKeyAsync(request.ExceptionKey.Value);
+            if (exception is null || exception.AccountKey != accountKey || exception.StatusName != "Active")
+            {
+                return Problem(title: "Validation failed",
+                    detail: "The linked exception must be an Active exception scoped to this account.",
+                    statusCode: StatusCodes.Status400BadRequest);
+            }
+
+            resolvedExceptionKey = exception.ExceptionKey;
+        }
+
+        await repository.UpdateAsync(accountKey, request, resolvedExceptionKey);
         await lockRepository.ReleaseAsync(accountKey, user.UserKey);
 
         List<FieldChange> changes = [];
@@ -176,6 +208,7 @@ public sealed class AccountProgressController(
         AddIfChanged("TargetRemediationDate", before.TargetRemediationDate?.ToString("yyyy-MM-dd"), request.TargetRemediationDate?.ToString("yyyy-MM-dd"));
         AddIfChanged("ActualCompletionDate", before.ActualCompletionDate?.ToString("yyyy-MM-dd"), request.ActualCompletionDate?.ToString("yyyy-MM-dd"));
         AddIfChanged("Notes", before.Notes, request.Notes);
+        AddIfChanged("ExceptionKey", before.ExceptionKey, resolvedExceptionKey);
 
         if (changes.Count > 0)
         {

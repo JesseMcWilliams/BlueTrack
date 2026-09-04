@@ -6,23 +6,16 @@ namespace BlueTrack.Api.Data;
 /// <summary>
 /// Backs the Risk Exceptions list, approval worklist (Active only), and
 /// overdue-review worklist (Active and past ReviewDate) pages, plus the
-/// create/edit form (Design_Risk_Exception_Tracking.md).
-///
-/// NOT wired here yet: creating an exception doesn't also update the
-/// scoped account's fact_account_progress.CurrentStatusKey/ExceptionKey
-/// (the design's own step 1 describes the action starting from an Account
-/// Progress status change to Risk Accepted / Excluded, which requires the
-/// Account Progress edit form -- itself still a placeholder,
-/// AccountProgressDetail.vue -- to exist first). This repository handles
-/// risk_exception itself correctly; wiring the two together is a follow-up
-/// once that edit form is built.
+/// create/edit form (Design_Risk_Exception_Tracking.md), and the Account
+/// Progress edit form's "link an existing exception" picker (accountKey
+/// filter on GetListAsync).
 /// </summary>
 public sealed class RiskExceptionRepository(IDbConnectionFactory connectionFactory)
 {
-    public async Task<IReadOnlyList<RiskExceptionSummary>> GetListAsync(string? statusName = null)
+    public async Task<IReadOnlyList<RiskExceptionSummary>> GetListAsync(string? statusName = null, long? accountKey = null)
     {
         using var connection = connectionFactory.Create();
-        var rows = await connection.QueryAsync<RiskExceptionSummary>(ListSql, new { StatusName = statusName });
+        var rows = await connection.QueryAsync<RiskExceptionSummary>(ListSql, new { StatusName = statusName, AccountKey = accountKey });
         return rows.AsList();
     }
 
@@ -147,6 +140,7 @@ public sealed class RiskExceptionRepository(IDbConnectionFactory connectionFacto
 
     private const string ListSql = ListSqlBase + """
           AND (@StatusName IS NULL OR des.StatusName = @StatusName)
+          AND (@AccountKey IS NULL OR re.AccountKey = @AccountKey)
         ORDER BY re.ReviewDate
         """;
 }

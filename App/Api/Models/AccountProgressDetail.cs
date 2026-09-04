@@ -28,7 +28,10 @@ public sealed class AccountProgressDetail
 /// <summary>
 /// Body for PUT /api/account-progress/{accountKey}. Reason is required only
 /// when regressing CurrentStageKey to a lower StageOrder (D-51) -- the API
-/// enforces this, the field isn't blanket-required.
+/// enforces this, the field isn't blanket-required. ExceptionKey is
+/// required only when CurrentStatusKey resolves to "Risk Accepted /
+/// Excluded" (Design_Risk_Exception_Tracking.md workflow step 2) -- ignored
+/// (and the stored value cleared) for every other status.
 /// </summary>
 public sealed class SaveAccountProgressRequest
 {
@@ -43,4 +46,5 @@ public sealed class SaveAccountProgressRequest
     public DateTime? ActualCompletionDate { get; init; }
     public string? Notes { get; init; }
     public string? Reason { get; init; }
+    public int? ExceptionKey { get; init; }
 }
