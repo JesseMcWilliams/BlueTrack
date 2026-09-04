@@ -40,6 +40,19 @@ A running log of things discovered during development that aren't obvious from r
 
 **General lesson:** when a `BULK INSERT`/OLE DB error mentions an interface name or a linked server that clearly isn't part of your actual setup, don't stop at the literal error text — isolate variables (try the plain/classic form first, add options back one at a time) rather than assuming the most commonly-cited cause (permissions) applies without checking.
 
+## 2026-09-04 — nvm-managed Node.js is invisible to a Windows service running as a different account (fixed same day)
+
+The self-hosted GitHub Actions runner (D-88) failed every `npm` step with `npm : The term 'npm' is not recognized...`, even though `npm`/`node` worked fine interactively on the same box. The runner service runs as its own dedicated domain account, `COMPANY\GitHub_Runner` (confirmed via `Get-WmiObject Win32_Service`), not as `COMPANY\Administrator` — a distinction that matters a lot more than it looks like it should.
+
+**Root cause:** Node.js had been installed via `nvm-windows`, which manages `C:\Program Files\nodejs` as a **symlink** into the installing user's own profile (`C:\Users\Administrator\AppData\Roaming\nvm\v26.8.1`) rather than a real, standalone directory. Two compounding problems for any *other* account:
+
+1. The symlink's own ACL only granted `Administrator`/`Administrators`/`SYSTEM` — `GitHub_Runner` had no traverse permission on it at all.
+2. Even after fixing that ACL, `GitHub_Runner`'s own PATH contained the *literal, unexpanded* tokens `%NVM_HOME%` and `%NVM_SYMLINK%` (confirmed via a temporary diagnostic CI step dumping `$env:Path`) — even though both variables were correctly defined at the machine level. That account's Windows logon session had a stale cached environment that predated those variables ever being set, and neither a plain `Restart-Service` nor a full stop/kill-lingering-processes/start cycle refreshed it. This class of problem is documented elsewhere as typically requiring a full machine reboot to clear — not attempted here since it would have disrupted interactive work on the same box.
+
+**Fixed without a reboot:** removed the `nvm-windows` symlink (via `cmd /c rmdir`, which deletes a directory symlink without recursing into and destroying its target — `Remove-Item` on a reparse point is riskier and should be avoided for exactly this reason) and installed Node.js system-wide via the official MSI installer (same version, v26.8.1) instead. The MSI creates a real directory with standard `Program Files` ACLs (`BUILTIN\Users`, `NT AUTHORITY\Authenticated Users` — visible to every account) and updates PATH with its own literal entries, sidestepping the whole account-specific-environment problem entirely.
+
+**General lesson:** a self-hosted CI runner (or any service account) needs software installed in a way that's genuinely account-agnostic — system-wide, standard-location installers, not per-user version managers (nvm, pyenv, rbenv, etc.) whose whole design point is per-user, per-profile switching. If interactive `node`/`npm`/`python`/whatever works but a service account's identical-looking command fails with "not recognized," check whether the tool was installed via a version manager before assuming it's a permissions or PATH-syntax problem.
+
 ## Process notes
 
 - **Check the Decision Register first.** `Design Documents/Design_Decision_Register.md` is the index of every design decision made so far, resolved and open. Don't re-derive or re-litigate something it already answers.
