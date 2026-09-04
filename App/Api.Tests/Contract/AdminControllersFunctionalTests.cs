@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using BlueTrack.Api.Data;
 using BlueTrack.Api.Tests.Integration;
 using Xunit;
 
@@ -259,6 +260,116 @@ public class AdminControllersFunctionalTests : IClassFixture<BlueTrackWebApplica
         await DeleteApplicationDirectlyAsync(app.ApplicationKey);
     }
 
+    [Fact]
+    public async Task Roles_GetPermissionCatalog_ReturnsTheKnownPermissionCatalog()
+    {
+        var client = AdminClient();
+
+        var catalog = await client.GetFromJsonAsync<List<PermissionCatalogItemResponse>>("/api/admin/permissions");
+
+        Assert.NotNull(catalog);
+        Assert.Contains(catalog!, p => p.PermissionName == "ViewDashboard");
+        Assert.Contains(catalog!, p => p.PermissionName == "ManageRolesAndPermissions");
+    }
+
+    [Fact]
+    public async Task SecretsStore_GetAll_ReturnsAllSeededBackendsRedacted()
+    {
+        var client = AdminClient();
+
+        var backends = await client.GetFromJsonAsync<List<SecretsStoreBackendResponse>>("/api/admin/secrets-store");
+
+        Assert.NotNull(backends);
+        Assert.Contains(backends!, b => b.BackendType == "WindowsDpapi" && b.IsActive);
+        Assert.Contains(backends!, b => b.BackendType == "AzureKeyVault");
+    }
+
+    [Fact]
+    public async Task SecretsStore_SetActive_ActivatesTheRequestedBackendThenRestoresWindowsDpapi()
+    {
+        var client = AdminClient();
+
+        try
+        {
+            var setActiveResponse = await client.PutAsJsonAsync("/api/admin/secrets-store/active", new
+            {
+                backendType = "CyberArkCP",
+                backendSettings = (string?)null
+            });
+            Assert.Equal(HttpStatusCode.NoContent, setActiveResponse.StatusCode);
+
+            var backends = await client.GetFromJsonAsync<List<SecretsStoreBackendResponse>>("/api/admin/secrets-store");
+            Assert.Contains(backends!, b => b.BackendType == "CyberArkCP" && b.IsActive);
+            Assert.Contains(backends!, b => b.BackendType == "WindowsDpapi" && !b.IsActive);
+        }
+        finally
+        {
+            var restoreResponse = await client.PutAsJsonAsync("/api/admin/secrets-store/active", new
+            {
+                backendType = "WindowsDpapi",
+                backendSettings = (string?)null
+            });
+            Assert.Equal(HttpStatusCode.NoContent, restoreResponse.StatusCode);
+        }
+    }
+
+    [Fact]
+    public async Task AuditLog_GetEvents_FiltersByEntityKeyAndReturnsFieldChangesForThatEvent()
+    {
+        // AccountProgressController.Update logs a real FieldEdit event with
+        // fieldChanges (unlike FieldMetadataController's admin CRUD, which
+        // logs a Detail string only, no field-level diff) -- reuse that
+        // real edit flow, the same one AccountProgressEditingTests already
+        // exercises, so this test proves the Audit Log Viewer's endpoints
+        // against production traffic rather than a hand-inserted row.
+        var accountKey = await TestAccounts.GetAccountKeyAsync("TestAccount04");
+        var lockRepository = new AccountProgressLockRepository(new TestDbConnectionFactory());
+        await lockRepository.ForceReleaseAsync(accountKey);
+        var approverClient = WithHeader(_factory.CreateClient(), "TestUser.Approver");
+        var uniqueOwnerName = $"AuditLogContractTestOwner_{Guid.NewGuid():N}";
+
+        var lockResponse = await approverClient.PostAsync($"/api/account-progress/{accountKey}/lock", null);
+        Assert.Equal(HttpStatusCode.OK, lockResponse.StatusCode);
+        var updateResponse = await approverClient.PutAsJsonAsync($"/api/account-progress/{accountKey}", new
+        {
+            currentStageKey = await LookupStageKeyAsync("Onboarded to Vault"),
+            currentStatusKey = await LookupStatusKeyAsync("In Progress"),
+            ownerName = uniqueOwnerName
+        });
+        Assert.Equal(HttpStatusCode.NoContent, updateResponse.StatusCode);
+
+        var adminClient = AdminClient();
+        var events = await adminClient.GetFromJsonAsync<List<AuditEventSummaryResponse>>(
+            $"/api/audit-log?entityName=fact_account_progress&eventType=FieldEdit&performedByUserKey={await TestUsers.GetUserKeyAsync("TestUser.Approver")}");
+        Assert.NotNull(events);
+        // Other test runs have left plenty of prior FieldEdit events against
+        // this same account/user pair (RiskExceptionsController.Update etc.
+        // have no cleanup, matching the accumulation already noted in
+        // permission-boundaries.spec.js) -- the one this test just created
+        // is the highest AuditEventKey among the matches, not the only match.
+        var candidates = events!.Where(e => e.EntityKey == accountKey.ToString()).ToList();
+        Assert.NotEmpty(candidates);
+        var match = candidates.OrderByDescending(e => e.AuditEventKey).First();
+
+        var fieldChanges = await adminClient.GetFromJsonAsync<List<AuditFieldChangeResponse>>($"/api/audit-log/{match.AuditEventKey}/field-changes");
+        Assert.NotNull(fieldChanges);
+        Assert.Contains(fieldChanges!, c => c.FieldName == "OwnerName" && c.NewValue == uniqueOwnerName);
+    }
+
+    private static async Task<int> LookupStageKeyAsync(string stageName)
+    {
+        await using var connection = new Microsoft.Data.SqlClient.SqlConnection(TestDatabase.ConnectionString);
+        return await Dapper.SqlMapper.QuerySingleAsync<int>(connection,
+            "SELECT StageKey FROM dbo.dim_blueprint_stage WHERE StageName = @StageName", new { StageName = stageName });
+    }
+
+    private static async Task<int> LookupStatusKeyAsync(string statusName)
+    {
+        await using var connection = new Microsoft.Data.SqlClient.SqlConnection(TestDatabase.ConnectionString);
+        return await Dapper.SqlMapper.QuerySingleAsync<int>(connection,
+            "SELECT StatusKey FROM dbo.dim_progress_status WHERE StatusName = @StatusName", new { StatusName = statusName });
+    }
+
     private static async Task<int> LookupSafeKeyAsync(string safeName)
     {
         await using var connection = new Microsoft.Data.SqlClient.SqlConnection(TestDatabase.ConnectionString);
@@ -335,5 +446,33 @@ public class AdminControllersFunctionalTests : IClassFixture<BlueTrackWebApplica
         public int LockTimeoutMinutes { get; set; }
         public int? RetentionDays { get; set; }
         public bool LogReadEvents { get; set; }
+    }
+
+    private sealed class PermissionCatalogItemResponse
+    {
+        public int PermissionKey { get; set; }
+        public string PermissionName { get; set; } = "";
+    }
+
+    private sealed class SecretsStoreBackendResponse
+    {
+        public int SecretStoreKey { get; set; }
+        public string BackendType { get; set; } = "";
+        public bool IsActive { get; set; }
+        public string? BackendSettings { get; set; }
+    }
+
+    private sealed class AuditEventSummaryResponse
+    {
+        public long AuditEventKey { get; set; }
+        public string EventTypeName { get; set; } = "";
+        public string? EntityKey { get; set; }
+    }
+
+    private sealed class AuditFieldChangeResponse
+    {
+        public string FieldName { get; set; } = "";
+        public string? OldValue { get; set; }
+        public string? NewValue { get; set; }
     }
 }
