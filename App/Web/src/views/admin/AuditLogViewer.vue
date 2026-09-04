@@ -2,7 +2,7 @@
 // Searchable/filterable view against /api/audit-log (AuditLogController) --
 // filters map to query params, and a click on a row drills into its
 // field-level changes (Design_Audit_Logging.md's Admin UI Requirements).
-import { ref, onMounted } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 
 const events = ref([])
 const error = ref(null)
@@ -16,6 +16,47 @@ const toDateFilter = ref('')
 const expandedEventKey = ref(null)
 const fieldChanges = ref([])
 
+// D-42: multi-column sort, same click/shift-click pattern as Account
+// Progress List and the Risk Exceptions list.
+const sortColumns = ref([])
+const columns = [
+  { field: 'occurredAt', label: 'Occurred At' },
+  { field: 'eventTypeName', label: 'Event Type' },
+  { field: 'performedByName', label: 'By' },
+  { field: 'entityName', label: 'Entity' }
+]
+
+function sortIndicator(field) {
+  const idx = sortColumns.value.findIndex(s => s.field === field)
+  if (idx === -1) return ''
+  const arrow = sortColumns.value[idx].descending ? '▼' : '▲'
+  return sortColumns.value.length > 1 ? `${arrow}${idx + 1}` : arrow
+}
+
+function toggleSort(field, event) {
+  const existingIndex = sortColumns.value.findIndex(s => s.field === field)
+
+  if (!event.shiftKey) {
+    if (existingIndex === 0 && sortColumns.value.length === 1) {
+      sortColumns.value = [{ field, descending: !sortColumns.value[0].descending }]
+    } else {
+      sortColumns.value = [{ field, descending: false }]
+    }
+    return
+  }
+
+  if (existingIndex === -1) {
+    sortColumns.value = [...sortColumns.value, { field, descending: false }]
+  } else {
+    const updated = [...sortColumns.value]
+    updated[existingIndex] = { ...updated[existingIndex], descending: !updated[existingIndex].descending }
+    sortColumns.value = updated
+  }
+}
+
+const sortQueryParam = computed(() =>
+  sortColumns.value.map(s => `${s.field}:${s.descending ? 'desc' : 'asc'}`).join(','))
+
 async function load() {
   loading.value = true
   error.value = null
@@ -25,6 +66,7 @@ async function load() {
     if (entityNameFilter.value) params.set('entityName', entityNameFilter.value)
     if (fromDateFilter.value) params.set('fromDate', fromDateFilter.value)
     if (toDateFilter.value) params.set('toDate', toDateFilter.value)
+    if (sortQueryParam.value) params.set('sort', sortQueryParam.value)
 
     const response = await fetch(`/api/audit-log?${params.toString()}`)
     if (!response.ok) throw new Error(`Request failed: ${response.status}`)
@@ -37,6 +79,7 @@ async function load() {
 }
 
 onMounted(load)
+watch(sortQueryParam, load)
 
 async function toggleFieldChanges(event) {
   if (expandedEventKey.value === event.auditEventKey) {
@@ -67,7 +110,12 @@ async function toggleFieldChanges(event) {
 
     <table v-else>
       <thead>
-        <tr><th>Occurred At</th><th>Event Type</th><th>By</th><th>Entity</th><th>Detail</th></tr>
+        <tr>
+          <th v-for="col in columns" :key="col.field" style="cursor: pointer" @click="toggleSort(col.field, $event)">
+            {{ col.label }} {{ sortIndicator(col.field) }}
+          </th>
+          <th>Detail</th>
+        </tr>
       </thead>
       <tbody>
         <template v-for="event in events" :key="event.auditEventKey">

@@ -16,9 +16,11 @@ public sealed class AuditLogController(AuditRepository repository) : ControllerB
         [FromQuery] string? entityName = null,
         [FromQuery] int? performedByUserKey = null,
         [FromQuery] DateTime? fromDate = null,
-        [FromQuery] DateTime? toDate = null)
+        [FromQuery] DateTime? toDate = null,
+        [FromQuery] string? sort = null)
     {
-        return Ok(await repository.GetEventsAsync(eventType, entityName, performedByUserKey, fromDate, toDate));
+        var sortBy = SortParser.Parse(sort);
+        return Ok(await repository.GetEventsAsync(eventType, entityName, performedByUserKey, fromDate, toDate, sortBy));
     }
 
     [HttpGet("{auditEventKey:long}/field-changes")]

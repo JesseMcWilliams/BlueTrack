@@ -10,12 +10,22 @@ namespace BlueTrack.Api.Data;
 /// </summary>
 public sealed class AuditRepository(IDbConnectionFactory connectionFactory)
 {
+    private static readonly IReadOnlyDictionary<string, string> SortableColumns = new Dictionary<string, string>
+    {
+        ["occurredAt"] = "ae.OccurredAt",
+        ["eventTypeName"] = "aet.EventTypeName",
+        ["performedByName"] = "au.DisplayName",
+        ["entityName"] = "ae.EntityName"
+    };
+
+    /// <summary>D-42: adds multi-column sort on top of the existing stacked filters (event type/entity/user/date range).</summary>
     public async Task<IReadOnlyList<AuditEventSummary>> GetEventsAsync(
-        string? eventTypeName, string? entityName, int? performedByUserKey, DateTime? fromDate, DateTime? toDate)
+        string? eventTypeName, string? entityName, int? performedByUserKey, DateTime? fromDate, DateTime? toDate,
+        IReadOnlyList<(string Field, bool Descending)>? sortBy = null)
     {
         using var connection = connectionFactory.Create();
 
-        const string sql = """
+        var sql = $"""
             SELECT
                 ae.AuditEventKey,
                 aet.EventTypeName,
@@ -34,7 +44,7 @@ public sealed class AuditRepository(IDbConnectionFactory connectionFactory)
               AND (@PerformedByUserKey IS NULL OR ae.PerformedByUserKey = @PerformedByUserKey)
               AND (@FromDate IS NULL OR ae.OccurredAt >= @FromDate)
               AND (@ToDate IS NULL OR ae.OccurredAt < DATEADD(DAY, 1, @ToDate))
-            ORDER BY ae.OccurredAt DESC
+            ORDER BY {BuildOrderByClause(sortBy)}
             """;
 
         var rows = await connection.QueryAsync<AuditEventSummary>(sql, new
@@ -46,6 +56,21 @@ public sealed class AuditRepository(IDbConnectionFactory connectionFactory)
             ToDate = toDate
         });
         return rows.AsList();
+    }
+
+    private static string BuildOrderByClause(IReadOnlyList<(string Field, bool Descending)>? sortBy)
+    {
+        if (sortBy is not { Count: > 0 })
+        {
+            return "ae.OccurredAt DESC";
+        }
+
+        var clauses = sortBy
+            .Where(s => SortableColumns.ContainsKey(s.Field))
+            .Select(s => $"{SortableColumns[s.Field]} {(s.Descending ? "DESC" : "ASC")}")
+            .ToList();
+
+        return clauses.Count > 0 ? string.Join(", ", clauses) : "ae.OccurredAt DESC";
     }
 
     public async Task<IReadOnlyList<AuditFieldChangeSummary>> GetFieldChangesAsync(long auditEventKey)
