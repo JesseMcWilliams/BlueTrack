@@ -11,7 +11,7 @@
    Guarded -- safe to re-run.
    ============================================================================ */
 
-USE BlueTrack;
+USE $DatabaseName$;
 GO
 
 INSERT INTO web.dim_audit_event_type (EventTypeName, Description)

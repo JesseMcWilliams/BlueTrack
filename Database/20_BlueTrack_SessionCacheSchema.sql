@@ -24,7 +24,7 @@
    introduced on top of this cache.
    ============================================================================ */
 
-USE BlueTrack;
+USE $DatabaseName$;
 GO
 
 IF OBJECT_ID('web.distributed_cache', 'U') IS NULL

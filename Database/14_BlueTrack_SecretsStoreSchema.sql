@@ -19,7 +19,7 @@
    AccountKey/ApplicationKey exclusivity).
    ============================================================================ */
 
-USE BlueTrack;
+USE $DatabaseName$;
 GO
 
 IF OBJECT_ID('web.secrets_store', 'U') IS NULL

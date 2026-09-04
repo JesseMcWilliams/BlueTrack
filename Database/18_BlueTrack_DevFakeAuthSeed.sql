@@ -30,7 +30,7 @@
    Guarded throughout -- safe to re-run.
    ============================================================================ */
 
-USE BlueTrack;
+USE $DatabaseName$;
 GO
 
 

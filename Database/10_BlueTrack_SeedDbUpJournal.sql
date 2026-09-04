@@ -10,8 +10,11 @@
    journal table, dbo.SchemaVersions, matching each script by filename.
    Without this seed, DbUp's first real run would see none of 01-09 as
    "already applied" and would try to run all of them for real -- including
-   01_BlueTrack_CreateDatabase_Schema.sql, which does a destructive
-   DROP DATABASE. That must never happen against a live environment (D-58).
+   01_BlueTrack_CreateDatabase_Schema.sql, which unconditionally drops and
+   recreates every table it defines (it no longer drops the database itself,
+   fixed 2026-09-03, but re-running it is still just as destructive to any
+   real data already sitting in those tables). That must never happen
+   against a live environment (D-58).
 
    This script creates dbo.SchemaVersions using DbUp's own exact default
    schema (verified 2026-09-01 directly against the live source of
@@ -26,7 +29,7 @@
    hand (it only inserts rows for filenames not already present).
    ============================================================================ */
 
-USE BlueTrack;
+USE $DatabaseName$;
 GO
 
 IF OBJECT_ID('dbo.SchemaVersions', 'U') IS NULL

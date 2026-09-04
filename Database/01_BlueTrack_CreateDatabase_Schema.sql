@@ -7,15 +7,35 @@
    Target: SQL Server / Azure SQL
 
    What this file does, in order:
-     1. Drops and recreates the BlueTrack database
-     2. Switches context into it (USE)
-     3. Creates every table the project needs -- staging (per source export),
+     1. Switches context into the target database (USE $DatabaseName$) --
+        the database itself must already exist by this point (see below)
+     2. Creates every table the project needs -- staging (per source export),
         reference/dimension, fact, and tracking tables -- each guarded with
         an existence check + DROP before CREATE, so this file can be re-run
         from the top at any time
-     4. Loads seed/reference data for the fixed-vocabulary tables (source
+     3. Loads seed/reference data for the fixed-vocabulary tables (source
         systems, the vault's own text-code decode table, permissions,
         permission aliases, Blueprint stages, and progress statuses)
+
+   DATABASE CREATION: this file used to open with DROP DATABASE BlueTrack /
+   CREATE DATABASE BlueTrack before switching context. That's gone (fixed
+   2026-09-03, following a real incident where a hardcoded database name
+   here caused this file to drop and recreate the wrong database). SQL
+   Server can't drop a database a connection is currently using, so
+   dropping and creating the database can't safely live in the same
+   connection/script as everything else here, which now always runs against
+   the target database directly (for a correctly-scoped DbUp journal -- see
+   App/Migrator/Program.cs's own comment for the full reasoning). Ensuring
+   the target database exists (create-if-missing, never drop) is now
+   App/Migrator's job, done once against master before this script ever
+   runs. Something that wants a genuinely fresh database -- CI's disposable
+   BlueTrackTest, per Design_Testing_Strategy.md -- drops it explicitly,
+   as its own visible step, before invoking App/Migrator.
+
+   $DatabaseName$ below is DbUp's substitution token (App/Migrator passes
+   it from <connectionString>'s own Database/Initial Catalog) -- if you're
+   running this file by hand instead of through App/Migrator, replace
+   $DatabaseName$ with your actual target database name first.
 
    This file intentionally covers everything that would normally come from
    CyberArk's own EVD CreateDB.sql script -- the Self-Hosted staging tables
@@ -36,28 +56,18 @@
    *** ORDERING NOTE (important if you ever run sections out of order) ***
    Tables below are created in dependency order (a table's foreign-key
    parents are always created first). The per-table DROP-then-CREATE guard
-   is safe here specifically because this file always starts by dropping
-   and recreating the whole database -- every table starts from nothing.
+   is safe here specifically because this file is only ever run against a
+   freshly-created, empty target database -- App/Migrator ensures the
+   database exists (create-if-missing) before this script runs, and never
+   drops it; a caller that wants a genuinely empty database (CI's disposable
+   BlueTrackTest) drops it explicitly beforehand, as its own visible step.
    If you ever run only part of this file against an already-populated
    database, dropping a parent table out of order will fail with a
    foreign-key error from whichever child table still references it; you'd
    need to drop child tables first, in the reverse of the order below.
    ============================================================================ */
 
-/* ============================================================================
-   0. DATABASE CREATION
-   ============================================================================ */
-IF DB_ID('BlueTrack') IS NOT NULL
-BEGIN
-    ALTER DATABASE BlueTrack SET SINGLE_USER WITH ROLLBACK IMMEDIATE;
-    DROP DATABASE BlueTrack;
-END
-GO
-
-CREATE DATABASE BlueTrack;
-GO
-
-USE BlueTrack;
+USE $DatabaseName$;
 GO
 
 

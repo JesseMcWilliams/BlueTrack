@@ -22,7 +22,7 @@
    'Administrators' value for the WindowsIntegrated provider.
    ============================================================================ */
 
-USE BlueTrack;
+USE $DatabaseName$;
 GO
 
 UPDATE igrm

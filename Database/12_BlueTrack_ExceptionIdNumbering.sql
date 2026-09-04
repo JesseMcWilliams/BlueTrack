@@ -28,7 +28,7 @@
    dropping it (see 06's dim_safe.ApplicationKey for the precedent).
    ============================================================================ */
 
-USE BlueTrack;
+USE $DatabaseName$;
 GO
 
 IF COL_LENGTH('web.app_config', 'ExceptionIdPattern') IS NULL

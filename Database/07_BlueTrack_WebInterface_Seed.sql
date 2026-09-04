@@ -20,7 +20,7 @@
    (IF NOT EXISTS) so this file can be re-run safely while iterating in Dev.
    ============================================================================ */
 
-USE BlueTrack;
+USE $DatabaseName$;
 GO
 
 

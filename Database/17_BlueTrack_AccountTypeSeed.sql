@@ -12,7 +12,7 @@
    Guarded -- safe to re-run.
    ============================================================================ */
 
-USE BlueTrack;
+USE $DatabaseName$;
 GO
 
 INSERT INTO dbo.dim_account_type (AccountTypeName)

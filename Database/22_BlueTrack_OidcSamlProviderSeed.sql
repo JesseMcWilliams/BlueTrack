@@ -19,7 +19,7 @@
    Guarded -- safe to re-run.
    ============================================================================ */
 
-USE BlueTrack;
+USE $DatabaseName$;
 GO
 
 IF NOT EXISTS (SELECT 1 FROM web.identity_provider_config WHERE ProviderType = 'OIDC')
