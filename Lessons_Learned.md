@@ -63,6 +63,16 @@ Writing `App/E2E/tests/account-progress-and-risk-exceptions.spec.js` (new Layer 
 
 **General lesson:** contract tests (`WebApplicationFactory` + `HttpClient`) verify what the *server* returns; they say nothing about whether the *client* code correctly handles that exact response shape, or correctly reacts to a same-component route transition. Both bugs were invisible to 164 passing xUnit tests and only surfaced once Playwright exercised the actual compiled Vue app in a real Chromium instance end to end. Reinforces the existing Design_Testing_Strategy.md rationale for keeping a real E2E layer rather than treating contract tests as sufficient coverage of "does the feature work."
 
+## 2026-09-04 — xUnit's default cross-class parallelism raced two contract test classes over the same synthetic account (fixed same day)
+
+While adding a new `AdminControllersFunctionalTests` test that locks and updates `TestAccount04`, an unrelated, pre-existing test (`AccountProgressEditingTests.Update_RiskAcceptedWithoutExceptionKey_ReturnsBadRequest`, which locks and updates `TestAccount03`) started intermittently failing with a `409 Conflict` instead of its expected `400 BadRequest`. Confirmed directly, not assumed: running that one test class alone (`--filter FullyQualifiedName~AccountProgressEditingTests`) passed reliably every time; running the full suite together failed intermittently.
+
+**Root cause:** every xUnit test class is its own collection by default, and xUnit runs different collections in parallel. This whole test project's Contract and Integration tests all hit one real, shared `BlueTrackTest` database — the same handful of synthetic accounts (`TestAccount01`-`04`), the same lock table, and singleton config rows (`web.app_config`) are mutated by many different test classes. `RiskExceptionsWorkflowTests` and `AccountProgressEditingTests` both exercise `TestAccount03` already; adding more concurrent load elsewhere was enough to expose a race that was already latent in the suite's design, not introduced by the new test.
+
+**Fixed:** added `App/Api.Tests/AssemblyInfo.cs` with `[assembly: CollectionBehavior(DisableTestParallelization = true)]`. Verified with three consecutive full-suite runs (206/206 passing each time) after the change, versus intermittent failures before it. The whole suite still runs in about 2 seconds serialized, so this costs nothing in practice.
+
+**General lesson:** a real-database integration/contract test suite that shares mutable fixtures (accounts, locks, singleton config rows) across test classes is not safe to run with xUnit's default parallelism, regardless of how careful any individual test is about its own cleanup — the collision happens *between* classes, not within one. If a test fails only when run as part of the full suite (not in isolation), suspect cross-class parallelism over shared state before assuming a logic bug in the failing test itself.
+
 ## Process notes
 
 - **Check the Decision Register first.** `Design Documents/Design_Decision_Register.md` is the index of every design decision made so far, resolved and open. Don't re-derive or re-litigate something it already answers.
