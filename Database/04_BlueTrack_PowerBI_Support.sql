@@ -4,7 +4,7 @@
    RUN THIS FILE FOURTH AND LAST, after 01_BlueTrack_CreateDatabase_Schema.sql,
    02_BlueTrack_ETL_LoadProcedures.sql, and
    03_BlueTrack_AccountReconciliation.sql.
-   Includes a USE BlueTrack; statement below, so you don't need to
+   Includes a USE $DatabaseName$; statement below, so you don't need to
    set the database context manually before running this.
 
    Power BI Support Objects + Full-Load Orchestration
@@ -32,7 +32,7 @@
    requirement (a recursive CTE + INSERT is not restricted to its own batch).
    ============================================================================ */
 
-USE BlueTrack;
+USE $DatabaseName$;
 GO
 
 /* ----------------------------------------------------------------------------

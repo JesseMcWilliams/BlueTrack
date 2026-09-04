@@ -23,7 +23,7 @@
    Guarded -- safe to re-run (only inserts rows for FieldNames not already present).
    ============================================================================ */
 
-USE BlueTrack;
+USE $DatabaseName$;
 GO
 
 INSERT INTO web.account_progress_field_metadata

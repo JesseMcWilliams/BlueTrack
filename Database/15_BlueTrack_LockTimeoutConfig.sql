@@ -13,7 +13,7 @@
    Default matches the design doc's own stated default (5 minutes).
    ============================================================================ */
 
-USE BlueTrack;
+USE $DatabaseName$;
 GO
 
 IF COL_LENGTH('web.app_config', 'LockTimeoutMinutes') IS NULL

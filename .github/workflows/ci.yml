@@ -1,0 +1,103 @@
+name: CI
+
+# Design_Testing_Strategy.md's own "What CI needs, mechanically" section,
+# run on the self-hosted runner registered on this dev host (D-58's
+# drop-and-recreate philosophy, restated there: BlueTrackTest is rebuilt
+# fresh every run, never reused).
+#
+# ASSUMPTION worth confirming: `runs-on` below targets the default label
+# set GitHub gives a self-hosted runner registered with no custom labels
+# (self-hosted, Windows, X64). If this runner was registered with a
+# different/additional label, update `runs-on` to match.
+#
+# CI gating (Design_Testing_Strategy.md's Open Questions #3) is NOT decided
+# yet -- this workflow runs on push/pull_request so results are visible,
+# but nothing here makes it a required check. That's a separate, explicit
+# branch-protection setting for whoever owns that decision.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  BLUETRACK_TEST_CONNECTION: "Server=WIN-K5POLANERI5.Company.com;Database=BlueTrackTest;Integrated Security=true;TrustServerCertificate=true"
+
+jobs:
+  test:
+    runs-on: [self-hosted, Windows, X64]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # D-58: BlueTrackTest is dropped and recreated as its own explicit,
+      # visible step -- App/Migrator itself never drops a database (see
+      # its own top-of-file comment), precisely so this destructive action
+      # stays something a human can read directly in this workflow file,
+      # not hidden inside a shared tool most callers must never have drop
+      # a database.
+      - name: Drop BlueTrackTest if it exists
+        shell: pwsh
+        run: |
+          sqlcmd -S "WIN-K5POLANERI5.Company.com" -C -Q "IF DB_ID('BlueTrackTest') IS NOT NULL BEGIN ALTER DATABASE BlueTrackTest SET SINGLE_USER WITH ROLLBACK IMMEDIATE; DROP DATABASE BlueTrackTest; END"
+
+      - name: Build App/Migrator
+        shell: pwsh
+        run: dotnet build App/Migrator --configuration Release
+
+      # Skips 09 (SQL Agent job scheduling) -- it does its own `USE msdb;`,
+      # always targets the real BlueTrack database/file paths by design,
+      # and doesn't belong in a disposable database build. See
+      # App/Migrator/Program.cs's own comment on skipScriptNames.
+      - name: Build BlueTrackTest schema (Database/, skipping 09)
+        shell: pwsh
+        run: >
+          dotnet run --project App/Migrator --configuration Release --no-build --
+          "${{ env.BLUETRACK_TEST_CONNECTION }}" "Database" "09_BlueTrack_ScheduleImportLoadJob.sql"
+
+      - name: Seed the DevFakeAuth test role/permission matrix (Database/Test/)
+        shell: pwsh
+        run: >
+          dotnet run --project App/Migrator --configuration Release --no-build --
+          "${{ env.BLUETRACK_TEST_CONNECTION }}" "Database/Test"
+
+      # Layers 1-3 (Design_Testing_Strategy.md): API unit, integration
+      # (real BlueTrackTest), and contract (WebApplicationFactory) tests,
+      # all in one xUnit project.
+      - name: Run App/Api.Tests (unit, integration, contract)
+        shell: pwsh
+        run: dotnet test App/Api.Tests --configuration Release --logger "console;verbosity=normal"
+
+      # Layer 1 (Web/Vitest): isolated component/store logic, no backend,
+      # independent of the database work above -- runs any time.
+      - name: Install Web dependencies
+        shell: pwsh
+        working-directory: App/Web
+        run: npm ci
+
+      - name: Run Vitest (App/Web)
+        shell: pwsh
+        working-directory: App/Web
+        run: npm run test
+
+      # Layer 4: Playwright drives a real browser against the built SPA +
+      # the real API (pointed at BlueTrackTest) -- App/E2E/playwright.config.js
+      # builds the SPA and starts the API itself via its webServer entries.
+      - name: Install E2E dependencies
+        shell: pwsh
+        working-directory: App/E2E
+        run: npm ci
+
+      - name: Install Playwright browsers
+        shell: pwsh
+        working-directory: App/E2E
+        run: npx playwright install --with-deps chromium
+
+      - name: Run Playwright E2E tests (App/E2E)
+        shell: pwsh
+        working-directory: App/E2E
+        env:
+          CI: "true"
+        run: npm test

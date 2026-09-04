@@ -32,7 +32,7 @@
    so a future fresh deployment starts out correct without needing this file.
    ============================================================================ */
 
-USE BlueTrack;
+USE $DatabaseName$;
 GO
 
 IF NOT EXISTS (SELECT 1 FROM dim_permission WHERE PermissionName = 'MoveAccountsFrom')

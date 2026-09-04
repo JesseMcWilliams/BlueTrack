@@ -2,7 +2,7 @@
    02_BlueTrack_ETL_LoadProcedures.sql
 
    RUN THIS FILE SECOND, after 01_BlueTrack_CreateDatabase_Schema.sql.
-   Includes a USE BlueTrack; statement below, so you don't need to
+   Includes a USE $DatabaseName$; statement below, so you don't need to
    set the database context manually before running this.
 
    Staging -> Dimension/Fact Load Procedures
@@ -46,7 +46,7 @@
    merge these statements together.
    ============================================================================ */
 
-USE BlueTrack;
+USE $DatabaseName$;
 GO
 
 /* ----------------------------------------------------------------------------

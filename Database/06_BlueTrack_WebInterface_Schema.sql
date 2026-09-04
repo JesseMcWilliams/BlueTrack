@@ -49,7 +49,7 @@
    re-run destructively against a live environment once applied there.
    ============================================================================ */
 
-USE BlueTrack;
+USE $DatabaseName$;
 GO
 
 

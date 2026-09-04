@@ -3,7 +3,7 @@
 
    RUN THIS FILE THIRD, after 01_BlueTrack_CreateDatabase_Schema.sql
    and 02_BlueTrack_ETL_LoadProcedures.sql.
-   Includes a USE BlueTrack; statement below, so you don't need to
+   Includes a USE $DatabaseName$; statement below, so you don't need to
    set the database context manually before running this.
 
    Cross-Source Account Reconciliation -- Load Procedure & Reporting Views
@@ -41,7 +41,7 @@
    statement in their batch -- each is followed by GO below.
    ============================================================================ */
 
-USE BlueTrack;
+USE $DatabaseName$;
 GO
 
 /* ============================================================================

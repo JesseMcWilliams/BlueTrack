@@ -26,7 +26,7 @@
    assumption of exactly one.
    ============================================================================ */
 
-USE BlueTrack;
+USE $DatabaseName$;
 GO
 
 CREATE OR ALTER VIEW web.vw_account_application_exception AS

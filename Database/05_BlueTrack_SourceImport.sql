@@ -12,7 +12,7 @@
    tables in the first place?" -- files 02-04 all assume staging is already
    populated; this file is what populates it.
 
-   Includes a USE BlueTrack; statement below, so you don't need to
+   Includes a USE $DatabaseName$; statement below, so you don't need to
    set the database context manually before running this.
 
    Contents:
@@ -79,7 +79,7 @@
    imports in the same run.
    ============================================================================ */
 
-USE BlueTrack;
+USE $DatabaseName$;
 GO
 
 CREATE OR ALTER PROCEDURE usp_Import_PC_Platforms (@FilePath NVARCHAR(500))

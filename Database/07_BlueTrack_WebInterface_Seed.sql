@@ -9,18 +9,22 @@
    role bundling every confirmed permission (D-61), and a mapping from a
    real AD admin group to that role.
 
-   BEFORE RUNNING: replace @AdminGroupName in step 4 below with the actual
-   AD group that should grant Admin access. A placeholder is deliberately
-   left there rather than a guessed-at real group name -- step 4 skips
-   itself (with a PRINT message) if the placeholder hasn't been replaced,
-   rather than mapping a fake group.
+   Step 4's default admin group is BUILTIN\Administrators (SID
+   S-1-5-32-544, a fixed well-known SID -- confirmed by direct lookup on
+   2026-09-04, not assumed), chosen explicitly as a bootstrap default
+   rather than a guessed-at real AD group, since every domain-joined
+   Windows Server already has local admins in that group and it needs no
+   AD group to actually exist first. Change this to a real AD group any
+   time after install via the Group/Role Mapping admin screen (or by
+   editing web.identity_group_role_map directly) -- it's a normal runtime
+   setting, not something baked in permanently by this seed script.
 
    Per D-58, this is a hand-written numbered script that only adds data --
    it never drops or alters existing schema. Each step below is guarded
    (IF NOT EXISTS) so this file can be re-run safely while iterating in Dev.
    ============================================================================ */
 
-USE BlueTrack;
+USE $DatabaseName$;
 GO
 
 
@@ -71,20 +75,23 @@ GO
 
 
 /* ============================================================================
-   4. Map a real AD admin group to the bootstrap Admin role, scoped to the
-      WindowsIntegrated provider (D-03, D-04, D-05, D-13, D-14).
+   4. Map the bootstrap admin group to the bootstrap Admin role, scoped to
+      the WindowsIntegrated provider (D-03, D-04, D-05, D-13, D-14).
 
-      REPLACE THE PLACEHOLDER BELOW before this step will do anything.
+      Defaults to BUILTIN\Administrators (S-1-5-32-544) -- see this file's
+      header comment. GroupIdentifierExtractor.GetGroupIdentifiers reads
+      SIDs straight off the Windows access token for WindowsIntegrated, so
+      IdentityGroupName here must be the SID, not the display name
+      "BUILTIN\Administrators" (that string never appears on the token).
+      Change @AdminGroupName below to a real AD group's SID whenever you're
+      ready to move off the bootstrap default -- or just add/change the
+      mapping later via the admin UI instead of re-running this file.
    ============================================================================ */
-DECLARE @AdminGroupName NVARCHAR(300) = 'REPLACE_WITH_YOUR_ADMIN_AD_GROUP';
+DECLARE @AdminGroupName NVARCHAR(300) = 'S-1-5-32-544';
 DECLARE @WinIntProviderKey INT = (SELECT ProviderKey FROM web.identity_provider_config WHERE ProviderType = 'WindowsIntegrated');
 DECLARE @AdminRoleKeyForMapping INT = (SELECT AppRoleKey FROM web.app_role WHERE RoleName = 'Admin');
 
-IF @AdminGroupName = 'REPLACE_WITH_YOUR_ADMIN_AD_GROUP'
-BEGIN
-    PRINT 'Skipped identity_group_role_map: replace @AdminGroupName in 07_BlueTrack_WebInterface_Seed.sql with your real AD admin group, then re-run this file.';
-END
-ELSE IF NOT EXISTS (
+IF NOT EXISTS (
     SELECT 1 FROM web.identity_group_role_map
     WHERE ProviderKey = @WinIntProviderKey AND IdentityGroupName = @AdminGroupName AND AppRoleKey = @AdminRoleKeyForMapping
 )
