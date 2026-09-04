@@ -4,19 +4,37 @@ using BlueTrack.Api.Models;
 namespace BlueTrack.Api.Data;
 
 /// <summary>
-/// Backs the Account Progress list/grid page. Only basic single-value
-/// filtering is implemented here -- D-42's "multiple simultaneous layers of
-/// sort and filter" requirement needs a proper dynamic query builder
-/// (or an OData-style endpoint), which is a follow-up build task, not part
-/// of this scaffold.
+/// Backs the Account Progress list/grid page, including D-42's "multiple
+/// simultaneous layers of sort and filter" (stacked filters plus
+/// multi-column sort, applied together). Sort columns are validated
+/// against a fixed whitelist (SortableColumns) rather than interpolating
+/// the requested field name directly -- the field names themselves come
+/// from the frontend's query string, so this is the SQL-injection guard,
+/// not just a defensive nicety.
 /// </summary>
 public sealed class AccountProgressRepository(IDbConnectionFactory connectionFactory)
 {
-    public async Task<IReadOnlyList<AccountProgressSummary>> GetSummaryListAsync(string? stageName = null)
+    private static readonly IReadOnlyDictionary<string, string> SortableColumns = new Dictionary<string, string>
+    {
+        ["accountName"] = "fa.AccountName",
+        ["stageName"] = "stg.StageOrder",
+        ["statusName"] = "sts.StatusName",
+        ["riskLevelName"] = "rl.RiskOrder",
+        ["ownerName"] = "fap.OwnerName",
+        ["targetRemediationDate"] = "fap.TargetRemediationDate",
+        ["actualCompletionDate"] = "fap.ActualCompletionDate"
+    };
+
+    public async Task<IReadOnlyList<AccountProgressSummary>> GetSummaryListAsync(
+        string? stageName = null,
+        string? statusName = null,
+        string? riskLevelName = null,
+        string? ownerContains = null,
+        IReadOnlyList<(string Field, bool Descending)>? sortBy = null)
     {
         using var connection = connectionFactory.Create();
 
-        const string sql = """
+        var sql = $"""
             SELECT
                 fa.AccountKey,
                 fa.AccountName,
@@ -33,11 +51,35 @@ public sealed class AccountProgressRepository(IDbConnectionFactory connectionFac
             LEFT JOIN dbo.dim_risk_level rl         ON rl.RiskLevelKey = fap.RiskLevelKey
             WHERE fa.IsDeleted = 0
               AND (@StageName IS NULL OR stg.StageName = @StageName)
-            ORDER BY fa.AccountName
+              AND (@StatusName IS NULL OR sts.StatusName = @StatusName)
+              AND (@RiskLevelName IS NULL OR rl.RiskLevelName = @RiskLevelName)
+              AND (@OwnerContains IS NULL OR fap.OwnerName LIKE '%' + @OwnerContains + '%')
+            ORDER BY {BuildOrderByClause(sortBy)}
             """;
 
-        var rows = await connection.QueryAsync<AccountProgressSummary>(sql, new { StageName = stageName });
+        var rows = await connection.QueryAsync<AccountProgressSummary>(sql, new
+        {
+            StageName = stageName,
+            StatusName = statusName,
+            RiskLevelName = riskLevelName,
+            OwnerContains = ownerContains
+        });
         return rows.AsList();
+    }
+
+    private static string BuildOrderByClause(IReadOnlyList<(string Field, bool Descending)>? sortBy)
+    {
+        if (sortBy is not { Count: > 0 })
+        {
+            return "fa.AccountName ASC";
+        }
+
+        var clauses = sortBy
+            .Where(s => SortableColumns.ContainsKey(s.Field))
+            .Select(s => $"{SortableColumns[s.Field]} {(s.Descending ? "DESC" : "ASC")}")
+            .ToList();
+
+        return clauses.Count > 0 ? string.Join(", ", clauses) : "fa.AccountName ASC";
     }
 
     public async Task<AccountProgressDetail?> GetDetailAsync(long accountKey)

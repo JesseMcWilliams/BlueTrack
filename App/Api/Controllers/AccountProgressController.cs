@@ -19,11 +19,39 @@ public sealed class AccountProgressController(
     CurrentUserResolver currentUserResolver,
     AuditLogger auditLogger) : ControllerBase
 {
+    /// <summary>
+    /// D-42: multiple simultaneous filters (stage/status/riskLevel/owner)
+    /// plus multi-column sort, e.g. sort=stageName:asc,ownerName:desc.
+    /// </summary>
     [HttpGet]
-    public async Task<IActionResult> GetList([FromQuery] string? stage = null)
+    public async Task<IActionResult> GetList(
+        [FromQuery] string? stage = null,
+        [FromQuery] string? status = null,
+        [FromQuery] string? riskLevel = null,
+        [FromQuery] string? owner = null,
+        [FromQuery] string? sort = null)
     {
-        var results = await repository.GetSummaryListAsync(stage);
+        var sortBy = ParseSort(sort);
+        var results = await repository.GetSummaryListAsync(stage, status, riskLevel, owner, sortBy);
         return Ok(results);
+    }
+
+    private static IReadOnlyList<(string Field, bool Descending)> ParseSort(string? sort)
+    {
+        if (string.IsNullOrWhiteSpace(sort))
+        {
+            return [];
+        }
+
+        return sort.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(part =>
+            {
+                var pieces = part.Split(':', 2);
+                var field = pieces[0];
+                var descending = pieces.Length > 1 && pieces[1].Equals("desc", StringComparison.OrdinalIgnoreCase);
+                return (Field: field, Descending: descending);
+            })
+            .ToList();
     }
 
     /// <summary>
