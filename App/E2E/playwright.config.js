@@ -20,6 +20,15 @@ const apiConnectionString =
 export default defineConfig({
   testDir: './tests',
   fullyParallel: true,
+  // Capped rather than left at Playwright's CPU-count default (6+ on this
+  // box): confirmed directly that once the suite grew to 25 tests, the
+  // default worker count made the API/SQL Server on this single shared
+  // dev host (also this project's self-hosted CI runner -- D-88) collapse
+  // under concurrent load, timing out even the trivial dev sign-in call
+  // for most of the suite. 2 workers ran the full suite cleanly and
+  // repeatably; a higher CPU-count default is fine for a suite this size
+  // but not on this shared box.
+  workers: 2,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   reporter: 'list',
