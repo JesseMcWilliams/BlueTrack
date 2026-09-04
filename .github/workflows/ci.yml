@@ -39,12 +39,12 @@ jobs:
       # not hidden inside a shared tool most callers must never have drop
       # a database.
       - name: Drop BlueTrackTest if it exists
-        shell: pwsh
+        shell: powershell
         run: |
           sqlcmd -S "WIN-K5POLANERI5.Company.com" -C -Q "IF DB_ID('BlueTrackTest') IS NOT NULL BEGIN ALTER DATABASE BlueTrackTest SET SINGLE_USER WITH ROLLBACK IMMEDIATE; DROP DATABASE BlueTrackTest; END"
 
       - name: Build App/Migrator
-        shell: pwsh
+        shell: powershell
         run: dotnet build App/Migrator --configuration Release
 
       # Skips 09 (SQL Agent job scheduling) -- it does its own `USE msdb;`,
@@ -52,13 +52,13 @@ jobs:
       # and doesn't belong in a disposable database build. See
       # App/Migrator/Program.cs's own comment on skipScriptNames.
       - name: Build BlueTrackTest schema (Database/, skipping 09)
-        shell: pwsh
+        shell: powershell
         run: >
           dotnet run --project App/Migrator --configuration Release --no-build --
           "${{ env.BLUETRACK_TEST_CONNECTION }}" "Database" "09_BlueTrack_ScheduleImportLoadJob.sql"
 
       - name: Seed the DevFakeAuth test role/permission matrix (Database/Test/)
-        shell: pwsh
+        shell: powershell
         run: >
           dotnet run --project App/Migrator --configuration Release --no-build --
           "${{ env.BLUETRACK_TEST_CONNECTION }}" "Database/Test"
@@ -67,18 +67,18 @@ jobs:
       # (real BlueTrackTest), and contract (WebApplicationFactory) tests,
       # all in one xUnit project.
       - name: Run App/Api.Tests (unit, integration, contract)
-        shell: pwsh
+        shell: powershell
         run: dotnet test App/Api.Tests --configuration Release --logger "console;verbosity=normal"
 
       # Layer 1 (Web/Vitest): isolated component/store logic, no backend,
       # independent of the database work above -- runs any time.
       - name: Install Web dependencies
-        shell: pwsh
+        shell: powershell
         working-directory: App/Web
         run: npm ci
 
       - name: Run Vitest (App/Web)
-        shell: pwsh
+        shell: powershell
         working-directory: App/Web
         run: npm run test
 
@@ -86,17 +86,17 @@ jobs:
       # the real API (pointed at BlueTrackTest) -- App/E2E/playwright.config.js
       # builds the SPA and starts the API itself via its webServer entries.
       - name: Install E2E dependencies
-        shell: pwsh
+        shell: powershell
         working-directory: App/E2E
         run: npm ci
 
       - name: Install Playwright browsers
-        shell: pwsh
+        shell: powershell
         working-directory: App/E2E
         run: npx playwright install --with-deps chromium
 
       - name: Run Playwright E2E tests (App/E2E)
-        shell: pwsh
+        shell: powershell
         working-directory: App/E2E
         env:
           CI: "true"
