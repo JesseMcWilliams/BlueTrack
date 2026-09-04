@@ -32,7 +32,7 @@ Windows DPAPI is structurally different. It isn't a vault with named objects at 
 - **A batch update**: when an application-scoped exception is created (or revoked/extended), actually update `ExceptionKey` on every `fact_account_progress` row for accounts under that application's Safes. Keeps `ExceptionKey` as the single source of truth, but needs a defined trigger point (on create only? also on Safe reassignment into/out of the application afterward? a periodic reconciliation job?) and doesn't self-heal if a Safe's `ApplicationKey` changes later without someone re-running it.
 - Something else.
 
-**Answer:**
+**Answer: A live view (2026-09-04).** Done — `web.vw_account_application_exception`, exposed via `GET /api/account-progress/{accountKey}/application-exceptions`, shown read-only on the Account Progress edit form. See D-81. Verified both self-healing cases directly: revoking the exception and reassigning the covering Safe to a different Application both removed the coverage immediately.
 
 ---
 

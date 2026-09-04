@@ -61,6 +61,19 @@ public sealed class AccountProgressController(
         return detail is null ? NotFound() : Ok(detail);
     }
 
+    /// <summary>
+    /// D-81: Active application-scoped exceptions covering this account
+    /// (computed live) -- separate from ExceptionKey on the detail above,
+    /// which only ever holds the account-scoped pointer (D-77). A account
+    /// can be covered by both, neither, or an application one with no
+    /// account-scoped one at all.
+    /// </summary>
+    [HttpGet("{accountKey:long}/application-exceptions")]
+    public async Task<IActionResult> GetApplicationScopedExceptions(long accountKey)
+    {
+        return Ok(await repository.GetApplicationScopedExceptionsAsync(accountKey));
+    }
+
     [HttpGet("{accountKey:long}/lock")]
     public async Task<IActionResult> GetLockStatus(long accountKey)
     {

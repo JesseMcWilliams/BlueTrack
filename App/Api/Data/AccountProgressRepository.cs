@@ -148,4 +148,17 @@ public sealed class AccountProgressRepository(IDbConnectionFactory connectionFac
         return await connection.QuerySingleOrDefaultAsync<int?>(
             "SELECT StageOrder FROM dbo.dim_blueprint_stage WHERE StageKey = @StageKey", new { StageKey = stageKey });
     }
+
+    /// <summary>D-81: Active application-scoped exceptions covering this account, computed live (web.vw_account_application_exception).</summary>
+    public async Task<IReadOnlyList<ApplicationScopedException>> GetApplicationScopedExceptionsAsync(long accountKey)
+    {
+        using var connection = connectionFactory.Create();
+        const string sql = """
+            SELECT ExceptionID, ApplicationKey, ApplicationName, ReviewDate
+            FROM web.vw_account_application_exception
+            WHERE AccountKey = @AccountKey
+            """;
+        var rows = await connection.QueryAsync<ApplicationScopedException>(sql, new { AccountKey = accountKey });
+        return rows.AsList();
+    }
 }

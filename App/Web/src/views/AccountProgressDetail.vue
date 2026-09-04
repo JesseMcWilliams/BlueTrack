@@ -35,6 +35,13 @@ const reason = ref('')
 const lockStatus = ref(null) // null = unlocked; otherwise { lockedByUserKey, lockedByName, lockedAt, ... }
 const lockedByMe = ref(false)
 
+// D-81: Active application-scoped exceptions covering this account,
+// computed live -- independent of detail.exceptionKey, which only ever
+// holds the account-scoped pointer (D-77). Informational only here; not
+// editable, since there's nothing account-scoped editing can do about an
+// application-scoped exception.
+const applicationExceptions = ref([])
+
 const loading = ref(true)
 const error = ref(null)
 const saveError = ref(null)
@@ -114,11 +121,12 @@ async function load() {
   loading.value = true
   error.value = null
   try {
-    const [metaResponse, refResponse, detailResponse, lockResponse] = await Promise.all([
+    const [metaResponse, refResponse, detailResponse, lockResponse, appExceptionsResponse] = await Promise.all([
       fetch('/api/account-progress/field-metadata'),
       fetch('/api/account-progress/reference-data'),
       fetch(`/api/account-progress/${props.accountKey}`),
-      fetch(`/api/account-progress/${props.accountKey}/lock`)
+      fetch(`/api/account-progress/${props.accountKey}/lock`),
+      fetch(`/api/account-progress/${props.accountKey}/application-exceptions`)
     ])
     if (!metaResponse.ok) throw new Error(`Field metadata request failed: ${metaResponse.status}`)
     if (!refResponse.ok) throw new Error(`Reference data request failed: ${refResponse.status}`)
@@ -128,6 +136,7 @@ async function load() {
     referenceData.value = await refResponse.json()
     detail.value = await detailResponse.json()
     lockStatus.value = lockResponse.ok ? await lockResponse.json() : null
+    applicationExceptions.value = appExceptionsResponse.ok ? await appExceptionsResponse.json() : []
 
     resetFormFromDetail()
 
@@ -268,6 +277,11 @@ onUnmounted(releaseLock)
     <p v-else-if="error">{{ error }}</p>
 
     <template v-else>
+      <div v-if="applicationExceptions.length > 0">
+        <p v-for="ex in applicationExceptions" :key="ex.exceptionID">
+          Covered by application-scoped exception <strong>{{ ex.exceptionID }}</strong> ({{ ex.applicationName }}), reviewed by {{ ex.reviewDate }}.
+        </p>
+      </div>
       <p v-if="lockStatus && !lockedByMe">
         Currently being edited by {{ lockStatus.lockedByName }} since {{ lockStatus.lockedAt }}.
         <button v-if="rights.hasPermission('EditAccountProgress')" @click="forceRelease">Force Release Lock</button>
