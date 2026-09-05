@@ -136,6 +136,11 @@ const routes = [
         path: 'configuration',
         name: 'admin-configuration',
         component: () => import('../views/admin/GlobalApplicationConfiguration.vue')
+      },
+      {
+        path: 'deployment',
+        name: 'admin-deployment',
+        component: () => import('../views/admin/DeploymentInfo.vue')
       }
     ]
   },

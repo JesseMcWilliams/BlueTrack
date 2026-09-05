@@ -10,7 +10,7 @@ import { signInAs } from './auth.js'
 // permission-specific message, unlike RiskExceptionEdit's create form).
 
 test.describe('Admin Hub navigation is gated per permission', () => {
-  test('Admin sees all 8 admin sections', async ({ page }) => {
+  test('Admin sees all 9 admin sections', async ({ page }) => {
     await signInAs(page, 'TestUser.Admin')
     await page.goto('/admin')
 
@@ -23,6 +23,7 @@ test.describe('Admin Hub navigation is gated per permission', () => {
     await expect(nav.getByRole('link', { name: 'Field Metadata Management' })).toBeVisible()
     await expect(nav.getByRole('link', { name: 'Audit Log Viewer' })).toBeVisible()
     await expect(nav.getByRole('link', { name: 'Global Application Configuration' })).toBeVisible()
+    await expect(nav.getByRole('link', { name: 'Deployment' })).toBeVisible()
   })
 
   test('Viewer sees only Audit Log Viewer, the one admin permission Viewer holds', async ({ page }) => {
@@ -283,6 +284,32 @@ test.describe('Audit Log Viewer admin page', () => {
     // requires the TestUser.<Role> shape to sign in, not a seeded mapping.
     await signInAs(page, 'TestUser.DoesNotExist')
     await page.goto('/admin/audit-log')
+
+    await expect(page.getByText(/Request failed: 403/)).toBeVisible()
+  })
+})
+
+test.describe('Deployment admin page', () => {
+  test('Admin can load environment info, health checks, and backup status', async ({ page }) => {
+    await signInAs(page, 'TestUser.Admin')
+    await page.goto('/admin/deployment')
+
+    await expect(page.getByText('Loading...')).toHaveCount(0)
+    await expect(page.getByRole('heading', { name: 'Environment' })).toBeVisible()
+    await expect(page.getByText('Environment name')).toBeVisible()
+    await expect(page.getByText('Version')).toBeVisible()
+
+    await expect(page.getByRole('heading', { name: 'Health Checks' })).toBeVisible()
+    await expect(page.getByRole('cell', { name: 'SQL Server', exact: true })).toBeVisible()
+    await expect(page.getByRole('cell', { name: 'Secrets Store', exact: true })).toBeVisible()
+    await expect(page.getByRole('cell', { name: 'Identity Providers', exact: true })).toBeVisible()
+
+    await expect(page.getByRole('heading', { name: 'SQL Server Backup Status' })).toBeVisible()
+  })
+
+  test('A user without ViewDeploymentInfo is denied with a plain error', async ({ page }) => {
+    await signInAs(page, 'TestUser.Viewer')
+    await page.goto('/admin/deployment')
 
     await expect(page.getByText(/Request failed: 403/)).toBeVisible()
   })

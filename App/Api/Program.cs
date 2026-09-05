@@ -42,6 +42,7 @@ builder.Services.AddScoped<AuditRepository>();
 builder.Services.AddScoped<ReferenceDataRepository>();
 builder.Services.AddScoped<AccountProgressLockRepository>();
 builder.Services.AddScoped<UserPreferenceRepository>();
+builder.Services.AddScoped<DeploymentRepository>();
 
 // D-13/D-82: cached rights per identity, backed by
 // Microsoft.Extensions.Caching.SqlServer (web.distributed_cache) -- see
@@ -113,6 +114,15 @@ builder.Services.Configure<Microsoft.AspNetCore.Authentication.AuthenticationOpt
 });
 
 builder.Services.AddScoped<Saml2ConfigurationFactory>();
+
+// D-96 Part 3.2: real, custom IHealthCheck implementations (this app's own
+// checks, not third-party health-check packages) -- consumed via
+// HealthCheckService directly from DeploymentController, not an anonymous
+// /health route (see that controller's own comment on why).
+builder.Services.AddHealthChecks()
+    .AddCheck<BlueTrack.Api.HealthChecks.SqlServerHealthCheck>("SQL Server")
+    .AddCheck<BlueTrack.Api.HealthChecks.SecretsStoreHealthCheck>("Secrets Store")
+    .AddCheck<BlueTrack.Api.HealthChecks.IdentityProvidersHealthCheck>("Identity Providers");
 
 // One authorization policy per permission (D-05/D-61) -- see
 // AuthorizationExtensions for how [Authorize(Policy = Permissions.X)] maps
