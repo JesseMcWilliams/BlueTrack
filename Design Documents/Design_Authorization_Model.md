@@ -21,7 +21,7 @@ Revised to a permission-based model: rather than a fixed role hierarchy with ass
 | Field | Type | Purpose |
 |---|---|---|
 | PermissionKey | int, PK | Surrogate key |
-| PermissionName | text, unique | e.g. `ViewDashboard`, `EditAccountProgress`, `ApproveExceptions`, `ManageIdentityProviders`, `ManageGroupRoleMapping`, `CuratePlatformMapping`, `ConfirmReconciliation`, `ReloadRights`, `ManageRolesAndPermissions`, `CurateApplicationMapping`, `ManageSecretsStore`, `ManageFieldMetadata`, `ViewAuditLog`, `ManageApplicationConfiguration` — **updated 2026-08-27 (D-61)** to cover every admin page in the finalized page inventory (`Design_Application_Structure.md`); the last six were missing on review |
+| PermissionName | text, unique | e.g. `ViewDashboard`, `EditAccountProgress`, `ApproveExceptions`, `ManageIdentityProviders`, `ManageGroupRoleMapping`, `CuratePlatformMapping`, `ConfirmReconciliation`, `ReloadRights`, `ManageRolesAndPermissions`, `CurateApplicationMapping`, `ManageSecretsStore`, `ManageFieldMetadata`, `ViewAuditLog`, `ManageApplicationConfiguration`, `ViewDeploymentInfo` — **updated 2026-08-27 (D-61)** to cover every admin page in the finalized page inventory (`Design_Application_Structure.md`); the last six were missing on review. **`ViewDeploymentInfo` added 2026-09-05 (documentation audit) for D-98**, which had updated the actual database/seed scripts but never made it back into this catalog listing. |
 | Description | text | What this permission actually allows, for the admin screen |
 
 ### app_role
@@ -60,7 +60,7 @@ A user can belong to more than one mapped group, and therefore hold more than on
 | Analyst | ViewDashboard, EditAccountProgress |
 | Approver | ViewDashboard, EditAccountProgress, ConfirmReconciliation, ApproveExceptions |
 | Auditor | ViewAuditLog |
-| Admin | ViewDashboard, EditAccountProgress, ConfirmReconciliation, ApproveExceptions, ManageIdentityProviders, ManageGroupRoleMapping, CuratePlatformMapping, ManageRolesAndPermissions, CurateApplicationMapping, ManageSecretsStore, ManageFieldMetadata, ViewAuditLog, ManageApplicationConfiguration, ReloadRights |
+| Admin | ViewDashboard, EditAccountProgress, ConfirmReconciliation, ApproveExceptions, ManageIdentityProviders, ManageGroupRoleMapping, CuratePlatformMapping, ManageRolesAndPermissions, CurateApplicationMapping, ManageSecretsStore, ManageFieldMetadata, ViewAuditLog, ManageApplicationConfiguration, ReloadRights, ViewDeploymentInfo |
 
 Because permissions are bundled per role rather than inherited through a hierarchy, `ApproveExceptions` could just as easily be granted through a narrower, purpose-built role (e.g., an "Exception Approver" role with only that one permission) instead of folding it into a broader Approver role — exactly the flexibility the Risk Exception Tracking design calls for. These four non-Admin roles are still only a starting point for an admin's own group mappings, not a claim that every real deployment needs exactly this shape — narrower or additional roles can be added any time via the Roles & Permissions admin screen.
 
@@ -103,4 +103,4 @@ Permission-based authorization is fully built: `GroupIdentifierExtractor` → `A
 
 ## Open Questions
 
-None remaining as of 2026-08-27 — both prior open questions (live vs. cached Reload Rights; self-service scope) were resolved this session as D-13 and D-14 above.
+None remaining as of 2026-08-27 — both prior open questions (live vs. cached Reload Rights; self-service scope) were resolved this session as D-13 and D-14 above. Still true as of the 2026-09-05 permission-catalog refresh (`ViewDeploymentInfo` added above) — a documentation correction, not a new open question.
