@@ -52,16 +52,19 @@ A user can belong to more than one mapped group, and therefore hold more than on
 
 ## Example Permission Bundles
 
-Illustrative starting point, not a fixed requirement — confirm against how your team actually wants to divide responsibility before these are built as the literal default rows.
+**Resolved 2026-09-04 (D-94): confirmed as literal default rows, not just illustrative.** The user confirmed directly — seed Viewer/Analyst/Approver as real default roles (`24_BlueTrack_DefaultRoleSeed.sql`), plus a new **Auditor** role scoped to `ViewAuditLog` only, deliberately kept separate from Viewer/Analyst/Approver (none of which include `ViewAuditLog`) so a person can be given audit-log visibility without also getting dashboard/account-progress read access. `Admin` is unchanged (the existing bootstrap role, `07_BlueTrack_WebInterface_Seed.sql`) and remains the only other role with `ViewAuditLog` by default.
 
-| Example Role | Permissions Included |
+| Role | Permissions Included |
 |---|---|
 | Viewer | ViewDashboard |
 | Analyst | ViewDashboard, EditAccountProgress |
 | Approver | ViewDashboard, EditAccountProgress, ConfirmReconciliation, ApproveExceptions |
-| Admin | ViewDashboard, EditAccountProgress, ConfirmReconciliation, ApproveExceptions, ManageIdentityProviders, ManageGroupRoleMapping, CuratePlatformMapping, ManageRolesAndPermissions, CurateApplicationMapping, ManageSecretsStore, ManageFieldMetadata, ViewAuditLog, ManageApplicationConfiguration |
+| Auditor | ViewAuditLog |
+| Admin | ViewDashboard, EditAccountProgress, ConfirmReconciliation, ApproveExceptions, ManageIdentityProviders, ManageGroupRoleMapping, CuratePlatformMapping, ManageRolesAndPermissions, CurateApplicationMapping, ManageSecretsStore, ManageFieldMetadata, ViewAuditLog, ManageApplicationConfiguration, ReloadRights |
 
-Because permissions are bundled per role rather than inherited through a hierarchy, `ApproveExceptions` could just as easily be granted through a narrower, purpose-built role (e.g., an "Exception Approver" role with only that one permission) instead of folding it into a broader Approver role — exactly the flexibility the Risk Exception Tracking design calls for.
+Because permissions are bundled per role rather than inherited through a hierarchy, `ApproveExceptions` could just as easily be granted through a narrower, purpose-built role (e.g., an "Exception Approver" role with only that one permission) instead of folding it into a broader Approver role — exactly the flexibility the Risk Exception Tracking design calls for. These four non-Admin roles are still only a starting point for an admin's own group mappings, not a claim that every real deployment needs exactly this shape — narrower or additional roles can be added any time via the Roles & Permissions admin screen.
+
+Note: `Database/Test/01_BlueTrack_Test_DevFakeAuthMatrixSeed.sql` seeds its own same-named `Viewer`/`Analyst`/`Approver` test fixtures for BlueTrackTest, with slightly different bundles (each includes `ViewAuditLog`, to exercise that permission boundary in tests) — that was always a separate, test-only judgment call, not a preview of this real seed. `24_BlueTrack_DefaultRoleSeed.sql`'s guard (skip if the role name already exists) means it left BlueTrackTest's existing test fixtures untouched and only added the new `Auditor` role there.
 
 ## Reload Rights
 

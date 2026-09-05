@@ -7,6 +7,7 @@
 import { ref, onMounted } from 'vue'
 
 const mappings = ref([])
+const roles = ref([])
 const error = ref(null)
 const loading = ref(true)
 
@@ -20,9 +21,17 @@ const newRoleName = ref('')
 async function load() {
   loading.value = true
   try {
-    const response = await fetch('/api/admin/group-role-mappings')
-    if (!response.ok) throw new Error(`Request failed: ${response.status}`)
-    mappings.value = await response.json()
+    const [mappingsResponse, rolesResponse] = await Promise.all([
+      fetch('/api/admin/group-role-mappings'),
+      fetch('/api/admin/group-role-mappings/roles')
+    ])
+    if (!mappingsResponse.ok) throw new Error(`Request failed: ${mappingsResponse.status}`)
+    if (!rolesResponse.ok) throw new Error(`Roles request failed: ${rolesResponse.status}`)
+    mappings.value = await mappingsResponse.json()
+    roles.value = await rolesResponse.json()
+    if (!newRoleName.value && roles.value.length > 0) {
+      newRoleName.value = roles.value[0].roleName
+    }
   } catch (err) {
     error.value = err.message
   } finally {
@@ -97,7 +106,15 @@ async function remove(mapping) {
       <h3>Add Mapping</h3>
       <form @submit.prevent="createMapping">
         <p><label>Group Name (e.g. BUILTIN\Administrators or DOMAIN\GroupName): <input v-model="newGroupName" required /></label></p>
-        <p><label>Role Name: <input v-model="newRoleName" required /></label></p>
+        <p>
+          <label>
+            Role:
+            <select v-model="newRoleName" required>
+              <option value="" disabled>Select a role</option>
+              <option v-for="role in roles" :key="role.appRoleKey" :value="role.roleName">{{ role.roleName }}</option>
+            </select>
+          </label>
+        </p>
         <button type="submit">Add</button>
       </form>
 
