@@ -40,6 +40,7 @@ public class AdminControllersPermissionTests : IClassFixture<BlueTrackWebApplica
             new object[] { "/api/admin/permissions" },
             new object[] { "/api/admin/roles" },
             new object[] { "/api/admin/group-role-mappings" },
+            new object[] { "/api/admin/group-role-mappings/roles" },
             new object[] { "/api/admin/identity-providers" },
             new object[] { "/api/admin/secrets-store" },
             new object[] { "/api/admin/deployment" },

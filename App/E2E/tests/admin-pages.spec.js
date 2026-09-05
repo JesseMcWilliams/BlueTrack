@@ -59,6 +59,39 @@ test.describe('Identity Providers admin page', () => {
     await page.locator('tbody tr', { hasText: updatedName }).getByRole('button', { name: 'Delete' }).click()
     await expect(page.locator('tbody tr', { hasText: updatedName })).toHaveCount(0)
   })
+
+  // D-95: OIDC/SAML's ConfigurationValues moved from a raw JSON textarea to
+  // structured per-type fields -- this confirms the round trip actually
+  // works end to end (save structured fields -> reload -> re-open edit ->
+  // the same values come back populated into the same structured fields),
+  // not just that the form still submits.
+  test('OIDC structured config fields round-trip through save and reload', async ({ page }) => {
+    await signInAs(page, 'TestUser.Admin')
+    await page.goto('/admin/identity-providers')
+    const displayName = `E2E OIDC Provider ${Date.now()}`
+
+    await page.getByRole('button', { name: '+ New Provider' }).click()
+    await page.getByLabel('Display Name:').fill(displayName)
+    await page.getByLabel('Authority:').fill('https://login.example.com/tenant123/v2.0')
+    await page.getByLabel('Client ID:').fill('e2e-client-id')
+    await page.getByLabel('Groups Claim Type:').fill('e2e-groups-claim')
+    await page.locator('form button[type="submit"]').click()
+
+    const row = page.locator('tbody tr', { hasText: displayName })
+    await expect(row).toBeVisible()
+
+    try {
+      await row.getByRole('button', { name: 'Edit' }).click()
+      await expect(page.getByLabel('Authority:')).toHaveValue('https://login.example.com/tenant123/v2.0')
+      await expect(page.getByLabel('Client ID:')).toHaveValue('e2e-client-id')
+      await expect(page.getByLabel('Callback Path:')).toHaveValue('/signin-oidc')
+      await expect(page.getByLabel('Groups Claim Type:')).toHaveValue('e2e-groups-claim')
+      await page.getByRole('button', { name: 'Cancel' }).click()
+    } finally {
+      await row.getByRole('button', { name: 'Delete' }).click()
+      await expect(row).toHaveCount(0)
+    }
+  })
 })
 
 test.describe('Group → Role Mapping admin page', () => {
@@ -86,7 +119,10 @@ test.describe('Group → Role Mapping admin page', () => {
     }
 
     await page.getByLabel(/^Group Name/).fill('BUILTIN\\Users')
-    await page.getByLabel('Role Name:').fill('Viewer')
+    // D-93-adjacent fix: Role is now a real <select> populated from
+    // GET /api/admin/group-role-mappings/roles, not free text -- confirms
+    // the admin picks an actual existing role rather than typing one.
+    await page.getByLabel('Role:').selectOption('Viewer')
     await page.getByRole('button', { name: 'Add' }).click()
 
     const row = page.locator('tbody tr', { hasText: builtinUsersSid })
@@ -172,6 +208,30 @@ test.describe('Secrets Store Configuration admin page', () => {
       await cyberArkRow.getByRole('button', { name: 'Make Active' }).click()
       await expect(cyberArkRow).toContainText('Yes')
       await expect(dpapiRow).not.toContainText('Yes')
+    } finally {
+      await dpapiRow.getByRole('button', { name: 'Make Active' }).click()
+      await expect(dpapiRow).toContainText('Yes')
+    }
+  })
+
+  // D-95: CyberArkCP's Settings moved from a raw JSON textarea to a
+  // structured App ID field -- confirms it actually round-trips (save ->
+  // reload -> the same value comes back populated), not just that the
+  // form still submits.
+  test('CyberArkCP structured App ID field round-trips through save and reload', async ({ page }) => {
+    await signInAs(page, 'TestUser.Admin')
+    await page.goto('/admin/secrets-store')
+
+    const dpapiRow = page.locator('tbody tr', { hasText: 'WindowsDpapi' })
+    const cyberArkRow = page.locator('tbody tr', { hasText: 'CyberArkCP' })
+
+    try {
+      await cyberArkRow.getByLabel('App ID:').fill('e2e-app-id')
+      await cyberArkRow.getByRole('button', { name: 'Make Active' }).click()
+      await expect(cyberArkRow).toContainText('Yes')
+
+      await page.reload()
+      await expect(page.locator('tbody tr', { hasText: 'CyberArkCP' }).getByLabel('App ID:')).toHaveValue('e2e-app-id')
     } finally {
       await dpapiRow.getByRole('button', { name: 'Make Active' }).click()
       await expect(dpapiRow).toContainText('Yes')
