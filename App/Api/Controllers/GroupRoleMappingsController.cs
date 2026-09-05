@@ -14,11 +14,23 @@ public sealed class GroupRoleMappingsController(
     GroupRoleMappingRepository repository,
     IdentityProviderRepository identityProviderRepository,
     AuthorizationRepository authorizationRepository,
+    RoleRepository roleRepository,
     CurrentUserResolver currentUserResolver,
     AuditLogger auditLogger) : ControllerBase
 {
     [HttpGet]
     public async Task<IActionResult> GetAll() => Ok(await repository.GetAllAsync());
+
+    /// <summary>
+    /// Backs the Role dropdown on this page's own "Add Mapping" form --
+    /// gated by ManageGroupRoleMapping (this controller's own policy)
+    /// rather than ManageRolesAndPermissions (RolesController's), since an
+    /// admin who can map groups to roles needs to see the role catalog to
+    /// do that job even if they don't hold the separate permission to
+    /// manage roles themselves.
+    /// </summary>
+    [HttpGet("roles")]
+    public async Task<IActionResult> GetRoles() => Ok(await roleRepository.GetRolesAsync());
 
     /// <summary>
     /// The lookup/test tool (Design_Authorization_Model.md): resolves a
