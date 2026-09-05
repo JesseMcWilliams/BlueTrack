@@ -139,6 +139,18 @@ public class AdminControllersFunctionalTests : IClassFixture<BlueTrackWebApplica
         Assert.Equal(HttpStatusCode.NoContent, deleteResponse.StatusCode);
     }
 
+    /// <summary>Backs the Role dropdown on the Group → Role Mapping admin page's Add Mapping form.</summary>
+    [Fact]
+    public async Task GroupRoleMapping_GetRoles_ReturnsTheRealRoleCatalog()
+    {
+        var client = AdminClient();
+
+        var roles = await client.GetFromJsonAsync<List<RoleSummaryResponse>>("/api/admin/group-role-mappings/roles");
+
+        Assert.NotNull(roles);
+        Assert.Contains(roles!, r => r.RoleName == "Admin");
+    }
+
     [Fact]
     public async Task IdentityProvider_CreateUpdateDelete_RoundTrips()
     {

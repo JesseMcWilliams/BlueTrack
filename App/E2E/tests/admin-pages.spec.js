@@ -85,7 +85,10 @@ test.describe('Group → Role Mapping admin page', () => {
     }
 
     await page.getByLabel(/^Group Name/).fill('BUILTIN\\Users')
-    await page.getByLabel('Role Name:').fill('Viewer')
+    // D-93-adjacent fix: Role is now a real <select> populated from
+    // GET /api/admin/group-role-mappings/roles, not free text -- confirms
+    // the admin picks an actual existing role rather than typing one.
+    await page.getByLabel('Role:').selectOption('Viewer')
     await page.getByRole('button', { name: 'Add' }).click()
 
     const row = page.locator('tbody tr', { hasText: builtinUsersSid })
