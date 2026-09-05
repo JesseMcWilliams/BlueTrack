@@ -17,7 +17,8 @@ onMounted(() => useRightsStore().ensureLoaded())
 
 <template>
   <div id="layout">
-    <nav class="top-nav">
+    <a href="#main-content" class="skip-link visually-hidden">Skip to main content</a>
+    <nav class="top-nav" aria-label="Primary">
       <router-link :to="{ name: 'dashboard' }">Dashboard</router-link>
       <router-link :to="{ name: 'account-progress-list' }">Accounts</router-link>
       <router-link :to="{ name: 'risk-exceptions-list' }">Exceptions</router-link>
@@ -26,9 +27,14 @@ onMounted(() => useRightsStore().ensureLoaded())
       <router-link :to="{ name: 'my-profile' }" class="top-nav__user-menu">My Profile</router-link>
     </nav>
     <Breadcrumbs />
-    <main>
+    <!-- D-92: route-change focus target (router/index.js's afterEach hook
+         moves focus here) -- a client-routed SPA gives assistive tech no
+         "page changed" signal otherwise. tabindex="-1" lets it receive
+         programmatic focus without joining the normal Tab order. -->
+    <main id="main-content" tabindex="-1">
       <router-view />
     </main>
+    <div id="route-announcer" class="visually-hidden" role="status" aria-live="polite"></div>
   </div>
 </template>
 

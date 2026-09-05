@@ -1,4 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import { nextTick } from 'vue'
 
 // Routes mirror the confirmed page inventory (Design_Application_Structure.md,
 // D-43), with Admin (D-47) and Reports (D-56) as hub pages with sub-navigation
@@ -153,6 +154,24 @@ const routes = [
 const router = createRouter({
   history: createWebHistory(),
   routes
+})
+
+// D-92: a client-routed SPA gives assistive tech no "page changed" signal
+// on its own (no full page load, no new document title announced) --
+// moves focus to <main> (App.vue) and announces the new page's own <h1>/<h2>
+// text via a visually-hidden live region, once Vue has actually rendered
+// the new route's content (nextTick).
+router.afterEach(() => {
+  nextTick(() => {
+    const main = document.getElementById('main-content')
+    main?.focus()
+
+    const heading = main?.querySelector('h1, h2')
+    const announcer = document.getElementById('route-announcer')
+    if (announcer) {
+      announcer.textContent = heading?.textContent?.trim() || document.title
+    }
+  })
 })
 
 export default router

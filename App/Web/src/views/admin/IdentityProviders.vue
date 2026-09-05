@@ -73,8 +73,8 @@ async function remove(provider) {
 <template>
   <div>
     <h2>Identity Providers</h2>
-    <p v-if="error">{{ error }}</p>
-    <p v-if="loading">Loading...</p>
+    <p v-if="error" role="alert">{{ error }}</p>
+    <p v-if="loading" role="status">Loading...</p>
 
     <template v-else>
       <button @click="startCreate">+ New Provider</button>

@@ -30,6 +30,13 @@ function sortIndicator(field) {
   return sortColumns.value.length > 1 ? `${arrow}${idx + 1}` : arrow
 }
 
+// D-92 (ARIA APG Sortable Table pattern) -- see AccountProgressList.vue's
+// identical helper for why only the primary sort key is ever reflected here.
+function ariaSortFor(field) {
+  if (sortColumns.value.length === 0 || sortColumns.value[0].field !== field) return 'none'
+  return sortColumns.value[0].descending ? 'descending' : 'ascending'
+}
+
 function toggleSort(field, event) {
   const existingIndex = sortColumns.value.findIndex(s => s.field === field)
 
@@ -102,25 +109,23 @@ watch([statusFilter, scopeTypeFilter, sortQueryParam], load)
         </select>
       </label>
     </p>
-    <p v-if="loading">Loading...</p>
-    <p v-else-if="error">Could not load exceptions: {{ error }}</p>
+    <p v-if="loading" role="status">Loading...</p>
+    <p v-else-if="error" role="alert">Could not load exceptions: {{ error }}</p>
     <p v-else-if="exceptions.length === 0">No exceptions found.</p>
     <table v-else>
       <thead>
         <tr>
-          <th v-for="col in columns" :key="col.field" style="cursor: pointer" @click="toggleSort(col.field, $event)">
-            {{ col.label }} {{ sortIndicator(col.field) }}
+          <th v-for="col in columns" :key="col.field" :aria-sort="ariaSortFor(col.field)">
+            <button type="button" @click="toggleSort(col.field, $event)">
+              {{ col.label }} <span aria-hidden="true">{{ sortIndicator(col.field) }}</span>
+            </button>
           </th>
           <th>Justification</th>
         </tr>
       </thead>
       <tbody>
-        <tr
-          v-for="exception in exceptions"
-          :key="exception.exceptionKey"
-          @click="$router.push({ name: 'risk-exception-edit', params: { exceptionKey: exception.exceptionKey } })"
-        >
-          <td>{{ exception.exceptionID }}</td>
+        <tr v-for="exception in exceptions" :key="exception.exceptionKey">
+          <td><router-link :to="{ name: 'risk-exception-edit', params: { exceptionKey: exception.exceptionKey } }">{{ exception.exceptionID }}</router-link></td>
           <td>{{ exception.scopeType }}: {{ exception.scopeName }}</td>
           <td>{{ exception.approvedByName }}</td>
           <td>{{ exception.approvalDate }}</td>

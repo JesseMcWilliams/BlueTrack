@@ -34,6 +34,15 @@ function sortIndicator(field) {
   return sortColumns.value.length > 1 ? `${arrow}${idx + 1}` : arrow
 }
 
+// D-92 (ARIA APG Sortable Table pattern): aria-sort only ever reflects the
+// primary sort key -- aria-sort has no "this is the secondary key" value,
+// so a secondary sort column (idx > 0) still reports "none" here even
+// though sortIndicator() above shows it a numbered arrow visually.
+function ariaSortFor(field) {
+  if (sortColumns.value.length === 0 || sortColumns.value[0].field !== field) return 'none'
+  return sortColumns.value[0].descending ? 'descending' : 'ascending'
+}
+
 function toggleSort(field, event) {
   const existingIndex = sortColumns.value.findIndex(s => s.field === field)
 
@@ -121,23 +130,21 @@ watch([stageFilter, statusFilter, riskLevelFilter, ownerFilter, sortQueryParam],
       </label>
       <label>Owner: <input v-model="ownerFilter" type="text" placeholder="contains..." /></label>
     </p>
-    <p v-if="loading">Loading...</p>
-    <p v-else-if="error">Could not load accounts: {{ error }}</p>
+    <p v-if="loading" role="status">Loading...</p>
+    <p v-else-if="error" role="alert">Could not load accounts: {{ error }}</p>
     <table v-else>
       <thead>
         <tr>
-          <th v-for="col in columns" :key="col.field" style="cursor: pointer" @click="toggleSort(col.field, $event)">
-            {{ col.label }} {{ sortIndicator(col.field) }}
+          <th v-for="col in columns" :key="col.field" :aria-sort="ariaSortFor(col.field)">
+            <button type="button" @click="toggleSort(col.field, $event)">
+              {{ col.label }} <span aria-hidden="true">{{ sortIndicator(col.field) }}</span>
+            </button>
           </th>
         </tr>
       </thead>
       <tbody>
-        <tr
-          v-for="account in accounts"
-          :key="account.accountKey"
-          @click="$router.push({ name: 'account-progress-detail', params: { accountKey: account.accountKey } })"
-        >
-          <td>{{ account.accountName }}</td>
+        <tr v-for="account in accounts" :key="account.accountKey">
+          <td><router-link :to="{ name: 'account-progress-detail', params: { accountKey: account.accountKey } }">{{ account.accountName }}</router-link></td>
           <td>{{ account.stageName }}</td>
           <td>{{ account.statusName }}</td>
           <td>{{ account.riskLevelName }}</td>

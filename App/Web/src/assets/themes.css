@@ -1,0 +1,115 @@
+/*
+  Theme tokens (Design_Accessibility_And_Theming.md, D-93). Applied via a
+  data-theme attribute set on <html> by stores/theme.js -- never assume a
+  theme from prefers-color-scheme alone once a user has made an explicit
+  choice (that override always wins; see theme.js).
+
+  Background/text pairs were specified directly by the user, 2026-09-04:
+  Light keeps the app's original (browser-default) appearance, Dark is
+  #3c3c3c/#f9f9f9 (~10.5:1), High-Visibility is #000000/#ffff00 (~19.6:1,
+  clears WCAG AAA per SC 1.4.6 -- the deliberately stricter target for
+  this theme specifically). Every other token below (borders, links,
+  focus ring, status colors) is a secondary, unspecified value chosen to
+  independently clear SC 1.4.3/1.4.11 against that theme's own background --
+  see the contrast ratio noted on each.
+*/
+
+:root,
+:root[data-theme='Light'] {
+  color-scheme: light;
+  --color-bg: #ffffff;
+  --color-text: #000000;
+  --color-border: #767676; /* ~4.5:1 vs #fff -- WebAIM's commonly-cited minimum-gray reference value */
+  --color-link: #0000ee; /* browser default link blue */
+  --color-link-visited: #551a8b; /* browser default visited-link purple */
+  --color-focus-ring: #2563eb; /* 5.17:1 vs #fff */
+  --color-error-text: #b00020; /* 7.33:1 vs #fff */
+  --color-success-text: #1e7e34; /* 5.14:1 vs #fff */
+}
+
+:root[data-theme='Dark'] {
+  color-scheme: dark;
+  --color-bg: #3c3c3c;
+  --color-text: #f9f9f9;
+  --color-border: #8a8a8a; /* 3.20:1 vs #3c3c3c -- clears SC 1.4.11's 3:1 non-text minimum */
+  --color-link: #8ab4f8; /* 5.23:1 vs #3c3c3c */
+  --color-link-visited: #c58af9;
+  --color-focus-ring: #ffb300; /* 6.15:1 vs #3c3c3c */
+  --color-error-text: #ff8a8a; /* 4.86:1 vs #3c3c3c */
+  --color-success-text: #7fdb7f; /* 6.48:1 vs #3c3c3c */
+}
+
+:root[data-theme='HighVisibility'] {
+  /* Not a browser color-scheme -- Light/Dark are; this is a hand-designed
+     AAA palette (SC 1.4.6), independent of that mechanism. */
+  --color-bg: #000000;
+  --color-text: #ffff00;
+  --color-border: #ffffff; /* 21:1 vs #000 */
+  --color-link: #00ffff; /* 16.75:1 vs #000 -- distinct hue from body text, not color-alone-dependent (still underlined) */
+  --color-link-visited: #ff66ff;
+  --color-focus-ring: #ffffff;
+  --color-error-text: #ffa500; /* ~10.6:1 vs #000 */
+  --color-success-text: #00ff00; /* ~15.3:1 vs #000 */
+}
+
+/* Defensive only (Design_Accessibility_And_Theming.md 2.3): real Windows
+   Forced Colors Mode remaps colors at the OS level regardless of theme --
+   don't fight it with custom backgrounds/borders here, just make sure
+   nothing depends on a background-color alone to convey structure. */
+@media (forced-colors: active) {
+  :root {
+    --color-focus-ring: Highlight;
+  }
+}
+
+html,
+body {
+  background: var(--color-bg);
+  color: var(--color-text);
+}
+
+a {
+  color: var(--color-link);
+}
+a:visited {
+  color: var(--color-link-visited);
+}
+
+/* SC 2.4.7 Focus Visible -- there was no visible focus indicator anywhere
+   in this app before this file existed. :focus-visible (not bare :focus)
+   so mouse/pointer clicks don't show a ring meant for keyboard users. */
+:focus-visible {
+  outline: 3px solid var(--color-focus-ring);
+  outline-offset: 2px;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Skip link (SC 2.4.1): hidden per .visually-hidden above until it
+   receives keyboard focus, then repositioned to actually be visible. */
+.skip-link:focus {
+  position: fixed;
+  top: 0.5rem;
+  left: 0.5rem;
+  width: auto;
+  height: auto;
+  padding: 0.5rem 1rem;
+  margin: 0;
+  overflow: visible;
+  clip: auto;
+  white-space: normal;
+  background: var(--color-bg);
+  color: var(--color-text);
+  border: 2px solid var(--color-focus-ring);
+  z-index: 1000;
+}

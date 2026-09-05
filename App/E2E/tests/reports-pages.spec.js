@@ -40,7 +40,7 @@ test.describe('Overdue / At-Risk Worklist', () => {
 
     const firstRow = page.locator('tbody tr').first()
     if (await firstRow.count() > 0) {
-      await firstRow.click()
+      await firstRow.getByRole('link').click()
       await expect(page).toHaveURL(/\/accounts\/\d+$/)
     }
   })

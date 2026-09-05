@@ -45,8 +45,8 @@ async function save() {
 <template>
   <div>
     <h2>Global Application Configuration</h2>
-    <p v-if="loading">Loading...</p>
-    <p v-else-if="error">{{ error }}</p>
+    <p v-if="loading" role="status">Loading...</p>
+    <p v-else-if="error" role="alert">{{ error }}</p>
     <form v-else @submit.prevent="save">
       <p>
         <label>Idle Timeout (minutes): <input v-model.number="config.idleTimeoutMinutes" type="number" required /></label>
@@ -74,7 +74,7 @@ async function save() {
         <label><input v-model="config.logReadEvents" type="checkbox" /> Log read/view events (off by default, D-35)</label>
       </p>
       <button type="submit">Save</button>
-      <span v-if="saved"> Saved.</span>
+      <span v-if="saved" role="status"> Saved.</span>
     </form>
   </div>
 </template>

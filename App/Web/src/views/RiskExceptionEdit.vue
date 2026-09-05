@@ -142,8 +142,8 @@ async function revoke() {
 <template>
   <div>
     <h1>{{ isEditMode ? `Exception — ${detail?.exceptionID ?? exceptionKey}` : 'New Exception' }}</h1>
-    <p v-if="loading">Loading...</p>
-    <p v-else-if="error">{{ error }}</p>
+    <p v-if="loading" role="status">Loading...</p>
+    <p v-else-if="error" role="alert">{{ error }}</p>
 
     <template v-else-if="isEditMode && detail">
       <dl>

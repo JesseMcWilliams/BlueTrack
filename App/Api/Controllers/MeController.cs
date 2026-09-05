@@ -2,6 +2,8 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using BlueTrack.Api.Audit;
 using BlueTrack.Api.Auth;
+using BlueTrack.Api.Data;
+using BlueTrack.Api.Models;
 
 namespace BlueTrack.Api.Controllers;
 
@@ -20,6 +22,7 @@ namespace BlueTrack.Api.Controllers;
 public sealed class MeController(
     CurrentUserResolver currentUserResolver,
     UserRightsResolver rightsResolver,
+    UserPreferenceRepository userPreferenceRepository,
     AuditLogger auditLogger) : ControllerBase
 {
     [HttpGet]
@@ -38,6 +41,7 @@ public sealed class MeController(
         }
 
         var rights = await rightsResolver.ResolveAsync(User);
+        var preferences = await userPreferenceRepository.GetAllForUserAsync(user.UserKey);
 
         return Ok(new
         {
@@ -47,8 +51,27 @@ public sealed class MeController(
             user.FirstLogin,
             user.LastLogin,
             rights.RoleNames,
-            rights.PermissionNames
+            rights.PermissionNames,
+            Preferences = preferences
         });
+    }
+
+    /// <summary>
+    /// Generalized self-service preference storage (D-93) -- Theme is the
+    /// first consumer, but this endpoint isn't Theme-specific; any future
+    /// per-user setting reuses the same shape.
+    /// </summary>
+    [HttpPut("preferences/{key}")]
+    public async Task<IActionResult> SetPreference(string key, [FromBody] SetUserPreferenceRequest request)
+    {
+        var user = await currentUserResolver.ResolveAsync(User);
+        if (user is null) return Unauthorized();
+
+        await userPreferenceRepository.SetAsync(user.UserKey, key, request.Value);
+        await auditLogger.LogAsync("FieldEdit", user.UserKey, "user_preference", key,
+            detail: $"Preference '{key}' set to '{request.Value}'");
+
+        return NoContent();
     }
 
     /// <summary>
