@@ -58,15 +58,38 @@ describe('rights store', () => {
       expect(store.hasPermission('ApproveExceptions')).toBe(true)
     })
 
-    it('sets error and leaves loaded false on a failed response', async () => {
-      globalThis.fetch.mockResolvedValueOnce(jsonResponse(null, false, 401))
+    it('sets error and leaves loaded false on a failed (non-401) response', async () => {
+      globalThis.fetch.mockResolvedValueOnce(jsonResponse(null, false, 500))
       const store = useRightsStore()
 
       await store.load()
 
       expect(store.loaded).toBe(false)
       expect(store.loading).toBe(false)
-      expect(store.error).toContain('401')
+      expect(store.error).toContain('500')
+    })
+
+    it('sets authenticated false and loaded true on a 401, without setting error', async () => {
+      globalThis.fetch.mockResolvedValueOnce(jsonResponse(null, false, 401))
+      const store = useRightsStore()
+
+      await store.load()
+
+      expect(store.authenticated).toBe(false)
+      expect(store.loaded).toBe(true)
+      expect(store.loading).toBe(false)
+      expect(store.error).toBeNull()
+    })
+
+    it('sets authenticated true on success', async () => {
+      globalThis.fetch.mockResolvedValueOnce(
+        jsonResponse({ userKey: 1, displayName: 'A', roleNames: [], permissionNames: [] })
+      )
+      const store = useRightsStore()
+
+      await store.load()
+
+      expect(store.authenticated).toBe(true)
     })
   })
 

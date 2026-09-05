@@ -101,6 +101,16 @@ Adding `ViewDeploymentInfo` to the bootstrap Admin role in `BlueTrackTest` (Data
 
 **General lesson:** after adding a new permission to a role that a test (or real) identity already held before the change, its cached rights won't reflect that until Reload Rights runs (self-service or admin-triggered) or the sliding-expiration window lapses. If a newly-permission-gated endpoint returns 403 for an identity that a direct SQL check confirms *should* have the permission, check `web.distributed_cache` staleness before assuming the grant itself is wrong.
 
+## 2026-09-05 — A leftover `dotnet run` webServer process locks the build output, causing widespread E2E failures that look like the usual resource-contention flakiness
+
+While building `Dashboard.vue`/`Login.vue` (D-99/D-100), a full Playwright run produced 25 failures — far more than the usual handful — all with the same "first `signInAs` request times out" signature already documented above (E2E suite worker-count entry), but at a scale that made it look like a genuinely broken build rather than ordinary contention.
+
+**Root cause:** Playwright's `playwright.config.js` reuses an already-running API process on port 7033 (`reuseExistingServer: !process.env.CI`) rather than always rebuilding. An earlier `BlueTrack.Api.exe` process (started for a prior test run) was still alive and holding an OS-level file lock on `bin\Debug\net10.0\BlueTrack.Api.exe`. When a later run's `dotnet build`/`dotnet run` tried to overwrite that file, the copy step failed outright (`MSB3027: ... Exceeded retry count of 10 ... The file is locked by: "BlueTrack.Api (<pid>)"`) — confirmed directly by running `dotnet build` by hand and reading the actual MSBuild error, not guessed. Depending on timing, this either fails the whole webServer startup cleanly, or lets requests reach a half-updated/inconsistent process, which is what produced the unusually large contiguous block of request timeouts.
+
+**Fixed:** killed the stale `BlueTrack.Api.exe` process directly (`Stop-Process -Id <pid> -Force`), then `dotnet build` succeeded and the previously-failing tests passed on the next run.
+
+**General lesson:** when an E2E run's failure count is much larger than the handful this project's known contention pattern usually produces, check for a leftover locked-binary situation before assuming it's just "the usual flakiness" — `dotnet build` by hand (not through Playwright) surfaces the real MSB3027 file-lock error immediately and names the exact PID holding the lock, which `npx playwright test`'s own error ("Process from config.webServer was not able to start. Exit code: 1") does not.
+
 ## Process notes
 
 - **Check the Decision Register first.** `Design Documents/Design_Decision_Register.md` is the index of every design decision made so far, resolved and open. Don't re-derive or re-litigate something it already answers.
