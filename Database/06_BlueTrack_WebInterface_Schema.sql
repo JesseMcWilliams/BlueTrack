@@ -170,7 +170,8 @@ INSERT INTO web.app_permission (PermissionName, Description) VALUES
     ('ManageSecretsStore',         'Configure the active Secrets Storage backend'),
     ('ManageFieldMetadata',        'Manage the Account Progress field-metadata list'),
     ('ViewAuditLog',               'View the audit log'),
-    ('ManageApplicationConfiguration', 'Manage global application configuration (app_config)');
+    ('ManageApplicationConfiguration', 'Manage global application configuration (app_config)'),
+    ('ViewDeploymentInfo',         'View deployment/environment info, health checks, and backup status');
 GO
 
 -- app_role: named permission bundles. Deliberately created empty --

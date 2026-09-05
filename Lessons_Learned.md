@@ -91,6 +91,16 @@ Writing a Vitest unit test for a new `theme.js` Pinia store (Design_Accessibilit
 
 **General lesson:** as Node.js keeps adding more experimental Web-platform globals (`localStorage` here; `fetch`, `structuredClone`, etc. arrived the same way in earlier versions), a test environment package like happy-dom/jsdom can silently lose a collision against Node's own global of the same name, especially on a very new Node version like this project's v26. If a DOM-environment global is unexpectedly `undefined` in a Vitest test despite the environment being configured correctly, check the console for a Node `ExperimentalWarning` about that exact global before assuming the test environment package itself is broken or misconfigured.
 
+## 2026-09-04 — Adding a permission to an existing role doesn't reach an already-cached test identity until its rights are reloaded
+
+Adding `ViewDeploymentInfo` to the bootstrap Admin role in `BlueTrackTest` (Database/25, D-96 Part 3) and gating the new `/api/admin/deployment` endpoint with it, `AdminControllersPermissionTests.GatedGetEndpoint_AsAdmin_Succeeds("/api/admin/deployment")` failed with 403 for `TestUser.Admin` even though a direct SQL query confirmed the `web.role_permission` row existed correctly.
+
+**Root cause:** `UserRightsCache` (D-13/D-82) caches a resolved `UserRights` per identity in `web.distributed_cache`, keyed only by `rights:{providerKey}:{externalIdentifier}` — not scoped to a test run or invalidated by schema/data changes. `TestUser.Admin`'s rights had already been cached (with the sliding expiration tied to the idle-timeout config, so well over an hour) by earlier test runs in this same session, from before the new permission existed — so the cached entry was stale and simply didn't include it yet.
+
+**Fixed:** ran the existing `AdminUsersReloadRights_AsAdmin_KnownUser_Succeeds` test once (it calls the real self-service Reload Rights endpoint for the calling identity), which invalidated the stale cache entry; the deployment-endpoint test then passed cleanly on the next run. A direct `DELETE FROM web.distributed_cache` would work too but is a destructive-looking raw SQL statement blocked by this environment's own safety classifier — the app's own Reload Rights endpoint is the legitimate, in-app way to force this anyway.
+
+**General lesson:** after adding a new permission to a role that a test (or real) identity already held before the change, its cached rights won't reflect that until Reload Rights runs (self-service or admin-triggered) or the sliding-expiration window lapses. If a newly-permission-gated endpoint returns 403 for an identity that a direct SQL check confirms *should* have the permission, check `web.distributed_cache` staleness before assuming the grant itself is wrong.
+
 ## Process notes
 
 - **Check the Decision Register first.** `Design Documents/Design_Decision_Register.md` is the index of every design decision made so far, resolved and open. Don't re-derive or re-litigate something it already answers.

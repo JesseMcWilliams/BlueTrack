@@ -4,6 +4,11 @@
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <!-- D-96 Part 3.1: no automated versioning/CI-stamping pipeline exists yet,
+         so this is a manually-maintained starting point, bumped by hand per real
+         release, just enough for the new Deployment admin page to answer
+         "what's running now." -->
+    <Version>1.0.0</Version>
   </PropertyGroup>
 
   <ItemGroup>

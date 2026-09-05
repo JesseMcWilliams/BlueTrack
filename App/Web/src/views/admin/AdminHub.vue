@@ -16,7 +16,8 @@ const sections = [
   { name: 'admin-secrets-store', label: 'Secrets Store Configuration', permission: 'ManageSecretsStore' },
   { name: 'admin-field-metadata', label: 'Field Metadata Management', permission: 'ManageFieldMetadata' },
   { name: 'admin-audit-log', label: 'Audit Log Viewer', permission: 'ViewAuditLog' },
-  { name: 'admin-configuration', label: 'Global Application Configuration', permission: 'ManageApplicationConfiguration' }
+  { name: 'admin-configuration', label: 'Global Application Configuration', permission: 'ManageApplicationConfiguration' },
+  { name: 'admin-deployment', label: 'Deployment', permission: 'ViewDeploymentInfo' }
 ]
 
 const visibleSections = computed(() => sections.filter(s => rights.hasPermission(s.permission)))
