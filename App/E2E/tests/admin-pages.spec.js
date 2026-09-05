@@ -58,6 +58,39 @@ test.describe('Identity Providers admin page', () => {
     await page.locator('tbody tr', { hasText: updatedName }).getByRole('button', { name: 'Delete' }).click()
     await expect(page.locator('tbody tr', { hasText: updatedName })).toHaveCount(0)
   })
+
+  // D-95: OIDC/SAML's ConfigurationValues moved from a raw JSON textarea to
+  // structured per-type fields -- this confirms the round trip actually
+  // works end to end (save structured fields -> reload -> re-open edit ->
+  // the same values come back populated into the same structured fields),
+  // not just that the form still submits.
+  test('OIDC structured config fields round-trip through save and reload', async ({ page }) => {
+    await signInAs(page, 'TestUser.Admin')
+    await page.goto('/admin/identity-providers')
+    const displayName = `E2E OIDC Provider ${Date.now()}`
+
+    await page.getByRole('button', { name: '+ New Provider' }).click()
+    await page.getByLabel('Display Name:').fill(displayName)
+    await page.getByLabel('Authority:').fill('https://login.example.com/tenant123/v2.0')
+    await page.getByLabel('Client ID:').fill('e2e-client-id')
+    await page.getByLabel('Groups Claim Type:').fill('e2e-groups-claim')
+    await page.locator('form button[type="submit"]').click()
+
+    const row = page.locator('tbody tr', { hasText: displayName })
+    await expect(row).toBeVisible()
+
+    try {
+      await row.getByRole('button', { name: 'Edit' }).click()
+      await expect(page.getByLabel('Authority:')).toHaveValue('https://login.example.com/tenant123/v2.0')
+      await expect(page.getByLabel('Client ID:')).toHaveValue('e2e-client-id')
+      await expect(page.getByLabel('Callback Path:')).toHaveValue('/signin-oidc')
+      await expect(page.getByLabel('Groups Claim Type:')).toHaveValue('e2e-groups-claim')
+      await page.getByRole('button', { name: 'Cancel' }).click()
+    } finally {
+      await row.getByRole('button', { name: 'Delete' }).click()
+      await expect(row).toHaveCount(0)
+    }
+  })
 })
 
 test.describe('Group → Role Mapping admin page', () => {

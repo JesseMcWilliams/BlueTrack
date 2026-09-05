@@ -20,6 +20,8 @@ Confirmed exact shapes from the actual settings classes (`App/Api/Models/OidcPro
 
 **UI change**: `IdentityProviders.vue`'s edit form switches its "Configuration Values (JSON)" textarea for a field set chosen by the selected `ProviderType` (OIDC fields when `ProviderType === 'OIDC'`, SAML fields when `'SAML'`) — the form still serializes to the same `ConfigurationValues` JSON string on save and deserializes it back on edit, so `IdentityProviderRepository`/the database column shape is completely unchanged; this is a frontend-only change plus, if useful, light validation of required fields per type before submit.
 
+**Implemented 2026-09-04.** `IdentityProviders.vue` now renders OIDC's four fields and SAML's seven fields (both certificate fields labeled as Windows Certificate Store thumbprints, per the note above) in place of the old textarea, keyed off `editing.providerType`; a `configFields` object holds the structured values, serialized to/parsed from `ConfigurationValues` JSON on save/edit using the same camelCase-vs-PascalCase case-insensitive match every other reader in this app already relies on (`ProviderSettingsReader`'s `JsonSerializerOptions { PropertyNameCaseInsensitive = true }`, confirmed directly, not assumed). No backend change. Verified with a new Playwright test (`admin-pages.spec.js`) asserting the structured OIDC fields actually round-trip through save → reload → re-edit, not just that the form submits.
+
 ## Part 2: Secrets Store — structured config fields per backend
 
 Confirmed exact shapes from the actual provider classes (each backend's private `*Settings` class in `App/Api/Secrets/`) — not guessed:
