@@ -252,6 +252,46 @@ END
 
 **ETL side:** a new `usp_Load_TargetInventory` (AD-discovery-style target seeding, using the same `usp_MatchOrCreateTarget` matching), `usp_Load_AccessGroupTargetMap`, `usp_Load_AccountAccessGroupMembership`, and `usp_Load_AccountTargetMap` (the `ETL`-sourced one of direct-target-access's three mechanisms — see "Direct Account→Target Access") — naming to match the existing `usp_Load_*` convention, fed by new `stg_*` staging tables under the same `ImportBatchId`/`SourceFileName`/`LoadTimestamp` convention as every other staging table. Exact file formats are TBD until each actual external feed is specified. The `PendingSafeDerived` mechanism needs no file at all — `usp_DeriveAccountTargetMap_FromPendingSafes` runs entirely off data already in `fact_account`/`dim_safe`, called from `usp_RunFullLoad` alongside the other Load steps.
 
+## Import Field Mapping — configurable, not hardcoded (confirmed 2026-09-05)
+
+Every external feed's file format is still undefined (per the Open Questions above) because it's controlled by whatever discovery/inventory tool produces it, not by this app — and that tool, or its column naming, could change later, or a second tool with a differently-shaped export could get added for the same feed. Rather than hardcoding a fixed set of expected column names per feed (which breaks the moment a source format shifts, and needs a code change to fix), **each of the four ETL-fed imports gets a configurable field-mapping layer**: an admin defines which *source* column name corresponds to which *internal* field, once per distinct file shape, and the load logic reads through that mapping rather than assuming fixed headers.
+
+```sql
+-- web.import_mapping_profile: one named mapping per distinct source file
+-- shape (e.g. "AD Discovery Tool v2", "Legacy CMDB export") -- more than
+-- one profile can exist per FeedType, since more than one tool/version can
+-- produce differently-shaped files for the same underlying import.
+CREATE TABLE web.import_mapping_profile (
+    ImportMappingProfileKey INT IDENTITY(1,1) PRIMARY KEY,
+    FeedType              NVARCHAR(50)     NOT NULL, -- 'TargetInventory' / 'AccessGroupTargetMap' / 'AccountAccessGroupMembership' / 'AccountTargetMap'
+    ProfileName           NVARCHAR(200)    NOT NULL,
+    IsActive              BIT              NOT NULL DEFAULT 1,
+    Description           NVARCHAR(1000)   NULL,
+    CreatedBy             INT              NULL REFERENCES web.app_user(UserKey),
+    ModifiedBy            INT              NULL REFERENCES web.app_user(UserKey),
+    ModifiedDate          DATETIME2        NOT NULL DEFAULT SYSUTCDATETIME(),
+    CONSTRAINT UQ_import_mapping_profile UNIQUE (FeedType, ProfileName)
+);
+
+-- web.import_mapping_field: per profile, which source column feeds which
+-- internal field. TargetFieldName values are a fixed, documented list per
+-- FeedType (e.g. TargetInventory's internal fields are TargetType,
+-- TargetName, DiscoverySource, plus one per dim_target_identifier_type row
+-- -- Hostname, FQDN, ADGuid, etc.) -- the flexibility is in what SOURCE
+-- column maps to each one, not in inventing new internal fields.
+CREATE TABLE web.import_mapping_field (
+    ImportMappingFieldKey   INT IDENTITY(1,1) PRIMARY KEY,
+    ImportMappingProfileKey INT              NOT NULL REFERENCES web.import_mapping_profile(ImportMappingProfileKey),
+    SourceColumnName        NVARCHAR(200)    NOT NULL, -- the literal header found in the actual file
+    TargetFieldName         NVARCHAR(100)    NOT NULL, -- the internal field this maps to
+    IsRequired              BIT              NOT NULL DEFAULT 0,
+    DefaultValue            NVARCHAR(300)    NULL,      -- used when the source column is blank/missing and not required
+    CONSTRAINT UQ_import_mapping_field UNIQUE (ImportMappingProfileKey, TargetFieldName)
+);
+```
+
+At import time (ETL or an admin's own bulk CSV upload alike), the loading logic reads the file's header row, looks up the selected (or active) mapping profile for that `FeedType`, and for every internal `TargetFieldName` it needs, pulls the value from whichever `SourceColumnName` the profile says corresponds to it — falling back to `DefaultValue`, or raising a per-row validation error if `IsRequired` and genuinely missing. Swapping to a differently-shaped export from the same or a different tool becomes "edit a mapping profile," not a code change. This reconciles with the CSV-template-download feature above: uploading the app's own generated template needs no mapping at all (its headers already match the internal field names 1:1), while uploading an existing external export as-is just needs a one-time profile defined for that shape.
+
 ## Admin & Report Pages (new)
 
 - **Targets** admin page (`admin/Targets.vue`) — list/create/edit/delete, plus bulk CSV upload + template download. Editing a target's identifiers manages its `target_identifier` rows underneath. New permission: `ManageTargets`.
@@ -259,11 +299,13 @@ END
 - **Target Match Review** admin page (`admin/TargetMatchReview.vue`) — a queue of pending `target_match_review` rows (weak/IP-only matches) for an analyst to resolve as Merged/NewTarget/Ignored. Likely gated by the same `ManageTargets` permission rather than a new one, unless a narrower gate is wanted.
 - **Risk Score report** — accounts sorted/filtered by computed risk score, with drill-down into which Access Groups/Targets are driving a given account's score. New permission: `ViewRiskReport`.
 - **Account Progress list** gets two new columns (confirmed 2026-09-05): `EffectiveRiskScore` (sortable, the computed value or the override if one is set) and an editable override column/action — populating it takes precedence over the computed score everywhere. Editing the override likely needs `EditAccountProgress` (the existing permission already gating edits on this page) rather than a new one, unless a narrower override-specific permission is wanted.
+- **Import Mapping Profiles** admin page (`admin/ImportMappingProfiles.vue`) — create/edit a named field-mapping profile per `FeedType`, listing that feed's fixed internal fields and letting the admin type in the corresponding source column name for each. Likely gated by the same `ManageTargets`/`ManageAccessGroups` permissions (scoped to whichever `FeedType` a profile belongs to) rather than one new permission covering all four feeds.
 
 ## Open Questions
 
 - **Algorithm choice** — Candidate A vs. B above, or a third; needs either a decision or a small prototype-and-compare pass against sample data before this is locked in. The dispatcher design means both can be built and compared live rather than picked blind.
-- **The `ETL`-sourced direct Account→Target feed's exact file shape** — confirmed as one of three mechanisms (see "Direct Account→Target Access"), but the actual file format is still undefined until that external source is specified.
+- **The `ETL`-sourced direct Account→Target feed's exact file shape** — confirmed as one of three mechanisms (see "Direct Account→Target Access"); the actual file format is still undefined until that external source is specified, though the new field-mapping layer means this matters less than it used to (a differently-shaped file just needs its own mapping profile, not a code change).
+- **Interactive mapping UX** — v1 as designed is a plain form (an admin already knows the source column names and types them in). A "upload a sample file, auto-detect its headers, map interactively" UX would be nicer but is a real chunk of extra work — worth deciding whether that's in scope for the first version or a later refinement.
 - **`fact_account.Address` reconciliation** — `Address` is a raw, unnormalized string already on `fact_account`; once Targets have real identifier values, is there a need to backfill/link existing accounts' `Address` values to a matching Target (for accounts imported before this feature existed), or does that happen naturally once the Account→Target/Account→Group ETL feeds start running?
 - **Server/Desktop/Database Target subtypes** — does v1 need type-specific extra fields (e.g. environment tier, OS), or is the current generic shape sufficient to start?
 - **`web.target_match_review`'s resolution actions** — sketched as Merged/NewTarget/Ignored, but the exact admin workflow for "Merged" (pick which existing Target to merge into, if `CandidateTargetKey` is wrong) isn't designed yet.
