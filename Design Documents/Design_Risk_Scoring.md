@@ -31,29 +31,34 @@ Every ETL-sourced relationship above needs the same import-batch tracking alread
 
 All new tables live in the `web` schema (this is operational data the web app itself manages and reports on, distinct from the `dbo` CyberArk-warehouse layer), except where noted.
 
+**Revised 2026-09-05 (D-103):** the original design gave `dim_target` its own typed columns for Hostname/FQDN/IP/ADGuid/ADSid, but the same message that confirmed those also added Linux host signatures, LDAP directories, databases, and appliances each needing their *own* identifying scheme — a clear sign this list keeps growing as more Target types get added, and a wide table with an ever-increasing set of mostly-NULL columns is the wrong shape for that. Switched to a generic, extensible identifier table instead, matching this app's existing `dim_risk_level`-style controlled-list-with-an-order-column pattern (`RiskOrder`):
+
 ```sql
--- web.dim_target: any final destination (server/desktop/database/application).
--- Row set comes from BOTH AD-discovery-style ETL tooling and analyst
--- add/bulk-CSV (to fill the gaps discovery tools always leave, confirmed
--- 2026-09-05); the risk score itself is always analyst-set regardless of
--- how the Target row got there.
---
--- No single identifier column: confirmed 2026-09-05 that a real target
--- needs several, since none is universally present -- Windows targets
--- surface a discoverable GUID/SID, Linux hosts do not, and Hostname/FQDN/IP
--- can each be missing, stale, or ambiguous (DHCP reassignment) on their
--- own. Import-time matching checks all of these (see "Target Matching"
--- below) rather than relying on one UNIQUE column.
+-- web.dim_target_identifier_type: the controlled, EXTENSIBLE list of ways
+-- a Target can be identified -- adding a new kind of identifier later (e.g.
+-- a container/pod ID) is a new seeded row here, not a schema change.
+CREATE TABLE web.dim_target_identifier_type (
+    IdentifierType       NVARCHAR(50) PRIMARY KEY,   -- 'ADGuid' / 'ADSid' / 'FQDN' / 'Hostname' / 'IPAddress' /
+                                                       -- 'LinuxHostSignature' / 'LdapBaseDN' / 'DatabaseInstanceName' /
+                                                       -- 'ApplianceSerialNumber'
+    MatchPriority        INT NOT NULL,                -- lower = stronger signal, checked first during import matching
+    RequiresReview        BIT NOT NULL DEFAULT 0       -- 1 = a match on this type alone routes to analyst review, not an auto-merge (D-102's confirmed choice for IP-only matches)
+);
+-- Seeded: ADGuid/ADSid/LdapBaseDN/DatabaseInstanceName/ApplianceSerialNumber/
+-- LinuxHostSignature all priority 10 (system-assigned, authoritative
+-- identifiers); FQDN priority 20; Hostname priority 30; IPAddress priority
+-- 40, RequiresReview = 1 (weakest signal -- DHCP reassignment, NAT).
+
+-- web.dim_target: any final destination (server/desktop/database/
+-- application/LDAP directory/appliance/etc). Row set comes from BOTH
+-- AD-discovery-style ETL tooling and analyst add/bulk-CSV (to fill the
+-- gaps discovery tools always leave, confirmed 2026-09-05); the risk score
+-- itself is always analyst-set regardless of how the Target row got there.
 CREATE TABLE web.dim_target (
     TargetKey            INT IDENTITY(1,1) PRIMARY KEY,
-    TargetType           NVARCHAR(50)     NOT NULL,  -- 'Server' / 'Desktop' / 'Database' / 'Application' / 'Other'
+    TargetType           NVARCHAR(50)     NOT NULL,  -- 'Server' / 'Desktop' / 'Database' / 'Application' / 'LdapDirectory' / 'Appliance' / 'Other'
     TargetName           NVARCHAR(300)    NOT NULL,  -- display name
-    Hostname             NVARCHAR(300)    NULL,
-    FQDN                 NVARCHAR(300)    NULL,
-    IPAddress            NVARCHAR(45)     NULL,      -- IPv4 or IPv6
-    ADGuid               UNIQUEIDENTIFIER NULL,       -- AD-discovered object GUID (Windows only)
-    ADSid                NVARCHAR(184)    NULL,       -- AD/local SID (Windows only)
-    InternalGuid         UNIQUEIDENTIFIER NOT NULL DEFAULT NEWID(), -- this app's own stable identity for the target -- see note below
+    InternalGuid         UNIQUEIDENTIFIER NOT NULL DEFAULT NEWID(), -- this app's own stable identity for the target, distinct from any externally-discovered identifier -- confirmed 2026-09-05
     ApplicationKey       INT              NULL REFERENCES web.dim_application(ApplicationKey), -- set only when TargetType = 'Application'
     RiskScore            INT              NOT NULL,  -- 0-1000, analyst-set
     Description          NVARCHAR(1000)   NULL,
@@ -65,13 +70,21 @@ CREATE TABLE web.dim_target (
     SourceFileName        NVARCHAR(260)    NULL,
     CONSTRAINT UQ_dim_target_InternalGuid UNIQUE (InternalGuid)
 );
--- Deliberately no UNIQUE constraint across Hostname/FQDN/IP/ADGuid/ADSid --
--- SQL Server's own NULL handling in a unique index (each NULL treated as
--- distinct) is exactly wrong for "match if ANY non-null identifier
--- matches," which needs real dedup logic, not a constraint (see below).
--- "InternalGuid" is assumed to mean this app's own generated surrogate
--- identity, distinct from an externally-discovered ADGuid -- flag if that's
--- not what was meant.
+
+-- web.target_identifier: every recognized identifier value for a target --
+-- a target can (and often will) have several (e.g. a Windows server has
+-- both an FQDN and an ADGuid; nothing requires exactly one row per type).
+CREATE TABLE web.target_identifier (
+    TargetIdentifierKey  INT IDENTITY(1,1) PRIMARY KEY,
+    TargetKey            INT NOT NULL REFERENCES web.dim_target(TargetKey),
+    IdentifierType       NVARCHAR(50) NOT NULL REFERENCES web.dim_target_identifier_type(IdentifierType),
+    IdentifierValue      NVARCHAR(300) NOT NULL,
+    CONSTRAINT UQ_target_identifier UNIQUE (IdentifierType, IdentifierValue)
+);
+-- This UNIQUE constraint is exactly the database-enforced dedup guarantee
+-- the old wide-column design couldn't have (NULLs made a composite UNIQUE
+-- across Hostname/FQDN/IP/ADGuid/ADSid meaningless) -- one real identifier
+-- value can only ever point at one Target.
 
 -- web.dim_access_group: a privileged-access group in the managed
 -- environment -- NOT CyberArk's own dim_group (vault/Safe permissions).
@@ -153,19 +166,36 @@ CREATE TABLE web.account_risk_score (
 );
 ```
 
-`EffectiveRiskScore` is what the Account Progress list and the Risk Score report both sort/filter/display on -- a persisted computed column so it indexes and sorts cheaply, rather than every consumer re-deriving `COALESCE(...)` itself. `OverrideReason` follows this app's existing pattern of requiring a stated reason for a manual override (mirrors `web.risk_exception.Justification`) -- worth confirming that's wanted here too, since it wasn't asked directly.
+`EffectiveRiskScore` is what the Account Progress list and the Risk Score report both sort/filter/display on -- a persisted computed column so it indexes and sorts cheaply, rather than every consumer re-deriving `COALESCE(...)` itself. **Confirmed 2026-09-05: an override requires a reason** (`OverrideReason`, mirroring `web.risk_exception.Justification`), and **clearing the override (setting it back to blank/NULL) makes it ignored, reverting to the computed value** -- exactly what `EffectiveRiskScore = COALESCE(OverrideRiskScore, ComputedRiskScore)` already does by construction, so no schema change was needed to satisfy this, just confirmation the existing design already behaves this way.
 
 ## Target Matching (import-time deduplication)
 
-Confirmed 2026-09-05: Windows targets surface a discoverable `ADGuid`/`ADSid`; Linux hosts have neither, so matching can't rely on one column. Every Target import (bulk CSV or the AD-discovery ETL feed) needs to check an incoming row against existing `dim_target` rows across *all* of `ADGuid`, `ADSid`, `FQDN`, `Hostname`, `IPAddress` before deciding "new target" vs. "update this existing one" -- proposed as a dedicated `usp_MatchOrCreateTarget` procedure (not a database constraint, since partial NULLs make a single UNIQUE index the wrong tool here) applying identifiers in confidence order:
+Confirmed 2026-09-05, revised same day (D-103) once the identifier list grew to include Linux/LDAP/Database/Appliance identifiers alongside Windows' `ADGuid`/`ADSid`: every Target import (bulk CSV, AD-discovery ETL feed, or any future source) needs to check an incoming row's identifier values against existing `web.target_identifier` rows before deciding "new target" vs. "update this existing one" -- proposed as a dedicated `usp_MatchOrCreateTarget` procedure, driven entirely by `dim_target_identifier_type.MatchPriority`/`RequiresReview` rather than a hardcoded column list:
 
-1. `ADGuid` or `ADSid` match (Windows only) → treat as the same target, strongest signal.
-2. Else `FQDN` match → same target.
-3. Else `Hostname` match → same target (weaker: short hostnames can collide across domains).
-4. Else `IPAddress` match → same target, weakest signal (DHCP reassignment, NAT) -- flagged for analyst review rather than silently merged, since an IP-only match is the one most likely to be wrong.
-5. No match on any column → new Target row.
+1. Look up every existing `target_identifier` row matching any of the incoming row's (IdentifierType, IdentifierValue) pairs, ordered by `MatchPriority` ascending (system-assigned identifiers like `ADGuid`/`ADSid`/`LdapBaseDN`/`DatabaseInstanceName`/`ApplianceSerialNumber`/`LinuxHostSignature` first, then `FQDN`, then `Hostname`, then `IPAddress` last).
+2. If the best (lowest-priority-number) match found is on a type where `RequiresReview = 0` → treat as the same Target; add/update any of the incoming row's other identifier values onto that same `TargetKey` (a target can and often will carry several identifier rows at once — e.g. a Windows server has both an `FQDN` and an `ADGuid`).
+3. If the *only* match found is on a `RequiresReview = 1` type (today, only `IPAddress`) → **do not auto-merge** (confirmed 2026-09-05, "1 is a good suggestion"). Insert a row into a new review queue instead:
 
-A later Open Question is whether an IP-only match (step 4) should auto-merge or land in a review queue instead -- leaning toward "review queue," but calling it out explicitly rather than deciding silently.
+```sql
+-- web.target_match_review: a weak (IP-only, etc.) match an analyst needs
+-- to confirm rather than one this app silently merges or splits.
+CREATE TABLE web.target_match_review (
+    TargetMatchReviewKey  INT IDENTITY(1,1) PRIMARY KEY,
+    CandidateTargetKey    INT NULL REFERENCES web.dim_target(TargetKey), -- the existing target it weakly matched, if any
+    IdentifierType        NVARCHAR(50) NOT NULL REFERENCES web.dim_target_identifier_type(IdentifierType),
+    IdentifierValue       NVARCHAR(300) NOT NULL,
+    ImportBatchId         UNIQUEIDENTIFIER NULL,
+    SourceFileName        NVARCHAR(260)    NULL,
+    CreatedDate           DATETIME2        NOT NULL DEFAULT SYSUTCDATETIME(),
+    ResolvedBy            INT              NULL REFERENCES web.app_user(UserKey),
+    ResolvedDate          DATETIME2        NULL,
+    Resolution            NVARCHAR(20)     NULL  -- 'Merged' / 'NewTarget' / 'Ignored'
+);
+```
+
+4. No match on anything → new Target row, plus a `target_identifier` row for every identifier value the import supplied.
+
+The review queue needs its own small admin page (e.g. `admin/TargetMatchReview.vue`) for an analyst to resolve each pending row — not yet scoped in detail below; added to Admin & Report Pages as a placeholder.
 
 **Staleness/recalculation, per the user's own suggestion (2026-09-05):** `IsRiskScoreStale` is set to `1` whenever a Target's `RiskScore`, an Access Group's `BaseRiskScore`, or any of the three mapping tables change (via ETL load or a manual admin edit). A new `usp_RecalculateRiskScores` procedure recomputes every stale Access Group's `ComputedRiskScore` first, then every stale Account's `ComputedRiskScore` (which depends on its groups' now-current scores) — called both from `usp_RunFullLoad` (so ETL-driven changes are picked up automatically on the normal load cycle) and from a new "Recalculate Now" action in the admin UI, for a manual edit made between load runs. Recalculation never touches `OverrideRiskScore` — an analyst override stays put until an analyst changes or clears it, regardless of how often the underlying computed value refreshes.
 
@@ -204,7 +234,7 @@ END
 ## Import Mechanics
 
 **New for this app:** a CSV bulk-upload-with-generated-template pattern for the analyst-managed entities (Targets, Access Groups, and account risk-score overrides) — confirmed no precedent exists anywhere in this app today (every existing CSV import is ETL-only, not a web admin upload). Both **bulk import and single add are needed** (confirmed 2026-09-05), matching this app's existing single-add-or-bulk pattern used elsewhere (Identity Providers/Secrets Store already support single add/edit; this adds the bulk path on top):
-- `GET /api/admin/targets/import-template` → downloads a CSV with the correct headers (`TargetType,TargetName,Hostname,FQDN,IPAddress,ADGuid,ADSid,RiskScore,Description`) and one example row.
+- `GET /api/admin/targets/import-template` → downloads a CSV with the correct headers. Given identifiers now live in their own extensible table rather than fixed columns, the template has one identifier column per currently-seeded `IdentifierType` (`TargetType,TargetName,RiskScore,Description,ADGuid,ADSid,FQDN,Hostname,IPAddress,LinuxHostSignature,LdapBaseDN,DatabaseInstanceName,ApplianceSerialNumber`, generated from `dim_target_identifier_type` rather than hardcoded, so a newly-added identifier type automatically appears in future template downloads) — a row only needs to fill in whichever identifier columns actually apply to that Target.
 - `POST /api/admin/targets/import` (multipart file upload) → parses, validates every row (reports errors per row rather than failing the whole batch on one bad row), and runs each row through the same `usp_MatchOrCreateTarget` dedup logic used by the ETL feed (so a manual CSV upload and an automated discovery feed can't create duplicate Target rows for the same real machine) — same shape for Access Groups (`GroupName,GroupIdentifier,GroupScope,BaseRiskScore,Description`).
 - Both entities also get a single add/edit form.
 
@@ -212,8 +242,9 @@ END
 
 ## Admin & Report Pages (new)
 
-- **Targets** admin page (`admin/Targets.vue`) — list/create/edit/delete, plus bulk CSV upload + template download. New permission: `ManageTargets`.
+- **Targets** admin page (`admin/Targets.vue`) — list/create/edit/delete, plus bulk CSV upload + template download. Editing a target's identifiers manages its `target_identifier` rows underneath. New permission: `ManageTargets`.
 - **Access Groups** admin page (`admin/AccessGroups.vue`) — same shape, for Access Groups and their base risk score. New permission: `ManageAccessGroups`.
+- **Target Match Review** admin page (`admin/TargetMatchReview.vue`) — a queue of pending `target_match_review` rows (weak/IP-only matches) for an analyst to resolve as Merged/NewTarget/Ignored. Likely gated by the same `ManageTargets` permission rather than a new one, unless a narrower gate is wanted.
 - **Risk Score report** — accounts sorted/filtered by computed risk score, with drill-down into which Access Groups/Targets are driving a given account's score. New permission: `ViewRiskReport`.
 - **Account Progress list** gets two new columns (confirmed 2026-09-05): `EffectiveRiskScore` (sortable, the computed value or the override if one is set) and an editable override column/action — populating it takes precedence over the computed score everywhere. Editing the override likely needs `EditAccountProgress` (the existing permission already gating edits on this page) rather than a new one, unless a narrower override-specific permission is wanted.
 
@@ -221,11 +252,9 @@ END
 
 - **Algorithm choice** — Candidate A vs. B above, or a third; needs either a decision or a small prototype-and-compare pass against sample data before this is locked in. The dispatcher design means both can be built and compared live rather than picked blind.
 - **Direct Account→Target grants**, confirmed to come from a separate feed from Account→Group — exact file/matching shape not yet defined (depends on what that feed actually looks like), and the `_Pending` safes angle the user raised is worth checking against real data before assuming it's a full substitute for that feed.
-- **IP-only Target match (matching step 4)** — auto-merge into the existing Target, or land in an analyst review queue instead of silently merging? Leaning toward a review queue (an IP-only match is the weakest, most collision-prone signal), not yet confirmed.
-- **`InternalGuid`'s exact meaning** — modeled here as this app's own generated surrogate identity for a Target, distinct from the AD-discovered `ADGuid`. Flag if something more specific was meant (e.g. a CyberArk-internal object identifier).
-- **`fact_account.Address` reconciliation** — `Address` is a raw, unnormalized string already on `fact_account`; once Targets have real `Hostname`/`FQDN`/`IPAddress` values, is there a need to backfill/link existing accounts' `Address` values to a matching Target (for accounts imported before this feature existed), or does that happen naturally once the Account→Target/Account→Group ETL feeds start running?
-- **`OverrideReason`** — proposed to require a stated reason for a risk-score override (mirroring `web.risk_exception.Justification`), not yet confirmed as wanted.
+- **`fact_account.Address` reconciliation** — `Address` is a raw, unnormalized string already on `fact_account`; once Targets have real identifier values, is there a need to backfill/link existing accounts' `Address` values to a matching Target (for accounts imported before this feature existed), or does that happen naturally once the Account→Target/Account→Group ETL feeds start running?
 - **Server/Desktop/Database Target subtypes** — does v1 need type-specific extra fields (e.g. environment tier, OS), or is the current generic shape sufficient to start?
+- **`web.target_match_review`'s resolution actions** — sketched as Merged/NewTarget/Ignored, but the exact admin workflow for "Merged" (pick which existing Target to merge into, if `CandidateTargetKey` is wrong) isn't designed yet.
 
 ---
 *New document added 2026-09-05, following the user's request for a computed risk-scoring system to help prioritize work. Schema/algorithm above are a first-draft proposal for review, not yet applied as a migration or implemented — see Open Questions before treating any of this as final.*
