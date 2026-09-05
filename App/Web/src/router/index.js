@@ -1,10 +1,10 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { nextTick } from 'vue'
+import { useRightsStore } from '../stores/rights'
 
 // Routes mirror the confirmed page inventory (Design_Application_Structure.md,
 // D-43), with Admin (D-47) and Reports (D-56) as hub pages with sub-navigation
-// rather than flat top-level entries. View components are placeholders --
-// this is routing/navigation scaffolding, not built-out screens.
+// rather than flat top-level entries.
 
 const routes = [
   {
@@ -159,6 +159,24 @@ const routes = [
 const router = createRouter({
   history: createWebHistory(),
   routes
+})
+
+// D-100: Login.vue itself needs no guarding (it's the escape hatch), and
+// /api/me's own 401 is the one authoritative "not authenticated" signal --
+// an authenticated user with zero permissions still gets a 200 with empty
+// roleNames/permissionNames (MeController), so this never fires for that
+// case, only for a genuinely unauthenticated request.
+router.beforeEach(async (to) => {
+  if (to.name === 'login') return true
+
+  const rights = useRightsStore()
+  await rights.ensureLoaded()
+
+  if (rights.authenticated === false) {
+    return { name: 'login', query: { returnUrl: to.fullPath } }
+  }
+
+  return true
 })
 
 // D-92: a client-routed SPA gives assistive tech no "page changed" signal

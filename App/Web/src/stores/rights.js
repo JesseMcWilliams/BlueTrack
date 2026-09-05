@@ -15,6 +15,10 @@ export const useRightsStore = defineStore('rights', {
     loaded: false,
     loading: false,
     error: null,
+    // D-100: null until load() resolves, then true/false -- distinct from
+    // `error`, since a 401 here is an expected, meaningful state (not
+    // authenticated yet), not a failure to report as an error banner.
+    authenticated: null,
     _loadPromise: null
   }),
   getters: {
@@ -36,12 +40,18 @@ export const useRightsStore = defineStore('rights', {
       this.error = null
       try {
         const response = await fetch('/api/me')
+        if (response.status === 401) {
+          this.authenticated = false
+          this.loaded = true
+          return
+        }
         if (!response.ok) throw new Error(`Request failed: ${response.status}`)
         const data = await response.json()
         this.userKey = data.userKey
         this.displayName = data.displayName
         this.roleNames = data.roleNames
         this.permissionNames = data.permissionNames
+        this.authenticated = true
         this.loaded = true
         useThemeStore().loadFromServer(data.preferences)
       } catch (err) {
