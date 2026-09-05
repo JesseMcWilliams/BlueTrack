@@ -22,7 +22,7 @@ A new, computed risk score for prioritizing work — requested by the user 2026-
 | Access Group base risk score | Analyst-set, via the web admin page — bulk CSV upload or single add/edit |
 | Access Group → Target mapping ("this group grants access to these targets") | **Backend ETL, from a new external inventory feed** — confirmed 2026-09-05. CyberArk's own exports carry no such data (Safe/vault permissions are a different thing entirely), so this is a new source system, not an extension of the existing PC/SH ETL |
 | Account → Access Group membership ("this account is a member of this group") | **Backend ETL, from a new external feed** (e.g., an AD group membership export) — confirmed 2026-09-05, same reasoning as above |
-| Account → Target direct access (bypassing a group) | **A separate, different feed from Account→Group** — confirmed 2026-09-05. The user also noted some of this data may already be recoverable from accounts sitting in `_Pending`-named safes (the same safe-naming convention D-91's auto-advance logic already keys off of) — worth checking directly against real data once this feed exists, rather than assumed to fully replace it; flagged as something to verify, not designed around yet |
+| Account → Target direct access (bypassing a group) | **Three confirmed mechanisms, all feeding the same table** (2026-09-05) — see "Direct Account→Target Access" below |
 | Target inventory (the row set itself, not just its risk score) | **Both**: seeded/refreshed via AD discovery tooling (a new ETL feed) *and* analyst-added, single or bulk, to fill the gaps automated discovery tools always leave — confirmed 2026-09-05 |
 
 Every ETL-sourced relationship above needs the same import-batch tracking already used everywhere else in this app's ETL layer (`ImportBatchId`/`SourceFileName`/`LoadTimestamp` per staging row, one `import_log` row per run) — this satisfies "track when and where they were imported from" using an established pattern rather than a new one. A new `dim_source_system` row (e.g. `ACCESSINVENTORY`) is proposed for this feed, following the existing `PRIVCLOUD`/`SELFHOSTED`/`DISCOVERY` pattern. Distinct from that file-level provenance, `dim_access_group` also needs to record *where a group was found* (confirmed 2026-09-05) — see `DiscoverySource`/`FoundOnTargetKey`/`GroupScope` below, since "which import run loaded this row" and "where in the managed environment this group actually lives" are two different facts.
@@ -137,10 +137,13 @@ CREATE TABLE web.account_access_group_map (
 );
 
 -- web.account_target_map: DIRECT account-to-target access, bypassing any
--- group. Expected to be the exception, not the rule.
+-- group. Expected to be the exception, not the rule. Three confirmed
+-- origins write to this same table (see "Direct Account->Target Access"
+-- below) -- SourceMethod distinguishes which one populated a given row.
 CREATE TABLE web.account_target_map (
     AccountKey            BIGINT NOT NULL REFERENCES dbo.fact_account(AccountKey),
     TargetKey             INT    NOT NULL REFERENCES web.dim_target(TargetKey),
+    SourceMethod          NVARCHAR(20)     NOT NULL, -- 'PendingSafeDerived' / 'ManualImport' / 'ETL'
     ImportBatchId         UNIQUEIDENTIFIER NULL,
     SourceFileName        NVARCHAR(260)    NULL,
     LoadTimestamp          DATETIME2        NOT NULL DEFAULT SYSUTCDATETIME(),
@@ -167,6 +170,14 @@ CREATE TABLE web.account_risk_score (
 ```
 
 `EffectiveRiskScore` is what the Account Progress list and the Risk Score report both sort/filter/display on -- a persisted computed column so it indexes and sorts cheaply, rather than every consumer re-deriving `COALESCE(...)` itself. **Confirmed 2026-09-05: an override requires a reason** (`OverrideReason`, mirroring `web.risk_exception.Justification`), and **clearing the override (setting it back to blank/NULL) makes it ignored, reverting to the computed value** -- exactly what `EffectiveRiskScore = COALESCE(OverrideRiskScore, ComputedRiskScore)` already does by construction, so no schema change was needed to satisfy this, just confirmation the existing design already behaves this way.
+
+## Direct Account→Target Access
+
+**Confirmed 2026-09-05: three mechanisms, all writing into the same `web.account_target_map`, distinguished by `SourceMethod`:**
+
+1. **`PendingSafeDerived`** — CyberArk's own Account Discovery already drops discovered accounts into a safe named like `PasswordManager_Pending` (one real example exists today; the user is populating it with data). This is not a new import at all — `fact_account`/`dim_safe` already carry this data via the exact same `SafeName LIKE '%[_]Pending%'` match `usp_Load_AccountProgressAutoAdvance` (D-91) already uses. A new `usp_DeriveAccountTargetMap_FromPendingSafes` procedure runs each such account's existing `Address` through the same identifier-matching approach as `usp_MatchOrCreateTarget` (matching against `web.target_identifier`, not creating new Targets — an Address with no matching Target simply gets no row yet, consistent with "gaps are expected, not auto-filled") and inserts `(AccountKey, TargetKey, SourceMethod = 'PendingSafeDerived')` for whatever matches. Called from `usp_RunFullLoad`, alongside the other risk-scoring recalculation steps.
+2. **`ManualImport`** — an analyst directly links an account to a target, single-add or bulk CSV, via the Targets admin page (or a small dedicated section of it) — same upload/template pattern as Targets/Access Groups themselves.
+3. **`ETL`** — a separate external feed from Account→Group's own feed, exact file shape still undefined until that source is specified (`usp_Load_AccountTargetMap`).
 
 ## Target Matching (import-time deduplication)
 
@@ -237,8 +248,9 @@ END
 - `GET /api/admin/targets/import-template` → downloads a CSV with the correct headers. Given identifiers now live in their own extensible table rather than fixed columns, the template has one identifier column per currently-seeded `IdentifierType` (`TargetType,TargetName,RiskScore,Description,ADGuid,ADSid,FQDN,Hostname,IPAddress,LinuxHostSignature,LdapBaseDN,DatabaseInstanceName,ApplianceSerialNumber`, generated from `dim_target_identifier_type` rather than hardcoded, so a newly-added identifier type automatically appears in future template downloads) — a row only needs to fill in whichever identifier columns actually apply to that Target.
 - `POST /api/admin/targets/import` (multipart file upload) → parses, validates every row (reports errors per row rather than failing the whole batch on one bad row), and runs each row through the same `usp_MatchOrCreateTarget` dedup logic used by the ETL feed (so a manual CSV upload and an automated discovery feed can't create duplicate Target rows for the same real machine) — same shape for Access Groups (`GroupName,GroupIdentifier,GroupScope,BaseRiskScore,Description`).
 - Both entities also get a single add/edit form.
+- The `ManualImport` mechanism for direct Account→Target links (see "Direct Account→Target Access") gets the same single-add-or-bulk-CSV shape — an analyst picks an Account and a Target and links them directly, or uploads a CSV of `AccountKey`/`SourceAccountId`-plus-`TargetIdentifier` pairs.
 
-**ETL side:** a new `usp_Load_TargetInventory` (AD-discovery-style target seeding, using the same `usp_MatchOrCreateTarget` matching), `usp_Load_AccessGroupTargetMap`, and `usp_Load_AccountAccessGroupMembership` (naming to match the existing `usp_Load_*` convention), fed by new `stg_*` staging tables under the same `ImportBatchId`/`SourceFileName`/`LoadTimestamp` convention as every other staging table. Direct Account→Target access is confirmed to come from yet another, separate feed (`usp_Load_AccountTargetMap`) — exact file formats for all of these are TBD until the actual external feeds are defined.
+**ETL side:** a new `usp_Load_TargetInventory` (AD-discovery-style target seeding, using the same `usp_MatchOrCreateTarget` matching), `usp_Load_AccessGroupTargetMap`, `usp_Load_AccountAccessGroupMembership`, and `usp_Load_AccountTargetMap` (the `ETL`-sourced one of direct-target-access's three mechanisms — see "Direct Account→Target Access") — naming to match the existing `usp_Load_*` convention, fed by new `stg_*` staging tables under the same `ImportBatchId`/`SourceFileName`/`LoadTimestamp` convention as every other staging table. Exact file formats are TBD until each actual external feed is specified. The `PendingSafeDerived` mechanism needs no file at all — `usp_DeriveAccountTargetMap_FromPendingSafes` runs entirely off data already in `fact_account`/`dim_safe`, called from `usp_RunFullLoad` alongside the other Load steps.
 
 ## Admin & Report Pages (new)
 
@@ -251,7 +263,7 @@ END
 ## Open Questions
 
 - **Algorithm choice** — Candidate A vs. B above, or a third; needs either a decision or a small prototype-and-compare pass against sample data before this is locked in. The dispatcher design means both can be built and compared live rather than picked blind.
-- **Direct Account→Target grants**, confirmed to come from a separate feed from Account→Group — exact file/matching shape not yet defined (depends on what that feed actually looks like), and the `_Pending` safes angle the user raised is worth checking against real data before assuming it's a full substitute for that feed.
+- **The `ETL`-sourced direct Account→Target feed's exact file shape** — confirmed as one of three mechanisms (see "Direct Account→Target Access"), but the actual file format is still undefined until that external source is specified.
 - **`fact_account.Address` reconciliation** — `Address` is a raw, unnormalized string already on `fact_account`; once Targets have real identifier values, is there a need to backfill/link existing accounts' `Address` values to a matching Target (for accounts imported before this feature existed), or does that happen naturally once the Account→Target/Account→Group ETL feeds start running?
 - **Server/Desktop/Database Target subtypes** — does v1 need type-specific extra fields (e.g. environment tier, OS), or is the current generic shape sufficient to start?
 - **`web.target_match_review`'s resolution actions** — sketched as Merged/NewTarget/Ignored, but the exact admin workflow for "Merged" (pick which existing Target to merge into, if `CandidateTargetKey` is wrong) isn't designed yet.
