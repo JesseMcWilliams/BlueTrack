@@ -33,6 +33,13 @@ function sortIndicator(field) {
   return sortColumns.value.length > 1 ? `${arrow}${idx + 1}` : arrow
 }
 
+// D-92 (ARIA APG Sortable Table pattern) -- see AccountProgressList.vue's
+// identical helper for why only the primary sort key is ever reflected here.
+function ariaSortFor(field) {
+  if (sortColumns.value.length === 0 || sortColumns.value[0].field !== field) return 'none'
+  return sortColumns.value[0].descending ? 'descending' : 'ascending'
+}
+
 function toggleSort(field, event) {
   const existingIndex = sortColumns.value.findIndex(s => s.field === field)
 
@@ -104,29 +111,40 @@ async function toggleFieldChanges(event) {
       <button type="submit">Filter</button>
     </form>
 
-    <p v-if="error">{{ error }}</p>
-    <p v-if="loading">Loading...</p>
+    <p v-if="error" role="alert">{{ error }}</p>
+    <p v-if="loading" role="status">Loading...</p>
     <p v-else-if="events.length === 0">No matching audit events.</p>
 
     <table v-else>
       <thead>
         <tr>
-          <th v-for="col in columns" :key="col.field" style="cursor: pointer" @click="toggleSort(col.field, $event)">
-            {{ col.label }} {{ sortIndicator(col.field) }}
+          <th v-for="col in columns" :key="col.field" :aria-sort="ariaSortFor(col.field)">
+            <button type="button" @click="toggleSort(col.field, $event)">
+              {{ col.label }} <span aria-hidden="true">{{ sortIndicator(col.field) }}</span>
+            </button>
           </th>
           <th>Detail</th>
         </tr>
       </thead>
       <tbody>
         <template v-for="event in events" :key="event.auditEventKey">
-          <tr @click="toggleFieldChanges(event)">
-            <td>{{ event.occurredAt }}</td>
+          <tr>
+            <td>
+              <button
+                type="button"
+                :aria-expanded="expandedEventKey === event.auditEventKey"
+                :aria-controls="`audit-detail-${event.auditEventKey}`"
+                @click="toggleFieldChanges(event)"
+              >
+                {{ event.occurredAt }}
+              </button>
+            </td>
             <td>{{ event.eventTypeName }}</td>
             <td>{{ event.performedByName }}</td>
             <td>{{ event.entityName }} {{ event.entityKey }}</td>
             <td>{{ event.detail }}</td>
           </tr>
-          <tr v-if="expandedEventKey === event.auditEventKey">
+          <tr v-if="expandedEventKey === event.auditEventKey" :id="`audit-detail-${event.auditEventKey}`">
             <td colspan="5">
               <p v-if="event.reason"><strong>Reason:</strong> {{ event.reason }}</p>
               <p v-if="fieldChanges.length === 0">No field-level changes recorded for this event.</p>

@@ -38,13 +38,17 @@ test.describe('Account Progress List', () => {
     }
     await page.getByLabel('Stage:').selectOption('')
 
-    // Sort: a plain click makes the column the sole ascending sort key.
-    await page.getByRole('columnheader', { name: /^Account/ }).click()
-    await expect(page.getByRole('columnheader', { name: /^Account ▲$/ })).toBeVisible()
+    // Sort: a plain click makes the column the sole ascending sort key
+    // (D-92: the ARIA APG Sortable Table pattern -- a real <button> inside
+    // the <th>, aria-sort on the <th> itself).
+    await page.getByRole('button', { name: /^Account/ }).click()
+    await expect(page.getByRole('columnheader', { name: /Account/ })).toHaveAttribute('aria-sort', 'ascending')
 
     const targetRow = page.locator('tbody tr', { hasText: 'TestAccount03' })
     await expect(targetRow).toBeVisible()
-    await targetRow.click()
+    // D-92: the account name is now a real <a> (not the whole <tr>), so
+    // native keyboard/AT navigation works -- click it specifically.
+    await targetRow.getByRole('link').click()
     await expect(page).toHaveURL(/\/accounts\/\d+$/)
     await expect(page.getByRole('heading', { name: /Account Progress — TestAccount03/ })).toBeVisible()
   })
@@ -83,11 +87,11 @@ test.describe('Risk Exceptions List', () => {
       await expect(activeRows.nth(i).locator('td').last()).not.toHaveText('')
     }
 
-    await page.getByRole('columnheader', { name: /^Exception ID/ }).click()
-    await expect(page.getByRole('columnheader', { name: /^Exception ID ▲$/ })).toBeVisible()
+    await page.getByRole('button', { name: /^Exception ID/ }).click()
+    await expect(page.getByRole('columnheader', { name: /Exception ID/ })).toHaveAttribute('aria-sort', 'ascending')
 
     const firstRow = page.locator('tbody tr').first()
-    await firstRow.click()
+    await firstRow.getByRole('link').click()
     await expect(page).toHaveURL(/\/exceptions\/\d+$/)
   })
 })
@@ -122,7 +126,7 @@ test.describe('Overdue Exception Reviews worklist', () => {
     await expect(page.locator('tbody tr', { hasText: justification })).toBeVisible()
 
     const overdueRow = page.locator('tbody tr', { hasText: justification })
-    await overdueRow.click()
+    await overdueRow.getByRole('link').click()
     await expect(page).toHaveURL(/\/exceptions\/\d+$/)
   })
 })

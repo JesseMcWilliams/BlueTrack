@@ -28,8 +28,8 @@ onMounted(async () => {
   <div>
     <h2>Overdue Exception Reviews</h2>
     <p>Active exceptions past their review date -- re-approve (extend the review date) or revoke.</p>
-    <p v-if="loading">Loading...</p>
-    <p v-else-if="error">Could not load exceptions: {{ error }}</p>
+    <p v-if="loading" role="status">Loading...</p>
+    <p v-else-if="error" role="alert">Could not load exceptions: {{ error }}</p>
     <p v-else-if="exceptions.length === 0">No exceptions are past their review date.</p>
     <table v-else>
       <thead>
@@ -41,12 +41,8 @@ onMounted(async () => {
         </tr>
       </thead>
       <tbody>
-        <tr
-          v-for="exception in exceptions"
-          :key="exception.exceptionKey"
-          @click="$router.push({ name: 'risk-exception-edit', params: { exceptionKey: exception.exceptionKey } })"
-        >
-          <td>{{ exception.exceptionID }}</td>
+        <tr v-for="exception in exceptions" :key="exception.exceptionKey">
+          <td><router-link :to="{ name: 'risk-exception-edit', params: { exceptionKey: exception.exceptionKey } }">{{ exception.exceptionID }}</router-link></td>
           <td>{{ exception.scopeType }}: {{ exception.scopeName }}</td>
           <td>{{ exception.justification }}</td>
           <td>{{ exception.reviewDate }}</td>

@@ -282,8 +282,8 @@ onUnmounted(releaseLock)
 <template>
   <div>
     <h1>Account Progress — {{ detail?.accountName ?? accountKey }}</h1>
-    <p v-if="loading">Loading...</p>
-    <p v-else-if="error">{{ error }}</p>
+    <p v-if="loading" role="status">Loading...</p>
+    <p v-else-if="error" role="alert">{{ error }}</p>
 
     <template v-else>
       <div v-if="applicationExceptions.length > 0">
@@ -297,7 +297,7 @@ onUnmounted(releaseLock)
       </p>
 
       <form v-if="lockedByMe" @submit.prevent="save">
-        <p v-if="saveError">{{ saveError }}</p>
+        <p v-if="saveError" role="alert">{{ saveError }}</p>
         <p v-for="field in sortedFields" :key="field.fieldName">
           <label>
             {{ field.displayLabel }}<span v-if="field.isRequired"> *</span>:
@@ -317,7 +317,7 @@ onUnmounted(releaseLock)
         <div v-if="isRiskAccepted">
           <h3>Risk Exception</h3>
           <p>Status is Risk Accepted / Excluded -- link an existing Active exception for this account, or create one.</p>
-          <p v-if="exceptionError">{{ exceptionError }}</p>
+          <p v-if="exceptionError" role="alert">{{ exceptionError }}</p>
           <p>
             <label>
               Linked Exception:

@@ -28,8 +28,8 @@ onMounted(async () => {
 <template>
   <div>
     <h2>Reconciliation Review Queue</h2>
-    <p v-if="loading">Loading...</p>
-    <p v-else-if="error">Could not load queue: {{ error }}</p>
+    <p v-if="loading" role="status">Loading...</p>
+    <p v-else-if="error" role="alert">Could not load queue: {{ error }}</p>
     <p v-else-if="items.length === 0">Nothing awaiting reconciliation review.</p>
     <table v-else>
       <thead>

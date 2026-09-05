@@ -79,8 +79,8 @@ async function testConnection() {
   <div>
     <h2>Secrets Store Configuration</h2>
     <p>Exactly one backend is active at a time.</p>
-    <p v-if="error">{{ error }}</p>
-    <p v-if="loading">Loading...</p>
+    <p v-if="error" role="alert">{{ error }}</p>
+    <p v-if="loading" role="status">Loading...</p>
 
     <table v-else>
       <thead>
@@ -113,11 +113,11 @@ async function testConnection() {
       <button type="submit" :disabled="testing">Test</button>
     </form>
     <div v-if="testResult">
-      <p v-if="testResult.success">
+      <p v-if="testResult.success" role="status">
         Success. UserName: {{ testResult.userName }}, Address: {{ testResult.address }}, password length: {{ testResult.passwordLength }}
         <span v-if="testResult.fromFallbackCache"> (served from fallback cache, D-49)</span>
       </p>
-      <p v-else>Failed{{ testResult.errorCategory ? ` (${testResult.errorCategory})` : '' }}: {{ testResult.error }}</p>
+      <p v-else role="alert">Failed{{ testResult.errorCategory ? ` (${testResult.errorCategory})` : '' }}: {{ testResult.error }}</p>
     </div>
   </div>
 </template>

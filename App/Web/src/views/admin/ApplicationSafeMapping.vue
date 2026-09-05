@@ -74,8 +74,8 @@ async function assignSafe(safe, applicationKeyRaw) {
 <template>
   <div>
     <h2>Application ↔ Safe Mapping</h2>
-    <p v-if="error">{{ error }}</p>
-    <p v-if="loading">Loading...</p>
+    <p v-if="error" role="alert">{{ error }}</p>
+    <p v-if="loading" role="status">Loading...</p>
 
     <template v-else>
       <h3>Applications</h3>

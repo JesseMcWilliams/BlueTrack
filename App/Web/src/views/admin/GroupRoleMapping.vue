@@ -76,8 +76,8 @@ async function remove(mapping) {
 <template>
   <div>
     <h2>Group → Role Mapping</h2>
-    <p v-if="error">{{ error }}</p>
-    <p v-if="loading">Loading...</p>
+    <p v-if="error" role="alert">{{ error }}</p>
+    <p v-if="loading" role="status">Loading...</p>
 
     <template v-else>
       <table>
@@ -107,7 +107,7 @@ async function remove(mapping) {
         <input v-model="lookupGroupName" placeholder="Group name" required />
         <button type="submit">Resolve</button>
       </form>
-      <p v-if="lookupError">{{ lookupError }}</p>
+      <p v-if="lookupError" role="alert">{{ lookupError }}</p>
       <div v-if="lookupResult">
         <p>Resolved to: {{ lookupResult.resolvedAccountName }} ({{ lookupResult.sid }})</p>
         <p>Current role(s): {{ lookupResult.currentRoleNames.join(', ') || '(none mapped)' }}</p>

@@ -41,6 +41,7 @@ builder.Services.AddScoped<SecretsStoreRepository>();
 builder.Services.AddScoped<AuditRepository>();
 builder.Services.AddScoped<ReferenceDataRepository>();
 builder.Services.AddScoped<AccountProgressLockRepository>();
+builder.Services.AddScoped<UserPreferenceRepository>();
 
 // D-13/D-82: cached rights per identity, backed by
 // Microsoft.Extensions.Caching.SqlServer (web.distributed_cache) -- see

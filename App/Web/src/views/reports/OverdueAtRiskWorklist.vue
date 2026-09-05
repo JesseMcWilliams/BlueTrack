@@ -25,8 +25,8 @@ onMounted(async () => {
 <template>
   <div>
     <h2>Overdue / At-Risk Worklist</h2>
-    <p v-if="loading">Loading...</p>
-    <p v-else-if="error">Could not load accounts: {{ error }}</p>
+    <p v-if="loading" role="status">Loading...</p>
+    <p v-else-if="error" role="alert">Could not load accounts: {{ error }}</p>
     <p v-else-if="accounts.length === 0">No accounts are past their target remediation date.</p>
     <table v-else>
       <thead>
@@ -40,12 +40,8 @@ onMounted(async () => {
         </tr>
       </thead>
       <tbody>
-        <tr
-          v-for="account in accounts"
-          :key="account.accountKey"
-          @click="$router.push({ name: 'account-progress-detail', params: { accountKey: account.accountKey } })"
-        >
-          <td>{{ account.accountName }}</td>
+        <tr v-for="account in accounts" :key="account.accountKey">
+          <td><router-link :to="{ name: 'account-progress-detail', params: { accountKey: account.accountKey } }">{{ account.accountName }}</router-link></td>
           <td>{{ account.stageName }}</td>
           <td>{{ account.statusName }}</td>
           <td>{{ account.riskLevelName }}</td>

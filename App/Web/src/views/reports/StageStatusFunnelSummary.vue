@@ -42,8 +42,8 @@ function stageTotal(stageName) {
 <template>
   <div>
     <h2>Stage/Status Funnel Summary</h2>
-    <p v-if="loading">Loading...</p>
-    <p v-else-if="error">Could not load summary: {{ error }}</p>
+    <p v-if="loading" role="status">Loading...</p>
+    <p v-else-if="error" role="alert">Could not load summary: {{ error }}</p>
     <p v-else-if="rows.length === 0">No account progress data yet.</p>
     <table v-else>
       <thead>

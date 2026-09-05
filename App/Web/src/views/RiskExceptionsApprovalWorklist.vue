@@ -33,8 +33,8 @@ onMounted(async () => {
   <div>
     <h2>Exception Approval Worklist</h2>
     <p>Every currently-Active exception.</p>
-    <p v-if="loading">Loading...</p>
-    <p v-else-if="error">{{ error }}</p>
+    <p v-if="loading" role="status">Loading...</p>
+    <p v-else-if="error" role="alert">{{ error }}</p>
     <p v-else-if="exceptions.length === 0">No Active exceptions.</p>
     <table v-else>
       <thead>
