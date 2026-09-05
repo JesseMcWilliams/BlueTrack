@@ -212,6 +212,30 @@ test.describe('Secrets Store Configuration admin page', () => {
       await expect(dpapiRow).toContainText('Yes')
     }
   })
+
+  // D-95: CyberArkCP's Settings moved from a raw JSON textarea to a
+  // structured App ID field -- confirms it actually round-trips (save ->
+  // reload -> the same value comes back populated), not just that the
+  // form still submits.
+  test('CyberArkCP structured App ID field round-trips through save and reload', async ({ page }) => {
+    await signInAs(page, 'TestUser.Admin')
+    await page.goto('/admin/secrets-store')
+
+    const dpapiRow = page.locator('tbody tr', { hasText: 'WindowsDpapi' })
+    const cyberArkRow = page.locator('tbody tr', { hasText: 'CyberArkCP' })
+
+    try {
+      await cyberArkRow.getByLabel('App ID:').fill('e2e-app-id')
+      await cyberArkRow.getByRole('button', { name: 'Make Active' }).click()
+      await expect(cyberArkRow).toContainText('Yes')
+
+      await page.reload()
+      await expect(page.locator('tbody tr', { hasText: 'CyberArkCP' }).getByLabel('App ID:')).toHaveValue('e2e-app-id')
+    } finally {
+      await dpapiRow.getByRole('button', { name: 'Make Active' }).click()
+      await expect(dpapiRow).toContainText('Yes')
+    }
+  })
 })
 
 test.describe('Field Metadata Management admin page', () => {
