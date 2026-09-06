@@ -1,9 +1,18 @@
 /* ============================================================================
-   04_BlueTrack_PowerBI_Support.sql
+   06_BlueTrack_PowerBI_Support.sql
 
-   RUN THIS FILE FOURTH AND LAST, after 01_BlueTrack_CreateDatabase_Schema.sql,
-   02_BlueTrack_ETL_LoadProcedures.sql, and
-   03_BlueTrack_AccountReconciliation.sql.
+   Split 2026-09-05: renumbered from 04_BlueTrack_PowerBI_Support.sql as
+   part of the broader script restructure (see Database/README.md).
+   Content unchanged from the original file -- only the number/name
+   changed to make room for the 02_BlueTrack_ETL_LoadProcedures.sql split
+   into 02_BlueTrack_ETL_DimensionLoads.sql, 03_BlueTrack_ETL_FactLoads.sql,
+   and 04_BlueTrack_ETL_ReportingViews.sql, and the renumbered
+   05_BlueTrack_AccountReconciliation.sql.
+
+   RUN THIS FILE AFTER 01_BlueTrack_CoreSchema.sql,
+   02_BlueTrack_ETL_DimensionLoads.sql, 03_BlueTrack_ETL_FactLoads.sql,
+   04_BlueTrack_ETL_ReportingViews.sql, and
+   05_BlueTrack_AccountReconciliation.sql.
    Includes a USE $DatabaseName$; statement below, so you don't need to
    set the database context manually before running this.
 
@@ -20,9 +29,9 @@
      4. usp_Load_FactAccountProgressHistory -- populates the daily/weekly
         snapshot table Power BI needs for trend-over-time visuals
      5. usp_RunFullLoad -- the orchestration procedure that runs every load
-        step from files 02-04 in dependency order. It's defined here, last,
-        specifically because this is the first point in the four-file
-        sequence where every procedure it calls actually exists.
+        step from files 02-05 in dependency order. It's defined here,
+        specifically because this is the first point in the sequence
+        where every procedure it calls actually exists.
 
    *** BATCHING NOTE ***
    CREATE OR ALTER VIEW and CREATE OR ALTER PROCEDURE must each be the only

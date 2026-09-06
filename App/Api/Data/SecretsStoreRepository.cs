@@ -10,7 +10,7 @@ namespace BlueTrack.Api.Data;
 /// *record* only (which backend is active, plus its non-secret settings) --
 /// the actual backends (Windows DPAPI, CyberArk CP/CCP/Conjur, Azure Key
 /// Vault, AWS Secrets Manager) live in App/Api/Secrets
-/// (Design_Secrets_Storage.md, 14_BlueTrack_SecretsStoreSchema.sql).
+/// (Design_Secrets_Storage.md, 08_BlueTrack_WebSchema.sql).
 /// </summary>
 public sealed class SecretsStoreRepository(IDbConnectionFactory connectionFactory, ILocalSecretProtector localSecretProtector)
 {

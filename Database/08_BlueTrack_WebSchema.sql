@@ -1,7 +1,34 @@
 /* ============================================================================
-   06_BlueTrack_WebInterface_Schema.sql
+   08_BlueTrack_WebSchema.sql
 
-   RUN THIS AFTER 01-05.
+   Consolidated 2026-09-05 out of the former 06_BlueTrack_WebInterface_Schema.sql
+   plus eight small hand-written gap-fill scripts that had accumulated on top
+   of it (old 12_BlueTrack_ExceptionIdNumbering.sql,
+   13_BlueTrack_AuditEventTypes.sql, 14_BlueTrack_SecretsStoreSchema.sql,
+   15_BlueTrack_LockTimeoutConfig.sql, 19_BlueTrack_ApplicationExceptionView.sql,
+   20_BlueTrack_SessionCacheSchema.sql, 21_BlueTrack_ReadEventType.sql, and
+   23_BlueTrack_UserPreferenceSchema.sql -- see Database/README.md for the
+   full restructure rationale). Each of those existed only because D-58's
+   convention (never re-run a destructive schema file against a live
+   environment; promote changes via small guarded add-only scripts instead)
+   made folding a change back into the original file unsafe once real data
+   existed. The user explicitly authorized abandoning that caution for this
+   restructure specifically -- the current database is still initial
+   development and can be freely recreated -- so every one of those
+   guarded, bolt-on ALTER/guarded-INSERT scripts is folded back into its
+   natural place below as a direct column/seed-row definition, and the
+   guard conditions themselves are dropped since there is no prior run to
+   guard against. Three brand-new tables that only ever existed as their
+   own gap-fill script (web.secrets_store, web.distributed_cache,
+   web.user_preference) are now created alongside the rest of this file's
+   tables, in the same reverse-dependency-order cleanup/create pattern.
+   Everything from D-58 onward (D-58 itself predates all eight
+   folded-in scripts) still applies going forward: once this database
+   holds real tracked data again, further schema changes go back to being
+   small guarded numbered scripts appended after 14, never edits to this
+   file.
+
+   RUN THIS AFTER 01-07.
 
    Blueprint Progress Tracking Web Interface -- Schema Creation
    Target: SQL Server / Azure SQL
@@ -21,7 +48,7 @@
 
    THIS FILE DOES NOT DROP THE DATABASE. Unlike 01, which is safe to
    destructively recreate because it always starts from an empty database,
-   this file may run against an environment where 01-05 have already loaded
+   this file may run against an environment where 01-07 have already loaded
    real bulk/tracking data (dbo.fact_account_progress, etc.) that must not
    be touched. Making this file re-runnable in Dev therefore needs a
    different pattern than 01's per-table drop-then-create:
@@ -45,7 +72,7 @@
 
    PAST THIS POINT: per D-58, once an environment holds real data, further
    schema changes are promoted via DbUp-run, hand-written numbered scripts
-   (07, 08, ...) that only add/alter -- this file itself is never edited or
+   (15, 16, ...) that only add/alter -- this file itself is never edited or
    re-run destructively against a live environment once applied there.
    ============================================================================ */
 
@@ -97,6 +124,9 @@ EXEC sp_executesql @dropFkSql;
 GO
 
 -- 1b. Drop web.* tables in reverse dependency order.
+IF OBJECT_ID('web.user_preference', 'U') IS NOT NULL DROP TABLE web.user_preference;
+IF OBJECT_ID('web.distributed_cache', 'U') IS NOT NULL DROP TABLE web.distributed_cache;
+IF OBJECT_ID('web.secrets_store', 'U') IS NOT NULL DROP TABLE web.secrets_store;
 IF OBJECT_ID('web.account_progress_field_metadata', 'U') IS NOT NULL DROP TABLE web.account_progress_field_metadata;
 IF OBJECT_ID('web.app_config', 'U') IS NOT NULL DROP TABLE web.app_config;
 IF OBJECT_ID('web.audit_config', 'U') IS NOT NULL DROP TABLE web.audit_config;
@@ -343,10 +373,18 @@ GO
 
 /* ============================================================================
    6. AUDIT LOGGING -- Design_Audit_Logging.md
+
+   dim_audit_event_type's seed list folds in, directly, the two event types
+   originally added by old 13_BlueTrack_AuditEventTypes.sql
+   (ExceptionReviewExtended/ExceptionRevoked, found missing while wiring
+   real audit logging into the Risk Exceptions actions -- create/
+   extend-review/revoke -- since the original catalog only covered
+   creation) and the one added by old 21_BlueTrack_ReadEventType.sql
+   (RecordViewed, needed once D-35's LogReadEvents enforcement (D-83) had
+   an event to log against). This is still an illustrative starting set,
+   per the design doc -- extend as new event types come up.
    ============================================================================ */
 
--- dim_audit_event_type: illustrative example set from the design doc,
--- seeded as a reasonable starting point -- extend as new event types come up.
 CREATE TABLE web.dim_audit_event_type (
     AuditEventTypeKey     INT IDENTITY(1,1) PRIMARY KEY,
     EventTypeName            NVARCHAR(100)    NOT NULL UNIQUE,
@@ -354,12 +392,15 @@ CREATE TABLE web.dim_audit_event_type (
 );
 
 INSERT INTO web.dim_audit_event_type (EventTypeName, Description) VALUES
-    ('Logon',               'Successful application logon'),
-    ('LogonFailed',          'Failed application logon attempt'),
-    ('FieldEdit',             'A governed field was changed'),
-    ('ExceptionApproved',      'A risk exception was approved'),
-    ('ProviderConfigChanged',    'An identity provider''s configuration changed'),
-    ('ReloadRights',                'A Reload Rights action was triggered');
+    ('Logon',                    'Successful application logon'),
+    ('LogonFailed',               'Failed application logon attempt'),
+    ('FieldEdit',                  'A governed field was changed'),
+    ('ExceptionApproved',           'A risk exception was approved'),
+    ('ProviderConfigChanged',        'An identity provider''s configuration changed'),
+    ('ReloadRights',                   'A Reload Rights action was triggered'),
+    ('ExceptionReviewExtended',           'A risk exception''s ReviewDate was extended (re-approval)'),
+    ('ExceptionRevoked',                    'A risk exception was revoked'),
+    ('RecordViewed',                           'A governed record''s detail view was read (only logged when audit_config.LogReadEvents is enabled)');
 GO
 
 -- audit_event (D-10, D-11, D-51 Reason, D-59 app_user). Field-level diffs
@@ -420,6 +461,14 @@ GO
 
 /* ============================================================================
    7. APPLICATION STRUCTURE -- Design_Application_Structure.md
+
+   app_config folds in, directly, the columns originally added by old
+   12_BlueTrack_ExceptionIdNumbering.sql (ExceptionIdPattern/
+   ExceptionIdSequenceYear/ExceptionIdNextSequence -- D-17's admin-configurable
+   ExceptionID numbering scheme, parsed by App/Api/Data/ExceptionIdGenerator.cs)
+   and old 15_BlueTrack_LockTimeoutConfig.sql (LockTimeoutMinutes -- D-50's
+   admin-configurable abandoned-lock timeout, default 5 matching the design
+   doc's own stated default).
    ============================================================================ */
 
 -- app_config (D-60): general global settings, kept separate from
@@ -428,14 +477,19 @@ GO
 -- fixed code-level policy, not a runtime setting (see the design doc's own
 -- note on this; revisit if that reading turns out to be wrong).
 CREATE TABLE web.app_config (
-    AppConfigKey           INT IDENTITY(1,1) PRIMARY KEY,
-    IdleTimeoutMinutes         INT              NOT NULL DEFAULT 30,
-    BreadcrumbPosition            NVARCHAR(20)     NOT NULL DEFAULT 'TopLeft',
-    ModifiedBy                       INT              NULL REFERENCES web.app_user(UserKey),
-    ModifiedDate                        DATETIME2        NULL
+    AppConfigKey              INT              IDENTITY(1,1) PRIMARY KEY,
+    IdleTimeoutMinutes            INT              NOT NULL DEFAULT 30,
+    BreadcrumbPosition               NVARCHAR(20)     NOT NULL DEFAULT 'TopLeft',
+    ModifiedBy                          INT              NULL REFERENCES web.app_user(UserKey),
+    ModifiedDate                           DATETIME2        NULL,
+    ExceptionIdPattern                        NVARCHAR(50)     NOT NULL DEFAULT 'EXC-{yyyy}-{seq:0000}',   -- D-17; tokens parsed by App/Api/Data/ExceptionIdGenerator.cs: {yyyy}, {yy}, {seq:0000}
+    ExceptionIdSequenceYear                       INT              NULL,                                       -- D-17; the running counter resets to 1 whenever the current year no longer matches this
+    ExceptionIdNextSequence                          INT              NOT NULL DEFAULT 1,                          -- D-17
+    LockTimeoutMinutes                                  INT              NOT NULL DEFAULT 5                          -- D-50
 );
 
-INSERT INTO web.app_config (IdleTimeoutMinutes, BreadcrumbPosition) VALUES (30, 'TopLeft');
+INSERT INTO web.app_config (IdleTimeoutMinutes, BreadcrumbPosition, ExceptionIdPattern, ExceptionIdSequenceYear, ExceptionIdNextSequence, LockTimeoutMinutes)
+VALUES (30, 'TopLeft', 'EXC-{yyyy}-{seq:0000}', NULL, 1, 5);
 GO
 
 
@@ -457,4 +511,145 @@ CREATE TABLE web.account_progress_field_metadata (
     RequiredPermission                       INT              NULL REFERENCES web.app_permission(PermissionKey),
     DisplayOrder                                INT              NOT NULL DEFAULT 0
 );
+GO
+
+
+/* ============================================================================
+   9. SECRETS STORE -- Design_Secrets_Storage.md
+
+   Folded in 2026-09-05 from old 14_BlueTrack_SecretsStoreSchema.sql. This
+   is the config *record* only (which backend is active, plus its
+   non-secret settings) -- it does not implement any actual backend
+   (Windows DPAPI, CyberArk CP, etc.); those remain unbuilt, consistent
+   with AuthenticationExtensions.cs's own note that only WindowsIntegrated
+   authentication is wired so far.
+
+   "Exactly one active backend at a time" (per the design doc) is enforced
+   at the application layer (SecretsStoreRepository), not a database
+   constraint -- consistent with how this project avoids triggers/CHECK
+   constraints for business rules elsewhere (e.g. risk_exception's
+   AccountKey/ApplicationKey exclusivity).
+   ============================================================================ */
+
+CREATE TABLE web.secrets_store (
+    SecretStoreKey     INT IDENTITY(1,1) PRIMARY KEY,
+    BackendType         NVARCHAR(50)     NOT NULL UNIQUE,   -- AzureKeyVault / AwsSecretsManager / WindowsDpapi / CyberArkCCP / CyberArkCP / CyberArkConjur
+    IsActive             BIT              NOT NULL DEFAULT 0,
+    BackendSettings         NVARCHAR(MAX)    NULL             -- non-secret backend-specific settings as JSON (e.g. Key Vault URI)
+);
+
+INSERT INTO web.secrets_store (BackendType, IsActive, BackendSettings) VALUES
+    ('WindowsDpapi',      1, NULL),   -- first backend built overall (D-36) -- seeded active by default
+    ('CyberArkCP',        0, NULL),   -- designated first CyberArk backend (D-32)
+    ('AzureKeyVault',     0, NULL),
+    ('AwsSecretsManager', 0, NULL),
+    ('CyberArkCCP',       0, NULL),
+    ('CyberArkConjur',    0, NULL);
+GO
+
+
+/* ============================================================================
+   10. SESSION CACHE -- Design_Session_And_Rights_Caching.md
+
+   Folded in 2026-09-05 from old 20_BlueTrack_SessionCacheSchema.sql (D-82).
+   A SQL Server-backed distributed cache (Microsoft.Extensions.Caching.SqlServer)
+   was chosen over Redis, since no such infrastructure exists in this
+   environment yet and SQL Server is already the one confirmed, reachable
+   piece of shared infrastructure. This is the exact table shape
+   Microsoft.Extensions.Caching.SqlServer requires -- confirmed by actually
+   running the real `dotnet-sql-cache create` tool (installed via
+   `dotnet tool install --global dotnet-sql-cache`) against this database
+   and reading back what it really created via INFORMATION_SCHEMA, not
+   copied from documentation. The only difference from the tool's own
+   output: an explicit PRIMARY KEY constraint name (the tool leaves it
+   system-generated), for consistency with this project's convention of
+   naming its own constraints.
+
+   "Session" here is BlueTrack's cached-rights-per-identity concept (see
+   App/Api/Auth/UserRightsCache.cs), not an ASP.NET Core cookie-based
+   Session -- Windows Negotiate doesn't need cookie-based session tracking
+   for anything else the app does, so no cookie/session-ID machinery was
+   introduced on top of this cache.
+   ============================================================================ */
+
+CREATE TABLE web.distributed_cache (
+    Id                             NVARCHAR(449)     NOT NULL,
+    Value                            VARBINARY(MAX)    NOT NULL,
+    ExpiresAtTime                      DATETIMEOFFSET    NOT NULL,
+    SlidingExpirationInSeconds            BIGINT            NULL,
+    AbsoluteExpiration                       DATETIMEOFFSET    NULL,
+    CONSTRAINT PK_distributed_cache PRIMARY KEY CLUSTERED (Id)
+);
+
+CREATE NONCLUSTERED INDEX Index_ExpiresAtTime ON web.distributed_cache (ExpiresAtTime);
+GO
+
+
+/* ============================================================================
+   11. USER PREFERENCES -- Design_Accessibility_And_Theming.md
+
+   Folded in 2026-09-05 from old 23_BlueTrack_UserPreferenceSchema.sql
+   (D-93). A generalized per-user preferences store, keyed by an arbitrary
+   PreferenceKey rather than one column per setting -- the user's explicit
+   choice, so a future preference beyond the first one (Theme) doesn't need
+   its own schema migration. Composite PK (UserKey, PreferenceKey): exactly
+   one value per preference per user, upserted by the API rather than
+   enforced by a database trigger.
+   ============================================================================ */
+
+CREATE TABLE web.user_preference (
+    UserKey           INT              NOT NULL REFERENCES web.app_user(UserKey),
+    PreferenceKey      NVARCHAR(50)     NOT NULL,
+    PreferenceValue     NVARCHAR(200)    NOT NULL,
+    ModifiedDate          DATETIME2        NOT NULL DEFAULT SYSUTCDATETIME(),
+    CONSTRAINT PK_user_preference PRIMARY KEY (UserKey, PreferenceKey)
+);
+GO
+
+
+/* ============================================================================
+   12. REPORTING VIEW -- application-scoped exception coverage
+   (Design_Risk_Exception_Tracking.md, D-81)
+
+   Folded in 2026-09-05 from old 19_BlueTrack_ApplicationExceptionView.sql.
+   Application-scoped exceptions were explicitly left with an undecided
+   propagation mechanism -- "a view vs. a batch update... not decided
+   here." Resolved directly by the user, 2026-09-04: a view. Computes "is
+   this account currently covered by an application-scoped exception" live,
+   at query time, through fact_account.SafeKey -> dim_safe.ApplicationKey ->
+   web.risk_exception, rather than writing fact_account_progress.ExceptionKey
+   for every account under the application (which D-77 only does for the
+   account-scoped case).
+
+   Deliberately does NOT write to fact_account_progress.ExceptionKey --
+   that column stays exactly what D-77 already made it (the account-scoped
+   pointer). This view is a second, independent source of "is this account
+   excepted," not a replacement for that column. Anything that needs the
+   full picture (is this account covered by ANY exception, account- or
+   application-scoped) needs to check both.
+
+   Can return more than one row per account if more than one Active
+   application-scoped exception exists for the same Application -- nothing
+   in the app prevents creating two, so this is a live computation, not an
+   assumption of exactly one.
+   ============================================================================ */
+
+CREATE OR ALTER VIEW web.vw_account_application_exception AS
+SELECT
+    fa.AccountKey,
+    re.ExceptionKey,
+    re.ExceptionID,
+    re.ApplicationKey,
+    da.ApplicationName,
+    re.ReviewDate
+FROM dbo.fact_account fa
+JOIN dbo.dim_safe ds           ON ds.SafeKey = fa.SafeKey
+JOIN web.dim_application da     ON da.ApplicationKey = ds.ApplicationKey
+JOIN web.risk_exception re       ON re.ApplicationKey = da.ApplicationKey
+JOIN web.dim_exception_status des ON des.ExceptionStatusKey = re.ExceptionStatusKey
+WHERE des.StatusName = 'Active'
+  AND fa.IsDeleted = 0;
+GO
+
+PRINT '08_BlueTrack_WebSchema.sql complete.';
 GO

@@ -1,8 +1,16 @@
 /* ============================================================================
-   03_BlueTrack_AccountReconciliation.sql
+   05_BlueTrack_AccountReconciliation.sql
 
-   RUN THIS FILE THIRD, after 01_BlueTrack_CreateDatabase_Schema.sql
-   and 02_BlueTrack_ETL_LoadProcedures.sql.
+   Split 2026-09-05: renumbered from 03_BlueTrack_AccountReconciliation.sql
+   as part of the broader script restructure (see Database/README.md).
+   Content unchanged from the original file -- only the number/name
+   changed to make room for the 02_BlueTrack_ETL_LoadProcedures.sql split
+   into 02_BlueTrack_ETL_DimensionLoads.sql, 03_BlueTrack_ETL_FactLoads.sql,
+   and 04_BlueTrack_ETL_ReportingViews.sql.
+
+   RUN THIS FILE AFTER 01_BlueTrack_CoreSchema.sql,
+   02_BlueTrack_ETL_DimensionLoads.sql, 03_BlueTrack_ETL_FactLoads.sql, and
+   04_BlueTrack_ETL_ReportingViews.sql.
    Includes a USE $DatabaseName$; statement below, so you don't need to
    set the database context manually before running this.
 
@@ -10,7 +18,7 @@
    Target: SQL Server / Azure SQL
 
    The account_reconciliation TABLE itself is created in
-   01_BlueTrack_CreateDatabase_Schema.sql (all tables live there).
+   01_BlueTrack_CoreSchema.sql (all tables live there).
    This file only adds the logic that populates and reports on it: the
    matching procedure and two views.
 

@@ -1,41 +1,41 @@
 /* ============================================================================
-   01_BlueTrack_CreateDatabase_Schema.sql
+   01_BlueTrack_CoreSchema.sql
 
-   RUN THIS FILE FIRST.
+   RUN THIS FILE FIRST (after 00_BlueTrack_CreateDatabase.sql has ensured the
+   target database exists -- this file only USEs it, never creates it).
 
-   Blueprint Progress Tracking Database -- Database & Table Creation
+   Blueprint Progress Tracking Database -- Core (dbo) Table Creation
    Target: SQL Server / Azure SQL
+
+   RENAMED 2026-09-05 (database restructure): was
+   01_BlueTrack_CreateDatabase_Schema.sql. Renamed since database creation
+   itself moved to a genuinely standalone, run-once script
+   (00_BlueTrack_CreateDatabase.sql) -- this file was never really "create
+   database" even before the rename (that step already lived in
+   App/Migrator's own bootstrap code, not here), so the old name was
+   misleading about what the file actually does: create every dbo (CyberArk
+   warehouse/ETL) table and seed its fixed-vocabulary reference data.
+
+   Also folded in during the same restructure: `dim_account_type`'s actual
+   seed values (previously only a code comment here, with the real INSERT
+   living in a separate incremental script, 17_BlueTrack_AccountTypeSeed.sql
+   -- since this project is still in its initial development phase and the
+   database can be freely rebuilt, that gap-fill script's content is now
+   folded directly into this table's own creation below, so a fresh install
+   never has a genuinely empty dim_account_type to begin with).
 
    What this file does, in order:
      1. Switches context into the target database (USE $DatabaseName$) --
-        the database itself must already exist by this point (see below)
+        the database itself must already exist by this point (see
+        00_BlueTrack_CreateDatabase.sql)
      2. Creates every table the project needs -- staging (per source export),
         reference/dimension, fact, and tracking tables -- each guarded with
         an existence check + DROP before CREATE, so this file can be re-run
         from the top at any time
      3. Loads seed/reference data for the fixed-vocabulary tables (source
-        systems, the vault's own text-code decode table, permissions,
-        permission aliases, Blueprint stages, and progress statuses)
-
-   DATABASE CREATION: this file used to open with DROP DATABASE BlueTrack /
-   CREATE DATABASE BlueTrack before switching context. That's gone (fixed
-   2026-09-03, following a real incident where a hardcoded database name
-   here caused this file to drop and recreate the wrong database). SQL
-   Server can't drop a database a connection is currently using, so
-   dropping and creating the database can't safely live in the same
-   connection/script as everything else here, which now always runs against
-   the target database directly (for a correctly-scoped DbUp journal -- see
-   App/Migrator/Program.cs's own comment for the full reasoning). Ensuring
-   the target database exists (create-if-missing, never drop) is now
-   App/Migrator's job, done once against master before this script ever
-   runs. Something that wants a genuinely fresh database -- CI's disposable
-   BlueTrackTest, per Design_Testing_Strategy.md -- drops it explicitly,
-   as its own visible step, before invoking App/Migrator.
-
-   $DatabaseName$ below is DbUp's substitution token (App/Migrator passes
-   it from <connectionString>'s own Database/Initial Catalog) -- if you're
-   running this file by hand instead of through App/Migrator, replace
-   $DatabaseName$ with your actual target database name first.
+        systems, the vault's own text-code decode table, account types,
+        permissions, permission aliases, Blueprint stages, and progress
+        statuses)
 
    This file intentionally covers everything that would normally come from
    CyberArk's own EVD CreateDB.sql script -- the Self-Hosted staging tables
@@ -47,19 +47,18 @@
    EVD database; they are not a substitute for it.
 
    *** BATCHING NOTE ***
-   CREATE DATABASE must be the only statement in its batch, so it's
-   followed by GO. USE is likewise given its own batch. Everything from
-   that point on is plain CREATE TABLE / INSERT, which do not need to be
-   isolated in their own batch, so the rest of this file runs as normal
-   sequential statements.
+   USE is given its own batch (GO). Everything from that point on is plain
+   CREATE TABLE / INSERT, which do not need to be isolated in their own
+   batch, so the rest of this file runs as normal sequential statements.
 
    *** ORDERING NOTE (important if you ever run sections out of order) ***
    Tables below are created in dependency order (a table's foreign-key
    parents are always created first). The per-table DROP-then-CREATE guard
    is safe here specifically because this file is only ever run against a
-   freshly-created, empty target database -- App/Migrator ensures the
-   database exists (create-if-missing) before this script runs, and never
-   drops it; a caller that wants a genuinely empty database (CI's disposable
+   freshly-created, empty target database -- 00_BlueTrack_CreateDatabase.sql
+   (or App/Migrator's own equivalent bootstrap logic) ensures the database
+   exists (create-if-missing) before this script runs, and never drops it;
+   a caller that wants a genuinely empty database (CI's disposable
    BlueTrackTest) drops it explicitly beforehand, as its own visible step.
    If you ever run only part of this file against an already-populated
    database, dropping a parent table out of order will fail with a
@@ -180,16 +179,22 @@ INSERT INTO dim_selfhosted_code (CodeType, CodeValue, CodeText) VALUES
 
 
 -- Account-type taxonomy is a curated business mapping, NOT something present
--- in any raw export. Created empty here -- populate via
--- platform_account_type_map after reviewing dim_platform once real data is
--- loaded. Do not infer categories automatically from PlatformID text.
+-- in any raw export. Seeded with a fixed starting list (folded in from the
+-- former 17_BlueTrack_AccountTypeSeed.sql during the 2026-09-05 database
+-- restructure -- previously only a code comment here, with the real INSERT
+-- living in a separate script). Extend platform_account_type_map after
+-- reviewing dim_platform once real data is loaded -- do not infer an
+-- account's category automatically from PlatformID text.
 IF OBJECT_ID('dbo.dim_account_type', 'U') IS NOT NULL DROP TABLE dbo.dim_account_type;
 CREATE TABLE dim_account_type (
     AccountTypeKey       INT IDENTITY(1,1) PRIMARY KEY,
-    AccountTypeName      NVARCHAR(100) NOT NULL UNIQUE  -- e.g. 'Domain Account', 'Local/OS Account', 'Cloud IAM',
-                                                          -- 'Database Account', 'Network Device', 'Application/Service Account',
-                                                          -- 'DevOps Secret', 'RPA Account', 'Infrastructure (PSM/CPM)', 'Emergency/Break-glass'
+    AccountTypeName      NVARCHAR(100) NOT NULL UNIQUE
 );
+
+INSERT INTO dim_account_type (AccountTypeName) VALUES
+    ('Domain Account'), ('Local/OS Account'), ('Cloud IAM'), ('Database Account'),
+    ('Network Device'), ('Application/Service Account'), ('DevOps Secret'),
+    ('RPA Account'), ('Infrastructure (PSM/CPM)'), ('Emergency/Break-glass');
 
 
 -- Source of Record (SOR): where the account actually lives/authenticates --
@@ -295,7 +300,7 @@ INSERT INTO dim_risk_level (RiskOrder, RiskLevelName) VALUES
 
 
 -- Empty shell here; populated by a date-generation script in
--- 04_BlueTrack_PowerBI_Support.sql (not "source" data, so it's kept
+-- 06_BlueTrack_PowerBI_Support.sql (not "source" data, so it's kept
 -- with the reporting file rather than seeded here).
 IF OBJECT_ID('dbo.dim_date', 'U') IS NOT NULL DROP TABLE dbo.dim_date;
 CREATE TABLE dim_date (
@@ -463,7 +468,7 @@ CREATE TABLE stg_pc_entitlements (
 -- 'Backup', 'Auditor', 'Operator', 'DR', 'TelemetryUser') that don't appear
 -- in the Users export at all -- those won't resolve to a dim_user row
 -- downstream, by design (see usp_Load_GroupMembership in
--- 02_BlueTrack_ETL_LoadProcedures.sql). RootGroupName was confirmed
+-- 02_BlueTrack_ETL_DimensionLoads.sql). RootGroupName was confirmed
 -- to match stg_pc_groups.GroupName exactly (100% overlap in the sample),
 -- which is what the load join relies on rather than a GroupID (not present
 -- in this export). Only 'Parent' was observed in MemberLevel and only
@@ -686,7 +691,7 @@ CREATE TABLE stg_sh_files (
 -- EAV table: one row per (file, property name). See header note -- an
 -- account's Address, UserName, PolicyID/Platform, etc. live here as rows,
 -- not columns. Load as-is; pivoting happens downstream (see
--- 02_BlueTrack_ETL_LoadProcedures.sql).
+-- 03_BlueTrack_ETL_FactLoads.sql).
 IF OBJECT_ID('dbo.stg_sh_objectproperties', 'U') IS NOT NULL DROP TABLE dbo.stg_sh_objectproperties;
 CREATE TABLE stg_sh_objectproperties (
     LoadId               BIGINT IDENTITY(1,1) PRIMARY KEY,
@@ -1022,7 +1027,7 @@ CREATE TABLE fact_account_progress (
 );
 
 -- Snapshot history for trend reporting in Power BI (populated by a
--- scheduled proc -- see 04_BlueTrack_PowerBI_Support.sql).
+-- scheduled proc -- see 06_BlueTrack_PowerBI_Support.sql).
 IF OBJECT_ID('dbo.fact_account_progress_history', 'U') IS NOT NULL DROP TABLE dbo.fact_account_progress_history;
 CREATE TABLE fact_account_progress_history (
     HistoryKey             BIGINT IDENTITY(1,1) PRIMARY KEY,
@@ -1035,7 +1040,7 @@ CREATE TABLE fact_account_progress_history (
 
 -- Links a Self-Hosted fact_account row to the Privilege Cloud fact_account
 -- row representing the same real-world account. See
--- 03_BlueTrack_AccountReconciliation.sql for the matching logic and
+-- 05_BlueTrack_AccountReconciliation.sql for the matching logic and
 -- the critical assumption behind it -- do not treat a match here as
 -- confirmed until IsConfirmed = 1.
 IF OBJECT_ID('dbo.account_reconciliation', 'U') IS NOT NULL DROP TABLE dbo.account_reconciliation;

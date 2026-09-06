@@ -5,7 +5,7 @@ using Xunit;
 namespace BlueTrack.Api.Tests.Integration;
 
 /// <summary>
-/// web.app_config/web.audit_config are both singleton rows (06_BlueTrack_WebInterface_Schema.sql) --
+/// web.app_config/web.audit_config are both singleton rows (08_BlueTrack_WebSchema.sql) --
 /// every test here restores the original values afterward since this is shared, real BlueTrackTest state.
 /// </summary>
 public class AppConfigRepositoryTests

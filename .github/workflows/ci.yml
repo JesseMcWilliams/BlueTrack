@@ -47,15 +47,20 @@ jobs:
         shell: powershell
         run: dotnet build App/Migrator --configuration Release
 
-      # Skips 09 (SQL Agent job scheduling) -- it does its own `USE msdb;`,
+      # Skips 14 (SQL Agent job scheduling) -- it does its own `USE msdb;`,
       # always targets the real BlueTrack database/file paths by design,
       # and doesn't belong in a disposable database build. See
       # App/Migrator/Program.cs's own comment on skipScriptNames.
-      - name: Build BlueTrackTest schema (Database/, skipping 09)
+      # (Database/00_BlueTrack_CreateDatabase.sql is never passed to DbUp at
+      # all -- App/Migrator excludes any 00_*.sql defensively, and this
+      # step doesn't need it anyway: Migrator's own master-connection
+      # bootstrap already creates BlueTrackTest since the step above just
+      # dropped it.)
+      - name: Build BlueTrackTest schema (Database/, skipping 14)
         shell: powershell
         run: >
           dotnet run --project App/Migrator --configuration Release --no-build --
-          "${{ env.BLUETRACK_TEST_CONNECTION }}" "Database" "09_BlueTrack_ScheduleImportLoadJob.sql"
+          "${{ env.BLUETRACK_TEST_CONNECTION }}" "Database" "14_BlueTrack_ScheduleImportLoadJob.sql"
 
       - name: Seed the DevFakeAuth test role/permission matrix (Database/Test/)
         shell: powershell

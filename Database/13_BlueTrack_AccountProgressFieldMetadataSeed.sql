@@ -1,7 +1,12 @@
 /* ============================================================================
-   16_BlueTrack_AccountProgressFieldMetadataSeed.sql
+   13_BlueTrack_AccountProgressFieldMetadataSeed.sql
 
-   RUN THIS AFTER 01-15.
+   Split 2026-09-05: renumbered from
+   16_BlueTrack_AccountProgressFieldMetadataSeed.sql as part of the broader
+   script restructure (see Database/README.md). Content unchanged from the
+   original file -- only the number/name changed.
+
+   RUN THIS AFTER 01-12.
 
    Seeds web.account_progress_field_metadata (Design_Interface_Extensibility.md)
    with one row per editable dbo.fact_account_progress column, so the

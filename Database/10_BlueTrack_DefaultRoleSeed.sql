@@ -1,11 +1,15 @@
 /* ============================================================================
-   24_BlueTrack_DefaultRoleSeed.sql
+   10_BlueTrack_DefaultRoleSeed.sql
 
-   RUN THIS AFTER 01-23.
+   Split 2026-09-05: renumbered from 24_BlueTrack_DefaultRoleSeed.sql as
+   part of the broader script restructure (see Database/README.md). Content
+   unchanged from the original file -- only the number/name changed.
+
+   RUN THIS AFTER 01-09.
 
    Design_Authorization_Model.md's "Example Permission Bundles" (Viewer/
    Analyst/Approver) were explicitly "illustrative... confirm before
-   building as literal default rows" -- 07_BlueTrack_WebInterface_Seed.sql's
+   building as literal default rows" -- 09_BlueTrack_WebSeed.sql's
    own comment on the bootstrap Admin role says the same thing. The user
    confirmed directly, 2026-09-04: seed them for real, plus a new Auditor
    role (ViewAuditLog only -- called out separately from Viewer so a
@@ -21,7 +25,7 @@
    new Auditor role redundant with Viewer. These are two different,
    independently-confirmed bundles; don't assume they match.
 
-   Guarded -- safe to re-run. Never edits 07's existing Admin role/seed.
+   Guarded -- safe to re-run. Never edits 09's existing Admin role/seed.
    ============================================================================ */
 
 USE $DatabaseName$;

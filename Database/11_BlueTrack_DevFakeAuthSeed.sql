@@ -1,7 +1,11 @@
 /* ============================================================================
-   18_BlueTrack_DevFakeAuthSeed.sql
+   11_BlueTrack_DevFakeAuthSeed.sql
 
-   RUN THIS AFTER 01-17.
+   Split 2026-09-05: renumbered from 18_BlueTrack_DevFakeAuthSeed.sql as
+   part of the broader script restructure (see Database/README.md). Content
+   unchanged from the original file -- only the number/name changed.
+
+   RUN THIS AFTER 01-10.
 
    DevFakeAuth (Design_Authentication_Architecture.md): not a separate
    authentication mechanism -- it's the same Negotiate handler Windows
@@ -19,7 +23,7 @@
    something this script should flip on for you.
 
    Step 2 (the actual username -> role mapping) is deliberately left as a
-   placeholder, same pattern as 07_BlueTrack_WebInterface_Seed.sql's
+   placeholder, same pattern as 09_BlueTrack_WebSeed.sql's
    @AdminGroupName: machine/developer-specific, so a guessed-at real
    username is worse than not mapping one at all. Replace
    @DevFakeAuthUsername below with your own Windows username (as it
@@ -57,7 +61,7 @@ DECLARE @AdminRoleKey INT = (SELECT AppRoleKey FROM web.app_role WHERE RoleName 
 
 IF @DevFakeAuthUsername = 'REPLACE_WITH_YOUR_WINDOWS_USERNAME'
 BEGIN
-    PRINT 'Skipped identity_group_role_map: replace @DevFakeAuthUsername in 18_BlueTrack_DevFakeAuthSeed.sql with your real Windows username, then re-run this file.';
+    PRINT 'Skipped identity_group_role_map: replace @DevFakeAuthUsername in 11_BlueTrack_DevFakeAuthSeed.sql with your real Windows username, then re-run this file.';
 END
 ELSE IF NOT EXISTS (
     SELECT 1 FROM web.identity_group_role_map

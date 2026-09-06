@@ -1,7 +1,12 @@
 /* ============================================================================
-   07_BlueTrack_WebInterface_Seed.sql
+   09_BlueTrack_WebSeed.sql
 
-   RUN THIS AFTER 06.
+   Split 2026-09-05: renumbered from 07_BlueTrack_WebInterface_Seed.sql as
+   part of the broader script restructure (see Database/README.md). Content
+   unchanged from the original file -- only the number/name changed to
+   reflect its place after the renamed/consolidated 08_BlueTrack_WebSchema.sql.
+
+   RUN THIS AFTER 08.
 
    Minimum-viable seed data for the web interface schema, so the
    application is actually usable end to end rather than just compiling:

@@ -1,15 +1,21 @@
 /* ============================================================================
-   05_BlueTrack_SourceImport.sql
+   07_BlueTrack_SourceImport.sql
 
-   RUN THIS FILE FIFTH, after 01-04 have all been run once to build the
-   database, tables, and procedures. Unlike files 01-04 (one-time/idempotent
+   Split 2026-09-05: renumbered from 05_BlueTrack_SourceImport.sql as part
+   of the broader script restructure (see Database/README.md). Content
+   unchanged from the original file -- only the number/name changed to
+   reflect its place after the ETL split (02-04) and the renumbered
+   05_BlueTrack_AccountReconciliation.sql / 06_BlueTrack_PowerBI_Support.sql.
+
+   RUN THIS FILE AFTER 01-06 have all been run once to build the
+   database, tables, and procedures. Unlike files 01-06 (one-time/idempotent
    setup), this file is OPERATIONAL -- run it every time you have a fresh
    set of source exports to load, followed by EXEC usp_RunFullLoad; (from
-   file 04) to transform the freshly-loaded staging data into the
+   file 06) to transform the freshly-loaded staging data into the
    dimension/fact/tracking tables.
 
    Answers "where does data actually get INTO the stg_pc_* / stg_sh_* staging
-   tables in the first place?" -- files 02-04 all assume staging is already
+   tables in the first place?" -- files 02-06 all assume staging is already
    populated; this file is what populates it.
 
    Includes a USE $DatabaseName$; statement below, so you don't need to

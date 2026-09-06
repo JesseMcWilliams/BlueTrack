@@ -47,15 +47,15 @@ Additional rules can be added the same way (a new row here plus a Decision Regis
 
 ## UI Edits vs. the Nightly Import (Q-20)
 
-**Resolved 2026-08-27 (D-53):** already handled by existing ETL design — confirmed by reading `02_BlueTrack_ETL_LoadProcedures.sql` and `03_BlueTrack_AccountReconciliation.sql` directly rather than assuming.
+**Resolved 2026-08-27 (D-53):** already handled by existing ETL design — confirmed by reading `03_BlueTrack_ETL_FactLoads.sql` (`usp_Load_FactAccountProgress`, split out of the original `02_BlueTrack_ETL_LoadProcedures.sql` in the 2026-09-05 restructure) and `05_BlueTrack_AccountReconciliation.sql` directly rather than assuming.
 
-`usp_Load_FactAccountProgress` (called by `usp_RunFullLoad`) only **inserts** a `fact_account_progress` row for an account that doesn't have one yet (`NOT EXISTS` check) — it never updates an existing row. An account already being tracked keeps whatever an analyst has since set, no matter how many times the load runs. `03_BlueTrack_AccountReconciliation.sql` doesn't touch `fact_account_progress` or exceptions at all. No schema or process change was needed — the risk this question worried about doesn't exist in the current design.
+`usp_Load_FactAccountProgress` (called by `usp_RunFullLoad`) only **inserts** a `fact_account_progress` row for an account that doesn't have one yet (`NOT EXISTS` check) — it never updates an existing row. An account already being tracked keeps whatever an analyst has since set, no matter how many times the load runs. `05_BlueTrack_AccountReconciliation.sql` doesn't touch `fact_account_progress` or exceptions at all. No schema or process change was needed — the risk this question worried about doesn't exist in the current design.
 
 ## Implementation Status (added 2026-09-01)
 
 The Account Progress edit form is built end to end against everything decided above:
 
-- **Locking (D-50):** `AccountProgressLockRepository`/`AccountProgressController` implement the full mechanics — acquire-on-open, heartbeat, release-on-save-or-cancel, the 5-minute (admin-configurable via `app_config.LockTimeoutMinutes`, added by `15_BlueTrack_LockTimeoutConfig.sql` — no column existed for it before) abandoned-lock timeout, and admin force-break. Force-break reuses the `EditAccountProgress` permission rather than a new one (D-74).
+- **Locking (D-50):** `AccountProgressLockRepository`/`AccountProgressController` implement the full mechanics — acquire-on-open, heartbeat, release-on-save-or-cancel, the 5-minute (admin-configurable via `app_config.LockTimeoutMinutes`, added by `08_BlueTrack_WebSchema.sql` — no column existed for it before) abandoned-lock timeout, and admin force-break. Force-break reuses the `EditAccountProgress` permission rather than a new one (D-74).
 - **Validation (D-51):** both rules are enforced server-side in `AccountProgressController.Update` and verified against live data — Complete-without-`ActualCompletionDate` and stage-regression-without-`Reason` both correctly reject with 400, and a regression with a `Reason` succeeds and is captured on `audit_event.Reason`.
 - **Field-level audit (D-10, via D-73):** every changed field is diffed and logged to `audit_event`/`audit_field_change` on save.
 - The form itself is genuinely field-metadata-driven, per `Design_Interface_Extensibility.md` — see that document's own Implementation Status note.

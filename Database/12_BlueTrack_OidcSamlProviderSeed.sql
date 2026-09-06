@@ -1,10 +1,14 @@
 /* ============================================================================
-   22_BlueTrack_OidcSamlProviderSeed.sql
+   12_BlueTrack_OidcSamlProviderSeed.sql
 
-   RUN THIS AFTER 01-21.
+   Split 2026-09-05: renumbered from 22_BlueTrack_OidcSamlProviderSeed.sql
+   as part of the broader script restructure (see Database/README.md).
+   Content unchanged from the original file -- only the number/name changed.
+
+   RUN THIS AFTER 01-11.
 
    D-84: seeds disabled OIDC and SAML placeholder rows into
-   web.identity_provider_config, the same way 18_BlueTrack_DevFakeAuthSeed.sql
+   web.identity_provider_config, the same way 11_BlueTrack_DevFakeAuthSeed.sql
    seeded a disabled DevFakeAuth row -- the framework (AuthenticationExtensions,
    Saml2Controller/Saml2ConfigurationFactory) exists ahead of real IdP
    metadata, but nothing is enabled or usable until an admin fills in real
