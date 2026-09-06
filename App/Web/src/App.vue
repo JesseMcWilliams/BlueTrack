@@ -2,9 +2,46 @@
 // Top-level nav per D-43: Dashboard | Accounts | Exceptions | Reports |
 // Admin | user menu. Admin and Reports are hub pages with their own
 // sub-navigation (D-47, D-56), so they get a single top-level entry each.
-import { onMounted } from 'vue'
+import { ref, onMounted } from 'vue'
 import Breadcrumbs from './components/Breadcrumbs.vue'
 import { useRightsStore } from './stores/rights'
+
+const rights = useRightsStore()
+
+// DevFakeAuth-enabled-too-long warning (added 2026-09-06, user-requested):
+// DevFakeAuth bypasses real authentication and is meant only for local
+// development -- left enabled for an extended period on a shared
+// environment is a real exposure. Checked here (App.vue), not a specific
+// page, so it's visible wherever an admin happens to be browsing.
+// Gated behind ManageIdentityProviders both because that's who can
+// actually act on it, and because GET /api/admin/identity-providers
+// itself requires that policy -- calling it without the permission
+// would just 403 for every other user on every single page load.
+// ModifiedDate is the closest available signal for "enabled since," not
+// a dedicated one -- see IdentityProviderDetail.cs's own comment on why
+// that's an approximation, not exact.
+const devFakeAuthWarning = ref(null)
+const DEV_FAKE_AUTH_STALE_DAYS = 7
+
+async function checkDevFakeAuthDuration() {
+  if (!rights.hasPermission('ManageIdentityProviders')) return
+  try {
+    const response = await fetch('/api/admin/identity-providers')
+    if (!response.ok) return
+    const providers = await response.json()
+    const devFakeAuth = providers.find(p => p.providerType === 'DevFakeAuth')
+    if (!devFakeAuth?.isEnabled || !devFakeAuth.modifiedDate) return
+
+    const enabledDays = (Date.now() - new Date(devFakeAuth.modifiedDate).getTime()) / (1000 * 60 * 60 * 24)
+    if (enabledDays >= DEV_FAKE_AUTH_STALE_DAYS) {
+      devFakeAuthWarning.value =
+        `DevFakeAuth has been enabled for over ${DEV_FAKE_AUTH_STALE_DAYS} days (since ${devFakeAuth.modifiedDate.slice(0, 10)}). ` +
+        'It bypasses real authentication and should only be left on briefly during local development.'
+    }
+  } catch {
+    // Non-fatal -- this is an advisory banner, not a page any user needs to load.
+  }
+}
 
 // Loaded once here so every page can read permissions without each one
 // re-fetching /api/me -- the frontend permission-aware UI pass. Pages that
@@ -12,7 +49,10 @@ import { useRightsStore } from './stores/rights'
 // whether to acquire the edit lock) await ensureLoaded() themselves rather
 // than assume this has already run -- Vue mounts children before parents,
 // so a child route can mount before this does.
-onMounted(() => useRightsStore().ensureLoaded())
+onMounted(async () => {
+  await rights.ensureLoaded()
+  await checkDevFakeAuthDuration()
+})
 </script>
 
 <template>
@@ -27,6 +67,7 @@ onMounted(() => useRightsStore().ensureLoaded())
       <router-link :to="{ name: 'my-profile' }" class="top-nav__user-menu">My Profile</router-link>
     </nav>
     <Breadcrumbs />
+    <p v-if="devFakeAuthWarning" role="alert" class="dev-fake-auth-warning">{{ devFakeAuthWarning }}</p>
     <!-- D-92: route-change focus target (router/index.js's afterEach hook
          moves focus here) -- a client-routed SPA gives assistive tech no
          "page changed" signal otherwise. tabindex="-1" lets it receive
@@ -56,5 +97,12 @@ onMounted(() => useRightsStore().ensureLoaded())
 }
 #main-content {
   padding: var(--space-4);
+}
+.dev-fake-auth-warning {
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 2px solid var(--color-error-text);
+  color: var(--color-error-text);
+  font-weight: bold;
 }
 </style>

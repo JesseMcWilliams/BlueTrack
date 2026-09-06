@@ -25,9 +25,19 @@ onMounted(() => rights.ensureLoaded())
         <dd>{{ rights.displayName }}</dd>
         <dt>Role(s)</dt>
         <dd>{{ rights.roleNames.join(', ') || '(none mapped)' }}</dd>
-        <dt>Permission(s)</dt>
-        <dd>{{ rights.permissionNames.join(', ') || '(none)' }}</dd>
       </dl>
+      <h2>Permissions</h2>
+      <table v-if="rights.permissionNames.length > 0">
+        <thead>
+          <tr><th>Permission</th></tr>
+        </thead>
+        <tbody>
+          <tr v-for="name in rights.permissionNames" :key="name">
+            <td>{{ name }}</td>
+          </tr>
+        </tbody>
+      </table>
+      <p v-else>(none)</p>
       <button :disabled="rights.loading" @click="rights.reload">Reload My Rights</button>
       <p><small>Re-checks your current group membership immediately, without waiting for anything to expire -- useful right after you know you've been added to a new group.</small></p>
 

@@ -46,17 +46,30 @@ public sealed class ReportsRepository(IDbConnectionFactory connectionFactory)
     {
         using var connection = connectionFactory.Create();
 
+        // Anchored on dim_blueprint_stage CROSS JOIN dim_progress_status
+        // (every combination that could exist, not just ones some account
+        // currently occupies) with fact_account_progress/fact_account left
+        // outer -- a (stage, status) cell with zero accounts still gets a
+        // row with AccountCount = 0, instead of silently vanishing from the
+        // result set. Found 2026-09-06: the previous inner-join-only query
+        // meant an empty stage disappeared entirely from both this report
+        // and the Dashboard's "Accounts by Stage" card (which sums these
+        // same rows), rather than showing as 0. fa.IsDeleted = 0 moved into
+        // the LEFT JOIN's own ON clause (not a WHERE clause, which would
+        // silently turn this back into an inner join by discarding the
+        // NULL-fa rows this zero-fill depends on) -- a deleted account's
+        // fap row just fails to match fa, so COUNT(fa.AccountKey) doesn't
+        // count it, without eliminating the (stage, status) row itself.
         const string sql = """
             SELECT
                 stg.StageOrder,
                 stg.StageName,
                 sts.StatusName,
-                COUNT(*) AS AccountCount
-            FROM dbo.fact_account_progress fap
-            JOIN dbo.fact_account fa        ON fa.AccountKey = fap.AccountKey
-            JOIN dbo.dim_blueprint_stage stg ON stg.StageKey = fap.CurrentStageKey
-            JOIN dbo.dim_progress_status sts  ON sts.StatusKey = fap.CurrentStatusKey
-            WHERE fa.IsDeleted = 0
+                COUNT(fa.AccountKey) AS AccountCount
+            FROM dbo.dim_blueprint_stage stg
+            CROSS JOIN dbo.dim_progress_status sts
+            LEFT JOIN dbo.fact_account_progress fap ON fap.CurrentStageKey = stg.StageKey AND fap.CurrentStatusKey = sts.StatusKey
+            LEFT JOIN dbo.fact_account fa ON fa.AccountKey = fap.AccountKey AND fa.IsDeleted = 0
             GROUP BY stg.StageOrder, stg.StageName, sts.StatusName
             ORDER BY stg.StageOrder, sts.StatusName
             """;

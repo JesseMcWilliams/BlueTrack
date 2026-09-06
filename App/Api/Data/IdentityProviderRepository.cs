@@ -36,7 +36,7 @@ public sealed class IdentityProviderRepository(IDbConnectionFactory connectionFa
     {
         using var connection = connectionFactory.Create();
         const string sql = """
-            SELECT ProviderKey, ProviderType, DisplayName, IsEnabled, DisplayOrder, ConfigurationValues, SecretReference
+            SELECT ProviderKey, ProviderType, DisplayName, IsEnabled, DisplayOrder, ConfigurationValues, SecretReference, ModifiedDate
             FROM web.identity_provider_config
             ORDER BY DisplayOrder
             """;
@@ -116,7 +116,8 @@ public sealed class IdentityProviderRepository(IDbConnectionFactory connectionFa
                 IsEnabled = detail.IsEnabled,
                 DisplayOrder = detail.DisplayOrder,
                 ConfigurationValues = detail.ConfigurationValues,
-                SecretReference = RedactedPlaceholder
+                SecretReference = RedactedPlaceholder,
+                ModifiedDate = detail.ModifiedDate
             };
 
     public async Task DeleteAsync(int providerKey)

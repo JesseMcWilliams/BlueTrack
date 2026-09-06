@@ -3,10 +3,12 @@
 // pessimistic locking (D-50) and the two validation rules from D-51
 // (enforced server-side; this form just surfaces whatever error comes back).
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { useRightsStore } from '../stores/rights'
 import { formatDate } from '../utils/formatDate'
 
 const props = defineProps({ accountKey: { type: [String, Number], required: true } })
+const router = useRouter()
 const rights = useRightsStore()
 
 // Maps account_progress_field_metadata.FieldName (PascalCase, matches the
@@ -249,17 +251,17 @@ async function save() {
     // (AccountProgressController.Update) -- lockStatus must be cleared to
     // match, or the stale (still-truthy, still-mine) object left over from
     // before the save makes the "Currently being edited by <your own
-    // name>" banner below render right alongside the now-saved read-only
-    // view, reading as an error even though the save succeeded (found
-    // 2026-09-06). forceRelease() already got this right; save() and
+    // name>" banner render right alongside the read-only view if the user
+    // ever navigates back here, reading as an error even though the save
+    // succeeded (found 2026-09-06). forceRelease() already got this right;
     // releaseLock() below did not.
     lockStatus.value = null
     lockedByMe.value = false
     stopHeartbeat()
-    const refreshed = await fetch(`/api/account-progress/${props.accountKey}`)
-    detail.value = await refreshed.json()
-    resetFormFromDetail()
-    reason.value = ''
+    // A save returns to the Accounts list (2026-09-06, user-requested) --
+    // no need to refetch/reset this page's own form first, since the
+    // component is about to unmount.
+    router.push({ name: 'account-progress-list' })
   } finally {
     saving.value = false
   }
