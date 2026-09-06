@@ -1,11 +1,18 @@
 # Database
 
 Every script below is run through DbUp by `App/Migrator` (see its own
-top-of-file comment) except `00_BlueTrack_CreateDatabase.sql`, which
-Migrator always excludes regardless of any skip-list argument. All scripts
-use DbUp's `$DatabaseName$` substitution token for the target database
-name (never a hardcoded literal, per D-89) -- the name comes from
-whatever `Initial Catalog` the caller's connection string specifies.
+top-of-file comment) **except** `00_BlueTrack_CreateDatabase.sql` and
+`14_BlueTrack_ScheduleImportLoadJob.sql`, which Migrator always excludes
+regardless of any skip-list argument -- both for structural reasons, not
+convenience (00 must `USE master`, DbUp cannot; 14 must `USE msdb`, and
+DbUp's own post-script journal write then fails against the wrong
+database -- see each script's own header and `App/Migrator/Program.cs`).
+Every DbUp-managed script uses DbUp's `$DatabaseName$` substitution token
+for the target database name (never a hardcoded literal, per D-89) -- the
+name comes from whatever `Initial Catalog` the caller's connection string
+specifies. `14` is the one exception: since it never runs through DbUp,
+it uses sqlcmd's own `$(DatabaseName)` scripting-variable syntax instead
+(same idea, different tool, see its header for the exact command).
 
 This layout is the result of a 2026-09-05 restructure: the original
 `01`-`25` sequence had accumulated a long tail of small, hand-written
@@ -37,7 +44,7 @@ after `14`, never edits to an existing file in this list.
 | 11 | `11_BlueTrack_DevFakeAuthSeed.sql` | DevFakeAuth identity provider (disabled by default) for exercising every authorization path against a local, non-domain Windows account in Development. Requires a manual edit (`@DevFakeAuthUsername`) to actually map a user. |
 | 12 | `12_BlueTrack_OidcSamlProviderSeed.sql` | Disabled OIDC and SAML placeholder identity provider rows, documenting the expected `ConfigurationValues` shape ahead of real IdP metadata. |
 | 13 | `13_BlueTrack_AccountProgressFieldMetadataSeed.sql` | Seeds `web.account_progress_field_metadata` with one row per editable `fact_account_progress` column, so the Account Progress edit form has field definitions to render. |
-| 14 | `14_BlueTrack_ScheduleImportLoadJob.sql` | Creates the nightly SQL Server Agent job (Import then Load, 2:00 AM) once Import and Load have both been confirmed working manually. Runs against `msdb`, not the target database -- excluded from CI's disposable `BlueTrackTest` build via Migrator's `skipScriptNames` argument. Both the job name and schedule name embed `$DatabaseName$` so `BlueTrack` and `BlueTrackTest` (if ever scheduled on the same SQL Server instance) get distinctly-named jobs rather than colliding. |
+| 14 | `14_BlueTrack_ScheduleImportLoadJob.sql` | Creates the nightly SQL Server Agent job (Import then Load, 2:00 AM) once Import and Load have both been confirmed working manually. Runs against `msdb`, not the target database. **Never run through `App/Migrator`, for any environment** -- always excluded (see above); run it manually via `sqlcmd -S <server> -C -v DatabaseName="BlueTrack" -i 14_BlueTrack_ScheduleImportLoadJob.sql`. Both the job name and schedule name embed the substituted database name so `BlueTrack` and `BlueTrackTest` (if ever scheduled on the same SQL Server instance) get distinctly-named jobs rather than colliding. |
 
 `Test/` holds test-only fixtures (`01_BlueTrack_Test_DevFakeAuthMatrixSeed.sql`,
 `02_BlueTrack_Test_SyntheticAccountData.sql`) -- never run against a real
@@ -51,12 +58,13 @@ one folder per run).
    let `App/Migrator` create the database for you -- it does the same
    check-then-create automatically before every run).
 2. `dotnet run --project App/Migrator -- "<connection string>" "Database"`
-   -- runs `01` through `14` in order. Add `"14_BlueTrack_ScheduleImportLoadJob.sql"`
-   as a third (skip-list) argument for a disposable database that shouldn't
-   get a real SQL Agent job.
+   -- runs `01` through `13` in order (`14` is always excluded -- see above).
 3. For a test database only: `dotnet run --project App/Migrator -- "<connection string>" "Database/Test"`.
 4. Load real data: run `07_BlueTrack_SourceImport.sql`'s procedures (or
    `usp_Import_All`), then `EXEC usp_RunFullLoad;`.
+5. For a real (non-disposable) environment only, once Import and Load have
+   both been confirmed working manually at least once: run `14` by hand
+   via sqlcmd (see its row above).
 
 ## Folded-in history
 
@@ -101,5 +109,5 @@ bugs found while renumbering it -- see its own header).
   numbered decision (`D-nn`) referenced throughout these scripts' comments.
 - `Lessons_Learned.md` -- real incidents/gotchas found while building this,
   several of which are directly encoded in these scripts (the BULK INSERT
-  `ROWTERMINATOR` fix in `07`, the `$DatabaseName$`-only rule everywhere,
-  CRLF line endings expected by SSMS).
+  `ROWTERMINATOR` fix in `07`, the `$DatabaseName$`/`$(DatabaseName)`-only
+  rule everywhere, CRLF line endings expected by SSMS).

@@ -11,15 +11,8 @@ using Microsoft.Data.SqlClient;
 // appsettings.json here (consistent with keeping dependencies minimal).
 //
 // [skipScriptNames] is optional: a comma-separated list of script
-// filenames (matched exactly, e.g. "14_BlueTrack_ScheduleImportLoadJob.sql")
-// to exclude from this run. Needed for 14 specifically -- it's SQL Agent
-// job scheduling, not app schema/data, switches context with its own
-// `USE msdb;`, and always targets the real BlueTrack database and real
-// file paths by design regardless of <connectionString> -- none of which
-// belongs in a disposable database build (CI's BlueTrackTest, per
-// Design_Testing_Strategy.md). Its own `USE msdb;` also breaks DbUp's
-// per-database journal tracking for anything run after it in the same
-// pass, which is how this was actually found (2026-09-03).
+// filenames (matched exactly) to exclude from this run, for whatever
+// environment-specific reason a caller needs.
 //
 // Regardless of [skipScriptNames], this tool ALWAYS excludes any script
 // whose filename matches `00_*.sql` -- see Database/00_BlueTrack_CreateDatabase.sql's
@@ -30,6 +23,23 @@ using Microsoft.Data.SqlClient;
 // (2026-09-05 restructure). Database creation already happens separately,
 // just below, via this tool's own master-connection bootstrap -- 00's
 // script exists for visibility/manual use, not because this tool needs it.
+//
+// This tool ALSO always excludes 14_BlueTrack_ScheduleImportLoadJob.sql,
+// for every environment -- not only disposable ones. Confirmed by an
+// actual failed run against the real BlueTrack database (2026-09-05,
+// during the same restructure that added 00's exclusion): 14's own
+// `USE msdb;` succeeds and creates the job correctly, but DbUp's journal
+// write for that same script then executes against whatever database the
+// connection is CURRENTLY on -- which is now msdb, not the target database
+// named by <connectionString> -- since 14 never switches back. That
+// journal write fails with "Invalid object name 'SchemaVersions'"
+// (msdb has no such table), which DbUp treats as the whole run failing,
+// even though 14's actual schema-job-creation work already succeeded.
+// This isn't fixable by ordering 14 last: DbUp still journals immediately
+// after each script runs, on the same connection, regardless of position.
+// 14 is therefore run manually (e.g. via sqlcmd, directly against msdb),
+// never through this tool -- matching how 00 is handled, for a different
+// but similarly structural reason.
 //
 // The target database name is parsed out of <connectionString>'s own
 // Database/Initial Catalog and is the ONLY source of truth for which
@@ -124,10 +134,16 @@ await using (var masterConnection = new SqlConnection(masterConnectionStringBuil
     await command.ExecuteNonQueryAsync();
 }
 
+var alwaysExcludedScriptNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+{
+    "14_BlueTrack_ScheduleImportLoadJob.sql",
+};
+
 var upgrader = DeployChanges.To
     .SqlDatabase(connectionString)
     .WithScriptsFromFileSystem(scriptsFolderPath, path =>
         !Path.GetFileName(path).StartsWith("00_", StringComparison.OrdinalIgnoreCase)
+        && !alwaysExcludedScriptNames.Contains(Path.GetFileName(path))
         && !skipScriptNames.Contains(Path.GetFileName(path)))
     .WithVariable("DatabaseName", targetDatabaseName)
     .LogToConsole()

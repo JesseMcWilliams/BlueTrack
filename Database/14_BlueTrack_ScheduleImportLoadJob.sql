@@ -11,12 +11,9 @@
    hardcoded name caused the real BlueTrack database to be dropped/recreated
    instead of the intended BlueTrackTest), found and fixed one: both
    sp_add_jobstep calls' @database_name argument was the literal 'BlueTrack'
-   rather than DbUp's $DatabaseName$ substitution token, which would have
-   pointed this job at the wrong database for any environment other than
-   the real BlueTrack (e.g. BlueTrackTest). DbUp's token substitution is a
-   plain text replacement over the whole script body, so it applies here
-   too even though this script's own USE targets msdb, not the database
-   named by $DatabaseName$.
+   rather than a substitutable token, which would have pointed this job at
+   the wrong database for any environment other than the real BlueTrack
+   (e.g. BlueTrackTest).
 
    A second, related issue found and fixed the same way: the job name
    ('BlueTrack - Import and Load') and schedule name ('BlueTrack Nightly
@@ -26,11 +23,34 @@
    BlueTrack would have made sp_delete_job's drop-and-recreate guard
    silently delete and replace the REAL BlueTrack's job (a variant of the
    exact D-89 failure mode: same instance, different intended database).
-   Both names now embed $DatabaseName$ so each environment gets its own
-   distinctly-named job/schedule on a shared SQL Server instance.
+   Both names now embed a substitutable database-name placeholder so each
+   environment gets its own distinctly-named job/schedule on a shared SQL
+   Server instance. (Originally written using DbUp's `$DatabaseName$`
+   token like every other script, on the assumption this would run through
+   App/Migrator -- changed to sqlcmd's `$(DatabaseName)` scripting-variable
+   syntax once that assumption turned out to be wrong; see below.)
 
    RUN THIS AFTER 01-13, once Import and Load have both been run manually
    at least once and confirmed working (see Import_Load_Process_Guide.docx).
+
+   NEVER run this through App/Migrator -- it always excludes this exact
+   filename defensively, for every environment (see Program.cs's own
+   comment). Confirmed 2026-09-05 against the real BlueTrack database:
+   this script's own `USE msdb;` succeeds and creates the job correctly,
+   but DbUp then tries to write ITS OWN journal entry for this script
+   against whatever database the connection is now on -- msdb, since this
+   script never switches back -- which fails with "Invalid object name
+   'SchemaVersions'" (msdb has no such table) and DbUp reports the whole
+   run as failed even though the job was actually created successfully.
+   Run this manually instead, via sqlcmd, which natively supports scripting
+   variables the same way DbUp does for every other script -- except the
+   syntax is `$(DatabaseName)`, not `$DatabaseName$`, since sqlcmd doesn't
+   understand DbUp's own token format:
+
+       sqlcmd -S <server> -C -v DatabaseName="BlueTrack" -i 14_BlueTrack_ScheduleImportLoadJob.sql
+
+   In SSMS, enable SQLCMD Mode first (Query menu), or use `:setvar DatabaseName "BlueTrack"`
+   as the file's first line before running it.
 
    Creates a SQL Server Agent job, "BlueTrack - Import and Load", with two
    steps -- Import, then Load -- matching the guide's own "Recommended
@@ -63,16 +83,16 @@
 USE msdb;
 GO
 
-IF EXISTS (SELECT 1 FROM msdb.dbo.sysjobs WHERE name = 'BlueTrack ($DatabaseName$) - Import and Load')
+IF EXISTS (SELECT 1 FROM msdb.dbo.sysjobs WHERE name = 'BlueTrack ($(DatabaseName)) - Import and Load')
 BEGIN
-    EXEC msdb.dbo.sp_delete_job @job_name = 'BlueTrack ($DatabaseName$) - Import and Load';
+    EXEC msdb.dbo.sp_delete_job @job_name = 'BlueTrack ($(DatabaseName)) - Import and Load';
 END
 GO
 
 DECLARE @JobId BINARY(16);
 
 EXEC msdb.dbo.sp_add_job
-    @job_name = 'BlueTrack ($DatabaseName$) - Import and Load',
+    @job_name = 'BlueTrack ($(DatabaseName)) - Import and Load',
     @enabled = 1,
     @description = 'Nightly Import (staging refresh from Privilege Cloud + Self-Hosted EVD) followed by Load (usp_RunFullLoad) for the BlueTrack database. See Database/Import_Load_Process_Guide.docx.',
     @job_id = @JobId OUTPUT;
@@ -85,7 +105,7 @@ EXEC msdb.dbo.sp_add_jobstep
     @step_id = 1,
     @step_name = 'Import',
     @subsystem = 'TSQL',
-    @database_name = N'$DatabaseName$',
+    @database_name = N'$(DatabaseName)',
     @on_success_action = 3,   -- go to next step
     @on_fail_action = 2,      -- quit the job, reporting failure
     @command = N'
@@ -111,25 +131,25 @@ EXEC msdb.dbo.sp_add_jobstep
     @step_id = 2,
     @step_name = 'Load',
     @subsystem = 'TSQL',
-    @database_name = N'$DatabaseName$',
+    @database_name = N'$(DatabaseName)',
     @on_success_action = 1,   -- quit the job, reporting success
     @on_fail_action = 2,      -- quit the job, reporting failure
     @command = N'EXEC usp_RunFullLoad;';
 
 -- Schedule: nightly at 2:00 AM.
 EXEC msdb.dbo.sp_add_schedule
-    @schedule_name = 'BlueTrack ($DatabaseName$) Nightly 2AM',
+    @schedule_name = 'BlueTrack ($(DatabaseName)) Nightly 2AM',
     @freq_type = 4,           -- daily
     @freq_interval = 1,       -- every 1 day
     @active_start_time = 020000;
 
 EXEC msdb.dbo.sp_attach_schedule
     @job_id = @JobId,
-    @schedule_name = 'BlueTrack ($DatabaseName$) Nightly 2AM';
+    @schedule_name = 'BlueTrack ($(DatabaseName)) Nightly 2AM';
 
 EXEC msdb.dbo.sp_add_jobserver
     @job_id = @JobId,
     @server_name = N'(local)';
 GO
 
-PRINT 'SQL Agent job "BlueTrack ($DatabaseName$) - Import and Load" created: Import (Step 1) then Load (Step 2), nightly at 2:00 AM.';
+PRINT 'SQL Agent job "BlueTrack ($(DatabaseName)) - Import and Load" created: Import (Step 1) then Load (Step 2), nightly at 2:00 AM.';
