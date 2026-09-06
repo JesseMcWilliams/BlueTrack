@@ -56,11 +56,26 @@
    steps -- Import, then Load -- matching the guide's own "Recommended
    Operational Cadence" section. Runs nightly at 2:00 AM.
 
-   REAL VALUES USED BELOW (confirmed 2026-09-01, not placeholders):
+   REAL VALUES USED BELOW (confirmed 2026-09-01, updated 2026-09-05, not
+   placeholders):
      - EVD database name: CyberArkSH
-     - Privilege Cloud export folder: C:\Code\BlueTrack\Reference\PrivilegedCloud
+     - Privilege Cloud export folder: C:\Code\aPePAS\Output (updated
+       2026-09-05, was C:\Code\BlueTrack\Reference\PrivilegedCloud)
        (a local path, not UNC -- confirm the SQL Server *service account*,
        not your own login, has read access to it; see Prerequisites in the guide)
+
+   BUG FOUND AND FIXED 2026-09-05, on the first real run of this job's
+   Import step: SQL Server's EXECUTE statement only accepts a constant or a
+   plain variable for each parameter -- never an expression like string
+   concatenation. The original Step 1 passed `@Folder + N'...'` directly as
+   each usp_Import_All parameter, which fails to even PARSE ("Incorrect
+   syntax near '+'"), regardless of what @Folder's value is -- reproduced
+   identically with both the original path and a freshly-edited one, so
+   this was never about the path. Each file path is now built into its own
+   variable first, then passed as a plain variable. Also added: @Folder is
+   normalized to always end in a backslash, since a path edited directly in
+   SSMS's Job Step Properties dialog (as happened here) is easy to paste
+   without the trailing separator.
 
    NAMING CORRECTION vs. the guide's own example text: the two date-stamped
    exports in this folder are actually space-separated, not underscored --
@@ -111,17 +126,32 @@ EXEC msdb.dbo.sp_add_jobstep
     @command = N'
 DECLARE @Today DATE = CAST(SYSDATETIME() AS DATE);
 DECLARE @TodayStr NVARCHAR(10) = CONVERT(NVARCHAR(10), @Today, 23);   -- YYYY-MM-DD
-DECLARE @Folder NVARCHAR(400) = N''C:\Code\BlueTrack\Reference\PrivilegedCloud\'';
+DECLARE @Folder NVARCHAR(400) = N''C:\Code\aPePAS\Output'';
+IF RIGHT(@Folder, 1) <> N''\'' SET @Folder = @Folder + N''\'';
+
+-- EXEC''s own parameter list only accepts a constant or a plain variable
+-- for each argument, never an expression like concatenation (confirmed
+-- 2026-09-05: "Incorrect syntax near ''+''" -- a genuine, pre-existing bug,
+-- reproduced with both the original and a newly-edited folder path, so
+-- unrelated to whichever path is actually in use). Each file path is
+-- built into its own variable first, then passed as a plain variable below.
+DECLARE @PlatformsFile     NVARCHAR(500) = @Folder + N''Export_PlatformsList.csv'';
+DECLARE @UsersFile         NVARCHAR(500) = @Folder + N''Export_UsersList.csv'';
+DECLARE @GroupsFile        NVARCHAR(500) = @Folder + N''Export_GroupsList.csv'';
+DECLARE @GroupMembersFile  NVARCHAR(500) = @Folder + N''Export Local Group Members '' + @TodayStr + N''.csv'';
+DECLARE @SafesFile         NVARCHAR(500) = @Folder + N''Export_SafesList.csv'';
+DECLARE @AccountsFile      NVARCHAR(500) = @Folder + N''Export_AccountsList.csv'';
+DECLARE @EntitlementsFile  NVARCHAR(500) = @Folder + N''Export Entitlements '' + @TodayStr + N''.csv'';
 
 EXEC usp_Import_All
     @EVDDatabaseName = N''CyberArkSH'',
-    @PlatformsFile = @Folder + N''Export_PlatformsList.csv'',
-    @UsersFile = @Folder + N''Export_UsersList.csv'',
-    @GroupsFile = @Folder + N''Export_GroupsList.csv'',
-    @GroupMembersFile = @Folder + N''Export Local Group Members '' + @TodayStr + N''.csv'',
-    @SafesFile = @Folder + N''Export_SafesList.csv'',
-    @AccountsFile = @Folder + N''Export_AccountsList.csv'',
-    @EntitlementsFile = @Folder + N''Export Entitlements '' + @TodayStr + N''.csv'',
+    @PlatformsFile = @PlatformsFile,
+    @UsersFile = @UsersFile,
+    @GroupsFile = @GroupsFile,
+    @GroupMembersFile = @GroupMembersFile,
+    @SafesFile = @SafesFile,
+    @AccountsFile = @AccountsFile,
+    @EntitlementsFile = @EntitlementsFile,
     @EntitlementsExportDate = @Today;
 ';
 
