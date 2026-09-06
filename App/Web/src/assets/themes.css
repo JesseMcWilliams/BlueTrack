@@ -180,3 +180,118 @@ p {
   margin-top: 0;
   margin-bottom: var(--space-3);
 }
+
+/* Form controls and buttons (added 2026-09-06, interaction pass): every
+   button/input/select/textarea in this app rendered as pure unstyled
+   browser default -- no consistent sizing, no visual distinction between
+   a primary committing action (Save) and a secondary one (Cancel), no
+   hover/active feedback beyond the accessibility focus ring already
+   added. Grounded in NN/G's forms research: primary actions need visual
+   weight to stand apart, buttons need breathing room so users don't
+   mis-click, and consistent control sizing matters for scannability
+   (https://www.nngroup.com/articles/web-form-design/).
+
+   .btn-primary deliberately does NOT introduce a new background-fill
+   color: every color in this file carries a verified contrast ratio
+   comment, and a new fill color would need the same rigor applied to
+   verify its text-on-fill contrast in all three themes. Reusing
+   --color-link (already verified against --color-bg for ordinary links)
+   for a bold border + bold text achieves the same "this is the important
+   one" visual weight without an unverified color pairing. */
+button {
+  display: inline-block;
+  padding: var(--space-2) var(--space-4);
+  margin-right: var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: 0.25rem;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font: inherit;
+  cursor: pointer;
+  transition: filter 0.15s ease;
+}
+button:hover:not(:disabled) {
+  filter: brightness(0.92);
+}
+button:active:not(:disabled) {
+  filter: brightness(0.85);
+}
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.btn-primary {
+  border-width: 2px;
+  border-color: var(--color-link);
+  color: var(--color-link);
+  font-weight: 700;
+}
+
+input, select, textarea {
+  box-sizing: border-box;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: 0.25rem;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font: inherit;
+}
+textarea {
+  min-height: 5rem;
+  resize: vertical;
+}
+/* Checkbox/radio inputs keep their native inline size -- the box-sizing
+   rule above otherwise stretches them to a full text-input-sized box in
+   some browsers. */
+input[type="checkbox"], input[type="radio"] {
+  box-sizing: content-box;
+  padding: 0;
+  border-radius: 0;
+  margin-right: var(--space-1);
+}
+
+/* Field labels (added 2026-09-06, interaction pass): stacks the label
+   text above its control -- NN/G's own recommendation (label placement
+   above the field reads faster than inline "Label: [box]", and
+   accommodates labels of varying length without a ragged, hard-to-scan
+   layout). Scoped to .field-label rather than a blanket `label` rule:
+   this app's checkbox/radio labels (`<label><input type="checkbox" />
+   Text</label>`) are a genuinely different, correctly-inline pattern
+   (the choice and its text read as one unit) that stacking would break.
+   .field-label-text wraps a field's full label text (including any
+   required-field asterisk and trailing colon) in one element, so flexbox
+   sees exactly two items -- the label text, then the control -- and
+   stacks them instead of a stray third line for the asterisk/colon. */
+.field-label {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1);
+  margin-bottom: var(--space-3);
+}
+.field-label > input,
+.field-label > select,
+.field-label > textarea {
+  width: 100%;
+  max-width: 30em;
+}
+
+/* Filter toolbars (AuditLogViewer, AccountProgressList, RiskExceptionsList):
+   several .field-label fields sit side by side as a compact row rather
+   than stacked full-width down the page -- filters are auxiliary to the
+   page's main task, so compactness matters here more than in a primary
+   edit form. Each field still stacks its own label above its control;
+   this just arranges the fields themselves horizontally, wrapping on
+   narrow screens. align-items: flex-end lines up each field's control
+   with any trailing action button (e.g. "Filter") regardless of label
+   text length. */
+.filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-4);
+  margin-bottom: var(--space-4);
+}
+.filter-row .field-label {
+  margin-bottom: 0;
+}

@@ -79,7 +79,7 @@ async function remove(role) {
     <p v-if="loading" role="status">Loading...</p>
 
     <template v-else>
-      <button @click="startCreate">+ New Role</button>
+      <button class="btn-primary" @click="startCreate">+ New Role</button>
 
       <table>
         <thead>
@@ -100,8 +100,8 @@ async function remove(role) {
 
       <form v-if="editing" @submit.prevent="save">
         <h3>{{ editing.appRoleKey === undefined ? 'New Role' : 'Edit Role' }}</h3>
-        <p><label>Role Name: <input v-model="editing.roleName" required /></label></p>
-        <p><label>Description: <input v-model="editing.description" /></label></p>
+        <p><label class="field-label"><span class="field-label-text">Role Name:</span> <input v-model="editing.roleName" required /></label></p>
+        <p><label class="field-label"><span class="field-label-text">Description:</span> <input v-model="editing.description" /></label></p>
         <p>
           Permissions:
           <label v-for="perm in catalog" :key="perm.permissionKey" style="display: block">
@@ -113,7 +113,7 @@ async function remove(role) {
             {{ perm.permissionName }} — {{ perm.description }}
           </label>
         </p>
-        <button type="submit">Save</button>
+        <button type="submit" class="btn-primary">Save</button>
         <button type="button" @click="cancelEdit">Cancel</button>
       </form>
     </template>

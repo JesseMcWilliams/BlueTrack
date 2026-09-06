@@ -105,23 +105,23 @@ async function remove(mapping) {
 
       <h3>Add Mapping</h3>
       <form @submit.prevent="createMapping">
-        <p><label>Group Name (e.g. BUILTIN\Administrators or DOMAIN\GroupName): <input v-model="newGroupName" required /></label></p>
+        <p><label class="field-label"><span class="field-label-text">Group Name (e.g. BUILTIN\Administrators or DOMAIN\GroupName):</span> <input v-model="newGroupName" required /></label></p>
         <p>
-          <label>
-            Role:
+          <label class="field-label">
+            <span class="field-label-text">Role:</span>
             <select v-model="newRoleName" required>
               <option value="" disabled>Select a role</option>
               <option v-for="role in roles" :key="role.appRoleKey" :value="role.roleName">{{ role.roleName }}</option>
             </select>
           </label>
         </p>
-        <button type="submit">Add</button>
+        <button type="submit" class="btn-primary">Add</button>
       </form>
 
       <h3>Lookup / Test Tool</h3>
       <p>Resolve a group name and see what it currently grants, without saving anything.</p>
-      <form @submit.prevent="lookup">
-        <input v-model="lookupGroupName" placeholder="Group name" required />
+      <form class="filter-row" @submit.prevent="lookup">
+        <label class="field-label"><span class="field-label-text">Group name</span> <input v-model="lookupGroupName" required /></label>
         <button type="submit">Resolve</button>
       </form>
       <p v-if="lookupError" role="alert">{{ lookupError }}</p>

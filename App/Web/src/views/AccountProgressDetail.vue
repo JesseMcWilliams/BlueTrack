@@ -310,8 +310,8 @@ onUnmounted(releaseLock)
       <form v-if="lockedByMe" @submit.prevent="save">
         <p v-if="saveError" role="alert">{{ saveError }}</p>
         <p v-for="field in sortedFields" :key="field.fieldName">
-          <label>
-            {{ field.displayLabel }}<span v-if="field.isRequired"> *</span>:
+          <label class="field-label">
+            <span class="field-label-text">{{ field.displayLabel }}<span v-if="field.isRequired"> *</span>:</span>
 
             <select v-if="field.fieldType === 'Dropdown'" v-model="form[formKeyByFieldName[field.fieldName]]" :required="field.isRequired">
               <option value="">(none)</option>
@@ -330,8 +330,8 @@ onUnmounted(releaseLock)
           <p>Status is Risk Accepted / Excluded -- link an existing Active exception for this account, or create one.</p>
           <p v-if="exceptionError" role="alert">{{ exceptionError }}</p>
           <p>
-            <label>
-              Linked Exception:
+            <label class="field-label">
+              <span class="field-label-text">Linked Exception:</span>
               <select v-model="selectedExceptionKey" required>
                 <option value="" disabled>Select an exception</option>
                 <option v-for="ex in linkableExceptions" :key="ex.exceptionKey" :value="ex.exceptionKey">
@@ -344,16 +344,16 @@ onUnmounted(releaseLock)
             {{ showCreateExceptionForm ? 'Cancel New Exception' : '+ Create New Exception' }}
           </button>
           <div v-if="showCreateExceptionForm">
-            <p><label>Justification: <textarea v-model="newException.justification" required></textarea></label></p>
-            <p><label>Review Date: <input v-model="newException.reviewDate" type="date" required /></label></p>
-            <p><label>External Ticket Reference: <input v-model="newException.externalTicketReference" type="text" /></label></p>
-            <button type="button" :disabled="creatingException" @click="createInlineException">Create Exception</button>
+            <p><label class="field-label"><span class="field-label-text">Justification:</span> <textarea v-model="newException.justification" required></textarea></label></p>
+            <p><label class="field-label"><span class="field-label-text">Review Date:</span> <input v-model="newException.reviewDate" type="date" required /></label></p>
+            <p><label class="field-label"><span class="field-label-text">External Ticket Reference:</span> <input v-model="newException.externalTicketReference" type="text" /></label></p>
+            <button type="button" class="btn-primary" :disabled="creatingException" @click="createInlineException">Create Exception</button>
           </div>
         </div>
         <p>
-          <label>Reason (required only if regressing to an earlier stage): <input v-model="reason" type="text" /></label>
+          <label class="field-label"><span class="field-label-text">Reason (required only if regressing to an earlier stage):</span> <input v-model="reason" type="text" /></label>
         </p>
-        <button type="submit" :disabled="saving">Save</button>
+        <button type="submit" class="btn-primary" :disabled="saving">Save</button>
         <button type="button" @click="cancelEdit">Cancel</button>
       </form>
 

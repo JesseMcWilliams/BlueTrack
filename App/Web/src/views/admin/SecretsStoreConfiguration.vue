@@ -123,22 +123,22 @@ async function testConnection() {
           <td>{{ backend.isActive ? 'Yes' : '' }}</td>
           <td>
             <template v-if="backend.backendType === 'CyberArkCP'">
-              <p><label>App ID: <input v-model="settingsObjects[backend.backendType].AppId" size="20" /></label></p>
+              <p><label class="field-label"><span class="field-label-text">App ID:</span> <input v-model="settingsObjects[backend.backendType].AppId" /></label></p>
             </template>
             <template v-else-if="backend.backendType === 'CyberArkCCP'">
-              <p><label>Base URL: <input v-model="settingsObjects[backend.backendType].BaseUrl" size="30" placeholder="https://pvwa.company.com" /></label></p>
-              <p><label>App ID: <input v-model="settingsObjects[backend.backendType].AppId" size="20" /></label></p>
+              <p><label class="field-label"><span class="field-label-text">Base URL:</span> <input v-model="settingsObjects[backend.backendType].BaseUrl" placeholder="https://pvwa.company.com" /></label></p>
+              <p><label class="field-label"><span class="field-label-text">App ID:</span> <input v-model="settingsObjects[backend.backendType].AppId" /></label></p>
             </template>
             <template v-else-if="backend.backendType === 'CyberArkConjur'">
-              <p><label>Appliance URL: <input v-model="settingsObjects[backend.backendType].ApplianceUrl" size="30" /></label></p>
-              <p><label>Account: <input v-model="settingsObjects[backend.backendType].Account" size="15" /></label></p>
-              <p><label>Login: <input v-model="settingsObjects[backend.backendType].Login" size="15" /></label></p>
+              <p><label class="field-label"><span class="field-label-text">Appliance URL:</span> <input v-model="settingsObjects[backend.backendType].ApplianceUrl" /></label></p>
+              <p><label class="field-label"><span class="field-label-text">Account:</span> <input v-model="settingsObjects[backend.backendType].Account" /></label></p>
+              <p><label class="field-label"><span class="field-label-text">Login:</span> <input v-model="settingsObjects[backend.backendType].Login" /></label></p>
             </template>
             <template v-else-if="backend.backendType === 'AzureKeyVault'">
-              <p><label>Vault URI: <input v-model="settingsObjects[backend.backendType].VaultUri" size="30" /></label></p>
+              <p><label class="field-label"><span class="field-label-text">Vault URI:</span> <input v-model="settingsObjects[backend.backendType].VaultUri" /></label></p>
               <p>
-                <label>
-                  Auth Method:
+                <label class="field-label">
+                  <span class="field-label-text">Auth Method:</span>
                   <select v-model="settingsObjects[backend.backendType].AuthMethod">
                     <option value="ManagedIdentity">ManagedIdentity</option>
                     <option value="ServicePrincipal">ServicePrincipal</option>
@@ -146,18 +146,18 @@ async function testConnection() {
                 </label>
               </p>
               <template v-if="settingsObjects[backend.backendType].AuthMethod === 'ServicePrincipal'">
-                <p><label>Tenant ID: <input v-model="settingsObjects[backend.backendType].TenantId" size="20" /></label></p>
-                <p><label>Client ID: <input v-model="settingsObjects[backend.backendType].ClientId" size="20" /></label></p>
+                <p><label class="field-label"><span class="field-label-text">Tenant ID:</span> <input v-model="settingsObjects[backend.backendType].TenantId" /></label></p>
+                <p><label class="field-label"><span class="field-label-text">Client ID:</span> <input v-model="settingsObjects[backend.backendType].ClientId" /></label></p>
               </template>
               <template v-else>
-                <p><label>Client ID (only if using a user-assigned managed identity): <input v-model="settingsObjects[backend.backendType].ClientId" size="20" /></label></p>
+                <p><label class="field-label"><span class="field-label-text">Client ID (only if using a user-assigned managed identity):</span> <input v-model="settingsObjects[backend.backendType].ClientId" /></label></p>
               </template>
             </template>
             <template v-else-if="backend.backendType === 'AwsSecretsManager'">
-              <p><label>Region: <input v-model="settingsObjects[backend.backendType].Region" size="15" placeholder="us-east-1" /></label></p>
+              <p><label class="field-label"><span class="field-label-text">Region:</span> <input v-model="settingsObjects[backend.backendType].Region" placeholder="us-east-1" /></label></p>
               <p>
-                <label>
-                  Auth Method:
+                <label class="field-label">
+                  <span class="field-label-text">Auth Method:</span>
                   <select v-model="settingsObjects[backend.backendType].AuthMethod">
                     <option value="IamRole">IamRole</option>
                     <option value="AccessKey">AccessKey</option>
@@ -165,7 +165,7 @@ async function testConnection() {
                 </label>
               </p>
               <template v-if="settingsObjects[backend.backendType].AuthMethod === 'AccessKey'">
-                <p><label>Access Key ID: <input v-model="settingsObjects[backend.backendType].AccessKeyId" size="25" /></label></p>
+                <p><label class="field-label"><span class="field-label-text">Access Key ID:</span> <input v-model="settingsObjects[backend.backendType].AccessKeyId" /></label></p>
               </template>
             </template>
             <template v-else>
@@ -176,22 +176,21 @@ async function testConnection() {
             <input
               v-model="credentialDraft[backend.backendType]"
               type="password"
-              size="20"
               :placeholder="backend.backendSettings?.includes('ProtectedCredential') ? '(already set -- leave blank to keep)' : '(none set)'"
             />
           </td>
-          <td><button @click="activate(backend)">{{ backend.isActive ? 'Save' : 'Make Active' }}</button></td>
+          <td><button class="btn-primary" @click="activate(backend)">{{ backend.isActive ? 'Save' : 'Make Active' }}</button></td>
         </tr>
       </tbody>
     </table>
 
     <h3>Test Connection</h3>
     <p>Attempts a real retrieval against the active backend. Never shows the retrieved secret -- only whether it succeeded and non-secret metadata (username/address).</p>
-    <form @submit.prevent="testConnection">
-      <label>Safe: <input v-model="testSafe" required /></label>
-      <label>Folder: <input v-model="testFolder" required /></label>
-      <label>Object: <input v-model="testObject" required size="50" /></label>
-      <button type="submit" :disabled="testing">Test</button>
+    <form class="filter-row" @submit.prevent="testConnection">
+      <label class="field-label"><span class="field-label-text">Safe:</span> <input v-model="testSafe" required /></label>
+      <label class="field-label"><span class="field-label-text">Folder:</span> <input v-model="testFolder" required /></label>
+      <label class="field-label"><span class="field-label-text">Object:</span> <input v-model="testObject" required /></label>
+      <button type="submit" class="btn-primary" :disabled="testing">Test</button>
     </form>
     <div v-if="testResult">
       <p v-if="testResult.success" role="status">

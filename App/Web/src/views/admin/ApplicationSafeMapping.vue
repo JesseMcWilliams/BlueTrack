@@ -79,7 +79,7 @@ async function assignSafe(safe, applicationKeyRaw) {
 
     <template v-else>
       <h3>Applications</h3>
-      <button @click="startCreate">+ New Application</button>
+      <button class="btn-primary" @click="startCreate">+ New Application</button>
       <table>
         <thead>
           <tr><th>Code</th><th>Name</th><th>Owner</th><th></th></tr>
@@ -96,15 +96,15 @@ async function assignSafe(safe, applicationKeyRaw) {
 
       <form v-if="editing" @submit.prevent="save">
         <h4>{{ editing.applicationKey === undefined ? 'New Application' : 'Edit Application' }}</h4>
-        <p><label>Code: <input v-model="editing.applicationCode" required /></label></p>
-        <p><label>Name: <input v-model="editing.applicationName" required /></label></p>
-        <p><label>Description: <input v-model="editing.description" /></label></p>
-        <p><label>Owner Name: <input v-model="editing.ownerName" /></label></p>
-        <p><label>Owner Email: <input v-model="editing.ownerEmail" /></label></p>
-        <p><label>Technical Contact Name: <input v-model="editing.technicalName" /></label></p>
-        <p><label>Technical Contact Email: <input v-model="editing.technicalEmail" /></label></p>
-        <p><label>Notes: <input v-model="editing.notes" /></label></p>
-        <button type="submit">Save</button>
+        <p><label class="field-label"><span class="field-label-text">Code:</span> <input v-model="editing.applicationCode" required /></label></p>
+        <p><label class="field-label"><span class="field-label-text">Name:</span> <input v-model="editing.applicationName" required /></label></p>
+        <p><label class="field-label"><span class="field-label-text">Description:</span> <input v-model="editing.description" /></label></p>
+        <p><label class="field-label"><span class="field-label-text">Owner Name:</span> <input v-model="editing.ownerName" /></label></p>
+        <p><label class="field-label"><span class="field-label-text">Owner Email:</span> <input v-model="editing.ownerEmail" /></label></p>
+        <p><label class="field-label"><span class="field-label-text">Technical Contact Name:</span> <input v-model="editing.technicalName" /></label></p>
+        <p><label class="field-label"><span class="field-label-text">Technical Contact Email:</span> <input v-model="editing.technicalEmail" /></label></p>
+        <p><label class="field-label"><span class="field-label-text">Notes:</span> <input v-model="editing.notes" /></label></p>
+        <button type="submit" class="btn-primary">Save</button>
         <button type="button" @click="cancelEdit">Cancel</button>
       </form>
 

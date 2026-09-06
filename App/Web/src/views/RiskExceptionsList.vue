@@ -93,8 +93,8 @@ watch([statusFilter, scopeTypeFilter, sortQueryParam], load)
     <p v-if="rights.hasPermission('ApproveExceptions')">
       <router-link :to="{ name: 'risk-exception-create' }">+ New Exception</router-link>
     </p>
-    <p>
-      <label>Status:
+    <p class="filter-row">
+      <label class="field-label"><span class="field-label-text">Status:</span>
         <select v-model="statusFilter">
           <option value="">All</option>
           <option value="Active">Active</option>
@@ -102,7 +102,7 @@ watch([statusFilter, scopeTypeFilter, sortQueryParam], load)
           <option value="Revoked">Revoked</option>
         </select>
       </label>
-      <label>Scope:
+      <label class="field-label"><span class="field-label-text">Scope:</span>
         <select v-model="scopeTypeFilter">
           <option value="">All</option>
           <option value="Account">Account</option>

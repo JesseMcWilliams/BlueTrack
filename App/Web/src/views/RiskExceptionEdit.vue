@@ -165,7 +165,7 @@ async function revoke() {
       <template v-if="detail.statusName === 'Active'">
         <h3>Re-approve (extend review date)</h3>
         <input v-model="newReviewDate" type="date" />
-        <button :disabled="saving" @click="extendReview">Extend Review Date</button>
+        <button class="btn-primary" :disabled="saving" @click="extendReview">Extend Review Date</button>
 
         <h3>Revoke</h3>
         <button :disabled="saving" @click="revoke">Revoke Exception</button>
@@ -179,11 +179,11 @@ async function revoke() {
           <label><input v-model="scopeType" type="radio" value="Application" /> Application</label>
         </p>
         <p v-if="scopeType === 'Account'">
-          <label>Account Key: <input v-model="accountKey" type="number" required /></label>
+          <label class="field-label"><span class="field-label-text">Account Key:</span> <input v-model="accountKey" type="number" required /></label>
         </p>
         <p v-else>
-          <label>
-            Application:
+          <label class="field-label">
+            <span class="field-label-text">Application:</span>
             <select v-model="applicationKey" required>
               <option value="" disabled>Select an application</option>
               <option v-for="app in applications" :key="app.applicationKey" :value="app.applicationKey">
@@ -193,15 +193,15 @@ async function revoke() {
           </label>
         </p>
         <p>
-          <label>Justification: <textarea v-model="justification" required></textarea></label>
+          <label class="field-label"><span class="field-label-text">Justification:</span> <textarea v-model="justification" required></textarea></label>
         </p>
         <p>
-          <label>Review Date: <input v-model="reviewDate" type="date" required /></label>
+          <label class="field-label"><span class="field-label-text">Review Date:</span> <input v-model="reviewDate" type="date" required /></label>
         </p>
         <p>
-          <label>External Ticket Reference: <input v-model="externalTicketReference" type="text" /></label>
+          <label class="field-label"><span class="field-label-text">External Ticket Reference:</span> <input v-model="externalTicketReference" type="text" /></label>
         </p>
-        <button type="submit" :disabled="saving">Create Exception</button>
+        <button type="submit" class="btn-primary" :disabled="saving">Create Exception</button>
       </form>
     </template>
   </div>
