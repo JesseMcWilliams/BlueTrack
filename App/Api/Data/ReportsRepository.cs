@@ -77,4 +77,17 @@ public sealed class ReportsRepository(IDbConnectionFactory connectionFactory)
         var rows = await connection.QueryAsync<ReconciliationReviewItem>(sql);
         return rows.AsList();
     }
+
+    public async Task<IReadOnlyList<UnresolvedEntitlementMember>> GetUnresolvedEntitlementMembersAsync()
+    {
+        using var connection = connectionFactory.Create();
+
+        const string sql = """
+            SELECT * FROM dbo.vw_unresolved_entitlement_members
+            ORDER BY SafeName, MemberType, UnresolvedMemberId
+            """;
+
+        var rows = await connection.QueryAsync<UnresolvedEntitlementMember>(sql);
+        return rows.AsList();
+    }
 }

@@ -36,4 +36,17 @@ public sealed class ReportsController(ReportsRepository repository) : Controller
         var results = await repository.GetReconciliationReviewQueueAsync();
         return Ok(results);
     }
+
+    /// <summary>
+    /// D-107/D-108: Safe entitlements granted to a member this app can't
+    /// resolve to a known user/group. No specific permission required --
+    /// read-only, informational, matching Overdue/At-Risk and Stage/Status
+    /// Summary above.
+    /// </summary>
+    [HttpGet("unresolved-entitlement-members")]
+    public async Task<IActionResult> GetUnresolvedEntitlementMembers()
+    {
+        var results = await repository.GetUnresolvedEntitlementMembersAsync();
+        return Ok(results);
+    }
 }

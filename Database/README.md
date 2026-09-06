@@ -45,6 +45,7 @@ after `14`, never edits to an existing file in this list.
 | 12 | `12_BlueTrack_OidcSamlProviderSeed.sql` | Disabled OIDC and SAML placeholder identity provider rows, documenting the expected `ConfigurationValues` shape ahead of real IdP metadata. |
 | 13 | `13_BlueTrack_AccountProgressFieldMetadataSeed.sql` | Seeds `web.account_progress_field_metadata` with one row per editable `fact_account_progress` column, so the Account Progress edit form has field definitions to render. |
 | 14 | `14_BlueTrack_ScheduleImportLoadJob.sql` | Creates the nightly SQL Server Agent job (Import then Load, 2:00 AM) once Import and Load have both been confirmed working manually. Runs against `msdb`, not the target database. **Never run through `App/Migrator`, for any environment** -- always excluded (see above); run it manually via `sqlcmd -S <server> -C -v DatabaseName="BlueTrack" -i 14_BlueTrack_ScheduleImportLoadJob.sql`. Both the job name and schedule name embed the substituted database name so `BlueTrack` and `BlueTrackTest` (if ever scheduled on the same SQL Server instance) get distinctly-named jobs rather than colliding. |
+| 15 | `15_BlueTrack_UnresolvedEntitlementMembersView.sql` | First post-restructure incremental script (D-58 resumed, per D-107). Adds `vw_unresolved_entitlement_members`, surfacing `fact_safe_entitlement` rows whose member is a CyberArk Identity/Entra-federated user or built-in cloud role rather than a classic Vault-native user/group (D-107's `UnresolvedMemberId` column) -- backs the Reports > Unresolved Entitlement Members page. |
 
 `Test/` holds test-only fixtures (`01_BlueTrack_Test_DevFakeAuthMatrixSeed.sql`,
 `02_BlueTrack_Test_SyntheticAccountData.sql`) -- never run against a real
@@ -58,7 +59,8 @@ one folder per run).
    let `App/Migrator` create the database for you -- it does the same
    check-then-create automatically before every run).
 2. `dotnet run --project App/Migrator -- "<connection string>" "Database"`
-   -- runs `01` through `13` in order (`14` is always excluded -- see above).
+   -- runs `01` through `13`, then `15` onward, in order (`14` is always
+   excluded -- see above).
 3. For a test database only: `dotnet run --project App/Migrator -- "<connection string>" "Database/Test"`.
 4. Load real data: run `07_BlueTrack_SourceImport.sql`'s procedures (or
    `usp_Import_All`), then `EXEC usp_RunFullLoad;`.

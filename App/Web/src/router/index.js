@@ -78,6 +78,11 @@ const routes = [
         path: 'reconciliation-review',
         name: 'reports-reconciliation-review',
         component: () => import('../views/reports/ReconciliationReviewQueue.vue')
+      },
+      {
+        path: 'unresolved-entitlement-members',
+        name: 'reports-unresolved-entitlement-members',
+        component: () => import('../views/reports/UnresolvedEntitlementMembers.vue')
       }
     ]
   },
