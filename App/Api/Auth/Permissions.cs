@@ -23,12 +23,14 @@ public static class Permissions
     public const string ViewAuditLog = "ViewAuditLog";
     public const string ManageApplicationConfiguration = "ManageApplicationConfiguration";
     public const string ViewDeploymentInfo = "ViewDeploymentInfo";
+    public const string ManageNotifications = "ManageNotifications";
 
     public static readonly IReadOnlyList<string> All =
     [
         ViewDashboard, EditAccountProgress, ApproveExceptions, ManageIdentityProviders,
         ManageGroupRoleMapping, CuratePlatformMapping, ConfirmReconciliation, ReloadRights,
         ManageRolesAndPermissions, CurateApplicationMapping, ManageSecretsStore,
-        ManageFieldMetadata, ViewAuditLog, ManageApplicationConfiguration, ViewDeploymentInfo
+        ManageFieldMetadata, ViewAuditLog, ManageApplicationConfiguration, ViewDeploymentInfo,
+        ManageNotifications
     ];
 }

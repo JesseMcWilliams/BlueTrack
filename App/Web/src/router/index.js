@@ -184,6 +184,12 @@ const routes = [
         name: 'admin-deployment',
         meta: { breadcrumb: 'Deployment Info', breadcrumbParent: 'admin' },
         component: () => import('../views/admin/DeploymentInfo.vue')
+      },
+      {
+        path: 'notifications',
+        name: 'admin-notifications',
+        meta: { breadcrumb: 'Notifications', breadcrumbParent: 'admin' },
+        component: () => import('../views/admin/Notifications.vue')
       }
     ]
   },
