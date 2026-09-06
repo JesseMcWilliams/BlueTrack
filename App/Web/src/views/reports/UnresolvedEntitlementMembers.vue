@@ -66,7 +66,6 @@ onMounted(async () => {
 <style scoped>
 .hint {
   max-width: 60em;
-  margin-bottom: 1rem;
 }
 
 .unresolved-flag {

@@ -26,9 +26,16 @@ const crumbs = computed(() =>
 </template>
 
 <style scoped>
+/* Usability pass, 2026-09-06: previously padding was vertical-only (0 on
+   the horizontal axis), so the trail sat flush against the browser edge
+   with nothing distinguishing it from the page heading directly below --
+   the exact "no separation" gap this pass addresses. The bottom border
+   gives it a clear visual boundary as its own strip, consistent with
+   .top-nav's own border-bottom above it. */
 .breadcrumbs {
   font-size: 0.875rem;
-  padding: 0.5rem 0;
+  padding: var(--space-2) var(--space-4);
+  border-bottom: 1px solid var(--color-border);
 }
 .breadcrumbs__separator {
   margin: 0 0.4rem;

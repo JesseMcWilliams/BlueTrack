@@ -52,6 +52,26 @@
   --color-success-text: #00ff00; /* ~15.3:1 vs #000 */
 }
 
+/* Spacing scale (added 2026-09-06, usability pass): an 8px-based rem scale
+   -- 1=4px for tightly related elements (an icon and its label), 2=8px
+   inside a component, 3=16px general body rhythm, 4=24px between groups
+   of elements, 5=32px and 6=48px between sections. rem, not px, so it
+   scales with a user's own font-size preference. Applied below to the
+   handful of element-level rules every page already shares (headings,
+   tables) rather than per-page classes, since this app has no component
+   library -- see https://www.nngroup.com/videos/whitespace/ (consistent
+   spacing + proximity is what reads as organized, not decoration) and
+   the 8pt-grid convention (tight spacing = related, larger gaps =
+   separate sections). */
+:root {
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 1rem;
+  --space-4: 1.5rem;
+  --space-5: 2rem;
+  --space-6: 3rem;
+}
+
 /* Defensive only (Design_Accessibility_And_Theming.md 2.3): real Windows
    Forced Colors Mode remaps colors at the OS level regardless of theme --
    don't fight it with custom backgrounds/borders here, just make sure
@@ -112,4 +132,51 @@ a:visited {
   color: var(--color-text);
   border: 2px solid var(--color-focus-ring);
   z-index: 1000;
+}
+
+/* Heading rhythm (added 2026-09-06, usability pass): every page heading
+   gets consistent breathing room below it before whatever follows --
+   previously zero, relying entirely on the browser's own inconsistent UA
+   default. */
+h1, h2, h3 {
+  margin-top: 0;
+  margin-bottom: var(--space-4);
+}
+
+/* Table styling (added 2026-09-06, usability pass): previously a bare
+   <table> had no cell padding or row separation at all, which is why
+   dense report/list pages read as one undifferentiated block of text.
+   Cell padding here (0.5rem 0.75rem, roughly 8x12px) plus the row's own
+   line height clears WCAG 2.2 SC 2.5.8's 24x24px minimum target size for
+   any row that acts as a click target (this app's stated scope is WCAG
+   2.1 AA, per Design_Accessibility_And_Theming.md -- 2.5.8 is a 2.2
+   criterion, adopted here anyway since it's directly applicable and
+   costs nothing to also clear). The header row gets its own border and
+   is left un-bolded-further -- th already renders bold by browser
+   default -- just visually separated from the data rows below it.
+   Zebra striping deliberately not added: this app's High-Visibility theme
+   is a hand-designed AAA palette (Design_Accessibility_And_Theming.md
+   2.3) and an alternating-row tint not part of that specified palette
+   would need the same rigor applied to it as every other color in this
+   file; row/column borders already carry the same scanning benefit
+   without that added surface area. */
+table {
+  border-collapse: collapse;
+  margin-bottom: var(--space-4);
+}
+th, td {
+  padding: var(--space-2) var(--space-3);
+  text-align: left;
+  border-bottom: 1px solid var(--color-border);
+}
+thead th {
+  border-bottom-width: 2px;
+}
+
+/* General body rhythm (added 2026-09-06, usability pass): paragraphs
+   (hint text, loading/error states) get the same spacing below them as
+   headings and tables, rather than each page having to add its own. */
+p {
+  margin-top: 0;
+  margin-bottom: var(--space-3);
 }

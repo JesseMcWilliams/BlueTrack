@@ -39,13 +39,22 @@ onMounted(() => useRightsStore().ensureLoaded())
 </template>
 
 <style scoped>
+/* Usability pass, 2026-09-06: previously #main-content had no padding at
+   all -- every page's content sat flush against the browser edge and
+   directly under the breadcrumb bar with nothing separating them. See
+   themes.css's own spacing-scale comment for the reasoning behind the
+   var(--space-*) values used throughout this pass. */
 .top-nav {
   display: flex;
-  gap: 1rem;
-  padding: 0.75rem 1rem;
-  border-bottom: 1px solid #ddd;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--color-border);
 }
 .top-nav__user-menu {
   margin-left: auto;
+}
+#main-content {
+  padding: var(--space-4);
 }
 </style>
