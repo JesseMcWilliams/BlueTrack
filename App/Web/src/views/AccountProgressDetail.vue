@@ -245,6 +245,15 @@ async function save() {
       }
       return
     }
+    // The server released the lock as part of a successful save
+    // (AccountProgressController.Update) -- lockStatus must be cleared to
+    // match, or the stale (still-truthy, still-mine) object left over from
+    // before the save makes the "Currently being edited by <your own
+    // name>" banner below render right alongside the now-saved read-only
+    // view, reading as an error even though the save succeeded (found
+    // 2026-09-06). forceRelease() already got this right; save() and
+    // releaseLock() below did not.
+    lockStatus.value = null
     lockedByMe.value = false
     stopHeartbeat()
     const refreshed = await fetch(`/api/account-progress/${props.accountKey}`)
@@ -265,6 +274,7 @@ async function releaseLock() {
   stopHeartbeat()
   if (lockedByMe.value) {
     await fetch(`/api/account-progress/${props.accountKey}/lock`, { method: 'DELETE' })
+    lockStatus.value = null
     lockedByMe.value = false
   }
 }

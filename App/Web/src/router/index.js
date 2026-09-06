@@ -5,11 +5,26 @@ import { useRightsStore } from '../stores/rights'
 // Routes mirror the confirmed page inventory (Design_Application_Structure.md,
 // D-43), with Admin (D-47) and Reports (D-56) as hub pages with sub-navigation
 // rather than flat top-level entries.
-
+//
+// Every route (except 'dashboard', the implicit root) carries meta.breadcrumb
+// (its human-readable crumb label) and, where its logical parent isn't
+// 'dashboard', meta.breadcrumbParent (the parent route's name). Breadcrumbs.vue
+// walks this meta chain to build the trail -- deliberately NOT Vue Router's
+// own route.matched, which only reflects actual nested-route parentage.
+// That's correct for Reports/Admin's hub+children structure below, but
+// account-progress-list/-detail and risk-exceptions-list/-edit are flat
+// sibling routes (a detail page's dynamic segment is a sibling of its list
+// page, not nested under it), so route.matched for a detail page never
+// included its list page at all -- found 2026-09-06 ("breadcrumb isn't
+// showing Accounts... multiple pages have this behaviour"). The same
+// route.matched approach also duplicated 'Dashboard' on the dashboard page
+// itself, since route.matched there is exactly [dashboard], appended after
+// Breadcrumbs.vue's own hardcoded "Dashboard" root link.
 const routes = [
   {
     path: '/login',
     name: 'login',
+    meta: { breadcrumb: 'Login' },
     component: () => import('../views/Login.vue')
   },
   {
@@ -20,44 +35,52 @@ const routes = [
   {
     path: '/accounts',
     name: 'account-progress-list',
+    meta: { breadcrumb: 'Accounts' },
     component: () => import('../views/AccountProgressList.vue')
   },
   {
     path: '/accounts/:accountKey',
     name: 'account-progress-detail',
+    meta: { breadcrumb: 'Account Detail', breadcrumbParent: 'account-progress-list' },
     component: () => import('../views/AccountProgressDetail.vue'),
     props: true
   },
   {
     path: '/exceptions',
     name: 'risk-exceptions-list',
+    meta: { breadcrumb: 'Exceptions' },
     component: () => import('../views/RiskExceptionsList.vue')
   },
   {
     path: '/exceptions/new',
     name: 'risk-exception-create',
+    meta: { breadcrumb: 'New Exception', breadcrumbParent: 'risk-exceptions-list' },
     component: () => import('../views/RiskExceptionEdit.vue')
   },
   {
     path: '/exceptions/:exceptionKey',
     name: 'risk-exception-edit',
+    meta: { breadcrumb: 'Edit Exception', breadcrumbParent: 'risk-exceptions-list' },
     component: () => import('../views/RiskExceptionEdit.vue'),
     props: true
   },
   {
     path: '/exceptions/approvals',
     name: 'risk-exceptions-approval-worklist',
+    meta: { breadcrumb: 'Approval Worklist', breadcrumbParent: 'risk-exceptions-list' },
     component: () => import('../views/RiskExceptionsApprovalWorklist.vue')
   },
   {
     path: '/exceptions/overdue',
     name: 'risk-exceptions-overdue-worklist',
+    meta: { breadcrumb: 'Overdue Reviews', breadcrumbParent: 'risk-exceptions-list' },
     component: () => import('../views/RiskExceptionsOverdueWorklist.vue')
   },
   // Reports hub with sub-navigation (D-56) -- three confirmed report types.
   {
     path: '/reports',
     name: 'reports',
+    meta: { breadcrumb: 'Reports' },
     component: () => import('../views/reports/ReportsHub.vue'),
     children: [
       {
@@ -67,21 +90,25 @@ const routes = [
       {
         path: 'overdue',
         name: 'reports-overdue-worklist',
+        meta: { breadcrumb: 'Overdue / At-Risk', breadcrumbParent: 'reports' },
         component: () => import('../views/reports/OverdueAtRiskWorklist.vue')
       },
       {
         path: 'stage-status-summary',
         name: 'reports-stage-status-summary',
+        meta: { breadcrumb: 'Stage/Status Summary', breadcrumbParent: 'reports' },
         component: () => import('../views/reports/StageStatusFunnelSummary.vue')
       },
       {
         path: 'reconciliation-review',
         name: 'reports-reconciliation-review',
+        meta: { breadcrumb: 'Reconciliation Review', breadcrumbParent: 'reports' },
         component: () => import('../views/reports/ReconciliationReviewQueue.vue')
       },
       {
         path: 'unresolved-entitlement-members',
         name: 'reports-unresolved-entitlement-members',
+        meta: { breadcrumb: 'Unresolved Entitlement Members', breadcrumbParent: 'reports' },
         component: () => import('../views/reports/UnresolvedEntitlementMembers.vue')
       }
     ]
@@ -89,6 +116,7 @@ const routes = [
   {
     path: '/profile',
     name: 'my-profile',
+    meta: { breadcrumb: 'My Profile' },
     component: () => import('../views/MyProfile.vue')
   },
   // Admin hub with sub-navigation (D-47) -- one top-nav entry, sections
@@ -96,6 +124,7 @@ const routes = [
   {
     path: '/admin',
     name: 'admin',
+    meta: { breadcrumb: 'Admin' },
     component: () => import('../views/admin/AdminHub.vue'),
     children: [
       {
@@ -105,46 +134,55 @@ const routes = [
       {
         path: 'identity-providers',
         name: 'admin-identity-providers',
+        meta: { breadcrumb: 'Identity Providers', breadcrumbParent: 'admin' },
         component: () => import('../views/admin/IdentityProviders.vue')
       },
       {
         path: 'group-role-mapping',
         name: 'admin-group-role-mapping',
+        meta: { breadcrumb: 'Group / Role Mapping', breadcrumbParent: 'admin' },
         component: () => import('../views/admin/GroupRoleMapping.vue')
       },
       {
         path: 'roles-permissions',
         name: 'admin-roles-permissions',
+        meta: { breadcrumb: 'Roles & Permissions', breadcrumbParent: 'admin' },
         component: () => import('../views/admin/RolesAndPermissions.vue')
       },
       {
         path: 'application-mapping',
         name: 'admin-application-mapping',
+        meta: { breadcrumb: 'Application Mapping', breadcrumbParent: 'admin' },
         component: () => import('../views/admin/ApplicationSafeMapping.vue')
       },
       {
         path: 'secrets-store',
         name: 'admin-secrets-store',
+        meta: { breadcrumb: 'Secrets Store', breadcrumbParent: 'admin' },
         component: () => import('../views/admin/SecretsStoreConfiguration.vue')
       },
       {
         path: 'field-metadata',
         name: 'admin-field-metadata',
+        meta: { breadcrumb: 'Field Metadata', breadcrumbParent: 'admin' },
         component: () => import('../views/admin/FieldMetadataManagement.vue')
       },
       {
         path: 'audit-log',
         name: 'admin-audit-log',
+        meta: { breadcrumb: 'Audit Log', breadcrumbParent: 'admin' },
         component: () => import('../views/admin/AuditLogViewer.vue')
       },
       {
         path: 'configuration',
         name: 'admin-configuration',
+        meta: { breadcrumb: 'Configuration', breadcrumbParent: 'admin' },
         component: () => import('../views/admin/GlobalApplicationConfiguration.vue')
       },
       {
         path: 'deployment',
         name: 'admin-deployment',
+        meta: { breadcrumb: 'Deployment Info', breadcrumbParent: 'admin' },
         component: () => import('../views/admin/DeploymentInfo.vue')
       }
     ]
@@ -152,11 +190,13 @@ const routes = [
   {
     path: '/access-denied',
     name: 'access-denied',
+    meta: { breadcrumb: 'Access Denied' },
     component: () => import('../views/AccessDenied.vue')
   },
   {
     path: '/:pathMatch(.*)*',
     name: 'not-found',
+    meta: { breadcrumb: 'Not Found' },
     component: () => import('../views/AccessDenied.vue')
   }
 ]
