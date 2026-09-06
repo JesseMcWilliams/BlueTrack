@@ -1,0 +1,41 @@
+# Web Interface Design Document — Deployment Methodology
+
+**Blueprint Progress Tracking Web Interface**
+
+## Purpose & Scope
+
+No deployment doc existed anywhere in this project before now — confirmed by a direct file search during the 2026-09-05 documentation/deployment audit. Everything that touches "how does a build actually get onto a real server" had to be pieced together from what already exists (`App/Migrator`, `.github/workflows/ci.yml`, `appsettings.json`, D-09's single-server assumption) rather than read from one place. This document is that one place, going forward.
+
+**Scope boundary, matching `Design_Testing_Strategy.md`'s own stance**: CI (`ci.yml`) is explicitly a test-verification pipeline only — it stops after Playwright's E2E run, never builds a release artifact, never touches the real `BlueTrack` database, never interacts with IIS. Everything from "build a release artifact" onward is this document's territory, not CI's.
+
+## Environment & Hosting
+
+Per D-09: single server, SQL Server and IIS on the same box, for every environment (Dev/Test/Staging/Prod, D-54's naming). No web farm, no load balancer — this materially simplifies deployment (no need to coordinate a rolling update across multiple nodes) but also means there's no redundancy to fail over to during a deploy; a deploy is a real, brief interruption of the one running instance.
+
+**Resolved 2026-09-05 (D-108): IIS hosting is static for the SPA.**
+- **`App/Web/dist/`** (the built Vue SPA) is served as static files at the IIS site's physical root — no Node/Vite process in a real deployment, matching how the app is actually consumed (a browser downloading static JS/CSS/HTML), not how it's developed.
+- **`App/Api`** is a nested IIS Application at `/api`, hosted via the ASP.NET Core Module (ANCM), in-process hosting model — the standard, currently-recommended way to run an ASP.NET Core app under IIS (out-of-process was the older pattern before in-process hosting matured; no reason to use it here).
+- This deliberately mirrors the exact URL shape the dev-time Vite proxy already uses (`vite.config.js`'s `apiProxy`, `/api/*` → the backend) — nothing about client-side routing, fetch URLs, or CORS assumptions needs to change between a developer's machine and a real deployment.
+- **Not yet built**: a `.pubxml` publish profile and a `web.config` for the IIS site (neither exists anywhere in the repo today — confirmed by direct search). SPA client-side routing needs a URL Rewrite rule falling back to `index.html` for any path IIS can't otherwise resolve (the standard SPA-under-IIS pattern) — not yet written.
+
+## Proposed Deployment Steps
+
+Given the single-server, no-redundancy environment, this stays a small, explicit sequence rather than a multi-stage pipeline the project doesn't need — the goal is making the currently-invisible steps visible and repeatable, not building elaborate orchestration.
+
+1. **Backup.** An explicit, visible step — not hidden inside any tool, matching this project's own established philosophy (`App/Migrator` deliberately makes CI's disposable-database drop a visible `ci.yml` step rather than a silent tool behavior; the same principle applies here). The Deployment admin page's backup-status reporting (Part 3.3) tells you *whether* a recent backup exists — it does not *take* one. Before migrating schema/data, confirm a current backup exists (of `BlueTrack` and `msdb`, per D-66 — SQL Agent job definitions the app depends on live in `msdb`, not `BlueTrack`).
+2. **Build.** `dotnet publish` (API) + `npm run build` (SPA, `App/Web/dist/`). Needs a `.pubxml` publish profile — not yet written (Open Questions).
+3. **Migrate.** `App/Migrator` against the target environment's connection string, skipping script 09 (SQL Agent job scheduling) everywhere except the one real box that actually owns that schedule. Already safe to re-run (DbUp journal, idempotent) — no change needed here, this step already exists and works.
+4. **Deploy artifacts + recycle the app pool.** Copy the published API output to the `/api` IIS Application's physical path, the built SPA to the site root, and recycle the app pool so the new API build actually loads. **Not yet built**: the IIS site/application structure itself (Open Questions).
+5. **Environment configuration checklist.** Nothing today tells an operator what must be correct for a *specific* environment vs. what's already correct from the build — confirmed as a real gap: no `appsettings.Staging.json`/`appsettings.Production.json` exists, the one connection string is baked into the base `appsettings.json`, and there's no checklist for "on a fresh environment, go set the identity provider rows / active secrets backend / DPAPI protection scope." Needs: an environment-specific connection string (via an `appsettings.{Environment}.json` file or an environment variable override — not yet decided, see Open Questions), plus confirming the Identity Providers, Secrets Store, and (per D-106) DPAPI `ProtectionScope` admin settings are correct for this environment before calling the deploy done.
+6. **Restart consideration for OIDC changes specifically.** If this deploy included an OIDC configuration change (enabling it, or changing Authority/ClientId/secret), the app-pool recycle in step 4 already covers the restart OIDC needs to pick up the new scheme registration (`AuthenticationExtensions.cs`'s startup-time registration, `Design_Authentication_Architecture.md`) — call this out explicitly in the deploy checklist so an operator doesn't later wonder why saved OIDC settings didn't take effect after a *non*-deployment-related config save (which would need its own manual recycle, separate from a full deploy).
+7. **Smoke test.** The Deployment Info admin page (`Design_Admin_Deployment_Management.md`, Part 3) already reports environment name/version, SQL Server connectivity, the active Secrets Store backend, and configured identity providers — exactly the ingredients of a post-deploy smoke test, just not yet used as one. Hit that page immediately after every deploy and confirm everything shows healthy before considering the deploy complete.
+
+## Open Questions
+
+- **No rollback mechanism exists anywhere** — no down-scripts for the numbered schema/data scripts, no automated "undo this deploy" path. For a single-server environment with no redundancy to fail over to, this is a real risk: a bad deploy's only recovery path today is restoring the backup from step 1 and re-deploying the previous build. Worth deciding whether that's an acceptable rollback story (with the checklist above formalizing it) or whether down-scripts are worth the investment for at least the highest-risk schema changes.
+- **No environment-specific `appsettings.*.json` pattern exists** — needs a decision: separate files per environment (`appsettings.Staging.json`, `appsettings.Production.json`, following ASP.NET Core's own convention) vs. environment-variable overrides (matching how `App/E2E/playwright.config.js` already overrides `ConnectionStrings__BlueTrackDb` for CI) vs. something else.
+- **The `.pubxml` publish profile and IIS `web.config`/site structure don't exist yet** — needs someone with hands-on IIS access to this host to actually stand up the `/api` Application + static site root and confirm the SPA-fallback URL Rewrite rule works, before this document's Part 4/5 steps can be treated as verified rather than proposed.
+- **Who owns running `Design_Admin_Deployment_Management.md`'s `db_backupstatus_reader` msdb role script (D-107), and when** — same open ownership question that document already flags, repeated here since it's part of this methodology's own environment-setup checklist.
+
+---
+*New document added 2026-09-05, following a documentation/deployment-methodology audit that found no deployment process was ever written down. Steps above are a first-draft proposal for review — several depend on IIS configuration work that hasn't happened yet (see Open Questions) — not a claim that this has been executed or verified end to end.*
