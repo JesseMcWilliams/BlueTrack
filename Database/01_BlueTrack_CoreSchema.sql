@@ -955,6 +955,22 @@ CREATE TABLE fact_account (
     CONSTRAINT UQ_fact_account UNIQUE (SourceSystemKey, SourceAccountId)
 );
 
+-- UnresolvedMemberId (added 2026-09-05, found on the first real load against
+-- this tenant's actual Privilege Cloud entitlements export): CyberArk
+-- Identity/Entra-federated users and built-in cloud roles can hold Safe
+-- entitlements directly, referenced by a GUID or a role name that never
+-- appears in stg_pc_users/stg_pc_groups at all -- a different identifier
+-- space than classic Vault-native users/groups, which is all dim_user/
+-- dim_group capture. Rather than silently dropping these rows (the
+-- pattern already used for Self-Hosted Gateway-account owners, excluded
+-- via usp_Load_FactSafeEntitlement's own WHERE clause) or relaxing the
+-- CHECK constraint into meaninglessness, an entitlement whose member
+-- can't be resolved against dim_user/dim_group is still inserted, with
+-- UserKey/GroupKey both NULL and the raw source identifier preserved here
+-- instead -- nothing is silently lost, and "who currently has unresolved
+-- access to this safe" is a simple filter away. No new dimension table:
+-- resolving these to a real display name would need a live call to
+-- CyberArk Identity Administration, which nothing in this project does.
 IF OBJECT_ID('dbo.fact_safe_entitlement', 'U') IS NOT NULL DROP TABLE dbo.fact_safe_entitlement;
 CREATE TABLE fact_safe_entitlement (
     EntitlementKey        BIGINT IDENTITY(1,1) PRIMARY KEY,
@@ -962,14 +978,16 @@ CREATE TABLE fact_safe_entitlement (
     MemberType              NVARCHAR(20)    NOT NULL,
     UserKey                  INT             NULL REFERENCES dim_user(UserKey),
     GroupKey                 INT             NULL REFERENCES dim_group(GroupKey),
+    UnresolvedMemberId       NVARCHAR(300)   NULL,
     MembershipExpirationDate DATE           NULL,
     IsExpiredMembershipEnable BIT           NULL,
     IsPredefinedUser          BIT           NULL,
     SnapshotDate              DATE          NOT NULL,
     LastLoadBatchId           UNIQUEIDENTIFIER NULL,
     CONSTRAINT CK_entitlement_member CHECK (
-        (MemberType = 'User' AND UserKey IS NOT NULL AND GroupKey IS NULL) OR
-        (MemberType = 'Group' AND GroupKey IS NOT NULL AND UserKey IS NULL)
+        (MemberType = 'User' AND UserKey IS NOT NULL AND GroupKey IS NULL AND UnresolvedMemberId IS NULL) OR
+        (MemberType = 'Group' AND GroupKey IS NOT NULL AND UserKey IS NULL AND UnresolvedMemberId IS NULL) OR
+        (UserKey IS NULL AND GroupKey IS NULL AND UnresolvedMemberId IS NOT NULL)
     )
 );
 

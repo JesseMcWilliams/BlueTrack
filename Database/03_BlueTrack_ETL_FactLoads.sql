@@ -14,6 +14,16 @@
    referenced below) and 02_BlueTrack_ETL_DimensionLoads.sql (these
    procedures assume the dimension tables have already been populated by
    usp_RunFullLoad's call order -- see 06_BlueTrack_PowerBI_Support.sql).
+
+   usp_Load_FactSafeEntitlement updated 2026-09-05, found on the first
+   real load against this tenant's actual Privilege Cloud entitlements
+   export: a third INSERT pass now captures entitlement rows granted to a
+   CyberArk Identity/Entra-federated user or built-in cloud role -- a
+   GUID or role name that never appears in stg_pc_users/stg_pc_groups at
+   all, so dim_user/dim_group can never resolve it. These rows are no
+   longer excluded from the load; they land with UserKey/GroupKey both
+   NULL and the raw identifier in fact_safe_entitlement.UnresolvedMemberId
+   instead (see that column's own comment in 01_BlueTrack_CoreSchema.sql).
    ============================================================================ */
 
 USE $DatabaseName$;
@@ -266,7 +276,7 @@ BEGIN
         JOIN dim_safe sf ON sf.SafeKey = fse.SafeKey
         WHERE sf.SourceSystemKey IN (@PrivCloudKey, @SelfHostedKey);
 
-    -- ---- Privilege Cloud entitlements ----
+    -- ---- Privilege Cloud entitlements: resolved (matches dim_user/dim_group) ----
     INSERT INTO fact_safe_entitlement (SafeKey, MemberType, UserKey, GroupKey, MembershipExpirationDate,
                                         IsExpiredMembershipEnable, IsPredefinedUser, SnapshotDate)
     SELECT sf.SafeKey, e.MemberType, u.UserKey, g.GroupKey,
@@ -274,7 +284,9 @@ BEGIN
     FROM stg_pc_entitlements e
     JOIN dim_safe sf ON sf.SourceSystemKey = @PrivCloudKey AND sf.SafeUrlId = e.SafeUrlId
     LEFT JOIN dim_user  u ON e.MemberType = 'User'  AND u.SourceSystemKey = @PrivCloudKey AND u.SourceUserId  = e.MemberId
-    LEFT JOIN dim_group g ON e.MemberType = 'Group' AND g.SourceSystemKey = @PrivCloudKey AND g.SourceGroupId = e.MemberId;
+    LEFT JOIN dim_group g ON e.MemberType = 'Group' AND g.SourceSystemKey = @PrivCloudKey AND g.SourceGroupId = e.MemberId
+    WHERE (e.MemberType = 'User'  AND u.UserKey  IS NOT NULL)
+       OR (e.MemberType = 'Group' AND g.GroupKey IS NOT NULL);
 
     INSERT INTO bridge_entitlement_permission (EntitlementKey, PermissionKey, IsGranted)
     SELECT fse.EntitlementKey, pa.PermissionKey, v.IsGranted
@@ -303,7 +315,58 @@ BEGIN
         ('RequestsAuthorizationLevel2', e.RequestsAuthorizationLevel2)
     ) AS v(RawPermissionName, IsGranted)
     JOIN permission_alias pa ON pa.SourceSystemKey = @PrivCloudKey AND pa.RawPermissionName = v.RawPermissionName
-    WHERE v.IsGranted IS NOT NULL;
+    WHERE v.IsGranted IS NOT NULL
+      AND ((e.MemberType = 'User'  AND u.UserKey  IS NOT NULL)
+        OR (e.MemberType = 'Group' AND g.GroupKey IS NOT NULL));
+
+    -- ---- Privilege Cloud entitlements: unresolved (CyberArk Identity/
+    -- Entra-federated user or built-in cloud role -- see UnresolvedMemberId's
+    -- own comment in 01_BlueTrack_CoreSchema.sql). Preserved rather than
+    -- dropped. The bridge rejoin below keys on UnresolvedMemberId, not
+    -- UserKey/GroupKey (both always NULL here) -- more than one unresolved
+    -- member of the same MemberType can exist on the same safe, so
+    -- UserKey/GroupKey alone would not be a unique rejoin key the way it
+    -- is for the resolved case above.
+    INSERT INTO fact_safe_entitlement (SafeKey, MemberType, UnresolvedMemberId, MembershipExpirationDate,
+                                        IsExpiredMembershipEnable, IsPredefinedUser, SnapshotDate)
+    SELECT sf.SafeKey, e.MemberType, e.MemberId,
+           e.MembershipExpirationDate, e.IsExpiredMembershipEnable, e.IsPredefinedUser, @Today
+    FROM stg_pc_entitlements e
+    JOIN dim_safe sf ON sf.SourceSystemKey = @PrivCloudKey AND sf.SafeUrlId = e.SafeUrlId
+    LEFT JOIN dim_user  u ON e.MemberType = 'User'  AND u.SourceSystemKey = @PrivCloudKey AND u.SourceUserId  = e.MemberId
+    LEFT JOIN dim_group g ON e.MemberType = 'Group' AND g.SourceSystemKey = @PrivCloudKey AND g.SourceGroupId = e.MemberId
+    WHERE (e.MemberType = 'User'  AND u.UserKey  IS NULL)
+       OR (e.MemberType = 'Group' AND g.GroupKey IS NULL);
+
+    INSERT INTO bridge_entitlement_permission (EntitlementKey, PermissionKey, IsGranted)
+    SELECT fse.EntitlementKey, pa.PermissionKey, v.IsGranted
+    FROM stg_pc_entitlements e
+    JOIN dim_safe sf ON sf.SourceSystemKey = @PrivCloudKey AND sf.SafeUrlId = e.SafeUrlId
+    LEFT JOIN dim_user  u ON e.MemberType = 'User'  AND u.SourceSystemKey = @PrivCloudKey AND u.SourceUserId  = e.MemberId
+    LEFT JOIN dim_group g ON e.MemberType = 'Group' AND g.SourceSystemKey = @PrivCloudKey AND g.SourceGroupId = e.MemberId
+    JOIN fact_safe_entitlement fse
+        ON fse.SafeKey = sf.SafeKey
+       AND fse.MemberType = e.MemberType
+       AND fse.UnresolvedMemberId = e.MemberId
+       AND fse.SnapshotDate = @Today
+    CROSS APPLY (VALUES
+        ('UseAccounts', e.UseAccounts), ('RetrieveAccounts', e.RetrieveAccounts), ('ListAccounts', e.ListAccounts),
+        ('AddAccounts', e.AddAccounts), ('UpdateAccountContent', e.UpdateAccountContent),
+        ('UpdateAccountProperties', e.UpdateAccountProperties),
+        ('InitiateCPMAccountManagementOperations', e.InitiateCPMAccountManagementOperations),
+        ('SpecifyNextAccountContent', e.SpecifyNextAccountContent), ('RenameAccounts', e.RenameAccounts),
+        ('DeleteAccounts', e.DeleteAccounts), ('UnlockAccounts', e.UnlockAccounts), ('ManageSafe', e.ManageSafe),
+        ('ManageSafeMembers', e.ManageSafeMembers), ('BackupSafe', e.BackupSafe), ('ViewAuditLog', e.ViewAuditLog),
+        ('ViewSafeMembers', e.ViewSafeMembers), ('AccessWithoutConfirmation', e.AccessWithoutConfirmation),
+        ('CreateFolders', e.CreateFolders), ('DeleteFolders', e.DeleteFolders),
+        ('MoveAccountsAndFolders', e.MoveAccountsAndFolders),
+        ('RequestsAuthorizationLevel1', e.RequestsAuthorizationLevel1),
+        ('RequestsAuthorizationLevel2', e.RequestsAuthorizationLevel2)
+    ) AS v(RawPermissionName, IsGranted)
+    JOIN permission_alias pa ON pa.SourceSystemKey = @PrivCloudKey AND pa.RawPermissionName = v.RawPermissionName
+    WHERE v.IsGranted IS NOT NULL
+      AND ((e.MemberType = 'User'  AND u.UserKey  IS NULL)
+        OR (e.MemberType = 'Group' AND g.GroupKey IS NULL));
 
     -- ---- Self-Hosted entitlements (CAOwners) ----
     -- CAOOwnerType decodes via dim_selfhosted_code type 10: 0=User, 1=Group, 2=Gateway account.
