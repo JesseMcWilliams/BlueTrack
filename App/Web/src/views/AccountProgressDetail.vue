@@ -4,6 +4,7 @@
 // (enforced server-side; this form just surfaces whatever error comes back).
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useRightsStore } from '../stores/rights'
+import { formatDate } from '../utils/formatDate'
 
 const props = defineProps({ accountKey: { type: [String, Number], required: true } })
 const rights = useRightsStore()
@@ -288,7 +289,7 @@ onUnmounted(releaseLock)
     <template v-else>
       <div v-if="applicationExceptions.length > 0">
         <p v-for="ex in applicationExceptions" :key="ex.exceptionID">
-          Covered by application-scoped exception <strong>{{ ex.exceptionID }}</strong> ({{ ex.applicationName }}), reviewed by {{ ex.reviewDate }}.
+          Covered by application-scoped exception <strong>{{ ex.exceptionID }}</strong> ({{ ex.applicationName }}), reviewed by {{ formatDate(ex.reviewDate) }}.
         </p>
       </div>
       <p v-if="lockStatus && !lockedByMe">

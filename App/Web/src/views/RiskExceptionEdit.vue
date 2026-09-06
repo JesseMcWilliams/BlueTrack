@@ -10,6 +10,7 @@
 // small curated list (ApplicationRepository.GetAllAsync loads it in full).
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
+import { formatDate } from '../utils/formatDate'
 
 const props = defineProps({ exceptionKey: { type: [String, Number], required: false, default: null } })
 const router = useRouter()
@@ -152,9 +153,9 @@ async function revoke() {
         <dt>Justification</dt>
         <dd>{{ detail.justification }}</dd>
         <dt>Approval Date</dt>
-        <dd>{{ detail.approvalDate }}</dd>
+        <dd>{{ formatDate(detail.approvalDate) }}</dd>
         <dt>Review Date</dt>
-        <dd>{{ detail.reviewDate }}</dd>
+        <dd>{{ formatDate(detail.reviewDate) }}</dd>
         <dt>Status</dt>
         <dd>{{ detail.statusName }}</dd>
         <dt>External Ticket</dt>

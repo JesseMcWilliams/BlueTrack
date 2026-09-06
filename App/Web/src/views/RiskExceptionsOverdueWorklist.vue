@@ -4,6 +4,7 @@
 // area's Overdue/At-Risk Worklist, which is about account progress, not
 // exceptions (Design_Application_Structure.md's own note on this).
 import { ref, onMounted } from 'vue'
+import { formatDate } from '../utils/formatDate'
 
 const exceptions = ref([])
 const error = ref(null)
@@ -45,7 +46,7 @@ onMounted(async () => {
           <td><router-link :to="{ name: 'risk-exception-edit', params: { exceptionKey: exception.exceptionKey } }">{{ exception.exceptionID }}</router-link></td>
           <td>{{ exception.scopeType }}: {{ exception.scopeName }}</td>
           <td>{{ exception.justification }}</td>
-          <td>{{ exception.reviewDate }}</td>
+          <td>{{ formatDate(exception.reviewDate) }}</td>
         </tr>
       </tbody>
     </table>

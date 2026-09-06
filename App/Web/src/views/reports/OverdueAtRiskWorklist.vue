@@ -2,6 +2,7 @@
 // Calls GET /api/reports/overdue-at-risk (ReportsController) -- accounts
 // past TargetRemediationDate that aren't yet complete (D-56).
 import { ref, onMounted } from 'vue'
+import { formatDate } from '../../utils/formatDate'
 
 const accounts = ref([])
 const error = ref(null)
@@ -46,7 +47,7 @@ onMounted(async () => {
           <td>{{ account.statusName }}</td>
           <td>{{ account.riskLevelName }}</td>
           <td>{{ account.ownerName }}</td>
-          <td>{{ account.targetRemediationDate }}</td>
+          <td>{{ formatDate(account.targetRemediationDate) }}</td>
         </tr>
       </tbody>
     </table>

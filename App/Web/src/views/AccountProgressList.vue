@@ -4,6 +4,7 @@
 // by just that column; shift-click another header to add it as a secondary
 // sort key without losing the first (badges show the resulting priority).
 import { ref, computed, watch, onMounted } from 'vue'
+import { formatDate } from '../utils/formatDate'
 
 const accounts = ref([])
 const referenceData = ref({})
@@ -149,7 +150,7 @@ watch([stageFilter, statusFilter, riskLevelFilter, ownerFilter, sortQueryParam],
           <td>{{ account.statusName }}</td>
           <td>{{ account.riskLevelName }}</td>
           <td>{{ account.ownerName }}</td>
-          <td>{{ account.targetRemediationDate }}</td>
+          <td>{{ formatDate(account.targetRemediationDate) }}</td>
         </tr>
       </tbody>
     </table>

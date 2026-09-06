@@ -4,6 +4,7 @@
 // as AccountProgressList.vue.
 import { ref, computed, watch, onMounted } from 'vue'
 import { useRightsStore } from '../stores/rights'
+import { formatDate } from '../utils/formatDate'
 
 const rights = useRightsStore()
 const exceptions = ref([])
@@ -128,8 +129,8 @@ watch([statusFilter, scopeTypeFilter, sortQueryParam], load)
           <td><router-link :to="{ name: 'risk-exception-edit', params: { exceptionKey: exception.exceptionKey } }">{{ exception.exceptionID }}</router-link></td>
           <td>{{ exception.scopeType }}: {{ exception.scopeName }}</td>
           <td>{{ exception.approvedByName }}</td>
-          <td>{{ exception.approvalDate }}</td>
-          <td>{{ exception.reviewDate }}</td>
+          <td>{{ formatDate(exception.approvalDate) }}</td>
+          <td>{{ formatDate(exception.reviewDate) }}</td>
           <td>{{ exception.statusName }}</td>
           <td>{{ exception.justification }}</td>
         </tr>

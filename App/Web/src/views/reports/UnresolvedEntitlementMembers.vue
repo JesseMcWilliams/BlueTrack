@@ -5,6 +5,7 @@
 // role rather than a classic Vault-native user/group, so this app has no
 // display name to show (D-107/D-108). Read-only, no permission gate.
 import { ref, onMounted } from 'vue'
+import { formatDate } from '../../utils/formatDate'
 
 const items = ref([])
 const error = ref(null)
@@ -55,8 +56,8 @@ onMounted(async () => {
             <span class="unresolved-flag">Unresolved:</span>
             {{ item.unresolvedMemberId }}
           </td>
-          <td>{{ item.membershipExpirationDate }}</td>
-          <td>{{ item.snapshotDate }}</td>
+          <td>{{ formatDate(item.membershipExpirationDate) }}</td>
+          <td>{{ formatDate(item.snapshotDate) }}</td>
         </tr>
       </tbody>
     </table>

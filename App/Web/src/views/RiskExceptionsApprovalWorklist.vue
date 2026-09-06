@@ -7,6 +7,7 @@
 // /api/me before rendering yet -- a follow-up, same gap noted on the
 // other permission-gated pages).
 import { ref, onMounted } from 'vue'
+import { formatDate } from '../utils/formatDate'
 
 const exceptions = ref([])
 const error = ref(null)
@@ -56,7 +57,7 @@ onMounted(async () => {
           <td>{{ exception.scopeType }}: {{ exception.scopeName }}</td>
           <td>{{ exception.justification }}</td>
           <td>{{ exception.approvedByName }}</td>
-          <td>{{ exception.reviewDate }}</td>
+          <td>{{ formatDate(exception.reviewDate) }}</td>
         </tr>
       </tbody>
     </table>
