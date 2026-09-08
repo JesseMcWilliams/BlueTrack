@@ -14,6 +14,9 @@ public sealed class GlobalApplicationConfig
     public int LockTimeoutMinutes { get; init; }
     public int? RetentionDays { get; init; }
     public bool LogReadEvents { get; init; }
+
+    /// <summary>D-117: BACKUP DATABASE's TO DISK target directory for the Deployment page's Backup App button.</summary>
+    public string? BackupFolder { get; init; }
 }
 
 public sealed class SaveGlobalApplicationConfigRequest
@@ -24,4 +27,5 @@ public sealed class SaveGlobalApplicationConfigRequest
     public int LockTimeoutMinutes { get; init; }
     public int? RetentionDays { get; init; }
     public bool LogReadEvents { get; init; }
+    public string? BackupFolder { get; init; }
 }

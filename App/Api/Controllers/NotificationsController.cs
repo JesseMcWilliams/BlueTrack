@@ -56,6 +56,17 @@ public sealed class NotificationsController(
         return NoContent();
     }
 
+    /// <summary>D-116: optional per-alert-kind target role, additive to the flat recipient list above.</summary>
+    [HttpGet("types")]
+    public async Task<IActionResult> GetNotificationTypes() => Ok(await repository.GetNotificationTypesAsync());
+
+    [HttpPut("types/{notificationTypeKey:int}/target-role")]
+    public async Task<IActionResult> SetNotificationTypeTargetRole(int notificationTypeKey, [FromBody] SetNotificationTypeTargetRoleRequest request)
+    {
+        await repository.SetNotificationTypeTargetRoleAsync(notificationTypeKey, request.TargetRoleKey);
+        return NoContent();
+    }
+
     /// <summary>
     /// Sends a real test email to every active recipient using the
     /// currently-saved config -- lets an admin verify SMTP settings work

@@ -46,4 +46,33 @@ public sealed class DeploymentRepository(IDbConnectionFactory connectionFactory)
             };
         }
     }
+
+    /// <summary>
+    /// D-117: the Deployment page's "Backup App" button. BACKUP DATABASE's
+    /// own T-SQL syntax needs a literal database identifier (no variable/
+    /// parameter allowed there), so the current database's real name is read
+    /// via DB_NAME() first and bracket-quoted into the command text -- safe
+    /// here since it comes from SQL Server itself, not user input; the
+    /// destination file path (user-supplied, web.app_config.BackupFolder) is
+    /// still passed as a real parameter. No WITH COMPRESSION -- not every
+    /// SQL Server edition supports it, and this app doesn't know which
+    /// edition it's running against.
+    /// </summary>
+    public async Task<string> TriggerBackupAsync(string backupFolder)
+    {
+        using var connection = connectionFactory.Create();
+        connection.Open();
+
+        var databaseName = await connection.QuerySingleAsync<string>("SELECT DB_NAME()");
+        var fileName = $"{databaseName}_{DateTime.UtcNow:yyyyMMdd_HHmmss}.bak";
+        var fullPath = Path.Combine(backupFolder, fileName);
+        var quotedDatabaseName = "[" + databaseName.Replace("]", "]]") + "]";
+
+        await connection.ExecuteAsync(
+            $"BACKUP DATABASE {quotedDatabaseName} TO DISK = @FullPath WITH INIT",
+            new { FullPath = fullPath },
+            commandTimeout: 600);
+
+        return fullPath;
+    }
 }

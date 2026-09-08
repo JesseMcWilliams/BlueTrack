@@ -2,10 +2,10 @@ namespace BlueTrack.Api.Models;
 
 /// <summary>
 /// web.notification_config -- singleton SMTP settings row
-/// (Design_Notifications.md, D-115). PasswordSecretReference is never
-/// returned to the admin UI once set (see NotificationRepository.Redact);
-/// HasPassword tells the UI whether one is already stored without
-/// exposing it, same pattern as IdentityProviderDetail.SecretReference.
+/// (Design_Notifications.md, D-115). D-116 migrated the SMTP account off
+/// its own inline Username/PasswordSecretReference columns onto a shared
+/// SmtpCredentialKey -> web.credential row (the same store the new LDAP
+/// bind account uses) -- see CredentialRepository/SmtpNotificationSender.
 /// </summary>
 public sealed class NotificationConfig
 {
@@ -14,8 +14,8 @@ public sealed class NotificationConfig
     public int SmtpPort { get; init; }
     public bool EnableStartTls { get; init; }
     public required string AuthMethod { get; init; }
-    public string? Username { get; init; }
-    public string? PasswordSecretReference { get; init; }
+    public int? SmtpCredentialKey { get; init; }
+    public string? SmtpCredentialName { get; init; }
     public string? FromAddress { get; init; }
     public string? FromDisplayName { get; init; }
 }
@@ -26,10 +26,7 @@ public sealed class SaveNotificationConfigRequest
     public int SmtpPort { get; init; }
     public bool EnableStartTls { get; init; }
     public required string AuthMethod { get; init; }
-    public string? Username { get; init; }
+    public int? SmtpCredentialKey { get; init; }
     public string? FromAddress { get; init; }
     public string? FromDisplayName { get; init; }
-
-    /// <summary>Write-only, like IdentityProviderConfig's PlaintextSecret -- left blank keeps whatever password (if any) is already stored.</summary>
-    public string? PlaintextPassword { get; init; }
 }

@@ -18,7 +18,8 @@ const sections = [
   { name: 'admin-audit-log', label: 'Audit Log Viewer', permission: 'ViewAuditLog' },
   { name: 'admin-configuration', label: 'Global Application Configuration', permission: 'ManageApplicationConfiguration' },
   { name: 'admin-deployment', label: 'Deployment', permission: 'ViewDeploymentInfo' },
-  { name: 'admin-notifications', label: 'Notifications', permission: 'ManageNotifications' }
+  { name: 'admin-notifications', label: 'Notifications', permission: 'ManageNotifications' },
+  { name: 'admin-credentials', label: 'Credentials & LDAP', permission: 'ManageCredentials' }
 ]
 
 const visibleSections = computed(() => sections.filter(s => rights.hasPermission(s.permission)))

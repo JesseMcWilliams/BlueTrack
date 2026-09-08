@@ -2,16 +2,25 @@
 // Design_Notifications.md, D-115: SMTP settings + a dedicated recipient
 // list (web.app_user.Email is unusable today -- see that doc) + a test
 // email, against /api/admin/notifications (NotificationsController).
+// D-116: the SMTP account is now a web.credential (picked on the
+// Credentials & LDAP admin page, referenced here by SmtpCredentialKey), and
+// each notification type can optionally target a role -- additive to the
+// flat recipient list below, resolved via that role's own email plus (if
+// LDAP is configured) every member of its mapped AD groups.
 import { ref, onMounted } from 'vue'
 
 const config = ref(null)
-const plaintextPassword = ref('')
 const configError = ref(null)
 const configSaved = ref(false)
 
+const credentials = ref([])
 const recipients = ref([])
 const newRecipient = ref({ email: '', displayName: '', isActive: true })
 const recipientsError = ref(null)
+
+const notificationTypes = ref([])
+const roles = ref([])
+const typesError = ref(null)
 
 const testResult = ref(null)
 const testing = ref(false)
@@ -23,14 +32,20 @@ async function load() {
   loading.value = true
   loadError.value = null
   try {
-    const [configResponse, recipientsResponse] = await Promise.all([
+    const [configResponse, recipientsResponse, credentialsResponse, typesResponse, rolesResponse] = await Promise.all([
       fetch('/api/admin/notifications/config'),
-      fetch('/api/admin/notifications/recipients')
+      fetch('/api/admin/notifications/recipients'),
+      fetch('/api/admin/credentials'),
+      fetch('/api/admin/notifications/types'),
+      fetch('/api/admin/roles')
     ])
     if (!configResponse.ok) throw new Error(`Config request failed: ${configResponse.status}`)
     if (!recipientsResponse.ok) throw new Error(`Recipients request failed: ${recipientsResponse.status}`)
     config.value = await configResponse.json()
     recipients.value = await recipientsResponse.json()
+    credentials.value = credentialsResponse.ok ? await credentialsResponse.json() : []
+    notificationTypes.value = typesResponse.ok ? await typesResponse.json() : []
+    roles.value = rolesResponse.ok ? await rolesResponse.json() : []
   } catch (err) {
     loadError.value = err.message
   } finally {
@@ -51,18 +66,30 @@ async function saveConfig() {
       smtpPort: Number(config.value.smtpPort),
       enableStartTls: config.value.enableStartTls,
       authMethod: config.value.authMethod,
-      username: config.value.username,
+      smtpCredentialKey: config.value.smtpCredentialKey,
       fromAddress: config.value.fromAddress,
-      fromDisplayName: config.value.fromDisplayName,
-      plaintextPassword: plaintextPassword.value || null
+      fromDisplayName: config.value.fromDisplayName
     })
   })
   if (!response.ok) {
     configError.value = `Save failed: ${response.status}`
     return
   }
-  plaintextPassword.value = ''
   configSaved.value = true
+  await load()
+}
+
+async function setTargetRole(type) {
+  typesError.value = null
+  const response = await fetch(`/api/admin/notifications/types/${type.notificationTypeKey}/target-role`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ targetRoleKey: type.targetRoleKey })
+  })
+  if (!response.ok) {
+    typesError.value = `Save failed: ${response.status}`
+    return
+  }
   await load()
 }
 
@@ -142,19 +169,42 @@ async function sendTestEmail() {
           </label>
         </p>
         <template v-if="config.authMethod === 'Basic'">
-          <p><label class="field-label"><span class="field-label-text">Username:</span> <input v-model="config.username" /></label></p>
           <p>
             <label class="field-label">
-              <span class="field-label-text">Password:</span>
-              <input v-model="plaintextPassword" type="password"
-                :placeholder="config.passwordSecretReference ? '(already set -- leave blank to keep)' : '(none set)'" />
+              <span class="field-label-text">Credential:</span>
+              <select v-model="config.smtpCredentialKey">
+                <option :value="null">(none)</option>
+                <option v-for="credential in credentials" :key="credential.credentialKey" :value="credential.credentialKey">{{ credential.credentialName }}</option>
+              </select>
             </label>
+            <small>Managed on the <router-link :to="{ name: 'admin-credentials' }">Credentials & LDAP</router-link> page.</small>
           </p>
         </template>
         <p><label class="field-label"><span class="field-label-text">From Address:</span> <input v-model="config.fromAddress" placeholder="bluetrack@company.com" /></label></p>
         <p><label class="field-label"><span class="field-label-text">From Display Name:</span> <input v-model="config.fromDisplayName" placeholder="BlueTrack" /></label></p>
         <button type="submit" class="btn-primary">Save</button>
       </form>
+
+      <h3>Notification Types</h3>
+      <p>An optional target role for each alert kind -- additive to the recipient list above: the role's own email plus, if LDAP is configured, every member of its mapped AD groups.</p>
+      <p v-if="typesError" role="alert">{{ typesError }}</p>
+      <table v-if="notificationTypes.length > 0">
+        <thead>
+          <tr><th>Type</th><th>Description</th><th>Target Role</th></tr>
+        </thead>
+        <tbody>
+          <tr v-for="type in notificationTypes" :key="type.notificationTypeKey">
+            <td>{{ type.notificationTypeName }}</td>
+            <td>{{ type.description }}</td>
+            <td>
+              <select v-model="type.targetRoleKey" @change="setTargetRole(type)">
+                <option :value="null">(none -- flat list only)</option>
+                <option v-for="role in roles" :key="role.appRoleKey" :value="role.appRoleKey">{{ role.roleName }}</option>
+              </select>
+            </td>
+          </tr>
+        </tbody>
+      </table>
 
       <h3>Test Connection</h3>
       <p>Sends a real test email to every active recipient below, using the saved SMTP configuration.</p>

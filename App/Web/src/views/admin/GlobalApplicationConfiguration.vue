@@ -73,6 +73,10 @@ async function save() {
       <p>
         <label><input v-model="config.logReadEvents" type="checkbox" /> Log read/view events (off by default, D-35)</label>
       </p>
+      <p>
+        <label class="field-label"><span class="field-label-text">Backup Folder:</span> <input v-model="config.backupFolder" placeholder="D:\Backups\BlueTrack" /></label>
+        <small>Where the Deployment page's "Backup App" button writes the database backup file.</small>
+      </p>
       <button type="submit" class="btn-primary">Save</button>
       <span v-if="saved" role="status"> Saved.</span>
     </form>

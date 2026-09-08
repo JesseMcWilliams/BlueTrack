@@ -24,6 +24,8 @@ public static class Permissions
     public const string ManageApplicationConfiguration = "ManageApplicationConfiguration";
     public const string ViewDeploymentInfo = "ViewDeploymentInfo";
     public const string ManageNotifications = "ManageNotifications";
+    public const string ManageCredentials = "ManageCredentials";
+    public const string TriggerBackup = "TriggerBackup";
 
     public static readonly IReadOnlyList<string> All =
     [
@@ -31,6 +33,6 @@ public static class Permissions
         ManageGroupRoleMapping, CuratePlatformMapping, ConfirmReconciliation, ReloadRights,
         ManageRolesAndPermissions, CurateApplicationMapping, ManageSecretsStore,
         ManageFieldMetadata, ViewAuditLog, ManageApplicationConfiguration, ViewDeploymentInfo,
-        ManageNotifications
+        ManageNotifications, ManageCredentials, TriggerBackup
     ];
 }

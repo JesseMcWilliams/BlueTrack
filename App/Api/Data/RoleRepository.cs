@@ -22,22 +22,23 @@ public sealed class RoleRepository(IDbConnectionFactory connectionFactory)
     {
         using var connection = connectionFactory.Create();
         const string sql = """
-            SELECT r.AppRoleKey, r.RoleName, r.Description, p.PermissionName
+            SELECT r.AppRoleKey, r.RoleName, r.Description, r.NotificationEmail, p.PermissionName
             FROM web.app_role r
             LEFT JOIN web.role_permission rp ON rp.RoleKey = r.AppRoleKey
             LEFT JOIN web.app_permission p    ON p.PermissionKey = rp.PermissionKey
             ORDER BY r.RoleName, p.PermissionName
             """;
 
-        var rows = await connection.QueryAsync<(int AppRoleKey, string RoleName, string? Description, string? PermissionName)>(sql);
+        var rows = await connection.QueryAsync<(int AppRoleKey, string RoleName, string? Description, string? NotificationEmail, string? PermissionName)>(sql);
 
         return rows
-            .GroupBy(r => (r.AppRoleKey, r.RoleName, r.Description))
+            .GroupBy(r => (r.AppRoleKey, r.RoleName, r.Description, r.NotificationEmail))
             .Select(g => new AppRoleSummary
             {
                 AppRoleKey = g.Key.AppRoleKey,
                 RoleName = g.Key.RoleName,
                 Description = g.Key.Description,
+                NotificationEmail = g.Key.NotificationEmail,
                 PermissionNames = g.Where(r => r.PermissionName is not null).Select(r => r.PermissionName!).ToList()
             })
             .ToList();
@@ -50,8 +51,8 @@ public sealed class RoleRepository(IDbConnectionFactory connectionFactory)
         using var transaction = connection.BeginTransaction();
 
         var roleKey = await connection.QuerySingleAsync<int>(
-            "INSERT INTO web.app_role (RoleName, Description) OUTPUT inserted.AppRoleKey VALUES (@RoleName, @Description)",
-            new { request.RoleName, request.Description }, transaction);
+            "INSERT INTO web.app_role (RoleName, Description, NotificationEmail) OUTPUT inserted.AppRoleKey VALUES (@RoleName, @Description, @NotificationEmail)",
+            new { request.RoleName, request.Description, request.NotificationEmail }, transaction);
 
         await InsertRolePermissionsAsync(connection, transaction, roleKey, request.PermissionNames);
 
@@ -66,8 +67,8 @@ public sealed class RoleRepository(IDbConnectionFactory connectionFactory)
         using var transaction = connection.BeginTransaction();
 
         await connection.ExecuteAsync(
-            "UPDATE web.app_role SET RoleName = @RoleName, Description = @Description WHERE AppRoleKey = @RoleKey",
-            new { RoleKey = roleKey, request.RoleName, request.Description }, transaction);
+            "UPDATE web.app_role SET RoleName = @RoleName, Description = @Description, NotificationEmail = @NotificationEmail WHERE AppRoleKey = @RoleKey",
+            new { RoleKey = roleKey, request.RoleName, request.Description, request.NotificationEmail }, transaction);
 
         await connection.ExecuteAsync(
             "DELETE FROM web.role_permission WHERE RoleKey = @RoleKey", new { RoleKey = roleKey }, transaction);

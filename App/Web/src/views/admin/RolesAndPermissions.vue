@@ -31,7 +31,7 @@ async function load() {
 onMounted(load)
 
 function startCreate() {
-  editing.value = { roleName: '', description: '', permissionNames: [] }
+  editing.value = { roleName: '', description: '', notificationEmail: '', permissionNames: [] }
 }
 function startEdit(role) {
   editing.value = { ...role, permissionNames: [...role.permissionNames] }
@@ -83,12 +83,13 @@ async function remove(role) {
 
       <table>
         <thead>
-          <tr><th>Role</th><th>Description</th><th>Permissions</th><th></th></tr>
+          <tr><th>Role</th><th>Description</th><th>Notification Email</th><th>Permissions</th><th></th></tr>
         </thead>
         <tbody>
           <tr v-for="role in roles" :key="role.appRoleKey">
             <td>{{ role.roleName }}</td>
             <td>{{ role.description }}</td>
+            <td>{{ role.notificationEmail }}</td>
             <td>{{ role.permissionNames.join(', ') }}</td>
             <td>
               <button @click="startEdit(role)">Edit</button>
@@ -102,6 +103,7 @@ async function remove(role) {
         <h3>{{ editing.appRoleKey === undefined ? 'New Role' : 'Edit Role' }}</h3>
         <p><label class="field-label"><span class="field-label-text">Role Name:</span> <input v-model="editing.roleName" required /></label></p>
         <p><label class="field-label"><span class="field-label-text">Description:</span> <input v-model="editing.description" /></label></p>
+        <p><label class="field-label"><span class="field-label-text">Notification Email:</span> <input v-model="editing.notificationEmail" type="email" placeholder="ops-team@company.com" /></label></p>
         <p>
           Permissions:
           <label v-for="perm in catalog" :key="perm.permissionKey" style="display: block">

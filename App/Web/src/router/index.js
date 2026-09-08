@@ -190,6 +190,12 @@ const routes = [
         name: 'admin-notifications',
         meta: { breadcrumb: 'Notifications', breadcrumbParent: 'admin' },
         component: () => import('../views/admin/Notifications.vue')
+      },
+      {
+        path: 'credentials',
+        name: 'admin-credentials',
+        meta: { breadcrumb: 'Credentials & LDAP', breadcrumbParent: 'admin' },
+        component: () => import('../views/admin/Credentials.vue')
       }
     ]
   },

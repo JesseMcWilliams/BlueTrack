@@ -11,9 +11,31 @@ namespace BlueTrack.Api.Secrets;
 /// </summary>
 public interface ILocalSecretProtector
 {
-    /// <summary>Encrypts plaintext, returning a value safe to store in a *Reference column (e.g. Base64 ciphertext).</summary>
+    /// <summary>Encrypts plaintext with the default (Machine) scope, returning a value safe to store in a *Reference column (e.g. Base64 ciphertext).</summary>
     string Protect(string plaintext);
 
-    /// <summary>Decrypts a value previously returned by Protect.</summary>
+    /// <summary>Decrypts a value previously returned by the default-scope Protect.</summary>
     string Unprotect(string protectedValue);
+
+    /// <summary>
+    /// D-116: scope-aware overload for web.credential, whose ScopePreference
+    /// is admin-selectable (Machine or User) rather than always Machine.
+    /// Every existing caller keeps using the parameterless overload above
+    /// (Machine scope, unchanged) -- this is additive, not a replacement.
+    /// </summary>
+    string Protect(string plaintext, CredentialScope scope);
+
+    /// <summary>Decrypts a value previously returned by the scope-aware Protect, using the same scope it was protected with.</summary>
+    string Unprotect(string protectedValue, CredentialScope scope);
+}
+
+/// <summary>
+/// Mirrors System.Security.Cryptography.DataProtectionScope's two values
+/// without leaking that BCL type into this interface -- WindowsDpapiProtector
+/// maps this onto DataProtectionScope internally.
+/// </summary>
+public enum CredentialScope
+{
+    Machine,
+    User
 }
