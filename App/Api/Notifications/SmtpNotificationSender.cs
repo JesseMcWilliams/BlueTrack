@@ -21,6 +21,12 @@ namespace BlueTrack.Api.Notifications;
 /// advertises (PLAIN/LOGIN/NTLM/CRAM-MD5/...), so a Windows-authenticated
 /// local relay (NTLM) needs no special-casing here beyond a plain
 /// username/password credential.
+///
+/// D-116 follow-up: IgnoreCrlErrors/IgnoreSslErrors were found necessary
+/// testing against the real provisioned relay (its cert had no reachable
+/// CRL/OCSP endpoint) and are now admin-editable per-environment checkboxes
+/// on the Notifications page rather than a permanent hardcoded behavior --
+/// both default off (secure by default).
 /// </summary>
 public sealed class SmtpNotificationSender(NotificationRepository repository, CredentialRepository credentialRepository) : INotificationSender
 {
@@ -42,12 +48,15 @@ public sealed class SmtpNotificationSender(NotificationRepository repository, Cr
         message.Subject = subject;
         message.Body = new TextPart("plain") { Text = body };
 
-        // Confirmed 2026-09-08 against the real internal relay: its certificate
-        // passes hostname/chain validation, but has no CRL/OCSP endpoint
-        // reachable from this network -- CheckCertificateRevocation = false
-        // skips only that lookup, the user's explicit choice over leaving the
-        // relay's certificate/CA setup as the thing to fix instead.
-        using var client = new SmtpClient { CheckCertificateRevocation = false };
+        using var client = new SmtpClient { CheckCertificateRevocation = !config.IgnoreCrlErrors };
+        if (config.IgnoreSslErrors)
+        {
+            // Broader than IgnoreCrlErrors -- skips hostname/chain/expiry
+            // validation entirely, not just the CRL/OCSP lookup. Off by
+            // default; an admin opts in per-environment after seeing a real
+            // TLS failure, same as IgnoreCrlErrors.
+            client.ServerCertificateValidationCallback = (_, _, _, _) => true;
+        }
         var secureSocketOptions = config.EnableStartTls ? SecureSocketOptions.StartTls : SecureSocketOptions.None;
         await client.ConnectAsync(config.SmtpHost, config.SmtpPort, secureSocketOptions);
 

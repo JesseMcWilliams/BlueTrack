@@ -18,7 +18,8 @@ public sealed class NotificationRepository(IDbConnectionFactory connectionFactor
         using var connection = connectionFactory.Create();
         const string sql = """
             SELECT nc.NotificationConfigKey, nc.SmtpHost, nc.SmtpPort, nc.EnableStartTls, nc.AuthMethod,
-                   nc.SmtpCredentialKey, c.CredentialName AS SmtpCredentialName, nc.FromAddress, nc.FromDisplayName
+                   nc.SmtpCredentialKey, c.CredentialName AS SmtpCredentialName, nc.FromAddress, nc.FromDisplayName,
+                   nc.IgnoreCrlErrors, nc.IgnoreSslErrors
             FROM web.notification_config nc
             LEFT JOIN web.credential c ON c.CredentialKey = nc.SmtpCredentialKey
             """;
@@ -35,7 +36,8 @@ public sealed class NotificationRepository(IDbConnectionFactory connectionFactor
             UPDATE web.notification_config
             SET SmtpHost = @SmtpHost, SmtpPort = @SmtpPort, EnableStartTls = @EnableStartTls,
                 AuthMethod = @AuthMethod, SmtpCredentialKey = @SmtpCredentialKey, FromAddress = @FromAddress,
-                FromDisplayName = @FromDisplayName, ModifiedBy = @ModifiedBy, ModifiedDate = SYSUTCDATETIME()
+                FromDisplayName = @FromDisplayName, IgnoreCrlErrors = @IgnoreCrlErrors, IgnoreSslErrors = @IgnoreSslErrors,
+                ModifiedBy = @ModifiedBy, ModifiedDate = SYSUTCDATETIME()
             """;
         await connection.ExecuteAsync(sql, new
         {
@@ -46,6 +48,8 @@ public sealed class NotificationRepository(IDbConnectionFactory connectionFactor
             request.SmtpCredentialKey,
             request.FromAddress,
             request.FromDisplayName,
+            request.IgnoreCrlErrors,
+            request.IgnoreSslErrors,
             ModifiedBy = modifiedByUserKey
         });
     }

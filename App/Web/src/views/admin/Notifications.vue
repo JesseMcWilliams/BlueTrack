@@ -68,7 +68,9 @@ async function saveConfig() {
       authMethod: config.value.authMethod,
       smtpCredentialKey: config.value.smtpCredentialKey,
       fromAddress: config.value.fromAddress,
-      fromDisplayName: config.value.fromDisplayName
+      fromDisplayName: config.value.fromDisplayName,
+      ignoreCrlErrors: config.value.ignoreCrlErrors,
+      ignoreSslErrors: config.value.ignoreSslErrors
     })
   })
   if (!response.ok) {
@@ -182,6 +184,8 @@ async function sendTestEmail() {
         </template>
         <p><label class="field-label"><span class="field-label-text">From Address:</span> <input v-model="config.fromAddress" placeholder="bluetrack@company.com" /></label></p>
         <p><label class="field-label"><span class="field-label-text">From Display Name:</span> <input v-model="config.fromDisplayName" placeholder="BlueTrack" /></label></p>
+        <p><label><input v-model="config.ignoreCrlErrors" type="checkbox" /> Ignore CRL issues (skip certificate revocation checking)</label></p>
+        <p><label><input v-model="config.ignoreSslErrors" type="checkbox" /> Ignore all SSL errors (skip all certificate validation -- use with caution)</label></p>
         <button type="submit" class="btn-primary">Save</button>
       </form>
 

@@ -18,6 +18,12 @@ public sealed class NotificationConfig
     public string? SmtpCredentialName { get; init; }
     public string? FromAddress { get; init; }
     public string? FromDisplayName { get; init; }
+
+    /// <summary>D-116 follow-up: skips only the CRL/OCSP check (hostname/chain validation still enforced) -- found necessary against the real provisioned relay, now an admin-editable per-environment choice rather than hardcoded.</summary>
+    public bool IgnoreCrlErrors { get; init; }
+
+    /// <summary>D-116 follow-up: a full ServerCertificateValidationCallback bypass (hostname, chain, expiry -- everything). Broader and more dangerous than IgnoreCrlErrors; off by default.</summary>
+    public bool IgnoreSslErrors { get; init; }
 }
 
 public sealed class SaveNotificationConfigRequest
@@ -29,4 +35,6 @@ public sealed class SaveNotificationConfigRequest
     public int? SmtpCredentialKey { get; init; }
     public string? FromAddress { get; init; }
     public string? FromDisplayName { get; init; }
+    public bool IgnoreCrlErrors { get; init; }
+    public bool IgnoreSslErrors { get; init; }
 }
