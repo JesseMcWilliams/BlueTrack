@@ -4,7 +4,7 @@ namespace BlueTrack.Api.Data;
 
 /// <summary>
 /// Renders web.app_config.ExceptionIdPattern (D-17) against a year and
-/// sequence number. See 12_BlueTrack_ExceptionIdNumbering.sql for the
+/// sequence number. See 08_BlueTrack_WebSchema.sql for the
 /// supported tokens and the default pattern.
 /// </summary>
 public static partial class ExceptionIdGenerator

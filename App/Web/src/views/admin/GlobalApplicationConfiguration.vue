@@ -49,11 +49,11 @@ async function save() {
     <p v-else-if="error" role="alert">{{ error }}</p>
     <form v-else @submit.prevent="save">
       <p>
-        <label>Idle Timeout (minutes): <input v-model.number="config.idleTimeoutMinutes" type="number" required /></label>
+        <label class="field-label"><span class="field-label-text">Idle Timeout (minutes):</span> <input v-model.number="config.idleTimeoutMinutes" type="number" required /></label>
       </p>
       <p>
-        <label>
-          Breadcrumb Position:
+        <label class="field-label">
+          <span class="field-label-text">Breadcrumb Position:</span>
           <select v-model="config.breadcrumbPosition">
             <option value="TopLeft">Top Left</option>
             <option value="TopRight">Top Right</option>
@@ -61,19 +61,23 @@ async function save() {
         </label>
       </p>
       <p>
-        <label>Exception ID Pattern: <input v-model="config.exceptionIdPattern" required /></label>
-        <br /><small>Tokens: {yyyy}, {yy}, {seq:0000} (padding width from the number of zeros)</small>
+        <label class="field-label"><span class="field-label-text">Exception ID Pattern:</span> <input v-model="config.exceptionIdPattern" required /></label>
+        <small>Tokens: {yyyy}, {yy}, {seq:0000} (padding width from the number of zeros)</small>
       </p>
       <p>
-        <label>Account Progress Lock Timeout (minutes): <input v-model.number="config.lockTimeoutMinutes" type="number" required /></label>
+        <label class="field-label"><span class="field-label-text">Account Progress Lock Timeout (minutes):</span> <input v-model.number="config.lockTimeoutMinutes" type="number" required /></label>
       </p>
       <p>
-        <label>Audit Retention (days, blank = keep forever): <input v-model.number="config.retentionDays" type="number" /></label>
+        <label class="field-label"><span class="field-label-text">Audit Retention (days, blank = keep forever):</span> <input v-model.number="config.retentionDays" type="number" /></label>
       </p>
       <p>
         <label><input v-model="config.logReadEvents" type="checkbox" /> Log read/view events (off by default, D-35)</label>
       </p>
-      <button type="submit">Save</button>
+      <p>
+        <label class="field-label"><span class="field-label-text">Backup Folder:</span> <input v-model="config.backupFolder" placeholder="D:\Backups\BlueTrack" /></label>
+        <small>Where the Deployment page's "Backup App" button writes the database backup file.</small>
+      </p>
+      <button type="submit" class="btn-primary">Save</button>
       <span v-if="saved" role="status"> Saved.</span>
     </form>
   </div>

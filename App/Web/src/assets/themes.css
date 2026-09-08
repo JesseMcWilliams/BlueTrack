@@ -52,6 +52,26 @@
   --color-success-text: #00ff00; /* ~15.3:1 vs #000 */
 }
 
+/* Spacing scale (added 2026-09-06, usability pass): an 8px-based rem scale
+   -- 1=4px for tightly related elements (an icon and its label), 2=8px
+   inside a component, 3=16px general body rhythm, 4=24px between groups
+   of elements, 5=32px and 6=48px between sections. rem, not px, so it
+   scales with a user's own font-size preference. Applied below to the
+   handful of element-level rules every page already shares (headings,
+   tables) rather than per-page classes, since this app has no component
+   library -- see https://www.nngroup.com/videos/whitespace/ (consistent
+   spacing + proximity is what reads as organized, not decoration) and
+   the 8pt-grid convention (tight spacing = related, larger gaps =
+   separate sections). */
+:root {
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 1rem;
+  --space-4: 1.5rem;
+  --space-5: 2rem;
+  --space-6: 3rem;
+}
+
 /* Defensive only (Design_Accessibility_And_Theming.md 2.3): real Windows
    Forced Colors Mode remaps colors at the OS level regardless of theme --
    don't fight it with custom backgrounds/borders here, just make sure
@@ -112,4 +132,166 @@ a:visited {
   color: var(--color-text);
   border: 2px solid var(--color-focus-ring);
   z-index: 1000;
+}
+
+/* Heading rhythm (added 2026-09-06, usability pass): every page heading
+   gets consistent breathing room below it before whatever follows --
+   previously zero, relying entirely on the browser's own inconsistent UA
+   default. */
+h1, h2, h3 {
+  margin-top: 0;
+  margin-bottom: var(--space-4);
+}
+
+/* Table styling (added 2026-09-06, usability pass): previously a bare
+   <table> had no cell padding or row separation at all, which is why
+   dense report/list pages read as one undifferentiated block of text.
+   Cell padding here (0.5rem 0.75rem, roughly 8x12px) plus the row's own
+   line height clears WCAG 2.2 SC 2.5.8's 24x24px minimum target size for
+   any row that acts as a click target (this app's stated scope is WCAG
+   2.1 AA, per Design_Accessibility_And_Theming.md -- 2.5.8 is a 2.2
+   criterion, adopted here anyway since it's directly applicable and
+   costs nothing to also clear). The header row gets its own border and
+   is left un-bolded-further -- th already renders bold by browser
+   default -- just visually separated from the data rows below it.
+   Zebra striping deliberately not added: this app's High-Visibility theme
+   is a hand-designed AAA palette (Design_Accessibility_And_Theming.md
+   2.3) and an alternating-row tint not part of that specified palette
+   would need the same rigor applied to it as every other color in this
+   file; row/column borders already carry the same scanning benefit
+   without that added surface area. */
+table {
+  border-collapse: collapse;
+  margin-bottom: var(--space-4);
+}
+th, td {
+  padding: var(--space-2) var(--space-3);
+  text-align: left;
+  border-bottom: 1px solid var(--color-border);
+}
+thead th {
+  border-bottom-width: 2px;
+}
+
+/* General body rhythm (added 2026-09-06, usability pass): paragraphs
+   (hint text, loading/error states) get the same spacing below them as
+   headings and tables, rather than each page having to add its own. */
+p {
+  margin-top: 0;
+  margin-bottom: var(--space-3);
+}
+
+/* Form controls and buttons (added 2026-09-06, interaction pass): every
+   button/input/select/textarea in this app rendered as pure unstyled
+   browser default -- no consistent sizing, no visual distinction between
+   a primary committing action (Save) and a secondary one (Cancel), no
+   hover/active feedback beyond the accessibility focus ring already
+   added. Grounded in NN/G's forms research: primary actions need visual
+   weight to stand apart, buttons need breathing room so users don't
+   mis-click, and consistent control sizing matters for scannability
+   (https://www.nngroup.com/articles/web-form-design/).
+
+   .btn-primary deliberately does NOT introduce a new background-fill
+   color: every color in this file carries a verified contrast ratio
+   comment, and a new fill color would need the same rigor applied to
+   verify its text-on-fill contrast in all three themes. Reusing
+   --color-link (already verified against --color-bg for ordinary links)
+   for a bold border + bold text achieves the same "this is the important
+   one" visual weight without an unverified color pairing. */
+button {
+  display: inline-block;
+  padding: var(--space-2) var(--space-4);
+  margin-right: var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: 0.25rem;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font: inherit;
+  cursor: pointer;
+  transition: filter 0.15s ease;
+}
+button:hover:not(:disabled) {
+  filter: brightness(0.92);
+}
+button:active:not(:disabled) {
+  filter: brightness(0.85);
+}
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.btn-primary {
+  border-width: 2px;
+  border-color: var(--color-link);
+  color: var(--color-link);
+  font-weight: 700;
+}
+
+input, select, textarea {
+  box-sizing: border-box;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: 0.25rem;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font: inherit;
+}
+textarea {
+  min-height: 5rem;
+  resize: vertical;
+}
+/* Checkbox/radio inputs keep their native inline size -- the box-sizing
+   rule above otherwise stretches them to a full text-input-sized box in
+   some browsers. */
+input[type="checkbox"], input[type="radio"] {
+  box-sizing: content-box;
+  padding: 0;
+  border-radius: 0;
+  margin-right: var(--space-1);
+}
+
+/* Field labels (added 2026-09-06, interaction pass): stacks the label
+   text above its control -- NN/G's own recommendation (label placement
+   above the field reads faster than inline "Label: [box]", and
+   accommodates labels of varying length without a ragged, hard-to-scan
+   layout). Scoped to .field-label rather than a blanket `label` rule:
+   this app's checkbox/radio labels (`<label><input type="checkbox" />
+   Text</label>`) are a genuinely different, correctly-inline pattern
+   (the choice and its text read as one unit) that stacking would break.
+   .field-label-text wraps a field's full label text (including any
+   required-field asterisk and trailing colon) in one element, so flexbox
+   sees exactly two items -- the label text, then the control -- and
+   stacks them instead of a stray third line for the asterisk/colon. */
+.field-label {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1);
+  margin-bottom: var(--space-3);
+}
+.field-label > input,
+.field-label > select,
+.field-label > textarea {
+  width: 100%;
+  max-width: 30em;
+}
+
+/* Filter toolbars (AuditLogViewer, AccountProgressList, RiskExceptionsList):
+   several .field-label fields sit side by side as a compact row rather
+   than stacked full-width down the page -- filters are auxiliary to the
+   page's main task, so compactness matters here more than in a primary
+   edit form. Each field still stacks its own label above its control;
+   this just arranges the fields themselves horizontally, wrapping on
+   narrow screens. align-items: flex-end lines up each field's control
+   with any trailing action button (e.g. "Filter") regardless of label
+   text length. */
+.filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-4);
+  margin-bottom: var(--space-4);
+}
+.filter-row .field-label {
+  margin-bottom: 0;
 }

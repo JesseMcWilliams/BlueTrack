@@ -49,7 +49,7 @@ public static class GroupIdentifierExtractor
     /// -> simulated app role or group)" -- the identifier is the
     /// authenticated Windows username itself, not a group SID, matched
     /// against identity_group_role_map rows scoped to the DevFakeAuth
-    /// provider (see 18_BlueTrack_DevFakeAuthSeed.sql).
+    /// provider (see 11_BlueTrack_DevFakeAuthSeed.sql).
     /// </summary>
     public static IReadOnlyList<string> GetDevFakeAuthIdentifiers(ClaimsPrincipal principal)
     {

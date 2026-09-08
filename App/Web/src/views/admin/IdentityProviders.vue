@@ -120,7 +120,7 @@ async function remove(provider) {
     <p v-if="loading" role="status">Loading...</p>
 
     <template v-else>
-      <button @click="startCreate">+ New Provider</button>
+      <button class="btn-primary" @click="startCreate">+ New Provider</button>
 
       <table>
         <thead>
@@ -143,8 +143,8 @@ async function remove(provider) {
       <form v-if="editing" @submit.prevent="save">
         <h3>{{ editing.providerKey === undefined ? 'New Provider' : 'Edit Provider' }}</h3>
         <p>
-          <label>
-            Provider Type:
+          <label class="field-label">
+            <span class="field-label-text">Provider Type:</span>
             <select v-model="editing.providerType" @change="onProviderTypeChange">
               <option value="WindowsIntegrated">WindowsIntegrated</option>
               <option value="OIDC">OIDC</option>
@@ -153,40 +153,40 @@ async function remove(provider) {
             </select>
           </label>
         </p>
-        <p><label>Display Name: <input v-model="editing.displayName" required /></label></p>
+        <p><label class="field-label"><span class="field-label-text">Display Name:</span> <input v-model="editing.displayName" required /></label></p>
         <p><label><input v-model="editing.isEnabled" type="checkbox" /> Enabled</label></p>
-        <p><label>Display Order: <input v-model.number="editing.displayOrder" type="number" /></label></p>
+        <p><label class="field-label"><span class="field-label-text">Display Order:</span> <input v-model.number="editing.displayOrder" type="number" /></label></p>
 
         <template v-if="editing.providerType === 'OIDC'">
-          <p><label>Authority: <input v-model="configFields.authority" placeholder="https://login.microsoftonline.com/{tenant}/v2.0" /></label></p>
-          <p><label>Client ID: <input v-model="configFields.clientId" /></label></p>
-          <p><label>Callback Path: <input v-model="configFields.callbackPath" /></label></p>
-          <p><label>Groups Claim Type: <input v-model="configFields.groupsClaimType" /></label></p>
+          <p><label class="field-label"><span class="field-label-text">Authority:</span> <input v-model="configFields.authority" placeholder="https://login.microsoftonline.com/{tenant}/v2.0" /></label></p>
+          <p><label class="field-label"><span class="field-label-text">Client ID:</span> <input v-model="configFields.clientId" /></label></p>
+          <p><label class="field-label"><span class="field-label-text">Callback Path:</span> <input v-model="configFields.callbackPath" /></label></p>
+          <p><label class="field-label"><span class="field-label-text">Groups Claim Type:</span> <input v-model="configFields.groupsClaimType" /></label></p>
         </template>
         <template v-else-if="editing.providerType === 'SAML'">
-          <p><label>SP Entity ID: <input v-model="configFields.spEntityId" /></label></p>
+          <p><label class="field-label"><span class="field-label-text">SP Entity ID:</span> <input v-model="configFields.spEntityId" /></label></p>
           <p>
-            <label>SP Certificate Thumbprint: <input v-model="configFields.spCertificateThumbprint" /></label>
-            <br /><small>This app's own signing/decryption certificate, by thumbprint in the Windows Certificate Store (LocalMachine\My) -- not a certificate file or blob.</small>
+            <label class="field-label"><span class="field-label-text">SP Certificate Thumbprint:</span> <input v-model="configFields.spCertificateThumbprint" /></label>
+            <small>This app's own signing/decryption certificate, by thumbprint in the Windows Certificate Store (LocalMachine\My) -- not a certificate file or blob.</small>
           </p>
-          <p><label>IdP Entity ID: <input v-model="configFields.idpEntityId" /></label></p>
-          <p><label>IdP Single Sign-On Destination: <input v-model="configFields.idpSingleSignOnDestination" /></label></p>
-          <p><label>IdP Single Logout Destination: <input v-model="configFields.idpSingleLogoutDestination" /></label></p>
+          <p><label class="field-label"><span class="field-label-text">IdP Entity ID:</span> <input v-model="configFields.idpEntityId" /></label></p>
+          <p><label class="field-label"><span class="field-label-text">IdP Single Sign-On Destination:</span> <input v-model="configFields.idpSingleSignOnDestination" /></label></p>
+          <p><label class="field-label"><span class="field-label-text">IdP Single Logout Destination:</span> <input v-model="configFields.idpSingleLogoutDestination" /></label></p>
           <p>
-            <label>IdP Certificate Thumbprint: <input v-model="configFields.idpCertificateThumbprint" /></label>
-            <br /><small>The IdP's signing certificate, by thumbprint in the Windows Certificate Store -- not a certificate file or blob.</small>
+            <label class="field-label"><span class="field-label-text">IdP Certificate Thumbprint:</span> <input v-model="configFields.idpCertificateThumbprint" /></label>
+            <small>The IdP's signing certificate, by thumbprint in the Windows Certificate Store -- not a certificate file or blob.</small>
           </p>
-          <p><label>Group Claim Type: <input v-model="configFields.groupClaimType" /></label></p>
+          <p><label class="field-label"><span class="field-label-text">Group Claim Type:</span> <input v-model="configFields.groupClaimType" /></label></p>
         </template>
 
         <p>
-          <label>
-            Secret (e.g. OIDC client secret):
+          <label class="field-label">
+            <span class="field-label-text">Secret (e.g. OIDC client secret):</span>
             <input v-model="editing.plaintextSecret" type="password" size="30"
               :placeholder="editing.secretReference ? '(already set -- leave blank to keep)' : '(none set)'" />
           </label>
         </p>
-        <button type="submit">Save</button>
+        <button type="submit" class="btn-primary">Save</button>
         <button type="button" @click="cancelEdit">Cancel</button>
       </form>
     </template>

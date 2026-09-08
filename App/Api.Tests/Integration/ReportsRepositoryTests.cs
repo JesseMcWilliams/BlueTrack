@@ -62,4 +62,14 @@ public class ReportsRepositoryTests
 
         Assert.NotNull(results);
     }
+
+    [Fact]
+    public async Task GetUnresolvedEntitlementMembersAsync_DoesNotThrow()
+    {
+        var repository = new ReportsRepository(new TestDbConnectionFactory());
+
+        var results = await repository.GetUnresolvedEntitlementMembersAsync();
+
+        Assert.NotNull(results);
+    }
 }

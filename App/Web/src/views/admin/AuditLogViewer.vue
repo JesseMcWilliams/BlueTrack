@@ -103,12 +103,12 @@ async function toggleFieldChanges(event) {
   <div>
     <h2>Audit Log Viewer</h2>
 
-    <form @submit.prevent="load">
-      <label>Event Type: <input v-model="eventTypeFilter" placeholder="e.g. FieldEdit" /></label>
-      <label>Entity: <input v-model="entityNameFilter" placeholder="e.g. risk_exception" /></label>
-      <label>From: <input v-model="fromDateFilter" type="date" /></label>
-      <label>To: <input v-model="toDateFilter" type="date" /></label>
-      <button type="submit">Filter</button>
+    <form class="filter-row" @submit.prevent="load">
+      <label class="field-label"><span class="field-label-text">Event Type:</span> <input v-model="eventTypeFilter" placeholder="e.g. FieldEdit" /></label>
+      <label class="field-label"><span class="field-label-text">Entity:</span> <input v-model="entityNameFilter" placeholder="e.g. risk_exception" /></label>
+      <label class="field-label"><span class="field-label-text">From:</span> <input v-model="fromDateFilter" type="date" /></label>
+      <label class="field-label"><span class="field-label-text">To:</span> <input v-model="toDateFilter" type="date" /></label>
+      <button type="submit" class="btn-primary">Filter</button>
     </form>
 
     <p v-if="error" role="alert">{{ error }}</p>

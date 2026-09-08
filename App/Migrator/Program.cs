@@ -11,15 +11,35 @@ using Microsoft.Data.SqlClient;
 // appsettings.json here (consistent with keeping dependencies minimal).
 //
 // [skipScriptNames] is optional: a comma-separated list of script
-// filenames (matched exactly, e.g. "09_BlueTrack_ScheduleImportLoadJob.sql")
-// to exclude from this run. Needed for 09 specifically -- it's SQL Agent
-// job scheduling, not app schema/data, switches context with its own
-// `USE msdb;`, and always targets the real BlueTrack database and real
-// file paths by design regardless of <connectionString> -- none of which
-// belongs in a disposable database build (CI's BlueTrackTest, per
-// Design_Testing_Strategy.md). Its own `USE msdb;` also breaks DbUp's
-// per-database journal tracking for anything run after it in the same
-// pass, which is how this was actually found (2026-09-03).
+// filenames (matched exactly) to exclude from this run, for whatever
+// environment-specific reason a caller needs.
+//
+// Regardless of [skipScriptNames], this tool ALWAYS excludes any script
+// whose filename matches `00_*.sql` -- see Database/00_BlueTrack_CreateDatabase.sql's
+// own header for why: DbUp opens one connection scoped to a single target
+// database for its entire run and writes its own journal inside that same
+// database, so a script that switches context to `master` to create a
+// database structurally cannot be part of the normal DbUp-managed sequence
+// (2026-09-05 restructure). Database creation already happens separately,
+// just below, via this tool's own master-connection bootstrap -- 00's
+// script exists for visibility/manual use, not because this tool needs it.
+//
+// This tool ALSO always excludes 14_BlueTrack_ScheduleImportLoadJob.sql,
+// for every environment -- not only disposable ones. Confirmed by an
+// actual failed run against the real BlueTrack database (2026-09-05,
+// during the same restructure that added 00's exclusion): 14's own
+// `USE msdb;` succeeds and creates the job correctly, but DbUp's journal
+// write for that same script then executes against whatever database the
+// connection is CURRENTLY on -- which is now msdb, not the target database
+// named by <connectionString> -- since 14 never switches back. That
+// journal write fails with "Invalid object name 'SchemaVersions'"
+// (msdb has no such table), which DbUp treats as the whole run failing,
+// even though 14's actual schema-job-creation work already succeeded.
+// This isn't fixable by ordering 14 last: DbUp still journals immediately
+// after each script runs, on the same connection, regardless of position.
+// 14 is therefore run manually (e.g. via sqlcmd, directly against msdb),
+// never through this tool -- matching how 00 is handled, for a different
+// but similarly structural reason.
 //
 // The target database name is parsed out of <connectionString>'s own
 // Database/Initial Catalog and is the ONLY source of truth for which
@@ -42,7 +62,7 @@ using Microsoft.Data.SqlClient;
 // database for its entire journal-tracked run, so dbo.SchemaVersions lives
 // correctly inside whichever database was actually built, not shared
 // across every database this tool has ever touched. This tool never drops
-// a database -- 01_BlueTrack_CreateDatabase_Schema.sql no longer does
+// a database -- 01_BlueTrack_CoreSchema.sql no longer does
 // either (its old DROP/CREATE DATABASE preamble was removed for exactly
 // this reason: SQL Server can't drop a database a connection is currently
 // using, which is what the 2026-09-03 incident's fix required). A caller
@@ -52,15 +72,17 @@ using Microsoft.Data.SqlClient;
 // silently on every run, since most callers (real Dev/Staging/Prod
 // environments) must never have their database dropped.
 //
-// IMPORTANT -- before running this against an environment that already has
-// 01 through the current highest-numbered script applied by hand (as this
-// project's Dev database does), run Database/10_BlueTrack_SeedDbUpJournal.sql
-// first. That creates DbUp's own journal table (dbo.SchemaVersions) and
-// marks the already-applied scripts as done, so this tool only runs
-// genuinely new scripts. 01 no longer drops the database, but it still
-// unconditionally drops and recreates every table it defines -- re-running
-// it against an environment that already holds real data is still
-// destructive to that data. See that script's header comment and D-58.
+// IMPORTANT -- 01_BlueTrack_CoreSchema.sql (and every other 0x-numbered
+// schema/seed script through 08) unconditionally drops and recreates every
+// table it defines, or is guarded but still assumes a fresh install (see
+// each script's own header and D-58) -- running this tool against an
+// environment that already holds real tracked data is destructive to that
+// data. This project's own environments are rebuilt from scratch (drop +
+// recreate the database, then run this tool from 00 forward) rather than
+// incrementally migrated, for as long as the project stays in this initial
+// development phase; once a real environment holds data worth preserving,
+// further schema changes must go back to being small guarded numbered
+// scripts appended after 14, never edits to an existing 0x file.
 
 if (args.Length is not (2 or 3))
 {
@@ -112,9 +134,17 @@ await using (var masterConnection = new SqlConnection(masterConnectionStringBuil
     await command.ExecuteNonQueryAsync();
 }
 
+var alwaysExcludedScriptNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+{
+    "14_BlueTrack_ScheduleImportLoadJob.sql",
+};
+
 var upgrader = DeployChanges.To
     .SqlDatabase(connectionString)
-    .WithScriptsFromFileSystem(scriptsFolderPath, path => !skipScriptNames.Contains(Path.GetFileName(path)))
+    .WithScriptsFromFileSystem(scriptsFolderPath, path =>
+        !Path.GetFileName(path).StartsWith("00_", StringComparison.OrdinalIgnoreCase)
+        && !alwaysExcludedScriptNames.Contains(Path.GetFileName(path))
+        && !skipScriptNames.Contains(Path.GetFileName(path)))
     .WithVariable("DatabaseName", targetDatabaseName)
     .LogToConsole()
     .Build();

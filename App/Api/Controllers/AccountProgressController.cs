@@ -196,7 +196,7 @@ public sealed class AccountProgressController(
         // without linking an Active exception scoped to this account.
         // Cleared for every other status -- ExceptionKey only means anything
         // while the account is actually in that status (per the column's
-        // own documented contract in 06_BlueTrack_WebInterface_Schema.sql).
+        // own documented contract in 08_BlueTrack_WebSchema.sql).
         // Application-scoped exceptions can't be linked from here yet -- the
         // design itself leaves the batch propagation to every account under
         // that application as "an implementation detail for later, not

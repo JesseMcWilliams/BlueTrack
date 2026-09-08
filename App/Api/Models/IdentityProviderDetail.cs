@@ -14,6 +14,17 @@ public sealed class IdentityProviderDetail
     public int DisplayOrder { get; init; }
     public string? ConfigurationValues { get; init; }
     public string? SecretReference { get; init; }
+
+    /// <summary>
+    /// Added 2026-09-06 for the DevFakeAuth-enabled-too-long banner
+    /// (App.vue) -- the closest available signal for "since when has this
+    /// been enabled," not a dedicated one: UpdateAsync sets this to now on
+    /// *any* save, including one that just flips IsEnabled, but also on an
+    /// unrelated edit made while it stays enabled, which would understate
+    /// how long it's actually been on. No schema change added a true
+    /// "enabled since" timestamp for this first pass.
+    /// </summary>
+    public DateTime? ModifiedDate { get; init; }
 }
 
 public sealed class SaveIdentityProviderRequest

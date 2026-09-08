@@ -66,7 +66,7 @@ async function remove(item) {
     <p v-if="loading" role="status">Loading...</p>
 
     <template v-else>
-      <button @click="startCreate">+ New Field</button>
+      <button class="btn-primary" @click="startCreate">+ New Field</button>
 
       <table>
         <thead>
@@ -91,13 +91,13 @@ async function remove(item) {
 
       <form v-if="editing" @submit.prevent="save">
         <h3>{{ editing.fieldMetadataKey === undefined ? 'New Field' : 'Edit Field' }}</h3>
-        <p><label>Field Name: <input v-model="editing.fieldName" required /></label></p>
-        <p><label>Display Label: <input v-model="editing.displayLabel" required /></label></p>
-        <p><label>Field Type: <input v-model="editing.fieldType" required /></label></p>
-        <p><label>Reference Table: <input v-model="editing.referenceTable" /></label></p>
+        <p><label class="field-label"><span class="field-label-text">Field Name:</span> <input v-model="editing.fieldName" required /></label></p>
+        <p><label class="field-label"><span class="field-label-text">Display Label:</span> <input v-model="editing.displayLabel" required /></label></p>
+        <p><label class="field-label"><span class="field-label-text">Field Type:</span> <input v-model="editing.fieldType" required /></label></p>
+        <p><label class="field-label"><span class="field-label-text">Reference Table:</span> <input v-model="editing.referenceTable" /></label></p>
         <p><label><input v-model="editing.isRequired" type="checkbox" /> Required</label></p>
-        <p><label>Display Order: <input v-model.number="editing.displayOrder" type="number" /></label></p>
-        <button type="submit">Save</button>
+        <p><label class="field-label"><span class="field-label-text">Display Order:</span> <input v-model.number="editing.displayOrder" type="number" /></label></p>
+        <button type="submit" class="btn-primary">Save</button>
         <button type="button" @click="cancelEdit">Cancel</button>
       </form>
     </template>

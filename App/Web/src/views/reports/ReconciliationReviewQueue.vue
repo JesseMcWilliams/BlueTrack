@@ -5,6 +5,7 @@
 // confirm/reject actions (gated by ConfirmReconciliation) aren't wired up
 // yet, matching this scaffold's overall maturity level.
 import { ref, onMounted } from 'vue'
+import { formatDate } from '../../utils/formatDate'
 
 const items = ref([])
 const error = ref(null)
@@ -31,7 +32,15 @@ onMounted(async () => {
     <p v-if="loading" role="status">Loading...</p>
     <p v-else-if="error" role="alert">Could not load queue: {{ error }}</p>
     <p v-else-if="items.length === 0">Nothing awaiting reconciliation review.</p>
-    <table v-else>
+    <table v-else class="review-queue">
+      <colgroup>
+        <col style="width: 19%" />
+        <col style="width: 19%" />
+        <col style="width: 15%" />
+        <col style="width: 8%" />
+        <col style="width: 10%" />
+        <col style="width: 29%" />
+      </colgroup>
       <thead>
         <tr>
           <th>Self-Hosted Account</th>
@@ -48,10 +57,28 @@ onMounted(async () => {
           <td>{{ item.privCloudAccountName }} ({{ item.privCloudUserName }}@{{ item.privCloudAddress }})</td>
           <td>{{ item.matchMethod }}</td>
           <td>{{ item.matchConfidence }}</td>
-          <td>{{ item.matchedDate }}</td>
+          <td>{{ formatDate(item.matchedDate) }}</td>
           <td>{{ item.notes }}</td>
         </tr>
       </tbody>
     </table>
   </div>
 </template>
+
+<style scoped>
+/* Content-density pass, 2026-09-06: default table auto-layout sizes each
+   column to its longest unbreakable content -- the two Account columns'
+   identifier strings have few natural break points, so they were
+   claiming more width than they need while Notes (which has plenty of
+   break points but the most actual text) was squeezed into a narrow
+   column that wrapped word-by-word, making every row far taller than
+   necessary. Explicit widths give Notes the room its content actually
+   needs instead of leaving it to emergent auto-layout behavior. */
+.review-queue {
+  table-layout: fixed;
+  width: 100%;
+}
+.review-queue td {
+  overflow-wrap: break-word;
+}
+</style>

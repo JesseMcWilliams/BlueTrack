@@ -36,7 +36,7 @@ Considered and explicitly rejected: every new field will continue to go through 
 
 Both sides are now built. The admin side: Field Metadata Management (CRUD against `account_progress_field_metadata`, `FieldMetadataController`) lets an admin curate the field-definition list itself. The consuming side: the Account Progress edit form (`AccountProgressDetail.vue`) reads that same list (via a separate, non-admin-gated `GET /api/account-progress/field-metadata` — any user with `EditAccountProgress` needs to read it, not just admins) and renders one input per row, ordered by `DisplayOrder`, typed by `FieldType` (`Text`/`Date`/`Dropdown`/`TextArea` — the last one a self-evident addition beyond the doc's own "etc." list, for `Notes`). `Dropdown` fields pull their options from `GET /api/account-progress/reference-data`, keyed by `ReferenceTable`.
 
-Seeded with one row per editable `fact_account_progress` column (`16_BlueTrack_AccountProgressFieldMetadataSeed.sql`) — everything except `ExceptionKey`, which the Risk Exception workflow sets, not this form.
+Seeded with one row per editable `fact_account_progress` column (`13_BlueTrack_AccountProgressFieldMetadataSeed.sql`) — everything except `ExceptionKey`, which the Risk Exception workflow sets, not this form.
 
 `RequiredPermission` stays unused (null on every seeded row) per D-20's deferral of per-field permission granularity — every field is currently gated only by the form-level `EditAccountProgress` permission.
 

@@ -73,7 +73,7 @@ A single (or environment-scoped) configuration row, managed through the planned 
 
 The retention period is set on `audit_config.RetentionDays` via the global application configuration page.
 
-**Resolved 2026-08-27 (D-62), Q-31:** the purge runs as a **SQL Agent job** calling a stored procedure (e.g. `usp_PurgeAuditLog`) — matching the existing documented pattern for `usp_RunFullLoad` and the history-snapshot job in `04_BlueTrack_PowerBI_Support.sql`, rather than introducing an application-level job scheduler this project hasn't used anywhere else.
+**Resolved 2026-08-27 (D-62), Q-31:** the purge runs as a **SQL Agent job** calling a stored procedure (e.g. `usp_PurgeAuditLog`) — matching the existing documented pattern for `usp_RunFullLoad` and the history-snapshot job in `06_BlueTrack_PowerBI_Support.sql`, rather than introducing an application-level job scheduler this project hasn't used anywhere else.
 
 The purge run itself is recorded in a new **`audit_purge_log`** table, mirroring the existing `import_log` pattern rather than writing the purge into `audit_event` itself (which would read recursively — an audit table logging its own deletions):
 
@@ -101,7 +101,7 @@ Real audit logging is now wired in: `AuditLogger` writes to `audit_event`/`audit
 
 **Logon auditing: resolved 2026-09-04 (D-82).** A real session concept now exists (`UserRightsCache`, a per-identity entry in `web.distributed_cache`) — a cache miss (no live resolution has happened recently for this identity) is what logs a `Logon` event, since there's no other reliable way to distinguish a real logon from a routine call without a session. Verified: three requests in a row from the same identity produced exactly one `Logon` event, not three.
 
-**`LogReadEvents` enforcement: resolved 2026-09-04 (D-83).** Scoped to **detail views only** — GET-by-key endpoints for governed entities (Account Progress detail, Risk Exception detail), not list/search/report endpoints, to avoid flooding the log on every page load. A new `RecordViewed` event type (`21_BlueTrack_ReadEventType.sql`) is logged via `AuditLogger.LogReadIfEnabledAsync`, checked against `audit_config.LogReadEvents` on each call. If a future page adds another detail-view endpoint, it needs to call the same method explicitly — nothing enforces that automatically across new endpoints. Verified: with the flag off, no event is logged; with it on, each detail-view GET logs exactly one `RecordViewed` event, and list endpoints log nothing.
+**`LogReadEvents` enforcement: resolved 2026-09-04 (D-83).** Scoped to **detail views only** — GET-by-key endpoints for governed entities (Account Progress detail, Risk Exception detail), not list/search/report endpoints, to avoid flooding the log on every page load. A new `RecordViewed` event type (`08_BlueTrack_WebSchema.sql`) is logged via `AuditLogger.LogReadIfEnabledAsync`, checked against `audit_config.LogReadEvents` on each call. If a future page adds another detail-view endpoint, it needs to call the same method explicitly — nothing enforces that automatically across new endpoints. Verified: with the flag off, no event is logged; with it on, each detail-view GET logs exactly one `RecordViewed` event, and list endpoints log nothing.
 
 ## Open Questions
 

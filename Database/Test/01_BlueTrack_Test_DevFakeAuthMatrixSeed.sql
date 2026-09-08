@@ -7,14 +7,16 @@
    environment); it only belongs in a
    disposable database like BlueTrackTest.
 
-   RUN THIS AFTER Database/01 through Database/22 (skipping 09, which is
-   SQL Agent job scheduling and doesn't belong in a disposable database --
-   see App/Migrator/Program.cs's skipScriptNames argument).
+   RUN THIS AFTER Database/01 through Database/13 (Database/14_BlueTrack_
+   ScheduleImportLoadJob.sql is SQL Agent job scheduling and doesn't belong
+   in a disposable database -- see App/Migrator/Program.cs's
+   skipScriptNames argument; Database/00 never runs through Migrator at
+   all -- see its own header).
 
    WHAT THIS DOES: seeds the role/permission matrix that layers 3
    (API/contract tests) and 4 (Playwright E2E) need to exercise every
    permission boundary -- Design_Testing_Strategy.md's own call-out that
-   the real 18_BlueTrack_DevFakeAuthSeed.sql "only seeds one disabled
+   the real 11_BlueTrack_DevFakeAuthSeed.sql "only seeds one disabled
    placeholder row, not the role/permission matrix (Viewer/Analyst/
    Approver/Admin, at minimum) this layer needs."
 
@@ -31,7 +33,7 @@
    the real-HTTP dev-only test sign-in endpoint mint any of these four
    identities without needing four real Windows accounts.
 
-   Unlike 18_BlueTrack_DevFakeAuthSeed.sql (which leaves DevFakeAuth
+   Unlike 11_BlueTrack_DevFakeAuthSeed.sql (which leaves DevFakeAuth
    disabled by default -- a deliberate admin-screen action for real
    environments), this script enables it: a disposable test database has
    no other reason to exist.
@@ -67,7 +69,7 @@ GO
 
 /* ============================================================================
    2. Test-only roles: Viewer / Analyst / Approver, each a permission
-      subset. Admin already exists (07_BlueTrack_WebInterface_Seed.sql)
+      subset. Admin already exists (09_BlueTrack_WebSeed.sql)
       bundling every confirmed permission -- reused as-is below.
    ============================================================================ */
 IF NOT EXISTS (SELECT 1 FROM web.app_role WHERE RoleName = 'Viewer')

@@ -4,6 +4,7 @@
 // as AccountProgressList.vue.
 import { ref, computed, watch, onMounted } from 'vue'
 import { useRightsStore } from '../stores/rights'
+import { formatDate } from '../utils/formatDate'
 
 const rights = useRightsStore()
 const exceptions = ref([])
@@ -92,8 +93,8 @@ watch([statusFilter, scopeTypeFilter, sortQueryParam], load)
     <p v-if="rights.hasPermission('ApproveExceptions')">
       <router-link :to="{ name: 'risk-exception-create' }">+ New Exception</router-link>
     </p>
-    <p>
-      <label>Status:
+    <p class="filter-row">
+      <label class="field-label"><span class="field-label-text">Status:</span>
         <select v-model="statusFilter">
           <option value="">All</option>
           <option value="Active">Active</option>
@@ -101,7 +102,7 @@ watch([statusFilter, scopeTypeFilter, sortQueryParam], load)
           <option value="Revoked">Revoked</option>
         </select>
       </label>
-      <label>Scope:
+      <label class="field-label"><span class="field-label-text">Scope:</span>
         <select v-model="scopeTypeFilter">
           <option value="">All</option>
           <option value="Account">Account</option>
@@ -128,8 +129,8 @@ watch([statusFilter, scopeTypeFilter, sortQueryParam], load)
           <td><router-link :to="{ name: 'risk-exception-edit', params: { exceptionKey: exception.exceptionKey } }">{{ exception.exceptionID }}</router-link></td>
           <td>{{ exception.scopeType }}: {{ exception.scopeName }}</td>
           <td>{{ exception.approvedByName }}</td>
-          <td>{{ exception.approvalDate }}</td>
-          <td>{{ exception.reviewDate }}</td>
+          <td>{{ formatDate(exception.approvalDate) }}</td>
+          <td>{{ formatDate(exception.reviewDate) }}</td>
           <td>{{ exception.statusName }}</td>
           <td>{{ exception.justification }}</td>
         </tr>

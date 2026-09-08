@@ -40,6 +40,8 @@ public sealed class GlobalApplicationConfigController(
             changes.Add(new FieldChange("RetentionDays", before.RetentionDays?.ToString(), request.RetentionDays?.ToString()));
         if (before.LogReadEvents != request.LogReadEvents)
             changes.Add(new FieldChange("LogReadEvents", before.LogReadEvents.ToString(), request.LogReadEvents.ToString()));
+        if (before.BackupFolder != request.BackupFolder)
+            changes.Add(new FieldChange("BackupFolder", before.BackupFolder, request.BackupFolder));
 
         if (changes.Count > 0)
         {

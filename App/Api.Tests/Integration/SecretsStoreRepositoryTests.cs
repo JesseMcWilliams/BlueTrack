@@ -7,7 +7,7 @@ namespace BlueTrack.Api.Tests.Integration;
 
 /// <summary>
 /// web.secrets_store (Design_Secrets_Storage.md) is a fixed, pre-seeded set
-/// of six backend rows (14_BlueTrack_SecretsStoreSchema.sql) -- there's no
+/// of six backend rows (08_BlueTrack_WebSchema.sql) -- there's no
 /// Create/Delete, only SetActiveAsync, and exactly one row is active at a
 /// time. WindowsDpapi is seeded active by default, so every test here
 /// restores that afterward since this is shared, real BlueTrackTest state.

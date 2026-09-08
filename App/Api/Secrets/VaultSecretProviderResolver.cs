@@ -33,4 +33,23 @@ public sealed class VaultSecretProviderResolver(
 
         return provider;
     }
+
+    /// <summary>
+    /// D-116: web.credential lets an admin pick a backend per named
+    /// credential, independent of web.secrets_store's single "active"
+    /// backend (a different concept -- see that table's own comment).
+    /// Resolves whichever registered IVaultSecretProvider matches, with no
+    /// "is it the active one" check at all.
+    /// </summary>
+    public IVaultSecretProvider ResolveByBackendType(string backendType)
+    {
+        var provider = providers.FirstOrDefault(p => p.BackendType == backendType);
+        if (provider is null)
+        {
+            throw new SecretRetrievalException(
+                $"'{backendType}' has no provider implementation registered.", CyberArkErrorCategory.Other);
+        }
+
+        return provider;
+    }
 }

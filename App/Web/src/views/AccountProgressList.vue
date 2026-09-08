@@ -4,6 +4,7 @@
 // by just that column; shift-click another header to add it as a secondary
 // sort key without losing the first (badges show the resulting priority).
 import { ref, computed, watch, onMounted } from 'vue'
+import { formatDate } from '../utils/formatDate'
 
 const accounts = ref([])
 const referenceData = ref({})
@@ -109,26 +110,26 @@ watch([stageFilter, statusFilter, riskLevelFilter, ownerFilter, sortQueryParam],
 <template>
   <div>
     <h1>Account Progress</h1>
-    <p>
-      <label>Stage:
+    <p class="filter-row">
+      <label class="field-label"><span class="field-label-text">Stage:</span>
         <select v-model="stageFilter">
           <option value="">All</option>
           <option v-for="opt in referenceData.dim_blueprint_stage ?? []" :key="opt.key" :value="opt.name">{{ opt.name }}</option>
         </select>
       </label>
-      <label>Status:
+      <label class="field-label"><span class="field-label-text">Status:</span>
         <select v-model="statusFilter">
           <option value="">All</option>
           <option v-for="opt in referenceData.dim_progress_status ?? []" :key="opt.key" :value="opt.name">{{ opt.name }}</option>
         </select>
       </label>
-      <label>Risk Level:
+      <label class="field-label"><span class="field-label-text">Risk Level:</span>
         <select v-model="riskLevelFilter">
           <option value="">All</option>
           <option v-for="opt in referenceData.dim_risk_level ?? []" :key="opt.key" :value="opt.name">{{ opt.name }}</option>
         </select>
       </label>
-      <label>Owner: <input v-model="ownerFilter" type="text" placeholder="contains..." /></label>
+      <label class="field-label"><span class="field-label-text">Owner:</span> <input v-model="ownerFilter" type="text" placeholder="contains..." /></label>
     </p>
     <p v-if="loading" role="status">Loading...</p>
     <p v-else-if="error" role="alert">Could not load accounts: {{ error }}</p>
@@ -149,7 +150,7 @@ watch([stageFilter, statusFilter, riskLevelFilter, ownerFilter, sortQueryParam],
           <td>{{ account.statusName }}</td>
           <td>{{ account.riskLevelName }}</td>
           <td>{{ account.ownerName }}</td>
-          <td>{{ account.targetRemediationDate }}</td>
+          <td>{{ formatDate(account.targetRemediationDate) }}</td>
         </tr>
       </tbody>
     </table>

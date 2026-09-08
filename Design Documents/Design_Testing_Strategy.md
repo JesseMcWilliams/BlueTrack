@@ -32,7 +32,7 @@ An xUnit project that, per test run: creates/migrates a throwaway database (DbUp
 
 `WebApplicationFactory<Program>`-hosted xUnit tests calling real controllers in-process over real HTTP, backed by the same kind of disposable database as layer 2, authenticating via `DevFakeAuth`. This is where cross-cutting behavior actually gets exercised together: permission-policy enforcement per endpoint, D-42's multi-layer filter/sort, D-50's pessimistic locking, D-51's validation rules, and the audit trail those actions are supposed to produce (`web.audit_event`/`audit_field_change` rows matching what the action claims to have done).
 
-**Needs:** a purpose-built DevFakeAuth seed — the current `18_BlueTrack_DevFakeAuthSeed.sql` only seeds one disabled placeholder row, not the role/permission matrix (Viewer/Analyst/Approver/Admin, at minimum) this layer needs to test each permission boundary.
+**Needs:** a purpose-built DevFakeAuth seed — the current `11_BlueTrack_DevFakeAuthSeed.sql` only seeds one disabled placeholder row, not the role/permission matrix (Viewer/Analyst/Approver/Admin, at minimum) this layer needs to test each permission boundary.
 
 ### 4. End-to-end tests — Playwright, real browser
 
@@ -83,6 +83,10 @@ CyberArk CP/CCP/Conjur, Azure Key Vault, AWS Secrets Manager, and real OIDC/SAML
 
 All four layers exist and pass, against a real `BlueTrackTest` database on this host, driven by the self-hosted GitHub Actions runner already registered here (`.github/workflows/ci.yml`).
 
+- **Layer 1-3 (`App/Api.Tests`, xUnit):** one project, `Unit/`/`Integration/`/`Contract/` folders — 57 tests. Contract tests authenticate via `TestAuthHandler`, a test-only `AuthenticationHandler` that stamps the same `bluetrack:provider_type=DevFakeAuth` marker claim OIDC/SAML use, so `WebApplicationFactory` exercises the real authorization pipeline without a real Negotiate handshake (which `TestServer` can't perform at all — discovered directly building this, see `BlueTrackWebApplicationFactory`'s own comment).
+- **Layer 1 (`App/Web`, Vitest):** `src/stores/rights.test.js`, 7 tests against the real `rights` Pinia store.
+- **Layer 4 (`App/E2E`, Playwright):** `permission-boundaries.spec.js`, 4 tests against a real running API + built SPA. Role-switching goes through a new dev-only endpoint, `App/Api/Controllers/DevTestAuthController.cs` (`GET /api/auth/dev/test-signin`, 404 outside Development) — a real Negotiate-authenticated browser can only ever be the one Windows account it runs as, so DevFakeAuth's normal per-username lookup can't switch roles per test on its own.
+- **Test fixtures:** `Database/Test/01_BlueTrack_Test_DevFakeAuthMatrixSeed.sql` seeds synthetic `TestUser.Viewer` / `.Analyst` / `.Approver` / `.Admin` identities (never a real person's account) with a test-fixture-only Viewer/Analyst/Approver permission matrix; `Admin` reuses the real bootstrap role from `09_BlueTrack_WebSeed.sql`.
 **Updated 2026-09-05 (documentation audit)** — the counts below were badly stale (this section hadn't been touched since 2026-09-04 despite several full coverage passes landing after it was written); refreshed against the actual repo state:
 
 - **Layer 1-3 (`App/Api.Tests`, xUnit):** one project, `Unit/`/`Integration/`/`Contract/` folders — 251 tests across 49 files (grown well past the original 57 via several dedicated coverage-expansion PRs, #6-10, culminating in D-91's "confirmed comprehensive" audit against this document's own stated scope). Contract tests authenticate via `TestAuthHandler`, a test-only `AuthenticationHandler` that stamps the same `bluetrack:provider_type=DevFakeAuth` marker claim OIDC/SAML use, so `WebApplicationFactory` exercises the real authorization pipeline without a real Negotiate handshake (which `TestServer` can't perform at all — discovered directly building this, see `BlueTrackWebApplicationFactory`'s own comment).

@@ -1,6 +1,8 @@
 using BlueTrack.Api.Audit;
 using BlueTrack.Api.Auth;
 using BlueTrack.Api.Data;
+using BlueTrack.Api.Ldap;
+using BlueTrack.Api.Notifications;
 using BlueTrack.Api.Secrets;
 using ITfoxtec.Identity.Saml2.MvcCore.Configuration;
 using ITfoxtec.Identity.Saml2.Schemas;
@@ -43,6 +45,10 @@ builder.Services.AddScoped<ReferenceDataRepository>();
 builder.Services.AddScoped<AccountProgressLockRepository>();
 builder.Services.AddScoped<UserPreferenceRepository>();
 builder.Services.AddScoped<DeploymentRepository>();
+builder.Services.AddScoped<NotificationRepository>();
+builder.Services.AddScoped<CredentialRepository>();
+builder.Services.AddScoped<LdapConfigRepository>();
+builder.Services.AddScoped<LdapGroupMemberResolver>();
 
 // D-13/D-82: cached rights per identity, backed by
 // Microsoft.Extensions.Caching.SqlServer (web.distributed_cache) -- see
@@ -114,6 +120,19 @@ builder.Services.Configure<Microsoft.AspNetCore.Authentication.AuthenticationOpt
 });
 
 builder.Services.AddScoped<Saml2ConfigurationFactory>();
+
+// Notifications (Design_Notifications.md, D-115): a general, reusable
+// "send this alert to the admins" capability. INotificationSender is
+// Scoped (SmtpNotificationSender depends on NotificationRepository,
+// itself Scoped) -- NotificationCheckBackgroundService, a Singleton,
+// creates its own scope per check cycle rather than depending on these
+// directly. INotificationCheck has multiple registrations, same pattern
+// as IVaultSecretProvider -- adding a future trigger (e.g. D-19's
+// overdue Risk Exceptions) is a new AddScoped<INotificationCheck, ...>
+// line, not a change to the background service itself.
+builder.Services.AddScoped<INotificationSender, SmtpNotificationSender>();
+builder.Services.AddScoped<INotificationCheck, DevFakeAuthEnabledCheck>();
+builder.Services.AddHostedService<NotificationCheckBackgroundService>();
 
 // D-96 Part 3.2: real, custom IHealthCheck implementations (this app's own
 // checks, not third-party health-check packages) -- consumed via
