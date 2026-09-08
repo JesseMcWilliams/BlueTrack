@@ -60,6 +60,33 @@ Built on ASP.NET Core's built-in health checks middleware (`Microsoft.Extensions
 
 **A real, flagged operational risk, not silently assumed to work**: per D-30, this app's own SQL account is a deliberately least-privileged service account ("not `db_owner`, just grants scoped to what the app needs") — it almost certainly does **not** have read access to `msdb` today, since nothing in this app has ever needed it before now. This is a genuine deployment-time requirement, not something the application code can grant itself: whoever manages the SQL Server service account needs to run something equivalent to `GRANT SELECT ON msdb.dbo.backupset TO [that account];` (or add it to a suitable `msdb` role) before this feature will work in a real environment — this needs to be called out plainly in whatever setup documentation covers this feature, not discovered later as a silent failure. The endpoint itself should fail gracefully (a clear "backup history unavailable — check msdb permissions" message) rather than a raw 500 if that grant hasn't been made yet.
 
+**Resolved 2026-09-05 (D-107): a dedicated `msdb` role, not a one-off grant, so the permission is assignable to more than just the app's own service account:**
+
+```sql
+-- Proposed -- a DBA runs this once against msdb on the real SQL Server
+-- instance. Not tied to any application-owned migration, since granting
+-- msdb permissions is deliberately outside what this app's own
+-- (still-restricted) connection can do to itself.
+USE msdb;
+GO
+
+CREATE ROLE db_backupstatus_reader;
+GO
+
+GRANT SELECT ON msdb.dbo.backupset TO db_backupstatus_reader;
+GRANT SELECT ON msdb.dbo.backupmediafamily TO db_backupstatus_reader;
+GRANT SELECT ON msdb.dbo.backupfile TO db_backupstatus_reader;
+GO
+
+-- Then, whichever account should be able to read backup status:
+-- ALTER ROLE db_backupstatus_reader ADD MEMBER [DOMAIN\BlueTrackAppPoolAccount];
+-- -- or, for a human admin checking status via SSMS instead of widening
+-- -- the app's own account:
+-- ALTER ROLE db_backupstatus_reader ADD MEMBER [DOMAIN\SomeAdminLogin];
+```
+
+A role decouples "what permission is needed" from "who holds it" — confirmed directly: it should be assignable either to the application pool's own account (the feature as already built assumes this) or to a separate admin account (a human checking status by hand, without widening the app's own least-privileged connection). `backupmediafamily`/`backupfile` are included ahead of need in case a future refinement of the backup-status query wants media-set or physical-file detail beyond what `backupset` alone carries — trivial to drop if that never happens. This script is a proposal, not yet applied anywhere; it needs a DBA to run it (see Open Questions below for who and when).
+
 Query shape (illustrative): most recent `backup_finish_date` per backup `type` (`D`=full, `I`=differential, `L`=log) for `database_name = 'BlueTrack'` (or whichever database the running connection string targets, not hardcoded), from `msdb.dbo.backupset`.
 
 **Implemented 2026-09-04.** A new `DeploymentController`/`DeploymentRepository` back a new `admin/DeploymentInfo.vue` page, gated by a new `ViewDeploymentInfo` permission (originally granted via its own incremental script, `Database/25_BlueTrack_DeploymentInfoPermissionSeed.sql`; that script was retired in the 2026-09-05 restructure as redundant for a fresh install — the permission is already in `08_BlueTrack_WebSchema.sql`'s seed and `09_BlueTrack_WebSeed.sql`'s bootstrap Admin grant already covers every permission that exists at seed time).
@@ -88,6 +115,8 @@ Two questions resolved directly rather than assumed:
 - **Exact `<Version>` value and bump process.** Proposed as a manual, human-maintained value to start (no automated versioning/CI-stamping pipeline exists yet) — confirm that's acceptable before treating a specific number as meaningful.
 - **Who is expected to run the `msdb` permission grant, and when** — this design doc flags that it's needed, but granting it is an infrastructure/DBA action outside what this app's own code or a migration script can do (a migration runs as the app's own connection, which is exactly the account that needs the *extra* grant — it can't grant itself broader permissions from inside its own restricted connection).
 - ~~**Permission gating for the new Deployment page**~~ **Resolved (D-98):** a new `ViewDeploymentInfo` permission, granted to the bootstrap Admin role only (originally `Database/25_BlueTrack_DeploymentInfoPermissionSeed.sql`; folded into `08_BlueTrack_WebSchema.sql`/`09_BlueTrack_WebSeed.sql` in the 2026-09-05 restructure).
+- **Who is expected to *run* the `msdb` permission grant, and when** — the mechanism itself is now designed (D-107's `db_backupstatus_reader` role, above), but granting it is still an infrastructure/DBA action outside what this app's own code or a migration script can do (a migration runs as the app's own connection, which is exactly the account that needs the *extra* grant — it can't grant itself broader permissions from inside its own restricted connection), and no specific person/process owns actually executing that script yet.
+- ~~**Permission gating for the new Deployment page**~~ **Resolved (D-98):** a new `ViewDeploymentInfo` permission, granted to the bootstrap Admin role only (`Database/25_BlueTrack_DeploymentInfoPermissionSeed.sql`).
 
 ---
 *New document added 2026-09-04, following the user's request to build out structured config UI for Identity Providers and Secrets Store, plus a new admin page for deployment/environment information (environment+version, health checks, SQL Server backup status) — the exact scope narrowed down through several rounds of direct clarifying questions rather than assumed.*

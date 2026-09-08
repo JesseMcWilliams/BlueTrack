@@ -70,7 +70,7 @@ If an exception later expires and a new one is granted for the same account or a
 1. A user holding the `ApproveExceptions` permission sets an account's status to Risk Accepted / Excluded (or, once designed, applies an exception at the application level).
 2. The interface requires either linking an existing Active exception or creating a new one — the status cannot be set without one, enforced at the application layer (not a database trigger, consistent with how this project has avoided triggers elsewhere).
 3. A new exception is assigned the next `ExceptionID` per the org's configured numbering scheme, captures `Justification`/`ApprovedBy`/`ApprovalDate`/`ReviewDate`, and is marked Active.
-4. When `ReviewDate` passes, the exception surfaces on a worklist for re-approval or revocation. **Resolved 2026-08-27:** active notification (email, Teams, etc.) will be offered as an **optional/configurable** capability, not a mandatory feature for every exception (D-19).
+4. When `ReviewDate` passes, the exception surfaces on a worklist for re-approval or revocation. **Resolved 2026-08-27:** active notification (email, Teams, etc.) will be offered as an **optional/configurable** capability, not a mandatory feature for every exception (D-19). **The actual notification mechanism is designed in `Design_Notification_Framework.md` (D-109, 2026-09-05)** as `RiskExceptionReviewDue`, one of three event types sharing one consolidated dispatcher — this decision only established that active notification was wanted, not how it's sent.
 
 ## Implementation Status (added 2026-09-01)
 

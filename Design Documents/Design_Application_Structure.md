@@ -58,11 +58,16 @@ More report types can be added the same way later; this isn't meant to be exhaus
 
 **New 2026-08-27 (D-60).** A gap found on review: `audit_config` (`Design_Audit_Logging.md`) only holds audit-specific settings (`RetentionDays`, `LogReadEvents`), but the Global Application Configuration page also needs to hold settings that have nothing to do with auditing. Kept as a separate table rather than folding into `audit_config`, so audit-specific and general settings stay cleanly separated as more global settings get added later.
 
+**Updated 2026-09-05 (documentation audit)** — this listing had drifted from the real table as more global settings landed piecemeal (`ExceptionIdPattern`/`LockTimeoutMinutes` via `Database/12`/`15`); refreshed to match:
+
 | Field | Type | Purpose |
 |---|---|---|
-| AppConfigKey | int, PK | Surrogate key (or a fixed singleton row, same pattern as `audit_config`) |
+| AppConfigKey | int, PK | Surrogate key (fixed singleton row, same pattern as `audit_config`) |
 | IdleTimeoutMinutes | int, default 30 | Session idle timeout (D-28) |
 | BreadcrumbPosition | text, controlled list, default 'TopLeft' | Breadcrumb position (D-45/D-57) |
+| ExceptionIdPattern | text | Risk Exception ID display format (D-71, `Database/12_BlueTrack_ExceptionIdNumbering.sql`) |
+| ExceptionIdSequenceYear / ExceptionIdNextSequence | int / int | Backing counter for the above, resets per calendar year |
+| LockTimeoutMinutes | int | Account Progress edit-lock expiry (`Database/15_BlueTrack_LockTimeoutConfig.sql`) |
 | ModifiedBy / ModifiedDate | FK to app_user / datetime | Change tracking (D-59) |
 
 **Note on step-up MFA scope (D-29):** this is **not** included here. D-29 reads as a fixed architectural policy ("configuration settings and security settings require step-up, general workflow actions don't") rather than something an admin tunes at runtime the way idle timeout or breadcrumb position is — it's enforced by tagging which actions/endpoints are security-sensitive in code, not a config row. Flagging this reading explicitly in case that's wrong — if step-up scope is actually meant to be admin-adjustable, it belongs here too.
@@ -89,8 +94,10 @@ Every page in the inventory above is now built: Reports (its three sub-pages), R
 
 **Frontend permission-gating — resolved 2026-09-04 (D-78).** A Pinia store (`App/Web/src/stores/rights.js`) loads `/api/me` once per session and exposes `hasPermission(name)`, mirroring the API's own real `[Authorize(Policy = ...)]` gates rather than a separately-invented list. Wired into: the Admin hub sidebar (each section checks its actual required permission), the Reports hub (Reconciliation Review link checks `ConfirmReconciliation`), the Risk Exceptions list's "+ New Exception" link (`ApproveExceptions`), and the Account Progress edit form (skips attempting to acquire the edit lock entirely for a viewer without `EditAccountProgress`, rather than surfacing a raw 403 as if someone else had it locked). My Profile now has a real self-service "Reload My Rights" button (D-14) backed by the same store. Found and fixed a real gap along the way: the Reconciliation Review Queue's own API endpoint had no `ConfirmReconciliation` policy at all despite D-56 calling for one — the frontend gate would have been cosmetic without it.
 
-Verified: the API endpoints involved (including the newly-gated one) respond correctly for a permission-holding session, and every changed Vue module transforms cleanly under Vite's dev server (no syntax/import errors). **Not verified in an actual browser** — this environment has no browser-automation tooling, so the hide/show behavior itself (as opposed to the code and API responses it depends on) was checked by careful review, not by watching it render.
+Verified: the API endpoints involved (including the newly-gated one) respond correctly for a permission-holding session, and every changed Vue module transforms cleanly under Vite's dev server (no syntax/import errors). At the time this was written, this environment had no browser-automation tooling, so the hide/show behavior itself was checked by careful review rather than by watching it render — **superseded 2026-09-04**: Playwright was added shortly after (D-87/D-88), and every permission-gated hide/show behavior described above is now covered by real browser tests (`admin-pages.spec.js`, `permission-boundaries.spec.js`, `reports-pages.spec.js`).
+
+**Dashboard.vue — built 2026-09-05 (D-99), added here since this document's Page Inventory names it above but the original Implementation Status entry (2026-09-01) predates it.** Three summary cards built entirely from existing endpoints, no new backend rollups: accounts-by-stage totals (`GET /api/reports/stage-status-summary`), an overdue/at-risk accounts count with a link into that worklist (`GET /api/reports/overdue-at-risk`), and risk exceptions needing attention — an overdue-review count any authenticated user sees, plus an active-exceptions-awaiting-approval count shown only to users holding `ApproveExceptions` (checked client-side so most roles never attempt a call that would 403). See `Design_Decision_Register.md` D-99 and the Login page's own D-100 (also built the same day, closing out every remaining literal-placeholder page named in this document's Page Inventory).
 
 ## Open Questions
 
-None remaining as of 2026-08-27.
+None remaining as of 2026-08-27 — still true as of the 2026-09-05 updates above (Playwright coverage, Dashboard.vue, the `app_config` schema refresh); none of them raised a new open question.

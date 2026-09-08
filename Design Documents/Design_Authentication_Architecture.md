@@ -110,7 +110,7 @@ Verified directly on this dev host: with DevFakeAuth enabled and the current Win
 - **Provider memory:** approved. The login screen will remember/default to a user's last-used provider rather than always presenting the full choice screen. (D-02)
 - **SAML library:** approved. ITfoxtec.Identity.Saml2. (D-23)
 - **Break-glass credential custody:** approved 2026-08-27. The break-glass credential is stored securely in the CyberArk product itself (not in this application's own secret store), consistent with treating it as a privileged credential like any other. (D-24)
-- **Break-glass use alerting:** approved 2026-08-27. Beyond passive capture in the general audit log (D-10/D-11), a break-glass logon triggers an active alert. This fully resolves the audit-of-break-glass question — see former Q-01. (D-24)
+- **Break-glass use alerting:** approved 2026-08-27. Beyond passive capture in the general audit log (D-10/D-11), a break-glass logon triggers an active alert. This fully resolves the audit-of-break-glass question — see former Q-01. (D-24) **The alert-delivery mechanism itself is designed in `Design_Notification_Framework.md` (D-109, 2026-09-05)** — this decision only established that an alert must fire, not how.
 
 ## SAML Security Hardening
 
@@ -127,7 +127,7 @@ Guidance adopted 2026-08-27 for the ITfoxtec.Identity.Saml2 integration (D-23). 
 - Enforce `SubjectConfirmationMethod` is `bearer` (or whichever method is actually intended to be accepted) — don't accept whatever method is presented. (D-26)
 - Enforce `NotBefore`/`NotOnOrAfter` conditions with a small clock-skew allowance (a couple of minutes), not disabled. (D-26)
 - Reject unsigned assertions and unsigned responses wherever the IdP is expected to sign either. (D-26)
-- Log and alert on any rejected assertion (bad signature, wrong issuer, expired) — this is the canary for a probing attacker, not just a debug log line. (D-26, ties into the general audit/alerting work in `Design_Audit_Logging.md`)
+- Log and alert on any rejected assertion (bad signature, wrong issuer, expired) — this is the canary for a probing attacker, not just a debug log line. (D-26, ties into the general audit/alerting work in `Design_Audit_Logging.md`; the alert-delivery mechanism itself is `Design_Notification_Framework.md`, D-109)
 
 ### Operational
 
@@ -135,4 +135,4 @@ Guidance adopted 2026-08-27 for the ITfoxtec.Identity.Saml2 integration (D-23). 
 
 ## Open Questions
 
-None remaining as of 2026-08-27 — the prior open question on this document (Q-01, break-glass credential custody and audit) was resolved this session as D-24 above.
+None remaining as of 2026-08-27 — the prior open question on this document (Q-01, break-glass credential custody and audit) was resolved this session as D-24 above. **New item found 2026-09-05 (documentation audit):** D-24 says a break-glass logon "triggers an active alert," but no alert-delivery mechanism was ever built or even designed — see the new `Design_Notification_Framework.md`, which resolves this alongside two other decisions (D-19, D-26) that made the same assumption.
