@@ -36,11 +36,12 @@ test.describe('Account Progress edit form', () => {
     await page.fill('form input[type="text"]', 'Playwright E2E Owner')
     await page.click('form button[type="submit"]')
 
-    // A successful save releases the lock and falls back to the read-only
-    // <dl> view -- if the save had failed, the form (with its error
-    // message) would still be showing instead.
-    await expect(page.locator('form')).toHaveCount(0)
-    await expect(page.locator('dl')).toBeVisible()
+    // D-114: a successful save now navigates back to the Accounts list
+    // instead of staying on this page and falling back to a read-only <dl>
+    // -- if the save had failed, the form (with its error message) would
+    // still be showing on this same route instead.
+    await expect(page).toHaveURL(/\/accounts$/)
+    await expect(page.getByRole('heading', { name: 'Account Progress' })).toBeVisible()
   })
 
   test('Viewer sees the read-only view, never the edit form', async ({ page }) => {

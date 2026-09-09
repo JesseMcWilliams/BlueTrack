@@ -21,10 +21,12 @@ test.describe('MyProfile reflects the signed-in DevFakeAuth role', () => {
 
     await page.goto('/profile')
 
+    // D-114: permissions moved out of this <dl> into their own <table>
+    // (one row per permission name) -- Role(s) is still in the <dl>.
     await expect(page.getByText('Role(s)')).toBeVisible()
     const dl = page.locator('dl')
     await expect(dl).toContainText('Approver')
-    await expect(dl).toContainText('ApproveExceptions')
+    await expect(page.locator('table')).toContainText('ApproveExceptions')
   })
 
   test('Viewer sees the Viewer role without ApproveExceptions', async ({ page }) => {
@@ -34,7 +36,7 @@ test.describe('MyProfile reflects the signed-in DevFakeAuth role', () => {
 
     const dl = page.locator('dl')
     await expect(dl).toContainText('Viewer')
-    await expect(dl).not.toContainText('ApproveExceptions')
+    await expect(page.locator('table')).not.toContainText('ApproveExceptions')
   })
 })
 
