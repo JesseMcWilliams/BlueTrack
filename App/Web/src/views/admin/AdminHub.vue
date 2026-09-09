@@ -21,7 +21,9 @@ const sections = [
   { name: 'admin-notifications', label: 'Notifications', permission: 'ManageNotifications' },
   { name: 'admin-credentials', label: 'Credentials & LDAP', permission: 'ManageCredentials' },
   { name: 'admin-targets', label: 'Targets', permission: 'ManageTargets' },
-  { name: 'admin-access-groups', label: 'Access Groups', permission: 'ManageAccessGroups' }
+  { name: 'admin-access-groups', label: 'Access Groups', permission: 'ManageAccessGroups' },
+  { name: 'admin-target-match-review', label: 'Target Match Review', permission: 'ManageTargets' },
+  { name: 'admin-import-mapping-profiles', label: 'Import Mapping Profiles', permission: 'ManageTargets' }
 ]
 
 const visibleSections = computed(() => sections.filter(s => rights.hasPermission(s.permission)))

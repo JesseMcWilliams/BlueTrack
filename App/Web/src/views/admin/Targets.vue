@@ -3,8 +3,68 @@
 // the Target inventory. Each Target's identifiers (web.target_identifier)
 // are a small nested collection edited alongside the Target itself --
 // replace-all-on-save (TargetRepository's own comment on why).
-// Bulk CSV upload/import-template come in Phase B.
+// Phase B adds bulk CSV upload (Target inventory + direct Account->Target
+// links) against RiskScoringImportController.
 import { ref, onMounted } from 'vue'
+
+const inventoryFile = ref(null)
+const inventoryImportResult = ref(null)
+const inventoryImporting = ref(false)
+
+const accountTargetFile = ref(null)
+const accountTargetImportResult = ref(null)
+const accountTargetImporting = ref(false)
+
+const linkAccountName = ref('')
+const linkTargetKey = ref(null)
+const linkError = ref(null)
+const linkSaved = ref(false)
+
+async function importFile(url, fileRef, resultRef, importingRef) {
+  if (!fileRef.value) return
+  importingRef.value = true
+  resultRef.value = null
+  try {
+    const formData = new FormData()
+    formData.append('file', fileRef.value)
+    const response = await fetch(url, { method: 'POST', body: formData })
+    resultRef.value = response.ok ? await response.json() : { error: `Import failed: ${response.status}` }
+  } finally {
+    importingRef.value = false
+  }
+}
+
+function onInventoryFileChange(event) {
+  inventoryFile.value = event.target.files[0] ?? null
+}
+function onAccountTargetFileChange(event) {
+  accountTargetFile.value = event.target.files[0] ?? null
+}
+
+async function importInventory() {
+  await importFile('/api/admin/risk-scoring/import/target-inventory', inventoryFile, inventoryImportResult, inventoryImporting)
+  await load()
+}
+async function importAccountTargetMap() {
+  await importFile('/api/admin/risk-scoring/import/account-target-map', accountTargetFile, accountTargetImportResult, accountTargetImporting)
+}
+
+async function createAccountTargetLink() {
+  linkError.value = null
+  linkSaved.value = false
+  const response = await fetch('/api/admin/risk-scoring/account-target-links', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ accountName: linkAccountName.value, targetKey: linkTargetKey.value })
+  })
+  if (!response.ok) {
+    linkError.value = `Link failed: ${response.status}`
+    return
+  }
+  linkSaved.value = true
+  linkAccountName.value = ''
+  linkTargetKey.value = null
+}
 
 const TARGET_TYPES = ['Server', 'Desktop', 'Database', 'Application', 'LdapDirectory', 'Appliance', 'Other']
 
@@ -136,6 +196,46 @@ async function remove(item) {
 
         <button type="submit" class="btn-primary">Save</button>
         <button type="button" @click="cancelEdit">Cancel</button>
+      </form>
+
+      <h3>Bulk Import: Target Inventory</h3>
+      <p>
+        <a href="/api/admin/risk-scoring/import/target-inventory/template">Download template</a> --
+        each row is matched against existing Targets by identifier (auto-merges on a strong match, e.g. ADGuid; a weak IP-only match is queued for review instead of auto-merging).
+      </p>
+      <p class="filter-row">
+        <input type="file" accept=".csv" @change="onInventoryFileChange" />
+        <button :disabled="!inventoryFile || inventoryImporting" @click="importInventory">{{ inventoryImporting ? 'Importing...' : 'Import' }}</button>
+      </p>
+      <p v-if="inventoryImportResult">
+        {{ inventoryImportResult.totalRows }} rows -- {{ inventoryImportResult.createdCount }} created, {{ inventoryImportResult.mergedCount }} merged, {{ inventoryImportResult.pendingReviewCount }} pending review, {{ inventoryImportResult.errors?.length ?? 0 }} errors.
+        <span v-if="inventoryImportResult.errors?.length"><br />{{ inventoryImportResult.errors.map(e => `Row ${e.rowNumber}: ${e.error}`).join('; ') }}</span>
+      </p>
+
+      <h3>Bulk Import: Direct Account -&gt; Target Links</h3>
+      <p><a href="/api/admin/risk-scoring/import/account-target-map/template">Download template</a> -- rows this app cannot yet match to an existing Target/Account are reported as row errors, not silently skipped.</p>
+      <p class="filter-row">
+        <input type="file" accept=".csv" @change="onAccountTargetFileChange" />
+        <button :disabled="!accountTargetFile || accountTargetImporting" @click="importAccountTargetMap">{{ accountTargetImporting ? 'Importing...' : 'Import' }}</button>
+      </p>
+      <p v-if="accountTargetImportResult">
+        {{ accountTargetImportResult.totalRows }} rows -- {{ accountTargetImportResult.createdCount }} created, {{ accountTargetImportResult.mergedCount }} already linked, {{ accountTargetImportResult.errors?.length ?? 0 }} errors.
+        <span v-if="accountTargetImportResult.errors?.length"><br />{{ accountTargetImportResult.errors.map(e => `Row ${e.rowNumber}: ${e.error}`).join('; ') }}</span>
+      </p>
+
+      <h4>Link a Single Account to a Target</h4>
+      <p v-if="linkError" role="alert">{{ linkError }}</p>
+      <p v-if="linkSaved" role="status">Linked.</p>
+      <form class="filter-row" @submit.prevent="createAccountTargetLink">
+        <label class="field-label"><span class="field-label-text">Account Name:</span> <input v-model="linkAccountName" required /></label>
+        <label class="field-label">
+          <span class="field-label-text">Target:</span>
+          <select v-model="linkTargetKey" required>
+            <option :value="null" disabled>(choose)</option>
+            <option v-for="item in items" :key="item.targetKey" :value="item.targetKey">{{ item.targetName }}</option>
+          </select>
+        </label>
+        <button type="submit" class="btn-primary">Link</button>
       </form>
     </template>
   </div>

@@ -208,6 +208,18 @@ const routes = [
         name: 'admin-access-groups',
         meta: { breadcrumb: 'Access Groups', breadcrumbParent: 'admin' },
         component: () => import('../views/admin/AccessGroups.vue')
+      },
+      {
+        path: 'target-match-review',
+        name: 'admin-target-match-review',
+        meta: { breadcrumb: 'Target Match Review', breadcrumbParent: 'admin' },
+        component: () => import('../views/admin/TargetMatchReview.vue')
+      },
+      {
+        path: 'import-mapping-profiles',
+        name: 'admin-import-mapping-profiles',
+        meta: { breadcrumb: 'Import Mapping Profiles', breadcrumbParent: 'admin' },
+        component: () => import('../views/admin/ImportMappingProfiles.vue')
       }
     ]
   },
