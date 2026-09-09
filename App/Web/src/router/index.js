@@ -196,6 +196,18 @@ const routes = [
         name: 'admin-credentials',
         meta: { breadcrumb: 'Credentials & LDAP', breadcrumbParent: 'admin' },
         component: () => import('../views/admin/Credentials.vue')
+      },
+      {
+        path: 'targets',
+        name: 'admin-targets',
+        meta: { breadcrumb: 'Targets', breadcrumbParent: 'admin' },
+        component: () => import('../views/admin/Targets.vue')
+      },
+      {
+        path: 'access-groups',
+        name: 'admin-access-groups',
+        meta: { breadcrumb: 'Access Groups', breadcrumbParent: 'admin' },
+        component: () => import('../views/admin/AccessGroups.vue')
       }
     ]
   },

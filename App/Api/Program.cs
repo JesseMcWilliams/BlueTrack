@@ -49,6 +49,8 @@ builder.Services.AddScoped<NotificationRepository>();
 builder.Services.AddScoped<CredentialRepository>();
 builder.Services.AddScoped<LdapConfigRepository>();
 builder.Services.AddScoped<LdapGroupMemberResolver>();
+builder.Services.AddScoped<TargetRepository>();
+builder.Services.AddScoped<AccessGroupRepository>();
 
 // D-13/D-82: cached rights per identity, backed by
 // Microsoft.Extensions.Caching.SqlServer (web.distributed_cache) -- see
