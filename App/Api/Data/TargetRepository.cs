@@ -1,5 +1,6 @@
 using Dapper;
 using BlueTrack.Api.Models;
+using BlueTrack.Api.RiskScoring;
 
 namespace BlueTrack.Api.Data;
 
@@ -84,6 +85,9 @@ public sealed class TargetRepository(IDbConnectionFactory connectionFactory)
         connection.Open();
         using var transaction = connection.BeginTransaction();
 
+        var previousRiskScore = await connection.QuerySingleAsync<int>(
+            "SELECT RiskScore FROM web.dim_target WHERE TargetKey = @TargetKey", new { TargetKey = targetKey }, transaction);
+
         await connection.ExecuteAsync("""
             UPDATE web.dim_target
             SET TargetType = @TargetType, TargetName = @TargetName, ApplicationKey = @ApplicationKey,
@@ -94,6 +98,11 @@ public sealed class TargetRepository(IDbConnectionFactory connectionFactory)
 
         await connection.ExecuteAsync("DELETE FROM web.target_identifier WHERE TargetKey = @TargetKey", new { TargetKey = targetKey }, transaction);
         await InsertIdentifiersAsync(connection, transaction, targetKey, request.Identifiers);
+
+        if (request.RiskScore != previousRiskScore)
+        {
+            await RiskScoreStalenessPropagator.MarkEntitiesReachingTargetStaleAsync(connection, transaction, targetKey);
+        }
 
         transaction.Commit();
     }

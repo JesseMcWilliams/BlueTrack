@@ -1,5 +1,7 @@
 using BlueTrack.Api.Data;
 using BlueTrack.Api.Models;
+using Dapper;
+using Microsoft.Data.SqlClient;
 using Xunit;
 
 namespace BlueTrack.Api.Tests.Integration;
@@ -174,6 +176,115 @@ public class TargetAndAccessGroupRepositoryTests
         finally
         {
             await targetRepository.DeleteAsync(targetKey);
+        }
+    }
+
+    [Fact]
+    public async Task Target_UpdateAsync_RiskScoreChange_MarksReachingAccountsStale_ButLeavesUnrelatedAccountsAlone()
+    {
+        var targetRepository = CreateTargetRepository();
+        var targetKey = await targetRepository.CreateAsync(new SaveTargetRequest
+        {
+            TargetType = "Server",
+            TargetName = $"IntegrationTest_{Guid.NewGuid():N}",
+            RiskScore = 300,
+            Identifiers = []
+        }, modifiedByUserKey: null);
+
+        await using var connection = new SqlConnection(TestDatabase.ConnectionString);
+        await connection.OpenAsync();
+
+        var reachingAccountKey = await connection.QuerySingleAsync<long>(
+            "INSERT INTO fact_account (SourceSystemKey, SourceAccountId, AccountName, IsDeleted) OUTPUT inserted.AccountKey VALUES (1, @SourceAccountId, 'IntegrationTest Reaching Account', 0)",
+            new { SourceAccountId = $"IntegrationTest_{Guid.NewGuid():N}" });
+        var unrelatedAccountKey = await connection.QuerySingleAsync<long>(
+            "INSERT INTO fact_account (SourceSystemKey, SourceAccountId, AccountName, IsDeleted) OUTPUT inserted.AccountKey VALUES (1, @SourceAccountId, 'IntegrationTest Unrelated Account', 0)",
+            new { SourceAccountId = $"IntegrationTest_{Guid.NewGuid():N}" });
+        await connection.ExecuteAsync(
+            "INSERT INTO web.account_target_map (AccountKey, TargetKey, SourceMethod) VALUES (@AccountKey, @TargetKey, 'ManualImport')",
+            new { AccountKey = reachingAccountKey, TargetKey = targetKey });
+        // Both accounts start with a non-stale row -- only the one actually reaching the edited Target should flip.
+        await connection.ExecuteAsync(
+            "INSERT INTO web.account_risk_score (AccountKey, ComputedRiskScore, IsRiskScoreStale) VALUES (@A1, 0, 0), (@A2, 0, 0)",
+            new { A1 = reachingAccountKey, A2 = unrelatedAccountKey });
+
+        try
+        {
+            await targetRepository.UpdateAsync(targetKey, new SaveTargetRequest
+            {
+                TargetType = "Server",
+                TargetName = $"IntegrationTest_{Guid.NewGuid():N}",
+                RiskScore = 850, // changed -- must cascade
+                Identifiers = []
+            }, modifiedByUserKey: null);
+
+            var reachingIsStale = await connection.QuerySingleAsync<bool>(
+                "SELECT IsRiskScoreStale FROM web.account_risk_score WHERE AccountKey = @AccountKey", new { AccountKey = reachingAccountKey });
+            var unrelatedIsStale = await connection.QuerySingleAsync<bool>(
+                "SELECT IsRiskScoreStale FROM web.account_risk_score WHERE AccountKey = @AccountKey", new { AccountKey = unrelatedAccountKey });
+
+            Assert.True(reachingIsStale);
+            Assert.False(unrelatedIsStale);
+        }
+        finally
+        {
+            await connection.ExecuteAsync("DELETE FROM web.account_target_map WHERE AccountKey = @AccountKey", new { AccountKey = reachingAccountKey });
+            await connection.ExecuteAsync("DELETE FROM web.account_risk_score WHERE AccountKey IN (@A1, @A2)", new { A1 = reachingAccountKey, A2 = unrelatedAccountKey });
+            await connection.ExecuteAsync("DELETE FROM dbo.fact_account_progress_history WHERE AccountKey IN (@A1, @A2)", new { A1 = reachingAccountKey, A2 = unrelatedAccountKey });
+            await connection.ExecuteAsync("DELETE FROM dbo.fact_account_progress WHERE AccountKey IN (@A1, @A2)", new { A1 = reachingAccountKey, A2 = unrelatedAccountKey });
+            await connection.ExecuteAsync("DELETE FROM fact_account WHERE AccountKey IN (@A1, @A2)", new { A1 = reachingAccountKey, A2 = unrelatedAccountKey });
+            await targetRepository.DeleteAsync(targetKey);
+        }
+    }
+
+    [Fact]
+    public async Task AccessGroup_UpdateAsync_BaseRiskScoreChange_MarksMemberAccountsStale()
+    {
+        var accessGroupRepository = CreateAccessGroupRepository();
+        var identifier = $"IntegrationTest_{Guid.NewGuid():N}";
+        var accessGroupKey = await accessGroupRepository.CreateAsync(new SaveAccessGroupRequest
+        {
+            GroupName = "Integration Test Stale Cascade Group",
+            GroupIdentifier = identifier,
+            GroupScope = "Domain",
+            BaseRiskScore = 50
+        }, modifiedByUserKey: null);
+
+        await using var connection = new SqlConnection(TestDatabase.ConnectionString);
+        await connection.OpenAsync();
+
+        var memberAccountKey = await connection.QuerySingleAsync<long>(
+            "INSERT INTO fact_account (SourceSystemKey, SourceAccountId, AccountName, IsDeleted) OUTPUT inserted.AccountKey VALUES (1, @SourceAccountId, 'IntegrationTest Member Account', 0)",
+            new { SourceAccountId = $"IntegrationTest_{Guid.NewGuid():N}" });
+        await connection.ExecuteAsync(
+            "INSERT INTO web.account_access_group_map (AccountKey, AccessGroupKey) VALUES (@AccountKey, @AccessGroupKey)",
+            new { AccountKey = memberAccountKey, AccessGroupKey = accessGroupKey });
+        await connection.ExecuteAsync(
+            "INSERT INTO web.account_risk_score (AccountKey, ComputedRiskScore, IsRiskScoreStale) VALUES (@AccountKey, 0, 0)",
+            new { AccountKey = memberAccountKey });
+
+        try
+        {
+            await accessGroupRepository.UpdateAsync(accessGroupKey, new SaveAccessGroupRequest
+            {
+                GroupName = "Integration Test Stale Cascade Group",
+                GroupIdentifier = identifier,
+                GroupScope = "Domain",
+                BaseRiskScore = 250 // changed -- must cascade to members
+            }, modifiedByUserKey: null);
+
+            var memberIsStale = await connection.QuerySingleAsync<bool>(
+                "SELECT IsRiskScoreStale FROM web.account_risk_score WHERE AccountKey = @AccountKey", new { AccountKey = memberAccountKey });
+            Assert.True(memberIsStale);
+        }
+        finally
+        {
+            await connection.ExecuteAsync("DELETE FROM web.account_access_group_map WHERE AccountKey = @AccountKey", new { AccountKey = memberAccountKey });
+            await connection.ExecuteAsync("DELETE FROM web.account_risk_score WHERE AccountKey = @AccountKey", new { AccountKey = memberAccountKey });
+            await connection.ExecuteAsync("DELETE FROM dbo.fact_account_progress_history WHERE AccountKey = @AccountKey", new { AccountKey = memberAccountKey });
+            await connection.ExecuteAsync("DELETE FROM dbo.fact_account_progress WHERE AccountKey = @AccountKey", new { AccountKey = memberAccountKey });
+            await connection.ExecuteAsync("DELETE FROM fact_account WHERE AccountKey = @AccountKey", new { AccountKey = memberAccountKey });
+            await accessGroupRepository.DeleteAsync(accessGroupKey);
         }
     }
 }

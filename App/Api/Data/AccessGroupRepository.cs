@@ -1,5 +1,6 @@
 using Dapper;
 using BlueTrack.Api.Models;
+using BlueTrack.Api.RiskScoring;
 
 namespace BlueTrack.Api.Data;
 
@@ -49,6 +50,13 @@ public sealed class AccessGroupRepository(IDbConnectionFactory connectionFactory
     public async Task UpdateAsync(int accessGroupKey, SaveAccessGroupRequest request, int? modifiedByUserKey)
     {
         using var connection = connectionFactory.Create();
+        connection.Open();
+        using var transaction = connection.BeginTransaction();
+
+        var previous = await connection.QuerySingleAsync<(int BaseRiskScore, string GroupScope, int? FoundOnTargetKey)>(
+            "SELECT BaseRiskScore, GroupScope, FoundOnTargetKey FROM web.dim_access_group WHERE AccessGroupKey = @AccessGroupKey",
+            new { AccessGroupKey = accessGroupKey }, transaction);
+
         // BaseRiskScore feeds directly into ComputedRiskScore -- any edit here
         // marks the score stale, same explicit-staleness convention Phase D's
         // load procedures will also follow for ETL-driven changes.
@@ -70,7 +78,18 @@ public sealed class AccessGroupRepository(IDbConnectionFactory connectionFactory
             request.BaseRiskScore,
             request.Description,
             ModifiedBy = modifiedByUserKey
-        });
+        }, transaction);
+
+        // BaseRiskScore, GroupScope and FoundOnTargetKey all feed into what a
+        // member Account reaches per ufn_ReachableRiskValues -- any of the
+        // three changing means every current member Account needs restaling,
+        // not just this Access Group's own row (already marked above).
+        if (request.BaseRiskScore != previous.BaseRiskScore || request.GroupScope != previous.GroupScope || request.FoundOnTargetKey != previous.FoundOnTargetKey)
+        {
+            await RiskScoreStalenessPropagator.MarkEntitiesReachingAccessGroupStaleAsync(connection, transaction, accessGroupKey);
+        }
+
+        transaction.Commit();
     }
 
     public async Task DeleteAsync(int accessGroupKey)

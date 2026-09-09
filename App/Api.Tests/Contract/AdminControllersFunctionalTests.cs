@@ -193,7 +193,8 @@ public class AdminControllersFunctionalTests : IClassFixture<BlueTrackWebApplica
             exceptionIdPattern = before.ExceptionIdPattern,
             lockTimeoutMinutes = before.LockTimeoutMinutes,
             retentionDays = before.RetentionDays,
-            logReadEvents = before.LogReadEvents
+            logReadEvents = before.LogReadEvents,
+            activeRiskAlgorithm = before.ActiveRiskAlgorithm
         });
         Assert.Equal(HttpStatusCode.NoContent, updateResponse.StatusCode);
 
@@ -208,7 +209,8 @@ public class AdminControllersFunctionalTests : IClassFixture<BlueTrackWebApplica
             exceptionIdPattern = before.ExceptionIdPattern,
             lockTimeoutMinutes = before.LockTimeoutMinutes,
             retentionDays = before.RetentionDays,
-            logReadEvents = before.LogReadEvents
+            logReadEvents = before.LogReadEvents,
+            activeRiskAlgorithm = before.ActiveRiskAlgorithm
         });
         Assert.Equal(HttpStatusCode.NoContent, restoreResponse.StatusCode);
     }
@@ -497,6 +499,7 @@ public class AdminControllersFunctionalTests : IClassFixture<BlueTrackWebApplica
         public int LockTimeoutMinutes { get; set; }
         public int? RetentionDays { get; set; }
         public bool LogReadEvents { get; set; }
+        public string ActiveRiskAlgorithm { get; set; } = "";
     }
 
     private sealed class PermissionCatalogItemResponse

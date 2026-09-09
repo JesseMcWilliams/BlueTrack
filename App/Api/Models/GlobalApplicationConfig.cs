@@ -17,6 +17,9 @@ public sealed class GlobalApplicationConfig
 
     /// <summary>D-117: BACKUP DATABASE's TO DISK target directory for the Deployment page's Backup App button.</summary>
     public string? BackupFolder { get; init; }
+
+    /// <summary>D-119 Phase D: which of the two candidate scoring algorithms usp_CalculateRiskScore dispatches to.</summary>
+    public required string ActiveRiskAlgorithm { get; init; }
 }
 
 public sealed class SaveGlobalApplicationConfigRequest
@@ -28,4 +31,5 @@ public sealed class SaveGlobalApplicationConfigRequest
     public int? RetentionDays { get; init; }
     public bool LogReadEvents { get; init; }
     public string? BackupFolder { get; init; }
+    public required string ActiveRiskAlgorithm { get; init; }
 }

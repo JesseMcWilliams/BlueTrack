@@ -96,7 +96,8 @@ public class DeploymentBackupTests : IClassFixture<BlueTrackWebApplicationFactor
             lockTimeoutMinutes = based.LockTimeoutMinutes,
             retentionDays = based.RetentionDays,
             logReadEvents = based.LogReadEvents,
-            backupFolder
+            backupFolder,
+            activeRiskAlgorithm = based.ActiveRiskAlgorithm
         });
 
     private sealed class ConfigResponse
@@ -108,5 +109,6 @@ public class DeploymentBackupTests : IClassFixture<BlueTrackWebApplicationFactor
         public int? RetentionDays { get; set; }
         public bool LogReadEvents { get; set; }
         public string? BackupFolder { get; set; }
+        public string ActiveRiskAlgorithm { get; set; } = "";
     }
 }
