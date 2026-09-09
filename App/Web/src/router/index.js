@@ -110,6 +110,12 @@ const routes = [
         name: 'reports-unresolved-entitlement-members',
         meta: { breadcrumb: 'Unresolved Entitlement Members', breadcrumbParent: 'reports' },
         component: () => import('../views/reports/UnresolvedEntitlementMembers.vue')
+      },
+      {
+        path: 'risk-score',
+        name: 'reports-risk-score',
+        meta: { breadcrumb: 'Risk Score', breadcrumbParent: 'reports' },
+        component: () => import('../views/reports/RiskScoreReport.vue')
       }
     ]
   },

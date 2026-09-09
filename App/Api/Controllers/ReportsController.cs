@@ -8,7 +8,7 @@ namespace BlueTrack.Api.Controllers;
 [ApiController]
 [Route("api/reports")]
 [Authorize]
-public sealed class ReportsController(ReportsRepository repository) : ControllerBase
+public sealed class ReportsController(ReportsRepository repository, RiskScoreReportRepository riskScoreReportRepository) : ControllerBase
 {
     [HttpGet("overdue-at-risk")]
     public async Task<IActionResult> GetOverdueAtRisk()
@@ -48,5 +48,32 @@ public sealed class ReportsController(ReportsRepository repository) : Controller
     {
         var results = await repository.GetUnresolvedEntitlementMembersAsync();
         return Ok(results);
+    }
+
+    /// <summary>D-101-105 Phase E: the new Risk Score report, gated by ViewRiskReport per the plan approved for D-119.</summary>
+    [HttpGet("risk-score")]
+    [Authorize(Policy = Permissions.ViewRiskReport)]
+    public async Task<IActionResult> GetRiskScoreReport([FromQuery] string? sort = null)
+    {
+        var sortBy = SortParser.Parse(sort);
+        var results = await riskScoreReportRepository.GetSummaryListAsync(sortBy);
+        return Ok(results);
+    }
+
+    [HttpGet("risk-score/{accountKey:long}/contributors")]
+    [Authorize(Policy = Permissions.ViewRiskReport)]
+    public async Task<IActionResult> GetRiskScoreContributors(long accountKey)
+    {
+        var results = await riskScoreReportRepository.GetContributorsAsync(accountKey);
+        return Ok(results);
+    }
+
+    /// <summary>Manual trigger for usp_RecalculateRiskScores -- it also runs automatically inside usp_RunFullLoad, this is just an immediate refresh.</summary>
+    [HttpPost("risk-score/recalculate")]
+    [Authorize(Policy = Permissions.ViewRiskReport)]
+    public async Task<IActionResult> RecalculateRiskScores()
+    {
+        await riskScoreReportRepository.RecalculateAllAsync();
+        return NoContent();
     }
 }

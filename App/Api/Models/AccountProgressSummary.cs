@@ -14,4 +14,7 @@ public sealed class AccountProgressSummary
     public string? OwnerName { get; init; }
     public DateTime? TargetRemediationDate { get; init; }
     public DateTime? ActualCompletionDate { get; init; }
+
+    /// <summary>web.account_risk_score.EffectiveRiskScore (D-101-105, Phase E) -- null until this Account has ever been scored.</summary>
+    public int? EffectiveRiskScore { get; init; }
 }
