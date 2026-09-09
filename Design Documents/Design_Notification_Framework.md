@@ -2,6 +2,8 @@
 
 **Blueprint Progress Tracking Web Interface**
 
+> **Superseded, 2026-09-09 (documentation audit).** What actually shipped under D-115/D-116/D-118 is a differently-shaped implementation than this document proposes — a different schema (`web.notification_config`/`notification_recipient`/`dim_notification_type`/`notification_log`, not this doc's `dim_notification_event_type`/`notification_channel`) and different class names (`NotificationRepository`/`SmtpNotificationSender`/`INotificationCheck`, not this doc's `NotificationDispatcher`/`INotificationChannel`/`SmtpNotificationChannel`). **See `Design_Notifications.md` for what's actually built.** This document is kept for historical context on the original problem framing (D-19/D-24/D-26 below), not as a spec for existing code.
+
 ## Purpose & Scope
 
 Three existing decisions each independently assumed some outbound-notification capability exists or would exist, without any of them actually designing it — found during the 2026-09-05 documentation audit:

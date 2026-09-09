@@ -37,6 +37,12 @@ Confirmed 2026-08-27 as a first pass — revise here as screens are added or spl
 - Field Metadata Management — the governed field-definition list (Interface Extensibility)
 - Audit Log Viewer — searchable/filterable, gated by `ViewAuditLog`
 - Global Application Configuration — audit retention, read-logging toggle (D-35, both on `audit_config`), idle timeout (D-28), breadcrumb position (D-57, both on `app_config` below)
+- Deployment — environment/version info, health checks, SQL Server backup status, gated by `ViewDeploymentInfo` (D-98, `Design_Admin_Deployment_Management.md`)
+- Notifications — SMTP config, recipients, notification-type target roles, gated by `ManageNotifications` (D-115/D-116/D-118, `Design_Notifications.md`)
+- Credentials & LDAP — vault-backend credential management plus LDAP trusted-connection config, gated by `ManageCredentials` (`Design_Credentials_Management.md`)
+- Targets / Access Groups / Target Match Review / Import Mapping Profiles — the Risk Scoring inventory/import admin pages, gated by `ManageTargets`/`ManageAccessGroups` (D-119, `Design_Risk_Scoring.md`)
+
+**Documentation audit correction, 2026-09-09**: this list only had the original 8 pages as of 2026-08-27 (D-43) and was never updated for the Deployment/Notifications/Credentials pages (D-95–D-118) or the four Risk Scoring pages above (D-119) — all 7 added now to match the real, current `AdminHub.vue` (14 admin sections total).
 
 ### Proposed Top-Level Navigation
 
@@ -49,8 +55,10 @@ Dashboard | Accounts | Exceptions | Reports | Admin (groups the admin-facing pag
 - **Overdue/At-Risk Worklist** — accounts past `TargetRemediationDate` (a general progress-deadline concern, distinct from the Risk Exceptions overdue-review worklist above, which is specifically about exception `ReviewDate`).
 - **Stage/Status Funnel Summary** — a progress-at-a-glance rollup of how many accounts sit at each Blueprint stage/status.
 - **Reconciliation Review Queue** — unconfirmed `account_reconciliation` matches (`IsConfirmed = 0`) needing a human decision, gated by the existing `ConfirmReconciliation` permission.
+- **Unresolved Entitlement Members** — Safe entitlements granted to a member this app can't resolve to a known user/group (D-107/D-108); no permission gate, read-only.
+- **Risk Score** — sortable list of computed/override/effective account risk scores with a per-account contributor drill-down, gated by `ViewRiskReport` (D-119, `Design_Risk_Scoring.md`).
 
-More report types can be added the same way later; this isn't meant to be exhaustive.
+More report types can be added the same way later; this isn't meant to be exhaustive. **Documentation audit correction, 2026-09-09**: this list only had the original three as of 2026-08-27 — the last two were added since (D-107/D-108, D-119) but never made it back into this list.
 
 ## Data Model
 
@@ -88,7 +96,7 @@ More report types can be added the same way later; this isn't meant to be exhaus
 
 ## Implementation Status (added 2026-09-01)
 
-Every page in the inventory above is now built: Reports (its three sub-pages), Risk Exceptions (list/create/edit/approval/overdue-review), and all eight Admin sub-pages, each backed by a real controller/repository and verified against the live Dev database. One gap in this document's own cross-cutting conventions remains unimplemented:
+Every page in the inventory above is now built: Reports (now five sub-pages, not three — see the Documentation audit correction above), Risk Exceptions (list/create/edit/approval/overdue-review), and Admin (now fourteen sub-pages, not eight — same correction), each backed by a real controller/repository and verified against the live Dev database. One gap in this document's own cross-cutting conventions remains unimplemented:
 
 - **D-42 (multi-layer filter/sort) — fully resolved 2026-09-04**, across all three list/grid pages named in the original inventory (Account Progress, Risk Exceptions, Audit Log). All three now stack multiple simultaneous filters with AND (Account Progress: Stage/Status/Risk Level/Owner-contains; Risk Exceptions: Status/Scope Type; Audit Log already had event type/entity/user/date range) plus true multi-column sort — click a header to sort by it alone, shift-click another to add it as a secondary key, with numbered arrow badges showing priority. `AccountProgressRepository`/`RiskExceptionRepository`/`AuditRepository` share one query-string parser (`App/Api/SortParser.cs`) but each keeps its own column whitelist for what's actually safe to sort by — the requested field comes straight from the query string, so the whitelist is the SQL-injection guard, not just tidiness (verified on both Account Progress and Audit Log with actual injection attempts in the `sort` parameter, safely ignored both times). Building the Risk Exceptions version caught a real regression from D-77: `RiskExceptionRepository.GetActiveAsync` (the Approval Worklist) started throwing a 500 the moment D-77 added an `@AccountKey` filter to the shared SQL text without updating that caller to supply it — found by re-testing the Approval Worklist while extending the pattern here, not by anything that would have caught it at build time.
 

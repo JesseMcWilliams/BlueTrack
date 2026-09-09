@@ -129,6 +129,8 @@ A "Test Connection" action (`POST /api/admin/secrets-store/test`, Secrets Store 
 
 **CCP is left as the active backend** after this session (previously CP). Switch via the Secrets Store Configuration admin page if a different default is wanted.
 
+**Documentation audit correction, 2026-09-09: a sixth real `IVaultSecretProvider` implementation, `WindowsDpapiVaultSecretsProvider`, was never added here.** Built under D-118 and registered in `App/Api/Program.cs` (`AddScoped<IVaultSecretProvider, WindowsDpapiVaultSecretsProvider>()`) — distinct from the `WindowsDpapiProtector`/`ILocalSecretProtector` pair documented above (D-79's split), and only documented so far in `Design_Credentials_Management.md`'s own D-118 section, which this doc's Implementation Status never cross-references. See that document for the actual behavior/verification detail.
+
 **Azure Key Vault, AWS Secrets Manager, and CyberArk Conjur: built 2026-09-04 as a placeholder framework (D-84)**, per the user's explicit request ahead of real connection details ("Use placeholders for now, these will be populated after deployment"). All three are real SDK/REST integrations, not stubs, but unverified against a live service since none is reachable from this environment yet:
 
 - **`AzureKeyVaultSecretsProvider`** — `Azure.Security.KeyVault.Secrets` + `Azure.Identity`, supporting Managed Identity (default, no stored credential) or Service Principal (TenantId/ClientId + a stored client secret) auth methods.
