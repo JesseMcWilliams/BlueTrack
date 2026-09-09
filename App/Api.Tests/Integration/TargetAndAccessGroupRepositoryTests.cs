@@ -110,6 +110,43 @@ public class TargetAndAccessGroupRepositoryTests
         }
     }
 
+    /// <summary>D-121: TargetType filter narrows GetAllAsync's results; GetTotalCountAsync ignores it (a plain unfiltered COUNT(*)).</summary>
+    [Fact]
+    public async Task Target_GetAllAsync_FilterByType_NarrowsResults_ButTotalCountIgnoresFilter()
+    {
+        var repository = CreateTargetRepository();
+        var serverKey = await repository.CreateAsync(new SaveTargetRequest
+        {
+            TargetType = "Server",
+            TargetName = $"IntegrationTest_{Guid.NewGuid():N}",
+            RiskScore = 100,
+            Identifiers = []
+        }, modifiedByUserKey: null);
+        var appKey = await repository.CreateAsync(new SaveTargetRequest
+        {
+            TargetType = "Application",
+            TargetName = $"IntegrationTest_{Guid.NewGuid():N}",
+            RiskScore = 100,
+            Identifiers = []
+        }, modifiedByUserKey: null);
+
+        try
+        {
+            var unfilteredCount = await repository.GetTotalCountAsync();
+            var serverOnly = await repository.GetAllAsync(targetType: "Server");
+            var filteredCount = await repository.GetTotalCountAsync();
+
+            Assert.Contains(serverOnly, t => t.TargetKey == serverKey);
+            Assert.DoesNotContain(serverOnly, t => t.TargetKey == appKey);
+            Assert.Equal(unfilteredCount, filteredCount); // GetTotalCountAsync takes no filter params at all
+        }
+        finally
+        {
+            await repository.DeleteAsync(serverKey);
+            await repository.DeleteAsync(appKey);
+        }
+    }
+
     [Fact]
     public async Task AccessGroup_CreateAsync_StartsRiskScoreStale_WithNullComputedScore()
     {
@@ -176,6 +213,76 @@ public class TargetAndAccessGroupRepositoryTests
         finally
         {
             await targetRepository.DeleteAsync(targetKey);
+        }
+    }
+
+    /// <summary>D-121: SorTypeKey/SorAddress round-trip additively alongside GroupScope/FoundOnTargetKey (D-119), which stay untouched.</summary>
+    [Fact]
+    public async Task AccessGroup_SorFields_RoundTrip()
+    {
+        var repository = CreateAccessGroupRepository();
+        var identifier = $"IntegrationTest_{Guid.NewGuid():N}";
+        var sorTypes = await repository.GetSorTypesAsync();
+        var localType = Assert.Single(sorTypes, t => t.SorTypeName == "Local");
+
+        var accessGroupKey = await repository.CreateAsync(new SaveAccessGroupRequest
+        {
+            GroupName = "Integration Test SOR Group",
+            GroupIdentifier = identifier,
+            GroupScope = "Domain",
+            SorTypeKey = localType.SorTypeKey,
+            SorAddress = "192.168.1.1",
+            BaseRiskScore = 100
+        }, modifiedByUserKey: null);
+
+        try
+        {
+            var all = await repository.GetAllAsync();
+            var created = Assert.Single(all, g => g.AccessGroupKey == accessGroupKey);
+            Assert.Equal(localType.SorTypeKey, created.SorTypeKey);
+            Assert.Equal("Local", created.SorTypeName);
+            Assert.Equal("192.168.1.1", created.SorAddress);
+        }
+        finally
+        {
+            await repository.DeleteAsync(accessGroupKey);
+        }
+    }
+
+    /// <summary>D-121: GroupScope filter narrows GetAllAsync's results; GetTotalCountAsync ignores it (a plain unfiltered COUNT(*)).</summary>
+    [Fact]
+    public async Task AccessGroup_GetAllAsync_FilterByScope_NarrowsResults_ButTotalCountIgnoresFilter()
+    {
+        var repository = CreateAccessGroupRepository();
+        var domainKey = await repository.CreateAsync(new SaveAccessGroupRequest
+        {
+            GroupName = "Integration Test Domain Filter Group",
+            GroupIdentifier = $"IntegrationTest_{Guid.NewGuid():N}",
+            GroupScope = "Domain",
+            BaseRiskScore = 100
+        }, modifiedByUserKey: null);
+        var localKey = await repository.CreateAsync(new SaveAccessGroupRequest
+        {
+            GroupName = "Integration Test Local Filter Group",
+            GroupIdentifier = $"IntegrationTest_{Guid.NewGuid():N}",
+            GroupScope = "Local",
+            BaseRiskScore = 100
+        }, modifiedByUserKey: null);
+
+        try
+        {
+            var unfilteredCount = await repository.GetTotalCountAsync();
+            var localOnly = await repository.GetAllAsync(groupScope: "Local");
+            var filteredCount = await repository.GetTotalCountAsync();
+
+            Assert.Contains(localOnly, g => g.AccessGroupKey == localKey);
+            Assert.DoesNotContain(localOnly, g => g.AccessGroupKey == domainKey);
+            Assert.Equal(unfilteredCount, filteredCount);
+        }
+        finally
+        {
+            await repository.DeleteAsync(domainKey);
+            await repository.DeleteAsync(localKey);
         }
     }
 

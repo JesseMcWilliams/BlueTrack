@@ -24,7 +24,9 @@ public sealed class RiskExceptionsController(
         [FromQuery] string? sort = null)
     {
         var sortBy = SortParser.Parse(sort);
-        return Ok(await repository.GetListAsync(status, accountKey, scopeType, sortBy));
+        var results = await repository.GetListAsync(status, accountKey, scopeType, sortBy);
+        Response.Headers["X-Total-Count"] = (await repository.GetTotalCountAsync()).ToString();
+        return Ok(results);
     }
 
     /// <summary>Approval worklist: every currently-Active exception (requires ApproveExceptions, D-07).</summary>

@@ -42,6 +42,13 @@ public sealed class RiskScoreReportRepository(IDbConnectionFactory connectionFac
         return rows.AsList();
     }
 
+    /// <summary>D-121: the grand total row count under the same base "active" condition (fa.IsDeleted = 0) -- backs the X-Total-Count response header. This report takes no filter params, so this is always equal to the body's own row count, but it establishes the same header on all six pages consistently.</summary>
+    public async Task<int> GetTotalCountAsync()
+    {
+        using var connection = connectionFactory.Create();
+        return await connection.QuerySingleAsync<int>("SELECT COUNT(*) FROM dbo.fact_account fa WHERE fa.IsDeleted = 0");
+    }
+
     private static string BuildOrderByClause(IReadOnlyList<(string Field, bool Descending)>? sortBy)
     {
         if (sortBy is not { Count: > 0 })

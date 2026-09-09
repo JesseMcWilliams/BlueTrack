@@ -15,6 +15,18 @@ namespace BlueTrack.Api.Data;
 /// </summary>
 public sealed class TargetRepository(IDbConnectionFactory connectionFactory)
 {
+    // D-121: sort field whitelist -- the requested field comes straight off
+    // the query string, so this guards against SQL injection in the ORDER
+    // BY clause (same pattern as AccountProgressRepository/RiskExceptionRepository).
+    private static readonly IReadOnlyDictionary<string, string> SortableColumns = new Dictionary<string, string>
+    {
+        ["targetName"] = "t.TargetName",
+        ["targetType"] = "t.TargetType",
+        ["applicationName"] = "a.ApplicationName",
+        ["riskScore"] = "t.RiskScore",
+        ["modifiedDate"] = "t.ModifiedDate"
+    };
+
     private const string SelectSql = """
         SELECT t.TargetKey, t.TargetType, t.TargetName, t.InternalGuid, t.ApplicationKey,
                a.ApplicationName, t.RiskScore, t.Description, t.DiscoverySource, t.ModifiedDate
@@ -22,10 +34,20 @@ public sealed class TargetRepository(IDbConnectionFactory connectionFactory)
         LEFT JOIN web.dim_application a ON a.ApplicationKey = t.ApplicationKey
         """;
 
-    public async Task<IReadOnlyList<TargetSummary>> GetAllAsync()
+    /// <summary>D-121: stacked filters (type/application) plus multi-column sort, same pattern as the D-42 pages.</summary>
+    public async Task<IReadOnlyList<TargetSummary>> GetAllAsync(
+        string? targetType = null,
+        int? applicationKey = null,
+        IReadOnlyList<(string Field, bool Descending)>? sortBy = null)
     {
         using var connection = connectionFactory.Create();
-        var targets = (await connection.QueryAsync<TargetSummary>($"{SelectSql} ORDER BY t.TargetName")).ToList();
+        var sql = $"""
+            {SelectSql}
+            WHERE (@TargetType IS NULL OR t.TargetType = @TargetType)
+              AND (@ApplicationKey IS NULL OR t.ApplicationKey = @ApplicationKey)
+            ORDER BY {BuildOrderByClause(sortBy)}
+            """;
+        var targets = (await connection.QueryAsync<TargetSummary>(sql, new { TargetType = targetType, ApplicationKey = applicationKey })).ToList();
         if (targets.Count == 0)
         {
             return targets;
@@ -51,6 +73,28 @@ public sealed class TargetRepository(IDbConnectionFactory connectionFactory)
             ModifiedDate = t.ModifiedDate,
             Identifiers = identifiersByTarget.GetValueOrDefault(t.TargetKey, [])
         }).ToList();
+    }
+
+    /// <summary>D-121: the grand total row count under the same base (no filter) condition -- backs the X-Total-Count response header.</summary>
+    public async Task<int> GetTotalCountAsync()
+    {
+        using var connection = connectionFactory.Create();
+        return await connection.QuerySingleAsync<int>("SELECT COUNT(*) FROM web.dim_target");
+    }
+
+    private static string BuildOrderByClause(IReadOnlyList<(string Field, bool Descending)>? sortBy)
+    {
+        if (sortBy is not { Count: > 0 })
+        {
+            return "t.TargetName ASC";
+        }
+
+        var clauses = sortBy
+            .Where(s => SortableColumns.ContainsKey(s.Field))
+            .Select(s => $"{SortableColumns[s.Field]} {(s.Descending ? "DESC" : "ASC")}")
+            .ToList();
+
+        return clauses.Count > 0 ? string.Join(", ", clauses) : "t.TargetName ASC";
     }
 
     public async Task<IReadOnlyList<TargetIdentifierTypeSummary>> GetIdentifierTypesAsync()

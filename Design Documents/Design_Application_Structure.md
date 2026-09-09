@@ -26,6 +26,7 @@ Confirmed 2026-08-27 as a first pass — revise here as screens are added or spl
 - Risk Exceptions — overdue-review worklist (D-19 — specifically exceptions past their `ReviewDate`, not the same as the Reports overdue worklist below)
 - Reports (in-app analyst reporting, D-22 — distinct from Power BI) — see sub-navigation, D-56
 - My Profile — self-service "Reload My Rights" (D-14)
+- **Targets / Access Groups** — the Risk Scoring inventory admin pages, promoted out of the Admin hub to their own top-level nav entries (D-121), gated by `ManageTargets`/`ManageAccessGroups` respectively. Analyst now holds both permissions (full parity with Admin, D-121), so these are reachable outside the strict Admin-only set despite still being permission-gated. Access Groups also carries a SOR Type/SOR Address pair (D-121) alongside the existing D-119 `GroupScope`/`FoundOnTargetKey`.
 
 ### Admin-Facing (gated per-permission, per the D-05 permission model)
 
@@ -40,14 +41,16 @@ Confirmed 2026-08-27 as a first pass — revise here as screens are added or spl
 - Deployment — environment/version info, health checks, SQL Server backup status, gated by `ViewDeploymentInfo` (D-98, `Design_Admin_Deployment_Management.md`)
 - Notifications — SMTP config, recipients, notification-type target roles, gated by `ManageNotifications` (D-115/D-116/D-118, `Design_Notifications.md`)
 - Credentials & LDAP — vault-backend credential management plus LDAP trusted-connection config, gated by `ManageCredentials` (`Design_Credentials_Management.md`)
-- Targets / Access Groups / Target Match Review / Import Mapping Profiles — the Risk Scoring inventory/import admin pages, gated by `ManageTargets`/`ManageAccessGroups` (D-119, `Design_Risk_Scoring.md`)
+- Target Match Review / Import Mapping Profiles — the Risk Scoring import admin pages, gated by `ManageTargets` (D-119, `Design_Risk_Scoring.md`). Targets/Access Groups themselves **moved out** of this hub to their own top-level nav entries (D-121, see Analyst-Facing above) — these two stay here, unmoved.
 - Risk Score Bands — admin-configurable named bands (e.g. Low/Medium/High/Critical) over the computed `EffectiveRiskScore`, surfaced on the Account Progress list and Risk Score report; NOT the same thing as `dim_risk_level`. Gated by `ManageRiskScoreBands` (D-120, `Design_Risk_Scoring.md` Phase F)
 
-**Documentation audit correction, 2026-09-09**: this list only had the original 8 pages as of 2026-08-27 (D-43) and was never updated for the Deployment/Notifications/Credentials pages (D-95–D-118) or the four Risk Scoring pages above (D-119) — all 7 added now to match the real, current `AdminHub.vue` (14 admin sections total).
+**Documentation audit correction, 2026-09-09**: this list only had the original 8 pages as of 2026-08-27 (D-43) and was never updated for the Deployment/Notifications/Credentials pages (D-95–D-118) or the four Risk Scoring pages above (D-119) — all 7 added now to match the real, current `AdminHub.vue` (14 admin sections total). **Updated again the same day (D-121)**: Targets/Access Groups moved out to top-level nav entries, leaving 14 admin sections in this hub.
 
 ### Proposed Top-Level Navigation
 
 Dashboard | Accounts | Exceptions | Reports | Admin (groups the admin-facing pages) | user menu (profile / reload rights / logout)
+
+**Updated 2026-09-09 (D-121)**: Targets and Access Groups were promoted out of the Admin hub to their own top-level entries — `Dashboard | Accounts | Exceptions | Reports | Targets | Access Groups | Admin | user menu` — each gated on its own permission (`ManageTargets`/`ManageAccessGroups`) rather than rendering unconditionally like the other top-level entries, since Analyst now holds both permissions too (full parity with Admin) and the whole point of the move was making these reachable without going through the Admin hub.
 
 **Resolved 2026-08-27 (D-47, Q-28):** Admin is a **single hub page with sub-navigation**, not eight separate top-level entries — one "Admin" top-nav item, with a sidebar/tab strip inside it listing only the sections the signed-in user has permission for. This keeps the top-level nav from growing as more admin screens are added later, and pairs with the breadcrumb convention (D-45): `Admin / Identity Providers / ...`.
 

@@ -32,6 +32,19 @@ public class RiskScoreReportControllerTests : IClassFixture<BlueTrackWebApplicat
         return client;
     }
 
+    /// <summary>D-121: X-Total-Count carries the unfiltered grand total; the JSON body shape (a bare array) is unchanged. This report takes no filter params, so the header always equals the body's own count.</summary>
+    [Fact]
+    public async Task GetReport_SetsTotalCountHeader_MatchingBodyCount()
+    {
+        var client = AdminClient();
+
+        var response = await client.GetAsync("/api/reports/risk-score");
+
+        Assert.True(response.Headers.TryGetValues("X-Total-Count", out var values));
+        var rows = await response.Content.ReadFromJsonAsync<List<RiskScoreReportRowResponse>>();
+        Assert.Equal(rows!.Count, int.Parse(values!.Single()));
+    }
+
     [Fact]
     public async Task GetContributors_ForAccountReachingATarget_ReturnsIt()
     {

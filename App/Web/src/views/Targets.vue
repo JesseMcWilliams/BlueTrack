@@ -5,7 +5,16 @@
 // replace-all-on-save (TargetRepository's own comment on why).
 // Phase B adds bulk CSV upload (Target inventory + direct Account->Target
 // links) against RiskScoringImportController.
-import { ref, onMounted } from 'vue'
+//
+// D-121: promoted out of the Admin hub to a top-level nav entry (Analyst
+// now has ManageTargets too, same as Admin) -- and, since this page
+// previously had zero filter/sort support at all, this adds it fresh:
+// stacked filters (type/application) plus sortable column headers, same
+// click/shift-click multi-column sort pattern as the D-42 pages, plus the
+// app-wide "Showing N of M total" count summary (X-Total-Count).
+import { ref, computed, onMounted, watch } from 'vue'
+import { useTotalCount } from '../composables/useTotalCount'
+import FilterCountSummary from '../components/FilterCountSummary.vue'
 
 const inventoryFile = ref(null)
 const inventoryImportResult = ref(null)
@@ -69,20 +78,76 @@ async function createAccountTargetLink() {
 const TARGET_TYPES = ['Server', 'Desktop', 'Database', 'Application', 'LdapDirectory', 'Appliance', 'Other']
 
 const items = ref([])
+const applications = ref([])
 const identifierTypes = ref([])
 const error = ref(null)
 const loading = ref(true)
 const editing = ref(null)
 
+const { totalCount, readTotalCount } = useTotalCount()
+
+const typeFilter = ref('')
+const applicationFilter = ref('')
+
+const sortColumns = ref([])
+const columns = [
+  { field: 'targetName', label: 'Name' },
+  { field: 'targetType', label: 'Type' },
+  { field: 'applicationName', label: 'Application' },
+  { field: 'riskScore', label: 'Risk Score' }
+]
+
+function sortIndicator(field) {
+  const idx = sortColumns.value.findIndex(s => s.field === field)
+  if (idx === -1) return ''
+  const arrow = sortColumns.value[idx].descending ? '▼' : '▲'
+  return sortColumns.value.length > 1 ? `${arrow}${idx + 1}` : arrow
+}
+
+function ariaSortFor(field) {
+  if (sortColumns.value.length === 0 || sortColumns.value[0].field !== field) return 'none'
+  return sortColumns.value[0].descending ? 'descending' : 'ascending'
+}
+
+function toggleSort(field, event) {
+  const existingIndex = sortColumns.value.findIndex(s => s.field === field)
+
+  if (!event.shiftKey) {
+    if (existingIndex === 0 && sortColumns.value.length === 1) {
+      sortColumns.value = [{ field, descending: !sortColumns.value[0].descending }]
+    } else {
+      sortColumns.value = [{ field, descending: false }]
+    }
+    return
+  }
+
+  if (existingIndex === -1) {
+    sortColumns.value = [...sortColumns.value, { field, descending: false }]
+  } else {
+    const updated = [...sortColumns.value]
+    updated[existingIndex] = { ...updated[existingIndex], descending: !updated[existingIndex].descending }
+    sortColumns.value = updated
+  }
+}
+
+const sortQueryParam = computed(() =>
+  sortColumns.value.map(s => `${s.field}:${s.descending ? 'desc' : 'asc'}`).join(','))
+
 async function load() {
   loading.value = true
   try {
+    const params = new URLSearchParams()
+    if (typeFilter.value) params.set('targetType', typeFilter.value)
+    if (applicationFilter.value) params.set('applicationKey', applicationFilter.value)
+    if (sortQueryParam.value) params.set('sort', sortQueryParam.value)
+
     const [targetsResponse, typesResponse] = await Promise.all([
-      fetch('/api/admin/targets'),
+      fetch(`/api/admin/targets?${params.toString()}`),
       fetch('/api/admin/targets/identifier-types')
     ])
     if (!targetsResponse.ok) throw new Error(`Request failed: ${targetsResponse.status}`)
     if (!typesResponse.ok) throw new Error(`Request failed: ${typesResponse.status}`)
+    readTotalCount(targetsResponse)
     items.value = await targetsResponse.json()
     identifierTypes.value = await typesResponse.json()
   } catch (err) {
@@ -92,7 +157,17 @@ async function load() {
   }
 }
 
-onMounted(load)
+onMounted(async () => {
+  try {
+    const appsResponse = await fetch('/api/applications')
+    if (appsResponse.ok) applications.value = await appsResponse.json()
+  } catch {
+    // Non-fatal -- the application filter just won't have dropdown options if this fails.
+  }
+  await load()
+})
+
+watch([typeFilter, applicationFilter, sortQueryParam], load)
 
 function startCreate() {
   editing.value = { targetType: 'Server', targetName: '', riskScore: 0, description: '', discoverySource: '', identifiers: [] }
@@ -139,9 +214,26 @@ async function remove(item) {
 
 <template>
   <div>
-    <h2>Targets</h2>
+    <h1>Targets</h1>
     <p>Any final destination an account's access leads to -- a server, database, application, or other endpoint. Risk score (0-1000) is always analyst-set here, regardless of how the row itself was created.</p>
     <p v-if="error" role="alert">{{ error }}</p>
+
+    <p class="filter-row">
+      <label class="field-label"><span class="field-label-text">Type:</span>
+        <select v-model="typeFilter">
+          <option value="">All</option>
+          <option v-for="type in TARGET_TYPES" :key="type" :value="type">{{ type }}</option>
+        </select>
+      </label>
+      <label class="field-label"><span class="field-label-text">Application:</span>
+        <select v-model="applicationFilter">
+          <option value="">All</option>
+          <option v-for="app in applications" :key="app.applicationKey" :value="app.applicationKey">{{ app.applicationName }}</option>
+        </select>
+      </label>
+    </p>
+    <FilterCountSummary :shown="items.length" :total="totalCount" />
+
     <p v-if="loading" role="status">Loading...</p>
 
     <template v-else>
@@ -149,7 +241,15 @@ async function remove(item) {
 
       <table>
         <thead>
-          <tr><th>Name</th><th>Type</th><th>Application</th><th>Risk Score</th><th>Identifiers</th><th></th></tr>
+          <tr>
+            <th v-for="col in columns" :key="col.field" :aria-sort="ariaSortFor(col.field)">
+              <button type="button" @click="toggleSort(col.field, $event)">
+                {{ col.label }} <span aria-hidden="true">{{ sortIndicator(col.field) }}</span>
+              </button>
+            </th>
+            <th>Identifiers</th>
+            <th></th>
+          </tr>
         </thead>
         <tbody>
           <tr v-for="item in items" :key="item.targetKey">
@@ -165,6 +265,7 @@ async function remove(item) {
           </tr>
         </tbody>
       </table>
+      <p><small>Click a column to sort by it; shift-click another column to add it as a secondary sort key.</small></p>
 
       <form v-if="editing" @submit.prevent="save">
         <h3>{{ editing.targetKey === undefined ? 'New Target' : 'Edit Target' }}</h3>

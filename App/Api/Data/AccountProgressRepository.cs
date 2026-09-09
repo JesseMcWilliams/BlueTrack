@@ -73,6 +73,13 @@ public sealed class AccountProgressRepository(IDbConnectionFactory connectionFac
         return rows.AsList();
     }
 
+    /// <summary>D-121: the grand total row count under the same base "active" condition (fa.IsDeleted = 0) but ignoring the caller's filter params -- backs the X-Total-Count response header.</summary>
+    public async Task<int> GetTotalCountAsync()
+    {
+        using var connection = connectionFactory.Create();
+        return await connection.QuerySingleAsync<int>("SELECT COUNT(*) FROM dbo.fact_account_progress fap JOIN dbo.fact_account fa ON fa.AccountKey = fap.AccountKey WHERE fa.IsDeleted = 0");
+    }
+
     private static string BuildOrderByClause(IReadOnlyList<(string Field, bool Descending)>? sortBy)
     {
         if (sortBy is not { Count: > 0 })

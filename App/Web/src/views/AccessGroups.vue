@@ -6,7 +6,18 @@
 // app's own login/authorization mapping). Phase B adds bulk CSV upload for
 // the group inventory itself plus its two mapping feeds (which Targets it
 // reaches, which Accounts belong to it).
-import { ref, onMounted } from 'vue'
+//
+// D-121: promoted out of the Admin hub to a top-level nav entry (Analyst
+// now has ManageAccessGroups too, same as Admin); adds SOR Type (a new
+// controlled dimension, web.dim_sor_type) and SOR Address (free text) --
+// additive alongside the existing GroupScope/FoundOnTargetKey, which are
+// unchanged -- plus surfaces the already-existing DiscoverySource column,
+// previously never shown here. Also adds this page's first-ever filter/sort
+// support (scope/SOR type, sortable column headers) and the app-wide
+// "Showing N of M total" count summary (X-Total-Count).
+import { ref, computed, onMounted, watch } from 'vue'
+import { useTotalCount } from '../composables/useTotalCount'
+import FilterCountSummary from '../components/FilterCountSummary.vue'
 
 const importState = ref({
   inventory: { file: null, result: null, importing: false },
@@ -36,19 +47,77 @@ async function importFile(key, url) {
 
 const items = ref([])
 const targets = ref([])
+const sorTypes = ref([])
 const error = ref(null)
 const loading = ref(true)
 const editing = ref(null)
 
+const { totalCount, readTotalCount } = useTotalCount()
+
+const scopeFilter = ref('')
+const sorTypeFilter = ref('')
+
+const sortColumns = ref([])
+const columns = [
+  { field: 'groupName', label: 'Name' },
+  { field: 'groupIdentifier', label: 'Identifier' },
+  { field: 'groupScope', label: 'Scope' },
+  { field: 'sorTypeName', label: 'SOR Type' },
+  { field: 'baseRiskScore', label: 'Base Risk' },
+  { field: 'computedRiskScore', label: 'Computed Risk' }
+]
+
+function sortIndicator(field) {
+  const idx = sortColumns.value.findIndex(s => s.field === field)
+  if (idx === -1) return ''
+  const arrow = sortColumns.value[idx].descending ? '▼' : '▲'
+  return sortColumns.value.length > 1 ? `${arrow}${idx + 1}` : arrow
+}
+
+function ariaSortFor(field) {
+  if (sortColumns.value.length === 0 || sortColumns.value[0].field !== field) return 'none'
+  return sortColumns.value[0].descending ? 'descending' : 'ascending'
+}
+
+function toggleSort(field, event) {
+  const existingIndex = sortColumns.value.findIndex(s => s.field === field)
+
+  if (!event.shiftKey) {
+    if (existingIndex === 0 && sortColumns.value.length === 1) {
+      sortColumns.value = [{ field, descending: !sortColumns.value[0].descending }]
+    } else {
+      sortColumns.value = [{ field, descending: false }]
+    }
+    return
+  }
+
+  if (existingIndex === -1) {
+    sortColumns.value = [...sortColumns.value, { field, descending: false }]
+  } else {
+    const updated = [...sortColumns.value]
+    updated[existingIndex] = { ...updated[existingIndex], descending: !updated[existingIndex].descending }
+    sortColumns.value = updated
+  }
+}
+
+const sortQueryParam = computed(() =>
+  sortColumns.value.map(s => `${s.field}:${s.descending ? 'desc' : 'asc'}`).join(','))
+
 async function load() {
   loading.value = true
   try {
+    const params = new URLSearchParams()
+    if (scopeFilter.value) params.set('groupScope', scopeFilter.value)
+    if (sorTypeFilter.value) params.set('sorTypeName', sorTypeFilter.value)
+    if (sortQueryParam.value) params.set('sort', sortQueryParam.value)
+
     const [groupsResponse, targetsResponse] = await Promise.all([
-      fetch('/api/admin/access-groups'),
+      fetch(`/api/admin/access-groups?${params.toString()}`),
       fetch('/api/admin/targets')
     ])
     if (!groupsResponse.ok) throw new Error(`Request failed: ${groupsResponse.status}`)
     if (!targetsResponse.ok) throw new Error(`Request failed: ${targetsResponse.status}`)
+    readTotalCount(groupsResponse)
     items.value = await groupsResponse.json()
     targets.value = await targetsResponse.json()
   } catch (err) {
@@ -58,10 +127,20 @@ async function load() {
   }
 }
 
-onMounted(load)
+onMounted(async () => {
+  try {
+    const sorTypesResponse = await fetch('/api/admin/access-groups/sor-types')
+    if (sorTypesResponse.ok) sorTypes.value = await sorTypesResponse.json()
+  } catch {
+    // Non-fatal -- the SOR Type dropdown just won't have options if this fails.
+  }
+  await load()
+})
+
+watch([scopeFilter, sorTypeFilter, sortQueryParam], load)
 
 function startCreate() {
-  editing.value = { groupName: '', groupIdentifier: '', groupScope: 'Domain', foundOnTargetKey: null, baseRiskScore: 0, description: '', discoverySource: '' }
+  editing.value = { groupName: '', groupIdentifier: '', groupScope: 'Domain', foundOnTargetKey: null, sorTypeKey: null, sorAddress: '', baseRiskScore: 0, description: '', discoverySource: '' }
 }
 function startEdit(item) {
   editing.value = { ...item }
@@ -98,9 +177,27 @@ async function remove(item) {
 
 <template>
   <div>
-    <h2>Access Groups</h2>
+    <h1>Access Groups</h1>
     <p>Privileged-access groups in the managed environment (e.g. an AD "Server Admins" group) -- not this app's own Safe-permission groups or its login/role mapping. Base risk score (0-1000) is analyst-set; the computed score (base plus reachable Targets) is calculated separately.</p>
     <p v-if="error" role="alert">{{ error }}</p>
+
+    <p class="filter-row">
+      <label class="field-label"><span class="field-label-text">Scope:</span>
+        <select v-model="scopeFilter">
+          <option value="">All</option>
+          <option value="Domain">Domain</option>
+          <option value="Local">Local</option>
+        </select>
+      </label>
+      <label class="field-label"><span class="field-label-text">SOR Type:</span>
+        <select v-model="sorTypeFilter">
+          <option value="">All</option>
+          <option v-for="type in sorTypes" :key="type.sorTypeKey" :value="type.sorTypeName">{{ type.sorTypeName }}</option>
+        </select>
+      </label>
+    </p>
+    <FilterCountSummary :shown="items.length" :total="totalCount" />
+
     <p v-if="loading" role="status">Loading...</p>
 
     <template v-else>
@@ -108,15 +205,27 @@ async function remove(item) {
 
       <table>
         <thead>
-          <tr><th>Name</th><th>Identifier</th><th>Scope</th><th>Base Risk</th><th>Computed Risk</th><th></th></tr>
+          <tr>
+            <th v-for="col in columns" :key="col.field" :aria-sort="ariaSortFor(col.field)">
+              <button type="button" @click="toggleSort(col.field, $event)">
+                {{ col.label }} <span aria-hidden="true">{{ sortIndicator(col.field) }}</span>
+              </button>
+            </th>
+            <th>SOR Address</th>
+            <th>Discovery Source</th>
+            <th></th>
+          </tr>
         </thead>
         <tbody>
           <tr v-for="item in items" :key="item.accessGroupKey">
             <td>{{ item.groupName }}</td>
             <td>{{ item.groupIdentifier }}</td>
             <td>{{ item.groupScope }}<span v-if="item.foundOnTargetName"> ({{ item.foundOnTargetName }})</span></td>
+            <td>{{ item.sorTypeName ?? '—' }}</td>
             <td>{{ item.baseRiskScore }}</td>
             <td>{{ item.computedRiskScore ?? '(not yet calculated)' }}<span v-if="item.isRiskScoreStale"> (stale)</span></td>
+            <td>{{ item.sorAddress ?? '—' }}</td>
+            <td>{{ item.discoverySource ?? '—' }}</td>
             <td>
               <button @click="startEdit(item)">Edit</button>
               <button @click="remove(item)">Delete</button>
@@ -124,6 +233,7 @@ async function remove(item) {
           </tr>
         </tbody>
       </table>
+      <p><small>Click a column to sort by it; shift-click another column to add it as a secondary sort key.</small></p>
 
       <form v-if="editing" @submit.prevent="save">
         <h3>{{ editing.accessGroupKey === undefined ? 'New Access Group' : 'Edit Access Group' }}</h3>
@@ -147,6 +257,16 @@ async function remove(item) {
             </select>
           </label>
         </p>
+        <p>
+          <label class="field-label">
+            <span class="field-label-text">SOR Type:</span>
+            <select v-model="editing.sorTypeKey">
+              <option :value="null">(none)</option>
+              <option v-for="type in sorTypes" :key="type.sorTypeKey" :value="type.sorTypeKey">{{ type.sorTypeName }}</option>
+            </select>
+          </label>
+        </p>
+        <p><label class="field-label"><span class="field-label-text">SOR Address:</span> <input v-model="editing.sorAddress" placeholder="e.g. company.com or 192.168.1.1" /></label></p>
         <p><label class="field-label"><span class="field-label-text">Base Risk Score (0-1000):</span> <input v-model.number="editing.baseRiskScore" type="number" min="0" max="1000" required /></label></p>
         <p><label class="field-label"><span class="field-label-text">Description:</span> <input v-model="editing.description" /></label></p>
         <p><label class="field-label"><span class="field-label-text">Discovery Source:</span> <input v-model="editing.discoverySource" placeholder="Manual" /></label></p>

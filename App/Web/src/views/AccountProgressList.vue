@@ -6,8 +6,11 @@
 import { ref, computed, watch, onMounted } from 'vue'
 import { formatDate } from '../utils/formatDate'
 import { useRightsStore } from '../stores/rights'
+import { useTotalCount } from '../composables/useTotalCount'
+import FilterCountSummary from '../components/FilterCountSummary.vue'
 
 const rights = useRightsStore()
+const { totalCount, readTotalCount } = useTotalCount()
 
 const accounts = ref([])
 const referenceData = ref({})
@@ -141,6 +144,7 @@ async function load() {
     if (!response.ok) {
       throw new Error(`Request failed: ${response.status}`)
     }
+    readTotalCount(response)
     accounts.value = await response.json()
   } catch (err) {
     error.value = err.message
@@ -186,6 +190,7 @@ watch([stageFilter, statusFilter, riskLevelFilter, ownerFilter, sortQueryParam],
       </label>
       <label class="field-label"><span class="field-label-text">Owner:</span> <input v-model="ownerFilter" type="text" placeholder="contains..." /></label>
     </p>
+    <FilterCountSummary :shown="accounts.length" :total="totalCount" />
     <p v-if="loading" role="status">Loading...</p>
     <p v-else-if="error" role="alert">Could not load accounts: {{ error }}</p>
     <table v-else>

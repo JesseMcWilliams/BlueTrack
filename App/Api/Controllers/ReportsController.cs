@@ -57,6 +57,7 @@ public sealed class ReportsController(ReportsRepository repository, RiskScoreRep
     {
         var sortBy = SortParser.Parse(sort);
         var results = await riskScoreReportRepository.GetSummaryListAsync(sortBy);
+        Response.Headers["X-Total-Count"] = (await riskScoreReportRepository.GetTotalCountAsync()).ToString();
         return Ok(results);
     }
 

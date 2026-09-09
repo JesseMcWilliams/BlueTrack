@@ -125,6 +125,22 @@ const routes = [
     meta: { breadcrumb: 'My Profile' },
     component: () => import('../views/MyProfile.vue')
   },
+  // D-121: promoted out of the Admin hub to their own top-level nav entries
+  // (Analyst now holds ManageTargets/ManageAccessGroups too, same as
+  // Admin) -- flat top-level routes, no breadcrumbParent, matching the
+  // naming convention of other top-level routes like account-progress-list.
+  {
+    path: '/targets',
+    name: 'targets',
+    meta: { breadcrumb: 'Targets' },
+    component: () => import('../views/Targets.vue')
+  },
+  {
+    path: '/access-groups',
+    name: 'access-groups',
+    meta: { breadcrumb: 'Access Groups' },
+    component: () => import('../views/AccessGroups.vue')
+  },
   // Admin hub with sub-navigation (D-47) -- one top-nav entry, sections
   // inside gated per-permission at render time, not per-route here.
   {
@@ -202,18 +218,6 @@ const routes = [
         name: 'admin-credentials',
         meta: { breadcrumb: 'Credentials & LDAP', breadcrumbParent: 'admin' },
         component: () => import('../views/admin/Credentials.vue')
-      },
-      {
-        path: 'targets',
-        name: 'admin-targets',
-        meta: { breadcrumb: 'Targets', breadcrumbParent: 'admin' },
-        component: () => import('../views/admin/Targets.vue')
-      },
-      {
-        path: 'access-groups',
-        name: 'admin-access-groups',
-        meta: { breadcrumb: 'Access Groups', breadcrumbParent: 'admin' },
-        component: () => import('../views/admin/AccessGroups.vue')
       },
       {
         path: 'target-match-review',

@@ -7,7 +7,10 @@
 // (GET /api/reports/risk-score/{accountKey}/contributors).
 import { ref, computed, onMounted } from 'vue'
 import { formatDate } from '../../utils/formatDate'
+import { useTotalCount } from '../../composables/useTotalCount'
+import FilterCountSummary from '../../components/FilterCountSummary.vue'
 
+const { totalCount, readTotalCount } = useTotalCount()
 const rows = ref([])
 const error = ref(null)
 const loading = ref(true)
@@ -78,6 +81,7 @@ async function load() {
     if (sortQueryParam.value) params.set('sort', sortQueryParam.value)
     const response = await fetch(`/api/reports/risk-score?${params.toString()}`)
     if (!response.ok) throw new Error(`Request failed: ${response.status}`)
+    readTotalCount(response)
     rows.value = await response.json()
   } catch (err) {
     error.value = err.message
@@ -140,6 +144,7 @@ onMounted(load)
       <span v-if="recalculated" role="status"> Recalculated.</span>
       <span v-if="recalculateError" role="alert"> {{ recalculateError }}</span>
     </p>
+    <FilterCountSummary :shown="rows.length" :total="totalCount" />
     <p v-if="loading" role="status">Loading...</p>
     <p v-else-if="error" role="alert">Could not load report: {{ error }}</p>
     <table v-else>

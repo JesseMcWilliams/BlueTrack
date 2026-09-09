@@ -2,6 +2,9 @@
 // Top-level nav per D-43: Dashboard | Accounts | Exceptions | Reports |
 // Admin | user menu. Admin and Reports are hub pages with their own
 // sub-navigation (D-47, D-56), so they get a single top-level entry each.
+// D-121 added Targets/Access Groups as two more top-level entries (each
+// gated on its own ManageTargets/ManageAccessGroups permission), promoted
+// out of the Admin hub now that Analyst holds those permissions too.
 import { ref, onMounted } from 'vue'
 import Breadcrumbs from './components/Breadcrumbs.vue'
 import { useRightsStore } from './stores/rights'
@@ -63,6 +66,13 @@ onMounted(async () => {
       <router-link :to="{ name: 'account-progress-list' }">Accounts</router-link>
       <router-link :to="{ name: 'risk-exceptions-list' }">Exceptions</router-link>
       <router-link :to="{ name: 'reports' }">Reports</router-link>
+      <!-- D-121: Targets/Access Groups promoted out of the Admin hub to
+           their own top-level entries -- gated per-permission here (unlike
+           Dashboard/Accounts/Exceptions/Reports/Admin above, which need no
+           gate of their own), same hasPermission() pattern AdminHub.vue's
+           own sidebar already uses for each of its sections. -->
+      <router-link v-if="rights.hasPermission('ManageTargets')" :to="{ name: 'targets' }">Targets</router-link>
+      <router-link v-if="rights.hasPermission('ManageAccessGroups')" :to="{ name: 'access-groups' }">Access Groups</router-link>
       <router-link :to="{ name: 'admin' }">Admin</router-link>
       <router-link :to="{ name: 'my-profile' }" class="top-nav__user-menu">My Profile</router-link>
     </nav>

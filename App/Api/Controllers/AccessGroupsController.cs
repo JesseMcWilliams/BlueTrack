@@ -16,8 +16,21 @@ public sealed class AccessGroupsController(
     CurrentUserResolver currentUserResolver,
     AuditLogger auditLogger) : ControllerBase
 {
+    /// <summary>D-121: stacked filters (scope/SOR type) plus sort, and an X-Total-Count header carrying the unfiltered grand total (the JSON body stays a bare array, unchanged).</summary>
     [HttpGet]
-    public async Task<IActionResult> GetAll() => Ok(await repository.GetAllAsync());
+    public async Task<IActionResult> GetAll(
+        [FromQuery] string? groupScope = null,
+        [FromQuery] string? sorTypeName = null,
+        [FromQuery] string? sort = null)
+    {
+        var sortBy = SortParser.Parse(sort);
+        var results = await repository.GetAllAsync(groupScope, sorTypeName, sortBy);
+        Response.Headers["X-Total-Count"] = (await repository.GetTotalCountAsync()).ToString();
+        return Ok(results);
+    }
+
+    [HttpGet("sor-types")]
+    public async Task<IActionResult> GetSorTypes() => Ok(await repository.GetSorTypesAsync());
 
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] SaveAccessGroupRequest request)

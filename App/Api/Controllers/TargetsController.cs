@@ -16,8 +16,18 @@ public sealed class TargetsController(
     CurrentUserResolver currentUserResolver,
     AuditLogger auditLogger) : ControllerBase
 {
+    /// <summary>D-121: stacked filters (type/application) plus sort, and an X-Total-Count header carrying the unfiltered grand total (the JSON body stays a bare array, unchanged).</summary>
     [HttpGet]
-    public async Task<IActionResult> GetAll() => Ok(await repository.GetAllAsync());
+    public async Task<IActionResult> GetAll(
+        [FromQuery] string? targetType = null,
+        [FromQuery] int? applicationKey = null,
+        [FromQuery] string? sort = null)
+    {
+        var sortBy = SortParser.Parse(sort);
+        var results = await repository.GetAllAsync(targetType, applicationKey, sortBy);
+        Response.Headers["X-Total-Count"] = (await repository.GetTotalCountAsync()).ToString();
+        return Ok(results);
+    }
 
     [HttpGet("identifier-types")]
     public async Task<IActionResult> GetIdentifierTypes() => Ok(await repository.GetIdentifierTypesAsync());

@@ -27,6 +27,19 @@ public class RiskExceptionsWorkflowTests : IClassFixture<BlueTrackWebApplication
         return client;
     }
 
+    /// <summary>D-121: X-Total-Count carries the unfiltered grand total; the JSON body shape (a bare array) is unchanged.</summary>
+    [Fact]
+    public async Task GetList_SetsTotalCountHeader_MatchingBodyCountWhenUnfiltered()
+    {
+        var client = CreateClientAs("TestUser.Viewer");
+
+        var response = await client.GetAsync("/api/risk-exceptions");
+
+        Assert.True(response.Headers.TryGetValues("X-Total-Count", out var values));
+        var exceptions = await response.Content.ReadFromJsonAsync<List<object>>();
+        Assert.Equal(exceptions!.Count, int.Parse(values!.Single()));
+    }
+
     [Fact]
     public async Task Create_NeitherAccountNorApplicationSet_ReturnsBadRequest()
     {

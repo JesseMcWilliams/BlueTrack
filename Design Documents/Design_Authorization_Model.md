@@ -57,10 +57,12 @@ A user can belong to more than one mapped group, and therefore hold more than on
 | Role | Permissions Included |
 |---|---|
 | Viewer | ViewDashboard |
-| Analyst | ViewDashboard, EditAccountProgress |
+| Analyst | ViewDashboard, EditAccountProgress, ManageTargets, ManageAccessGroups |
 | Approver | ViewDashboard, EditAccountProgress, ConfirmReconciliation, ApproveExceptions |
 | Auditor | ViewAuditLog |
 | Admin | ViewDashboard, EditAccountProgress, ConfirmReconciliation, ApproveExceptions, ManageIdentityProviders, ManageGroupRoleMapping, CuratePlatformMapping, ManageRolesAndPermissions, CurateApplicationMapping, ManageSecretsStore, ManageFieldMetadata, ViewAuditLog, ManageApplicationConfiguration, ReloadRights, ViewDeploymentInfo, ManageTargets, ManageAccessGroups, ViewRiskReport, ManageRiskScoreBands |
+
+**Updated 2026-09-09 (D-121)**: Analyst granted `ManageTargets`/`ManageAccessGroups` — confirmed directly as full parity with Admin on these two specific permissions (not a general narrowing of the Admin/Analyst distinction), so Analyst can now reach the newly-promoted top-level Targets/Access Groups pages, plus (as an accepted side effect of holding the same permission Admin does) the Target Match Review/Import Mapping Profiles admin sub-pages that remain gated by `ManageTargets` alone.
 
 Because permissions are bundled per role rather than inherited through a hierarchy, `ApproveExceptions` could just as easily be granted through a narrower, purpose-built role (e.g., an "Exception Approver" role with only that one permission) instead of folding it into a broader Approver role — exactly the flexibility the Risk Exception Tracking design calls for. These four non-Admin roles are still only a starting point for an admin's own group mappings, not a claim that every real deployment needs exactly this shape — narrower or additional roles can be added any time via the Roles & Permissions admin screen.
 

@@ -103,10 +103,17 @@ FROM web.app_permission p
 WHERE p.PermissionName IN ('ViewDashboard', 'ViewAuditLog')
   AND NOT EXISTS (SELECT 1 FROM web.role_permission rp WHERE rp.RoleKey = @ViewerRoleKey AND rp.PermissionKey = p.PermissionKey);
 
+-- D-121: ManageTargets/ManageAccessGroups added to this bundle so
+-- TestUser.Analyst actually exercises the new "Analyst has full parity
+-- with Admin on Targets/Access Groups" grant -- this script runs (via
+-- Database/Test) after the numbered 26_BlueTrack_AccessGroupSorAndAnalyst
+-- Access.sql script's own Analyst-role grant, which no-ops against a fresh
+-- BlueTrackTest since this role doesn't exist yet at that point in the
+-- build order.
 INSERT INTO web.role_permission (RoleKey, PermissionKey)
 SELECT @AnalystRoleKey, p.PermissionKey
 FROM web.app_permission p
-WHERE p.PermissionName IN ('ViewDashboard', 'ViewAuditLog', 'EditAccountProgress')
+WHERE p.PermissionName IN ('ViewDashboard', 'ViewAuditLog', 'EditAccountProgress', 'ManageTargets', 'ManageAccessGroups')
   AND NOT EXISTS (SELECT 1 FROM web.role_permission rp WHERE rp.RoleKey = @AnalystRoleKey AND rp.PermissionKey = p.PermissionKey);
 
 INSERT INTO web.role_permission (RoleKey, PermissionKey)

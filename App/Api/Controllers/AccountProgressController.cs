@@ -33,6 +33,7 @@ public sealed class AccountProgressController(
     {
         var sortBy = SortParser.Parse(sort);
         var results = await repository.GetSummaryListAsync(stage, status, riskLevel, owner, sortBy);
+        Response.Headers["X-Total-Count"] = (await repository.GetTotalCountAsync()).ToString();
         return Ok(results);
     }
 
