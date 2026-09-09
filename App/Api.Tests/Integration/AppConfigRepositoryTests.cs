@@ -47,7 +47,9 @@ public class AppConfigRepositoryTests
             ExceptionIdPattern = before.ExceptionIdPattern,
             LockTimeoutMinutes = before.LockTimeoutMinutes,
             RetentionDays = before.RetentionDays,
-            LogReadEvents = !before.LogReadEvents
+            LogReadEvents = !before.LogReadEvents,
+            BackupFolder = before.BackupFolder,
+            ActiveRiskAlgorithm = before.ActiveRiskAlgorithm
         }, modifiedByUserKey: await TestUsers.GetUserKeyAsync("IntegrationTestUser1"));
 
         var after = await repository.GetAsync();
@@ -61,7 +63,9 @@ public class AppConfigRepositoryTests
             ExceptionIdPattern = before.ExceptionIdPattern,
             LockTimeoutMinutes = before.LockTimeoutMinutes,
             RetentionDays = before.RetentionDays,
-            LogReadEvents = before.LogReadEvents
+            LogReadEvents = before.LogReadEvents,
+            BackupFolder = before.BackupFolder,
+            ActiveRiskAlgorithm = before.ActiveRiskAlgorithm
         }, modifiedByUserKey: await TestUsers.GetUserKeyAsync("IntegrationTestUser1"));
 
         var restored = await repository.GetAsync();

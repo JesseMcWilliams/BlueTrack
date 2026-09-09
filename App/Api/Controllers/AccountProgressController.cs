@@ -33,6 +33,7 @@ public sealed class AccountProgressController(
     {
         var sortBy = SortParser.Parse(sort);
         var results = await repository.GetSummaryListAsync(stage, status, riskLevel, owner, sortBy);
+        Response.Headers["X-Total-Count"] = (await repository.GetTotalCountAsync()).ToString();
         return Ok(results);
     }
 
@@ -249,6 +250,42 @@ public sealed class AccountProgressController(
             await auditLogger.LogAsync("FieldEdit", user.UserKey, "fact_account_progress", accountKey.ToString(),
                 reason: isRegression ? request.Reason : null, fieldChanges: changes);
         }
+
+        return NoContent();
+    }
+
+    /// <summary>
+    /// D-101-105 Phase E: an analyst override on top of the computed risk
+    /// score. A Reason is required whenever setting an override value
+    /// (mirroring web.risk_exception.Justification's own "override needs a
+    /// reason" precedent) but not when clearing one back to null -- reverting
+    /// to the computed score needs no justification of its own.
+    /// </summary>
+    [HttpPut("{accountKey:long}/risk-score-override")]
+    [Authorize(Policy = Permissions.EditAccountProgress)]
+    public async Task<IActionResult> SetRiskScoreOverride(long accountKey, [FromBody] SaveRiskScoreOverrideRequest request)
+    {
+        var user = await currentUserResolver.ResolveAsync(User);
+        if (user is null) return Unauthorized();
+
+        if (request.OverrideRiskScore is not null && string.IsNullOrWhiteSpace(request.Reason))
+        {
+            return Problem(title: "Validation failed", detail: "A Reason is required when setting a risk score override.",
+                statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        if (request.OverrideRiskScore is < 0 or > 1000)
+        {
+            return Problem(title: "Validation failed", detail: "OverrideRiskScore must be between 0 and 1000.",
+                statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        var before = await repository.GetRiskScoreOverrideAsync(accountKey);
+        await repository.SetRiskScoreOverrideAsync(accountKey, request.OverrideRiskScore, request.Reason, user.UserKey);
+
+        await auditLogger.LogAsync("FieldEdit", user.UserKey, "account_risk_score", accountKey.ToString(),
+            reason: request.Reason,
+            fieldChanges: [new FieldChange("OverrideRiskScore", before.OverrideRiskScore?.ToString(), request.OverrideRiskScore?.ToString())]);
 
         return NoContent();
     }

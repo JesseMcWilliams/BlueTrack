@@ -77,6 +77,16 @@ async function save() {
         <label class="field-label"><span class="field-label-text">Backup Folder:</span> <input v-model="config.backupFolder" placeholder="D:\Backups\BlueTrack" /></label>
         <small>Where the Deployment page's "Backup App" button writes the database backup file.</small>
       </p>
+      <p>
+        <label class="field-label">
+          <span class="field-label-text">Risk Score Algorithm:</span>
+          <select v-model="config.activeRiskAlgorithm">
+            <option value="DominantPlusTail">Dominant Plus Tail</option>
+            <option value="CombinedExposure">Combined Exposure</option>
+          </select>
+        </label>
+        <small>Which of the two candidate algorithms usp_CalculateRiskScore uses (D-119 Phase D).</small>
+      </p>
       <button type="submit" class="btn-primary">Save</button>
       <span v-if="saved" role="status"> Saved.</span>
     </form>

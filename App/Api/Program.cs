@@ -3,6 +3,7 @@ using BlueTrack.Api.Auth;
 using BlueTrack.Api.Data;
 using BlueTrack.Api.Ldap;
 using BlueTrack.Api.Notifications;
+using BlueTrack.Api.RiskScoring;
 using BlueTrack.Api.Secrets;
 using ITfoxtec.Identity.Saml2.MvcCore.Configuration;
 using ITfoxtec.Identity.Saml2.Schemas;
@@ -49,6 +50,15 @@ builder.Services.AddScoped<NotificationRepository>();
 builder.Services.AddScoped<CredentialRepository>();
 builder.Services.AddScoped<LdapConfigRepository>();
 builder.Services.AddScoped<LdapGroupMemberResolver>();
+builder.Services.AddScoped<TargetRepository>();
+builder.Services.AddScoped<AccessGroupRepository>();
+builder.Services.AddScoped<RiskScoringImportRepository>();
+builder.Services.AddScoped<TargetMatchReviewRepository>();
+builder.Services.AddScoped<ImportMappingProfileRepository>();
+builder.Services.AddScoped<RiskScoreReportRepository>();
+builder.Services.AddScoped<RiskScoreBandRepository>();
+builder.Services.AddScoped<TargetMatchingService>();
+builder.Services.AddScoped<ImportMappingService>();
 
 // D-13/D-82: cached rights per identity, backed by
 // Microsoft.Extensions.Caching.SqlServer (web.distributed_cache) -- see

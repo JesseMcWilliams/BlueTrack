@@ -434,6 +434,63 @@ test.describe('Notifications admin page', () => {
   })
 })
 
+// D-120: named bands over the computed EffectiveRiskScore, NOT
+// dbo.dim_risk_level -- confirmed by reading RiskScoreBands.vue/
+// RiskScoreBandsController.cs before writing these, same as every other
+// describe block in this file.
+test.describe('Risk Score Bands admin page', () => {
+  test('Admin can create a band, see the overlap validation reject it, then edit and delete it', async ({ page }) => {
+    await signInAs(page, 'TestUser.Admin')
+    await page.goto('/admin/risk-score-bands')
+    const bandName = `E2ETestBand${Date.now()}`
+
+    await page.getByRole('button', { name: '+ New Band' }).click()
+    await page.getByLabel('Name:').fill(bandName)
+    await page.getByLabel('Min Score:').fill('10000')
+    await page.getByLabel('Max Score:').fill('10100')
+    await page.getByLabel('Risk Order:').fill('9001')
+    await page.locator('form button[type="submit"]').click()
+
+    const row = page.locator('tbody tr', { hasText: bandName })
+    await expect(row).toBeVisible()
+
+    try {
+      // A second band overlapping the first's range is rejected with the
+      // server's own overlap message, not silently accepted.
+      await page.getByRole('button', { name: '+ New Band' }).click()
+      const overlappingName = `${bandName}Overlap`
+      await page.getByLabel('Name:').fill(overlappingName)
+      await page.getByLabel('Min Score:').fill('10050')
+      await page.getByLabel('Max Score:').fill('10150')
+      await page.getByLabel('Risk Order:').fill('9002')
+      await page.locator('form button[type="submit"]').click()
+      await expect(page.getByText(/overlaps existing band/)).toBeVisible()
+      await page.getByRole('button', { name: 'Cancel' }).click()
+
+      await row.getByRole('button', { name: 'Edit' }).click()
+      const updatedName = `${bandName} (Updated)`
+      await page.getByLabel('Name:').fill(updatedName)
+      await page.locator('form button[type="submit"]').click()
+      await expect(page.locator('tbody tr', { hasText: updatedName })).toBeVisible()
+
+      await page.locator('tbody tr', { hasText: updatedName }).getByRole('button', { name: 'Delete' }).click()
+      await expect(page.locator('tbody tr', { hasText: updatedName })).toHaveCount(0)
+    } catch (err) {
+      // Best-effort cleanup if an assertion above failed partway through.
+      const leftover = page.locator('tbody tr', { hasText: bandName })
+      if (await leftover.count() > 0) await leftover.getByRole('button', { name: 'Delete' }).click()
+      throw err
+    }
+  })
+
+  test('A user without ManageRiskScoreBands is denied with a plain error', async ({ page }) => {
+    await signInAs(page, 'TestUser.Viewer')
+    await page.goto('/admin/risk-score-bands')
+
+    await expect(page.getByText(/Request failed: 403/)).toBeVisible()
+  })
+})
+
 test.describe('Global Application Configuration admin page', () => {
   test('Admin can update a setting, save, then restore the original value', async ({ page }) => {
     await signInAs(page, 'TestUser.Admin')

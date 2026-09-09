@@ -19,7 +19,10 @@ const sections = [
   { name: 'admin-configuration', label: 'Global Application Configuration', permission: 'ManageApplicationConfiguration' },
   { name: 'admin-deployment', label: 'Deployment', permission: 'ViewDeploymentInfo' },
   { name: 'admin-notifications', label: 'Notifications', permission: 'ManageNotifications' },
-  { name: 'admin-credentials', label: 'Credentials & LDAP', permission: 'ManageCredentials' }
+  { name: 'admin-credentials', label: 'Credentials & LDAP', permission: 'ManageCredentials' },
+  { name: 'admin-target-match-review', label: 'Target Match Review', permission: 'ManageTargets' },
+  { name: 'admin-import-mapping-profiles', label: 'Import Mapping Profiles', permission: 'ManageTargets' },
+  { name: 'admin-risk-score-bands', label: 'Risk Score Bands', permission: 'ManageRiskScoreBands' }
 ]
 
 const visibleSections = computed(() => sections.filter(s => rights.hasPermission(s.permission)))

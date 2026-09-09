@@ -193,7 +193,8 @@ public class AdminControllersFunctionalTests : IClassFixture<BlueTrackWebApplica
             exceptionIdPattern = before.ExceptionIdPattern,
             lockTimeoutMinutes = before.LockTimeoutMinutes,
             retentionDays = before.RetentionDays,
-            logReadEvents = before.LogReadEvents
+            logReadEvents = before.LogReadEvents,
+            activeRiskAlgorithm = before.ActiveRiskAlgorithm
         });
         Assert.Equal(HttpStatusCode.NoContent, updateResponse.StatusCode);
 
@@ -208,7 +209,8 @@ public class AdminControllersFunctionalTests : IClassFixture<BlueTrackWebApplica
             exceptionIdPattern = before.ExceptionIdPattern,
             lockTimeoutMinutes = before.LockTimeoutMinutes,
             retentionDays = before.RetentionDays,
-            logReadEvents = before.LogReadEvents
+            logReadEvents = before.LogReadEvents,
+            activeRiskAlgorithm = before.ActiveRiskAlgorithm
         });
         Assert.Equal(HttpStatusCode.NoContent, restoreResponse.StatusCode);
     }
@@ -400,6 +402,23 @@ public class AdminControllersFunctionalTests : IClassFixture<BlueTrackWebApplica
         Assert.Contains(fieldChanges!, c => c.FieldName == "OwnerName" && c.NewValue == uniqueOwnerName);
     }
 
+    /// <summary>D-121: X-Total-Count carries the unfiltered grand total; the JSON body shape (a bare array) is unchanged. Applies a filter here specifically to prove the header ignores it, unlike the body.</summary>
+    [Fact]
+    public async Task AuditLog_GetEvents_SetsTotalCountHeader_IgnoringTheRequestsOwnFilter()
+    {
+        var adminClient = AdminClient();
+
+        var unfilteredResponse = await adminClient.GetAsync("/api/audit-log");
+        var unfilteredTotal = int.Parse(unfilteredResponse.Headers.GetValues("X-Total-Count").Single());
+
+        var filteredResponse = await adminClient.GetAsync("/api/audit-log?entityName=this_entity_name_matches_nothing");
+        var filteredBody = await filteredResponse.Content.ReadFromJsonAsync<List<AuditEventSummaryResponse>>();
+        var filteredTotal = int.Parse(filteredResponse.Headers.GetValues("X-Total-Count").Single());
+
+        Assert.Empty(filteredBody!);
+        Assert.Equal(unfilteredTotal, filteredTotal);
+    }
+
     private static async Task<int> LookupStageKeyAsync(string stageName)
     {
         await using var connection = new Microsoft.Data.SqlClient.SqlConnection(TestDatabase.ConnectionString);
@@ -497,6 +516,7 @@ public class AdminControllersFunctionalTests : IClassFixture<BlueTrackWebApplica
         public int LockTimeoutMinutes { get; set; }
         public int? RetentionDays { get; set; }
         public bool LogReadEvents { get; set; }
+        public string ActiveRiskAlgorithm { get; set; } = "";
     }
 
     private sealed class PermissionCatalogItemResponse

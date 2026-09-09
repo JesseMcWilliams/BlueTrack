@@ -22,7 +22,9 @@ public sealed class AccountProgressRepository(IDbConnectionFactory connectionFac
         ["riskLevelName"] = "rl.RiskOrder",
         ["ownerName"] = "fap.OwnerName",
         ["targetRemediationDate"] = "fap.TargetRemediationDate",
-        ["actualCompletionDate"] = "fap.ActualCompletionDate"
+        ["actualCompletionDate"] = "fap.ActualCompletionDate",
+        ["effectiveRiskScore"] = "ars.EffectiveRiskScore",
+        ["riskScoreBandName"] = "band.RiskOrder"
     };
 
     public async Task<IReadOnlyList<AccountProgressSummary>> GetSummaryListAsync(
@@ -43,12 +45,16 @@ public sealed class AccountProgressRepository(IDbConnectionFactory connectionFac
                 rl.RiskLevelName,
                 fap.OwnerName,
                 fap.TargetRemediationDate,
-                fap.ActualCompletionDate
+                fap.ActualCompletionDate,
+                ars.EffectiveRiskScore,
+                band.BandName AS RiskScoreBandName
             FROM dbo.fact_account_progress fap
             JOIN dbo.fact_account fa           ON fa.AccountKey = fap.AccountKey
             JOIN dbo.dim_blueprint_stage stg    ON stg.StageKey = fap.CurrentStageKey
             JOIN dbo.dim_progress_status sts     ON sts.StatusKey = fap.CurrentStatusKey
             LEFT JOIN dbo.dim_risk_level rl         ON rl.RiskLevelKey = fap.RiskLevelKey
+            LEFT JOIN web.account_risk_score ars    ON ars.AccountKey = fa.AccountKey
+            LEFT JOIN web.dim_risk_score_band band  ON ars.EffectiveRiskScore BETWEEN band.MinScore AND band.MaxScore
             WHERE fa.IsDeleted = 0
               AND (@StageName IS NULL OR stg.StageName = @StageName)
               AND (@StatusName IS NULL OR sts.StatusName = @StatusName)
@@ -65,6 +71,13 @@ public sealed class AccountProgressRepository(IDbConnectionFactory connectionFac
             OwnerContains = ownerContains
         });
         return rows.AsList();
+    }
+
+    /// <summary>D-121: the grand total row count under the same base "active" condition (fa.IsDeleted = 0) but ignoring the caller's filter params -- backs the X-Total-Count response header.</summary>
+    public async Task<int> GetTotalCountAsync()
+    {
+        using var connection = connectionFactory.Create();
+        return await connection.QuerySingleAsync<int>("SELECT COUNT(*) FROM dbo.fact_account_progress fap JOIN dbo.fact_account fa ON fa.AccountKey = fap.AccountKey WHERE fa.IsDeleted = 0");
     }
 
     private static string BuildOrderByClause(IReadOnlyList<(string Field, bool Descending)>? sortBy)
@@ -147,6 +160,43 @@ public sealed class AccountProgressRepository(IDbConnectionFactory connectionFac
         using var connection = connectionFactory.Create();
         return await connection.QuerySingleOrDefaultAsync<int?>(
             "SELECT StageOrder FROM dbo.dim_blueprint_stage WHERE StageKey = @StageKey", new { StageKey = stageKey });
+    }
+
+    /// <summary>The current override, if any -- read before a Set call so the controller can log a FieldChange diff.</summary>
+    public async Task<(int? OverrideRiskScore, string? OverrideReason)> GetRiskScoreOverrideAsync(long accountKey)
+    {
+        using var connection = connectionFactory.Create();
+        var row = await connection.QuerySingleOrDefaultAsync<(int? OverrideRiskScore, string? OverrideReason)?>(
+            "SELECT OverrideRiskScore, OverrideReason FROM web.account_risk_score WHERE AccountKey = @AccountKey", new { AccountKey = accountKey });
+        return row ?? (null, null);
+    }
+
+    /// <summary>
+    /// D-101-105 Phase E: an analyst override on top of ComputedRiskScore --
+    /// EffectiveRiskScore = COALESCE(OverrideRiskScore, ComputedRiskScore) by
+    /// construction, so clearing the override (OverrideRiskScore = NULL)
+    /// reverts to the computed value with no extra logic here. Lazily
+    /// creates the row (same "insert if missing" convention Phase B/C's
+    /// load paths already use) since not every Account has been scored yet.
+    /// </summary>
+    public async Task SetRiskScoreOverrideAsync(long accountKey, int? overrideRiskScore, string? reason, int setByUserKey)
+    {
+        using var connection = connectionFactory.Create();
+        connection.Open();
+        using var transaction = connection.BeginTransaction();
+
+        await connection.ExecuteAsync(
+            "INSERT INTO web.account_risk_score (AccountKey, IsRiskScoreStale) SELECT @AccountKey, 1 WHERE NOT EXISTS (SELECT 1 FROM web.account_risk_score WHERE AccountKey = @AccountKey)",
+            new { AccountKey = accountKey }, transaction);
+
+        await connection.ExecuteAsync("""
+            UPDATE web.account_risk_score
+            SET OverrideRiskScore = @OverrideRiskScore, OverrideReason = @Reason,
+                OverrideSetBy = @SetByUserKey, OverrideSetDate = SYSUTCDATETIME()
+            WHERE AccountKey = @AccountKey
+            """, new { AccountKey = accountKey, OverrideRiskScore = overrideRiskScore, Reason = reason, SetByUserKey = setByUserKey }, transaction);
+
+        transaction.Commit();
     }
 
     /// <summary>D-81: Active application-scoped exceptions covering this account, computed live (web.vw_account_application_exception).</summary>

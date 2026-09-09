@@ -42,6 +42,8 @@ public sealed class GlobalApplicationConfigController(
             changes.Add(new FieldChange("LogReadEvents", before.LogReadEvents.ToString(), request.LogReadEvents.ToString()));
         if (before.BackupFolder != request.BackupFolder)
             changes.Add(new FieldChange("BackupFolder", before.BackupFolder, request.BackupFolder));
+        if (before.ActiveRiskAlgorithm != request.ActiveRiskAlgorithm)
+            changes.Add(new FieldChange("ActiveRiskAlgorithm", before.ActiveRiskAlgorithm, request.ActiveRiskAlgorithm));
 
         if (changes.Count > 0)
         {

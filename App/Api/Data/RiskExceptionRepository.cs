@@ -53,6 +53,13 @@ public sealed class RiskExceptionRepository(IDbConnectionFactory connectionFacto
         return rows.AsList();
     }
 
+    /// <summary>D-121: the grand total row count with no filter applied -- backs the X-Total-Count response header on GetListAsync's own endpoint.</summary>
+    public async Task<int> GetTotalCountAsync()
+    {
+        using var connection = connectionFactory.Create();
+        return await connection.QuerySingleAsync<int>("SELECT COUNT(*) FROM web.risk_exception");
+    }
+
     private static string BuildOrderByClause(IReadOnlyList<(string Field, bool Descending)>? sortBy)
     {
         if (sortBy is not { Count: > 0 })

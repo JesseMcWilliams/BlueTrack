@@ -49,6 +49,15 @@ public class AdminControllersPermissionTests : IClassFixture<BlueTrackWebApplica
             new object[] { "/api/admin/notifications/config" },
             new object[] { "/api/admin/notifications/recipients" },
             new object[] { "/api/admin/notifications/types" },
+            new object[] { "/api/admin/targets" },
+            new object[] { "/api/admin/targets/identifier-types" },
+            new object[] { "/api/admin/access-groups" },
+            new object[] { "/api/admin/access-groups/sor-types" },
+            new object[] { "/api/admin/risk-score-bands" },
+            new object[] { "/api/admin/risk-scoring/target-match-review" },
+            new object[] { "/api/admin/risk-scoring/import-mapping-profiles" },
+            new object[] { "/api/reports/risk-score" },
+            new object[] { "/api/reports/risk-score/999999999/contributors" },
             new object[] { "/api/audit-log" },
             new object[] { "/api/safes" },
             new object[] { "/api/applications/detailed" },
@@ -91,6 +100,40 @@ public class AdminControllersPermissionTests : IClassFixture<BlueTrackWebApplica
         var response = await client.GetAsync("/api/audit-log");
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    /// <summary>
+    /// D-121: Analyst granted full parity with Admin on ManageTargets/
+    /// ManageAccessGroups (confirmed directly) -- these two endpoints move
+    /// from Admin-only to also reachable by Analyst, distinct from every
+    /// other admin-only endpoint in GatedGetEndpoints above, which Analyst
+    /// still cannot reach (Viewer/Analyst/Approver hold none of those).
+    /// </summary>
+    [Theory]
+    [InlineData("/api/admin/targets")]
+    [InlineData("/api/admin/targets/identifier-types")]
+    [InlineData("/api/admin/access-groups")]
+    [InlineData("/api/admin/access-groups/sor-types")]
+    public async Task TargetsAndAccessGroupsEndpoints_AsAnalyst_Succeed(string path)
+    {
+        var client = CreateClientAs("TestUser.Analyst");
+
+        var response = await client.GetAsync(path);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    /// <summary>D-121: Approver holds no ManageTargets/ManageAccessGroups grant of its own in this test matrix -- still forbidden, unlike Analyst above.</summary>
+    [Theory]
+    [InlineData("/api/admin/targets")]
+    [InlineData("/api/admin/access-groups")]
+    public async Task TargetsAndAccessGroupsEndpoints_AsApprover_IsForbidden(string path)
+    {
+        var client = CreateClientAs("TestUser.Approver");
+
+        var response = await client.GetAsync(path);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
     }
 
     [Theory]

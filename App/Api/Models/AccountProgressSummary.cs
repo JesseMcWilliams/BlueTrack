@@ -14,4 +14,10 @@ public sealed class AccountProgressSummary
     public string? OwnerName { get; init; }
     public DateTime? TargetRemediationDate { get; init; }
     public DateTime? ActualCompletionDate { get; init; }
+
+    /// <summary>web.account_risk_score.EffectiveRiskScore (D-101-105, Phase E) -- null until this Account has ever been scored.</summary>
+    public int? EffectiveRiskScore { get; init; }
+
+    /// <summary>web.dim_risk_score_band (D-120) -- null when EffectiveRiskScore is null, or falls outside every configured band's range.</summary>
+    public string? RiskScoreBandName { get; init; }
 }

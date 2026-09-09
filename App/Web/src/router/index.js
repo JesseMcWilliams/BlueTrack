@@ -110,6 +110,12 @@ const routes = [
         name: 'reports-unresolved-entitlement-members',
         meta: { breadcrumb: 'Unresolved Entitlement Members', breadcrumbParent: 'reports' },
         component: () => import('../views/reports/UnresolvedEntitlementMembers.vue')
+      },
+      {
+        path: 'risk-score',
+        name: 'reports-risk-score',
+        meta: { breadcrumb: 'Risk Score', breadcrumbParent: 'reports' },
+        component: () => import('../views/reports/RiskScoreReport.vue')
       }
     ]
   },
@@ -118,6 +124,22 @@ const routes = [
     name: 'my-profile',
     meta: { breadcrumb: 'My Profile' },
     component: () => import('../views/MyProfile.vue')
+  },
+  // D-121: promoted out of the Admin hub to their own top-level nav entries
+  // (Analyst now holds ManageTargets/ManageAccessGroups too, same as
+  // Admin) -- flat top-level routes, no breadcrumbParent, matching the
+  // naming convention of other top-level routes like account-progress-list.
+  {
+    path: '/targets',
+    name: 'targets',
+    meta: { breadcrumb: 'Targets' },
+    component: () => import('../views/Targets.vue')
+  },
+  {
+    path: '/access-groups',
+    name: 'access-groups',
+    meta: { breadcrumb: 'Access Groups' },
+    component: () => import('../views/AccessGroups.vue')
   },
   // Admin hub with sub-navigation (D-47) -- one top-nav entry, sections
   // inside gated per-permission at render time, not per-route here.
@@ -196,6 +218,24 @@ const routes = [
         name: 'admin-credentials',
         meta: { breadcrumb: 'Credentials & LDAP', breadcrumbParent: 'admin' },
         component: () => import('../views/admin/Credentials.vue')
+      },
+      {
+        path: 'target-match-review',
+        name: 'admin-target-match-review',
+        meta: { breadcrumb: 'Target Match Review', breadcrumbParent: 'admin' },
+        component: () => import('../views/admin/TargetMatchReview.vue')
+      },
+      {
+        path: 'import-mapping-profiles',
+        name: 'admin-import-mapping-profiles',
+        meta: { breadcrumb: 'Import Mapping Profiles', breadcrumbParent: 'admin' },
+        component: () => import('../views/admin/ImportMappingProfiles.vue')
+      },
+      {
+        path: 'risk-score-bands',
+        name: 'admin-risk-score-bands',
+        meta: { breadcrumb: 'Risk Score Bands', breadcrumbParent: 'admin' },
+        component: () => import('../views/admin/RiskScoreBands.vue')
       }
     ]
   },

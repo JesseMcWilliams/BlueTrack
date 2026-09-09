@@ -5,8 +5,11 @@
 import { ref, computed, watch, onMounted } from 'vue'
 import { useRightsStore } from '../stores/rights'
 import { formatDate } from '../utils/formatDate'
+import { useTotalCount } from '../composables/useTotalCount'
+import FilterCountSummary from '../components/FilterCountSummary.vue'
 
 const rights = useRightsStore()
+const { totalCount, readTotalCount } = useTotalCount()
 const exceptions = ref([])
 const error = ref(null)
 const loading = ref(true)
@@ -75,6 +78,7 @@ async function load() {
     if (!response.ok) {
       throw new Error(`Request failed: ${response.status}`)
     }
+    readTotalCount(response)
     exceptions.value = await response.json()
   } catch (err) {
     error.value = err.message
@@ -110,6 +114,7 @@ watch([statusFilter, scopeTypeFilter, sortQueryParam], load)
         </select>
       </label>
     </p>
+    <FilterCountSummary :shown="exceptions.length" :total="totalCount" />
     <p v-if="loading" role="status">Loading...</p>
     <p v-else-if="error" role="alert">Could not load exceptions: {{ error }}</p>
     <p v-else-if="exceptions.length === 0">No exceptions found.</p>

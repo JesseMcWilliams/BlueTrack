@@ -6,6 +6,8 @@
 
 A general, reusable "send this alert to the admins" capability, requested twice now: once broadly ("build out the notification framework and consolidate it to one source... support modern SMTP features"), and once for a specific trigger (D-114: warn when DevFakeAuth has been left enabled for more than a week). D-19 already established the principle for Risk Exceptions -- "active notification (email/Teams/etc.) will be offered, but as an optional/configurable capability" -- this document is the first real design pass at building that capability rather than just the in-app banner half of it.
 
+**This is the document that matches what's actually built.** `Design_Notification_Framework.md` (2026-09-05) proposed an earlier architecture that was never implemented as written — see that document's own superseded notice.
+
 ## Current State (confirmed by reading the code, not assumed)
 
 - **No notification/email infrastructure exists anywhere in this codebase.** No SMTP client library, no `IEmailSender`-style abstraction, no notification-related table.

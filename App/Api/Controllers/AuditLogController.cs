@@ -20,7 +20,9 @@ public sealed class AuditLogController(AuditRepository repository) : ControllerB
         [FromQuery] string? sort = null)
     {
         var sortBy = SortParser.Parse(sort);
-        return Ok(await repository.GetEventsAsync(eventType, entityName, performedByUserKey, fromDate, toDate, sortBy));
+        var results = await repository.GetEventsAsync(eventType, entityName, performedByUserKey, fromDate, toDate, sortBy);
+        Response.Headers["X-Total-Count"] = (await repository.GetTotalCountAsync()).ToString();
+        return Ok(results);
     }
 
     [HttpGet("{auditEventKey:long}/field-changes")]

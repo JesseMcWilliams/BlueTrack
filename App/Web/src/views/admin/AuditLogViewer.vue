@@ -3,7 +3,10 @@
 // filters map to query params, and a click on a row drills into its
 // field-level changes (Design_Audit_Logging.md's Admin UI Requirements).
 import { ref, computed, watch, onMounted } from 'vue'
+import { useTotalCount } from '../../composables/useTotalCount'
+import FilterCountSummary from '../../components/FilterCountSummary.vue'
 
+const { totalCount, readTotalCount } = useTotalCount()
 const events = ref([])
 const error = ref(null)
 const loading = ref(true)
@@ -77,6 +80,7 @@ async function load() {
 
     const response = await fetch(`/api/audit-log?${params.toString()}`)
     if (!response.ok) throw new Error(`Request failed: ${response.status}`)
+    readTotalCount(response)
     events.value = await response.json()
   } catch (err) {
     error.value = err.message
@@ -111,6 +115,7 @@ async function toggleFieldChanges(event) {
       <button type="submit" class="btn-primary">Filter</button>
     </form>
 
+    <FilterCountSummary :shown="events.length" :total="totalCount" />
     <p v-if="error" role="alert">{{ error }}</p>
     <p v-if="loading" role="status">Loading...</p>
     <p v-else-if="events.length === 0">No matching audit events.</p>

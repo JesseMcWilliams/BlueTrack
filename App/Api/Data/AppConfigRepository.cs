@@ -15,7 +15,7 @@ public sealed class AppConfigRepository(IDbConnectionFactory connectionFactory)
         using var connection = connectionFactory.Create();
         const string sql = """
             SELECT ac.IdleTimeoutMinutes, ac.BreadcrumbPosition, ac.ExceptionIdPattern, ac.LockTimeoutMinutes,
-                   ac.BackupFolder, auc.RetentionDays, auc.LogReadEvents
+                   ac.BackupFolder, ac.ActiveRiskAlgorithm, auc.RetentionDays, auc.LogReadEvents
             FROM web.app_config ac
             CROSS JOIN web.audit_config auc
             """;
@@ -39,14 +39,15 @@ public sealed class AppConfigRepository(IDbConnectionFactory connectionFactory)
             UPDATE web.app_config
             SET IdleTimeoutMinutes = @IdleTimeoutMinutes, BreadcrumbPosition = @BreadcrumbPosition,
                 ExceptionIdPattern = @ExceptionIdPattern, LockTimeoutMinutes = @LockTimeoutMinutes,
-                BackupFolder = @BackupFolder
+                BackupFolder = @BackupFolder, ActiveRiskAlgorithm = @ActiveRiskAlgorithm
             """, new
         {
             request.IdleTimeoutMinutes,
             request.BreadcrumbPosition,
             request.ExceptionIdPattern,
             request.LockTimeoutMinutes,
-            request.BackupFolder
+            request.BackupFolder,
+            request.ActiveRiskAlgorithm
         }, transaction);
 
         await connection.ExecuteAsync("""

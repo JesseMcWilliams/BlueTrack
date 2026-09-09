@@ -55,6 +55,59 @@ test.describe('Account Progress edit form', () => {
   })
 })
 
+// D-101-105 Phase E: the inline "Edit Override" action on the Account
+// Progress list -- confirmed by reading AccountProgressList.vue before
+// writing these, same as every other describe block in this file.
+test.describe('Account Progress list -- risk score override', () => {
+  // D-120: the named band (web.dim_risk_score_band) now shows alongside
+  // the effective risk score -- confirmed by reading AccountProgressList.vue
+  // before writing this, same as every other describe block in this file.
+  test('Risk Band column is present', async ({ page }) => {
+    await signInAs(page, 'TestUser.Viewer')
+    await page.goto('/accounts')
+
+    await expect(page.locator('th', { hasText: 'Risk Band' })).toBeVisible()
+  })
+
+  test('Approver (who holds EditAccountProgress) can set then clear an override', async ({ page }) => {
+    await signInAs(page, 'TestUser.Approver')
+    await page.goto('/accounts')
+
+    const row = page.locator('tbody tr', { hasText: 'TestAccount03' })
+    // The edit form renders as a sibling <tr>, not inside the data row --
+    // "the row currently holding the number input" uniquely identifies it
+    // since only one row's override can be open for edit at a time.
+    const editRow = page.locator('tbody tr').filter({ has: page.locator('input[type="number"]') })
+
+    await row.getByRole('button', { name: 'Edit Override' }).click()
+
+    // Setting a score with no Reason is rejected client-side before any request.
+    await editRow.locator('input[type="number"]').fill('750')
+    await editRow.locator('button:has-text("Save")').click()
+    await expect(editRow.getByText('A Reason is required when setting an override.')).toBeVisible()
+
+    await editRow.locator('input[type="text"]').fill('Playwright E2E override')
+    await editRow.locator('button:has-text("Save")').click()
+
+    await expect(row.locator('td').nth(6)).toContainText('750')
+
+    // Clearing the override needs no Reason.
+    await row.getByRole('button', { name: 'Edit Override' }).click()
+    await editRow.locator('input[type="number"]').fill('')
+    await editRow.locator('button:has-text("Save")').click()
+
+    await expect(row.locator('td').nth(6)).not.toContainText('750')
+  })
+
+  test('Viewer (who does not hold EditAccountProgress) sees no Edit Override button', async ({ page }) => {
+    await signInAs(page, 'TestUser.Viewer')
+    await page.goto('/accounts')
+
+    const row = page.locator('tbody tr', { hasText: 'TestAccount03' })
+    await expect(row.getByRole('button', { name: 'Edit Override' })).toHaveCount(0)
+  })
+})
+
 test.describe('Risk Exception create/extend/revoke workflow', () => {
   test('Approver can create, extend, and revoke an exception end to end', async ({ page }) => {
     await signInAs(page, 'TestUser.Approver')

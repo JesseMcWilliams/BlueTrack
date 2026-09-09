@@ -40,6 +40,19 @@ public class AccountProgressReadEndpointsTests : IClassFixture<BlueTrackWebAppli
         Assert.Contains(accounts!, a => a.AccountName == "TestAccount03");
     }
 
+    /// <summary>D-121: X-Total-Count carries the unfiltered grand total (matches the bare-array body's own count when no filter is applied); the JSON body shape is unchanged.</summary>
+    [Fact]
+    public async Task GetList_SetsTotalCountHeader_MatchingBodyCountWhenUnfiltered()
+    {
+        var client = CreateClientAs("TestUser.Viewer");
+
+        var response = await client.GetAsync("/api/account-progress");
+
+        Assert.True(response.Headers.TryGetValues("X-Total-Count", out var values));
+        var accounts = await response.Content.ReadFromJsonAsync<List<AccountSummaryResponse>>();
+        Assert.Equal(accounts!.Count, int.Parse(values!.Single()));
+    }
+
     [Fact]
     public async Task GetList_StageFilter_OnlyReturnsMatchingStage()
     {
