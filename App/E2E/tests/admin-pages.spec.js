@@ -132,7 +132,9 @@ test.describe('Group → Role Mapping admin page', () => {
     await row.getByRole('button', { name: 'Delete' }).click()
     await expect(row).toHaveCount(0)
 
-    await page.getByPlaceholder('Group name').fill('BUILTIN\\Users')
+    // D-113 replaced this field's bare placeholder with a real <label> (an accessibility fix) -- this test wasn't updated to match at the time.
+    // exact: true -- the Add Mapping form above has its own similarly-labeled "Group Name (e.g. BUILTIN\...)" field.
+    await page.getByLabel('Group name', { exact: true }).fill('BUILTIN\\Users')
     await page.getByRole('button', { name: 'Resolve' }).click()
     await expect(page.getByText(/Resolved to:.*S-1-/)).toBeVisible()
   })
@@ -330,12 +332,13 @@ test.describe('Credentials & LDAP admin page', () => {
     const credentialName = `E2ETestCred${Date.now()}`
 
     await page.getByRole('button', { name: '+ New Credential' }).click()
-    await page.getByLabel('Name:').fill(credentialName)
+    await page.getByLabel('Name:', { exact: true }).fill(credentialName)
     // Backend defaults to WindowsDpapi -- Username/Password/Scope fields are already visible.
     await page.getByLabel('Username:').fill('e2e-test-user')
     await page.getByLabel('Password:').fill('e2e-test-password')
     await page.getByLabel('DPAPI Scope:').selectOption('User')
-    await page.locator('form button[type="submit"]').click()
+    // Scoped by its own Cancel button -- the LDAP Configuration form below also has a submit button on this same page.
+    await page.locator('form', { has: page.getByRole('button', { name: 'Cancel' }) }).getByRole('button', { name: 'Save' }).click()
 
     const row = page.locator('tbody tr', { hasText: credentialName })
     await expect(row).toBeVisible()
@@ -372,7 +375,8 @@ test.describe('Credentials & LDAP admin page', () => {
     await signInAs(page, 'TestUser.Viewer')
     await page.goto('/admin/credentials')
 
-    await expect(page.getByText(/Request failed: 403/)).toBeVisible()
+    // Credentials.vue's own error text is "Credentials request failed: 403", not the generic "Request failed: 403" other pages use.
+    await expect(page.getByText(/request failed: 403/)).toBeVisible()
   })
 })
 
@@ -425,7 +429,8 @@ test.describe('Notifications admin page', () => {
     await signInAs(page, 'TestUser.Viewer')
     await page.goto('/admin/notifications')
 
-    await expect(page.getByText(/Request failed: 403/)).toBeVisible()
+    // Notifications.vue's own error text is "Config request failed: 403", not the generic "Request failed: 403" other pages use.
+    await expect(page.getByText(/request failed: 403/)).toBeVisible()
   })
 })
 
