@@ -10,6 +10,7 @@ namespace BlueTrack.Api.Controllers;
 [Authorize(Policy = Permissions.ViewAuditLog)]
 public sealed class AuditLogController(AuditRepository repository) : ControllerBase
 {
+    /// <summary>D-124 Phase 3: page/pageSize add server-side paging; X-Filtered-Count carries how many rows match the current filter, ignoring paging.</summary>
     [HttpGet]
     public async Task<IActionResult> GetEvents(
         [FromQuery] string? eventType = null,
@@ -17,11 +18,14 @@ public sealed class AuditLogController(AuditRepository repository) : ControllerB
         [FromQuery] int? performedByUserKey = null,
         [FromQuery] DateTime? fromDate = null,
         [FromQuery] DateTime? toDate = null,
-        [FromQuery] string? sort = null)
+        [FromQuery] string? sort = null,
+        [FromQuery] int? page = null,
+        [FromQuery] int? pageSize = null)
     {
         var sortBy = SortParser.Parse(sort);
-        var results = await repository.GetEventsAsync(eventType, entityName, performedByUserKey, fromDate, toDate, sortBy);
+        var results = await repository.GetEventsAsync(eventType, entityName, performedByUserKey, fromDate, toDate, sortBy, page, pageSize);
         Response.Headers["X-Total-Count"] = (await repository.GetTotalCountAsync()).ToString();
+        Response.Headers["X-Filtered-Count"] = (await repository.GetFilteredCountAsync(eventType, entityName, performedByUserKey, fromDate, toDate)).ToString();
         return Ok(results);
     }
 

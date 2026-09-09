@@ -402,7 +402,14 @@ public class AdminControllersFunctionalTests : IClassFixture<BlueTrackWebApplica
         Assert.Contains(fieldChanges!, c => c.FieldName == "OwnerName" && c.NewValue == uniqueOwnerName);
     }
 
-    /// <summary>D-121: X-Total-Count carries the unfiltered grand total; the JSON body shape (a bare array) is unchanged. Applies a filter here specifically to prove the header ignores it, unlike the body.</summary>
+    /// <summary>
+    /// D-121: X-Total-Count carries the unfiltered grand total; the JSON
+    /// body shape (a bare array) is unchanged. Applies a filter here
+    /// specifically to prove the header ignores it, unlike the body.
+    /// D-124 Phase 3: also confirms the new X-Filtered-Count DOES narrow
+    /// with that same filter (down to 0, since it matches nothing) -- the
+    /// opposite of X-Total-Count.
+    /// </summary>
     [Fact]
     public async Task AuditLog_GetEvents_SetsTotalCountHeader_IgnoringTheRequestsOwnFilter()
     {
@@ -414,9 +421,11 @@ public class AdminControllersFunctionalTests : IClassFixture<BlueTrackWebApplica
         var filteredResponse = await adminClient.GetAsync("/api/audit-log?entityName=this_entity_name_matches_nothing");
         var filteredBody = await filteredResponse.Content.ReadFromJsonAsync<List<AuditEventSummaryResponse>>();
         var filteredTotal = int.Parse(filteredResponse.Headers.GetValues("X-Total-Count").Single());
+        var filteredFilteredCount = int.Parse(filteredResponse.Headers.GetValues("X-Filtered-Count").Single());
 
         Assert.Empty(filteredBody!);
         Assert.Equal(unfilteredTotal, filteredTotal);
+        Assert.Equal(0, filteredFilteredCount);
     }
 
     private static async Task<int> LookupStageKeyAsync(string stageName)

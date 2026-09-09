@@ -40,17 +40,47 @@ public class AccountProgressReadEndpointsTests : IClassFixture<BlueTrackWebAppli
         Assert.Contains(accounts!, a => a.AccountName == "TestAccount03");
     }
 
-    /// <summary>D-121: X-Total-Count carries the unfiltered grand total (matches the bare-array body's own count when no filter is applied); the JSON body shape is unchanged.</summary>
+    /// <summary>
+    /// D-121: X-Total-Count carries the unfiltered grand total (matches the
+    /// bare-array body's own count when no filter is applied); the JSON
+    /// body shape is unchanged. D-124 Phase 3: pageSize=500 is passed so
+    /// the body still reflects the full set (now capped per page by
+    /// default), and X-Filtered-Count is asserted equal to X-Total-Count
+    /// too, since no filter is applied here.
+    /// </summary>
     [Fact]
     public async Task GetList_SetsTotalCountHeader_MatchingBodyCountWhenUnfiltered()
     {
         var client = CreateClientAs("TestUser.Viewer");
 
-        var response = await client.GetAsync("/api/account-progress");
+        var response = await client.GetAsync("/api/account-progress?pageSize=500");
 
         Assert.True(response.Headers.TryGetValues("X-Total-Count", out var values));
         var accounts = await response.Content.ReadFromJsonAsync<List<AccountSummaryResponse>>();
-        Assert.Equal(accounts!.Count, int.Parse(values!.Single()));
+        var total = int.Parse(values!.Single());
+        Assert.Equal(accounts!.Count, total);
+
+        Assert.True(response.Headers.TryGetValues("X-Filtered-Count", out var filteredValues));
+        Assert.Equal(total, int.Parse(filteredValues!.Single()));
+    }
+
+    /// <summary>D-124 Phase 3: an owner filter that matches nothing narrows X-Filtered-Count to 0 while X-Total-Count stays the unfiltered grand total -- mirroring the equivalent "matches nothing" pattern already established for the Audit Log endpoint (AdminControllersFunctionalTests.AuditLog_GetEvents_SetsTotalCountHeader_IgnoringTheRequestsOwnFilter).</summary>
+    [Fact]
+    public async Task GetList_OwnerFilterMatchingNothing_NarrowsFilteredCount_ButTotalCountStaysUnfiltered()
+    {
+        var client = CreateClientAs("TestUser.Viewer");
+
+        var unfilteredResponse = await client.GetAsync("/api/account-progress");
+        var unfilteredTotal = int.Parse(unfilteredResponse.Headers.GetValues("X-Total-Count").Single());
+
+        var filteredResponse = await client.GetAsync($"/api/account-progress?owner=this_owner_name_matches_nothing_{Guid.NewGuid():N}");
+        var filteredBody = await filteredResponse.Content.ReadFromJsonAsync<List<AccountSummaryResponse>>();
+        var filteredTotal = int.Parse(filteredResponse.Headers.GetValues("X-Total-Count").Single());
+        var filteredFilteredCount = int.Parse(filteredResponse.Headers.GetValues("X-Filtered-Count").Single());
+
+        Assert.Empty(filteredBody!);
+        Assert.Equal(0, filteredFilteredCount);
+        Assert.Equal(unfilteredTotal, filteredTotal);
     }
 
     [Fact]

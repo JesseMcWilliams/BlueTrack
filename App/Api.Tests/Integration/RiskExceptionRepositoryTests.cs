@@ -168,4 +168,51 @@ public class RiskExceptionRepositoryTests
 
         Assert.NotNull(results);
     }
+
+    /// <summary>
+    /// D-124 Phase 3: page/pageSize paging -- creates 3 exceptions scoped to
+    /// one throwaway fact_account (for a race-free isolated view via the
+    /// existing accountKey filter, since GetListAsync's default sort spans
+    /// the whole table) with distinct ReviewDate values (the default sort)
+    /// and confirms page 1/page 2 are disjoint, correctly-ordered slices.
+    /// Neither the throwaway account nor the exceptions are cleaned up
+    /// afterward -- RiskExceptionRepository has no Delete method at all
+    /// (matching this test class's own established no-cleanup precedent for
+    /// exception fixtures, e.g. GetListAsync_ScopeTypeFilter... above), and
+    /// an FK'd risk_exception row would block deleting the account anyway.
+    /// </summary>
+    [Fact]
+    public async Task GetListAsync_PageAndPageSize_ReturnsDisjointCorrectlyOrderedPages()
+    {
+        var repository = CreateRepository();
+        var approverKey = await TestUsers.GetUserKeyAsync("IntegrationTestUser1");
+        var suffix = Guid.NewGuid().ToString("N")[..8];
+
+        await using var connection = new Microsoft.Data.SqlClient.SqlConnection(TestDatabase.ConnectionString);
+        await connection.OpenAsync();
+        var accountKey = await Dapper.SqlMapper.QuerySingleAsync<long>(connection,
+            "INSERT INTO fact_account (SourceSystemKey, SourceAccountId, AccountName, IsDeleted) OUTPUT inserted.AccountKey VALUES (1, @SourceAccountId, @AccountName, 0)",
+            new { SourceAccountId = $"IntegrationTest_{Guid.NewGuid():N}", AccountName = $"PageTest RiskException Account {suffix}" });
+
+        var reviewDates = new[] { DateTime.UtcNow.Date.AddDays(10), DateTime.UtcNow.Date.AddDays(20), DateTime.UtcNow.Date.AddDays(30) };
+        foreach (var reviewDate in reviewDates)
+        {
+            await repository.CreateAsync(new CreateRiskExceptionRequest
+            {
+                AccountKey = accountKey,
+                Justification = $"Pagination test {suffix}",
+                ReviewDate = reviewDate
+            }, approverKey);
+        }
+
+        var page1 = await repository.GetListAsync(accountKey: accountKey, page: 1, pageSize: 2);
+        var page2 = await repository.GetListAsync(accountKey: accountKey, page: 2, pageSize: 2);
+
+        Assert.Equal(2, page1.Count);
+        Assert.Single(page2);
+        Assert.Equal(reviewDates[0], page1[0].ReviewDate);
+        Assert.Equal(reviewDates[1], page1[1].ReviewDate);
+        Assert.Equal(reviewDates[2], page2[0].ReviewDate);
+        Assert.Empty(page1.Select(e => e.ExceptionKey).Intersect(page2.Select(e => e.ExceptionKey)));
+    }
 }

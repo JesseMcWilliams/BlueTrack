@@ -17,7 +17,9 @@
 // "Showing N of M total" count summary (X-Total-Count).
 import { ref, computed, onMounted, watch } from 'vue'
 import { useTotalCount } from '../composables/useTotalCount'
+import { usePageSizeStore } from '../stores/pageSize'
 import FilterCountSummary from '../components/FilterCountSummary.vue'
+import Pager from '../components/Pager.vue'
 
 const importState = ref({
   inventory: { file: null, result: null, importing: false },
@@ -52,10 +54,26 @@ const error = ref(null)
 const loading = ref(true)
 const editing = ref(null)
 
-const { totalCount, readTotalCount } = useTotalCount()
+const { totalCount, filteredCount, readTotalCount } = useTotalCount()
+const pageSizeStore = usePageSizeStore()
 
 const scopeFilter = ref('')
 const sorTypeFilter = ref('')
+
+// D-124 Phase 3: pagination -- page is local to this page (not persisted);
+// pageSize comes from the shared, server-persisted pageSize store.
+const page = ref(1)
+const pageCount = computed(() => Math.max(1, Math.ceil((filteredCount.value ?? 0) / pageSizeStore.current)))
+
+function onPageChange(newPage) {
+  page.value = newPage
+  load()
+}
+
+function onPageSizeChange() {
+  page.value = 1
+  load()
+}
 
 const sortColumns = ref([])
 const columns = [
@@ -110,6 +128,8 @@ async function load() {
     if (scopeFilter.value) params.set('groupScope', scopeFilter.value)
     if (sorTypeFilter.value) params.set('sorTypeName', sorTypeFilter.value)
     if (sortQueryParam.value) params.set('sort', sortQueryParam.value)
+    params.set('page', page.value)
+    params.set('pageSize', pageSizeStore.current)
 
     const [groupsResponse, targetsResponse] = await Promise.all([
       fetch(`/api/admin/access-groups?${params.toString()}`),
@@ -137,7 +157,12 @@ onMounted(async () => {
   await load()
 })
 
-watch([scopeFilter, sorTypeFilter, sortQueryParam], load)
+// D-124 Phase 3: a filter/sort change resets to page 1 -- see Targets.vue's
+// identical comment for why page-size/Prev/Next changes are handled separately.
+watch([scopeFilter, sorTypeFilter, sortQueryParam], () => {
+  page.value = 1
+  load()
+})
 
 function startCreate() {
   editing.value = { groupName: '', groupIdentifier: '', groupScope: 'Domain', foundOnTargetKey: null, sorTypeKey: null, sorAddress: '', baseRiskScore: 0, description: '', discoverySource: '' }
@@ -196,7 +221,8 @@ async function remove(item) {
         </select>
       </label>
     </p>
-    <FilterCountSummary :shown="items.length" :total="totalCount" />
+    <FilterCountSummary :shown="items.length" :filtered-count="filteredCount" :total="totalCount" :page="page" :page-size="pageSizeStore.current" />
+    <Pager :page="page" :page-count="pageCount" @update:page="onPageChange" @page-size-change="onPageSizeChange" />
 
     <p v-if="loading" role="status">Loading...</p>
 

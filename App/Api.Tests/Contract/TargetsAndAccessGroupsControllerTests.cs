@@ -101,7 +101,14 @@ public class TargetsAndAccessGroupsControllerTests : IClassFixture<BlueTrackWebA
         Assert.Contains(types!, t => t.TypeCode == "ActiveDirectory" && t.DisplayName == "Active Directory");
     }
 
-    /// <summary>D-121: X-Total-Count carries the unfiltered grand total; the JSON body stays a bare array.</summary>
+    /// <summary>
+    /// D-121: X-Total-Count carries the unfiltered grand total; the JSON
+    /// body stays a bare array. D-124 Phase 3: also confirms X-Filtered-Count
+    /// equals X-Total-Count here specifically because no filter is applied
+    /// -- pageSize=500 is passed so the body's own count (now capped per
+    /// page by default) still reflects the full unfiltered set for this
+    /// assertion, comfortably above anything this test DB ever holds.
+    /// </summary>
     [Fact]
     public async Task Targets_GetAll_SetsTotalCountHeader()
     {
@@ -120,13 +127,16 @@ public class TargetsAndAccessGroupsControllerTests : IClassFixture<BlueTrackWebA
         try
         {
             var beforeCount = await CountAsync(client, "/api/admin/targets");
-            var afterResponse = await client.GetAsync("/api/admin/targets");
+            var afterResponse = await client.GetAsync("/api/admin/targets?pageSize=500");
             var afterBody = await afterResponse.Content.ReadFromJsonAsync<List<TargetResponse>>();
 
             Assert.True(afterResponse.Headers.TryGetValues("X-Total-Count", out var values));
             var total = int.Parse(values!.Single());
             Assert.Equal(afterBody!.Count, total);
             Assert.True(total >= beforeCount);
+
+            Assert.True(afterResponse.Headers.TryGetValues("X-Filtered-Count", out var filteredValues));
+            Assert.Equal(total, int.Parse(filteredValues!.Single()));
         }
         finally
         {
@@ -134,7 +144,15 @@ public class TargetsAndAccessGroupsControllerTests : IClassFixture<BlueTrackWebA
         }
     }
 
-    /// <summary>D-121: TargetType filter narrows the body but X-Total-Count still reports the unfiltered grand total. D-124 Phase 2: the filter is now the FK key (targetTypeKey), not the old raw TargetType string.</summary>
+    /// <summary>
+    /// D-121: TargetType filter narrows the body but X-Total-Count still
+    /// reports the unfiltered grand total. D-124 Phase 2: the filter is now
+    /// the FK key (targetTypeKey), not the old raw TargetType string.
+    /// D-124 Phase 3: also confirms X-Filtered-Count DOES narrow with the
+    /// filter (the opposite of X-Total-Count) -- pageSize=500 is passed so
+    /// the created row is guaranteed to appear in the returned page
+    /// regardless of how many other Server-type Targets exist concurrently.
+    /// </summary>
     [Fact]
     public async Task Targets_GetAll_FilterByType_NarrowsBody_ButTotalCountStaysUnfiltered()
     {
@@ -150,16 +168,24 @@ public class TargetsAndAccessGroupsControllerTests : IClassFixture<BlueTrackWebA
 
         try
         {
-            var unfilteredResponse = await client.GetAsync("/api/admin/targets");
+            var unfilteredResponse = await client.GetAsync("/api/admin/targets?pageSize=500");
             var unfilteredTotal = int.Parse(unfilteredResponse.Headers.GetValues("X-Total-Count").Single());
+            var unfilteredFiltered = int.Parse(unfilteredResponse.Headers.GetValues("X-Filtered-Count").Single());
+            Assert.Equal(unfilteredTotal, unfilteredFiltered); // no filter applied yet -- the two headers agree
 
-            var filteredResponse = await client.GetAsync($"/api/admin/targets?targetTypeKey={serverTypeKey}");
+            var filteredResponse = await client.GetAsync($"/api/admin/targets?targetTypeKey={serverTypeKey}&pageSize=500");
             var filteredBody = await filteredResponse.Content.ReadFromJsonAsync<List<TargetResponse>>();
             var filteredTotal = int.Parse(filteredResponse.Headers.GetValues("X-Total-Count").Single());
+            var filteredFilteredCount = int.Parse(filteredResponse.Headers.GetValues("X-Filtered-Count").Single());
 
             Assert.Contains(filteredBody!, t => t.TargetKey == serverKey);
             Assert.DoesNotContain(filteredBody, t => t.TargetKey == appKey);
             Assert.Equal(unfilteredTotal, filteredTotal); // total ignores the filter, per D-121's design
+            // The just-created Application-type row is excluded by the
+            // Server-type filter, so the filtered count must be strictly
+            // less than the unfiltered grand total by at least that one row.
+            Assert.True(filteredFilteredCount < unfilteredTotal);
+            Assert.Equal(filteredBody!.Count, filteredFilteredCount);
         }
         finally
         {
@@ -267,7 +293,14 @@ public class TargetsAndAccessGroupsControllerTests : IClassFixture<BlueTrackWebA
         Assert.Contains(types!, t => t.SorTypeName == "App");
     }
 
-    /// <summary>D-121: X-Total-Count is present, and a GroupScope filter narrows the body without changing the header.</summary>
+    /// <summary>
+    /// D-121: X-Total-Count is present, and a GroupScope filter narrows the
+    /// body without changing the header. D-124 Phase 3: also confirms
+    /// X-Filtered-Count DOES narrow with the filter (the opposite of
+    /// X-Total-Count) -- pageSize=500 is passed so the created rows are
+    /// guaranteed to appear in the returned page regardless of how many
+    /// other Access Groups exist concurrently.
+    /// </summary>
     [Fact]
     public async Task AccessGroups_GetAll_FilterByScope_NarrowsBody_ButTotalCountStaysUnfiltered()
     {
@@ -281,16 +314,24 @@ public class TargetsAndAccessGroupsControllerTests : IClassFixture<BlueTrackWebA
 
         try
         {
-            var unfilteredResponse = await client.GetAsync("/api/admin/access-groups");
+            var unfilteredResponse = await client.GetAsync("/api/admin/access-groups?pageSize=500");
             var unfilteredTotal = int.Parse(unfilteredResponse.Headers.GetValues("X-Total-Count").Single());
+            var unfilteredFiltered = int.Parse(unfilteredResponse.Headers.GetValues("X-Filtered-Count").Single());
+            Assert.Equal(unfilteredTotal, unfilteredFiltered); // no filter applied yet -- the two headers agree
 
-            var filteredResponse = await client.GetAsync("/api/admin/access-groups?groupScope=Local");
+            var filteredResponse = await client.GetAsync("/api/admin/access-groups?groupScope=Local&pageSize=500");
             var filteredBody = await filteredResponse.Content.ReadFromJsonAsync<List<AccessGroupResponse>>();
             var filteredTotal = int.Parse(filteredResponse.Headers.GetValues("X-Total-Count").Single());
+            var filteredFilteredCount = int.Parse(filteredResponse.Headers.GetValues("X-Filtered-Count").Single());
 
             Assert.Contains(filteredBody!, g => g.AccessGroupKey == localKey);
             Assert.DoesNotContain(filteredBody, g => g.AccessGroupKey == domainKey);
             Assert.Equal(unfilteredTotal, filteredTotal);
+            // The just-created Domain-scoped row is excluded by the
+            // Local-scope filter, so the filtered count must be strictly
+            // less than the unfiltered grand total by at least that one row.
+            Assert.True(filteredFilteredCount < unfilteredTotal);
+            Assert.Equal(filteredBody!.Count, filteredFilteredCount);
         }
         finally
         {

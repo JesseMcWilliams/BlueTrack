@@ -18,12 +18,30 @@ public sealed class AuditRepository(IDbConnectionFactory connectionFactory)
         ["entityName"] = "ae.EntityName"
     };
 
-    /// <summary>D-42: adds multi-column sort on top of the existing stacked filters (event type/entity/user/date range).</summary>
+    // D-124 Phase 3: shared between GetEventsAsync and GetFilteredCountAsync
+    // so the filtered-count query mirrors the list query's own FROM/JOIN/WHERE
+    // exactly -- the only real difference is paging/ORDER BY, which a COUNT
+    // doesn't need.
+    private const string FilterFromSql = """
+        FROM web.audit_event ae
+        JOIN web.dim_audit_event_type aet ON aet.AuditEventTypeKey = ae.AuditEventTypeKey
+        LEFT JOIN web.app_user au          ON au.UserKey = ae.PerformedByUserKey
+        WHERE (@EventTypeName IS NULL OR aet.EventTypeName = @EventTypeName)
+          AND (@EntityName IS NULL OR ae.EntityName = @EntityName)
+          AND (@PerformedByUserKey IS NULL OR ae.PerformedByUserKey = @PerformedByUserKey)
+          AND (@FromDate IS NULL OR ae.OccurredAt >= @FromDate)
+          AND (@ToDate IS NULL OR ae.OccurredAt < DATEADD(DAY, 1, @ToDate))
+        """;
+
+    /// <summary>D-42: adds multi-column sort on top of the existing stacked filters (event type/entity/user/date range). D-124 Phase 3: page/pageSize add SQL Server OFFSET/FETCH paging after the ORDER BY.</summary>
     public async Task<IReadOnlyList<AuditEventSummary>> GetEventsAsync(
         string? eventTypeName, string? entityName, int? performedByUserKey, DateTime? fromDate, DateTime? toDate,
-        IReadOnlyList<(string Field, bool Descending)>? sortBy = null)
+        IReadOnlyList<(string Field, bool Descending)>? sortBy = null,
+        int? page = null,
+        int? pageSize = null)
     {
         using var connection = connectionFactory.Create();
+        var (normalizedPage, normalizedPageSize) = PagingParams.Normalize(page, pageSize);
 
         var sql = $"""
             SELECT
@@ -36,15 +54,9 @@ public sealed class AuditRepository(IDbConnectionFactory connectionFactory)
                 ae.SourceIpAddress,
                 ae.Detail,
                 ae.Reason
-            FROM web.audit_event ae
-            JOIN web.dim_audit_event_type aet ON aet.AuditEventTypeKey = ae.AuditEventTypeKey
-            LEFT JOIN web.app_user au          ON au.UserKey = ae.PerformedByUserKey
-            WHERE (@EventTypeName IS NULL OR aet.EventTypeName = @EventTypeName)
-              AND (@EntityName IS NULL OR ae.EntityName = @EntityName)
-              AND (@PerformedByUserKey IS NULL OR ae.PerformedByUserKey = @PerformedByUserKey)
-              AND (@FromDate IS NULL OR ae.OccurredAt >= @FromDate)
-              AND (@ToDate IS NULL OR ae.OccurredAt < DATEADD(DAY, 1, @ToDate))
+            {FilterFromSql}
             ORDER BY {BuildOrderByClause(sortBy)}
+            OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY
             """;
 
         var rows = await connection.QueryAsync<AuditEventSummary>(sql, new
@@ -53,7 +65,9 @@ public sealed class AuditRepository(IDbConnectionFactory connectionFactory)
             EntityName = entityName,
             PerformedByUserKey = performedByUserKey,
             FromDate = fromDate,
-            ToDate = toDate
+            ToDate = toDate,
+            Offset = PagingParams.Offset(normalizedPage, normalizedPageSize),
+            PageSize = normalizedPageSize
         });
         return rows.AsList();
     }
@@ -63,6 +77,21 @@ public sealed class AuditRepository(IDbConnectionFactory connectionFactory)
     {
         using var connection = connectionFactory.Create();
         return await connection.QuerySingleAsync<int>("SELECT COUNT(*) FROM web.audit_event");
+    }
+
+    /// <summary>D-124 Phase 3: how many rows match the current filter (ignoring paging) -- backs the new X-Filtered-Count header, distinct from GetTotalCountAsync's unfiltered grand total.</summary>
+    public async Task<int> GetFilteredCountAsync(string? eventTypeName, string? entityName, int? performedByUserKey, DateTime? fromDate, DateTime? toDate)
+    {
+        using var connection = connectionFactory.Create();
+        var sql = $"SELECT COUNT(*) {FilterFromSql}";
+        return await connection.QuerySingleAsync<int>(sql, new
+        {
+            EventTypeName = eventTypeName,
+            EntityName = entityName,
+            PerformedByUserKey = performedByUserKey,
+            FromDate = fromDate,
+            ToDate = toDate
+        });
     }
 
     private static string BuildOrderByClause(IReadOnlyList<(string Field, bool Descending)>? sortBy)

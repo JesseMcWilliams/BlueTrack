@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
+import { createPinia, setActivePinia } from 'pinia'
 import Targets from './Targets.vue'
 
 // D-121: this page had zero filter/sort/count UI before this work -- these
@@ -9,11 +10,20 @@ import Targets from './Targets.vue'
 // (the freshest Vitest component-test precedent in this project at the
 // time this page was moved out of admin/ and given filter UI for the
 // first time).
-function jsonResponse(body, { ok = true, status = 200, totalCount = null } = {}) {
+//
+// D-124 Phase 3: also carries X-Filtered-Count (defaults to totalCount when
+// not given separately, matching the common case of an unfiltered load).
+function jsonResponse(body, { ok = true, status = 200, totalCount = null, filteredCount = totalCount } = {}) {
   return {
     ok,
     status,
-    headers: { get: (name) => (name === 'X-Total-Count' && totalCount !== null ? String(totalCount) : null) },
+    headers: {
+      get: (name) => {
+        if (name === 'X-Total-Count') return totalCount !== null ? String(totalCount) : null
+        if (name === 'X-Filtered-Count') return filteredCount !== null ? String(filteredCount) : null
+        return null
+      }
+    },
     json: () => Promise.resolve(body)
   }
 }
@@ -45,17 +55,25 @@ const targetTypes = [
 
 // Mounting triggers: 1) GET /api/applications and GET /api/admin/targets/target-types,
 // then 2) load()'s Promise.all([GET /api/admin/targets, GET /api/admin/targets/identifier-types]).
-function mockInitialLoad({ targets = [sampleTarget], totalCount = targets.length } = {}) {
+function mockInitialLoad({ targets = [sampleTarget], totalCount = targets.length, filteredCount = totalCount } = {}) {
   globalThis.fetch = vi.fn((url) => {
     if (url === '/api/applications') return Promise.resolve(jsonResponse([{ applicationKey: 1, applicationCode: 'APP1', applicationName: 'App One' }]))
     if (url === '/api/admin/targets/target-types') return Promise.resolve(jsonResponse(targetTypes))
     if (url.startsWith('/api/admin/targets/identifier-types')) return Promise.resolve(jsonResponse([{ identifierType: 'Hostname', matchPriority: 30, requiresReview: false }]))
-    if (url.startsWith('/api/admin/targets')) return Promise.resolve(jsonResponse(targets, { totalCount }))
+    if (url.startsWith('/api/admin/targets')) return Promise.resolve(jsonResponse(targets, { totalCount, filteredCount }))
     return Promise.resolve(jsonResponse(null, { ok: false, status: 404 }))
   })
 }
 
 describe('Targets.vue', () => {
+  beforeEach(() => {
+    // D-124 Phase 3: Targets.vue now reads the shared, server-persisted
+    // pageSize store (src/stores/pageSize.js) for pagination -- needs an
+    // active Pinia instance, unlike before this phase when the page used
+    // no Pinia store at all.
+    setActivePinia(createPinia())
+  })
+
   afterEach(() => {
     vi.restoreAllMocks()
   })
@@ -70,20 +88,79 @@ describe('Targets.vue', () => {
     expect(wrapper.text()).toContain('Hostname=web01.example.com')
   })
 
-  it('shows the "Showing N of M total" count summary once X-Total-Count is known', async () => {
-    mockInitialLoad({ targets: [sampleTarget], totalCount: 42 })
+  it('shows the "Showing N of M matching (of total)" count summary once both headers are known', async () => {
+    mockInitialLoad({ targets: [sampleTarget], totalCount: 100, filteredCount: 42 })
 
     const wrapper = mount(Targets)
     await flushPromises()
 
-    expect(wrapper.text()).toContain('Showing 1 of 42 total')
+    expect(wrapper.text()).toContain('Showing 1–1 of 42 matching (100 total)')
   })
 
-  it('does not show the count summary before the first load resolves its header', async () => {
+  it('does not show the count summary before the first load resolves its headers', async () => {
     globalThis.fetch = vi.fn(() => new Promise(() => {})) // never resolves
     const wrapper = mount(Targets)
 
     expect(wrapper.find('.filter-count-summary').exists()).toBe(false)
+  })
+
+  // D-124 Phase 3: pagination.
+  it('sends page/pageSize query params on load, defaulting pageSize to 50', async () => {
+    mockInitialLoad({ targets: [] })
+    const wrapper = mount(Targets)
+    await flushPromises()
+
+    const targetsCalls = globalThis.fetch.mock.calls.map(c => c[0]).filter(u => u.startsWith('/api/admin/targets?'))
+    expect(targetsCalls.some(u => u.includes('page=1') && u.includes('pageSize=50'))).toBe(true)
+  })
+
+  it('shows the pager and disables Prev/Next appropriately on a single-page result', async () => {
+    mockInitialLoad({ targets: [sampleTarget], totalCount: 1, filteredCount: 1 })
+    const wrapper = mount(Targets)
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('Page 1 of 1')
+    const [prevButton, nextButton] = wrapper.findAll('.pager button')
+    expect(prevButton.attributes('disabled')).toBeDefined()
+    expect(nextButton.attributes('disabled')).toBeDefined()
+  })
+
+  it('clicking Next advances to page 2 and re-fetches with page=2', async () => {
+    mockInitialLoad({ targets: [sampleTarget], totalCount: 120, filteredCount: 120 })
+    const wrapper = mount(Targets)
+    await flushPromises()
+
+    const nextButton = wrapper.findAll('.pager button').find(b => b.text().includes('Next'))
+    await nextButton.trigger('click')
+    await flushPromises()
+
+    const targetsCalls = globalThis.fetch.mock.calls.map(c => c[0]).filter(u => u.startsWith('/api/admin/targets?'))
+    expect(targetsCalls.some(u => u.includes('page=2'))).toBe(true)
+    expect(wrapper.text()).toContain('Page 2 of')
+  })
+
+  it('changing the page size resets to page 1, persists the preference, and re-fetches with the new pageSize', async () => {
+    mockInitialLoad({ targets: [sampleTarget], totalCount: 120, filteredCount: 120 })
+    const wrapper = mount(Targets)
+    await flushPromises()
+
+    // Advance to page 2 first, so the reset-to-1 behavior is actually exercised.
+    const nextButton = wrapper.findAll('.pager button').find(b => b.text().includes('Next'))
+    await nextButton.trigger('click')
+    await flushPromises()
+
+    const pageSizeSelect = wrapper.find('.pager select')
+    await pageSizeSelect.setValue('100')
+    await flushPromises()
+
+    expect(globalThis.fetch).toHaveBeenCalledWith('/api/me/preferences/PageSize', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ value: '100' })
+    })
+    const targetsCalls = globalThis.fetch.mock.calls.map(c => c[0]).filter(u => u.startsWith('/api/admin/targets?'))
+    expect(targetsCalls.at(-1)).toContain('page=1')
+    expect(targetsCalls.at(-1)).toContain('pageSize=100')
   })
 
   it('sends the Type filter as a targetTypeKey query param', async () => {

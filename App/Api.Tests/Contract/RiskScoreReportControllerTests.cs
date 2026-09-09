@@ -32,17 +32,94 @@ public class RiskScoreReportControllerTests : IClassFixture<BlueTrackWebApplicat
         return client;
     }
 
-    /// <summary>D-121: X-Total-Count carries the unfiltered grand total; the JSON body shape (a bare array) is unchanged. This report takes no filter params, so the header always equals the body's own count.</summary>
+    /// <summary>
+    /// D-121: X-Total-Count carries the unfiltered grand total; the JSON
+    /// body shape (a bare array) is unchanged. This report takes no filter
+    /// params, so the header always equals the body's own count. D-124
+    /// Phase 3: pageSize=500 is passed so the body still reflects the full
+    /// set (now capped per page by default), and X-Filtered-Count is
+    /// asserted equal to X-Total-Count too, since there's no filter to
+    /// narrow it here.
+    /// </summary>
     [Fact]
     public async Task GetReport_SetsTotalCountHeader_MatchingBodyCount()
     {
         var client = AdminClient();
 
-        var response = await client.GetAsync("/api/reports/risk-score");
+        var response = await client.GetAsync("/api/reports/risk-score?pageSize=500");
 
         Assert.True(response.Headers.TryGetValues("X-Total-Count", out var values));
         var rows = await response.Content.ReadFromJsonAsync<List<RiskScoreReportRowResponse>>();
-        Assert.Equal(rows!.Count, int.Parse(values!.Single()));
+        var total = int.Parse(values!.Single());
+        Assert.Equal(rows!.Count, total);
+
+        Assert.True(response.Headers.TryGetValues("X-Filtered-Count", out var filteredValues));
+        Assert.Equal(total, int.Parse(filteredValues!.Single()));
+    }
+
+    /// <summary>
+    /// D-124 Phase 3: page/pageSize paging. This report has no filter param
+    /// to isolate a fresh fixture from whatever else exists in
+    /// dbo.fact_account at the same time, so this instead validates
+    /// end-to-end correctness against a "ground truth" fetch of the whole
+    /// sorted set (a large pageSize=500, comfortably above anything this
+    /// test DB ever holds, sorted by accountName so ties are irrelevant --
+    /// every AccountName in this codebase's fixtures is GUID-suffixed and
+    /// therefore effectively unique): whatever that full list actually is,
+    /// page 1/page 2 (pageSize 2) must be its first-two/next-two elements
+    /// in order, and disjoint. Three accounts are still created here just
+    /// to guarantee the table has at least 3 rows to page across.
+    /// </summary>
+    [Fact]
+    public async Task GetReport_PageAndPageSize_ReturnsDisjointCorrectlyOrderedPagesMatchingGroundTruth()
+    {
+        var client = AdminClient();
+        await using var connection = new SqlConnection(TestDatabase.ConnectionString);
+        await connection.OpenAsync();
+
+        var suffix = Guid.NewGuid().ToString("N")[..8];
+        var accountKeys = new List<long>();
+        foreach (var letter in new[] { "A", "B", "C" })
+        {
+            accountKeys.Add(await connection.QuerySingleAsync<long>(
+                "INSERT INTO fact_account (SourceSystemKey, SourceAccountId, AccountName, IsDeleted) OUTPUT inserted.AccountKey VALUES (1, @SourceAccountId, @AccountName, 0)",
+                new { SourceAccountId = $"IntegrationTest_{Guid.NewGuid():N}", AccountName = $"PageTest-{suffix}-{letter}" }));
+        }
+
+        try
+        {
+            var fullResponse = await client.GetAsync("/api/reports/risk-score?sort=accountName:asc&pageSize=500");
+            var fullList = await fullResponse.Content.ReadFromJsonAsync<List<RiskScoreReportRowResponse>>();
+
+            var page1Response = await client.GetAsync("/api/reports/risk-score?sort=accountName:asc&page=1&pageSize=2");
+            var page1 = await page1Response.Content.ReadFromJsonAsync<List<RiskScoreReportRowResponse>>();
+            var page2Response = await client.GetAsync("/api/reports/risk-score?sort=accountName:asc&page=2&pageSize=2");
+            var page2 = await page2Response.Content.ReadFromJsonAsync<List<RiskScoreReportRowResponse>>();
+
+            var expectedPage1 = fullList!.Take(2).Select(r => r.AccountKey).ToList();
+            var expectedPage2 = fullList!.Skip(2).Take(2).Select(r => r.AccountKey).ToList();
+
+            Assert.Equal(expectedPage1, page1!.Select(r => r.AccountKey).ToList());
+            Assert.Equal(expectedPage2, page2!.Select(r => r.AccountKey).ToList());
+            Assert.Empty(page1.Select(r => r.AccountKey).Intersect(page2.Select(r => r.AccountKey)));
+        }
+        finally
+        {
+            await connection.ExecuteAsync("DELETE FROM dbo.fact_account_progress_history WHERE AccountKey IN @Keys", new { Keys = accountKeys });
+            await connection.ExecuteAsync("DELETE FROM dbo.fact_account_progress WHERE AccountKey IN @Keys", new { Keys = accountKeys });
+            await connection.ExecuteAsync("DELETE FROM fact_account WHERE AccountKey IN @Keys", new { Keys = accountKeys });
+        }
+    }
+
+    /// <summary>D-124 Phase 3: a request for an absurd pageSize is capped server-side (PagingParams.MaxPageSize = 500), not honored literally -- proven here by confirming the request succeeds cleanly rather than erroring or hanging, which an uncapped OFFSET/FETCH against a client-supplied value could risk under a real malicious/buggy request.</summary>
+    [Fact]
+    public async Task GetReport_AbsurdPageSize_IsCappedServerSide_RequestStillSucceeds()
+    {
+        var client = AdminClient();
+
+        var response = await client.GetAsync("/api/reports/risk-score?pageSize=999999999");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
 
     [Fact]

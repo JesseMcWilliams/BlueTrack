@@ -27,17 +27,46 @@ public class RiskExceptionsWorkflowTests : IClassFixture<BlueTrackWebApplication
         return client;
     }
 
-    /// <summary>D-121: X-Total-Count carries the unfiltered grand total; the JSON body shape (a bare array) is unchanged.</summary>
+    /// <summary>
+    /// D-121: X-Total-Count carries the unfiltered grand total; the JSON
+    /// body shape (a bare array) is unchanged. D-124 Phase 3: pageSize=500
+    /// is passed so the body still reflects the full set (now capped per
+    /// page by default), and X-Filtered-Count is asserted equal to
+    /// X-Total-Count too, since no filter is applied here.
+    /// </summary>
     [Fact]
     public async Task GetList_SetsTotalCountHeader_MatchingBodyCountWhenUnfiltered()
     {
         var client = CreateClientAs("TestUser.Viewer");
 
-        var response = await client.GetAsync("/api/risk-exceptions");
+        var response = await client.GetAsync("/api/risk-exceptions?pageSize=500");
 
         Assert.True(response.Headers.TryGetValues("X-Total-Count", out var values));
         var exceptions = await response.Content.ReadFromJsonAsync<List<object>>();
-        Assert.Equal(exceptions!.Count, int.Parse(values!.Single()));
+        var total = int.Parse(values!.Single());
+        Assert.Equal(exceptions!.Count, total);
+
+        Assert.True(response.Headers.TryGetValues("X-Filtered-Count", out var filteredValues));
+        Assert.Equal(total, int.Parse(filteredValues!.Single()));
+    }
+
+    /// <summary>D-124 Phase 3: a status filter that matches nothing narrows X-Filtered-Count to 0 while X-Total-Count stays the unfiltered grand total -- mirroring the equivalent "matches nothing" pattern already established for the Audit Log endpoint (AdminControllersFunctionalTests.AuditLog_GetEvents_SetsTotalCountHeader_IgnoringTheRequestsOwnFilter).</summary>
+    [Fact]
+    public async Task GetList_StatusFilterMatchingNothing_NarrowsFilteredCount_ButTotalCountStaysUnfiltered()
+    {
+        var client = CreateClientAs("TestUser.Viewer");
+
+        var unfilteredResponse = await client.GetAsync("/api/risk-exceptions");
+        var unfilteredTotal = int.Parse(unfilteredResponse.Headers.GetValues("X-Total-Count").Single());
+
+        var filteredResponse = await client.GetAsync("/api/risk-exceptions?status=this_status_matches_nothing");
+        var filteredBody = await filteredResponse.Content.ReadFromJsonAsync<List<object>>();
+        var filteredTotal = int.Parse(filteredResponse.Headers.GetValues("X-Total-Count").Single());
+        var filteredFilteredCount = int.Parse(filteredResponse.Headers.GetValues("X-Filtered-Count").Single());
+
+        Assert.Empty(filteredBody!);
+        Assert.Equal(0, filteredFilteredCount);
+        Assert.Equal(unfilteredTotal, filteredTotal);
     }
 
     [Fact]

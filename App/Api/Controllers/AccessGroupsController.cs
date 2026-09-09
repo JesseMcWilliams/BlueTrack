@@ -16,16 +16,19 @@ public sealed class AccessGroupsController(
     CurrentUserResolver currentUserResolver,
     AuditLogger auditLogger) : ControllerBase
 {
-    /// <summary>D-121: stacked filters (scope/SOR type) plus sort, and an X-Total-Count header carrying the unfiltered grand total (the JSON body stays a bare array, unchanged).</summary>
+    /// <summary>D-121: stacked filters (scope/SOR type) plus sort, and an X-Total-Count header carrying the unfiltered grand total (the JSON body stays a bare array, unchanged). D-124 Phase 3: page/pageSize add server-side paging; X-Filtered-Count carries how many rows match the current filter, ignoring paging.</summary>
     [HttpGet]
     public async Task<IActionResult> GetAll(
         [FromQuery] string? groupScope = null,
         [FromQuery] string? sorTypeName = null,
-        [FromQuery] string? sort = null)
+        [FromQuery] string? sort = null,
+        [FromQuery] int? page = null,
+        [FromQuery] int? pageSize = null)
     {
         var sortBy = SortParser.Parse(sort);
-        var results = await repository.GetAllAsync(groupScope, sorTypeName, sortBy);
+        var results = await repository.GetAllAsync(groupScope, sorTypeName, sortBy, page, pageSize);
         Response.Headers["X-Total-Count"] = (await repository.GetTotalCountAsync()).ToString();
+        Response.Headers["X-Filtered-Count"] = (await repository.GetFilteredCountAsync(groupScope, sorTypeName)).ToString();
         return Ok(results);
     }
 

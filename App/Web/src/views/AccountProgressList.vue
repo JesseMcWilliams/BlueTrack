@@ -7,10 +7,28 @@ import { ref, computed, watch, onMounted } from 'vue'
 import { formatDate } from '../utils/formatDate'
 import { useRightsStore } from '../stores/rights'
 import { useTotalCount } from '../composables/useTotalCount'
+import { usePageSizeStore } from '../stores/pageSize'
 import FilterCountSummary from '../components/FilterCountSummary.vue'
+import Pager from '../components/Pager.vue'
 
 const rights = useRightsStore()
-const { totalCount, readTotalCount } = useTotalCount()
+const { totalCount, filteredCount, readTotalCount } = useTotalCount()
+const pageSizeStore = usePageSizeStore()
+
+// D-124 Phase 3: pagination -- page is local to this page (not persisted);
+// pageSize comes from the shared, server-persisted pageSize store.
+const page = ref(1)
+const pageCount = computed(() => Math.max(1, Math.ceil((filteredCount.value ?? 0) / pageSizeStore.current)))
+
+function onPageChange(newPage) {
+  page.value = newPage
+  load()
+}
+
+function onPageSizeChange() {
+  page.value = 1
+  load()
+}
 
 const accounts = ref([])
 const referenceData = ref({})
@@ -139,6 +157,8 @@ async function load() {
     if (riskLevelFilter.value) params.set('riskLevel', riskLevelFilter.value)
     if (ownerFilter.value) params.set('owner', ownerFilter.value)
     if (sortQueryParam.value) params.set('sort', sortQueryParam.value)
+    params.set('page', page.value)
+    params.set('pageSize', pageSizeStore.current)
 
     const response = await fetch(`/api/account-progress?${params.toString()}`)
     if (!response.ok) {
@@ -163,7 +183,12 @@ onMounted(async () => {
   await load()
 })
 
-watch([stageFilter, statusFilter, riskLevelFilter, ownerFilter, sortQueryParam], load)
+// D-124 Phase 3: a filter/sort change resets to page 1 -- see Targets.vue's
+// identical comment for why page-size/Prev/Next changes are handled separately.
+watch([stageFilter, statusFilter, riskLevelFilter, ownerFilter, sortQueryParam], () => {
+  page.value = 1
+  load()
+})
 </script>
 
 <template>
@@ -190,7 +215,8 @@ watch([stageFilter, statusFilter, riskLevelFilter, ownerFilter, sortQueryParam],
       </label>
       <label class="field-label"><span class="field-label-text">Owner:</span> <input v-model="ownerFilter" type="text" placeholder="contains..." /></label>
     </p>
-    <FilterCountSummary :shown="accounts.length" :total="totalCount" />
+    <FilterCountSummary :shown="accounts.length" :filtered-count="filteredCount" :total="totalCount" :page="page" :page-size="pageSizeStore.current" />
+    <Pager :page="page" :page-count="pageCount" @update:page="onPageChange" @page-size-change="onPageSizeChange" />
     <p v-if="loading" role="status">Loading...</p>
     <p v-else-if="error" role="alert">Could not load accounts: {{ error }}</p>
     <table v-else>

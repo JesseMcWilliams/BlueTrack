@@ -30,20 +30,38 @@ public sealed class AccessGroupRepository(IDbConnectionFactory connectionFactory
         LEFT JOIN web.dim_sor_type st ON st.SorTypeKey = g.SorTypeKey
         """;
 
-    /// <summary>D-121: stacked filters (scope/SOR type) plus multi-column sort, same pattern as the D-42 pages.</summary>
+    // D-124 Phase 3: shared between GetAllAsync and GetFilteredCountAsync so
+    // the filtered-count query mirrors the list query's own WHERE clause
+    // exactly -- the only real difference is paging/ORDER BY, which a COUNT
+    // doesn't need.
+    private const string FilterWhereSql = """
+        WHERE (@GroupScope IS NULL OR g.GroupScope = @GroupScope)
+          AND (@SorTypeName IS NULL OR st.SorTypeName = @SorTypeName)
+        """;
+
+    /// <summary>D-121: stacked filters (scope/SOR type) plus multi-column sort, same pattern as the D-42 pages. D-124 Phase 3: page/pageSize add SQL Server OFFSET/FETCH paging after the ORDER BY.</summary>
     public async Task<IReadOnlyList<AccessGroupSummary>> GetAllAsync(
         string? groupScope = null,
         string? sorTypeName = null,
-        IReadOnlyList<(string Field, bool Descending)>? sortBy = null)
+        IReadOnlyList<(string Field, bool Descending)>? sortBy = null,
+        int? page = null,
+        int? pageSize = null)
     {
         using var connection = connectionFactory.Create();
+        var (normalizedPage, normalizedPageSize) = PagingParams.Normalize(page, pageSize);
         var sql = $"""
             {SelectSql}
-            WHERE (@GroupScope IS NULL OR g.GroupScope = @GroupScope)
-              AND (@SorTypeName IS NULL OR st.SorTypeName = @SorTypeName)
+            {FilterWhereSql}
             ORDER BY {BuildOrderByClause(sortBy)}
+            OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY
             """;
-        var rows = await connection.QueryAsync<AccessGroupSummary>(sql, new { GroupScope = groupScope, SorTypeName = sorTypeName });
+        var rows = await connection.QueryAsync<AccessGroupSummary>(sql, new
+        {
+            GroupScope = groupScope,
+            SorTypeName = sorTypeName,
+            Offset = PagingParams.Offset(normalizedPage, normalizedPageSize),
+            PageSize = normalizedPageSize
+        });
         return rows.AsList();
     }
 
@@ -52,6 +70,19 @@ public sealed class AccessGroupRepository(IDbConnectionFactory connectionFactory
     {
         using var connection = connectionFactory.Create();
         return await connection.QuerySingleAsync<int>("SELECT COUNT(*) FROM web.dim_access_group");
+    }
+
+    /// <summary>D-124 Phase 3: how many rows match the current filter (ignoring paging) -- backs the new X-Filtered-Count header, distinct from GetTotalCountAsync's unfiltered grand total.</summary>
+    public async Task<int> GetFilteredCountAsync(string? groupScope = null, string? sorTypeName = null)
+    {
+        using var connection = connectionFactory.Create();
+        var sql = $"""
+            SELECT COUNT(*)
+            FROM web.dim_access_group g
+            LEFT JOIN web.dim_sor_type st ON st.SorTypeKey = g.SorTypeKey
+            {FilterWhereSql}
+            """;
+        return await connection.QuerySingleAsync<int>(sql, new { GroupScope = groupScope, SorTypeName = sorTypeName });
     }
 
     private static string BuildOrderByClause(IReadOnlyList<(string Field, bool Descending)>? sortBy)

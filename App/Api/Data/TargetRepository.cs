@@ -36,20 +36,38 @@ public sealed class TargetRepository(IDbConnectionFactory connectionFactory)
         LEFT JOIN web.dim_application a ON a.ApplicationKey = t.ApplicationKey
         """;
 
-    /// <summary>D-121: stacked filters (type/application) plus multi-column sort, same pattern as the D-42 pages. D-124 Phase 2: the type filter is now the FK key, not the old raw TargetType string.</summary>
+    // D-124 Phase 3: shared between GetAllAsync and GetFilteredCountAsync so
+    // the filtered-count query mirrors the list query's own WHERE clause
+    // exactly -- the only real difference is paging/ORDER BY, which a COUNT
+    // doesn't need.
+    private const string FilterWhereSql = """
+        WHERE (@TargetTypeKey IS NULL OR t.TargetTypeKey = @TargetTypeKey)
+          AND (@ApplicationKey IS NULL OR t.ApplicationKey = @ApplicationKey)
+        """;
+
+    /// <summary>D-121: stacked filters (type/application) plus multi-column sort, same pattern as the D-42 pages. D-124 Phase 2: the type filter is now the FK key, not the old raw TargetType string. D-124 Phase 3: page/pageSize add SQL Server OFFSET/FETCH paging after the ORDER BY -- applied to the parent Target rows only, before the identifier enrichment query below, so a page is always exactly pageSize Targets (with however many identifiers each has), not pageSize Target/identifier rows.</summary>
     public async Task<IReadOnlyList<TargetSummary>> GetAllAsync(
         int? targetTypeKey = null,
         int? applicationKey = null,
-        IReadOnlyList<(string Field, bool Descending)>? sortBy = null)
+        IReadOnlyList<(string Field, bool Descending)>? sortBy = null,
+        int? page = null,
+        int? pageSize = null)
     {
         using var connection = connectionFactory.Create();
+        var (normalizedPage, normalizedPageSize) = PagingParams.Normalize(page, pageSize);
         var sql = $"""
             {SelectSql}
-            WHERE (@TargetTypeKey IS NULL OR t.TargetTypeKey = @TargetTypeKey)
-              AND (@ApplicationKey IS NULL OR t.ApplicationKey = @ApplicationKey)
+            {FilterWhereSql}
             ORDER BY {BuildOrderByClause(sortBy)}
+            OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY
             """;
-        var targets = (await connection.QueryAsync<TargetSummary>(sql, new { TargetTypeKey = targetTypeKey, ApplicationKey = applicationKey })).ToList();
+        var targets = (await connection.QueryAsync<TargetSummary>(sql, new
+        {
+            TargetTypeKey = targetTypeKey,
+            ApplicationKey = applicationKey,
+            Offset = PagingParams.Offset(normalizedPage, normalizedPageSize),
+            PageSize = normalizedPageSize
+        })).ToList();
         if (targets.Count == 0)
         {
             return targets;
@@ -84,6 +102,18 @@ public sealed class TargetRepository(IDbConnectionFactory connectionFactory)
     {
         using var connection = connectionFactory.Create();
         return await connection.QuerySingleAsync<int>("SELECT COUNT(*) FROM web.dim_target");
+    }
+
+    /// <summary>D-124 Phase 3: how many Targets match the current filter (ignoring paging) -- backs the new X-Filtered-Count header, distinct from GetTotalCountAsync's unfiltered grand total.</summary>
+    public async Task<int> GetFilteredCountAsync(int? targetTypeKey = null, int? applicationKey = null)
+    {
+        using var connection = connectionFactory.Create();
+        var sql = $"""
+            SELECT COUNT(*)
+            FROM web.dim_target t
+            {FilterWhereSql}
+            """;
+        return await connection.QuerySingleAsync<int>(sql, new { TargetTypeKey = targetTypeKey, ApplicationKey = applicationKey });
     }
 
     private static string BuildOrderByClause(IReadOnlyList<(string Field, bool Descending)>? sortBy)

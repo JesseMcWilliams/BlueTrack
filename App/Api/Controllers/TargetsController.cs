@@ -16,16 +16,19 @@ public sealed class TargetsController(
     CurrentUserResolver currentUserResolver,
     AuditLogger auditLogger) : ControllerBase
 {
-    /// <summary>D-121: stacked filters (type/application) plus sort, and an X-Total-Count header carrying the unfiltered grand total (the JSON body stays a bare array, unchanged). D-124 Phase 2: the type filter is now the FK key (TargetTypeKey), not the old raw TargetType string.</summary>
+    /// <summary>D-121: stacked filters (type/application) plus sort, and an X-Total-Count header carrying the unfiltered grand total (the JSON body stays a bare array, unchanged). D-124 Phase 2: the type filter is now the FK key (TargetTypeKey), not the old raw TargetType string. D-124 Phase 3: page/pageSize add server-side paging (2,380 real rows today); X-Filtered-Count carries how many rows match the current filter, ignoring paging.</summary>
     [HttpGet]
     public async Task<IActionResult> GetAll(
         [FromQuery] int? targetTypeKey = null,
         [FromQuery] int? applicationKey = null,
-        [FromQuery] string? sort = null)
+        [FromQuery] string? sort = null,
+        [FromQuery] int? page = null,
+        [FromQuery] int? pageSize = null)
     {
         var sortBy = SortParser.Parse(sort);
-        var results = await repository.GetAllAsync(targetTypeKey, applicationKey, sortBy);
+        var results = await repository.GetAllAsync(targetTypeKey, applicationKey, sortBy, page, pageSize);
         Response.Headers["X-Total-Count"] = (await repository.GetTotalCountAsync()).ToString();
+        Response.Headers["X-Filtered-Count"] = (await repository.GetFilteredCountAsync(targetTypeKey, applicationKey)).ToString();
         return Ok(results);
     }
 

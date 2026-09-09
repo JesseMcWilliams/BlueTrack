@@ -29,26 +29,39 @@ public sealed class RiskExceptionRepository(IDbConnectionFactory connectionFacto
     /// SQL-injection guard, not just tidiness (same pattern as
     /// AccountProgressRepository).
     /// </summary>
+    // D-124 Phase 3: the three GetListAsync-only filter conditions, shared
+    // with GetFilteredCountAsync so the filtered-count query mirrors the
+    // list query's own WHERE clause exactly.
+    private const string ListFilterConditionsSql = """
+          AND (@StatusName IS NULL OR des.StatusName = @StatusName)
+          AND (@AccountKey IS NULL OR re.AccountKey = @AccountKey)
+          AND (@ScopeType IS NULL OR (CASE WHEN re.AccountKey IS NOT NULL THEN 'Account' ELSE 'Application' END) = @ScopeType)
+        """;
+
+    /// <summary>D-124 Phase 3: page/pageSize add SQL Server OFFSET/FETCH paging after the ORDER BY.</summary>
     public async Task<IReadOnlyList<RiskExceptionSummary>> GetListAsync(
         string? statusName = null,
         long? accountKey = null,
         string? scopeType = null,
-        IReadOnlyList<(string Field, bool Descending)>? sortBy = null)
+        IReadOnlyList<(string Field, bool Descending)>? sortBy = null,
+        int? page = null,
+        int? pageSize = null)
     {
         using var connection = connectionFactory.Create();
+        var (normalizedPage, normalizedPageSize) = PagingParams.Normalize(page, pageSize);
 
-        var sql = ListSqlBase + $"""
-              AND (@StatusName IS NULL OR des.StatusName = @StatusName)
-              AND (@AccountKey IS NULL OR re.AccountKey = @AccountKey)
-              AND (@ScopeType IS NULL OR (CASE WHEN re.AccountKey IS NOT NULL THEN 'Account' ELSE 'Application' END) = @ScopeType)
+        var sql = ListSqlBase + ListFilterConditionsSql + $"""
             ORDER BY {BuildOrderByClause(sortBy)}
+            OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY
             """;
 
         var rows = await connection.QueryAsync<RiskExceptionSummary>(sql, new
         {
             StatusName = statusName,
             AccountKey = accountKey,
-            ScopeType = scopeType
+            ScopeType = scopeType,
+            Offset = PagingParams.Offset(normalizedPage, normalizedPageSize),
+            PageSize = normalizedPageSize
         });
         return rows.AsList();
     }
@@ -58,6 +71,14 @@ public sealed class RiskExceptionRepository(IDbConnectionFactory connectionFacto
     {
         using var connection = connectionFactory.Create();
         return await connection.QuerySingleAsync<int>("SELECT COUNT(*) FROM web.risk_exception");
+    }
+
+    /// <summary>D-124 Phase 3: how many rows match GetListAsync's current filter (ignoring paging) -- backs the new X-Filtered-Count header, distinct from GetTotalCountAsync's unfiltered grand total.</summary>
+    public async Task<int> GetFilteredCountAsync(string? statusName = null, long? accountKey = null, string? scopeType = null)
+    {
+        using var connection = connectionFactory.Create();
+        var sql = "SELECT COUNT(*)\n" + FromJoinSql + ListFilterConditionsSql;
+        return await connection.QuerySingleAsync<int>(sql, new { StatusName = statusName, AccountKey = accountKey, ScopeType = scopeType });
     }
 
     private static string BuildOrderByClause(IReadOnlyList<(string Field, bool Descending)>? sortBy)
@@ -179,6 +200,18 @@ public sealed class RiskExceptionRepository(IDbConnectionFactory connectionFacto
 
     private sealed record ExceptionIdConfig(string ExceptionIdPattern, int ExceptionIdNextSequence);
 
+    // D-124 Phase 3: the FROM/JOIN/WHERE skeleton shared between ListSqlBase
+    // (the SELECT-shaped query below) and GetFilteredCountAsync's own plain
+    // COUNT(*) -- a COUNT needs no SELECT column list of its own.
+    private const string FromJoinSql = """
+        FROM web.risk_exception re
+        JOIN web.dim_exception_status des ON des.ExceptionStatusKey = re.ExceptionStatusKey
+        LEFT JOIN dbo.fact_account fa      ON fa.AccountKey = re.AccountKey
+        LEFT JOIN web.dim_application da    ON da.ApplicationKey = re.ApplicationKey
+        LEFT JOIN web.app_user au            ON au.UserKey = re.ApprovedBy
+        WHERE 1 = 1
+        """;
+
     private const string ListSqlBase = """
         SELECT
             re.ExceptionKey,
@@ -191,13 +224,7 @@ public sealed class RiskExceptionRepository(IDbConnectionFactory connectionFacto
             re.ReviewDate,
             des.StatusName,
             re.ExternalTicketReference
-        FROM web.risk_exception re
-        JOIN web.dim_exception_status des ON des.ExceptionStatusKey = re.ExceptionStatusKey
-        LEFT JOIN dbo.fact_account fa      ON fa.AccountKey = re.AccountKey
-        LEFT JOIN web.dim_application da    ON da.ApplicationKey = re.ApplicationKey
-        LEFT JOIN web.app_user au            ON au.UserKey = re.ApprovedBy
-        WHERE 1 = 1
-        """;
+        """ + "\n" + FromJoinSql;
 
     private const string ListSql = ListSqlBase + """
           AND (@StatusName IS NULL OR des.StatusName = @StatusName)

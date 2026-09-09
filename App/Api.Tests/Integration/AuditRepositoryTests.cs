@@ -99,15 +99,64 @@ public class AuditRepositoryTests
         Assert.Contains(changes, c => c.FieldName == "OwnerName" && c.OldValue == null && c.NewValue == "Integration Test Owner");
     }
 
-    private static async Task<long> InsertAuditEventAsync(string eventTypeName, int performedByUserKey, string entityName, string? entityKey = null, string? detail = null)
+    /// <summary>
+    /// D-124 Phase 3: page/pageSize paging -- inserts 3 events sharing a
+    /// unique EntityName (for a race-free isolated view via the existing
+    /// entityName filter) and confirms page 1/page 2 are disjoint,
+    /// correctly-ordered (occurredAt descending, the default sort -- most
+    /// recently inserted first) slices.
+    /// </summary>
+    [Fact]
+    public async Task GetEventsAsync_PageAndPageSize_ReturnsDisjointCorrectlyOrderedPages()
+    {
+        var repository = CreateRepository();
+        var entityName = $"IntegrationTestEntity_{Guid.NewGuid():N}";
+        var userKey = await TestUsers.GetUserKeyAsync("IntegrationTestUser1");
+        // Explicit, well-separated OccurredAt values -- back-to-back inserts
+        // relying on SYSUTCDATETIME()'s own default can tie at this
+        // resolution (confirmed directly: two of three ties happened under
+        // real sequential inserts here), which would make the DESC sort
+        // order among them genuinely undefined, not just untested.
+        var baseTime = DateTime.UtcNow;
+        var firstKey = await InsertAuditEventAsync("FieldEdit", userKey, entityName, entityKey: "1", occurredAt: baseTime);
+        var secondKey = await InsertAuditEventAsync("FieldEdit", userKey, entityName, entityKey: "2", occurredAt: baseTime.AddSeconds(1));
+        var thirdKey = await InsertAuditEventAsync("FieldEdit", userKey, entityName, entityKey: "3", occurredAt: baseTime.AddSeconds(2));
+
+        var page1 = await repository.GetEventsAsync(eventTypeName: null, entityName: entityName, performedByUserKey: null, fromDate: null, toDate: null, page: 1, pageSize: 2);
+        var page2 = await repository.GetEventsAsync(eventTypeName: null, entityName: entityName, performedByUserKey: null, fromDate: null, toDate: null, page: 2, pageSize: 2);
+
+        Assert.Equal(2, page1.Count);
+        Assert.Single(page2);
+        Assert.Equal(thirdKey, page1[0].AuditEventKey);
+        Assert.Equal(secondKey, page1[1].AuditEventKey);
+        Assert.Equal(firstKey, page2[0].AuditEventKey);
+        Assert.Empty(page1.Select(e => e.AuditEventKey).Intersect(page2.Select(e => e.AuditEventKey)));
+    }
+
+    private static async Task<long> InsertAuditEventAsync(string eventTypeName, int performedByUserKey, string entityName, string? entityKey = null, string? detail = null, DateTime? occurredAt = null)
     {
         await using var connection = new SqlConnection(TestDatabase.ConnectionString);
+        if (occurredAt is null)
+        {
+            return await connection.QuerySingleAsync<long>("""
+                INSERT INTO web.audit_event (AuditEventTypeKey, PerformedByUserKey, EntityName, EntityKey, Detail)
+                OUTPUT inserted.AuditEventKey
+                SELECT (SELECT AuditEventTypeKey FROM web.dim_audit_event_type WHERE EventTypeName = @EventTypeName),
+                       @PerformedByUserKey, @EntityName, @EntityKey, @Detail
+                """, new { EventTypeName = eventTypeName, PerformedByUserKey = performedByUserKey, EntityName = entityName, EntityKey = entityKey, Detail = detail });
+        }
+
+        // D-124 Phase 3: an explicit OccurredAt override, for pagination
+        // tests that need a strict, deterministic sort order among rows
+        // inserted back-to-back (see GetEventsAsync_PageAndPageSize_...'s
+        // own comment on why the column's SYSUTCDATETIME() default isn't
+        // reliable enough for that on its own).
         return await connection.QuerySingleAsync<long>("""
-            INSERT INTO web.audit_event (AuditEventTypeKey, PerformedByUserKey, EntityName, EntityKey, Detail)
+            INSERT INTO web.audit_event (AuditEventTypeKey, PerformedByUserKey, EntityName, EntityKey, Detail, OccurredAt)
             OUTPUT inserted.AuditEventKey
             SELECT (SELECT AuditEventTypeKey FROM web.dim_audit_event_type WHERE EventTypeName = @EventTypeName),
-                   @PerformedByUserKey, @EntityName, @EntityKey, @Detail
-            """, new { EventTypeName = eventTypeName, PerformedByUserKey = performedByUserKey, EntityName = entityName, EntityKey = entityKey, Detail = detail });
+                   @PerformedByUserKey, @EntityName, @EntityKey, @Detail, @OccurredAt
+            """, new { EventTypeName = eventTypeName, PerformedByUserKey = performedByUserKey, EntityName = entityName, EntityKey = entityKey, Detail = detail, OccurredAt = occurredAt });
     }
 
     private static async Task InsertFieldChangeAsync(long auditEventKey, string fieldName, string? oldValue, string? newValue)

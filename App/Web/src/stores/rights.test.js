@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 import { useRightsStore } from './rights'
+import { usePageSizeStore } from './pageSize'
 
 function jsonResponse(body, ok = true, status = 200) {
   return {
@@ -79,6 +80,19 @@ describe('rights store', () => {
       expect(store.loaded).toBe(true)
       expect(store.loading).toBe(false)
       expect(store.error).toBeNull()
+    })
+
+    // D-124 Phase 3: load() wires the pageSize store's loadFromServer the
+    // same way it already wires the theme store's -- same call site.
+    it('applies preferences.PageSize to the pageSize store on success', async () => {
+      globalThis.fetch.mockResolvedValueOnce(
+        jsonResponse({ userKey: 1, displayName: 'A', roleNames: [], permissionNames: [], preferences: { PageSize: '100' } })
+      )
+      const store = useRightsStore()
+
+      await store.load()
+
+      expect(usePageSizeStore().current).toBe(100)
     })
 
     it('sets authenticated true on success', async () => {

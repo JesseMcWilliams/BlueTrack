@@ -8,9 +8,28 @@
 import { ref, computed, onMounted } from 'vue'
 import { formatDate } from '../../utils/formatDate'
 import { useTotalCount } from '../../composables/useTotalCount'
+import { usePageSizeStore } from '../../stores/pageSize'
 import FilterCountSummary from '../../components/FilterCountSummary.vue'
+import Pager from '../../components/Pager.vue'
 
-const { totalCount, readTotalCount } = useTotalCount()
+const { totalCount, filteredCount, readTotalCount } = useTotalCount()
+const pageSizeStore = usePageSizeStore()
+
+// D-124 Phase 3: pagination -- page is local to this page (not persisted);
+// pageSize comes from the shared, server-persisted pageSize store.
+const page = ref(1)
+const pageCount = computed(() => Math.max(1, Math.ceil((filteredCount.value ?? 0) / pageSizeStore.current)))
+
+function onPageChange(newPage) {
+  page.value = newPage
+  load()
+}
+
+function onPageSizeChange() {
+  page.value = 1
+  load()
+}
+
 const rows = ref([])
 const error = ref(null)
 const loading = ref(true)
@@ -56,6 +75,9 @@ function toggleSort(field, event) {
     } else {
       sortColumns.value = [{ field, descending: field !== 'accountName' }]
     }
+    // D-124 Phase 3: a sort change resets to page 1 -- see Targets.vue's
+    // identical comment for why page-size/Prev/Next changes are handled separately.
+    page.value = 1
     load()
     return
   }
@@ -67,6 +89,7 @@ function toggleSort(field, event) {
     updated[existingIndex] = { ...updated[existingIndex], descending: !updated[existingIndex].descending }
     sortColumns.value = updated
   }
+  page.value = 1
   load()
 }
 
@@ -79,6 +102,8 @@ async function load() {
   try {
     const params = new URLSearchParams()
     if (sortQueryParam.value) params.set('sort', sortQueryParam.value)
+    params.set('page', page.value)
+    params.set('pageSize', pageSizeStore.current)
     const response = await fetch(`/api/reports/risk-score?${params.toString()}`)
     if (!response.ok) throw new Error(`Request failed: ${response.status}`)
     readTotalCount(response)
@@ -144,7 +169,8 @@ onMounted(load)
       <span v-if="recalculated" role="status"> Recalculated.</span>
       <span v-if="recalculateError" role="alert"> {{ recalculateError }}</span>
     </p>
-    <FilterCountSummary :shown="rows.length" :total="totalCount" />
+    <FilterCountSummary :shown="rows.length" :filtered-count="filteredCount" :total="totalCount" :page="page" :page-size="pageSizeStore.current" />
+    <Pager :page="page" :page-count="pageCount" @update:page="onPageChange" @page-size-change="onPageSizeChange" />
     <p v-if="loading" role="status">Loading...</p>
     <p v-else-if="error" role="alert">Could not load report: {{ error }}</p>
     <table v-else>
