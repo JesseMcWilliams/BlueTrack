@@ -10,7 +10,8 @@ public sealed class LdapConfigRepository(IDbConnectionFactory connectionFactory)
     {
         using var connection = connectionFactory.Create();
         const string sql = """
-            SELECT lc.LdapConfigKey, lc.IsEnabled, lc.DomainController, lc.SearchBase, lc.UseSsl, lc.CredentialKey, c.CredentialName
+            SELECT lc.LdapConfigKey, lc.IsEnabled, lc.DomainController, lc.SearchBase, lc.UseSsl,
+                   lc.UseTrustedConnection, lc.CredentialKey, c.CredentialName
             FROM web.ldap_config lc
             LEFT JOIN web.credential c ON c.CredentialKey = lc.CredentialKey
             """;
@@ -23,7 +24,8 @@ public sealed class LdapConfigRepository(IDbConnectionFactory connectionFactory)
         const string sql = """
             UPDATE web.ldap_config
             SET IsEnabled = @IsEnabled, DomainController = @DomainController, SearchBase = @SearchBase,
-                UseSsl = @UseSsl, CredentialKey = @CredentialKey, ModifiedBy = @ModifiedBy, ModifiedDate = SYSUTCDATETIME()
+                UseSsl = @UseSsl, UseTrustedConnection = @UseTrustedConnection, CredentialKey = @CredentialKey,
+                ModifiedBy = @ModifiedBy, ModifiedDate = SYSUTCDATETIME()
             """;
         await connection.ExecuteAsync(sql, new
         {
@@ -31,6 +33,7 @@ public sealed class LdapConfigRepository(IDbConnectionFactory connectionFactory)
             request.DomainController,
             request.SearchBase,
             request.UseSsl,
+            request.UseTrustedConnection,
             request.CredentialKey,
             ModifiedBy = modifiedByUserKey
         });

@@ -20,7 +20,7 @@
 // untouched and still round-trips on save, since SetActiveAsync replaces
 // BackendSettings wholesale with whatever this page sends when no new
 // PlaintextCredential is supplied.
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 
 const backends = ref([])
 const error = ref(null)
@@ -33,6 +33,10 @@ const testFolder = ref('Root')
 const testObject = ref('')
 const testResult = ref(null)
 const testing = ref(false)
+
+// D-118: WindowsDpapi has no Safe/Folder hierarchy of its own -- Object
+// names a web.credential row directly, Safe/Folder are accepted but ignored.
+const activeBackendIsDpapi = computed(() => backends.value.find(b => b.isActive)?.backendType === 'WindowsDpapi')
 
 function parseSettings(backendType, raw) {
   let parsed = {}
@@ -186,6 +190,7 @@ async function testConnection() {
 
     <h3>Test Connection</h3>
     <p>Attempts a real retrieval against the active backend. Never shows the retrieved secret -- only whether it succeeded and non-secret metadata (username/address).</p>
+    <p v-if="activeBackendIsDpapi">WindowsDpapi is a local, flat store -- enter a <router-link :to="{ name: 'admin-credentials' }">Credentials</router-link> page credential's name as Object; Safe/Folder are ignored.</p>
     <form class="filter-row" @submit.prevent="testConnection">
       <label class="field-label"><span class="field-label-text">Safe:</span> <input v-model="testSafe" required /></label>
       <label class="field-label"><span class="field-label-text">Folder:</span> <input v-model="testFolder" required /></label>

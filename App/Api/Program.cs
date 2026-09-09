@@ -76,6 +76,14 @@ builder.Services.AddScoped<IVaultSecretProvider, CyberArkCcpSecretsProvider>();
 builder.Services.AddScoped<VaultSecretProviderResolver>();
 builder.Services.AddSingleton<ILocalSecretProtector, WindowsDpapiProtector>();
 
+// D-118: makes WindowsDpapi usable as a real Secrets Store backend too
+// (previously it had no IVaultSecretProvider at all, so the Secrets Store
+// health check always reported Unhealthy while it was the active backend).
+// DpapiCredentialResolver is Scoped since it depends on IDbConnectionFactory-
+// backed repositories, same as everything else here.
+builder.Services.AddScoped<DpapiCredentialResolver>();
+builder.Services.AddScoped<IVaultSecretProvider, WindowsDpapiVaultSecretsProvider>();
+
 // D-84: Azure Key Vault, AWS Secrets Manager, and CyberArk Conjur -- built
 // as a placeholder framework ahead of real connection details (structurally
 // real SDK/REST calls, unverified against a live service). Each reads its

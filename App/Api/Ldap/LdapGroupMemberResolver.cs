@@ -18,12 +18,20 @@ namespace BlueTrack.Api.Ldap;
 /// real person holding the role even if the group itself isn't mail-enabled.
 ///
 /// LDAP lookups are entirely opt-in: returns an empty list with no attempt
-/// at all unless web.ldap_config.IsEnabled and CredentialKey are both set.
-/// Every exception (bind failure, an unresolvable group, network issues) is
-/// left to the caller -- NotificationCheckBackgroundService wraps this in
-/// its own try/catch so an LDAP problem degrades the recipient list rather
-/// than blocking the rest of a notification send (Design_Notifications.md's
-/// additive-union recipient model).
+/// at all unless web.ldap_config.IsEnabled is set, and either
+/// UseTrustedConnection or a CredentialKey is set. Every exception (bind
+/// failure, an unresolvable group, network issues) is left to the caller --
+/// NotificationCheckBackgroundService wraps this in its own try/catch so an
+/// LDAP problem degrades the recipient list rather than blocking the rest of
+/// a notification send (Design_Notifications.md's additive-union recipient
+/// model).
+///
+/// D-118: UseTrustedConnection binds as the app pool's own Windows identity
+/// (or the local computer account) instead of an explicit bind-account
+/// credential -- confirmed live against a real domain that
+/// PrincipalContext, given no explicit username/password, binds as whatever
+/// identity the current process runs under and can expand real group
+/// membership just as well as an explicit bind account.
 /// </summary>
 public sealed class LdapGroupMemberResolver(LdapConfigRepository ldapConfigRepository, CredentialRepository credentialRepository)
 {
@@ -35,19 +43,22 @@ public sealed class LdapGroupMemberResolver(LdapConfigRepository ldapConfigRepos
         }
 
         var config = await ldapConfigRepository.GetAsync();
-        if (!config.IsEnabled || config.CredentialKey is null)
+        if (!config.IsEnabled || (!config.UseTrustedConnection && config.CredentialKey is null))
         {
             return [];
         }
 
-        var (username, password) = await credentialRepository.ResolveForUseAsync(config.CredentialKey.Value);
+        var domainController = string.IsNullOrWhiteSpace(config.DomainController) ? null : config.DomainController;
+        var searchBase = string.IsNullOrWhiteSpace(config.SearchBase) ? null : config.SearchBase;
 
-        using var context = new PrincipalContext(
-            ContextType.Domain,
-            string.IsNullOrWhiteSpace(config.DomainController) ? null : config.DomainController,
-            string.IsNullOrWhiteSpace(config.SearchBase) ? null : config.SearchBase,
-            username,
-            password);
+        // Two distinct constructor overloads, not one call with nullable
+        // username/password -- confirmed via a live probe against this
+        // domain that the 3-arg (no-credentials) overload is what actually
+        // binds as the ambient process identity; passing explicit nulls into
+        // the 5-arg overload was never verified to behave the same way.
+        using var context = config.UseTrustedConnection
+            ? new PrincipalContext(ContextType.Domain, domainController, searchBase)
+            : await CreateCredentialedContextAsync(domainController, searchBase, config.CredentialKey!.Value);
 
         var emails = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
@@ -72,6 +83,12 @@ public sealed class LdapGroupMemberResolver(LdapConfigRepository ldapConfigRepos
         }
 
         return emails.ToList();
+    }
+
+    private async Task<PrincipalContext> CreateCredentialedContextAsync(string? domainController, string? searchBase, int credentialKey)
+    {
+        var (username, password) = await credentialRepository.ResolveForUseAsync(credentialKey);
+        return new PrincipalContext(ContextType.Domain, domainController, searchBase, username, password);
     }
 
     /// <summary>A SID (the normal shape for a real domain group here, see GroupIdentifierExtractor) needs IdentityType.Sid; anything else falls back to SamAccountName/Name.</summary>

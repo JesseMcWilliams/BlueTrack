@@ -44,6 +44,11 @@ public class AdminControllersPermissionTests : IClassFixture<BlueTrackWebApplica
             new object[] { "/api/admin/identity-providers" },
             new object[] { "/api/admin/secrets-store" },
             new object[] { "/api/admin/deployment" },
+            new object[] { "/api/admin/credentials" },
+            new object[] { "/api/admin/credentials/ldap-config" },
+            new object[] { "/api/admin/notifications/config" },
+            new object[] { "/api/admin/notifications/recipients" },
+            new object[] { "/api/admin/notifications/types" },
             new object[] { "/api/audit-log" },
             new object[] { "/api/safes" },
             new object[] { "/api/applications/detailed" },
@@ -164,6 +169,19 @@ public class AdminControllersPermissionTests : IClassFixture<BlueTrackWebApplica
         var response = await client.PostAsync($"/api/admin/users/{me!.UserKey}/reload-rights", null);
 
         Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task DeploymentBackup_AsViewer_IsForbidden()
+    {
+        // D-117: TriggerBackup is a separate policy from the class-level
+        // ViewDeploymentInfo -- Viewer holds neither, so this is forbidden
+        // regardless of which one the middleware evaluates first.
+        var client = CreateClientAs("TestUser.Viewer");
+
+        var response = await client.PostAsync("/api/admin/deployment/backup", null);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
     }
 
     private sealed class MeResponse

@@ -335,23 +335,26 @@ public class AdminControllersFunctionalTests : IClassFixture<BlueTrackWebApplica
     /// live-call paths of the CyberArk/Azure/AWS providers.
     /// </summary>
     [Fact]
-    public async Task SecretsStore_TestConnection_NoProviderForActiveBackend_ReturnsFailureNotError()
+    public async Task SecretsStore_TestConnection_WindowsDpapiActive_UnknownCredentialName_ReturnsFailureNotFound()
     {
+        // D-118: WindowsDpapi is now a real IVaultSecretProvider (previously
+        // this scenario asserted "no provider implementation exists yet" --
+        // that gap is exactly what D-118 closed). Object names a
+        // web.credential row directly; Safe/Folder are accepted but ignored.
         var client = AdminClient();
 
         var response = await client.PostAsJsonAsync("/api/admin/secrets-store/test", new
         {
             safe = "TestSafe01",
             folder = "Root",
-            @object = "AnyObject"
+            @object = $"NoSuchCredential_{Guid.NewGuid():N}"
         });
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var result = await response.Content.ReadFromJsonAsync<TestSecretResultResponse>();
         Assert.NotNull(result);
         Assert.False(result!.Success);
-        Assert.Equal("Other", result.ErrorCategory);
-        Assert.Contains("no provider implementation", result.Error);
+        Assert.Equal("NotFound", result.ErrorCategory);
     }
 
     [Fact]
