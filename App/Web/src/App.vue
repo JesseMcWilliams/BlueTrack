@@ -61,19 +61,22 @@ onMounted(async () => {
 <template>
   <div id="layout">
     <a href="#main-content" class="skip-link visually-hidden">Skip to main content</a>
+    <!-- D-124: Dashboard always leftmost, every other item alphabetical by
+         label (Access Groups, Accounts, Admin, Exceptions, Reports, Targets)
+         -- confirmed directly. My Profile stays pinned right via
+         .top-nav__user-menu, outside the alphabetical ordering. -->
     <nav class="top-nav" aria-label="Primary">
       <router-link :to="{ name: 'dashboard' }">Dashboard</router-link>
+      <!-- D-121: Targets/Access Groups gated per-permission here (unlike
+           Dashboard/Accounts/Exceptions/Reports/Admin, which need no gate
+           of their own), same hasPermission() pattern AdminHub.vue's own
+           sidebar already uses for each of its sections. -->
+      <router-link v-if="rights.hasPermission('ManageAccessGroups')" :to="{ name: 'access-groups' }">Access Groups</router-link>
       <router-link :to="{ name: 'account-progress-list' }">Accounts</router-link>
+      <router-link :to="{ name: 'admin' }">Admin</router-link>
       <router-link :to="{ name: 'risk-exceptions-list' }">Exceptions</router-link>
       <router-link :to="{ name: 'reports' }">Reports</router-link>
-      <!-- D-121: Targets/Access Groups promoted out of the Admin hub to
-           their own top-level entries -- gated per-permission here (unlike
-           Dashboard/Accounts/Exceptions/Reports/Admin above, which need no
-           gate of their own), same hasPermission() pattern AdminHub.vue's
-           own sidebar already uses for each of its sections. -->
       <router-link v-if="rights.hasPermission('ManageTargets')" :to="{ name: 'targets' }">Targets</router-link>
-      <router-link v-if="rights.hasPermission('ManageAccessGroups')" :to="{ name: 'access-groups' }">Access Groups</router-link>
-      <router-link :to="{ name: 'admin' }">Admin</router-link>
       <router-link :to="{ name: 'my-profile' }" class="top-nav__user-menu">My Profile</router-link>
     </nav>
     <Breadcrumbs />
