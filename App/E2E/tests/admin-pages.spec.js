@@ -10,7 +10,7 @@ import { signInAs } from './auth.js'
 // permission-specific message, unlike RiskExceptionEdit's create form).
 
 test.describe('Admin Hub navigation is gated per permission', () => {
-  test('Admin sees all 9 admin sections', async ({ page }) => {
+  test('Admin sees all 11 admin sections', async ({ page }) => {
     await signInAs(page, 'TestUser.Admin')
     await page.goto('/admin')
 
@@ -24,6 +24,8 @@ test.describe('Admin Hub navigation is gated per permission', () => {
     await expect(nav.getByRole('link', { name: 'Audit Log Viewer' })).toBeVisible()
     await expect(nav.getByRole('link', { name: 'Global Application Configuration' })).toBeVisible()
     await expect(nav.getByRole('link', { name: 'Deployment' })).toBeVisible()
+    await expect(nav.getByRole('link', { name: 'Notifications' })).toBeVisible()
+    await expect(nav.getByRole('link', { name: 'Credentials & LDAP' })).toBeVisible()
   })
 
   test('Viewer sees only Audit Log Viewer, the one admin permission Viewer holds', async ({ page }) => {
@@ -130,7 +132,9 @@ test.describe('Group → Role Mapping admin page', () => {
     await row.getByRole('button', { name: 'Delete' }).click()
     await expect(row).toHaveCount(0)
 
-    await page.getByPlaceholder('Group name').fill('BUILTIN\\Users')
+    // D-113 replaced this field's bare placeholder with a real <label> (an accessibility fix) -- this test wasn't updated to match at the time.
+    // exact: true -- the Add Mapping form above has its own similarly-labeled "Group Name (e.g. BUILTIN\...)" field.
+    await page.getByLabel('Group name', { exact: true }).fill('BUILTIN\\Users')
     await page.getByRole('button', { name: 'Resolve' }).click()
     await expect(page.getByText(/Resolved to:.*S-1-/)).toBeVisible()
   })
@@ -305,6 +309,12 @@ test.describe('Deployment admin page', () => {
     await expect(page.getByRole('cell', { name: 'Identity Providers', exact: true })).toBeVisible()
 
     await expect(page.getByRole('heading', { name: 'SQL Server Backup Status' })).toBeVisible()
+
+    // D-117: the button itself is exercised for real by
+    // DeploymentBackupTests.cs (a real BACKUP DATABASE against
+    // BlueTrackTest on every run) -- not re-clicked here too, to avoid
+    // writing a second real .bak file on every E2E pass as well.
+    await expect(page.getByRole('button', { name: 'Backup App' })).toBeVisible()
   })
 
   test('A user without ViewDeploymentInfo is denied with a plain error', async ({ page }) => {
@@ -312,6 +322,115 @@ test.describe('Deployment admin page', () => {
     await page.goto('/admin/deployment')
 
     await expect(page.getByText(/Request failed: 403/)).toBeVisible()
+  })
+})
+
+test.describe('Credentials & LDAP admin page', () => {
+  test('Admin can create a DPAPI credential, see it upgrade scope on Test, then delete it', async ({ page }) => {
+    await signInAs(page, 'TestUser.Admin')
+    await page.goto('/admin/credentials')
+    const credentialName = `E2ETestCred${Date.now()}`
+
+    await page.getByRole('button', { name: '+ New Credential' }).click()
+    await page.getByLabel('Name:', { exact: true }).fill(credentialName)
+    // Backend defaults to WindowsDpapi -- Username/Password/Scope fields are already visible.
+    await page.getByLabel('Username:').fill('e2e-test-user')
+    await page.getByLabel('Password:').fill('e2e-test-password')
+    await page.getByLabel('DPAPI Scope:').selectOption('User')
+    // Scoped by its own Cancel button -- the LDAP Configuration form below also has a submit button on this same page.
+    await page.locator('form', { has: page.getByRole('button', { name: 'Cancel' }) }).getByRole('button', { name: 'Save' }).click()
+
+    const row = page.locator('tbody tr', { hasText: credentialName })
+    await expect(row).toBeVisible()
+    await expect(row).toContainText('Machine') // starts Machine even though ScopePreference is User
+
+    await row.getByRole('button', { name: 'Test' }).click()
+    await expect(row.getByText(/OK \(e2e-test-user\)/)).toBeVisible()
+    await expect(row).toContainText('User') // upgraded after the first real decrypt
+
+    await row.getByRole('button', { name: 'Delete' }).click()
+    await expect(page.locator('tbody tr', { hasText: credentialName })).toHaveCount(0)
+  })
+
+  test('Admin can enable LDAP with a trusted connection, then restore disabled default', async ({ page }) => {
+    await signInAs(page, 'TestUser.Admin')
+    await page.goto('/admin/credentials')
+
+    await page.getByLabel('Enabled').check()
+    await page.getByLabel('Use trusted connection (app pool / local computer account)').check()
+    // Bind Account Credential picker hides once trusted connection is checked.
+    await expect(page.getByLabel('Bind Account Credential:')).toHaveCount(0)
+    await page.locator('form', { has: page.getByRole('button', { name: 'Save' }) }).last().getByRole('button', { name: 'Save' }).click()
+
+    await page.reload()
+    await expect(page.getByLabel('Enabled')).toBeChecked()
+    await expect(page.getByLabel('Use trusted connection (app pool / local computer account)')).toBeChecked()
+
+    await page.getByLabel('Enabled').uncheck()
+    await page.getByLabel('Use trusted connection (app pool / local computer account)').uncheck()
+    await page.locator('form', { has: page.getByRole('button', { name: 'Save' }) }).last().getByRole('button', { name: 'Save' }).click()
+  })
+
+  test('A user without ManageCredentials is denied with a plain error', async ({ page }) => {
+    await signInAs(page, 'TestUser.Viewer')
+    await page.goto('/admin/credentials')
+
+    // Credentials.vue's own error text is "Credentials request failed: 403", not the generic "Request failed: 403" other pages use.
+    await expect(page.getByText(/request failed: 403/)).toBeVisible()
+  })
+})
+
+test.describe('Notifications admin page', () => {
+  test('Admin can save SMTP config with the TLS override checkboxes, and assign a notification type target role', async ({ page }) => {
+    await signInAs(page, 'TestUser.Admin')
+    await page.goto('/admin/notifications')
+
+    await page.getByLabel('SMTP Host:').fill('smtp.e2etest.local')
+    await page.getByLabel('Ignore CRL issues (skip certificate revocation checking)').check()
+    await page.locator('form', { has: page.getByLabel('SMTP Host:') }).getByRole('button', { name: 'Save' }).click()
+    await expect(page.getByText('Saved.')).toBeVisible()
+
+    await page.reload()
+    await expect(page.getByLabel('SMTP Host:')).toHaveValue('smtp.e2etest.local')
+    await expect(page.getByLabel('Ignore CRL issues (skip certificate revocation checking)')).toBeChecked()
+
+    // D-116: additive role targeting -- assign then clear, leaving the flat-list-only default restored.
+    const typeRow = page.locator('tbody tr', { hasText: 'DevFakeAuthEnabledTooLong' })
+    await typeRow.getByRole('combobox').selectOption('Admin')
+    await expect(typeRow.getByRole('combobox')).toHaveValue(/./)
+    await typeRow.getByRole('combobox').selectOption({ label: '(none -- flat list only)' })
+
+    // Restore SMTP config to a clean/unconfigured state.
+    await page.getByLabel('SMTP Host:').fill('')
+    await page.getByLabel('Ignore CRL issues (skip certificate revocation checking)').uncheck()
+    await page.locator('form', { has: page.getByLabel('SMTP Host:') }).getByRole('button', { name: 'Save' }).click()
+  })
+
+  test('Admin can create, deactivate, and delete a recipient', async ({ page }) => {
+    await signInAs(page, 'TestUser.Admin')
+    await page.goto('/admin/notifications')
+    const email = `e2etest${Date.now()}@example.com`
+
+    await page.getByLabel('Email:').fill(email)
+    await page.getByRole('button', { name: 'Add Recipient' }).click()
+
+    const row = page.locator('tbody tr', { hasText: email })
+    await expect(row).toBeVisible()
+    await expect(row).toContainText('Yes')
+
+    await row.getByRole('button', { name: 'Deactivate' }).click()
+    await expect(page.locator('tbody tr', { hasText: email })).toContainText('No')
+
+    await page.locator('tbody tr', { hasText: email }).getByRole('button', { name: 'Delete' }).click()
+    await expect(page.locator('tbody tr', { hasText: email })).toHaveCount(0)
+  })
+
+  test('A user without ManageNotifications is denied with a plain error', async ({ page }) => {
+    await signInAs(page, 'TestUser.Viewer')
+    await page.goto('/admin/notifications')
+
+    // Notifications.vue's own error text is "Config request failed: 403", not the generic "Request failed: 403" other pages use.
+    await expect(page.getByText(/request failed: 403/)).toBeVisible()
   })
 })
 

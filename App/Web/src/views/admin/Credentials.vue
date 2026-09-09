@@ -187,7 +187,8 @@ async function saveLdapConfig() {
         <p><label class="field-label"><span class="field-label-text">Domain Controller (blank = default domain):</span> <input v-model="ldapConfig.domainController" placeholder="dc01.company.local" /></label></p>
         <p><label class="field-label"><span class="field-label-text">Search Base:</span> <input v-model="ldapConfig.searchBase" placeholder="DC=company,DC=local" /></label></p>
         <p><label><input v-model="ldapConfig.useSsl" type="checkbox" /> Use SSL</label></p>
-        <p>
+        <p><label><input v-model="ldapConfig.useTrustedConnection" type="checkbox" /> Use trusted connection (app pool / local computer account)</label></p>
+        <p v-if="!ldapConfig.useTrustedConnection">
           <label class="field-label">
             <span class="field-label-text">Bind Account Credential:</span>
             <select v-model="ldapConfig.credentialKey">

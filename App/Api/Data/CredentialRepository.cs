@@ -16,7 +16,8 @@ namespace BlueTrack.Api.Data;
 public sealed class CredentialRepository(
     IDbConnectionFactory connectionFactory,
     ILocalSecretProtector localSecretProtector,
-    VaultSecretProviderResolver vaultSecretProviderResolver)
+    VaultSecretProviderResolver vaultSecretProviderResolver,
+    DpapiCredentialResolver dpapiCredentialResolver)
 {
     private const string BackendTypeDpapi = "WindowsDpapi";
 
@@ -142,34 +143,8 @@ public sealed class CredentialRepository(
             return (result.UserName ?? row.Username, new string(result.Content));
         }
 
-        if (string.IsNullOrEmpty(row.ProtectedPassword))
-        {
-            throw new InvalidOperationException($"Credential '{row.CredentialName}' has no password stored yet.");
-        }
-
-        var currentScope = ParseScope(row.CurrentScope) ?? CredentialScope.Machine;
-        var password = localSecretProtector.Unprotect(row.ProtectedPassword, currentScope);
-
-        if (row.ScopePreference == nameof(CredentialScope.User) && currentScope == CredentialScope.Machine)
-        {
-            try
-            {
-                var upgraded = localSecretProtector.Protect(password, CredentialScope.User);
-                await connection.ExecuteAsync(
-                    "UPDATE web.credential SET ProtectedPassword = @Upgraded, CurrentScope = @CurrentScope WHERE CredentialKey = @CredentialKey",
-                    new { Upgraded = upgraded, CurrentScope = nameof(CredentialScope.User), CredentialKey = credentialKey });
-            }
-            catch
-            {
-                // Best-effort -- stays at Machine scope, retried on the next resolve.
-            }
-        }
-
-        return (row.Username, password);
+        return await dpapiCredentialResolver.ResolveAsync(credentialKey);
     }
-
-    private static CredentialScope? ParseScope(string? scope) =>
-        Enum.TryParse<CredentialScope>(scope, out var parsed) ? parsed : null;
 
     // A plain class, not a tuple -- Dapper can't use a ValueTuple as a
     // parameters object either (the same "ValueTuple should not be used for
