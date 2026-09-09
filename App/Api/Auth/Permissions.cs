@@ -29,6 +29,7 @@ public static class Permissions
     public const string ManageTargets = "ManageTargets";
     public const string ManageAccessGroups = "ManageAccessGroups";
     public const string ViewRiskReport = "ViewRiskReport";
+    public const string ManageRiskScoreBands = "ManageRiskScoreBands";
 
     public static readonly IReadOnlyList<string> All =
     [
@@ -37,6 +38,6 @@ public static class Permissions
         ManageRolesAndPermissions, CurateApplicationMapping, ManageSecretsStore,
         ManageFieldMetadata, ViewAuditLog, ManageApplicationConfiguration, ViewDeploymentInfo,
         ManageNotifications, ManageCredentials, TriggerBackup,
-        ManageTargets, ManageAccessGroups, ViewRiskReport
+        ManageTargets, ManageAccessGroups, ViewRiskReport, ManageRiskScoreBands
     ];
 }

@@ -85,6 +85,10 @@ test.describe('Risk Score report', () => {
     await expect(page.getByRole('heading', { name: 'Risk Score' })).toBeVisible()
     await expect(page.getByText(/^Could not load report:/)).toHaveCount(0)
 
+    // D-120: the named band (web.dim_risk_score_band) now shows alongside
+    // the raw Computed/Override/Effective score columns.
+    await expect(page.locator('th', { hasText: 'Risk Band' })).toBeVisible()
+
     await page.click('button:has-text("Recalculate Now")')
     await expect(page.getByText('Recalculated.')).toBeVisible()
 

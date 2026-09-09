@@ -27,6 +27,7 @@ const columns = [
   { field: 'computedRiskScore', label: 'Computed' },
   { field: 'overrideRiskScore', label: 'Override' },
   { field: 'effectiveRiskScore', label: 'Effective' },
+  { field: 'riskScoreBandName', label: 'Risk Band' },
   { field: 'isRiskScoreStale', label: 'Stale?' },
   { field: 'riskScoreCalculatedDate', label: 'Last Calculated' }
 ]
@@ -162,11 +163,12 @@ onMounted(load)
             <td>{{ row.computedRiskScore ?? '—' }}</td>
             <td>{{ row.overrideRiskScore ?? '—' }}</td>
             <td>{{ row.effectiveRiskScore ?? '—' }}</td>
+            <td>{{ row.riskScoreBandName ?? '—' }}</td>
             <td>{{ row.isRiskScoreStale ? 'Yes' : 'No' }}</td>
             <td>{{ formatDate(row.riskScoreCalculatedDate) }}</td>
           </tr>
           <tr v-if="expandedAccountKey === row.accountKey">
-            <td colspan="6">
+            <td colspan="7">
               <p v-if="contributorsLoading" role="status">Loading contributors...</p>
               <p v-else-if="contributorsError" role="alert">{{ contributorsError }}</p>
               <p v-else-if="contributors.length === 0">No contributing Targets or Access Groups found.</p>

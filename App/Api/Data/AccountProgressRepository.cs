@@ -23,7 +23,8 @@ public sealed class AccountProgressRepository(IDbConnectionFactory connectionFac
         ["ownerName"] = "fap.OwnerName",
         ["targetRemediationDate"] = "fap.TargetRemediationDate",
         ["actualCompletionDate"] = "fap.ActualCompletionDate",
-        ["effectiveRiskScore"] = "ars.EffectiveRiskScore"
+        ["effectiveRiskScore"] = "ars.EffectiveRiskScore",
+        ["riskScoreBandName"] = "band.RiskOrder"
     };
 
     public async Task<IReadOnlyList<AccountProgressSummary>> GetSummaryListAsync(
@@ -45,13 +46,15 @@ public sealed class AccountProgressRepository(IDbConnectionFactory connectionFac
                 fap.OwnerName,
                 fap.TargetRemediationDate,
                 fap.ActualCompletionDate,
-                ars.EffectiveRiskScore
+                ars.EffectiveRiskScore,
+                band.BandName AS RiskScoreBandName
             FROM dbo.fact_account_progress fap
             JOIN dbo.fact_account fa           ON fa.AccountKey = fap.AccountKey
             JOIN dbo.dim_blueprint_stage stg    ON stg.StageKey = fap.CurrentStageKey
             JOIN dbo.dim_progress_status sts     ON sts.StatusKey = fap.CurrentStatusKey
             LEFT JOIN dbo.dim_risk_level rl         ON rl.RiskLevelKey = fap.RiskLevelKey
             LEFT JOIN web.account_risk_score ars    ON ars.AccountKey = fa.AccountKey
+            LEFT JOIN web.dim_risk_score_band band  ON ars.EffectiveRiskScore BETWEEN band.MinScore AND band.MaxScore
             WHERE fa.IsDeleted = 0
               AND (@StageName IS NULL OR stg.StageName = @StageName)
               AND (@StatusName IS NULL OR sts.StatusName = @StatusName)

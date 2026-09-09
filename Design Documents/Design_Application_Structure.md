@@ -41,6 +41,7 @@ Confirmed 2026-08-27 as a first pass — revise here as screens are added or spl
 - Notifications — SMTP config, recipients, notification-type target roles, gated by `ManageNotifications` (D-115/D-116/D-118, `Design_Notifications.md`)
 - Credentials & LDAP — vault-backend credential management plus LDAP trusted-connection config, gated by `ManageCredentials` (`Design_Credentials_Management.md`)
 - Targets / Access Groups / Target Match Review / Import Mapping Profiles — the Risk Scoring inventory/import admin pages, gated by `ManageTargets`/`ManageAccessGroups` (D-119, `Design_Risk_Scoring.md`)
+- Risk Score Bands — admin-configurable named bands (e.g. Low/Medium/High/Critical) over the computed `EffectiveRiskScore`, surfaced on the Account Progress list and Risk Score report; NOT the same thing as `dim_risk_level`. Gated by `ManageRiskScoreBands` (D-120, `Design_Risk_Scoring.md` Phase F)
 
 **Documentation audit correction, 2026-09-09**: this list only had the original 8 pages as of 2026-08-27 (D-43) and was never updated for the Deployment/Notifications/Credentials pages (D-95–D-118) or the four Risk Scoring pages above (D-119) — all 7 added now to match the real, current `AdminHub.vue` (14 admin sections total).
 

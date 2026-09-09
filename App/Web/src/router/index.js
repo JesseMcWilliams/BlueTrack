@@ -226,6 +226,12 @@ const routes = [
         name: 'admin-import-mapping-profiles',
         meta: { breadcrumb: 'Import Mapping Profiles', breadcrumbParent: 'admin' },
         component: () => import('../views/admin/ImportMappingProfiles.vue')
+      },
+      {
+        path: 'risk-score-bands',
+        name: 'admin-risk-score-bands',
+        meta: { breadcrumb: 'Risk Score Bands', breadcrumbParent: 'admin' },
+        component: () => import('../views/admin/RiskScoreBands.vue')
       }
     ]
   },

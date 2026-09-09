@@ -59,6 +59,16 @@ test.describe('Account Progress edit form', () => {
 // Progress list -- confirmed by reading AccountProgressList.vue before
 // writing these, same as every other describe block in this file.
 test.describe('Account Progress list -- risk score override', () => {
+  // D-120: the named band (web.dim_risk_score_band) now shows alongside
+  // the effective risk score -- confirmed by reading AccountProgressList.vue
+  // before writing this, same as every other describe block in this file.
+  test('Risk Band column is present', async ({ page }) => {
+    await signInAs(page, 'TestUser.Viewer')
+    await page.goto('/accounts')
+
+    await expect(page.locator('th', { hasText: 'Risk Band' })).toBeVisible()
+  })
+
   test('Approver (who holds EditAccountProgress) can set then clear an override', async ({ page }) => {
     await signInAs(page, 'TestUser.Approver')
     await page.goto('/accounts')

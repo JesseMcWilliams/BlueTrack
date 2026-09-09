@@ -52,6 +52,7 @@ public class AdminControllersPermissionTests : IClassFixture<BlueTrackWebApplica
             new object[] { "/api/admin/targets" },
             new object[] { "/api/admin/targets/identifier-types" },
             new object[] { "/api/admin/access-groups" },
+            new object[] { "/api/admin/risk-score-bands" },
             new object[] { "/api/admin/risk-scoring/target-match-review" },
             new object[] { "/api/admin/risk-scoring/import-mapping-profiles" },
             new object[] { "/api/reports/risk-score" },

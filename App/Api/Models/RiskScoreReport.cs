@@ -10,6 +10,9 @@ public sealed class RiskScoreReportRow
     public int? EffectiveRiskScore { get; init; }
     public bool IsRiskScoreStale { get; init; }
     public DateTime? RiskScoreCalculatedDate { get; init; }
+
+    /// <summary>web.dim_risk_score_band (D-120) -- null when EffectiveRiskScore is null, or falls outside every configured band's range.</summary>
+    public string? RiskScoreBandName { get; init; }
 }
 
 /// <summary>

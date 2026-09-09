@@ -79,7 +79,8 @@ const columns = [
   { field: 'riskLevelName', label: 'Risk Level' },
   { field: 'ownerName', label: 'Owner' },
   { field: 'targetRemediationDate', label: 'Target Remediation Date' },
-  { field: 'effectiveRiskScore', label: 'Risk Score' }
+  { field: 'effectiveRiskScore', label: 'Risk Score' },
+  { field: 'riskScoreBandName', label: 'Risk Band' }
 ]
 
 function sortIndicator(field) {
@@ -210,6 +211,7 @@ watch([stageFilter, statusFilter, riskLevelFilter, ownerFilter, sortQueryParam],
               {{ account.effectiveRiskScore ?? '—' }}
               <button v-if="rights.hasPermission('EditAccountProgress')" type="button" @click="startEditOverride(account)">Edit Override</button>
             </td>
+            <td>{{ account.riskScoreBandName ?? '—' }}</td>
           </tr>
           <tr v-if="editingAccountKey === account.accountKey">
             <td :colspan="columns.length">

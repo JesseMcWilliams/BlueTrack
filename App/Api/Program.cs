@@ -56,6 +56,7 @@ builder.Services.AddScoped<RiskScoringImportRepository>();
 builder.Services.AddScoped<TargetMatchReviewRepository>();
 builder.Services.AddScoped<ImportMappingProfileRepository>();
 builder.Services.AddScoped<RiskScoreReportRepository>();
+builder.Services.AddScoped<RiskScoreBandRepository>();
 builder.Services.AddScoped<TargetMatchingService>();
 builder.Services.AddScoped<ImportMappingService>();
 

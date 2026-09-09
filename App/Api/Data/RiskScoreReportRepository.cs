@@ -13,7 +13,8 @@ public sealed class RiskScoreReportRepository(IDbConnectionFactory connectionFac
         ["overrideRiskScore"] = "ars.OverrideRiskScore",
         ["effectiveRiskScore"] = "ars.EffectiveRiskScore",
         ["isRiskScoreStale"] = "ars.IsRiskScoreStale",
-        ["riskScoreCalculatedDate"] = "ars.RiskScoreCalculatedDate"
+        ["riskScoreCalculatedDate"] = "ars.RiskScoreCalculatedDate",
+        ["riskScoreBandName"] = "band.RiskOrder"
     };
 
     public async Task<IReadOnlyList<RiskScoreReportRow>> GetSummaryListAsync(IReadOnlyList<(string Field, bool Descending)>? sortBy = null)
@@ -28,9 +29,11 @@ public sealed class RiskScoreReportRepository(IDbConnectionFactory connectionFac
                 ars.OverrideRiskScore,
                 ars.EffectiveRiskScore,
                 ISNULL(ars.IsRiskScoreStale, 1) AS IsRiskScoreStale,
-                ars.RiskScoreCalculatedDate
+                ars.RiskScoreCalculatedDate,
+                band.BandName AS RiskScoreBandName
             FROM dbo.fact_account fa
             LEFT JOIN web.account_risk_score ars ON ars.AccountKey = fa.AccountKey
+            LEFT JOIN web.dim_risk_score_band band ON ars.EffectiveRiskScore BETWEEN band.MinScore AND band.MaxScore
             WHERE fa.IsDeleted = 0
             ORDER BY {BuildOrderByClause(sortBy)}
             """;
