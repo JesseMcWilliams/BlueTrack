@@ -37,6 +37,13 @@ public class RiskScoringImportControllerTests : IClassFixture<BlueTrackWebApplic
         return content;
     }
 
+    /// <summary>D-124 Phase 2: TargetType is now an FK -- resolved by TypeCode via the target-types endpoint rather than assuming a specific IDENTITY value. The CSV rows in this file keep using the raw TypeCode text ("Server"), unaffected by this -- only the direct single-add JSON payloads below need the resolved key.</summary>
+    private static async Task<int> GetTargetTypeKeyAsync(HttpClient client, string typeCode)
+    {
+        var types = await client.GetFromJsonAsync<List<TargetTypeResponse>>("/api/admin/targets/target-types");
+        return Assert.Single(types!, t => t.TypeCode == typeCode).TargetTypeKey;
+    }
+
     [Fact]
     public async Task TargetInventoryImport_NewIdentifier_CreatesNewTarget()
     {
@@ -67,7 +74,7 @@ public class RiskScoringImportControllerTests : IClassFixture<BlueTrackWebApplic
 
         var createResponse = await client.PostAsJsonAsync("/api/admin/targets", new
         {
-            targetType = "Server",
+            targetTypeKey = await GetTargetTypeKeyAsync(client, "Server"),
             targetName = originalName,
             riskScore = 500,
             identifiers = new[] { new { identifierType = "ADGuid", identifierValue = adGuid } }
@@ -103,7 +110,7 @@ public class RiskScoringImportControllerTests : IClassFixture<BlueTrackWebApplic
 
         var createResponse = await client.PostAsJsonAsync("/api/admin/targets", new
         {
-            targetType = "Server",
+            targetTypeKey = await GetTargetTypeKeyAsync(client, "Server"),
             targetName = originalName,
             riskScore = 200,
             identifiers = new[] { new { identifierType = "IPAddress", identifierValue = ip } }
@@ -153,6 +160,29 @@ public class RiskScoringImportControllerTests : IClassFixture<BlueTrackWebApplic
         Assert.Equal(1, result.CreatedCount);
         Assert.Single(result.Errors);
         Assert.Equal(2, result.Errors[0].RowNumber);
+
+        var targets = await client.GetFromJsonAsync<List<TargetResponse>>("/api/admin/targets");
+        var created = Assert.Single(targets!, t => t.TargetName == goodName);
+        await client.DeleteAsync($"/api/admin/targets/{created.TargetKey}");
+    }
+
+    /// <summary>D-124 Phase 2: TargetType is now resolved against web.dim_target_type's TypeCode -- an unrecognized code reports a clean per-row error rather than failing the whole batch, matching the bad-RiskScore row's own established pattern above.</summary>
+    [Fact]
+    public async Task TargetInventoryImport_UnrecognizedTargetTypeCode_ReportsRowError_DoesNotFailWholeBatch()
+    {
+        var client = AdminClient();
+        var goodName = $"ContractTestImport_{Guid.NewGuid():N}";
+        var csv = $"TargetType,TargetName,RiskScore,Description,DiscoverySource,Hostname\nNotARealType,BadRow,400,,,\nServer,{goodName},300,,,\n";
+
+        var response = await client.PostAsync("/api/admin/risk-scoring/import/target-inventory", BuildCsvUpload(csv));
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var result = await response.Content.ReadFromJsonAsync<ImportResultResponse>();
+        Assert.Equal(2, result!.TotalRows);
+        Assert.Equal(1, result.CreatedCount);
+        Assert.Single(result.Errors);
+        Assert.Equal(2, result.Errors[0].RowNumber);
+        Assert.Contains("NotARealType", result.Errors[0].Error);
 
         var targets = await client.GetFromJsonAsync<List<TargetResponse>>("/api/admin/targets");
         var created = Assert.Single(targets!, t => t.TargetName == goodName);
@@ -220,6 +250,13 @@ public class RiskScoringImportControllerTests : IClassFixture<BlueTrackWebApplic
         public int TargetKey { get; set; }
         public string TargetName { get; set; } = "";
         public int RiskScore { get; set; }
+    }
+
+    private sealed class TargetTypeResponse
+    {
+        public int TargetTypeKey { get; set; }
+        public string TypeCode { get; set; } = "";
+        public string DisplayName { get; set; } = "";
     }
 
     private sealed class ReviewRowResponse

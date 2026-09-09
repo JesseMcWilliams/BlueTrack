@@ -21,33 +21,35 @@ public sealed class TargetRepository(IDbConnectionFactory connectionFactory)
     private static readonly IReadOnlyDictionary<string, string> SortableColumns = new Dictionary<string, string>
     {
         ["targetName"] = "t.TargetName",
-        ["targetType"] = "t.TargetType",
+        ["targetType"] = "dtt.DisplayName",
         ["applicationName"] = "a.ApplicationName",
         ["riskScore"] = "t.RiskScore",
         ["modifiedDate"] = "t.ModifiedDate"
     };
 
     private const string SelectSql = """
-        SELECT t.TargetKey, t.TargetType, t.TargetName, t.InternalGuid, t.ApplicationKey,
+        SELECT t.TargetKey, t.TargetTypeKey, dtt.TypeCode AS TargetTypeCode, dtt.DisplayName AS TargetTypeDisplayName,
+               t.TargetName, t.InternalGuid, t.ApplicationKey,
                a.ApplicationName, t.RiskScore, t.Description, t.DiscoverySource, t.ModifiedDate
         FROM web.dim_target t
+        JOIN web.dim_target_type dtt ON dtt.TargetTypeKey = t.TargetTypeKey
         LEFT JOIN web.dim_application a ON a.ApplicationKey = t.ApplicationKey
         """;
 
-    /// <summary>D-121: stacked filters (type/application) plus multi-column sort, same pattern as the D-42 pages.</summary>
+    /// <summary>D-121: stacked filters (type/application) plus multi-column sort, same pattern as the D-42 pages. D-124 Phase 2: the type filter is now the FK key, not the old raw TargetType string.</summary>
     public async Task<IReadOnlyList<TargetSummary>> GetAllAsync(
-        string? targetType = null,
+        int? targetTypeKey = null,
         int? applicationKey = null,
         IReadOnlyList<(string Field, bool Descending)>? sortBy = null)
     {
         using var connection = connectionFactory.Create();
         var sql = $"""
             {SelectSql}
-            WHERE (@TargetType IS NULL OR t.TargetType = @TargetType)
+            WHERE (@TargetTypeKey IS NULL OR t.TargetTypeKey = @TargetTypeKey)
               AND (@ApplicationKey IS NULL OR t.ApplicationKey = @ApplicationKey)
             ORDER BY {BuildOrderByClause(sortBy)}
             """;
-        var targets = (await connection.QueryAsync<TargetSummary>(sql, new { TargetType = targetType, ApplicationKey = applicationKey })).ToList();
+        var targets = (await connection.QueryAsync<TargetSummary>(sql, new { TargetTypeKey = targetTypeKey, ApplicationKey = applicationKey })).ToList();
         if (targets.Count == 0)
         {
             return targets;
@@ -62,7 +64,9 @@ public sealed class TargetRepository(IDbConnectionFactory connectionFactory)
         return targets.Select(t => new TargetSummary
         {
             TargetKey = t.TargetKey,
-            TargetType = t.TargetType,
+            TargetTypeKey = t.TargetTypeKey,
+            TargetTypeCode = t.TargetTypeCode,
+            TargetTypeDisplayName = t.TargetTypeDisplayName,
             TargetName = t.TargetName,
             InternalGuid = t.InternalGuid,
             ApplicationKey = t.ApplicationKey,
@@ -105,6 +109,15 @@ public sealed class TargetRepository(IDbConnectionFactory connectionFactory)
         return rows.AsList();
     }
 
+    /// <summary>D-124 Phase 2: web.dim_target_type reference data for the Type dropdown, mirroring GetIdentifierTypesAsync()'s/AccessGroupRepository.GetSorTypesAsync()'s shape.</summary>
+    public async Task<IReadOnlyList<TargetTypeSummary>> GetTargetTypesAsync()
+    {
+        using var connection = connectionFactory.Create();
+        var rows = await connection.QueryAsync<TargetTypeSummary>(
+            "SELECT TargetTypeKey, TypeCode, DisplayName FROM web.dim_target_type ORDER BY DisplayName");
+        return rows.AsList();
+    }
+
     public async Task<int> CreateAsync(SaveTargetRequest request, int? modifiedByUserKey)
     {
         using var connection = connectionFactory.Create();
@@ -112,10 +125,10 @@ public sealed class TargetRepository(IDbConnectionFactory connectionFactory)
         using var transaction = connection.BeginTransaction();
 
         var targetKey = await connection.QuerySingleAsync<int>("""
-            INSERT INTO web.dim_target (TargetType, TargetName, ApplicationKey, RiskScore, Description, DiscoverySource, CreatedBy, ModifiedBy, ModifiedDate)
+            INSERT INTO web.dim_target (TargetTypeKey, TargetName, ApplicationKey, RiskScore, Description, DiscoverySource, CreatedBy, ModifiedBy, ModifiedDate)
             OUTPUT inserted.TargetKey
-            VALUES (@TargetType, @TargetName, @ApplicationKey, @RiskScore, @Description, @DiscoverySource, @ModifiedBy, @ModifiedBy, SYSUTCDATETIME())
-            """, new { request.TargetType, request.TargetName, request.ApplicationKey, request.RiskScore, request.Description, request.DiscoverySource, ModifiedBy = modifiedByUserKey }, transaction);
+            VALUES (@TargetTypeKey, @TargetName, @ApplicationKey, @RiskScore, @Description, @DiscoverySource, @ModifiedBy, @ModifiedBy, SYSUTCDATETIME())
+            """, new { request.TargetTypeKey, request.TargetName, request.ApplicationKey, request.RiskScore, request.Description, request.DiscoverySource, ModifiedBy = modifiedByUserKey }, transaction);
 
         await InsertIdentifiersAsync(connection, transaction, targetKey, request.Identifiers);
 
@@ -134,11 +147,11 @@ public sealed class TargetRepository(IDbConnectionFactory connectionFactory)
 
         await connection.ExecuteAsync("""
             UPDATE web.dim_target
-            SET TargetType = @TargetType, TargetName = @TargetName, ApplicationKey = @ApplicationKey,
+            SET TargetTypeKey = @TargetTypeKey, TargetName = @TargetName, ApplicationKey = @ApplicationKey,
                 RiskScore = @RiskScore, Description = @Description, DiscoverySource = @DiscoverySource,
                 ModifiedBy = @ModifiedBy, ModifiedDate = SYSUTCDATETIME()
             WHERE TargetKey = @TargetKey
-            """, new { TargetKey = targetKey, request.TargetType, request.TargetName, request.ApplicationKey, request.RiskScore, request.Description, request.DiscoverySource, ModifiedBy = modifiedByUserKey }, transaction);
+            """, new { TargetKey = targetKey, request.TargetTypeKey, request.TargetName, request.ApplicationKey, request.RiskScore, request.Description, request.DiscoverySource, ModifiedBy = modifiedByUserKey }, transaction);
 
         await connection.ExecuteAsync("DELETE FROM web.target_identifier WHERE TargetKey = @TargetKey", new { TargetKey = targetKey }, transaction);
         await InsertIdentifiersAsync(connection, transaction, targetKey, request.Identifiers);

@@ -16,21 +16,25 @@ public sealed class TargetsController(
     CurrentUserResolver currentUserResolver,
     AuditLogger auditLogger) : ControllerBase
 {
-    /// <summary>D-121: stacked filters (type/application) plus sort, and an X-Total-Count header carrying the unfiltered grand total (the JSON body stays a bare array, unchanged).</summary>
+    /// <summary>D-121: stacked filters (type/application) plus sort, and an X-Total-Count header carrying the unfiltered grand total (the JSON body stays a bare array, unchanged). D-124 Phase 2: the type filter is now the FK key (TargetTypeKey), not the old raw TargetType string.</summary>
     [HttpGet]
     public async Task<IActionResult> GetAll(
-        [FromQuery] string? targetType = null,
+        [FromQuery] int? targetTypeKey = null,
         [FromQuery] int? applicationKey = null,
         [FromQuery] string? sort = null)
     {
         var sortBy = SortParser.Parse(sort);
-        var results = await repository.GetAllAsync(targetType, applicationKey, sortBy);
+        var results = await repository.GetAllAsync(targetTypeKey, applicationKey, sortBy);
         Response.Headers["X-Total-Count"] = (await repository.GetTotalCountAsync()).ToString();
         return Ok(results);
     }
 
     [HttpGet("identifier-types")]
     public async Task<IActionResult> GetIdentifierTypes() => Ok(await repository.GetIdentifierTypesAsync());
+
+    /// <summary>D-124 Phase 2: web.dim_target_type reference data for the Type dropdown, mirroring the identifier-types route above.</summary>
+    [HttpGet("target-types")]
+    public async Task<IActionResult> GetTargetTypes() => Ok(await repository.GetTargetTypesAsync());
 
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] SaveTargetRequest request)

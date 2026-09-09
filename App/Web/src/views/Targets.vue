@@ -12,6 +12,14 @@
 // stacked filters (type/application) plus sortable column headers, same
 // click/shift-click multi-column sort pattern as the D-42 pages, plus the
 // app-wide "Showing N of M total" count summary (X-Total-Count).
+//
+// D-124 Phase 2: TargetType is now a real dimension table
+// (web.dim_target_type, code + DisplayName) instead of the old hardcoded
+// TARGET_TYPES array with zero database enforcement -- fetched from
+// GET /api/admin/targets/target-types, same pattern as AccessGroups.vue's
+// SOR Type dropdown. The filter/form <select>s bind TargetTypeKey (the FK),
+// not the raw code string, and show DisplayName ('LDAP Directory', not
+// 'LdapDirectory'; 'Active Directory' is a new, distinct entry).
 import { ref, computed, onMounted, watch } from 'vue'
 import { useTotalCount } from '../composables/useTotalCount'
 import FilterCountSummary from '../components/FilterCountSummary.vue'
@@ -75,11 +83,15 @@ async function createAccountTargetLink() {
   linkTargetKey.value = null
 }
 
-const TARGET_TYPES = ['Server', 'Desktop', 'Database', 'Application', 'LdapDirectory', 'Appliance', 'Other']
-
 const items = ref([])
 const applications = ref([])
 const identifierTypes = ref([])
+// D-124 Phase 2: web.dim_target_type is now a real dimension table (code +
+// DisplayName) fetched from the API, replacing the old hardcoded
+// TARGET_TYPES array -- the filter/form <select>s bind TargetTypeKey, not
+// the raw code string, and show DisplayName ('LDAP Directory', not
+// 'LdapDirectory').
+const targetTypes = ref([])
 const error = ref(null)
 const loading = ref(true)
 const editing = ref(null)
@@ -137,7 +149,7 @@ async function load() {
   loading.value = true
   try {
     const params = new URLSearchParams()
-    if (typeFilter.value) params.set('targetType', typeFilter.value)
+    if (typeFilter.value) params.set('targetTypeKey', typeFilter.value)
     if (applicationFilter.value) params.set('applicationKey', applicationFilter.value)
     if (sortQueryParam.value) params.set('sort', sortQueryParam.value)
 
@@ -164,13 +176,19 @@ onMounted(async () => {
   } catch {
     // Non-fatal -- the application filter just won't have dropdown options if this fails.
   }
+  try {
+    const targetTypesResponse = await fetch('/api/admin/targets/target-types')
+    if (targetTypesResponse.ok) targetTypes.value = await targetTypesResponse.json()
+  } catch {
+    // Non-fatal -- the Type dropdown just won't have options if this fails.
+  }
   await load()
 })
 
 watch([typeFilter, applicationFilter, sortQueryParam], load)
 
 function startCreate() {
-  editing.value = { targetType: 'Server', targetName: '', riskScore: 0, description: '', discoverySource: '', identifiers: [] }
+  editing.value = { targetTypeKey: targetTypes.value[0]?.targetTypeKey ?? null, targetName: '', riskScore: 0, description: '', discoverySource: '', identifiers: [] }
 }
 function startEdit(item) {
   editing.value = { ...item, identifiers: item.identifiers.map(i => ({ ...i })) }
@@ -222,7 +240,7 @@ async function remove(item) {
       <label class="field-label"><span class="field-label-text">Type:</span>
         <select v-model="typeFilter">
           <option value="">All</option>
-          <option v-for="type in TARGET_TYPES" :key="type" :value="type">{{ type }}</option>
+          <option v-for="type in targetTypes" :key="type.targetTypeKey" :value="type.targetTypeKey">{{ type.displayName }}</option>
         </select>
       </label>
       <label class="field-label"><span class="field-label-text">Application:</span>
@@ -254,7 +272,7 @@ async function remove(item) {
         <tbody>
           <tr v-for="item in items" :key="item.targetKey">
             <td>{{ item.targetName }}</td>
-            <td>{{ item.targetType }}</td>
+            <td>{{ item.targetTypeDisplayName }}</td>
             <td>{{ item.applicationName }}</td>
             <td>{{ item.riskScore }}</td>
             <td>{{ item.identifiers.map(i => `${i.identifierType}=${i.identifierValue}`).join(', ') }}</td>
@@ -273,8 +291,8 @@ async function remove(item) {
         <p>
           <label class="field-label">
             <span class="field-label-text">Type:</span>
-            <select v-model="editing.targetType">
-              <option v-for="type in TARGET_TYPES" :key="type" :value="type">{{ type }}</option>
+            <select v-model="editing.targetTypeKey">
+              <option v-for="type in targetTypes" :key="type.targetTypeKey" :value="type.targetTypeKey">{{ type.displayName }}</option>
             </select>
           </label>
         </p>

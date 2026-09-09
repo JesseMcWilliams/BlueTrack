@@ -48,6 +48,10 @@ public sealed class RiskScoringImportController(
         var rows = await CsvFileReader.ReadRowsAsync(file.OpenReadStream());
         var mapping = await importMappingService.GetActiveMappingAsync("TargetInventory", mappingProfileKey);
         var identifierTypes = await targetRepository.GetIdentifierTypesAsync();
+        // D-124 Phase 2: TargetType is now an FK (TargetTypeKey) -- the CSV
+        // keeps using the stable TypeCode (not DisplayName, which is only the
+        // prettied-up UI label), resolved here against web.dim_target_type.
+        var targetTypesByCode = (await targetRepository.GetTargetTypesAsync()).ToDictionary(t => t.TypeCode, t => t.TargetTypeKey);
         var importBatchId = Guid.NewGuid();
 
         var result = new ImportRunResult();
@@ -57,7 +61,11 @@ public sealed class RiskScoringImportController(
             try
             {
                 var row = rows[i];
-                var targetType = ImportMappingService.ResolveField(row, mapping, "TargetType") ?? throw new InvalidOperationException("TargetType is required.");
+                var targetTypeCode = ImportMappingService.ResolveField(row, mapping, "TargetType") ?? throw new InvalidOperationException("TargetType is required.");
+                if (!targetTypesByCode.TryGetValue(targetTypeCode, out var targetTypeKey))
+                {
+                    throw new InvalidOperationException($"TargetType '{targetTypeCode}' is not a recognized target type code.");
+                }
                 var targetName = ImportMappingService.ResolveField(row, mapping, "TargetName") ?? throw new InvalidOperationException("TargetName is required.");
                 var riskScoreText = ImportMappingService.ResolveField(row, mapping, "RiskScore") ?? throw new InvalidOperationException("RiskScore is required.");
                 if (!int.TryParse(riskScoreText, out var riskScore))
@@ -71,7 +79,7 @@ public sealed class RiskScoringImportController(
                     .ToList();
 
                 var matchResult = await targetMatchingService.MatchOrCreateAsync(
-                    targetType, targetName, riskScore,
+                    targetTypeKey, targetName, riskScore,
                     ImportMappingService.ResolveField(row, mapping, "Description"),
                     ImportMappingService.ResolveField(row, mapping, "DiscoverySource"),
                     identifiers, importBatchId, file.FileName, user.UserKey);

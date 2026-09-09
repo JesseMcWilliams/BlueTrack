@@ -31,8 +31,10 @@ public class PendingSafeDerivedTargetMappingTests
             VALUES (3, @SourceAccountId, @AccountName, @Address, @SafeKey, 0)
             """, new { SourceAccountId = $"IntegrationTest_{Guid.NewGuid():N}", AccountName = "IntegrationTest PendingSafe Account", Address = hostname, SafeKey = PendingSafeKey });
 
+        // D-124 Phase 2: TargetType is now an FK -- resolved by TypeCode via a
+        // subquery rather than assuming a specific IDENTITY value.
         var targetKey = await connection.QuerySingleAsync<int>(
-            "INSERT INTO web.dim_target (TargetType, TargetName, RiskScore) OUTPUT inserted.TargetKey VALUES ('Server', @TargetName, 700)",
+            "INSERT INTO web.dim_target (TargetTypeKey, TargetName, RiskScore) OUTPUT inserted.TargetKey VALUES ((SELECT TargetTypeKey FROM web.dim_target_type WHERE TypeCode = 'Server'), @TargetName, 700)",
             new { TargetName = $"IntegrationTest_{Guid.NewGuid():N}" });
         await connection.ExecuteAsync(
             "INSERT INTO web.target_identifier (TargetKey, IdentifierType, IdentifierValue) VALUES (@TargetKey, 'Hostname', @Hostname)",

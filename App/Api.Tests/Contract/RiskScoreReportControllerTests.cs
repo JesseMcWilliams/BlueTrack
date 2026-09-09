@@ -54,7 +54,7 @@ public class RiskScoreReportControllerTests : IClassFixture<BlueTrackWebApplicat
 
         var targetName = $"ContractTest_{Guid.NewGuid():N}";
         var targetKey = await connection.QuerySingleAsync<int>(
-            "INSERT INTO web.dim_target (TargetType, TargetName, RiskScore) OUTPUT inserted.TargetKey VALUES ('Server', @Name, 600)",
+            "INSERT INTO web.dim_target (TargetTypeKey, TargetName, RiskScore) OUTPUT inserted.TargetKey VALUES ((SELECT TargetTypeKey FROM web.dim_target_type WHERE TypeCode = 'Server'), @Name, 600)",
             new { Name = targetName });
         var accountKey = await connection.QuerySingleAsync<long>(
             "INSERT INTO fact_account (SourceSystemKey, SourceAccountId, AccountName, IsDeleted) OUTPUT inserted.AccountKey VALUES (1, @SourceAccountId, 'ContractTest Risk Report Account', 0)",

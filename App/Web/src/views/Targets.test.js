@@ -20,7 +20,9 @@ function jsonResponse(body, { ok = true, status = 200, totalCount = null } = {})
 
 const sampleTarget = {
   targetKey: 1,
-  targetType: 'Server',
+  targetTypeKey: 1,
+  targetTypeCode: 'Server',
+  targetTypeDisplayName: 'Server',
   targetName: 'web01',
   applicationKey: null,
   applicationName: null,
@@ -31,11 +33,22 @@ const sampleTarget = {
   identifiers: [{ identifierType: 'Hostname', identifierValue: 'web01.example.com' }]
 }
 
-// Mounting triggers: 1) GET /api/applications, then 2) load()'s
-// Promise.all([GET /api/admin/targets, GET /api/admin/targets/identifier-types]).
+// D-124 Phase 2: web.dim_target_type is now a real dimension table fetched
+// from the API (replacing the old hardcoded TARGET_TYPES array) -- includes
+// the corrected "LDAP Directory" display name and the new "Active Directory"
+// entry, distinct from the generic "LDAP Directory".
+const targetTypes = [
+  { targetTypeKey: 1, typeCode: 'Server', displayName: 'Server' },
+  { targetTypeKey: 5, typeCode: 'LdapDirectory', displayName: 'LDAP Directory' },
+  { targetTypeKey: 6, typeCode: 'ActiveDirectory', displayName: 'Active Directory' }
+]
+
+// Mounting triggers: 1) GET /api/applications and GET /api/admin/targets/target-types,
+// then 2) load()'s Promise.all([GET /api/admin/targets, GET /api/admin/targets/identifier-types]).
 function mockInitialLoad({ targets = [sampleTarget], totalCount = targets.length } = {}) {
   globalThis.fetch = vi.fn((url) => {
     if (url === '/api/applications') return Promise.resolve(jsonResponse([{ applicationKey: 1, applicationCode: 'APP1', applicationName: 'App One' }]))
+    if (url === '/api/admin/targets/target-types') return Promise.resolve(jsonResponse(targetTypes))
     if (url.startsWith('/api/admin/targets/identifier-types')) return Promise.resolve(jsonResponse([{ identifierType: 'Hostname', matchPriority: 30, requiresReview: false }]))
     if (url.startsWith('/api/admin/targets')) return Promise.resolve(jsonResponse(targets, { totalCount }))
     return Promise.resolve(jsonResponse(null, { ok: false, status: 404 }))
@@ -73,16 +86,30 @@ describe('Targets.vue', () => {
     expect(wrapper.find('.filter-count-summary').exists()).toBe(false)
   })
 
-  it('sends the Type filter as a targetType query param', async () => {
+  it('sends the Type filter as a targetTypeKey query param', async () => {
     mockInitialLoad({ targets: [] })
     const wrapper = mount(Targets)
     await flushPromises()
 
-    await wrapper.get('select').setValue('Server')
+    await wrapper.get('select').setValue('1') // Server's targetTypeKey in the mocked catalog
     await flushPromises()
 
     const targetsCalls = globalThis.fetch.mock.calls.map(c => c[0]).filter(u => u.startsWith('/api/admin/targets?'))
-    expect(targetsCalls.some(u => u.includes('targetType=Server'))).toBe(true)
+    expect(targetsCalls.some(u => u.includes('targetTypeKey=1'))).toBe(true)
+  })
+
+  it('renders the Type dropdown options using DisplayName, not the raw code', async () => {
+    mockInitialLoad({ targets: [] })
+    const wrapper = mount(Targets)
+    await flushPromises()
+
+    const typeSelect = wrapper.get('select')
+    const optionTexts = typeSelect.findAll('option').map(o => o.text())
+
+    expect(optionTexts).toContain('LDAP Directory')
+    expect(optionTexts).toContain('Active Directory')
+    expect(optionTexts).not.toContain('LdapDirectory')
+    expect(optionTexts).not.toContain('ActiveDirectory')
   })
 
   it('opens the New Target form with defaults on + New Target', async () => {

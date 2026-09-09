@@ -25,15 +25,23 @@ public class TargetsAndAccessGroupsControllerTests : IClassFixture<BlueTrackWebA
         return client;
     }
 
+    /// <summary>D-124 Phase 2: TargetType is now an FK -- resolved by TypeCode via the new target-types endpoint rather than assuming a specific IDENTITY value.</summary>
+    private static async Task<int> GetTargetTypeKeyAsync(HttpClient client, string typeCode)
+    {
+        var types = await client.GetFromJsonAsync<List<TargetTypeResponse>>("/api/admin/targets/target-types");
+        return Assert.Single(types!, t => t.TypeCode == typeCode).TargetTypeKey;
+    }
+
     [Fact]
     public async Task Target_CreateUpdateDelete_RoundTrips_WithIdentifiers()
     {
         var client = AdminClient();
         var name = $"ContractTestTarget_{Guid.NewGuid():N}";
+        var serverTypeKey = await GetTargetTypeKeyAsync(client, "Server");
 
         var createResponse = await client.PostAsJsonAsync("/api/admin/targets", new
         {
-            targetType = "Server",
+            targetTypeKey = serverTypeKey,
             targetName = name,
             riskScore = 500,
             description = "Created by a contract test",
@@ -51,7 +59,7 @@ public class TargetsAndAccessGroupsControllerTests : IClassFixture<BlueTrackWebA
 
             var updateResponse = await client.PutAsJsonAsync($"/api/admin/targets/{created!.TargetKey}", new
             {
-                targetType = "Server",
+                targetTypeKey = serverTypeKey,
                 targetName = name,
                 riskScore = 750,
                 identifiers = Array.Empty<object>()
@@ -81,15 +89,28 @@ public class TargetsAndAccessGroupsControllerTests : IClassFixture<BlueTrackWebA
         Assert.Contains(types!, t => t.IdentifierType == "IPAddress" && t.RequiresReview);
     }
 
+    /// <summary>D-124 Phase 2: web.dim_target_type's seeded catalog -- the corrected "LDAP Directory" display name (was the raw "LdapDirectory" everywhere) and the new distinct "Active Directory" entry.</summary>
+    [Fact]
+    public async Task Target_TargetTypes_ReturnsSeededCatalog_WithCorrectedLdapDisplayName_AndNewActiveDirectoryEntry()
+    {
+        var client = AdminClient();
+
+        var types = await client.GetFromJsonAsync<List<TargetTypeResponse>>("/api/admin/targets/target-types");
+
+        Assert.Contains(types!, t => t.TypeCode == "LdapDirectory" && t.DisplayName == "LDAP Directory");
+        Assert.Contains(types!, t => t.TypeCode == "ActiveDirectory" && t.DisplayName == "Active Directory");
+    }
+
     /// <summary>D-121: X-Total-Count carries the unfiltered grand total; the JSON body stays a bare array.</summary>
     [Fact]
     public async Task Targets_GetAll_SetsTotalCountHeader()
     {
         var client = AdminClient();
         var name = $"ContractTestTarget_{Guid.NewGuid():N}";
+        var serverTypeKey = await GetTargetTypeKeyAsync(client, "Server");
         var createResponse = await client.PostAsJsonAsync("/api/admin/targets", new
         {
-            targetType = "Server",
+            targetTypeKey = serverTypeKey,
             targetName = name,
             riskScore = 100,
             identifiers = Array.Empty<object>()
@@ -113,15 +134,17 @@ public class TargetsAndAccessGroupsControllerTests : IClassFixture<BlueTrackWebA
         }
     }
 
-    /// <summary>D-121: TargetType filter narrows the body but X-Total-Count still reports the unfiltered grand total.</summary>
+    /// <summary>D-121: TargetType filter narrows the body but X-Total-Count still reports the unfiltered grand total. D-124 Phase 2: the filter is now the FK key (targetTypeKey), not the old raw TargetType string.</summary>
     [Fact]
     public async Task Targets_GetAll_FilterByType_NarrowsBody_ButTotalCountStaysUnfiltered()
     {
         var client = AdminClient();
         var serverName = $"ContractTestTargetServer_{Guid.NewGuid():N}";
         var applicationName = $"ContractTestTargetApp_{Guid.NewGuid():N}";
-        var serverCreate = await client.PostAsJsonAsync("/api/admin/targets", new { targetType = "Server", targetName = serverName, riskScore = 100, identifiers = Array.Empty<object>() });
-        var appCreate = await client.PostAsJsonAsync("/api/admin/targets", new { targetType = "Application", targetName = applicationName, riskScore = 100, identifiers = Array.Empty<object>() });
+        var serverTypeKey = await GetTargetTypeKeyAsync(client, "Server");
+        var applicationTypeKey = await GetTargetTypeKeyAsync(client, "Application");
+        var serverCreate = await client.PostAsJsonAsync("/api/admin/targets", new { targetTypeKey = serverTypeKey, targetName = serverName, riskScore = 100, identifiers = Array.Empty<object>() });
+        var appCreate = await client.PostAsJsonAsync("/api/admin/targets", new { targetTypeKey = applicationTypeKey, targetName = applicationName, riskScore = 100, identifiers = Array.Empty<object>() });
         var serverKey = (await serverCreate.Content.ReadFromJsonAsync<TargetKeyResponse>())!.TargetKey;
         var appKey = (await appCreate.Content.ReadFromJsonAsync<TargetKeyResponse>())!.TargetKey;
 
@@ -130,7 +153,7 @@ public class TargetsAndAccessGroupsControllerTests : IClassFixture<BlueTrackWebA
             var unfilteredResponse = await client.GetAsync("/api/admin/targets");
             var unfilteredTotal = int.Parse(unfilteredResponse.Headers.GetValues("X-Total-Count").Single());
 
-            var filteredResponse = await client.GetAsync("/api/admin/targets?targetType=Server");
+            var filteredResponse = await client.GetAsync($"/api/admin/targets?targetTypeKey={serverTypeKey}");
             var filteredBody = await filteredResponse.Content.ReadFromJsonAsync<List<TargetResponse>>();
             var filteredTotal = int.Parse(filteredResponse.Headers.GetValues("X-Total-Count").Single());
 
@@ -304,6 +327,13 @@ public class TargetsAndAccessGroupsControllerTests : IClassFixture<BlueTrackWebA
     {
         public string IdentifierType { get; set; } = "";
         public bool RequiresReview { get; set; }
+    }
+
+    private sealed class TargetTypeResponse
+    {
+        public int TargetTypeKey { get; set; }
+        public string TypeCode { get; set; } = "";
+        public string DisplayName { get; set; } = "";
     }
 
     private sealed class AccessGroupKeyResponse

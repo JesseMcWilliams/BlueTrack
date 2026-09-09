@@ -51,6 +51,7 @@ public class AdminControllersPermissionTests : IClassFixture<BlueTrackWebApplica
             new object[] { "/api/admin/notifications/types" },
             new object[] { "/api/admin/targets" },
             new object[] { "/api/admin/targets/identifier-types" },
+            new object[] { "/api/admin/targets/target-types" },
             new object[] { "/api/admin/access-groups" },
             new object[] { "/api/admin/access-groups/sor-types" },
             new object[] { "/api/admin/risk-score-bands" },
@@ -112,6 +113,7 @@ public class AdminControllersPermissionTests : IClassFixture<BlueTrackWebApplica
     [Theory]
     [InlineData("/api/admin/targets")]
     [InlineData("/api/admin/targets/identifier-types")]
+    [InlineData("/api/admin/targets/target-types")]
     [InlineData("/api/admin/access-groups")]
     [InlineData("/api/admin/access-groups/sor-types")]
     public async Task TargetsAndAccessGroupsEndpoints_AsAnalyst_Succeed(string path)
