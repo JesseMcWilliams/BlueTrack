@@ -77,7 +77,8 @@ function makeRouter() {
       { path: '/', name: 'home', component: { template: '<div />' } },
       { path: '/targets', name: 'targets', component: { template: '<div />' } },
       { path: '/targets/new', name: 'target-create', component: { template: '<div />' } },
-      { path: '/targets/:targetKey', name: 'target-edit', component: { template: '<div />' } }
+      { path: '/targets/:targetKey', name: 'target-edit', component: { template: '<div />' } },
+      { path: '/targets/bulk-import', name: 'targets-bulk-import', component: { template: '<div />' } }
     ]
   })
 }
@@ -225,5 +226,18 @@ describe('Targets.vue', () => {
 
     const link = wrapper.findAll('a').find(a => a.text() === 'Edit')
     expect(link.attributes('href')).toBe(`/targets/${sampleTarget.targetKey}`)
+  })
+
+  // D-124 Phase 5: the 2 inline "Bulk Import" sections moved off this page
+  // onto TargetsBulkImport.test.js -- coverage here is limited to the
+  // "Bulk Actions" link itself, matching how the "+ New Target"/"Edit"
+  // router-links are asserted above.
+  it('links "Bulk Actions" to the targets-bulk-import route', async () => {
+    mockInitialLoad({ targets: [] })
+    const wrapper = mount(Targets, { global: { plugins: [makeRouter()] } })
+    await flushPromises()
+
+    const link = wrapper.findAll('a').find(a => a.text() === 'Bulk Actions')
+    expect(link.attributes('href')).toBe('/targets/bulk-import')
   })
 })

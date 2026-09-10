@@ -75,7 +75,8 @@ function makeRouter() {
       { path: '/', name: 'home', component: { template: '<div />' } },
       { path: '/access-groups', name: 'access-groups', component: { template: '<div />' } },
       { path: '/access-groups/new', name: 'access-group-create', component: { template: '<div />' } },
-      { path: '/access-groups/:accessGroupKey', name: 'access-group-edit', component: { template: '<div />' } }
+      { path: '/access-groups/:accessGroupKey', name: 'access-group-edit', component: { template: '<div />' } },
+      { path: '/access-groups/bulk-import', name: 'access-groups-bulk-import', component: { template: '<div />' } }
     ]
   })
 }
@@ -174,5 +175,18 @@ describe('AccessGroups.vue', () => {
 
     const link = wrapper.findAll('a').find(a => a.text() === 'Edit')
     expect(link.attributes('href')).toBe(`/access-groups/${sampleGroup.accessGroupKey}`)
+  })
+
+  // D-124 Phase 5: the 3 inline "Bulk Import" sections moved off this page
+  // onto AccessGroupsBulkImport.test.js -- coverage here is limited to the
+  // "Bulk Actions" link itself, matching how the "+ New Access Group"/"Edit"
+  // router-links are asserted above.
+  it('links "Bulk Actions" to the access-groups-bulk-import route', async () => {
+    mockInitialLoad({ groups: [] })
+    const wrapper = mount(AccessGroups, { global: { plugins: [makeRouter()] } })
+    await flushPromises()
+
+    const link = wrapper.findAll('a').find(a => a.text() === 'Bulk Actions')
+    expect(link.attributes('href')).toBe('/access-groups/bulk-import')
   })
 })

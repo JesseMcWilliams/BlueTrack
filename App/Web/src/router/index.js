@@ -150,6 +150,15 @@ const routes = [
     component: () => import('../views/TargetEdit.vue'),
     props: true
   },
+  // D-124 Phase 5: the 2 always-visible inline "Bulk Import" sections moved
+  // off Targets.vue onto this dedicated routed page, reached via a single
+  // "Bulk Actions" header link -- consistent with Phase 4's Add/Edit move.
+  {
+    path: '/targets/bulk-import',
+    name: 'targets-bulk-import',
+    meta: { breadcrumb: 'Bulk Actions', breadcrumbParent: 'targets' },
+    component: () => import('../views/TargetsBulkImport.vue')
+  },
   {
     path: '/access-groups',
     name: 'access-groups',
@@ -170,6 +179,16 @@ const routes = [
     meta: { breadcrumb: 'Edit Access Group', breadcrumbParent: 'access-groups' },
     component: () => import('../views/AccessGroupEdit.vue'),
     props: true
+  },
+  // D-124 Phase 5: the 3 always-visible inline "Bulk Import" sections moved
+  // off AccessGroups.vue onto this dedicated routed page, reached via a
+  // single "Bulk Actions" header link -- consistent with Phase 4's Add/Edit
+  // move.
+  {
+    path: '/access-groups/bulk-import',
+    name: 'access-groups-bulk-import',
+    meta: { breadcrumb: 'Bulk Actions', breadcrumbParent: 'access-groups' },
+    component: () => import('../views/AccessGroupsBulkImport.vue')
   },
   // Admin hub with sub-navigation (D-47) -- one top-nav entry, sections
   // inside gated per-permission at render time, not per-route here.

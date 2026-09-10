@@ -25,53 +25,23 @@
 // target-create/target-edit) -- this page no longer owns an inline
 // editing/startCreate/startEdit/cancelEdit form at all; "+ New Target" and
 // each row's "Edit" are now router-link navigations.
+//
+// D-124 Phase 5: the 2 always-visible inline "Bulk Import" sections (and
+// their importFile/onInventoryFileChange/onAccountTargetFileChange script
+// logic) moved off this page onto TargetsBulkImport.vue, reached via the
+// "Bulk Actions" header link below -- the "Link a Single Account to a
+// Target" section stays here, since it's a single-record form (no file
+// upload), not a bulk import.
 import { ref, computed, onMounted, watch } from 'vue'
 import { useTotalCount } from '../composables/useTotalCount'
 import { usePageSizeStore } from '../stores/pageSize'
 import FilterCountSummary from '../components/FilterCountSummary.vue'
 import Pager from '../components/Pager.vue'
 
-const inventoryFile = ref(null)
-const inventoryImportResult = ref(null)
-const inventoryImporting = ref(false)
-
-const accountTargetFile = ref(null)
-const accountTargetImportResult = ref(null)
-const accountTargetImporting = ref(false)
-
 const linkAccountName = ref('')
 const linkTargetKey = ref(null)
 const linkError = ref(null)
 const linkSaved = ref(false)
-
-async function importFile(url, fileRef, resultRef, importingRef) {
-  if (!fileRef.value) return
-  importingRef.value = true
-  resultRef.value = null
-  try {
-    const formData = new FormData()
-    formData.append('file', fileRef.value)
-    const response = await fetch(url, { method: 'POST', body: formData })
-    resultRef.value = response.ok ? await response.json() : { error: `Import failed: ${response.status}` }
-  } finally {
-    importingRef.value = false
-  }
-}
-
-function onInventoryFileChange(event) {
-  inventoryFile.value = event.target.files[0] ?? null
-}
-function onAccountTargetFileChange(event) {
-  accountTargetFile.value = event.target.files[0] ?? null
-}
-
-async function importInventory() {
-  await importFile('/api/admin/risk-scoring/import/target-inventory', inventoryFile, inventoryImportResult, inventoryImporting)
-  await load()
-}
-async function importAccountTargetMap() {
-  await importFile('/api/admin/risk-scoring/import/account-target-map', accountTargetFile, accountTargetImportResult, accountTargetImporting)
-}
 
 async function createAccountTargetLink() {
   linkError.value = null
@@ -255,6 +225,7 @@ async function remove(item) {
 
     <template v-else>
       <p><router-link :to="{ name: 'target-create' }">+ New Target</router-link></p>
+      <p><router-link :to="{ name: 'targets-bulk-import' }">Bulk Actions</router-link></p>
 
       <table>
         <thead>
@@ -283,31 +254,6 @@ async function remove(item) {
         </tbody>
       </table>
       <p><small>Click a column to sort by it; shift-click another column to add it as a secondary sort key.</small></p>
-
-      <h3>Bulk Import: Target Inventory</h3>
-      <p>
-        <a href="/api/admin/risk-scoring/import/target-inventory/template">Download template</a> --
-        each row is matched against existing Targets by identifier (auto-merges on a strong match, e.g. ADGuid; a weak IP-only match is queued for review instead of auto-merging).
-      </p>
-      <p class="filter-row">
-        <input type="file" accept=".csv" @change="onInventoryFileChange" />
-        <button :disabled="!inventoryFile || inventoryImporting" @click="importInventory">{{ inventoryImporting ? 'Importing...' : 'Import' }}</button>
-      </p>
-      <p v-if="inventoryImportResult">
-        {{ inventoryImportResult.totalRows }} rows -- {{ inventoryImportResult.createdCount }} created, {{ inventoryImportResult.mergedCount }} merged, {{ inventoryImportResult.pendingReviewCount }} pending review, {{ inventoryImportResult.errors?.length ?? 0 }} errors.
-        <span v-if="inventoryImportResult.errors?.length"><br />{{ inventoryImportResult.errors.map(e => `Row ${e.rowNumber}: ${e.error}`).join('; ') }}</span>
-      </p>
-
-      <h3>Bulk Import: Direct Account -&gt; Target Links</h3>
-      <p><a href="/api/admin/risk-scoring/import/account-target-map/template">Download template</a> -- rows this app cannot yet match to an existing Target/Account are reported as row errors, not silently skipped.</p>
-      <p class="filter-row">
-        <input type="file" accept=".csv" @change="onAccountTargetFileChange" />
-        <button :disabled="!accountTargetFile || accountTargetImporting" @click="importAccountTargetMap">{{ accountTargetImporting ? 'Importing...' : 'Import' }}</button>
-      </p>
-      <p v-if="accountTargetImportResult">
-        {{ accountTargetImportResult.totalRows }} rows -- {{ accountTargetImportResult.createdCount }} created, {{ accountTargetImportResult.mergedCount }} already linked, {{ accountTargetImportResult.errors?.length ?? 0 }} errors.
-        <span v-if="accountTargetImportResult.errors?.length"><br />{{ accountTargetImportResult.errors.map(e => `Row ${e.rowNumber}: ${e.error}`).join('; ') }}</span>
-      </p>
 
       <h4>Link a Single Account to a Target</h4>
       <p v-if="linkError" role="alert">{{ linkError }}</p>
