@@ -457,7 +457,7 @@ onUnmounted(releaseLock)
           <span class="account-progress-identity-item"><strong>Username:</strong> {{ detail.userName ?? '—' }}</span>
           <span class="account-progress-identity-item"><strong>Address:</strong> {{ detail.address ?? '—' }}</span>
         </p>
-        <p class="account-progress-identity-secondary">Account Name: {{ detail.accountName }}</p>
+        <p class="account-progress-identity-secondary"><strong>Account Name:</strong> {{ detail.accountName }}</p>
       </div>
 
       <form v-if="lockedByMe" @submit.prevent="save">
