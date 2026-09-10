@@ -241,13 +241,12 @@ async function remove(item) {
         </thead>
         <tbody>
           <tr v-for="item in items" :key="item.targetKey">
-            <td>{{ item.targetName }}</td>
+            <td><router-link :to="{ name: 'target-edit', params: { targetKey: item.targetKey } }">{{ item.targetName }}</router-link></td>
             <td>{{ item.targetTypeDisplayName }}</td>
             <td>{{ item.applicationName }}</td>
             <td>{{ item.riskScore }}</td>
             <td>{{ item.identifiers.map(i => `${i.identifierType}=${i.identifierValue}`).join(', ') }}</td>
             <td>
-              <router-link :to="{ name: 'target-edit', params: { targetKey: item.targetKey } }">Edit</router-link>
               <button @click="remove(item)">Delete</button>
             </td>
           </tr>

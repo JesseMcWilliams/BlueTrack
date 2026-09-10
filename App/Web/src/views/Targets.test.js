@@ -219,12 +219,14 @@ describe('Targets.vue', () => {
     expect(link.attributes('href')).toBe('/targets/new')
   })
 
-  it('links each row\'s "Edit" to the target-edit route with that row\'s key', async () => {
+  // D-125: clicking the Name is the edit action -- there's no separate
+  // "Edit" link/button in the row anymore.
+  it('links each row\'s Name to the target-edit route with that row\'s key', async () => {
     mockInitialLoad()
     const wrapper = mount(Targets, { global: { plugins: [makeRouter()] } })
     await flushPromises()
 
-    const link = wrapper.findAll('a').find(a => a.text() === 'Edit')
+    const link = wrapper.findAll('a').find(a => a.text() === sampleTarget.targetName)
     expect(link.attributes('href')).toBe(`/targets/${sampleTarget.targetKey}`)
   })
 

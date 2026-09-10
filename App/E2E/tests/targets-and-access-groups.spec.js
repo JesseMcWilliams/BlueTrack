@@ -84,7 +84,8 @@ test.describe('Targets page', () => {
     await page.getByLabel('Type:').selectOption('')
 
     await expect(page.locator('tbody tr', { hasText: targetName })).toBeVisible()
-    await row.getByRole('link', { name: 'Edit' }).click()
+    // D-125: clicking the Name is the edit action -- there's no separate "Edit" link.
+    await row.getByRole('link', { name: targetName }).click()
     await expect(page.getByRole('heading', { name: 'Edit Target' })).toBeVisible()
     // Confirms the edit page actually pre-fetched and pre-filled this
     // specific row (a fresh navigation, not the already-loaded list item).
@@ -130,7 +131,8 @@ test.describe('Access Groups page', () => {
     await expect(row).toContainText('e2e.example.com')
     await expect(row).toContainText('E2E Test')
 
-    await row.getByRole('link', { name: 'Edit' }).click()
+    // D-125: clicking the Name is the edit action -- there's no separate "Edit" link.
+    await row.getByRole('link', { name: groupName }).click()
     await expect(page.getByRole('heading', { name: 'Edit Access Group' })).toBeVisible()
     await expect(page.getByLabel('SOR Address:')).toHaveValue('e2e.example.com')
     await page.getByRole('button', { name: 'Cancel' }).click()

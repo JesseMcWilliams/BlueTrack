@@ -196,7 +196,7 @@ async function remove(item) {
         </thead>
         <tbody>
           <tr v-for="item in items" :key="item.accessGroupKey">
-            <td>{{ item.groupName }}</td>
+            <td><router-link :to="{ name: 'access-group-edit', params: { accessGroupKey: item.accessGroupKey } }">{{ item.groupName }}</router-link></td>
             <td>{{ item.groupIdentifier }}</td>
             <td>{{ item.groupScope }}<span v-if="item.foundOnTargetName"> ({{ item.foundOnTargetName }})</span></td>
             <td>{{ item.sorTypeName ?? '—' }}</td>
@@ -205,7 +205,6 @@ async function remove(item) {
             <td>{{ item.sorAddress ?? '—' }}</td>
             <td>{{ item.discoverySource ?? '—' }}</td>
             <td>
-              <router-link :to="{ name: 'access-group-edit', params: { accessGroupKey: item.accessGroupKey } }">Edit</router-link>
               <button @click="remove(item)">Delete</button>
             </td>
           </tr>

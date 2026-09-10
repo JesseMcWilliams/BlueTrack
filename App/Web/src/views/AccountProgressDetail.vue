@@ -267,9 +267,12 @@ async function save() {
   }
 }
 
+// D-125: Cancel now matches Save's own destination -- back to the Accounts
+// list, not staying on this detail/summary page (confirmed directly; this
+// was the one Cancel button in the app that didn't already do this).
 async function cancelEdit() {
   await releaseLock()
-  resetFormFromDetail()
+  router.push({ name: 'account-progress-list' })
 }
 
 async function releaseLock() {

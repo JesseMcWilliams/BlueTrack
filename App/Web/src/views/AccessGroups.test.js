@@ -168,12 +168,14 @@ describe('AccessGroups.vue', () => {
     expect(link.attributes('href')).toBe('/access-groups/new')
   })
 
-  it('links each row\'s "Edit" to the access-group-edit route with that row\'s key', async () => {
+  // D-125: clicking the Name is the edit action -- there's no separate
+  // "Edit" link/button in the row anymore.
+  it('links each row\'s Name to the access-group-edit route with that row\'s key', async () => {
     mockInitialLoad()
     const wrapper = mount(AccessGroups, { global: { plugins: [makeRouter()] } })
     await flushPromises()
 
-    const link = wrapper.findAll('a').find(a => a.text() === 'Edit')
+    const link = wrapper.findAll('a').find(a => a.text() === sampleGroup.groupName)
     expect(link.attributes('href')).toBe(`/access-groups/${sampleGroup.accessGroupKey}`)
   })
 
