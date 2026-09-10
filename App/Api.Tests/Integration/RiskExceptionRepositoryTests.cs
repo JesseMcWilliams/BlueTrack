@@ -151,8 +151,15 @@ public class RiskExceptionRepositoryTests
             ReviewDate = DateTime.UtcNow.Date.AddDays(10)
         }, approverKey);
 
-        var accountResults = await repository.GetListAsync(scopeType: "Account");
-        var applicationResults = await repository.GetListAsync(scopeType: "Application");
+        // D-124 Phase 3: this test class has no Delete method at all (see the
+        // no-cleanup precedent noted below), so "Account"-scoped exceptions
+        // accumulate across every local run of this suite -- an explicit
+        // large pageSize (matching PagingParams' own cap) keeps this
+        // fixture's own newly-created row within the returned page,
+        // matching the same fix already applied to the equivalent D-121
+        // "stays unfiltered" tests on Targets/AccessGroups.
+        var accountResults = await repository.GetListAsync(scopeType: "Account", pageSize: 500);
+        var applicationResults = await repository.GetListAsync(scopeType: "Application", pageSize: 500);
 
         Assert.Contains(accountResults, e => e.ExceptionKey == accountScopedKey);
         Assert.DoesNotContain(applicationResults, e => e.ExceptionKey == accountScopedKey);
