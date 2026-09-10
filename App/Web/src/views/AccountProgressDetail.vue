@@ -455,6 +455,11 @@ onUnmounted(releaseLock)
       <form v-if="lockedByMe" @submit.prevent="save">
         <p v-if="saveError" role="alert">{{ saveError }}</p>
 
+        <dl class="account-progress-identity">
+          <dt>Account Name</dt><dd>{{ detail.accountName }}</dd>
+          <dt>Address</dt><dd>{{ detail.address ?? '—' }}</dd>
+        </dl>
+
         <div role="tablist" class="account-progress-tabs" aria-label="Account Progress sections">
           <button
             v-for="tab in tabs"
@@ -562,6 +567,8 @@ onUnmounted(releaseLock)
       </form>
 
       <dl v-else>
+        <dt>Account Name</dt><dd>{{ detail.accountName }}</dd>
+        <dt>Address</dt><dd>{{ detail.address ?? '—' }}</dd>
         <template v-for="field in sortedFields" :key="field.fieldName">
           <dt>{{ field.displayLabel }}</dt>
           <dd>{{ displayValueFor(field) }}</dd>
@@ -583,6 +590,9 @@ onUnmounted(releaseLock)
 </template>
 
 <style scoped>
+.account-progress-identity {
+  margin-bottom: var(--space-3);
+}
 .account-progress-tabs {
   display: flex;
   gap: var(--space-1);

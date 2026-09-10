@@ -42,7 +42,8 @@ const ownerFilter = ref('')
 const sortColumns = ref([])
 
 const columns = [
-  { field: 'accountName', label: 'Account' },
+  { field: 'userName', label: 'Username' },
+  { field: 'address', label: 'Address' },
   { field: 'stageName', label: 'Stage' },
   { field: 'statusName', label: 'Status' },
   { field: 'riskLevelName', label: 'Risk Level' },
@@ -180,7 +181,8 @@ watch([stageFilter, statusFilter, riskLevelFilter, ownerFilter, sortQueryParam],
       <tbody>
         <template v-for="account in accounts" :key="account.accountKey">
           <tr>
-            <td><router-link :to="{ name: 'account-progress-detail', params: { accountKey: account.accountKey } }">{{ account.accountName }}</router-link></td>
+            <td><router-link :to="{ name: 'account-progress-detail', params: { accountKey: account.accountKey } }">{{ account.userName }}</router-link></td>
+            <td>{{ account.address }}</td>
             <td>{{ account.stageName }}</td>
             <td>{{ account.statusName }}</td>
             <td>{{ account.riskLevelName }}</td>

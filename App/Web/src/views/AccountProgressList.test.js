@@ -28,6 +28,8 @@ function jsonResponse(body, { ok = true, status = 200, totalCount = null, filter
 const sampleAccount = {
   accountKey: 1,
   accountName: 'svc-web01',
+  userName: 'svc-web01-user',
+  address: 'web01.example.com',
   stageName: 'Discovery',
   statusName: 'In Progress',
   riskLevelName: 'Medium',
@@ -68,12 +70,16 @@ describe('AccountProgressList.vue', () => {
     vi.restoreAllMocks()
   })
 
-  it('loads and renders the account list', async () => {
+  // D-133: the Username/Address columns replaced the old single Account
+  // (AccountName) column -- Username is now the clickable link to the
+  // detail page (the same "click the name to edit" precedent, D-125).
+  it('loads and renders the account list, showing Username and Address instead of Account Name', async () => {
     mockInitialLoad()
     const wrapper = mount(AccountProgressList, { global: { plugins: [makeRouter()] } })
     await flushPromises()
 
-    expect(wrapper.text()).toContain('svc-web01')
+    expect(wrapper.text()).toContain('svc-web01-user')
+    expect(wrapper.text()).toContain('web01.example.com')
   })
 
   it('shows the "Showing N of M matching (of total)" count summary once both headers are known', async () => {

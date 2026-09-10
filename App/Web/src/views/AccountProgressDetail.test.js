@@ -59,6 +59,7 @@ function baseDetail(overrides = {}) {
     progressKey: 1,
     accountKey: 42,
     accountName: 'test-account',
+    address: '10.0.0.42',
     currentStageKey: 1,
     currentStatusKey: 1,
     riskLevelKey: null,
@@ -139,6 +140,18 @@ describe('AccountProgressDetail.vue', () => {
     expect(wrapper.find('#account-progress-tab-risk-exception').exists()).toBe(false)
   })
 
+  // D-133: Account Name/Address are fact_account's own read-only context,
+  // not part of the editable fact_account_progress field set -- shown above
+  // the tabs (not inside any one of them) so they're visible regardless of
+  // which tab is active.
+  it('shows Account Name and Address above the tabs, regardless of the active tab', async () => {
+    mockLoad()
+    const wrapper = await mountEditable()
+
+    expect(wrapper.text()).toContain('Account Nametest-account')
+    expect(wrapper.text()).toContain('Address10.0.0.42')
+  })
+
   it('clicking the Risk Score tab shows that panel and hides Details', async () => {
     mockLoad()
     const wrapper = await mountEditable()
@@ -215,6 +228,8 @@ describe('AccountProgressDetail.vue', () => {
 
     expect(wrapper.find('form').exists()).toBe(false)
     const text = wrapper.text()
+    expect(text).toContain('Account Nametest-account')
+    expect(text).toContain('Address10.0.0.42')
     expect(text).toContain('StageDiscovered')
     expect(text).toContain('StatusNot Started')
     expect(text).toContain('Risk LevelHigh')

@@ -17,6 +17,8 @@ public sealed class AccountProgressRepository(IDbConnectionFactory connectionFac
     private static readonly IReadOnlyDictionary<string, string> SortableColumns = new Dictionary<string, string>
     {
         ["accountName"] = "fa.AccountName",
+        ["userName"] = "fa.UserName",
+        ["address"] = "fa.Address",
         ["stageName"] = "stg.StageOrder",
         ["statusName"] = "sts.StatusName",
         ["riskLevelName"] = "rl.RiskOrder",
@@ -63,6 +65,8 @@ public sealed class AccountProgressRepository(IDbConnectionFactory connectionFac
             SELECT
                 fa.AccountKey,
                 fa.AccountName,
+                fa.UserName,
+                fa.Address,
                 stg.StageName,
                 sts.StatusName,
                 rl.RiskLevelName,
@@ -136,7 +140,7 @@ public sealed class AccountProgressRepository(IDbConnectionFactory connectionFac
         // Override on this page always agree with the list's own values.
         const string sql = """
             SELECT
-                fap.ProgressKey, fap.AccountKey, fa.AccountName,
+                fap.ProgressKey, fap.AccountKey, fa.AccountName, fa.Address,
                 fap.CurrentStageKey, fap.CurrentStatusKey, fap.RiskLevelKey, fap.AccountTypeKey, fap.SORKey,
                 fap.OwnerName, fap.BusinessUnit, fap.TargetRemediationDate, fap.ActualCompletionDate, fap.Notes,
                 fap.LastUpdated, fap.ExceptionKey,
