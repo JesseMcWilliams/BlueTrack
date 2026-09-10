@@ -2,7 +2,7 @@
 // Field-metadata-driven edit form (Design_Interface_Extensibility.md) with
 // pessimistic locking (D-50) and the two validation rules from D-51
 // (enforced server-side; this form just surfaces whatever error comes back).
-import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { useRightsStore } from '../stores/rights'
 import { formatDate } from '../utils/formatDate'
@@ -50,6 +50,107 @@ const error = ref(null)
 const saveError = ref(null)
 const saving = ref(false)
 
+// D-127: moved here from the Account Progress list's own inline "Edit
+// Override" (removed) -- Calculated Risk/Risk Band are always read-only
+// (system-calculated); Override Risk Score is the one editable value,
+// saved independently via its own existing endpoint (a Reason is required
+// only when setting a value, mirroring web.risk_exception.Justification's
+// own precedent, not required to clear one back to null) -- same
+// validation this used to enforce on the list page, unchanged.
+const overrideScoreInput = ref(null)
+const overrideReasonInput = ref('')
+const overrideError = ref(null)
+const overrideSaving = ref(false)
+const recalculating = ref(false)
+const recalculateError = ref(null)
+
+// D-132: the linked risk_exception's own detail (ExceptionID/Justification/
+// ReviewDate/StatusName) -- detail.exceptionKey is only ever a pointer, so
+// the read-only view needs its own fetch to show anything meaningful about
+// it (GET .../{exceptionKey} has no policy restriction beyond [Authorize],
+// same as every other read on this page).
+const linkedException = ref(null)
+
+async function loadLinkedException() {
+  linkedException.value = null
+  if (!detail.value?.exceptionKey) return
+  const response = await fetch(`/api/risk-exceptions/${detail.value.exceptionKey}`)
+  if (response.ok) linkedException.value = await response.json()
+}
+
+// D-132: read-only-view equivalent of the edit form's dropdown/date
+// rendering -- same field-metadata list (sortedFields), same
+// referenceData lookup (optionsFor), just resolved to display text instead
+// of an <select>/<input>. Keeps the read-only view honest with whatever
+// fields account_progress_field_metadata defines, rather than a hand-picked
+// subset that silently drifts from the edit form over time.
+function displayValueFor(field) {
+  const value = detail.value?.[formKeyByFieldName[field.fieldName]]
+  if (field.fieldType === 'Dropdown') {
+    const match = optionsFor(field).find(opt => String(opt.key) === String(value))
+    return match?.name ?? '—'
+  }
+  if (field.fieldType === 'Date') {
+    return value ? formatDate(value) : '—'
+  }
+  return value || '—'
+}
+
+async function refreshDetail() {
+  const detailResponse = await fetch(`/api/account-progress/${props.accountKey}`)
+  if (detailResponse.ok) {
+    detail.value = await detailResponse.json()
+    overrideScoreInput.value = detail.value.overrideRiskScore ?? null
+  }
+}
+
+// D-131: recalculates just this one account's Calculated Risk right now
+// (usp_RecalculateRiskScoreForAccount) -- the bulk "Recalculate Now" on
+// the Risk Score report only touches accounts already marked stale.
+async function recalculate() {
+  recalculateError.value = null
+  recalculating.value = true
+  try {
+    const response = await fetch(`/api/account-progress/${props.accountKey}/recalculate-risk-score`, { method: 'POST' })
+    if (!response.ok) {
+      recalculateError.value = `Recalculate failed: ${response.status}`
+      return
+    }
+    await refreshDetail()
+  } finally {
+    recalculating.value = false
+  }
+}
+
+async function saveOverride() {
+  overrideError.value = null
+  // v-model.number leaves an emptied input as '' rather than null.
+  const score = overrideScoreInput.value === '' || overrideScoreInput.value === undefined || Number.isNaN(overrideScoreInput.value)
+    ? null
+    : overrideScoreInput.value
+  if (score !== null && !overrideReasonInput.value.trim()) {
+    overrideError.value = 'A Reason is required when setting an override.'
+    return
+  }
+  overrideSaving.value = true
+  try {
+    const response = await fetch(`/api/account-progress/${props.accountKey}/risk-score-override`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ overrideRiskScore: score, reason: overrideReasonInput.value || null })
+    })
+    if (!response.ok) {
+      const problem = await response.json().catch(() => null)
+      overrideError.value = problem?.detail ?? `Save failed: ${response.status}`
+      return
+    }
+    overrideReasonInput.value = ''
+    await refreshDetail()
+  } finally {
+    overrideSaving.value = false
+  }
+}
+
 let heartbeatTimer = null
 
 const sortedFields = computed(() => [...fieldMetadata.value].sort((a, b) => a.displayOrder - b.displayOrder))
@@ -74,8 +175,43 @@ watch(isRiskAccepted, async (nowRiskAccepted) => {
   if (nowRiskAccepted) {
     await loadLinkableExceptions()
     selectedExceptionKey.value = detail.value?.exceptionKey ?? ''
+  } else if (activeTab.value === 'risk-exception') {
+    // The tab this user was on just stopped existing (status moved away
+    // from Risk Accepted / Excluded) -- fall back rather than leave the
+    // panel showing content for a now-hidden tab.
+    activeTab.value = 'details'
   }
 })
+
+// D-130: this form had grown into one long scroll (main fields, Risk
+// Score, Risk Exception) -- split into tabs, confirmed directly, following
+// the ARIA APG Tabs pattern (https://www.w3.org/WAI/ARIA/apg/patterns/tabs/)
+// this app already uses for its sortable-table headers (D-92) elsewhere.
+// Automatic activation model: arrow keys move focus AND switch the active
+// panel immediately, matching that same precedent's own choice for a
+// small, fixed set of options. The Reason field and Save/Cancel buttons
+// stay outside the tabs entirely -- they apply to the whole record, not
+// to whichever tab happens to be open.
+const activeTab = ref('details')
+const tabs = computed(() => [
+  { key: 'details', label: 'Details' },
+  { key: 'risk-score', label: 'Risk Score' },
+  ...(isRiskAccepted.value ? [{ key: 'risk-exception', label: 'Risk Exception' }] : [])
+])
+
+function onTabKeydown(event) {
+  const currentIndex = tabs.value.findIndex(t => t.key === activeTab.value)
+  let targetIndex = null
+  if (event.key === 'ArrowRight') targetIndex = (currentIndex + 1) % tabs.value.length
+  else if (event.key === 'ArrowLeft') targetIndex = (currentIndex - 1 + tabs.value.length) % tabs.value.length
+  else if (event.key === 'Home') targetIndex = 0
+  else if (event.key === 'End') targetIndex = tabs.value.length - 1
+  else return
+
+  event.preventDefault()
+  activeTab.value = tabs.value[targetIndex].key
+  nextTick(() => document.getElementById(`account-progress-tab-${tabs.value[targetIndex].key}`)?.focus())
+}
 
 async function loadLinkableExceptions() {
   exceptionError.value = null
@@ -151,6 +287,7 @@ async function load() {
     applicationExceptions.value = await readJsonOrDefault(appExceptionsResponse, [])
 
     resetFormFromDetail()
+    await loadLinkedException()
 
     // Don't attempt to acquire the edit lock for a user who can't edit
     // anyway -- that's a 403 from AcquireLock, not a real "someone else has
@@ -183,6 +320,9 @@ function resetFormFromDetail() {
     notes: detail.value.notes
   }
   selectedExceptionKey.value = detail.value.exceptionKey ?? ''
+  overrideScoreInput.value = detail.value.overrideRiskScore ?? null
+  overrideReasonInput.value = ''
+  overrideError.value = null
 }
 
 async function acquireLock() {
@@ -267,9 +407,12 @@ async function save() {
   }
 }
 
+// D-125: Cancel now matches Save's own destination -- back to the Accounts
+// list, not staying on this detail/summary page (confirmed directly; this
+// was the one Cancel button in the app that didn't already do this).
 async function cancelEdit() {
   await releaseLock()
-  resetFormFromDetail()
+  router.push({ name: 'account-progress-list' })
 }
 
 async function releaseLock() {
@@ -309,26 +452,92 @@ onUnmounted(releaseLock)
         <button v-if="rights.hasPermission('EditAccountProgress')" @click="forceRelease">Force Release Lock</button>
       </p>
 
+      <div class="account-progress-identity">
+        <p class="account-progress-identity-primary">
+          <span class="account-progress-identity-item"><strong>Username:</strong> {{ detail.userName ?? '—' }}</span>
+          <span class="account-progress-identity-item"><strong>Address:</strong> {{ detail.address ?? '—' }}</span>
+        </p>
+        <p class="account-progress-identity-secondary"><strong>Account Name:</strong> {{ detail.accountName }}</p>
+      </div>
+
       <form v-if="lockedByMe" @submit.prevent="save">
         <p v-if="saveError" role="alert">{{ saveError }}</p>
-        <p v-for="field in sortedFields" :key="field.fieldName">
-          <label class="field-label">
-            <span class="field-label-text">{{ field.displayLabel }}<span v-if="field.isRequired"> *</span>:</span>
 
-            <select v-if="field.fieldType === 'Dropdown'" v-model="form[formKeyByFieldName[field.fieldName]]" :required="field.isRequired">
-              <option value="">(none)</option>
-              <option v-for="opt in optionsFor(field)" :key="opt.key" :value="opt.key">{{ opt.name }}</option>
-            </select>
+        <div role="tablist" class="account-progress-tabs" aria-label="Account Progress sections">
+          <button
+            v-for="tab in tabs"
+            :key="tab.key"
+            :id="`account-progress-tab-${tab.key}`"
+            role="tab"
+            type="button"
+            class="account-progress-tab"
+            :class="{ 'account-progress-tab--active': activeTab === tab.key }"
+            :aria-selected="activeTab === tab.key"
+            :aria-controls="`account-progress-panel-${tab.key}`"
+            :tabindex="activeTab === tab.key ? 0 : -1"
+            @click="activeTab = tab.key"
+            @keydown="onTabKeydown"
+          >{{ tab.label }}</button>
+        </div>
 
-            <input v-else-if="field.fieldType === 'Date'" v-model="form[formKeyByFieldName[field.fieldName]]" type="date" />
+        <div
+          v-show="activeTab === 'details'"
+          id="account-progress-panel-details"
+          role="tabpanel"
+          aria-labelledby="account-progress-tab-details"
+        >
+          <p v-for="field in sortedFields" :key="field.fieldName">
+            <label class="field-label">
+              <span class="field-label-text">{{ field.displayLabel }}<span v-if="field.isRequired"> *</span>:</span>
 
-            <textarea v-else-if="field.fieldType === 'TextArea'" v-model="form[formKeyByFieldName[field.fieldName]]"></textarea>
+              <select v-if="field.fieldType === 'Dropdown'" v-model="form[formKeyByFieldName[field.fieldName]]" :required="field.isRequired">
+                <option value="">(none)</option>
+                <option v-for="opt in optionsFor(field)" :key="opt.key" :value="opt.key">{{ opt.name }}</option>
+              </select>
 
-            <input v-else v-model="form[formKeyByFieldName[field.fieldName]]" type="text" />
-          </label>
-        </p>
-        <div v-if="isRiskAccepted">
-          <h3>Risk Exception</h3>
+              <input v-else-if="field.fieldType === 'Date'" v-model="form[formKeyByFieldName[field.fieldName]]" type="date" />
+
+              <textarea v-else-if="field.fieldType === 'TextArea'" v-model="form[formKeyByFieldName[field.fieldName]]"></textarea>
+
+              <input v-else v-model="form[formKeyByFieldName[field.fieldName]]" type="text" />
+            </label>
+          </p>
+        </div>
+
+        <div
+          v-show="activeTab === 'risk-score'"
+          id="account-progress-panel-risk-score"
+          role="tabpanel"
+          aria-labelledby="account-progress-tab-risk-score"
+        >
+          <dl>
+            <dt>Calculated Risk</dt><dd>{{ detail.computedRiskScore ?? '(not yet calculated)' }}</dd>
+            <dt>Risk Band</dt><dd>{{ detail.riskScoreBandName ?? '—' }}</dd>
+            <dt>Effective Risk Score</dt><dd>{{ detail.effectiveRiskScore ?? '—' }}</dd>
+          </dl>
+          <p v-if="recalculateError" role="alert">{{ recalculateError }}</p>
+          <p>
+            <button type="button" class="account-progress-recalculate" :disabled="recalculating" @click="recalculate">{{ recalculating ? 'Recalculating…' : 'Recalculate' }}</button>
+          </p>
+          <p v-if="overrideError" role="alert">{{ overrideError }}</p>
+          <p>
+            <label class="field-label"><span class="field-label-text">Override Score (0-1000, blank clears it):</span>
+              <input v-model.number="overrideScoreInput" type="number" min="0" max="1000" />
+            </label>
+            <label class="field-label"><span class="field-label-text">Reason:</span>
+              <input v-model="overrideReasonInput" type="text" />
+            </label>
+            <button type="button" :disabled="overrideSaving" @click="saveOverride">Save Override</button>
+          </p>
+        </div>
+
+        <div
+          v-if="isRiskAccepted"
+          v-show="activeTab === 'risk-exception'"
+          id="account-progress-panel-risk-exception"
+          role="tabpanel"
+          aria-labelledby="account-progress-tab-risk-exception"
+        >
           <p>Status is Risk Accepted / Excluded -- link an existing Active exception for this account, or create one.</p>
           <p v-if="exceptionError" role="alert">{{ exceptionError }}</p>
           <p>
@@ -352,6 +561,7 @@ onUnmounted(releaseLock)
             <button type="button" class="btn-primary" :disabled="creatingException" @click="createInlineException">Create Exception</button>
           </div>
         </div>
+
         <p>
           <label class="field-label"><span class="field-label-text">Reason (required only if regressing to an earlier stage):</span> <input v-model="reason" type="text" /></label>
         </p>
@@ -360,11 +570,60 @@ onUnmounted(releaseLock)
       </form>
 
       <dl v-else>
-        <dt>Stage</dt><dd>{{ detail.currentStageKey }}</dd>
-        <dt>Status</dt><dd>{{ detail.currentStatusKey }}</dd>
-        <dt>Owner</dt><dd>{{ detail.ownerName }}</dd>
-        <dt>Notes</dt><dd>{{ detail.notes }}</dd>
+        <template v-for="field in sortedFields" :key="field.fieldName">
+          <dt>{{ field.displayLabel }}</dt>
+          <dd>{{ displayValueFor(field) }}</dd>
+        </template>
+        <dt>Last Updated</dt><dd>{{ formatDate(detail.lastUpdated) }}</dd>
+        <dt>Calculated Risk</dt><dd>{{ detail.computedRiskScore ?? '(not yet calculated)' }}</dd>
+        <dt>Risk Band</dt><dd>{{ detail.riskScoreBandName ?? '—' }}</dd>
+        <dt>Effective Risk Score</dt><dd>{{ detail.effectiveRiskScore ?? '—' }}</dd>
+        <template v-if="detail.overrideRiskScore !== null">
+          <dt>Override Risk Score</dt><dd>{{ detail.overrideRiskScore }}</dd>
+        </template>
+        <template v-if="linkedException">
+          <dt>Risk Exception</dt>
+          <dd>{{ linkedException.exceptionID }} ({{ linkedException.statusName }}) — {{ linkedException.justification }}, reviewed {{ formatDate(linkedException.reviewDate) }}</dd>
+        </template>
       </dl>
     </template>
   </div>
 </template>
+
+<style scoped>
+.account-progress-identity {
+  margin-bottom: var(--space-3);
+}
+.account-progress-identity-primary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin: 0;
+}
+.account-progress-identity-item + .account-progress-identity-item {
+  padding-left: var(--space-3);
+  border-left: 1px solid var(--color-border);
+}
+.account-progress-identity-secondary {
+  margin: var(--space-1) 0 0;
+  font-size: 0.875em;
+}
+.account-progress-tabs {
+  display: flex;
+  gap: var(--space-1);
+  border-bottom: 1px solid var(--color-border);
+  margin-bottom: var(--space-3);
+}
+.account-progress-tab {
+  border: none;
+  border-bottom: 3px solid transparent;
+  border-radius: 0;
+  background: transparent;
+  margin-right: 0;
+  margin-bottom: -1px;
+}
+.account-progress-tab--active {
+  border-bottom-color: var(--color-link);
+  font-weight: 700;
+}
+</style>

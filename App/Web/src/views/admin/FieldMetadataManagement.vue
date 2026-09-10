@@ -1,11 +1,18 @@
 <script setup>
 // CRUD against /api/admin/field-metadata (FieldMetadataController).
+//
+// D-124 Phase 4: Add/Edit moved to its own routed page
+// (FieldMetadataEdit.vue, admin-field-metadata-create/-edit) -- this page
+// no longer owns an inline editing/startCreate/startEdit/cancelEdit form.
 import { ref, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
+import { confirmDelete } from '../../composables/useConfirmDialog'
+
+const router = useRouter()
 
 const items = ref([])
 const error = ref(null)
 const loading = ref(true)
-const editing = ref(null) // null = not editing; {} = new; object = existing item being edited
 
 async function load() {
   loading.value = true
@@ -22,33 +29,8 @@ async function load() {
 
 onMounted(load)
 
-function startCreate() {
-  editing.value = { fieldName: '', displayLabel: '', fieldType: 'text', referenceTable: '', isRequired: false, displayOrder: 0 }
-}
-function startEdit(item) {
-  editing.value = { ...item }
-}
-function cancelEdit() {
-  editing.value = null
-}
-
-async function save() {
-  const isNew = editing.value.fieldMetadataKey === undefined
-  const url = isNew ? '/api/admin/field-metadata' : `/api/admin/field-metadata/${editing.value.fieldMetadataKey}`
-  const response = await fetch(url, {
-    method: isNew ? 'POST' : 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(editing.value)
-  })
-  if (!response.ok) {
-    error.value = `Save failed: ${response.status}`
-    return
-  }
-  editing.value = null
-  await load()
-}
-
 async function remove(item) {
+  if (!(await confirmDelete(`Delete field "${item.displayLabel}"? This cannot be undone.`))) return
   const response = await fetch(`/api/admin/field-metadata/${item.fieldMetadataKey}`, { method: 'DELETE' })
   if (!response.ok) {
     error.value = `Delete failed: ${response.status}`
@@ -66,7 +48,7 @@ async function remove(item) {
     <p v-if="loading" role="status">Loading...</p>
 
     <template v-else>
-      <button class="btn-primary" @click="startCreate">+ New Field</button>
+      <p><button type="button" class="btn-primary" @click="router.push({ name: 'admin-field-metadata-create' })">+ New Field</button></p>
 
       <table>
         <thead>
@@ -82,24 +64,12 @@ async function remove(item) {
             <td>{{ item.isRequired }}</td>
             <td>{{ item.displayOrder }}</td>
             <td>
-              <button @click="startEdit(item)">Edit</button>
+              <router-link :to="{ name: 'admin-field-metadata-edit', params: { fieldMetadataKey: item.fieldMetadataKey } }">Edit</router-link>
               <button @click="remove(item)">Delete</button>
             </td>
           </tr>
         </tbody>
       </table>
-
-      <form v-if="editing" @submit.prevent="save">
-        <h3>{{ editing.fieldMetadataKey === undefined ? 'New Field' : 'Edit Field' }}</h3>
-        <p><label class="field-label"><span class="field-label-text">Field Name:</span> <input v-model="editing.fieldName" required /></label></p>
-        <p><label class="field-label"><span class="field-label-text">Display Label:</span> <input v-model="editing.displayLabel" required /></label></p>
-        <p><label class="field-label"><span class="field-label-text">Field Type:</span> <input v-model="editing.fieldType" required /></label></p>
-        <p><label class="field-label"><span class="field-label-text">Reference Table:</span> <input v-model="editing.referenceTable" /></label></p>
-        <p><label><input v-model="editing.isRequired" type="checkbox" /> Required</label></p>
-        <p><label class="field-label"><span class="field-label-text">Display Order:</span> <input v-model.number="editing.displayOrder" type="number" /></label></p>
-        <button type="submit" class="btn-primary">Save</button>
-        <button type="button" @click="cancelEdit">Cancel</button>
-      </form>
     </template>
   </div>
 </template>

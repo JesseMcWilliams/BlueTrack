@@ -15,17 +15,20 @@ public sealed class RiskExceptionsController(
     CurrentUserResolver currentUserResolver,
     AuditLogger auditLogger) : ControllerBase
 {
-    /// <summary>D-42: stacked filters (status/accountKey/scopeType) plus multi-column sort.</summary>
+    /// <summary>D-42: stacked filters (status/accountKey/scopeType) plus multi-column sort. D-124 Phase 3: page/pageSize add server-side paging; X-Filtered-Count carries how many rows match the current filter, ignoring paging.</summary>
     [HttpGet]
     public async Task<IActionResult> GetList(
         [FromQuery] string? status = null,
         [FromQuery] long? accountKey = null,
         [FromQuery] string? scopeType = null,
-        [FromQuery] string? sort = null)
+        [FromQuery] string? sort = null,
+        [FromQuery] int? page = null,
+        [FromQuery] int? pageSize = null)
     {
         var sortBy = SortParser.Parse(sort);
-        var results = await repository.GetListAsync(status, accountKey, scopeType, sortBy);
+        var results = await repository.GetListAsync(status, accountKey, scopeType, sortBy, page, pageSize);
         Response.Headers["X-Total-Count"] = (await repository.GetTotalCountAsync()).ToString();
+        Response.Headers["X-Filtered-Count"] = (await repository.GetFilteredCountAsync(status, accountKey, scopeType)).ToString();
         return Ok(results);
     }
 

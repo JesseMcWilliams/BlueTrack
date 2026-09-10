@@ -11,6 +11,11 @@ public sealed class AccountProgressDetail
     public long ProgressKey { get; init; }
     public long AccountKey { get; init; }
     public required string AccountName { get; init; }
+
+    /// <summary>D-133/D-134: shown alongside AccountName on the edit screen -- fact_account.UserName/Address, read-only context same as AccountName (not part of the editable fact_account_progress field set).</summary>
+    public string? UserName { get; init; }
+    public string? Address { get; init; }
+
     public int CurrentStageKey { get; init; }
     public int CurrentStatusKey { get; init; }
     public int? RiskLevelKey { get; init; }
@@ -23,6 +28,17 @@ public sealed class AccountProgressDetail
     public string? Notes { get; init; }
     public DateTime LastUpdated { get; init; }
     public int? ExceptionKey { get; init; }
+
+    // D-127: moved here from the Account Progress list's own inline "Edit
+    // Override" (removed) -- ComputedRiskScore/RiskScoreBandName are always
+    // read-only (system-calculated); OverrideRiskScore is the one editable
+    // value here, via the existing PUT .../risk-score-override endpoint
+    // (unchanged). EffectiveRiskScore = COALESCE(OverrideRiskScore,
+    // ComputedRiskScore), same as everywhere else this triad appears.
+    public int? ComputedRiskScore { get; init; }
+    public int? OverrideRiskScore { get; init; }
+    public int? EffectiveRiskScore { get; init; }
+    public string? RiskScoreBandName { get; init; }
 }
 
 /// <summary>

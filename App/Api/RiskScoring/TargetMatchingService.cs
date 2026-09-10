@@ -35,7 +35,7 @@ public sealed class TargetMatchingService(IDbConnectionFactory connectionFactory
     }
 
     public async Task<TargetMatchResult> MatchOrCreateAsync(
-        string targetType,
+        int targetTypeKey,
         string targetName,
         int riskScore,
         string? description,
@@ -71,10 +71,10 @@ public sealed class TargetMatchingService(IDbConnectionFactory connectionFactory
         if (best is null)
         {
             var targetKey = await connection.QuerySingleAsync<int>("""
-                INSERT INTO web.dim_target (TargetType, TargetName, RiskScore, Description, DiscoverySource, ImportBatchId, SourceFileName, ModifiedBy, ModifiedDate)
+                INSERT INTO web.dim_target (TargetTypeKey, TargetName, RiskScore, Description, DiscoverySource, ImportBatchId, SourceFileName, ModifiedBy, ModifiedDate)
                 OUTPUT inserted.TargetKey
-                VALUES (@TargetType, @TargetName, @RiskScore, @Description, @DiscoverySource, @ImportBatchId, @SourceFileName, @ModifiedBy, SYSUTCDATETIME())
-                """, new { TargetType = targetType, TargetName = targetName, RiskScore = riskScore, Description = description, DiscoverySource = discoverySource, ImportBatchId = importBatchId, SourceFileName = sourceFileName, ModifiedBy = modifiedByUserKey }, transaction);
+                VALUES (@TargetTypeKey, @TargetName, @RiskScore, @Description, @DiscoverySource, @ImportBatchId, @SourceFileName, @ModifiedBy, SYSUTCDATETIME())
+                """, new { TargetTypeKey = targetTypeKey, TargetName = targetName, RiskScore = riskScore, Description = description, DiscoverySource = discoverySource, ImportBatchId = importBatchId, SourceFileName = sourceFileName, ModifiedBy = modifiedByUserKey }, transaction);
 
             foreach (var identifier in identifiers)
             {

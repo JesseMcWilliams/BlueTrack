@@ -4,10 +4,19 @@
 // only (the only one that actually authenticates anyone). Admins type a
 // friendly group name; the server resolves it to the SID that's actually
 // stored (D-69) and matched against at login.
+//
+// D-124 Phase 4 (partial conversion): the "Add Mapping" form moved to its
+// own routed page (GroupRoleMappingCreate.vue,
+// admin-group-role-mapping-create) -- this page no longer owns that inline
+// form or its own roles fetch (used only by that form). Delete-only per
+// row and the Lookup/Test Tool below are both untouched.
 import { ref, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
+import { confirmDelete } from '../../composables/useConfirmDialog'
+
+const router = useRouter()
 
 const mappings = ref([])
-const roles = ref([])
 const error = ref(null)
 const loading = ref(true)
 
@@ -15,23 +24,12 @@ const lookupGroupName = ref('')
 const lookupResult = ref(null)
 const lookupError = ref(null)
 
-const newGroupName = ref('')
-const newRoleName = ref('')
-
 async function load() {
   loading.value = true
   try {
-    const [mappingsResponse, rolesResponse] = await Promise.all([
-      fetch('/api/admin/group-role-mappings'),
-      fetch('/api/admin/group-role-mappings/roles')
-    ])
-    if (!mappingsResponse.ok) throw new Error(`Request failed: ${mappingsResponse.status}`)
-    if (!rolesResponse.ok) throw new Error(`Roles request failed: ${rolesResponse.status}`)
-    mappings.value = await mappingsResponse.json()
-    roles.value = await rolesResponse.json()
-    if (!newRoleName.value && roles.value.length > 0) {
-      newRoleName.value = roles.value[0].roleName
-    }
+    const response = await fetch('/api/admin/group-role-mappings')
+    if (!response.ok) throw new Error(`Request failed: ${response.status}`)
+    mappings.value = await response.json()
   } catch (err) {
     error.value = err.message
   } finally {
@@ -56,23 +54,8 @@ async function lookup() {
   lookupResult.value = await response.json()
 }
 
-async function createMapping() {
-  error.value = null
-  const response = await fetch('/api/admin/group-role-mappings', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ groupName: newGroupName.value, roleName: newRoleName.value })
-  })
-  if (!response.ok) {
-    error.value = `Create failed: ${response.status}`
-    return
-  }
-  newGroupName.value = ''
-  newRoleName.value = ''
-  await load()
-}
-
 async function remove(mapping) {
+  if (!(await confirmDelete(`Delete mapping "${mapping.identityGroupName} → ${mapping.roleName}"? This cannot be undone.`))) return
   const response = await fetch(`/api/admin/group-role-mappings/${mapping.mappingKey}`, { method: 'DELETE' })
   if (!response.ok) {
     error.value = `Delete failed: ${response.status}`
@@ -89,6 +72,8 @@ async function remove(mapping) {
     <p v-if="loading" role="status">Loading...</p>
 
     <template v-else>
+      <p><button type="button" class="btn-primary" @click="router.push({ name: 'admin-group-role-mapping-create' })">+ Add Mapping</button></p>
+
       <table>
         <thead>
           <tr><th>Provider</th><th>Group (stored identifier)</th><th>Role</th><th></th></tr>
@@ -102,21 +87,6 @@ async function remove(mapping) {
           </tr>
         </tbody>
       </table>
-
-      <h3>Add Mapping</h3>
-      <form @submit.prevent="createMapping">
-        <p><label class="field-label"><span class="field-label-text">Group Name (e.g. BUILTIN\Administrators or DOMAIN\GroupName):</span> <input v-model="newGroupName" required /></label></p>
-        <p>
-          <label class="field-label">
-            <span class="field-label-text">Role:</span>
-            <select v-model="newRoleName" required>
-              <option value="" disabled>Select a role</option>
-              <option v-for="role in roles" :key="role.appRoleKey" :value="role.roleName">{{ role.roleName }}</option>
-            </select>
-          </label>
-        </p>
-        <button type="submit" class="btn-primary">Add</button>
-      </form>
 
       <h3>Lookup / Test Tool</h3>
       <p>Resolve a group name and see what it currently grants, without saving anything.</p>

@@ -7,7 +7,18 @@
 // each notification type can optionally target a role -- additive to the
 // flat recipient list below, resolved via that role's own email plus (if
 // LDAP is configured) every member of its mapped AD groups.
+//
+// D-124 Phase 4 (partial conversion): the "Add Recipient" form moved to its
+// own routed page (NotificationRecipientCreate.vue,
+// admin-notification-recipient-create) -- this page no longer owns that
+// inline form. Recipients otherwise still only toggle active/delete in
+// place here, untouched, and the SMTP config / notification types / test
+// email sections are all untouched too.
 import { ref, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
+import { confirmDelete } from '../../composables/useConfirmDialog'
+
+const router = useRouter()
 
 const config = ref(null)
 const configError = ref(null)
@@ -15,7 +26,6 @@ const configSaved = ref(false)
 
 const credentials = ref([])
 const recipients = ref([])
-const newRecipient = ref({ email: '', displayName: '', isActive: true })
 const recipientsError = ref(null)
 
 const notificationTypes = ref([])
@@ -95,21 +105,6 @@ async function setTargetRole(type) {
   await load()
 }
 
-async function addRecipient() {
-  recipientsError.value = null
-  const response = await fetch('/api/admin/notifications/recipients', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(newRecipient.value)
-  })
-  if (!response.ok) {
-    recipientsError.value = `Add failed: ${response.status}`
-    return
-  }
-  newRecipient.value = { email: '', displayName: '', isActive: true }
-  await load()
-}
-
 async function toggleRecipientActive(recipient) {
   recipientsError.value = null
   const response = await fetch(`/api/admin/notifications/recipients/${recipient.recipientKey}`, {
@@ -125,6 +120,7 @@ async function toggleRecipientActive(recipient) {
 }
 
 async function removeRecipient(recipient) {
+  if (!(await confirmDelete(`Delete recipient "${recipient.email}"? This cannot be undone.`))) return
   recipientsError.value = null
   const response = await fetch(`/api/admin/notifications/recipients/${recipient.recipientKey}`, { method: 'DELETE' })
   if (!response.ok) {
@@ -236,12 +232,7 @@ async function sendTestEmail() {
       </table>
       <p v-else>No recipients configured yet -- alerts have nowhere to go until at least one is added below.</p>
 
-      <h4>Add Recipient</h4>
-      <form @submit.prevent="addRecipient">
-        <p><label class="field-label"><span class="field-label-text">Email:</span> <input v-model="newRecipient.email" type="email" required /></label></p>
-        <p><label class="field-label"><span class="field-label-text">Display Name:</span> <input v-model="newRecipient.displayName" /></label></p>
-        <button type="submit" class="btn-primary">Add Recipient</button>
-      </form>
+      <p><button type="button" class="btn-primary" @click="router.push({ name: 'admin-notification-recipient-create' })">+ Add Recipient</button></p>
     </template>
   </div>
 </template>

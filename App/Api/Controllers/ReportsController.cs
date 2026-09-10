@@ -50,14 +50,15 @@ public sealed class ReportsController(ReportsRepository repository, RiskScoreRep
         return Ok(results);
     }
 
-    /// <summary>D-101-105 Phase E: the new Risk Score report, gated by ViewRiskReport per the plan approved for D-119.</summary>
+    /// <summary>D-101-105 Phase E: the new Risk Score report, gated by ViewRiskReport per the plan approved for D-119. D-124 Phase 3: page/pageSize add server-side paging; X-Filtered-Count is always equal to X-Total-Count here (no filter params on this report) but is still sent for consistency with the other five paginated endpoints.</summary>
     [HttpGet("risk-score")]
     [Authorize(Policy = Permissions.ViewRiskReport)]
-    public async Task<IActionResult> GetRiskScoreReport([FromQuery] string? sort = null)
+    public async Task<IActionResult> GetRiskScoreReport([FromQuery] string? sort = null, [FromQuery] int? page = null, [FromQuery] int? pageSize = null)
     {
         var sortBy = SortParser.Parse(sort);
-        var results = await riskScoreReportRepository.GetSummaryListAsync(sortBy);
+        var results = await riskScoreReportRepository.GetSummaryListAsync(sortBy, page, pageSize);
         Response.Headers["X-Total-Count"] = (await riskScoreReportRepository.GetTotalCountAsync()).ToString();
+        Response.Headers["X-Filtered-Count"] = (await riskScoreReportRepository.GetFilteredCountAsync()).ToString();
         return Ok(results);
     }
 

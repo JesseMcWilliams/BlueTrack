@@ -30,21 +30,58 @@ public sealed class AccessGroupRepository(IDbConnectionFactory connectionFactory
         LEFT JOIN web.dim_sor_type st ON st.SorTypeKey = g.SorTypeKey
         """;
 
-    /// <summary>D-121: stacked filters (scope/SOR type) plus multi-column sort, same pattern as the D-42 pages.</summary>
+    // D-124 Phase 3: shared between GetAllAsync and GetFilteredCountAsync so
+    // the filtered-count query mirrors the list query's own WHERE clause
+    // exactly -- the only real difference is paging/ORDER BY, which a COUNT
+    // doesn't need.
+    private const string FilterWhereSql = """
+        WHERE (@GroupScope IS NULL OR g.GroupScope = @GroupScope)
+          AND (@SorTypeName IS NULL OR st.SorTypeName = @SorTypeName)
+        """;
+
+    /// <summary>D-121: stacked filters (scope/SOR type) plus multi-column sort, same pattern as the D-42 pages. D-124 Phase 3: page/pageSize add SQL Server OFFSET/FETCH paging after the ORDER BY.</summary>
     public async Task<IReadOnlyList<AccessGroupSummary>> GetAllAsync(
         string? groupScope = null,
         string? sorTypeName = null,
-        IReadOnlyList<(string Field, bool Descending)>? sortBy = null)
+        IReadOnlyList<(string Field, bool Descending)>? sortBy = null,
+        int? page = null,
+        int? pageSize = null)
+    {
+        using var connection = connectionFactory.Create();
+        var (normalizedPage, normalizedPageSize) = PagingParams.Normalize(page, pageSize);
+        var sql = $"""
+            {SelectSql}
+            {FilterWhereSql}
+            ORDER BY {BuildOrderByClause(sortBy)}
+            OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY
+            """;
+        var rows = await connection.QueryAsync<AccessGroupSummary>(sql, new
+        {
+            GroupScope = groupScope,
+            SorTypeName = sorTypeName,
+            Offset = PagingParams.Offset(normalizedPage, normalizedPageSize),
+            PageSize = normalizedPageSize
+        });
+        return rows.AsList();
+    }
+
+    /// <summary>
+    /// D-124 Phase 4: a single Access Group by key -- backs the new routed
+    /// Access Group Edit page (App/Web/src/views/AccessGroupEdit.vue), which
+    /// needs to load one specific row directly rather than relying on an
+    /// already-loaded list page, the way GetByKeyAsync already exists on
+    /// RiskExceptionRepository for the same reason. Unlike GetAllAsync, this
+    /// is never paginated -- a lookup by its own primary key needs no
+    /// OFFSET/FETCH at all.
+    /// </summary>
+    public async Task<AccessGroupSummary?> GetByKeyAsync(int accessGroupKey)
     {
         using var connection = connectionFactory.Create();
         var sql = $"""
             {SelectSql}
-            WHERE (@GroupScope IS NULL OR g.GroupScope = @GroupScope)
-              AND (@SorTypeName IS NULL OR st.SorTypeName = @SorTypeName)
-            ORDER BY {BuildOrderByClause(sortBy)}
+            WHERE g.AccessGroupKey = @AccessGroupKey
             """;
-        var rows = await connection.QueryAsync<AccessGroupSummary>(sql, new { GroupScope = groupScope, SorTypeName = sorTypeName });
-        return rows.AsList();
+        return await connection.QuerySingleOrDefaultAsync<AccessGroupSummary>(sql, new { AccessGroupKey = accessGroupKey });
     }
 
     /// <summary>D-121: the grand total row count under the same base (no filter) condition -- backs the X-Total-Count response header.</summary>
@@ -52,6 +89,19 @@ public sealed class AccessGroupRepository(IDbConnectionFactory connectionFactory
     {
         using var connection = connectionFactory.Create();
         return await connection.QuerySingleAsync<int>("SELECT COUNT(*) FROM web.dim_access_group");
+    }
+
+    /// <summary>D-124 Phase 3: how many rows match the current filter (ignoring paging) -- backs the new X-Filtered-Count header, distinct from GetTotalCountAsync's unfiltered grand total.</summary>
+    public async Task<int> GetFilteredCountAsync(string? groupScope = null, string? sorTypeName = null)
+    {
+        using var connection = connectionFactory.Create();
+        var sql = $"""
+            SELECT COUNT(*)
+            FROM web.dim_access_group g
+            LEFT JOIN web.dim_sor_type st ON st.SorTypeKey = g.SorTypeKey
+            {FilterWhereSql}
+            """;
+        return await connection.QuerySingleAsync<int>(sql, new { GroupScope = groupScope, SorTypeName = sorTypeName });
     }
 
     private static string BuildOrderByClause(IReadOnlyList<(string Field, bool Descending)>? sortBy)

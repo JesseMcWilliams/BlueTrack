@@ -25,15 +25,23 @@ public class TargetsAndAccessGroupsControllerTests : IClassFixture<BlueTrackWebA
         return client;
     }
 
+    /// <summary>D-124 Phase 2: TargetType is now an FK -- resolved by TypeCode via the new target-types endpoint rather than assuming a specific IDENTITY value.</summary>
+    private static async Task<int> GetTargetTypeKeyAsync(HttpClient client, string typeCode)
+    {
+        var types = await client.GetFromJsonAsync<List<TargetTypeResponse>>("/api/admin/targets/target-types");
+        return Assert.Single(types!, t => t.TypeCode == typeCode).TargetTypeKey;
+    }
+
     [Fact]
     public async Task Target_CreateUpdateDelete_RoundTrips_WithIdentifiers()
     {
         var client = AdminClient();
         var name = $"ContractTestTarget_{Guid.NewGuid():N}";
+        var serverTypeKey = await GetTargetTypeKeyAsync(client, "Server");
 
         var createResponse = await client.PostAsJsonAsync("/api/admin/targets", new
         {
-            targetType = "Server",
+            targetTypeKey = serverTypeKey,
             targetName = name,
             riskScore = 500,
             description = "Created by a contract test",
@@ -51,7 +59,7 @@ public class TargetsAndAccessGroupsControllerTests : IClassFixture<BlueTrackWebA
 
             var updateResponse = await client.PutAsJsonAsync($"/api/admin/targets/{created!.TargetKey}", new
             {
-                targetType = "Server",
+                targetTypeKey = serverTypeKey,
                 targetName = name,
                 riskScore = 750,
                 identifiers = Array.Empty<object>()
@@ -81,15 +89,35 @@ public class TargetsAndAccessGroupsControllerTests : IClassFixture<BlueTrackWebA
         Assert.Contains(types!, t => t.IdentifierType == "IPAddress" && t.RequiresReview);
     }
 
-    /// <summary>D-121: X-Total-Count carries the unfiltered grand total; the JSON body stays a bare array.</summary>
+    /// <summary>D-124 Phase 2: web.dim_target_type's seeded catalog -- the corrected "LDAP Directory" display name (was the raw "LdapDirectory" everywhere) and the new distinct "Active Directory" entry.</summary>
+    [Fact]
+    public async Task Target_TargetTypes_ReturnsSeededCatalog_WithCorrectedLdapDisplayName_AndNewActiveDirectoryEntry()
+    {
+        var client = AdminClient();
+
+        var types = await client.GetFromJsonAsync<List<TargetTypeResponse>>("/api/admin/targets/target-types");
+
+        Assert.Contains(types!, t => t.TypeCode == "LdapDirectory" && t.DisplayName == "LDAP Directory");
+        Assert.Contains(types!, t => t.TypeCode == "ActiveDirectory" && t.DisplayName == "Active Directory");
+    }
+
+    /// <summary>
+    /// D-121: X-Total-Count carries the unfiltered grand total; the JSON
+    /// body stays a bare array. D-124 Phase 3: also confirms X-Filtered-Count
+    /// equals X-Total-Count here specifically because no filter is applied
+    /// -- pageSize=500 is passed so the body's own count (now capped per
+    /// page by default) still reflects the full unfiltered set for this
+    /// assertion, comfortably above anything this test DB ever holds.
+    /// </summary>
     [Fact]
     public async Task Targets_GetAll_SetsTotalCountHeader()
     {
         var client = AdminClient();
         var name = $"ContractTestTarget_{Guid.NewGuid():N}";
+        var serverTypeKey = await GetTargetTypeKeyAsync(client, "Server");
         var createResponse = await client.PostAsJsonAsync("/api/admin/targets", new
         {
-            targetType = "Server",
+            targetTypeKey = serverTypeKey,
             targetName = name,
             riskScore = 100,
             identifiers = Array.Empty<object>()
@@ -99,13 +127,16 @@ public class TargetsAndAccessGroupsControllerTests : IClassFixture<BlueTrackWebA
         try
         {
             var beforeCount = await CountAsync(client, "/api/admin/targets");
-            var afterResponse = await client.GetAsync("/api/admin/targets");
+            var afterResponse = await client.GetAsync("/api/admin/targets?pageSize=500");
             var afterBody = await afterResponse.Content.ReadFromJsonAsync<List<TargetResponse>>();
 
             Assert.True(afterResponse.Headers.TryGetValues("X-Total-Count", out var values));
             var total = int.Parse(values!.Single());
             Assert.Equal(afterBody!.Count, total);
             Assert.True(total >= beforeCount);
+
+            Assert.True(afterResponse.Headers.TryGetValues("X-Filtered-Count", out var filteredValues));
+            Assert.Equal(total, int.Parse(filteredValues!.Single()));
         }
         finally
         {
@@ -113,30 +144,48 @@ public class TargetsAndAccessGroupsControllerTests : IClassFixture<BlueTrackWebA
         }
     }
 
-    /// <summary>D-121: TargetType filter narrows the body but X-Total-Count still reports the unfiltered grand total.</summary>
+    /// <summary>
+    /// D-121: TargetType filter narrows the body but X-Total-Count still
+    /// reports the unfiltered grand total. D-124 Phase 2: the filter is now
+    /// the FK key (targetTypeKey), not the old raw TargetType string.
+    /// D-124 Phase 3: also confirms X-Filtered-Count DOES narrow with the
+    /// filter (the opposite of X-Total-Count) -- pageSize=500 is passed so
+    /// the created row is guaranteed to appear in the returned page
+    /// regardless of how many other Server-type Targets exist concurrently.
+    /// </summary>
     [Fact]
     public async Task Targets_GetAll_FilterByType_NarrowsBody_ButTotalCountStaysUnfiltered()
     {
         var client = AdminClient();
         var serverName = $"ContractTestTargetServer_{Guid.NewGuid():N}";
         var applicationName = $"ContractTestTargetApp_{Guid.NewGuid():N}";
-        var serverCreate = await client.PostAsJsonAsync("/api/admin/targets", new { targetType = "Server", targetName = serverName, riskScore = 100, identifiers = Array.Empty<object>() });
-        var appCreate = await client.PostAsJsonAsync("/api/admin/targets", new { targetType = "Application", targetName = applicationName, riskScore = 100, identifiers = Array.Empty<object>() });
+        var serverTypeKey = await GetTargetTypeKeyAsync(client, "Server");
+        var applicationTypeKey = await GetTargetTypeKeyAsync(client, "Application");
+        var serverCreate = await client.PostAsJsonAsync("/api/admin/targets", new { targetTypeKey = serverTypeKey, targetName = serverName, riskScore = 100, identifiers = Array.Empty<object>() });
+        var appCreate = await client.PostAsJsonAsync("/api/admin/targets", new { targetTypeKey = applicationTypeKey, targetName = applicationName, riskScore = 100, identifiers = Array.Empty<object>() });
         var serverKey = (await serverCreate.Content.ReadFromJsonAsync<TargetKeyResponse>())!.TargetKey;
         var appKey = (await appCreate.Content.ReadFromJsonAsync<TargetKeyResponse>())!.TargetKey;
 
         try
         {
-            var unfilteredResponse = await client.GetAsync("/api/admin/targets");
+            var unfilteredResponse = await client.GetAsync("/api/admin/targets?pageSize=500");
             var unfilteredTotal = int.Parse(unfilteredResponse.Headers.GetValues("X-Total-Count").Single());
+            var unfilteredFiltered = int.Parse(unfilteredResponse.Headers.GetValues("X-Filtered-Count").Single());
+            Assert.Equal(unfilteredTotal, unfilteredFiltered); // no filter applied yet -- the two headers agree
 
-            var filteredResponse = await client.GetAsync("/api/admin/targets?targetType=Server");
+            var filteredResponse = await client.GetAsync($"/api/admin/targets?targetTypeKey={serverTypeKey}&pageSize=500");
             var filteredBody = await filteredResponse.Content.ReadFromJsonAsync<List<TargetResponse>>();
             var filteredTotal = int.Parse(filteredResponse.Headers.GetValues("X-Total-Count").Single());
+            var filteredFilteredCount = int.Parse(filteredResponse.Headers.GetValues("X-Filtered-Count").Single());
 
             Assert.Contains(filteredBody!, t => t.TargetKey == serverKey);
             Assert.DoesNotContain(filteredBody, t => t.TargetKey == appKey);
             Assert.Equal(unfilteredTotal, filteredTotal); // total ignores the filter, per D-121's design
+            // The just-created Application-type row is excluded by the
+            // Server-type filter, so the filtered count must be strictly
+            // less than the unfiltered grand total by at least that one row.
+            Assert.True(filteredFilteredCount < unfilteredTotal);
+            Assert.Equal(filteredBody!.Count, filteredFilteredCount);
         }
         finally
         {
@@ -149,6 +198,88 @@ public class TargetsAndAccessGroupsControllerTests : IClassFixture<BlueTrackWebA
     {
         var response = await client.GetAsync(path);
         return int.Parse(response.Headers.GetValues("X-Total-Count").Single());
+    }
+
+    /// <summary>D-124 Phase 4: the new single-Target-by-key lookup backing the routed Target Edit page -- mirrors RiskExceptionsController.GetByKey's own contract-test shape.</summary>
+    [Fact]
+    public async Task Target_GetByKey_ReturnsTheTarget_WithIdentifiers()
+    {
+        var client = AdminClient();
+        var name = $"ContractTestTarget_{Guid.NewGuid():N}";
+        var serverTypeKey = await GetTargetTypeKeyAsync(client, "Server");
+        var createResponse = await client.PostAsJsonAsync("/api/admin/targets", new
+        {
+            targetTypeKey = serverTypeKey,
+            targetName = name,
+            riskScore = 500,
+            identifiers = new[] { new { identifierType = "Hostname", identifierValue = $"host-{Guid.NewGuid():N}" } }
+        });
+        var created = await createResponse.Content.ReadFromJsonAsync<TargetKeyResponse>();
+
+        try
+        {
+            var response = await client.GetAsync($"/api/admin/targets/{created!.TargetKey}");
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            var target = await response.Content.ReadFromJsonAsync<TargetResponse>();
+
+            Assert.Equal(created.TargetKey, target!.TargetKey);
+            Assert.Equal(500, target.RiskScore);
+            Assert.Single(target.Identifiers);
+        }
+        finally
+        {
+            await client.DeleteAsync($"/api/admin/targets/{created!.TargetKey}");
+        }
+    }
+
+    [Fact]
+    public async Task Target_GetByKey_ReturnsNotFound_ForAnUnknownKey()
+    {
+        var client = AdminClient();
+
+        var response = await client.GetAsync("/api/admin/targets/2147483647");
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    /// <summary>D-124 Phase 4: the new single-Access-Group-by-key lookup backing the routed Access Group Edit page.</summary>
+    [Fact]
+    public async Task AccessGroup_GetByKey_ReturnsTheGroup()
+    {
+        var client = AdminClient();
+        var identifier = $"CN=ContractTestGroup_{Guid.NewGuid():N}";
+        var createResponse = await client.PostAsJsonAsync("/api/admin/access-groups", new
+        {
+            groupName = "Contract Test GetByKey Group",
+            groupIdentifier = identifier,
+            groupScope = "Domain",
+            baseRiskScore = 300
+        });
+        var created = await createResponse.Content.ReadFromJsonAsync<AccessGroupKeyResponse>();
+
+        try
+        {
+            var response = await client.GetAsync($"/api/admin/access-groups/{created!.AccessGroupKey}");
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            var group = await response.Content.ReadFromJsonAsync<AccessGroupResponse>();
+
+            Assert.Equal(created.AccessGroupKey, group!.AccessGroupKey);
+            Assert.Equal("Contract Test GetByKey Group", group.GroupName);
+        }
+        finally
+        {
+            await client.DeleteAsync($"/api/admin/access-groups/{created!.AccessGroupKey}");
+        }
+    }
+
+    [Fact]
+    public async Task AccessGroup_GetByKey_ReturnsNotFound_ForAnUnknownKey()
+    {
+        var client = AdminClient();
+
+        var response = await client.GetAsync("/api/admin/access-groups/2147483647");
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 
     [Fact]
@@ -244,7 +375,14 @@ public class TargetsAndAccessGroupsControllerTests : IClassFixture<BlueTrackWebA
         Assert.Contains(types!, t => t.SorTypeName == "App");
     }
 
-    /// <summary>D-121: X-Total-Count is present, and a GroupScope filter narrows the body without changing the header.</summary>
+    /// <summary>
+    /// D-121: X-Total-Count is present, and a GroupScope filter narrows the
+    /// body without changing the header. D-124 Phase 3: also confirms
+    /// X-Filtered-Count DOES narrow with the filter (the opposite of
+    /// X-Total-Count) -- pageSize=500 is passed so the created rows are
+    /// guaranteed to appear in the returned page regardless of how many
+    /// other Access Groups exist concurrently.
+    /// </summary>
     [Fact]
     public async Task AccessGroups_GetAll_FilterByScope_NarrowsBody_ButTotalCountStaysUnfiltered()
     {
@@ -258,16 +396,24 @@ public class TargetsAndAccessGroupsControllerTests : IClassFixture<BlueTrackWebA
 
         try
         {
-            var unfilteredResponse = await client.GetAsync("/api/admin/access-groups");
+            var unfilteredResponse = await client.GetAsync("/api/admin/access-groups?pageSize=500");
             var unfilteredTotal = int.Parse(unfilteredResponse.Headers.GetValues("X-Total-Count").Single());
+            var unfilteredFiltered = int.Parse(unfilteredResponse.Headers.GetValues("X-Filtered-Count").Single());
+            Assert.Equal(unfilteredTotal, unfilteredFiltered); // no filter applied yet -- the two headers agree
 
-            var filteredResponse = await client.GetAsync("/api/admin/access-groups?groupScope=Local");
+            var filteredResponse = await client.GetAsync("/api/admin/access-groups?groupScope=Local&pageSize=500");
             var filteredBody = await filteredResponse.Content.ReadFromJsonAsync<List<AccessGroupResponse>>();
             var filteredTotal = int.Parse(filteredResponse.Headers.GetValues("X-Total-Count").Single());
+            var filteredFilteredCount = int.Parse(filteredResponse.Headers.GetValues("X-Filtered-Count").Single());
 
             Assert.Contains(filteredBody!, g => g.AccessGroupKey == localKey);
             Assert.DoesNotContain(filteredBody, g => g.AccessGroupKey == domainKey);
             Assert.Equal(unfilteredTotal, filteredTotal);
+            // The just-created Domain-scoped row is excluded by the
+            // Local-scope filter, so the filtered count must be strictly
+            // less than the unfiltered grand total by at least that one row.
+            Assert.True(filteredFilteredCount < unfilteredTotal);
+            Assert.Equal(filteredBody!.Count, filteredFilteredCount);
         }
         finally
         {
@@ -304,6 +450,13 @@ public class TargetsAndAccessGroupsControllerTests : IClassFixture<BlueTrackWebA
     {
         public string IdentifierType { get; set; } = "";
         public bool RequiresReview { get; set; }
+    }
+
+    private sealed class TargetTypeResponse
+    {
+        public int TargetTypeKey { get; set; }
+        public string TypeCode { get; set; } = "";
+        public string DisplayName { get; set; } = "";
     }
 
     private sealed class AccessGroupKeyResponse

@@ -4,9 +4,12 @@
 // field-level changes (Design_Audit_Logging.md's Admin UI Requirements).
 import { ref, computed, watch, onMounted } from 'vue'
 import { useTotalCount } from '../../composables/useTotalCount'
+import { usePageSizeStore } from '../../stores/pageSize'
 import FilterCountSummary from '../../components/FilterCountSummary.vue'
+import Pager from '../../components/Pager.vue'
 
-const { totalCount, readTotalCount } = useTotalCount()
+const { totalCount, filteredCount, readTotalCount } = useTotalCount()
+const pageSizeStore = usePageSizeStore()
 const events = ref([])
 const error = ref(null)
 const loading = ref(true)
@@ -15,6 +18,30 @@ const eventTypeFilter = ref('')
 const entityNameFilter = ref('')
 const fromDateFilter = ref('')
 const toDateFilter = ref('')
+
+// D-124 Phase 3: pagination -- page is local to this page (not persisted);
+// pageSize comes from the shared, server-persisted pageSize store.
+const page = ref(1)
+const pageCount = computed(() => Math.max(1, Math.ceil((filteredCount.value ?? 0) / pageSizeStore.current)))
+
+function onPageChange(newPage) {
+  page.value = newPage
+  load()
+}
+
+function onPageSizeChange() {
+  page.value = 1
+  load()
+}
+
+// D-124 Phase 3: the filter form here submits explicitly (@submit.prevent
+// ="loadFiltered" below), unlike the other five pages' watch-driven
+// auto-reload -- still needs the same page-1 reset on every new filter
+// submission.
+function loadFiltered() {
+  page.value = 1
+  load()
+}
 
 const expandedEventKey = ref(null)
 const fieldChanges = ref([])
@@ -77,6 +104,8 @@ async function load() {
     if (fromDateFilter.value) params.set('fromDate', fromDateFilter.value)
     if (toDateFilter.value) params.set('toDate', toDateFilter.value)
     if (sortQueryParam.value) params.set('sort', sortQueryParam.value)
+    params.set('page', page.value)
+    params.set('pageSize', pageSizeStore.current)
 
     const response = await fetch(`/api/audit-log?${params.toString()}`)
     if (!response.ok) throw new Error(`Request failed: ${response.status}`)
@@ -90,7 +119,12 @@ async function load() {
 }
 
 onMounted(load)
-watch(sortQueryParam, load)
+// D-124 Phase 3: a sort change resets to page 1 -- see Targets.vue's
+// identical comment for why page-size/Prev/Next changes are handled separately.
+watch(sortQueryParam, () => {
+  page.value = 1
+  load()
+})
 
 async function toggleFieldChanges(event) {
   if (expandedEventKey.value === event.auditEventKey) {
@@ -107,7 +141,7 @@ async function toggleFieldChanges(event) {
   <div>
     <h2>Audit Log Viewer</h2>
 
-    <form class="filter-row" @submit.prevent="load">
+    <form class="filter-row" @submit.prevent="loadFiltered">
       <label class="field-label"><span class="field-label-text">Event Type:</span> <input v-model="eventTypeFilter" placeholder="e.g. FieldEdit" /></label>
       <label class="field-label"><span class="field-label-text">Entity:</span> <input v-model="entityNameFilter" placeholder="e.g. risk_exception" /></label>
       <label class="field-label"><span class="field-label-text">From:</span> <input v-model="fromDateFilter" type="date" /></label>
@@ -115,7 +149,8 @@ async function toggleFieldChanges(event) {
       <button type="submit" class="btn-primary">Filter</button>
     </form>
 
-    <FilterCountSummary :shown="events.length" :total="totalCount" />
+    <FilterCountSummary :shown="events.length" :filtered-count="filteredCount" :total="totalCount" :page="page" :page-size="pageSizeStore.current" />
+    <Pager :page="page" :page-count="pageCount" @update:page="onPageChange" @page-size-change="onPageSizeChange" />
     <p v-if="error" role="alert">{{ error }}</p>
     <p v-if="loading" role="status">Loading...</p>
     <p v-else-if="events.length === 0">No matching audit events.</p>
@@ -168,5 +203,6 @@ async function toggleFieldChanges(event) {
         </template>
       </tbody>
     </table>
+    <Pager :page="page" :page-count="pageCount" @update:page="onPageChange" @page-size-change="onPageSizeChange" />
   </div>
 </template>

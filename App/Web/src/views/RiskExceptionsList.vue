@@ -3,18 +3,38 @@
 // stacked filters (status/scope type) plus multi-column sort, same pattern
 // as AccountProgressList.vue.
 import { ref, computed, watch, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { useRightsStore } from '../stores/rights'
 import { formatDate } from '../utils/formatDate'
 import { useTotalCount } from '../composables/useTotalCount'
+import { usePageSizeStore } from '../stores/pageSize'
 import FilterCountSummary from '../components/FilterCountSummary.vue'
+import Pager from '../components/Pager.vue'
 
+const router = useRouter()
 const rights = useRightsStore()
-const { totalCount, readTotalCount } = useTotalCount()
+const { totalCount, filteredCount, readTotalCount } = useTotalCount()
+const pageSizeStore = usePageSizeStore()
 const exceptions = ref([])
 const error = ref(null)
 const loading = ref(true)
 const statusFilter = ref('')
 const scopeTypeFilter = ref('')
+
+// D-124 Phase 3: pagination -- page is local to this page (not persisted);
+// pageSize comes from the shared, server-persisted pageSize store.
+const page = ref(1)
+const pageCount = computed(() => Math.max(1, Math.ceil((filteredCount.value ?? 0) / pageSizeStore.current)))
+
+function onPageChange(newPage) {
+  page.value = newPage
+  load()
+}
+
+function onPageSizeChange() {
+  page.value = 1
+  load()
+}
 
 const sortColumns = ref([])
 
@@ -73,6 +93,8 @@ async function load() {
     if (statusFilter.value) params.set('status', statusFilter.value)
     if (scopeTypeFilter.value) params.set('scopeType', scopeTypeFilter.value)
     if (sortQueryParam.value) params.set('sort', sortQueryParam.value)
+    params.set('page', page.value)
+    params.set('pageSize', pageSizeStore.current)
 
     const response = await fetch(`/api/risk-exceptions?${params.toString()}`)
     if (!response.ok) {
@@ -88,14 +110,19 @@ async function load() {
 }
 
 onMounted(load)
-watch([statusFilter, scopeTypeFilter, sortQueryParam], load)
+// D-124 Phase 3: a filter/sort change resets to page 1 -- see Targets.vue's
+// identical comment for why page-size/Prev/Next changes are handled separately.
+watch([statusFilter, scopeTypeFilter, sortQueryParam], () => {
+  page.value = 1
+  load()
+})
 </script>
 
 <template>
   <div>
     <h1>Risk Exceptions</h1>
     <p v-if="rights.hasPermission('ApproveExceptions')">
-      <router-link :to="{ name: 'risk-exception-create' }">+ New Exception</router-link>
+      <button type="button" class="btn-primary" @click="router.push({ name: 'risk-exception-create' })">+ New Exception</button>
     </p>
     <p class="filter-row">
       <label class="field-label"><span class="field-label-text">Status:</span>
@@ -114,7 +141,8 @@ watch([statusFilter, scopeTypeFilter, sortQueryParam], load)
         </select>
       </label>
     </p>
-    <FilterCountSummary :shown="exceptions.length" :total="totalCount" />
+    <FilterCountSummary :shown="exceptions.length" :filtered-count="filteredCount" :total="totalCount" :page="page" :page-size="pageSizeStore.current" />
+    <Pager :page="page" :page-count="pageCount" @update:page="onPageChange" @page-size-change="onPageSizeChange" />
     <p v-if="loading" role="status">Loading...</p>
     <p v-else-if="error" role="alert">Could not load exceptions: {{ error }}</p>
     <p v-else-if="exceptions.length === 0">No exceptions found.</p>
@@ -141,6 +169,7 @@ watch([statusFilter, scopeTypeFilter, sortQueryParam], load)
         </tr>
       </tbody>
     </table>
+    <Pager :page="page" :page-count="pageCount" @update:page="onPageChange" @page-size-change="onPageSizeChange" />
     <p><small>Click a column to sort by it; shift-click another column to add it as a secondary sort key.</small></p>
   </div>
 </template>

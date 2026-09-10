@@ -6,6 +6,7 @@
 // secrets a vault manages. Also hosts LDAP Configuration, a small singleton
 // that just needs a bind-account Credential picked from the list below.
 import { ref, onMounted } from 'vue'
+import { confirmDelete } from '../../composables/useConfirmDialog'
 
 const BACKEND_TYPES = ['WindowsDpapi', 'CyberArkCP', 'CyberArkCCP', 'CyberArkConjur', 'AzureKeyVault', 'AwsSecretsManager']
 
@@ -69,6 +70,7 @@ async function save() {
 }
 
 async function remove(credential) {
+  if (!(await confirmDelete(`Delete Credential "${credential.credentialName}"? This cannot be undone.`))) return
   const response = await fetch(`/api/admin/credentials/${credential.credentialKey}`, { method: 'DELETE' })
   if (!response.ok) {
     error.value = `Delete failed: ${response.status} (a credential still in use elsewhere can't be deleted)`

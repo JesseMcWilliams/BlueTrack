@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test'
 import { signInAs } from './auth.js'
+import { confirmDelete } from './confirmDialog.js'
 
 // Layer 4: the 8 Admin sub-pages (D-47) -- confirmed genuinely built (not
 // placeholders) by reading each .vue source before writing these, not
@@ -39,6 +40,9 @@ test.describe('Admin Hub navigation is gated per permission', () => {
   })
 })
 
+// D-124 Phase 4: Add/Edit moved off this page's own inline form onto
+// IdentityProviderEdit.vue's routed pages
+// (/admin/identity-providers/new, /admin/identity-providers/:providerKey).
 test.describe('Identity Providers admin page', () => {
   test('Admin can create, edit, and delete a provider', async ({ page }) => {
     await signInAs(page, 'TestUser.Admin')
@@ -48,17 +52,20 @@ test.describe('Identity Providers admin page', () => {
     await page.getByRole('button', { name: '+ New Provider' }).click()
     await page.getByLabel('Display Name:').fill(displayName)
     await page.locator('form button[type="submit"]').click()
+    await expect(page).toHaveURL(/\/admin\/identity-providers$/)
 
     const row = page.locator('tbody tr', { hasText: displayName })
     await expect(row).toBeVisible()
 
-    await row.getByRole('button', { name: 'Edit' }).click()
+    await row.getByRole('link', { name: 'Edit' }).click()
     const updatedName = `${displayName} (Updated)`
+    await expect(page.getByLabel('Display Name:')).toHaveValue(displayName)
     await page.getByLabel('Display Name:').fill(updatedName)
     await page.locator('form button[type="submit"]').click()
     await expect(page.locator('tbody tr', { hasText: updatedName })).toBeVisible()
 
     await page.locator('tbody tr', { hasText: updatedName }).getByRole('button', { name: 'Delete' }).click()
+    await confirmDelete(page)
     await expect(page.locator('tbody tr', { hasText: updatedName })).toHaveCount(0)
   })
 
@@ -78,19 +85,22 @@ test.describe('Identity Providers admin page', () => {
     await page.getByLabel('Client ID:').fill('e2e-client-id')
     await page.getByLabel('Groups Claim Type:').fill('e2e-groups-claim')
     await page.locator('form button[type="submit"]').click()
+    await expect(page).toHaveURL(/\/admin\/identity-providers$/)
 
     const row = page.locator('tbody tr', { hasText: displayName })
     await expect(row).toBeVisible()
 
     try {
-      await row.getByRole('button', { name: 'Edit' }).click()
+      await row.getByRole('link', { name: 'Edit' }).click()
       await expect(page.getByLabel('Authority:')).toHaveValue('https://login.example.com/tenant123/v2.0')
       await expect(page.getByLabel('Client ID:')).toHaveValue('e2e-client-id')
       await expect(page.getByLabel('Callback Path:')).toHaveValue('/signin-oidc')
       await expect(page.getByLabel('Groups Claim Type:')).toHaveValue('e2e-groups-claim')
       await page.getByRole('button', { name: 'Cancel' }).click()
+      await expect(page).toHaveURL(/\/admin\/identity-providers$/)
     } finally {
       await row.getByRole('button', { name: 'Delete' }).click()
+      await confirmDelete(page)
       await expect(row).toHaveCount(0)
     }
   })
@@ -117,19 +127,28 @@ test.describe('Group → Role Mapping admin page', () => {
     const leftoverRow = page.locator('tbody tr', { hasText: builtinUsersSid })
     if (await leftoverRow.count() > 0) {
       await leftoverRow.getByRole('button', { name: 'Delete' }).click()
+      await confirmDelete(page)
       await expect(leftoverRow).toHaveCount(0)
     }
 
+    // D-124 Phase 4 (partial conversion): "Add Mapping" moved off this
+    // page's own inline form onto GroupRoleMappingCreate.vue's routed page
+    // (/admin/group-role-mapping/new) -- delete-only per row (unchanged)
+    // and the Lookup/Test Tool below (unchanged) both stay on this page.
+    await page.getByRole('button', { name: '+ Add Mapping' }).click()
+    await expect(page).toHaveURL(/\/admin\/group-role-mapping\/new$/)
     await page.getByLabel(/^Group Name/).fill('BUILTIN\\Users')
     // D-93-adjacent fix: Role is now a real <select> populated from
     // GET /api/admin/group-role-mappings/roles, not free text -- confirms
     // the admin picks an actual existing role rather than typing one.
     await page.getByLabel('Role:').selectOption('Viewer')
     await page.getByRole('button', { name: 'Add' }).click()
+    await expect(page).toHaveURL(/\/admin\/group-role-mapping$/)
 
     const row = page.locator('tbody tr', { hasText: builtinUsersSid })
     await expect(row).toBeVisible()
     await row.getByRole('button', { name: 'Delete' }).click()
+    await confirmDelete(page)
     await expect(row).toHaveCount(0)
 
     // D-113 replaced this field's bare placeholder with a real <label> (an accessibility fix) -- this test wasn't updated to match at the time.
@@ -140,6 +159,9 @@ test.describe('Group → Role Mapping admin page', () => {
   })
 })
 
+// D-124 Phase 4: Add/Edit moved off this page's own inline form onto
+// RoleEdit.vue's routed pages (/admin/roles-permissions/new,
+// /admin/roles-permissions/:appRoleKey).
 test.describe('Roles & Permissions admin page', () => {
   test('Admin can create a role with a permission, then delete it', async ({ page }) => {
     await signInAs(page, 'TestUser.Admin')
@@ -155,16 +177,22 @@ test.describe('Roles & Permissions admin page', () => {
     // whitespace-insensitive string form correctly resolves to exactly one label.
     await page.locator('label', { hasText: 'ViewDashboard' }).locator('input[type="checkbox"]').check()
     await page.locator('form button[type="submit"]').click()
+    await expect(page).toHaveURL(/\/admin\/roles-permissions$/)
 
     const row = page.locator('tbody tr', { hasText: roleName })
     await expect(row).toBeVisible()
     await expect(row).toContainText('ViewDashboard')
 
     await row.getByRole('button', { name: 'Delete' }).click()
+    await confirmDelete(page)
     await expect(row).toHaveCount(0)
   })
 })
 
+// D-124 Phase 4: Add/Edit moved off this page's Applications section's own
+// inline form onto ApplicationEdit.vue's routed pages
+// (/admin/application-mapping/new, /admin/application-mapping/:applicationKey)
+// -- the Safes section below (a plain per-row <select>, not a form) is untouched.
 test.describe('Application ↔ Safe Mapping admin page', () => {
   test('Admin can create an application and assign it to the synthetic test safe', async ({ page }) => {
     await signInAs(page, 'TestUser.Admin')
@@ -178,6 +206,7 @@ test.describe('Application ↔ Safe Mapping admin page', () => {
     // exact: true -- "Name:" would otherwise substring-match "Owner Name:"/"Technical Contact Name:" too.
     await page.getByLabel('Name:', { exact: true }).fill(appName)
     await page.locator('form button[type="submit"]').click()
+    await expect(page).toHaveURL(/\/admin\/application-mapping$/)
     // Scoped to the Code cell specifically -- a plain hasText match on the
     // whole row would also match every Safes-table row, since each one's
     // <select> renders an <option> per application (this app's name
@@ -243,6 +272,9 @@ test.describe('Secrets Store Configuration admin page', () => {
   })
 })
 
+// D-124 Phase 4: Add/Edit moved off this page's own inline form onto
+// FieldMetadataEdit.vue's routed pages (/admin/field-metadata/new,
+// /admin/field-metadata/:fieldMetadataKey).
 test.describe('Field Metadata Management admin page', () => {
   test('Admin can create, edit, and delete a field definition', async ({ page }) => {
     await signInAs(page, 'TestUser.Admin')
@@ -253,16 +285,19 @@ test.describe('Field Metadata Management admin page', () => {
     await page.getByLabel('Field Name:').fill(fieldName)
     await page.getByLabel('Display Label:').fill('E2E Test Field Label')
     await page.locator('form button[type="submit"]').click()
+    await expect(page).toHaveURL(/\/admin\/field-metadata$/)
 
     const row = page.locator('tbody tr', { hasText: fieldName })
     await expect(row).toBeVisible()
 
-    await row.getByRole('button', { name: 'Edit' }).click()
+    await row.getByRole('link', { name: 'Edit' }).click()
+    await expect(page.getByLabel('Field Name:')).toHaveValue(fieldName)
     await page.getByLabel('Display Label:').fill('Updated Label')
     await page.locator('form button[type="submit"]').click()
     await expect(page.locator('tbody tr', { hasText: fieldName })).toContainText('Updated Label')
 
     await page.locator('tbody tr', { hasText: fieldName }).getByRole('button', { name: 'Delete' }).click()
+    await confirmDelete(page)
     await expect(page.locator('tbody tr', { hasText: fieldName })).toHaveCount(0)
   })
 })
@@ -349,6 +384,7 @@ test.describe('Credentials & LDAP admin page', () => {
     await expect(row).toContainText('User') // upgraded after the first real decrypt
 
     await row.getByRole('button', { name: 'Delete' }).click()
+    await confirmDelete(page)
     await expect(page.locator('tbody tr', { hasText: credentialName })).toHaveCount(0)
   })
 
@@ -406,13 +442,20 @@ test.describe('Notifications admin page', () => {
     await page.locator('form', { has: page.getByLabel('SMTP Host:') }).getByRole('button', { name: 'Save' }).click()
   })
 
+  // D-124 Phase 4 (partial conversion): "Add Recipient" moved off this
+  // page's own inline form onto NotificationRecipientCreate.vue's routed
+  // page (/admin/notifications/recipients/new) -- recipients otherwise
+  // still only toggle active/delete in place here, unchanged.
   test('Admin can create, deactivate, and delete a recipient', async ({ page }) => {
     await signInAs(page, 'TestUser.Admin')
     await page.goto('/admin/notifications')
     const email = `e2etest${Date.now()}@example.com`
 
+    await page.getByRole('button', { name: '+ Add Recipient' }).click()
+    await expect(page).toHaveURL(/\/admin\/notifications\/recipients\/new$/)
     await page.getByLabel('Email:').fill(email)
     await page.getByRole('button', { name: 'Add Recipient' }).click()
+    await expect(page).toHaveURL(/\/admin\/notifications$/)
 
     const row = page.locator('tbody tr', { hasText: email })
     await expect(row).toBeVisible()
@@ -422,6 +465,7 @@ test.describe('Notifications admin page', () => {
     await expect(page.locator('tbody tr', { hasText: email })).toContainText('No')
 
     await page.locator('tbody tr', { hasText: email }).getByRole('button', { name: 'Delete' }).click()
+    await confirmDelete(page)
     await expect(page.locator('tbody tr', { hasText: email })).toHaveCount(0)
   })
 
@@ -438,6 +482,9 @@ test.describe('Notifications admin page', () => {
 // dbo.dim_risk_level -- confirmed by reading RiskScoreBands.vue/
 // RiskScoreBandsController.cs before writing these, same as every other
 // describe block in this file.
+// D-124 Phase 4: Add/Edit moved off this page's own inline form onto
+// RiskScoreBandEdit.vue's routed pages (/admin/risk-score-bands/new,
+// /admin/risk-score-bands/:riskScoreBandKey).
 test.describe('Risk Score Bands admin page', () => {
   test('Admin can create a band, see the overlap validation reject it, then edit and delete it', async ({ page }) => {
     await signInAs(page, 'TestUser.Admin')
@@ -450,6 +497,7 @@ test.describe('Risk Score Bands admin page', () => {
     await page.getByLabel('Max Score:').fill('10100')
     await page.getByLabel('Risk Order:').fill('9001')
     await page.locator('form button[type="submit"]').click()
+    await expect(page).toHaveURL(/\/admin\/risk-score-bands$/)
 
     const row = page.locator('tbody tr', { hasText: bandName })
     await expect(row).toBeVisible()
@@ -466,19 +514,25 @@ test.describe('Risk Score Bands admin page', () => {
       await page.locator('form button[type="submit"]').click()
       await expect(page.getByText(/overlaps existing band/)).toBeVisible()
       await page.getByRole('button', { name: 'Cancel' }).click()
+      await expect(page).toHaveURL(/\/admin\/risk-score-bands$/)
 
-      await row.getByRole('button', { name: 'Edit' }).click()
+      await row.getByRole('link', { name: 'Edit' }).click()
       const updatedName = `${bandName} (Updated)`
+      await expect(page.getByLabel('Name:')).toHaveValue(bandName)
       await page.getByLabel('Name:').fill(updatedName)
       await page.locator('form button[type="submit"]').click()
       await expect(page.locator('tbody tr', { hasText: updatedName })).toBeVisible()
 
       await page.locator('tbody tr', { hasText: updatedName }).getByRole('button', { name: 'Delete' }).click()
+      await confirmDelete(page)
       await expect(page.locator('tbody tr', { hasText: updatedName })).toHaveCount(0)
     } catch (err) {
       // Best-effort cleanup if an assertion above failed partway through.
       const leftover = page.locator('tbody tr', { hasText: bandName })
-      if (await leftover.count() > 0) await leftover.getByRole('button', { name: 'Delete' }).click()
+      if (await leftover.count() > 0) {
+        await leftover.getByRole('button', { name: 'Delete' }).click()
+        await confirmDelete(page)
+      }
       throw err
     }
   })

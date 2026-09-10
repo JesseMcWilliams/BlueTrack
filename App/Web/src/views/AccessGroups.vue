@@ -15,47 +15,50 @@
 // previously never shown here. Also adds this page's first-ever filter/sort
 // support (scope/SOR type, sortable column headers) and the app-wide
 // "Showing N of M total" count summary (X-Total-Count).
+//
+// D-124 Phase 4: Add/Edit moved to its own routed page (AccessGroupEdit.vue,
+// access-group-create/access-group-edit) -- this page no longer owns an
+// inline editing/startCreate/startEdit/cancelEdit form at all; "+ New
+// Access Group" and each row's "Edit" are now router-link navigations.
+//
+// D-124 Phase 5: the 3 always-visible inline "Bulk Import" sections (and
+// their importState/onFileChange/importFile script logic) moved off this
+// page onto AccessGroupsBulkImport.vue, reached via the "Bulk Actions"
+// header link below.
 import { ref, computed, onMounted, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import { useTotalCount } from '../composables/useTotalCount'
+import { confirmDelete } from '../composables/useConfirmDialog'
+import { usePageSizeStore } from '../stores/pageSize'
 import FilterCountSummary from '../components/FilterCountSummary.vue'
+import Pager from '../components/Pager.vue'
 
-const importState = ref({
-  inventory: { file: null, result: null, importing: false },
-  targetMap: { file: null, result: null, importing: false },
-  membership: { file: null, result: null, importing: false }
-})
-
-function onFileChange(key, event) {
-  importState.value[key].file = event.target.files[0] ?? null
-}
-
-async function importFile(key, url) {
-  const state = importState.value[key]
-  if (!state.file) return
-  state.importing = true
-  state.result = null
-  try {
-    const formData = new FormData()
-    formData.append('file', state.file)
-    const response = await fetch(url, { method: 'POST', body: formData })
-    state.result = response.ok ? await response.json() : { error: `Import failed: ${response.status}` }
-  } finally {
-    state.importing = false
-  }
-  await load()
-}
-
+const router = useRouter()
 const items = ref([])
-const targets = ref([])
 const sorTypes = ref([])
 const error = ref(null)
 const loading = ref(true)
-const editing = ref(null)
 
-const { totalCount, readTotalCount } = useTotalCount()
+const { totalCount, filteredCount, readTotalCount } = useTotalCount()
+const pageSizeStore = usePageSizeStore()
 
 const scopeFilter = ref('')
 const sorTypeFilter = ref('')
+
+// D-124 Phase 3: pagination -- page is local to this page (not persisted);
+// pageSize comes from the shared, server-persisted pageSize store.
+const page = ref(1)
+const pageCount = computed(() => Math.max(1, Math.ceil((filteredCount.value ?? 0) / pageSizeStore.current)))
+
+function onPageChange(newPage) {
+  page.value = newPage
+  load()
+}
+
+function onPageSizeChange() {
+  page.value = 1
+  load()
+}
 
 const sortColumns = ref([])
 const columns = [
@@ -110,16 +113,13 @@ async function load() {
     if (scopeFilter.value) params.set('groupScope', scopeFilter.value)
     if (sorTypeFilter.value) params.set('sorTypeName', sorTypeFilter.value)
     if (sortQueryParam.value) params.set('sort', sortQueryParam.value)
+    params.set('page', page.value)
+    params.set('pageSize', pageSizeStore.current)
 
-    const [groupsResponse, targetsResponse] = await Promise.all([
-      fetch(`/api/admin/access-groups?${params.toString()}`),
-      fetch('/api/admin/targets')
-    ])
+    const groupsResponse = await fetch(`/api/admin/access-groups?${params.toString()}`)
     if (!groupsResponse.ok) throw new Error(`Request failed: ${groupsResponse.status}`)
-    if (!targetsResponse.ok) throw new Error(`Request failed: ${targetsResponse.status}`)
     readTotalCount(groupsResponse)
     items.value = await groupsResponse.json()
-    targets.value = await targetsResponse.json()
   } catch (err) {
     error.value = err.message
   } finally {
@@ -137,35 +137,28 @@ onMounted(async () => {
   await load()
 })
 
-watch([scopeFilter, sorTypeFilter, sortQueryParam], load)
-
-function startCreate() {
-  editing.value = { groupName: '', groupIdentifier: '', groupScope: 'Domain', foundOnTargetKey: null, sorTypeKey: null, sorAddress: '', baseRiskScore: 0, description: '', discoverySource: '' }
-}
-function startEdit(item) {
-  editing.value = { ...item }
-}
-function cancelEdit() {
-  editing.value = null
-}
-
-async function save() {
-  const isNew = editing.value.accessGroupKey === undefined
-  const url = isNew ? '/api/admin/access-groups' : `/api/admin/access-groups/${editing.value.accessGroupKey}`
-  const response = await fetch(url, {
-    method: isNew ? 'POST' : 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(editing.value)
-  })
-  if (!response.ok) {
-    error.value = `Save failed: ${response.status}`
-    return
-  }
-  editing.value = null
-  await load()
-}
+// D-124 Phase 3: a filter/sort change resets to page 1 -- see Targets.vue's
+// identical comment for why page-size/Prev/Next changes are handled separately.
+watch([scopeFilter, sorTypeFilter, sortQueryParam], () => {
+  page.value = 1
+  load()
+})
 
 async function remove(item) {
+  // D-129/D-131: a structured Name/Scope/Address/Source summary (rendered
+  // indented, set off from the title/warning) -- Access Group's own
+  // fields map onto this exactly (GroupScope/SorAddress/DiscoverySource).
+  const message = {
+    title: 'Delete Access Group',
+    details: [
+      `Name: ${item.groupName}`,
+      `Scope: ${item.groupScope}`,
+      `Address: ${item.sorAddress ?? '—'}`,
+      `Source: ${item.discoverySource ?? '—'}`
+    ],
+    warning: 'This cannot be undone.'
+  }
+  if (!(await confirmDelete(message))) return
   const response = await fetch(`/api/admin/access-groups/${item.accessGroupKey}`, { method: 'DELETE' })
   if (!response.ok) {
     error.value = `Delete failed: ${response.status} (a group still referenced by a Target/Account mapping can't be deleted)`
@@ -179,6 +172,10 @@ async function remove(item) {
   <div>
     <h1>Access Groups</h1>
     <p>Privileged-access groups in the managed environment (e.g. an AD "Server Admins" group) -- not this app's own Safe-permission groups or its login/role mapping. Base risk score (0-1000) is analyst-set; the computed score (base plus reachable Targets) is calculated separately.</p>
+    <p>
+      <button type="button" class="btn-primary" @click="router.push({ name: 'access-group-create' })">+ New Access Group</button>
+      <button type="button" @click="router.push({ name: 'access-groups-bulk-import' })">Bulk Actions</button>
+    </p>
     <p v-if="error" role="alert">{{ error }}</p>
 
     <p class="filter-row">
@@ -196,13 +193,12 @@ async function remove(item) {
         </select>
       </label>
     </p>
-    <FilterCountSummary :shown="items.length" :total="totalCount" />
+    <FilterCountSummary :shown="items.length" :filtered-count="filteredCount" :total="totalCount" :page="page" :page-size="pageSizeStore.current" />
+    <Pager :page="page" :page-count="pageCount" @update:page="onPageChange" @page-size-change="onPageSizeChange" />
 
     <p v-if="loading" role="status">Loading...</p>
 
     <template v-else>
-      <button class="btn-primary" @click="startCreate">+ New Access Group</button>
-
       <table>
         <thead>
           <tr>
@@ -218,7 +214,7 @@ async function remove(item) {
         </thead>
         <tbody>
           <tr v-for="item in items" :key="item.accessGroupKey">
-            <td>{{ item.groupName }}</td>
+            <td><router-link :to="{ name: 'access-group-edit', params: { accessGroupKey: item.accessGroupKey } }">{{ item.groupName }}</router-link></td>
             <td>{{ item.groupIdentifier }}</td>
             <td>{{ item.groupScope }}<span v-if="item.foundOnTargetName"> ({{ item.foundOnTargetName }})</span></td>
             <td>{{ item.sorTypeName ?? '—' }}</td>
@@ -227,85 +223,13 @@ async function remove(item) {
             <td>{{ item.sorAddress ?? '—' }}</td>
             <td>{{ item.discoverySource ?? '—' }}</td>
             <td>
-              <button @click="startEdit(item)">Edit</button>
               <button @click="remove(item)">Delete</button>
             </td>
           </tr>
         </tbody>
       </table>
+      <Pager :page="page" :page-count="pageCount" @update:page="onPageChange" @page-size-change="onPageSizeChange" />
       <p><small>Click a column to sort by it; shift-click another column to add it as a secondary sort key.</small></p>
-
-      <form v-if="editing" @submit.prevent="save">
-        <h3>{{ editing.accessGroupKey === undefined ? 'New Access Group' : 'Edit Access Group' }}</h3>
-        <p><label class="field-label"><span class="field-label-text">Name:</span> <input v-model="editing.groupName" required /></label></p>
-        <p><label class="field-label"><span class="field-label-text">Identifier (e.g. AD SID/DN):</span> <input v-model="editing.groupIdentifier" required /></label></p>
-        <p>
-          <label class="field-label">
-            <span class="field-label-text">Scope:</span>
-            <select v-model="editing.groupScope">
-              <option value="Domain">Domain</option>
-              <option value="Local">Local</option>
-            </select>
-          </label>
-        </p>
-        <p v-if="editing.groupScope === 'Local'">
-          <label class="field-label">
-            <span class="field-label-text">Found On Target:</span>
-            <select v-model="editing.foundOnTargetKey">
-              <option :value="null">(none)</option>
-              <option v-for="target in targets" :key="target.targetKey" :value="target.targetKey">{{ target.targetName }}</option>
-            </select>
-          </label>
-        </p>
-        <p>
-          <label class="field-label">
-            <span class="field-label-text">SOR Type:</span>
-            <select v-model="editing.sorTypeKey">
-              <option :value="null">(none)</option>
-              <option v-for="type in sorTypes" :key="type.sorTypeKey" :value="type.sorTypeKey">{{ type.sorTypeName }}</option>
-            </select>
-          </label>
-        </p>
-        <p><label class="field-label"><span class="field-label-text">SOR Address:</span> <input v-model="editing.sorAddress" placeholder="e.g. company.com or 192.168.1.1" /></label></p>
-        <p><label class="field-label"><span class="field-label-text">Base Risk Score (0-1000):</span> <input v-model.number="editing.baseRiskScore" type="number" min="0" max="1000" required /></label></p>
-        <p><label class="field-label"><span class="field-label-text">Description:</span> <input v-model="editing.description" /></label></p>
-        <p><label class="field-label"><span class="field-label-text">Discovery Source:</span> <input v-model="editing.discoverySource" placeholder="Manual" /></label></p>
-        <button type="submit" class="btn-primary">Save</button>
-        <button type="button" @click="cancelEdit">Cancel</button>
-      </form>
-
-      <h3>Bulk Import: Access Group Inventory</h3>
-      <p><a href="/api/admin/risk-scoring/import/access-group-inventory/template">Download template</a> -- upserts by GroupIdentifier (a matching row updates the existing group instead of creating a duplicate).</p>
-      <p class="filter-row">
-        <input type="file" accept=".csv" @change="onFileChange('inventory', $event)" />
-        <button :disabled="!importState.inventory.file || importState.inventory.importing" @click="importFile('inventory', '/api/admin/risk-scoring/import/access-group-inventory')">{{ importState.inventory.importing ? 'Importing...' : 'Import' }}</button>
-      </p>
-      <p v-if="importState.inventory.result">
-        {{ importState.inventory.result.totalRows }} rows -- {{ importState.inventory.result.succeededCount }} succeeded, {{ importState.inventory.result.errors?.length ?? 0 }} errors.
-        <span v-if="importState.inventory.result.errors?.length"><br />{{ importState.inventory.result.errors.map(e => `Row ${e.rowNumber}: ${e.error}`).join('; ') }}</span>
-      </p>
-
-      <h3>Bulk Import: Access Group -&gt; Target Map</h3>
-      <p><a href="/api/admin/risk-scoring/import/access-group-target-map/template">Download template</a> -- which Targets each group grants access to (both the group and the target must already exist).</p>
-      <p class="filter-row">
-        <input type="file" accept=".csv" @change="onFileChange('targetMap', $event)" />
-        <button :disabled="!importState.targetMap.file || importState.targetMap.importing" @click="importFile('targetMap', '/api/admin/risk-scoring/import/access-group-target-map')">{{ importState.targetMap.importing ? 'Importing...' : 'Import' }}</button>
-      </p>
-      <p v-if="importState.targetMap.result">
-        {{ importState.targetMap.result.totalRows }} rows -- {{ importState.targetMap.result.succeededCount }} succeeded, {{ importState.targetMap.result.errors?.length ?? 0 }} errors.
-        <span v-if="importState.targetMap.result.errors?.length"><br />{{ importState.targetMap.result.errors.map(e => `Row ${e.rowNumber}: ${e.error}`).join('; ') }}</span>
-      </p>
-
-      <h3>Bulk Import: Account -&gt; Access Group Membership</h3>
-      <p><a href="/api/admin/risk-scoring/import/account-access-group-membership/template">Download template</a> -- which Accounts belong to each group.</p>
-      <p class="filter-row">
-        <input type="file" accept=".csv" @change="onFileChange('membership', $event)" />
-        <button :disabled="!importState.membership.file || importState.membership.importing" @click="importFile('membership', '/api/admin/risk-scoring/import/account-access-group-membership')">{{ importState.membership.importing ? 'Importing...' : 'Import' }}</button>
-      </p>
-      <p v-if="importState.membership.result">
-        {{ importState.membership.result.totalRows }} rows -- {{ importState.membership.result.succeededCount }} succeeded, {{ importState.membership.result.errors?.length ?? 0 }} errors.
-        <span v-if="importState.membership.result.errors?.length"><br />{{ importState.membership.result.errors.map(e => `Row ${e.rowNumber}: ${e.error}`).join('; ') }}</span>
-      </p>
     </template>
   </div>
 </template>

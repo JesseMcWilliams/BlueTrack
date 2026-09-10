@@ -12,15 +12,23 @@ public class TargetAndAccessGroupRepositoryTests
     private static TargetRepository CreateTargetRepository() => new(new TestDbConnectionFactory());
     private static AccessGroupRepository CreateAccessGroupRepository() => new(new TestDbConnectionFactory());
 
+    /// <summary>D-124 Phase 2: TargetType is now an FK -- resolved by TypeCode via GetTargetTypesAsync() rather than assuming a specific IDENTITY value.</summary>
+    private static async Task<int> GetTargetTypeKeyAsync(TargetRepository repository, string typeCode)
+    {
+        var types = await repository.GetTargetTypesAsync();
+        return Assert.Single(types, t => t.TypeCode == typeCode).TargetTypeKey;
+    }
+
     [Fact]
     public async Task Target_CreateAsync_WithMultipleIdentifiers_RoundTripsAll()
     {
         var repository = CreateTargetRepository();
         var name = $"IntegrationTest_{Guid.NewGuid():N}";
+        var serverTypeKey = await GetTargetTypeKeyAsync(repository, "Server");
 
         var targetKey = await repository.CreateAsync(new SaveTargetRequest
         {
-            TargetType = "Server",
+            TargetTypeKey = serverTypeKey,
             TargetName = name,
             RiskScore = 900,
             Identifiers =
@@ -50,9 +58,10 @@ public class TargetAndAccessGroupRepositoryTests
     {
         var repository = CreateTargetRepository();
         var name = $"IntegrationTest_{Guid.NewGuid():N}";
+        var serverTypeKey = await GetTargetTypeKeyAsync(repository, "Server");
         var targetKey = await repository.CreateAsync(new SaveTargetRequest
         {
-            TargetType = "Server",
+            TargetTypeKey = serverTypeKey,
             TargetName = name,
             RiskScore = 100,
             Identifiers = [new SaveTargetIdentifierRequest { IdentifierType = "Hostname", IdentifierValue = $"original-{Guid.NewGuid():N}" }]
@@ -63,7 +72,7 @@ public class TargetAndAccessGroupRepositoryTests
             var newIdentifierValue = $"replacement-{Guid.NewGuid():N}";
             await repository.UpdateAsync(targetKey, new SaveTargetRequest
             {
-                TargetType = "Server",
+                TargetTypeKey = serverTypeKey,
                 TargetName = name,
                 RiskScore = 100,
                 Identifiers = [new SaveTargetIdentifierRequest { IdentifierType = "FQDN", IdentifierValue = newIdentifierValue }]
@@ -86,9 +95,10 @@ public class TargetAndAccessGroupRepositoryTests
     {
         var repository = CreateTargetRepository();
         var sharedValue = $"shared-{Guid.NewGuid():N}";
+        var serverTypeKey = await GetTargetTypeKeyAsync(repository, "Server");
         var firstKey = await repository.CreateAsync(new SaveTargetRequest
         {
-            TargetType = "Server",
+            TargetTypeKey = serverTypeKey,
             TargetName = $"IntegrationTest_{Guid.NewGuid():N}",
             RiskScore = 100,
             Identifiers = [new SaveTargetIdentifierRequest { IdentifierType = "ADGuid", IdentifierValue = sharedValue }]
@@ -98,7 +108,7 @@ public class TargetAndAccessGroupRepositoryTests
         {
             await Assert.ThrowsAnyAsync<Exception>(() => repository.CreateAsync(new SaveTargetRequest
             {
-                TargetType = "Server",
+                TargetTypeKey = serverTypeKey,
                 TargetName = $"IntegrationTest_{Guid.NewGuid():N}",
                 RiskScore = 100,
                 Identifiers = [new SaveTargetIdentifierRequest { IdentifierType = "ADGuid", IdentifierValue = sharedValue }]
@@ -115,16 +125,18 @@ public class TargetAndAccessGroupRepositoryTests
     public async Task Target_GetAllAsync_FilterByType_NarrowsResults_ButTotalCountIgnoresFilter()
     {
         var repository = CreateTargetRepository();
+        var serverTypeKey = await GetTargetTypeKeyAsync(repository, "Server");
+        var applicationTypeKey = await GetTargetTypeKeyAsync(repository, "Application");
         var serverKey = await repository.CreateAsync(new SaveTargetRequest
         {
-            TargetType = "Server",
+            TargetTypeKey = serverTypeKey,
             TargetName = $"IntegrationTest_{Guid.NewGuid():N}",
             RiskScore = 100,
             Identifiers = []
         }, modifiedByUserKey: null);
         var appKey = await repository.CreateAsync(new SaveTargetRequest
         {
-            TargetType = "Application",
+            TargetTypeKey = applicationTypeKey,
             TargetName = $"IntegrationTest_{Guid.NewGuid():N}",
             RiskScore = 100,
             Identifiers = []
@@ -133,7 +145,7 @@ public class TargetAndAccessGroupRepositoryTests
         try
         {
             var unfilteredCount = await repository.GetTotalCountAsync();
-            var serverOnly = await repository.GetAllAsync(targetType: "Server");
+            var serverOnly = await repository.GetAllAsync(targetTypeKey: serverTypeKey);
             var filteredCount = await repository.GetTotalCountAsync();
 
             Assert.Contains(serverOnly, t => t.TargetKey == serverKey);
@@ -145,6 +157,80 @@ public class TargetAndAccessGroupRepositoryTests
             await repository.DeleteAsync(serverKey);
             await repository.DeleteAsync(appKey);
         }
+    }
+
+    /// <summary>
+    /// D-124 Phase 3: page/pageSize paging -- creates 3 Targets scoped to
+    /// one throwaway Application (for a race-free isolated view, since
+    /// GetAllAsync's default sort spans the whole table and other tests run
+    /// concurrently against it) and confirms page 1/page 2 are disjoint,
+    /// correctly-ordered (targetName ascending, the default sort) slices.
+    /// </summary>
+    [Fact]
+    public async Task Target_GetAllAsync_PageAndPageSize_ReturnsDisjointCorrectlyOrderedPages()
+    {
+        var targetRepository = CreateTargetRepository();
+        var applicationRepository = new ApplicationRepository(new TestDbConnectionFactory());
+        var serverTypeKey = await GetTargetTypeKeyAsync(targetRepository, "Server");
+        var suffix = Guid.NewGuid().ToString("N")[..8];
+        // The throwaway Application is deliberately not deleted --
+        // ApplicationRepository has no Delete method (no existing
+        // precedent for one anywhere in this app), matching
+        // AccountProgressReadEndpointsTests' own established note on this.
+        var applicationKey = await applicationRepository.CreateAsync(new SaveApplicationRequest
+        {
+            ApplicationCode = $"PGTEST{suffix}",
+            ApplicationName = $"Pagination Test Application {suffix}"
+        });
+
+        var names = new[] { $"PageTest-{suffix}-A", $"PageTest-{suffix}-B", $"PageTest-{suffix}-C" };
+        var keys = new List<int>();
+        foreach (var name in names)
+        {
+            keys.Add(await targetRepository.CreateAsync(new SaveTargetRequest
+            {
+                TargetTypeKey = serverTypeKey,
+                TargetName = name,
+                ApplicationKey = applicationKey,
+                RiskScore = 100,
+                Identifiers = []
+            }, modifiedByUserKey: null));
+        }
+
+        try
+        {
+            var page1 = await targetRepository.GetAllAsync(applicationKey: applicationKey, page: 1, pageSize: 2);
+            var page2 = await targetRepository.GetAllAsync(applicationKey: applicationKey, page: 2, pageSize: 2);
+
+            Assert.Equal(2, page1.Count);
+            Assert.Single(page2);
+            Assert.Equal(names[0], page1[0].TargetName);
+            Assert.Equal(names[1], page1[1].TargetName);
+            Assert.Equal(names[2], page2[0].TargetName);
+            Assert.Empty(page1.Select(t => t.TargetKey).Intersect(page2.Select(t => t.TargetKey)));
+        }
+        finally
+        {
+            foreach (var key in keys)
+            {
+                await targetRepository.DeleteAsync(key);
+            }
+        }
+    }
+
+    /// <summary>D-124 Phase 2: the seeded catalog includes the corrected "LDAP Directory" display name (was the raw camelCase "LdapDirectory" everywhere before) plus the new distinct "Active Directory" entry.</summary>
+    [Fact]
+    public async Task GetTargetTypesAsync_ReturnsSeededCatalog_WithCorrectedLdapDisplayName_AndNewActiveDirectoryEntry()
+    {
+        var repository = CreateTargetRepository();
+
+        var types = await repository.GetTargetTypesAsync();
+
+        var ldapDirectory = Assert.Single(types, t => t.TypeCode == "LdapDirectory");
+        Assert.Equal("LDAP Directory", ldapDirectory.DisplayName);
+
+        var activeDirectory = Assert.Single(types, t => t.TypeCode == "ActiveDirectory");
+        Assert.Equal("Active Directory", activeDirectory.DisplayName);
     }
 
     [Fact]
@@ -181,7 +267,7 @@ public class TargetAndAccessGroupRepositoryTests
         var accessGroupRepository = CreateAccessGroupRepository();
         var targetKey = await targetRepository.CreateAsync(new SaveTargetRequest
         {
-            TargetType = "Server",
+            TargetTypeKey = await GetTargetTypeKeyAsync(targetRepository, "Server"),
             TargetName = $"IntegrationTest_{Guid.NewGuid():N}",
             RiskScore = 700,
             Identifiers = []
@@ -286,13 +372,66 @@ public class TargetAndAccessGroupRepositoryTests
         }
     }
 
+    /// <summary>
+    /// D-124 Phase 3: page/pageSize paging. Unlike Target's own pagination
+    /// test above, GetAllAsync here has no filter param that can fully
+    /// isolate a fresh fixture from whatever else exists in the table at
+    /// the same time (groupScope/sorTypeName are shared dimension values,
+    /// not a unique-per-test FK) -- so this instead validates end-to-end
+    /// correctness against a "ground truth" fetch of the whole matching set
+    /// (a large pageSize=500, comfortably above anything this test DB ever
+    /// holds): whatever that full list actually is, page 1/page 2 (pageSize
+    /// 2) must be its first-two/next-two elements in order, and disjoint.
+    /// Three groups are still created here just to guarantee the table has
+    /// at least 3 rows to page across.
+    /// </summary>
+    [Fact]
+    public async Task AccessGroup_GetAllAsync_PageAndPageSize_ReturnsDisjointCorrectlyOrderedPagesMatchingGroundTruth()
+    {
+        var repository = CreateAccessGroupRepository();
+        var suffix = Guid.NewGuid().ToString("N")[..8];
+        var keys = new List<int>();
+        foreach (var letter in new[] { "A", "B", "C" })
+        {
+            keys.Add(await repository.CreateAsync(new SaveAccessGroupRequest
+            {
+                GroupName = $"PageTest-{suffix}-{letter}",
+                GroupIdentifier = $"IntegrationTest_{Guid.NewGuid():N}",
+                GroupScope = "Domain",
+                BaseRiskScore = 100
+            }, modifiedByUserKey: null));
+        }
+
+        try
+        {
+            var fullList = await repository.GetAllAsync(page: 1, pageSize: 500);
+            var page1 = await repository.GetAllAsync(page: 1, pageSize: 2);
+            var page2 = await repository.GetAllAsync(page: 2, pageSize: 2);
+
+            var expectedPage1 = fullList.Take(2).Select(g => g.AccessGroupKey).ToList();
+            var expectedPage2 = fullList.Skip(2).Take(2).Select(g => g.AccessGroupKey).ToList();
+
+            Assert.Equal(expectedPage1, page1.Select(g => g.AccessGroupKey).ToList());
+            Assert.Equal(expectedPage2, page2.Select(g => g.AccessGroupKey).ToList());
+            Assert.Empty(page1.Select(g => g.AccessGroupKey).Intersect(page2.Select(g => g.AccessGroupKey)));
+        }
+        finally
+        {
+            foreach (var key in keys)
+            {
+                await repository.DeleteAsync(key);
+            }
+        }
+    }
+
     [Fact]
     public async Task Target_UpdateAsync_RiskScoreChange_MarksReachingAccountsStale_ButLeavesUnrelatedAccountsAlone()
     {
         var targetRepository = CreateTargetRepository();
+        var serverTypeKey = await GetTargetTypeKeyAsync(targetRepository, "Server");
         var targetKey = await targetRepository.CreateAsync(new SaveTargetRequest
         {
-            TargetType = "Server",
+            TargetTypeKey = serverTypeKey,
             TargetName = $"IntegrationTest_{Guid.NewGuid():N}",
             RiskScore = 300,
             Identifiers = []
@@ -319,7 +458,7 @@ public class TargetAndAccessGroupRepositoryTests
         {
             await targetRepository.UpdateAsync(targetKey, new SaveTargetRequest
             {
-                TargetType = "Server",
+                TargetTypeKey = serverTypeKey,
                 TargetName = $"IntegrationTest_{Guid.NewGuid():N}",
                 RiskScore = 850, // changed -- must cascade
                 Identifiers = []

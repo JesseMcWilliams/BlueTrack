@@ -23,17 +23,21 @@ public sealed class AccountProgressController(
     /// D-42: multiple simultaneous filters (stage/status/riskLevel/owner)
     /// plus multi-column sort, e.g. sort=stageName:asc,ownerName:desc.
     /// </summary>
+    /// <summary>D-124 Phase 3: page/pageSize add server-side paging; X-Filtered-Count carries how many rows match the current filter, ignoring paging.</summary>
     [HttpGet]
     public async Task<IActionResult> GetList(
         [FromQuery] string? stage = null,
         [FromQuery] string? status = null,
         [FromQuery] string? riskLevel = null,
         [FromQuery] string? owner = null,
-        [FromQuery] string? sort = null)
+        [FromQuery] string? sort = null,
+        [FromQuery] int? page = null,
+        [FromQuery] int? pageSize = null)
     {
         var sortBy = SortParser.Parse(sort);
-        var results = await repository.GetSummaryListAsync(stage, status, riskLevel, owner, sortBy);
+        var results = await repository.GetSummaryListAsync(stage, status, riskLevel, owner, sortBy, page, pageSize);
         Response.Headers["X-Total-Count"] = (await repository.GetTotalCountAsync()).ToString();
+        Response.Headers["X-Filtered-Count"] = (await repository.GetFilteredCountAsync(stage, status, riskLevel, owner)).ToString();
         return Ok(results);
     }
 
@@ -287,6 +291,20 @@ public sealed class AccountProgressController(
             reason: request.Reason,
             fieldChanges: [new FieldChange("OverrideRiskScore", before.OverrideRiskScore?.ToString(), request.OverrideRiskScore?.ToString())]);
 
+        return NoContent();
+    }
+
+    /// <summary>
+    /// D-131: recalculates just this one account's ComputedRiskScore right
+    /// now, regardless of its IsRiskScoreStale flag -- the bulk
+    /// usp_RecalculateRiskScores (ReportsController's own "Recalculate Now")
+    /// only ever touches rows already marked stale.
+    /// </summary>
+    [HttpPost("{accountKey:long}/recalculate-risk-score")]
+    [Authorize(Policy = Permissions.EditAccountProgress)]
+    public async Task<IActionResult> RecalculateRiskScore(long accountKey)
+    {
+        await repository.RecalculateForAccountAsync(accountKey);
         return NoContent();
     }
 }

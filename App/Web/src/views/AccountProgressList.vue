@@ -5,67 +5,33 @@
 // sort key without losing the first (badges show the resulting priority).
 import { ref, computed, watch, onMounted } from 'vue'
 import { formatDate } from '../utils/formatDate'
-import { useRightsStore } from '../stores/rights'
 import { useTotalCount } from '../composables/useTotalCount'
+import { usePageSizeStore } from '../stores/pageSize'
 import FilterCountSummary from '../components/FilterCountSummary.vue'
+import Pager from '../components/Pager.vue'
 
-const rights = useRightsStore()
-const { totalCount, readTotalCount } = useTotalCount()
+const { totalCount, filteredCount, readTotalCount } = useTotalCount()
+const pageSizeStore = usePageSizeStore()
+
+// D-124 Phase 3: pagination -- page is local to this page (not persisted);
+// pageSize comes from the shared, server-persisted pageSize store.
+const page = ref(1)
+const pageCount = computed(() => Math.max(1, Math.ceil((filteredCount.value ?? 0) / pageSizeStore.current)))
+
+function onPageChange(newPage) {
+  page.value = newPage
+  load()
+}
+
+function onPageSizeChange() {
+  page.value = 1
+  load()
+}
 
 const accounts = ref([])
 const referenceData = ref({})
 const error = ref(null)
 const loading = ref(true)
-
-// D-101-105 Phase E: inline "Edit Override" per row -- a Reason is
-// required whenever setting an override value (mirroring
-// web.risk_exception.Justification's own precedent), not required to
-// clear one back to null.
-const editingAccountKey = ref(null)
-const overrideScoreInput = ref(null)
-const overrideReasonInput = ref('')
-const overrideError = ref(null)
-const overrideSaving = ref(false)
-
-function startEditOverride(account) {
-  editingAccountKey.value = account.accountKey
-  overrideScoreInput.value = account.effectiveRiskScore ?? null
-  overrideReasonInput.value = ''
-  overrideError.value = null
-}
-
-function cancelEditOverride() {
-  editingAccountKey.value = null
-}
-
-async function saveOverride(account) {
-  overrideError.value = null
-  // v-model.number leaves an emptied input as '' rather than null.
-  const score = overrideScoreInput.value === '' || overrideScoreInput.value === undefined || Number.isNaN(overrideScoreInput.value)
-    ? null
-    : overrideScoreInput.value
-  if (score !== null && !overrideReasonInput.value.trim()) {
-    overrideError.value = 'A Reason is required when setting an override.'
-    return
-  }
-  overrideSaving.value = true
-  try {
-    const response = await fetch(`/api/account-progress/${account.accountKey}/risk-score-override`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ overrideRiskScore: score, reason: overrideReasonInput.value || null })
-    })
-    if (!response.ok) {
-      const problem = await response.json().catch(() => null)
-      overrideError.value = problem?.detail ?? `Save failed: ${response.status}`
-      return
-    }
-    editingAccountKey.value = null
-    await load()
-  } finally {
-    overrideSaving.value = false
-  }
-}
 
 const stageFilter = ref('')
 const statusFilter = ref('')
@@ -76,7 +42,8 @@ const ownerFilter = ref('')
 const sortColumns = ref([])
 
 const columns = [
-  { field: 'accountName', label: 'Account' },
+  { field: 'userName', label: 'Username' },
+  { field: 'address', label: 'Address' },
   { field: 'stageName', label: 'Stage' },
   { field: 'statusName', label: 'Status' },
   { field: 'riskLevelName', label: 'Risk Level' },
@@ -139,6 +106,8 @@ async function load() {
     if (riskLevelFilter.value) params.set('riskLevel', riskLevelFilter.value)
     if (ownerFilter.value) params.set('owner', ownerFilter.value)
     if (sortQueryParam.value) params.set('sort', sortQueryParam.value)
+    params.set('page', page.value)
+    params.set('pageSize', pageSizeStore.current)
 
     const response = await fetch(`/api/account-progress?${params.toString()}`)
     if (!response.ok) {
@@ -163,7 +132,12 @@ onMounted(async () => {
   await load()
 })
 
-watch([stageFilter, statusFilter, riskLevelFilter, ownerFilter, sortQueryParam], load)
+// D-124 Phase 3: a filter/sort change resets to page 1 -- see Targets.vue's
+// identical comment for why page-size/Prev/Next changes are handled separately.
+watch([stageFilter, statusFilter, riskLevelFilter, ownerFilter, sortQueryParam], () => {
+  page.value = 1
+  load()
+})
 </script>
 
 <template>
@@ -190,7 +164,8 @@ watch([stageFilter, statusFilter, riskLevelFilter, ownerFilter, sortQueryParam],
       </label>
       <label class="field-label"><span class="field-label-text">Owner:</span> <input v-model="ownerFilter" type="text" placeholder="contains..." /></label>
     </p>
-    <FilterCountSummary :shown="accounts.length" :total="totalCount" />
+    <FilterCountSummary :shown="accounts.length" :filtered-count="filteredCount" :total="totalCount" :page="page" :page-size="pageSizeStore.current" />
+    <Pager :page="page" :page-count="pageCount" @update:page="onPageChange" @page-size-change="onPageSizeChange" />
     <p v-if="loading" role="status">Loading...</p>
     <p v-else-if="error" role="alert">Could not load accounts: {{ error }}</p>
     <table v-else>
@@ -206,34 +181,20 @@ watch([stageFilter, statusFilter, riskLevelFilter, ownerFilter, sortQueryParam],
       <tbody>
         <template v-for="account in accounts" :key="account.accountKey">
           <tr>
-            <td><router-link :to="{ name: 'account-progress-detail', params: { accountKey: account.accountKey } }">{{ account.accountName }}</router-link></td>
+            <td><router-link :to="{ name: 'account-progress-detail', params: { accountKey: account.accountKey } }">{{ account.userName }}</router-link></td>
+            <td>{{ account.address }}</td>
             <td>{{ account.stageName }}</td>
             <td>{{ account.statusName }}</td>
             <td>{{ account.riskLevelName }}</td>
             <td>{{ account.ownerName }}</td>
             <td>{{ formatDate(account.targetRemediationDate) }}</td>
-            <td>
-              {{ account.effectiveRiskScore ?? '—' }}
-              <button v-if="rights.hasPermission('EditAccountProgress')" type="button" @click="startEditOverride(account)">Edit Override</button>
-            </td>
+            <td>{{ account.effectiveRiskScore ?? '—' }}</td>
             <td>{{ account.riskScoreBandName ?? '—' }}</td>
-          </tr>
-          <tr v-if="editingAccountKey === account.accountKey">
-            <td :colspan="columns.length">
-              <label class="field-label"><span class="field-label-text">Override Score (0-1000, blank clears it):</span>
-                <input v-model.number="overrideScoreInput" type="number" min="0" max="1000" />
-              </label>
-              <label class="field-label"><span class="field-label-text">Reason:</span>
-                <input v-model="overrideReasonInput" type="text" />
-              </label>
-              <button type="button" :disabled="overrideSaving" @click="saveOverride(account)">Save</button>
-              <button type="button" @click="cancelEditOverride">Cancel</button>
-              <span v-if="overrideError" role="alert">{{ overrideError }}</span>
-            </td>
           </tr>
         </template>
       </tbody>
     </table>
+    <Pager :page="page" :page-count="pageCount" @update:page="onPageChange" @page-size-change="onPageSizeChange" />
     <p><small>Click a column to sort by it; shift-click another column to add it as a secondary sort key.</small></p>
   </div>
 </template>

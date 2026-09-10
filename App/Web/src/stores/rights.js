@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { useThemeStore } from './theme'
+import { usePageSizeStore } from './pageSize'
 
 // Backs frontend permission-aware UI: hides/disables controls a user can't
 // use, mirroring the API's real [Authorize(Policy = Permissions.X)] gates
@@ -54,6 +55,7 @@ export const useRightsStore = defineStore('rights', {
         this.authenticated = true
         this.loaded = true
         useThemeStore().loadFromServer(data.preferences)
+        usePageSizeStore().loadFromServer(data.preferences)
       } catch (err) {
         this.error = err.message
       } finally {

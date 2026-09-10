@@ -88,7 +88,7 @@ Three themes ship in this first pass, with base colors confirmed by the user (20
 | **Dark** | `#3c3c3c` | `#f9f9f9` | ~10.5:1 (computed against the relative-luminance formula in SC 1.4.3) | WCAG AA — comfortably clears it, incidentally close to AAA too |
 | **High-Visibility** | `#000000` | `#ffff00` | ~19.6:1 | WCAG AAA (SC 1.4.6) |
 
-Secondary tokens (borders, links, focus ring, success/error/warning status colors) aren't specified by the user and are an implementation-time detail — chosen to independently clear each theme's own contrast target (1.4.11's 3:1 for non-text UI) against that theme's background, verified with a contrast checker while building rather than guessed here.
+Secondary tokens (borders, links, focus ring, success/error/warning status colors) aren't specified by the user and are an implementation-time detail — chosen to independently clear each theme's own contrast target (1.4.11's 3:1 for non-text UI) against that theme's background, verified with a contrast checker while building rather than guessed here. **Updated 2026-09-10 (D-136):** a `--color-row-hover` token was added the same way, for a `tbody tr:hover` background on every list-page table — computed against the same relative-luminance contrast formula as every other token here, verified against each theme's own text-contrast target (not the 1.4.11 non-text minimum, since text still renders on top of it): Light 16.52:1, Dark 7.42:1, High-Visibility 15.35:1, all comfortably clearing their respective 4.5:1/4.5:1/7:1 requirement.
 
 ### 2.3 Defaults, overrides, and Forced Colors Mode
 
@@ -135,6 +135,8 @@ Both parts are fully built:
 - Section 1.6 (form error association) had no code change beyond the `role="alert"` above: this app's actual error UX is page-level banners, not per-field inline messages, so there was no existing `aria-describedby`-style pattern to retrofit — noted here rather than fabricating one that doesn't reflect the app's real UX.
 
 Existing E2E tests that asserted on the old click-anywhere-in-the-row / bare-`<th>`-click behavior (`list-pages.spec.js`, `reports-pages.spec.js`) were updated to match the new, more accessible markup (click the row's link specifically; assert `aria-sort` directly rather than a rendered arrow glyph in the accessible name). New coverage: `theme.spec.js` (2 tests). Full verification: `dotnet test` 244/244, Vitest 16/16 (including new `theme.test.js`), and every affected Playwright test confirmed individually.
+
+**Later table-styling passes, added to `themes.css`'s shared `table`/`th, td` rule after this document was written (not full theme-system work, but touching the same token layer):** a 2026-09-06 usability pass added cell padding and row-separator borders where a bare `<table>` previously had none (zebra striping deliberately excluded even then, for the same AAA-rigor reason given below); **2026-09-10 (D-136)** turned those row-only separators into full grid lines, added `tbody tr:hover` (the new `--color-row-hover` token, 2.2 above) and a sticky `<thead>`. Both are documented in full in `themes.css`'s own comments and `Design_Decision_Register.md` (D-136) rather than repeated here.
 
 ---
 *New document added 2026-09-04, following the user's request to research accessibility requirements and add a Light/Dark/High-Visibility theme system, and their explicit direction (asked directly rather than assumed) to do the full accessibility remediation pass, persist theme choice server-side per user, and write this design document before implementing.*

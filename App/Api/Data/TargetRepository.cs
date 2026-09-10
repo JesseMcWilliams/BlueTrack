@@ -21,33 +21,53 @@ public sealed class TargetRepository(IDbConnectionFactory connectionFactory)
     private static readonly IReadOnlyDictionary<string, string> SortableColumns = new Dictionary<string, string>
     {
         ["targetName"] = "t.TargetName",
-        ["targetType"] = "t.TargetType",
+        ["targetType"] = "dtt.DisplayName",
         ["applicationName"] = "a.ApplicationName",
         ["riskScore"] = "t.RiskScore",
         ["modifiedDate"] = "t.ModifiedDate"
     };
 
     private const string SelectSql = """
-        SELECT t.TargetKey, t.TargetType, t.TargetName, t.InternalGuid, t.ApplicationKey,
+        SELECT t.TargetKey, t.TargetTypeKey, dtt.TypeCode AS TargetTypeCode, dtt.DisplayName AS TargetTypeDisplayName,
+               t.TargetName, t.InternalGuid, t.ApplicationKey,
                a.ApplicationName, t.RiskScore, t.Description, t.DiscoverySource, t.ModifiedDate
         FROM web.dim_target t
+        JOIN web.dim_target_type dtt ON dtt.TargetTypeKey = t.TargetTypeKey
         LEFT JOIN web.dim_application a ON a.ApplicationKey = t.ApplicationKey
         """;
 
-    /// <summary>D-121: stacked filters (type/application) plus multi-column sort, same pattern as the D-42 pages.</summary>
+    // D-124 Phase 3: shared between GetAllAsync and GetFilteredCountAsync so
+    // the filtered-count query mirrors the list query's own WHERE clause
+    // exactly -- the only real difference is paging/ORDER BY, which a COUNT
+    // doesn't need.
+    private const string FilterWhereSql = """
+        WHERE (@TargetTypeKey IS NULL OR t.TargetTypeKey = @TargetTypeKey)
+          AND (@ApplicationKey IS NULL OR t.ApplicationKey = @ApplicationKey)
+        """;
+
+    /// <summary>D-121: stacked filters (type/application) plus multi-column sort, same pattern as the D-42 pages. D-124 Phase 2: the type filter is now the FK key, not the old raw TargetType string. D-124 Phase 3: page/pageSize add SQL Server OFFSET/FETCH paging after the ORDER BY -- applied to the parent Target rows only, before the identifier enrichment query below, so a page is always exactly pageSize Targets (with however many identifiers each has), not pageSize Target/identifier rows.</summary>
     public async Task<IReadOnlyList<TargetSummary>> GetAllAsync(
-        string? targetType = null,
+        int? targetTypeKey = null,
         int? applicationKey = null,
-        IReadOnlyList<(string Field, bool Descending)>? sortBy = null)
+        IReadOnlyList<(string Field, bool Descending)>? sortBy = null,
+        int? page = null,
+        int? pageSize = null)
     {
         using var connection = connectionFactory.Create();
+        var (normalizedPage, normalizedPageSize) = PagingParams.Normalize(page, pageSize);
         var sql = $"""
             {SelectSql}
-            WHERE (@TargetType IS NULL OR t.TargetType = @TargetType)
-              AND (@ApplicationKey IS NULL OR t.ApplicationKey = @ApplicationKey)
+            {FilterWhereSql}
             ORDER BY {BuildOrderByClause(sortBy)}
+            OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY
             """;
-        var targets = (await connection.QueryAsync<TargetSummary>(sql, new { TargetType = targetType, ApplicationKey = applicationKey })).ToList();
+        var targets = (await connection.QueryAsync<TargetSummary>(sql, new
+        {
+            TargetTypeKey = targetTypeKey,
+            ApplicationKey = applicationKey,
+            Offset = PagingParams.Offset(normalizedPage, normalizedPageSize),
+            PageSize = normalizedPageSize
+        })).ToList();
         if (targets.Count == 0)
         {
             return targets;
@@ -62,7 +82,9 @@ public sealed class TargetRepository(IDbConnectionFactory connectionFactory)
         return targets.Select(t => new TargetSummary
         {
             TargetKey = t.TargetKey,
-            TargetType = t.TargetType,
+            TargetTypeKey = t.TargetTypeKey,
+            TargetTypeCode = t.TargetTypeCode,
+            TargetTypeDisplayName = t.TargetTypeDisplayName,
             TargetName = t.TargetName,
             InternalGuid = t.InternalGuid,
             ApplicationKey = t.ApplicationKey,
@@ -75,11 +97,67 @@ public sealed class TargetRepository(IDbConnectionFactory connectionFactory)
         }).ToList();
     }
 
+    /// <summary>
+    /// D-124 Phase 4: a single Target by key, identifiers included -- backs
+    /// the new routed Target Edit page (App/Web/src/views/TargetEdit.vue),
+    /// which needs to load one specific row directly (e.g. after a page
+    /// refresh) rather than relying on an already-loaded list page, the way
+    /// GetByKeyAsync already exists on RiskExceptionRepository for the same
+    /// reason. Unlike GetAllAsync, this is never paginated -- a lookup by
+    /// its own primary key needs no OFFSET/FETCH at all.
+    /// </summary>
+    public async Task<TargetSummary?> GetByKeyAsync(int targetKey)
+    {
+        using var connection = connectionFactory.Create();
+        var sql = $"""
+            {SelectSql}
+            WHERE t.TargetKey = @TargetKey
+            """;
+        var target = await connection.QuerySingleOrDefaultAsync<TargetSummary>(sql, new { TargetKey = targetKey });
+        if (target is null)
+        {
+            return null;
+        }
+
+        var identifierRows = await connection.QueryAsync<TargetIdentifier>(
+            "SELECT IdentifierType, IdentifierValue FROM web.target_identifier WHERE TargetKey = @TargetKey ORDER BY IdentifierType",
+            new { TargetKey = targetKey });
+
+        return new TargetSummary
+        {
+            TargetKey = target.TargetKey,
+            TargetTypeKey = target.TargetTypeKey,
+            TargetTypeCode = target.TargetTypeCode,
+            TargetTypeDisplayName = target.TargetTypeDisplayName,
+            TargetName = target.TargetName,
+            InternalGuid = target.InternalGuid,
+            ApplicationKey = target.ApplicationKey,
+            ApplicationName = target.ApplicationName,
+            RiskScore = target.RiskScore,
+            Description = target.Description,
+            DiscoverySource = target.DiscoverySource,
+            ModifiedDate = target.ModifiedDate,
+            Identifiers = identifierRows.AsList()
+        };
+    }
+
     /// <summary>D-121: the grand total row count under the same base (no filter) condition -- backs the X-Total-Count response header.</summary>
     public async Task<int> GetTotalCountAsync()
     {
         using var connection = connectionFactory.Create();
         return await connection.QuerySingleAsync<int>("SELECT COUNT(*) FROM web.dim_target");
+    }
+
+    /// <summary>D-124 Phase 3: how many Targets match the current filter (ignoring paging) -- backs the new X-Filtered-Count header, distinct from GetTotalCountAsync's unfiltered grand total.</summary>
+    public async Task<int> GetFilteredCountAsync(int? targetTypeKey = null, int? applicationKey = null)
+    {
+        using var connection = connectionFactory.Create();
+        var sql = $"""
+            SELECT COUNT(*)
+            FROM web.dim_target t
+            {FilterWhereSql}
+            """;
+        return await connection.QuerySingleAsync<int>(sql, new { TargetTypeKey = targetTypeKey, ApplicationKey = applicationKey });
     }
 
     private static string BuildOrderByClause(IReadOnlyList<(string Field, bool Descending)>? sortBy)
@@ -105,6 +183,15 @@ public sealed class TargetRepository(IDbConnectionFactory connectionFactory)
         return rows.AsList();
     }
 
+    /// <summary>D-124 Phase 2: web.dim_target_type reference data for the Type dropdown, mirroring GetIdentifierTypesAsync()'s/AccessGroupRepository.GetSorTypesAsync()'s shape.</summary>
+    public async Task<IReadOnlyList<TargetTypeSummary>> GetTargetTypesAsync()
+    {
+        using var connection = connectionFactory.Create();
+        var rows = await connection.QueryAsync<TargetTypeSummary>(
+            "SELECT TargetTypeKey, TypeCode, DisplayName FROM web.dim_target_type ORDER BY DisplayName");
+        return rows.AsList();
+    }
+
     public async Task<int> CreateAsync(SaveTargetRequest request, int? modifiedByUserKey)
     {
         using var connection = connectionFactory.Create();
@@ -112,10 +199,10 @@ public sealed class TargetRepository(IDbConnectionFactory connectionFactory)
         using var transaction = connection.BeginTransaction();
 
         var targetKey = await connection.QuerySingleAsync<int>("""
-            INSERT INTO web.dim_target (TargetType, TargetName, ApplicationKey, RiskScore, Description, DiscoverySource, CreatedBy, ModifiedBy, ModifiedDate)
+            INSERT INTO web.dim_target (TargetTypeKey, TargetName, ApplicationKey, RiskScore, Description, DiscoverySource, CreatedBy, ModifiedBy, ModifiedDate)
             OUTPUT inserted.TargetKey
-            VALUES (@TargetType, @TargetName, @ApplicationKey, @RiskScore, @Description, @DiscoverySource, @ModifiedBy, @ModifiedBy, SYSUTCDATETIME())
-            """, new { request.TargetType, request.TargetName, request.ApplicationKey, request.RiskScore, request.Description, request.DiscoverySource, ModifiedBy = modifiedByUserKey }, transaction);
+            VALUES (@TargetTypeKey, @TargetName, @ApplicationKey, @RiskScore, @Description, @DiscoverySource, @ModifiedBy, @ModifiedBy, SYSUTCDATETIME())
+            """, new { request.TargetTypeKey, request.TargetName, request.ApplicationKey, request.RiskScore, request.Description, request.DiscoverySource, ModifiedBy = modifiedByUserKey }, transaction);
 
         await InsertIdentifiersAsync(connection, transaction, targetKey, request.Identifiers);
 
@@ -134,11 +221,11 @@ public sealed class TargetRepository(IDbConnectionFactory connectionFactory)
 
         await connection.ExecuteAsync("""
             UPDATE web.dim_target
-            SET TargetType = @TargetType, TargetName = @TargetName, ApplicationKey = @ApplicationKey,
+            SET TargetTypeKey = @TargetTypeKey, TargetName = @TargetName, ApplicationKey = @ApplicationKey,
                 RiskScore = @RiskScore, Description = @Description, DiscoverySource = @DiscoverySource,
                 ModifiedBy = @ModifiedBy, ModifiedDate = SYSUTCDATETIME()
             WHERE TargetKey = @TargetKey
-            """, new { TargetKey = targetKey, request.TargetType, request.TargetName, request.ApplicationKey, request.RiskScore, request.Description, request.DiscoverySource, ModifiedBy = modifiedByUserKey }, transaction);
+            """, new { TargetKey = targetKey, request.TargetTypeKey, request.TargetName, request.ApplicationKey, request.RiskScore, request.Description, request.DiscoverySource, ModifiedBy = modifiedByUserKey }, transaction);
 
         await connection.ExecuteAsync("DELETE FROM web.target_identifier WHERE TargetKey = @TargetKey", new { TargetKey = targetKey }, transaction);
         await InsertIdentifiersAsync(connection, transaction, targetKey, request.Identifiers);

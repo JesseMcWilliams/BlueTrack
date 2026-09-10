@@ -41,11 +41,21 @@ public sealed class TargetMatchReviewRepository(IDbConnectionFactory connectionF
         }
         else if (request.Resolution == "NewTarget")
         {
+            // D-124 Phase 2: TargetType is now an FK (TargetTypeKey) -- resolve
+            // the requested type code (or the 'Other' default) against
+            // web.dim_target_type by TypeCode rather than assuming a specific
+            // IDENTITY value, since that's only guaranteed stable as a code.
+            var newTargetTypeCode = request.NewTargetType ?? "Other";
+            var newTargetTypeKey = await connection.QuerySingleOrDefaultAsync<int?>(
+                "SELECT TargetTypeKey FROM web.dim_target_type WHERE TypeCode = @TypeCode",
+                new { TypeCode = newTargetTypeCode }, transaction)
+                ?? throw new InvalidOperationException($"Unknown target type '{newTargetTypeCode}'.");
+
             var targetKey = await connection.QuerySingleAsync<int>("""
-                INSERT INTO web.dim_target (TargetType, TargetName, RiskScore)
+                INSERT INTO web.dim_target (TargetTypeKey, TargetName, RiskScore)
                 OUTPUT inserted.TargetKey
-                VALUES (@TargetType, @TargetName, @RiskScore)
-                """, new { TargetType = request.NewTargetType ?? "Other", TargetName = request.NewTargetName ?? row.IdentifierValue, RiskScore = request.NewTargetRiskScore ?? 0 }, transaction);
+                VALUES (@TargetTypeKey, @TargetName, @RiskScore)
+                """, new { TargetTypeKey = newTargetTypeKey, TargetName = request.NewTargetName ?? row.IdentifierValue, RiskScore = request.NewTargetRiskScore ?? 0 }, transaction);
             await connection.ExecuteAsync(
                 "INSERT INTO web.target_identifier (TargetKey, IdentifierType, IdentifierValue) VALUES (@TargetKey, @IdentifierType, @IdentifierValue)",
                 new { TargetKey = targetKey, row.IdentifierType, row.IdentifierValue }, transaction);

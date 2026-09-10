@@ -4,7 +4,9 @@ namespace BlueTrack.Api.Models;
 public sealed class TargetSummary
 {
     public int TargetKey { get; init; }
-    public required string TargetType { get; init; }
+    public required int TargetTypeKey { get; init; }
+    public required string TargetTypeCode { get; init; }
+    public required string TargetTypeDisplayName { get; init; }
     public required string TargetName { get; init; }
     public Guid InternalGuid { get; init; }
     public int? ApplicationKey { get; init; }
@@ -24,7 +26,7 @@ public sealed class TargetIdentifier
 
 public sealed class SaveTargetRequest
 {
-    public required string TargetType { get; init; }
+    public required int TargetTypeKey { get; init; }
     public required string TargetName { get; init; }
     public int? ApplicationKey { get; init; }
     public required int RiskScore { get; init; }
@@ -44,4 +46,12 @@ public sealed class TargetIdentifierTypeSummary
     public required string IdentifierType { get; init; }
     public int MatchPriority { get; init; }
     public bool RequiresReview { get; init; }
+}
+
+/// <summary>D-124 Phase 2: web.dim_target_type -- the controlled list of what kind of destination a Target represents (code + a separate DisplayName, e.g. 'LdapDirectory' / 'LDAP Directory').</summary>
+public sealed class TargetTypeSummary
+{
+    public int TargetTypeKey { get; init; }
+    public required string TypeCode { get; init; }
+    public required string DisplayName { get; init; }
 }

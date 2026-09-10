@@ -17,9 +17,14 @@ public sealed class RiskScoreReportRepository(IDbConnectionFactory connectionFac
         ["riskScoreBandName"] = "band.RiskOrder"
     };
 
-    public async Task<IReadOnlyList<RiskScoreReportRow>> GetSummaryListAsync(IReadOnlyList<(string Field, bool Descending)>? sortBy = null)
+    /// <summary>D-124 Phase 3: page/pageSize add SQL Server OFFSET/FETCH paging after the ORDER BY. This report takes no filter params, so GetFilteredCountAsync below is always equal to GetTotalCountAsync, but paging still applies.</summary>
+    public async Task<IReadOnlyList<RiskScoreReportRow>> GetSummaryListAsync(
+        IReadOnlyList<(string Field, bool Descending)>? sortBy = null,
+        int? page = null,
+        int? pageSize = null)
     {
         using var connection = connectionFactory.Create();
+        var (normalizedPage, normalizedPageSize) = PagingParams.Normalize(page, pageSize);
 
         var sql = $"""
             SELECT
@@ -36,14 +41,26 @@ public sealed class RiskScoreReportRepository(IDbConnectionFactory connectionFac
             LEFT JOIN web.dim_risk_score_band band ON ars.EffectiveRiskScore BETWEEN band.MinScore AND band.MaxScore
             WHERE fa.IsDeleted = 0
             ORDER BY {BuildOrderByClause(sortBy)}
+            OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY
             """;
 
-        var rows = await connection.QueryAsync<RiskScoreReportRow>(sql);
+        var rows = await connection.QueryAsync<RiskScoreReportRow>(sql, new
+        {
+            Offset = PagingParams.Offset(normalizedPage, normalizedPageSize),
+            PageSize = normalizedPageSize
+        });
         return rows.AsList();
     }
 
     /// <summary>D-121: the grand total row count under the same base "active" condition (fa.IsDeleted = 0) -- backs the X-Total-Count response header. This report takes no filter params, so this is always equal to the body's own row count, but it establishes the same header on all six pages consistently.</summary>
     public async Task<int> GetTotalCountAsync()
+    {
+        using var connection = connectionFactory.Create();
+        return await connection.QuerySingleAsync<int>("SELECT COUNT(*) FROM dbo.fact_account fa WHERE fa.IsDeleted = 0");
+    }
+
+    /// <summary>D-124 Phase 3: backs the new X-Filtered-Count header. This report takes no filter params, so it's always equal to GetTotalCountAsync -- kept as its own method for consistency with the other five paginated endpoints, all of which have a real filter/unfiltered distinction.</summary>
+    public async Task<int> GetFilteredCountAsync()
     {
         using var connection = connectionFactory.Create();
         return await connection.QuerySingleAsync<int>("SELECT COUNT(*) FROM dbo.fact_account fa WHERE fa.IsDeleted = 0");

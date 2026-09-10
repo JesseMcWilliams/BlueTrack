@@ -24,11 +24,13 @@ public class RiskScoreCalculationTests
         // Reachable value set = {400, 200, 100}.
         // DominantPlusTail (decay 0.4): 400 + 200*0.4 + 100*0.16 = 400+80+16 = 496.
         // CombinedExposure: 1000*(1-(0.6*0.8*0.9)) = 1000*(1-0.432) = 568.
+        // D-124 Phase 2: TargetType is now an FK -- resolved by TypeCode via a
+        // subquery rather than assuming a specific IDENTITY value.
         var targetKey1 = await connection.QuerySingleAsync<int>(
-            "INSERT INTO web.dim_target (TargetType, TargetName, RiskScore) OUTPUT inserted.TargetKey VALUES ('Server', @Name, 400)",
+            "INSERT INTO web.dim_target (TargetTypeKey, TargetName, RiskScore) OUTPUT inserted.TargetKey VALUES ((SELECT TargetTypeKey FROM web.dim_target_type WHERE TypeCode = 'Server'), @Name, 400)",
             new { Name = $"IntegrationTest_{Guid.NewGuid():N}" });
         var targetKey2 = await connection.QuerySingleAsync<int>(
-            "INSERT INTO web.dim_target (TargetType, TargetName, RiskScore) OUTPUT inserted.TargetKey VALUES ('Server', @Name, 200)",
+            "INSERT INTO web.dim_target (TargetTypeKey, TargetName, RiskScore) OUTPUT inserted.TargetKey VALUES ((SELECT TargetTypeKey FROM web.dim_target_type WHERE TypeCode = 'Server'), @Name, 200)",
             new { Name = $"IntegrationTest_{Guid.NewGuid():N}" });
         var groupKey = await connection.QuerySingleAsync<int>(
             "INSERT INTO web.dim_access_group (GroupName, GroupIdentifier, GroupScope, BaseRiskScore) OUTPUT inserted.AccessGroupKey VALUES ('IntegrationTest Group', @Identifier, 'Domain', 100)",
@@ -75,7 +77,7 @@ public class RiskScoreCalculationTests
         await connection.OpenAsync();
 
         var sharedTargetKey = await connection.QuerySingleAsync<int>(
-            "INSERT INTO web.dim_target (TargetType, TargetName, RiskScore) OUTPUT inserted.TargetKey VALUES ('Server', @Name, 900)",
+            "INSERT INTO web.dim_target (TargetTypeKey, TargetName, RiskScore) OUTPUT inserted.TargetKey VALUES ((SELECT TargetTypeKey FROM web.dim_target_type WHERE TypeCode = 'Server'), @Name, 900)",
             new { Name = $"IntegrationTest_{Guid.NewGuid():N}" });
         var groupKey1 = await connection.QuerySingleAsync<int>(
             "INSERT INTO web.dim_access_group (GroupName, GroupIdentifier, GroupScope, BaseRiskScore) OUTPUT inserted.AccessGroupKey VALUES ('IntegrationTest Group1', @Identifier, 'Domain', 10)",
@@ -121,7 +123,7 @@ public class RiskScoreCalculationTests
         await connection.OpenAsync();
 
         var targetKey = await connection.QuerySingleAsync<int>(
-            "INSERT INTO web.dim_target (TargetType, TargetName, RiskScore) OUTPUT inserted.TargetKey VALUES ('Server', @Name, 500)",
+            "INSERT INTO web.dim_target (TargetTypeKey, TargetName, RiskScore) OUTPUT inserted.TargetKey VALUES ((SELECT TargetTypeKey FROM web.dim_target_type WHERE TypeCode = 'Server'), @Name, 500)",
             new { Name = $"IntegrationTest_{Guid.NewGuid():N}" });
         var accountKey = await connection.QuerySingleAsync<long>(
             "INSERT INTO fact_account (SourceSystemKey, SourceAccountId, AccountName, IsDeleted) OUTPUT inserted.AccountKey VALUES (1, @SourceAccountId, 'IntegrationTest Recalc Account', 0)",

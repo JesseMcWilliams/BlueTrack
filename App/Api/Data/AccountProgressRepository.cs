@@ -17,6 +17,8 @@ public sealed class AccountProgressRepository(IDbConnectionFactory connectionFac
     private static readonly IReadOnlyDictionary<string, string> SortableColumns = new Dictionary<string, string>
     {
         ["accountName"] = "fa.AccountName",
+        ["userName"] = "fa.UserName",
+        ["address"] = "fa.Address",
         ["stageName"] = "stg.StageOrder",
         ["statusName"] = "sts.StatusName",
         ["riskLevelName"] = "rl.RiskOrder",
@@ -27,19 +29,44 @@ public sealed class AccountProgressRepository(IDbConnectionFactory connectionFac
         ["riskScoreBandName"] = "band.RiskOrder"
     };
 
+    // D-124 Phase 3: shared between GetSummaryListAsync and
+    // GetFilteredCountAsync so the filtered-count query mirrors the list
+    // query's own FROM/JOIN/WHERE exactly -- the only real difference is
+    // paging/ORDER BY, which a COUNT doesn't need.
+    private const string FilterFromSql = """
+        FROM dbo.fact_account_progress fap
+        JOIN dbo.fact_account fa           ON fa.AccountKey = fap.AccountKey
+        JOIN dbo.dim_blueprint_stage stg    ON stg.StageKey = fap.CurrentStageKey
+        JOIN dbo.dim_progress_status sts     ON sts.StatusKey = fap.CurrentStatusKey
+        LEFT JOIN dbo.dim_risk_level rl         ON rl.RiskLevelKey = fap.RiskLevelKey
+        LEFT JOIN web.account_risk_score ars    ON ars.AccountKey = fa.AccountKey
+        LEFT JOIN web.dim_risk_score_band band  ON ars.EffectiveRiskScore BETWEEN band.MinScore AND band.MaxScore
+        WHERE fa.IsDeleted = 0
+          AND (@StageName IS NULL OR stg.StageName = @StageName)
+          AND (@StatusName IS NULL OR sts.StatusName = @StatusName)
+          AND (@RiskLevelName IS NULL OR rl.RiskLevelName = @RiskLevelName)
+          AND (@OwnerContains IS NULL OR fap.OwnerName LIKE '%' + @OwnerContains + '%')
+        """;
+
+    /// <summary>D-124 Phase 3: page/pageSize add SQL Server OFFSET/FETCH paging after the ORDER BY.</summary>
     public async Task<IReadOnlyList<AccountProgressSummary>> GetSummaryListAsync(
         string? stageName = null,
         string? statusName = null,
         string? riskLevelName = null,
         string? ownerContains = null,
-        IReadOnlyList<(string Field, bool Descending)>? sortBy = null)
+        IReadOnlyList<(string Field, bool Descending)>? sortBy = null,
+        int? page = null,
+        int? pageSize = null)
     {
         using var connection = connectionFactory.Create();
+        var (normalizedPage, normalizedPageSize) = PagingParams.Normalize(page, pageSize);
 
         var sql = $"""
             SELECT
                 fa.AccountKey,
                 fa.AccountName,
+                fa.UserName,
+                fa.Address,
                 stg.StageName,
                 sts.StatusName,
                 rl.RiskLevelName,
@@ -48,19 +75,9 @@ public sealed class AccountProgressRepository(IDbConnectionFactory connectionFac
                 fap.ActualCompletionDate,
                 ars.EffectiveRiskScore,
                 band.BandName AS RiskScoreBandName
-            FROM dbo.fact_account_progress fap
-            JOIN dbo.fact_account fa           ON fa.AccountKey = fap.AccountKey
-            JOIN dbo.dim_blueprint_stage stg    ON stg.StageKey = fap.CurrentStageKey
-            JOIN dbo.dim_progress_status sts     ON sts.StatusKey = fap.CurrentStatusKey
-            LEFT JOIN dbo.dim_risk_level rl         ON rl.RiskLevelKey = fap.RiskLevelKey
-            LEFT JOIN web.account_risk_score ars    ON ars.AccountKey = fa.AccountKey
-            LEFT JOIN web.dim_risk_score_band band  ON ars.EffectiveRiskScore BETWEEN band.MinScore AND band.MaxScore
-            WHERE fa.IsDeleted = 0
-              AND (@StageName IS NULL OR stg.StageName = @StageName)
-              AND (@StatusName IS NULL OR sts.StatusName = @StatusName)
-              AND (@RiskLevelName IS NULL OR rl.RiskLevelName = @RiskLevelName)
-              AND (@OwnerContains IS NULL OR fap.OwnerName LIKE '%' + @OwnerContains + '%')
+            {FilterFromSql}
             ORDER BY {BuildOrderByClause(sortBy)}
+            OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY
             """;
 
         var rows = await connection.QueryAsync<AccountProgressSummary>(sql, new
@@ -68,7 +85,9 @@ public sealed class AccountProgressRepository(IDbConnectionFactory connectionFac
             StageName = stageName,
             StatusName = statusName,
             RiskLevelName = riskLevelName,
-            OwnerContains = ownerContains
+            OwnerContains = ownerContains,
+            Offset = PagingParams.Offset(normalizedPage, normalizedPageSize),
+            PageSize = normalizedPageSize
         });
         return rows.AsList();
     }
@@ -78,6 +97,24 @@ public sealed class AccountProgressRepository(IDbConnectionFactory connectionFac
     {
         using var connection = connectionFactory.Create();
         return await connection.QuerySingleAsync<int>("SELECT COUNT(*) FROM dbo.fact_account_progress fap JOIN dbo.fact_account fa ON fa.AccountKey = fap.AccountKey WHERE fa.IsDeleted = 0");
+    }
+
+    /// <summary>D-124 Phase 3: how many rows match the current filter (ignoring paging) -- backs the new X-Filtered-Count header, distinct from GetTotalCountAsync's unfiltered grand total.</summary>
+    public async Task<int> GetFilteredCountAsync(
+        string? stageName = null,
+        string? statusName = null,
+        string? riskLevelName = null,
+        string? ownerContains = null)
+    {
+        using var connection = connectionFactory.Create();
+        var sql = $"SELECT COUNT(*) {FilterFromSql}";
+        return await connection.QuerySingleAsync<int>(sql, new
+        {
+            StageName = stageName,
+            StatusName = statusName,
+            RiskLevelName = riskLevelName,
+            OwnerContains = ownerContains
+        });
     }
 
     private static string BuildOrderByClause(IReadOnlyList<(string Field, bool Descending)>? sortBy)
@@ -98,14 +135,20 @@ public sealed class AccountProgressRepository(IDbConnectionFactory connectionFac
     public async Task<AccountProgressDetail?> GetDetailAsync(long accountKey)
     {
         using var connection = connectionFactory.Create();
+        // D-127: same web.account_risk_score/dim_risk_score_band join as
+        // GetSummaryListAsync's FilterFromSql, so Calculated Risk/Risk Band/
+        // Override on this page always agree with the list's own values.
         const string sql = """
             SELECT
-                fap.ProgressKey, fap.AccountKey, fa.AccountName,
+                fap.ProgressKey, fap.AccountKey, fa.AccountName, fa.UserName, fa.Address,
                 fap.CurrentStageKey, fap.CurrentStatusKey, fap.RiskLevelKey, fap.AccountTypeKey, fap.SORKey,
                 fap.OwnerName, fap.BusinessUnit, fap.TargetRemediationDate, fap.ActualCompletionDate, fap.Notes,
-                fap.LastUpdated, fap.ExceptionKey
+                fap.LastUpdated, fap.ExceptionKey,
+                ars.ComputedRiskScore, ars.OverrideRiskScore, ars.EffectiveRiskScore, band.BandName AS RiskScoreBandName
             FROM dbo.fact_account_progress fap
             JOIN dbo.fact_account fa ON fa.AccountKey = fap.AccountKey
+            LEFT JOIN web.account_risk_score ars   ON ars.AccountKey = fa.AccountKey
+            LEFT JOIN web.dim_risk_score_band band ON ars.EffectiveRiskScore BETWEEN band.MinScore AND band.MaxScore
             WHERE fap.AccountKey = @AccountKey
             """;
         return await connection.QuerySingleOrDefaultAsync<AccountProgressDetail>(sql, new { AccountKey = accountKey });
@@ -197,6 +240,20 @@ public sealed class AccountProgressRepository(IDbConnectionFactory connectionFac
             """, new { AccountKey = accountKey, OverrideRiskScore = overrideRiskScore, Reason = reason, SetByUserKey = setByUserKey }, transaction);
 
         transaction.Commit();
+    }
+
+    /// <summary>
+    /// D-131: a per-account "Recalculate" action on the Account Progress
+    /// edit screen's Risk Score tab -- usp_RecalculateRiskScoreForAccount
+    /// (Database/30) reuses the same usp_CalculateRiskScore dispatcher the
+    /// bulk usp_RecalculateRiskScores does, so this produces the identical
+    /// number that a full recalculation would for this one account,
+    /// regardless of whether it happened to be marked stale.
+    /// </summary>
+    public async Task RecalculateForAccountAsync(long accountKey)
+    {
+        using var connection = connectionFactory.Create();
+        await connection.ExecuteAsync("EXEC usp_RecalculateRiskScoreForAccount @AccountKey", new { AccountKey = accountKey });
     }
 
     /// <summary>D-81: Active application-scoped exceptions covering this account, computed live (web.vw_account_application_exception).</summary>
