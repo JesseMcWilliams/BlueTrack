@@ -31,9 +31,18 @@ function emptyResponse() {
   return { ok: true, status: 200, text: () => Promise.resolve(''), json: () => Promise.resolve(null) }
 }
 
+// D-132: RiskLevelKey/BusinessUnit/TargetRemediationDate added alongside
+// the pre-existing Stage/Status so the read-only-view test below exercises
+// all three of displayValueFor()'s branches (Dropdown/Text/Date), not just
+// Dropdown -- the real account_progress_field_metadata seed has 10 fields
+// total; these 5 are enough to cover the rendering logic without
+// replicating the full seed here.
 const fieldMetadata = [
   { fieldName: 'CurrentStageKey', displayLabel: 'Stage', fieldType: 'Dropdown', isRequired: true, displayOrder: 1, referenceTable: 'dim_blueprint_stage' },
-  { fieldName: 'CurrentStatusKey', displayLabel: 'Status', fieldType: 'Dropdown', isRequired: true, displayOrder: 2, referenceTable: 'dim_progress_status' }
+  { fieldName: 'CurrentStatusKey', displayLabel: 'Status', fieldType: 'Dropdown', isRequired: true, displayOrder: 2, referenceTable: 'dim_progress_status' },
+  { fieldName: 'RiskLevelKey', displayLabel: 'Risk Level', fieldType: 'Dropdown', isRequired: false, displayOrder: 3, referenceTable: 'dim_risk_level' },
+  { fieldName: 'BusinessUnit', displayLabel: 'Business Unit', fieldType: 'Text', isRequired: false, displayOrder: 4, referenceTable: null },
+  { fieldName: 'TargetRemediationDate', displayLabel: 'Target Remediation Date', fieldType: 'Date', isRequired: false, displayOrder: 5, referenceTable: null }
 ]
 
 const referenceData = {
@@ -41,7 +50,8 @@ const referenceData = {
   dim_progress_status: [
     { key: 1, name: 'Not Started' },
     { key: RISK_ACCEPTED_STATUS_KEY, name: 'Risk Accepted / Excluded' }
-  ]
+  ],
+  dim_risk_level: [{ key: 5, name: 'High' }]
 }
 
 function baseDetail(overrides = {}) {
@@ -87,6 +97,12 @@ function mockLoad({ detailOverrides = {}, recalculatedDetailOverrides = { comput
       return Promise.resolve(emptyResponse())
     }
     if (url === '/api/risk-exceptions') return Promise.resolve(jsonResponse([]))
+    if (/^\/api\/risk-exceptions\/\d+$/.test(url)) {
+      return Promise.resolve(jsonResponse({
+        exceptionKey: 7, exceptionID: 'EX-7', justification: 'Approved by CISO',
+        reviewDate: '2026-06-01T00:00:00', statusName: 'Active'
+      }))
+    }
     return Promise.resolve(jsonResponse(null, { ok: false, status: 404 }))
   })
 }
@@ -137,6 +153,7 @@ describe('AccountProgressDetail.vue', () => {
     expect(wrapper.get('#account-progress-panel-details').attributes('style')).toContain('display: none')
     expect(wrapper.get('#account-progress-panel-risk-score').attributes('style')).toBeUndefined()
     expect(wrapper.text()).toContain('Calculated Risk')
+    expect(wrapper.text()).toContain('Effective Risk Score')
   })
 
   it('ArrowRight moves from Details to Risk Score', async () => {
@@ -173,5 +190,40 @@ describe('AccountProgressDetail.vue', () => {
     expect(globalThis.fetch).toHaveBeenCalledWith('/api/account-progress/42/recalculate-risk-score', { method: 'POST' })
     expect(wrapper.get('#account-progress-panel-risk-score').text()).toContain('Calculated Risk250')
     expect(wrapper.get('#account-progress-panel-risk-score').text()).toContain('Risk BandMedium')
+  })
+
+  // D-132: a viewer with no EditAccountProgress permission never acquires
+  // the lock, so this exercises the read-only <dl> -- confirmed to have
+  // been missing most of the model (Risk Level/Account Type/SOR/Business
+  // Unit/dates/Effective Risk Score/Override/Last Updated/linked Risk
+  // Exception) and showing Stage/Status as raw keys instead of resolved
+  // names before this fix.
+  it('read-only view (no edit permission) shows every field with resolved names, not raw keys', async () => {
+    const rights = useRightsStore()
+    rights.permissionNames = []
+    mockLoad({
+      detailOverrides: {
+        riskLevelKey: 5,
+        businessUnit: 'Finance',
+        targetRemediationDate: '2026-03-01T00:00:00',
+        overrideRiskScore: 400,
+        effectiveRiskScore: 400,
+        exceptionKey: 7
+      }
+    })
+    const wrapper = await mountEditable()
+
+    expect(wrapper.find('form').exists()).toBe(false)
+    const text = wrapper.text()
+    expect(text).toContain('StageDiscovered')
+    expect(text).toContain('StatusNot Started')
+    expect(text).toContain('Risk LevelHigh')
+    expect(text).toContain('Business UnitFinance')
+    expect(text).toContain('Target Remediation Date2026-03-01')
+    expect(text).toContain('Last Updated2026-01-01')
+    expect(text).toContain('Calculated Risk100')
+    expect(text).toContain('Effective Risk Score400')
+    expect(text).toContain('Override Risk Score400')
+    expect(text).toContain('Risk ExceptionEX-7 (Active) — Approved by CISO, reviewed 2026-06-01')
   })
 })

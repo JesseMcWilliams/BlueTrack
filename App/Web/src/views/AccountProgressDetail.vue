@@ -64,6 +64,38 @@ const overrideSaving = ref(false)
 const recalculating = ref(false)
 const recalculateError = ref(null)
 
+// D-132: the linked risk_exception's own detail (ExceptionID/Justification/
+// ReviewDate/StatusName) -- detail.exceptionKey is only ever a pointer, so
+// the read-only view needs its own fetch to show anything meaningful about
+// it (GET .../{exceptionKey} has no policy restriction beyond [Authorize],
+// same as every other read on this page).
+const linkedException = ref(null)
+
+async function loadLinkedException() {
+  linkedException.value = null
+  if (!detail.value?.exceptionKey) return
+  const response = await fetch(`/api/risk-exceptions/${detail.value.exceptionKey}`)
+  if (response.ok) linkedException.value = await response.json()
+}
+
+// D-132: read-only-view equivalent of the edit form's dropdown/date
+// rendering -- same field-metadata list (sortedFields), same
+// referenceData lookup (optionsFor), just resolved to display text instead
+// of an <select>/<input>. Keeps the read-only view honest with whatever
+// fields account_progress_field_metadata defines, rather than a hand-picked
+// subset that silently drifts from the edit form over time.
+function displayValueFor(field) {
+  const value = detail.value?.[formKeyByFieldName[field.fieldName]]
+  if (field.fieldType === 'Dropdown') {
+    const match = optionsFor(field).find(opt => String(opt.key) === String(value))
+    return match?.name ?? '—'
+  }
+  if (field.fieldType === 'Date') {
+    return value ? formatDate(value) : '—'
+  }
+  return value || '—'
+}
+
 async function refreshDetail() {
   const detailResponse = await fetch(`/api/account-progress/${props.accountKey}`)
   if (detailResponse.ok) {
@@ -255,6 +287,7 @@ async function load() {
     applicationExceptions.value = await readJsonOrDefault(appExceptionsResponse, [])
 
     resetFormFromDetail()
+    await loadLinkedException()
 
     // Don't attempt to acquire the edit lock for a user who can't edit
     // anyway -- that's a 403 from AcquireLock, not a real "someone else has
@@ -472,6 +505,7 @@ onUnmounted(releaseLock)
           <dl>
             <dt>Calculated Risk</dt><dd>{{ detail.computedRiskScore ?? '(not yet calculated)' }}</dd>
             <dt>Risk Band</dt><dd>{{ detail.riskScoreBandName ?? '—' }}</dd>
+            <dt>Effective Risk Score</dt><dd>{{ detail.effectiveRiskScore ?? '—' }}</dd>
           </dl>
           <p v-if="recalculateError" role="alert">{{ recalculateError }}</p>
           <p>
@@ -528,12 +562,21 @@ onUnmounted(releaseLock)
       </form>
 
       <dl v-else>
-        <dt>Stage</dt><dd>{{ detail.currentStageKey }}</dd>
-        <dt>Status</dt><dd>{{ detail.currentStatusKey }}</dd>
-        <dt>Owner</dt><dd>{{ detail.ownerName }}</dd>
-        <dt>Notes</dt><dd>{{ detail.notes }}</dd>
+        <template v-for="field in sortedFields" :key="field.fieldName">
+          <dt>{{ field.displayLabel }}</dt>
+          <dd>{{ displayValueFor(field) }}</dd>
+        </template>
+        <dt>Last Updated</dt><dd>{{ formatDate(detail.lastUpdated) }}</dd>
         <dt>Calculated Risk</dt><dd>{{ detail.computedRiskScore ?? '(not yet calculated)' }}</dd>
         <dt>Risk Band</dt><dd>{{ detail.riskScoreBandName ?? '—' }}</dd>
+        <dt>Effective Risk Score</dt><dd>{{ detail.effectiveRiskScore ?? '—' }}</dd>
+        <template v-if="detail.overrideRiskScore !== null">
+          <dt>Override Risk Score</dt><dd>{{ detail.overrideRiskScore }}</dd>
+        </template>
+        <template v-if="linkedException">
+          <dt>Risk Exception</dt>
+          <dd>{{ linkedException.exceptionID }} ({{ linkedException.statusName }}) — {{ linkedException.justification }}, reviewed {{ formatDate(linkedException.reviewDate) }}</dd>
+        </template>
       </dl>
     </template>
   </div>
