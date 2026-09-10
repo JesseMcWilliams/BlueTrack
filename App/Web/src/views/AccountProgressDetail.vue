@@ -2,7 +2,7 @@
 // Field-metadata-driven edit form (Design_Interface_Extensibility.md) with
 // pessimistic locking (D-50) and the two validation rules from D-51
 // (enforced server-side; this form just surfaces whatever error comes back).
-import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { useRightsStore } from '../stores/rights'
 import { formatDate } from '../utils/formatDate'
@@ -119,8 +119,43 @@ watch(isRiskAccepted, async (nowRiskAccepted) => {
   if (nowRiskAccepted) {
     await loadLinkableExceptions()
     selectedExceptionKey.value = detail.value?.exceptionKey ?? ''
+  } else if (activeTab.value === 'risk-exception') {
+    // The tab this user was on just stopped existing (status moved away
+    // from Risk Accepted / Excluded) -- fall back rather than leave the
+    // panel showing content for a now-hidden tab.
+    activeTab.value = 'details'
   }
 })
+
+// D-130: this form had grown into one long scroll (main fields, Risk
+// Score, Risk Exception) -- split into tabs, confirmed directly, following
+// the ARIA APG Tabs pattern (https://www.w3.org/WAI/ARIA/apg/patterns/tabs/)
+// this app already uses for its sortable-table headers (D-92) elsewhere.
+// Automatic activation model: arrow keys move focus AND switch the active
+// panel immediately, matching that same precedent's own choice for a
+// small, fixed set of options. The Reason field and Save/Cancel buttons
+// stay outside the tabs entirely -- they apply to the whole record, not
+// to whichever tab happens to be open.
+const activeTab = ref('details')
+const tabs = computed(() => [
+  { key: 'details', label: 'Details' },
+  { key: 'risk-score', label: 'Risk Score' },
+  ...(isRiskAccepted.value ? [{ key: 'risk-exception', label: 'Risk Exception' }] : [])
+])
+
+function onTabKeydown(event) {
+  const currentIndex = tabs.value.findIndex(t => t.key === activeTab.value)
+  let targetIndex = null
+  if (event.key === 'ArrowRight') targetIndex = (currentIndex + 1) % tabs.value.length
+  else if (event.key === 'ArrowLeft') targetIndex = (currentIndex - 1 + tabs.value.length) % tabs.value.length
+  else if (event.key === 'Home') targetIndex = 0
+  else if (event.key === 'End') targetIndex = tabs.value.length - 1
+  else return
+
+  event.preventDefault()
+  activeTab.value = tabs.value[targetIndex].key
+  nextTick(() => document.getElementById(`account-progress-tab-${tabs.value[targetIndex].key}`)?.focus())
+}
 
 async function loadLinkableExceptions() {
   exceptionError.value = null
@@ -362,24 +397,54 @@ onUnmounted(releaseLock)
 
       <form v-if="lockedByMe" @submit.prevent="save">
         <p v-if="saveError" role="alert">{{ saveError }}</p>
-        <p v-for="field in sortedFields" :key="field.fieldName">
-          <label class="field-label">
-            <span class="field-label-text">{{ field.displayLabel }}<span v-if="field.isRequired"> *</span>:</span>
 
-            <select v-if="field.fieldType === 'Dropdown'" v-model="form[formKeyByFieldName[field.fieldName]]" :required="field.isRequired">
-              <option value="">(none)</option>
-              <option v-for="opt in optionsFor(field)" :key="opt.key" :value="opt.key">{{ opt.name }}</option>
-            </select>
+        <div role="tablist" class="account-progress-tabs" aria-label="Account Progress sections">
+          <button
+            v-for="tab in tabs"
+            :key="tab.key"
+            :id="`account-progress-tab-${tab.key}`"
+            role="tab"
+            type="button"
+            class="account-progress-tab"
+            :class="{ 'account-progress-tab--active': activeTab === tab.key }"
+            :aria-selected="activeTab === tab.key"
+            :aria-controls="`account-progress-panel-${tab.key}`"
+            :tabindex="activeTab === tab.key ? 0 : -1"
+            @click="activeTab = tab.key"
+            @keydown="onTabKeydown"
+          >{{ tab.label }}</button>
+        </div>
 
-            <input v-else-if="field.fieldType === 'Date'" v-model="form[formKeyByFieldName[field.fieldName]]" type="date" />
+        <div
+          v-show="activeTab === 'details'"
+          id="account-progress-panel-details"
+          role="tabpanel"
+          aria-labelledby="account-progress-tab-details"
+        >
+          <p v-for="field in sortedFields" :key="field.fieldName">
+            <label class="field-label">
+              <span class="field-label-text">{{ field.displayLabel }}<span v-if="field.isRequired"> *</span>:</span>
 
-            <textarea v-else-if="field.fieldType === 'TextArea'" v-model="form[formKeyByFieldName[field.fieldName]]"></textarea>
+              <select v-if="field.fieldType === 'Dropdown'" v-model="form[formKeyByFieldName[field.fieldName]]" :required="field.isRequired">
+                <option value="">(none)</option>
+                <option v-for="opt in optionsFor(field)" :key="opt.key" :value="opt.key">{{ opt.name }}</option>
+              </select>
 
-            <input v-else v-model="form[formKeyByFieldName[field.fieldName]]" type="text" />
-          </label>
-        </p>
-        <div>
-          <h3>Risk Score</h3>
+              <input v-else-if="field.fieldType === 'Date'" v-model="form[formKeyByFieldName[field.fieldName]]" type="date" />
+
+              <textarea v-else-if="field.fieldType === 'TextArea'" v-model="form[formKeyByFieldName[field.fieldName]]"></textarea>
+
+              <input v-else v-model="form[formKeyByFieldName[field.fieldName]]" type="text" />
+            </label>
+          </p>
+        </div>
+
+        <div
+          v-show="activeTab === 'risk-score'"
+          id="account-progress-panel-risk-score"
+          role="tabpanel"
+          aria-labelledby="account-progress-tab-risk-score"
+        >
           <dl>
             <dt>Calculated Risk</dt><dd>{{ detail.computedRiskScore ?? '(not yet calculated)' }}</dd>
             <dt>Risk Band</dt><dd>{{ detail.riskScoreBandName ?? '—' }}</dd>
@@ -395,8 +460,14 @@ onUnmounted(releaseLock)
             <button type="button" :disabled="overrideSaving" @click="saveOverride">Save Override</button>
           </p>
         </div>
-        <div v-if="isRiskAccepted">
-          <h3>Risk Exception</h3>
+
+        <div
+          v-if="isRiskAccepted"
+          v-show="activeTab === 'risk-exception'"
+          id="account-progress-panel-risk-exception"
+          role="tabpanel"
+          aria-labelledby="account-progress-tab-risk-exception"
+        >
           <p>Status is Risk Accepted / Excluded -- link an existing Active exception for this account, or create one.</p>
           <p v-if="exceptionError" role="alert">{{ exceptionError }}</p>
           <p>
@@ -420,6 +491,7 @@ onUnmounted(releaseLock)
             <button type="button" class="btn-primary" :disabled="creatingException" @click="createInlineException">Create Exception</button>
           </div>
         </div>
+
         <p>
           <label class="field-label"><span class="field-label-text">Reason (required only if regressing to an earlier stage):</span> <input v-model="reason" type="text" /></label>
         </p>
@@ -438,3 +510,24 @@ onUnmounted(releaseLock)
     </template>
   </div>
 </template>
+
+<style scoped>
+.account-progress-tabs {
+  display: flex;
+  gap: var(--space-1);
+  border-bottom: 1px solid var(--color-border);
+  margin-bottom: var(--space-3);
+}
+.account-progress-tab {
+  border: none;
+  border-bottom: 3px solid transparent;
+  border-radius: 0;
+  background: transparent;
+  margin-right: 0;
+  margin-bottom: -1px;
+}
+.account-progress-tab--active {
+  border-bottom-color: var(--color-link);
+  font-weight: 700;
+}
+</style>
