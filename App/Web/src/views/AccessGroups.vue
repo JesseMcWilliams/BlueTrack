@@ -28,6 +28,7 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useTotalCount } from '../composables/useTotalCount'
+import { confirmDelete } from '../composables/useConfirmDialog'
 import { usePageSizeStore } from '../stores/pageSize'
 import FilterCountSummary from '../components/FilterCountSummary.vue'
 import Pager from '../components/Pager.vue'
@@ -144,6 +145,7 @@ watch([scopeFilter, sorTypeFilter, sortQueryParam], () => {
 })
 
 async function remove(item) {
+  if (!(await confirmDelete(`Delete Access Group "${item.groupName}"? This cannot be undone.`))) return
   const response = await fetch(`/api/admin/access-groups/${item.accessGroupKey}`, { method: 'DELETE' })
   if (!response.ok) {
     error.value = `Delete failed: ${response.status} (a group still referenced by a Target/Account mapping can't be deleted)`

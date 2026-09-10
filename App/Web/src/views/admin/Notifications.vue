@@ -16,6 +16,7 @@
 // email sections are all untouched too.
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { confirmDelete } from '../../composables/useConfirmDialog'
 
 const router = useRouter()
 
@@ -119,6 +120,7 @@ async function toggleRecipientActive(recipient) {
 }
 
 async function removeRecipient(recipient) {
+  if (!(await confirmDelete(`Delete recipient "${recipient.email}"? This cannot be undone.`))) return
   recipientsError.value = null
   const response = await fetch(`/api/admin/notifications/recipients/${recipient.recipientKey}`, { method: 'DELETE' })
   if (!response.ok) {

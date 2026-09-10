@@ -12,6 +12,7 @@
 // row and the Lookup/Test Tool below are both untouched.
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { confirmDelete } from '../../composables/useConfirmDialog'
 
 const router = useRouter()
 
@@ -54,6 +55,7 @@ async function lookup() {
 }
 
 async function remove(mapping) {
+  if (!(await confirmDelete(`Delete mapping "${mapping.identityGroupName} → ${mapping.roleName}"? This cannot be undone.`))) return
   const response = await fetch(`/api/admin/group-role-mappings/${mapping.mappingKey}`, { method: 'DELETE' })
   if (!response.ok) {
     error.value = `Delete failed: ${response.status}`

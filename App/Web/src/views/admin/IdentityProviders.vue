@@ -20,6 +20,7 @@
 // inline editing form.
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { confirmDelete } from '../../composables/useConfirmDialog'
 
 const router = useRouter()
 
@@ -43,6 +44,7 @@ async function load() {
 onMounted(load)
 
 async function remove(provider) {
+  if (!(await confirmDelete(`Delete Identity Provider "${provider.displayName}"? This cannot be undone.`))) return
   const response = await fetch(`/api/admin/identity-providers/${provider.providerKey}`, { method: 'DELETE' })
   if (!response.ok) {
     error.value = `Delete failed: ${response.status}`

@@ -7,6 +7,7 @@
 // out of the Admin hub now that Analyst holds those permissions too.
 import { ref, onMounted } from 'vue'
 import Breadcrumbs from './components/Breadcrumbs.vue'
+import ConfirmDialog from './components/ConfirmDialog.vue'
 import { useRightsStore } from './stores/rights'
 
 const rights = useRightsStore()
@@ -89,6 +90,7 @@ onMounted(async () => {
       <router-view />
     </main>
     <div id="route-announcer" class="visually-hidden" role="status" aria-live="polite"></div>
+    <ConfirmDialog />
   </div>
 </template>
 

@@ -9,6 +9,7 @@
 // longer needs the permission catalog itself (that moved to RoleEdit.vue).
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { confirmDelete } from '../../composables/useConfirmDialog'
 
 const router = useRouter()
 
@@ -32,6 +33,7 @@ async function load() {
 onMounted(load)
 
 async function remove(role) {
+  if (!(await confirmDelete(`Delete role "${role.roleName}"? This cannot be undone.`))) return
   const response = await fetch(`/api/admin/roles/${role.appRoleKey}`, { method: 'DELETE' })
   if (!response.ok) {
     error.value = `Delete failed: ${response.status} (a role still mapped to a group can't be deleted)`

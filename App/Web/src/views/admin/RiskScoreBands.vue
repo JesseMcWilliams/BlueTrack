@@ -10,6 +10,7 @@
 // no longer owns an inline editing/startCreate/startEdit/cancelEdit form.
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { confirmDelete } from '../../composables/useConfirmDialog'
 
 const router = useRouter()
 
@@ -33,6 +34,7 @@ async function load() {
 onMounted(load)
 
 async function remove(item) {
+  if (!(await confirmDelete(`Delete band "${item.bandName}"? This cannot be undone.`))) return
   const response = await fetch(`/api/admin/risk-score-bands/${item.riskScoreBandKey}`, { method: 'DELETE' })
   if (!response.ok) {
     error.value = `Delete failed: ${response.status}`

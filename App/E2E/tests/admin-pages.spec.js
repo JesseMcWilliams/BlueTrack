@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test'
 import { signInAs } from './auth.js'
+import { confirmDelete } from './confirmDialog.js'
 
 // Layer 4: the 8 Admin sub-pages (D-47) -- confirmed genuinely built (not
 // placeholders) by reading each .vue source before writing these, not
@@ -64,6 +65,7 @@ test.describe('Identity Providers admin page', () => {
     await expect(page.locator('tbody tr', { hasText: updatedName })).toBeVisible()
 
     await page.locator('tbody tr', { hasText: updatedName }).getByRole('button', { name: 'Delete' }).click()
+    await confirmDelete(page)
     await expect(page.locator('tbody tr', { hasText: updatedName })).toHaveCount(0)
   })
 
@@ -98,6 +100,7 @@ test.describe('Identity Providers admin page', () => {
       await expect(page).toHaveURL(/\/admin\/identity-providers$/)
     } finally {
       await row.getByRole('button', { name: 'Delete' }).click()
+      await confirmDelete(page)
       await expect(row).toHaveCount(0)
     }
   })
@@ -124,6 +127,7 @@ test.describe('Group → Role Mapping admin page', () => {
     const leftoverRow = page.locator('tbody tr', { hasText: builtinUsersSid })
     if (await leftoverRow.count() > 0) {
       await leftoverRow.getByRole('button', { name: 'Delete' }).click()
+      await confirmDelete(page)
       await expect(leftoverRow).toHaveCount(0)
     }
 
@@ -144,6 +148,7 @@ test.describe('Group → Role Mapping admin page', () => {
     const row = page.locator('tbody tr', { hasText: builtinUsersSid })
     await expect(row).toBeVisible()
     await row.getByRole('button', { name: 'Delete' }).click()
+    await confirmDelete(page)
     await expect(row).toHaveCount(0)
 
     // D-113 replaced this field's bare placeholder with a real <label> (an accessibility fix) -- this test wasn't updated to match at the time.
@@ -179,6 +184,7 @@ test.describe('Roles & Permissions admin page', () => {
     await expect(row).toContainText('ViewDashboard')
 
     await row.getByRole('button', { name: 'Delete' }).click()
+    await confirmDelete(page)
     await expect(row).toHaveCount(0)
   })
 })
@@ -291,6 +297,7 @@ test.describe('Field Metadata Management admin page', () => {
     await expect(page.locator('tbody tr', { hasText: fieldName })).toContainText('Updated Label')
 
     await page.locator('tbody tr', { hasText: fieldName }).getByRole('button', { name: 'Delete' }).click()
+    await confirmDelete(page)
     await expect(page.locator('tbody tr', { hasText: fieldName })).toHaveCount(0)
   })
 })
@@ -377,6 +384,7 @@ test.describe('Credentials & LDAP admin page', () => {
     await expect(row).toContainText('User') // upgraded after the first real decrypt
 
     await row.getByRole('button', { name: 'Delete' }).click()
+    await confirmDelete(page)
     await expect(page.locator('tbody tr', { hasText: credentialName })).toHaveCount(0)
   })
 
@@ -457,6 +465,7 @@ test.describe('Notifications admin page', () => {
     await expect(page.locator('tbody tr', { hasText: email })).toContainText('No')
 
     await page.locator('tbody tr', { hasText: email }).getByRole('button', { name: 'Delete' }).click()
+    await confirmDelete(page)
     await expect(page.locator('tbody tr', { hasText: email })).toHaveCount(0)
   })
 
@@ -515,11 +524,15 @@ test.describe('Risk Score Bands admin page', () => {
       await expect(page.locator('tbody tr', { hasText: updatedName })).toBeVisible()
 
       await page.locator('tbody tr', { hasText: updatedName }).getByRole('button', { name: 'Delete' }).click()
+      await confirmDelete(page)
       await expect(page.locator('tbody tr', { hasText: updatedName })).toHaveCount(0)
     } catch (err) {
       // Best-effort cleanup if an assertion above failed partway through.
       const leftover = page.locator('tbody tr', { hasText: bandName })
-      if (await leftover.count() > 0) await leftover.getByRole('button', { name: 'Delete' }).click()
+      if (await leftover.count() > 0) {
+        await leftover.getByRole('button', { name: 'Delete' }).click()
+        await confirmDelete(page)
+      }
       throw err
     }
   })

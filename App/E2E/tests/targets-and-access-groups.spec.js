@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test'
 import { signInAs } from './auth.js'
+import { confirmDelete } from './confirmDialog.js'
 
 // Layer 4 (Design_Testing_Strategy.md): D-121 promoted Targets/Access
 // Groups out of the Admin hub to their own top-level nav entries and
@@ -97,6 +98,7 @@ test.describe('Targets page', () => {
     await expect(page.locator('tbody tr', { hasText: updatedName })).toBeVisible()
 
     await page.locator('tbody tr', { hasText: updatedName }).getByRole('button', { name: 'Delete' }).click()
+    await confirmDelete(page)
     await expect(page.locator('tbody tr', { hasText: updatedName })).toHaveCount(0)
   })
 })
@@ -139,6 +141,7 @@ test.describe('Access Groups page', () => {
     await expect(page).toHaveURL(/\/access-groups$/)
 
     await page.locator('tbody tr', { hasText: groupName }).getByRole('button', { name: 'Delete' }).click()
+    await confirmDelete(page)
     await expect(page.locator('tbody tr', { hasText: groupName })).toHaveCount(0)
   })
 })

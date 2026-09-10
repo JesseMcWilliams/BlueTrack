@@ -3,6 +3,18 @@ import { mount, flushPromises } from '@vue/test-utils'
 import { createRouter, createMemoryHistory } from 'vue-router'
 import RiskScoreBands from './RiskScoreBands.vue'
 
+// D-128: Delete now awaits the shared confirmDelete(...) dialog
+// (App/Web/src/components/ConfirmDialog.vue, mounted once in App.vue --
+// not present in this isolated component mount) before proceeding. Mocked
+// here so this file's own tests stay focused on RiskScoreBands.vue's
+// delete-wiring, not the shared dialog's own UI (which has no dedicated
+// test file yet, matching this app's current coverage for other new
+// shared components like Pager.vue).
+vi.mock('../../composables/useConfirmDialog', () => ({
+  confirmDelete: vi.fn().mockResolvedValue(true)
+}))
+import { confirmDelete } from '../../composables/useConfirmDialog'
+
 // D-120: this project had no existing Vitest component coverage for
 // Targets.vue/AccessGroups.vue to mirror (only src/stores/*.test.js exists
 // today) -- this establishes the pattern for the new page instead, using
@@ -34,6 +46,10 @@ function makeRouter() {
 describe('RiskScoreBands.vue', () => {
   beforeEach(() => {
     globalThis.fetch = vi.fn()
+    // vi.restoreAllMocks() below clears confirmDelete's mocked resolved
+    // value (set once, at module-mock time) back to a bare vi.fn() after
+    // the first test that uses it -- re-establish it fresh before every test.
+    confirmDelete.mockResolvedValue(true)
   })
 
   afterEach(() => {
@@ -110,6 +126,26 @@ describe('RiskScoreBands.vue', () => {
     await deleteButton.trigger('click')
     await flushPromises()
 
+    expect(confirmDelete).toHaveBeenCalledWith(expect.stringContaining('Low'))
     expect(globalThis.fetch).toHaveBeenCalledWith('/api/admin/risk-score-bands/1', { method: 'DELETE' })
+  })
+
+  // D-128: confirmDelete resolving false (Cancel/Escape in the shared
+  // dialog) must stop the delete before any DELETE request is sent.
+  it('does not delete when the confirmation is declined', async () => {
+    globalThis.fetch.mockResolvedValueOnce(jsonResponse([
+      { riskScoreBandKey: 1, bandName: 'Low', minScore: 0, maxScore: 250, riskOrder: 10, modifiedDate: null }
+    ]))
+    const wrapper = mount(RiskScoreBands, { global: { plugins: [makeRouter()] } })
+    await flushPromises()
+
+    confirmDelete.mockResolvedValueOnce(false)
+    const fetchCallsBefore = globalThis.fetch.mock.calls.length
+
+    const deleteButton = wrapper.findAll('button').find(b => b.text() === 'Delete')
+    await deleteButton.trigger('click')
+    await flushPromises()
+
+    expect(globalThis.fetch.mock.calls.length).toBe(fetchCallsBefore) // no new (DELETE) call was made
   })
 })
