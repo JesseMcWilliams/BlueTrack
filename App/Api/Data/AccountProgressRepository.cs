@@ -131,14 +131,20 @@ public sealed class AccountProgressRepository(IDbConnectionFactory connectionFac
     public async Task<AccountProgressDetail?> GetDetailAsync(long accountKey)
     {
         using var connection = connectionFactory.Create();
+        // D-127: same web.account_risk_score/dim_risk_score_band join as
+        // GetSummaryListAsync's FilterFromSql, so Calculated Risk/Risk Band/
+        // Override on this page always agree with the list's own values.
         const string sql = """
             SELECT
                 fap.ProgressKey, fap.AccountKey, fa.AccountName,
                 fap.CurrentStageKey, fap.CurrentStatusKey, fap.RiskLevelKey, fap.AccountTypeKey, fap.SORKey,
                 fap.OwnerName, fap.BusinessUnit, fap.TargetRemediationDate, fap.ActualCompletionDate, fap.Notes,
-                fap.LastUpdated, fap.ExceptionKey
+                fap.LastUpdated, fap.ExceptionKey,
+                ars.ComputedRiskScore, ars.OverrideRiskScore, ars.EffectiveRiskScore, band.BandName AS RiskScoreBandName
             FROM dbo.fact_account_progress fap
             JOIN dbo.fact_account fa ON fa.AccountKey = fap.AccountKey
+            LEFT JOIN web.account_risk_score ars   ON ars.AccountKey = fa.AccountKey
+            LEFT JOIN web.dim_risk_score_band band ON ars.EffectiveRiskScore BETWEEN band.MinScore AND band.MaxScore
             WHERE fap.AccountKey = @AccountKey
             """;
         return await connection.QuerySingleOrDefaultAsync<AccountProgressDetail>(sql, new { AccountKey = accountKey });

@@ -50,6 +50,51 @@ const error = ref(null)
 const saveError = ref(null)
 const saving = ref(false)
 
+// D-127: moved here from the Account Progress list's own inline "Edit
+// Override" (removed) -- Calculated Risk/Risk Band are always read-only
+// (system-calculated); Override Risk Score is the one editable value,
+// saved independently via its own existing endpoint (a Reason is required
+// only when setting a value, mirroring web.risk_exception.Justification's
+// own precedent, not required to clear one back to null) -- same
+// validation this used to enforce on the list page, unchanged.
+const overrideScoreInput = ref(null)
+const overrideReasonInput = ref('')
+const overrideError = ref(null)
+const overrideSaving = ref(false)
+
+async function saveOverride() {
+  overrideError.value = null
+  // v-model.number leaves an emptied input as '' rather than null.
+  const score = overrideScoreInput.value === '' || overrideScoreInput.value === undefined || Number.isNaN(overrideScoreInput.value)
+    ? null
+    : overrideScoreInput.value
+  if (score !== null && !overrideReasonInput.value.trim()) {
+    overrideError.value = 'A Reason is required when setting an override.'
+    return
+  }
+  overrideSaving.value = true
+  try {
+    const response = await fetch(`/api/account-progress/${props.accountKey}/risk-score-override`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ overrideRiskScore: score, reason: overrideReasonInput.value || null })
+    })
+    if (!response.ok) {
+      const problem = await response.json().catch(() => null)
+      overrideError.value = problem?.detail ?? `Save failed: ${response.status}`
+      return
+    }
+    overrideReasonInput.value = ''
+    const detailResponse = await fetch(`/api/account-progress/${props.accountKey}`)
+    if (detailResponse.ok) {
+      detail.value = await detailResponse.json()
+      overrideScoreInput.value = detail.value.overrideRiskScore ?? null
+    }
+  } finally {
+    overrideSaving.value = false
+  }
+}
+
 let heartbeatTimer = null
 
 const sortedFields = computed(() => [...fieldMetadata.value].sort((a, b) => a.displayOrder - b.displayOrder))
@@ -183,6 +228,9 @@ function resetFormFromDetail() {
     notes: detail.value.notes
   }
   selectedExceptionKey.value = detail.value.exceptionKey ?? ''
+  overrideScoreInput.value = detail.value.overrideRiskScore ?? null
+  overrideReasonInput.value = ''
+  overrideError.value = null
 }
 
 async function acquireLock() {
@@ -330,6 +378,23 @@ onUnmounted(releaseLock)
             <input v-else v-model="form[formKeyByFieldName[field.fieldName]]" type="text" />
           </label>
         </p>
+        <div>
+          <h3>Risk Score</h3>
+          <dl>
+            <dt>Calculated Risk</dt><dd>{{ detail.computedRiskScore ?? '(not yet calculated)' }}</dd>
+            <dt>Risk Band</dt><dd>{{ detail.riskScoreBandName ?? '—' }}</dd>
+          </dl>
+          <p v-if="overrideError" role="alert">{{ overrideError }}</p>
+          <p>
+            <label class="field-label"><span class="field-label-text">Override Score (0-1000, blank clears it):</span>
+              <input v-model.number="overrideScoreInput" type="number" min="0" max="1000" />
+            </label>
+            <label class="field-label"><span class="field-label-text">Reason:</span>
+              <input v-model="overrideReasonInput" type="text" />
+            </label>
+            <button type="button" :disabled="overrideSaving" @click="saveOverride">Save Override</button>
+          </p>
+        </div>
         <div v-if="isRiskAccepted">
           <h3>Risk Exception</h3>
           <p>Status is Risk Accepted / Excluded -- link an existing Active exception for this account, or create one.</p>
@@ -367,6 +432,8 @@ onUnmounted(releaseLock)
         <dt>Status</dt><dd>{{ detail.currentStatusKey }}</dd>
         <dt>Owner</dt><dd>{{ detail.ownerName }}</dd>
         <dt>Notes</dt><dd>{{ detail.notes }}</dd>
+        <dt>Calculated Risk</dt><dd>{{ detail.computedRiskScore ?? '(not yet calculated)' }}</dd>
+        <dt>Risk Band</dt><dd>{{ detail.riskScoreBandName ?? '—' }}</dd>
       </dl>
     </template>
   </div>

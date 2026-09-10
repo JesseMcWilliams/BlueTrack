@@ -27,6 +27,39 @@ public class AccountProgressRepositoryTests_Detail
         Assert.Equal("TestAccount04", detail.AccountName);
     }
 
+    /// <summary>
+    /// D-127: Calculated Risk/Risk Band/Override moved from the Account
+    /// Progress list's own inline "Edit Override" (removed) onto this
+    /// detail endpoint -- confirms GetDetailAsync joins the same
+    /// web.account_risk_score/dim_risk_score_band tables GetSummaryListAsync
+    /// already does, so the two pages always agree.
+    /// </summary>
+    [Fact]
+    public async Task GetDetailAsync_ReflectsRiskScoreOverride_AndClearsBackToComputed()
+    {
+        var accountKey = await TestAccounts.GetAccountKeyAsync("TestAccount04");
+        var userKey = await TestUsers.GetUserKeyAsync("IntegrationTestUser1");
+        var repository = new AccountProgressRepository(new TestDbConnectionFactory());
+        var (originalOverride, _) = await repository.GetRiskScoreOverrideAsync(accountKey);
+
+        try
+        {
+            await repository.SetRiskScoreOverrideAsync(accountKey, 777, "Integration test override", userKey);
+            var withOverride = await repository.GetDetailAsync(accountKey);
+            Assert.Equal(777, withOverride!.OverrideRiskScore);
+            Assert.Equal(777, withOverride.EffectiveRiskScore); // COALESCE(OverrideRiskScore, ComputedRiskScore)
+
+            await repository.SetRiskScoreOverrideAsync(accountKey, null, null, userKey);
+            var cleared = await repository.GetDetailAsync(accountKey);
+            Assert.Null(cleared!.OverrideRiskScore);
+            Assert.Equal(cleared.ComputedRiskScore, cleared.EffectiveRiskScore);
+        }
+        finally
+        {
+            await repository.SetRiskScoreOverrideAsync(accountKey, originalOverride, originalOverride is null ? null : "Restored after integration test", userKey);
+        }
+    }
+
     [Fact]
     public async Task GetDetailAsync_UnknownAccount_ReturnsNull()
     {

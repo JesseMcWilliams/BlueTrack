@@ -23,6 +23,17 @@ public sealed class AccountProgressDetail
     public string? Notes { get; init; }
     public DateTime LastUpdated { get; init; }
     public int? ExceptionKey { get; init; }
+
+    // D-127: moved here from the Account Progress list's own inline "Edit
+    // Override" (removed) -- ComputedRiskScore/RiskScoreBandName are always
+    // read-only (system-calculated); OverrideRiskScore is the one editable
+    // value here, via the existing PUT .../risk-score-override endpoint
+    // (unchanged). EffectiveRiskScore = COALESCE(OverrideRiskScore,
+    // ComputedRiskScore), same as everywhere else this triad appears.
+    public int? ComputedRiskScore { get; init; }
+    public int? OverrideRiskScore { get; init; }
+    public int? EffectiveRiskScore { get; init; }
+    public string? RiskScoreBandName { get; init; }
 }
 
 /// <summary>
