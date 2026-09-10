@@ -193,7 +193,19 @@ watch([typeFilter, applicationFilter, sortQueryParam], () => {
 })
 
 async function remove(item) {
-  if (!(await confirmDelete(`Delete Target "${item.targetName}"? This cannot be undone.`))) return
+  // D-129: a structured Name/Scope/Address/Source summary, confirmed
+  // directly -- Target has no literal Scope/Address field, so Scope shows
+  // its Target Type and Address shows its first identifier value (a
+  // Target can have several; just the first is shown, confirmed directly).
+  const message = [
+    'Delete Target',
+    `Name: ${item.targetName}`,
+    `Scope: ${item.targetTypeDisplayName}`,
+    `Address: ${item.identifiers[0]?.identifierValue ?? '—'}`,
+    `Source: ${item.discoverySource ?? '—'}`,
+    'This cannot be undone.'
+  ].join('\n')
+  if (!(await confirmDelete(message))) return
   const response = await fetch(`/api/admin/targets/${item.targetKey}`, { method: 'DELETE' })
   if (!response.ok) {
     error.value = `Delete failed: ${response.status} (a target still referenced by an Access Group or Account mapping can't be deleted)`

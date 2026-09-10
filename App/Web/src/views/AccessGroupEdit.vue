@@ -27,7 +27,11 @@ const saveError = ref(null)
 const targets = ref([])
 const sorTypes = ref([])
 
-const editing = ref({ groupName: '', groupIdentifier: '', groupScope: 'Domain', foundOnTargetKey: null, sorTypeKey: null, sorAddress: '', baseRiskScore: 0, description: '', discoverySource: '' })
+// D-129: Discovery Source defaults to 'Manual' for a brand-new row created
+// via this Add form (confirmed directly) -- edit mode overwrites this
+// whole object with the real fetched row below, so this default only ever
+// takes effect on create.
+const editing = ref({ groupName: '', groupIdentifier: '', groupScope: 'Domain', foundOnTargetKey: null, sorTypeKey: null, sorAddress: '', baseRiskScore: 0, description: '', discoverySource: 'Manual' })
 
 onMounted(async () => {
   const referenceDataPromise = Promise.all([

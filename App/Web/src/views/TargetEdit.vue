@@ -32,7 +32,11 @@ const applications = ref([])
 const identifierTypes = ref([])
 const targetTypes = ref([])
 
-const editing = ref({ targetTypeKey: null, targetName: '', riskScore: 0, description: '', discoverySource: '', identifiers: [] })
+// D-129: Discovery Source defaults to 'Manual' for a brand-new row created
+// via this Add form (confirmed directly) -- edit mode overwrites this
+// whole object with the real fetched row below, so this default only ever
+// takes effect on create.
+const editing = ref({ targetTypeKey: null, targetName: '', riskScore: 0, description: '', discoverySource: 'Manual', identifiers: [] })
 
 function addIdentifierRow() {
   editing.value.identifiers.push({ identifierType: identifierTypes.value[0]?.identifierType ?? '', identifierValue: '' })

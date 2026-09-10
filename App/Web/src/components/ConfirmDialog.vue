@@ -45,7 +45,7 @@ function onKeydown(event) {
       aria-labelledby="confirm-dialog-message"
       @keydown="onKeydown"
     >
-      <p id="confirm-dialog-message">{{ state.message }}</p>
+      <p id="confirm-dialog-message" class="confirm-dialog-message">{{ state.message }}</p>
       <p class="confirm-dialog-actions">
         <button type="button" ref="cancelButton" @click="respondToConfirmDialog(false)">Cancel</button>
         <button type="button" ref="confirmButton" class="btn-primary" @click="respondToConfirmDialog(true)">{{ state.confirmLabel }}</button>
@@ -78,5 +78,11 @@ function onKeydown(event) {
   display: flex;
   justify-content: flex-end;
   gap: var(--space-2);
+}
+/* D-129: multi-line messages (e.g. an Access Group/Target's Name/Scope/
+   Address/Source summary) use \n between lines -- plain text collapses
+   that to a single space by default. */
+.confirm-dialog-message {
+  white-space: pre-line;
 }
 </style>

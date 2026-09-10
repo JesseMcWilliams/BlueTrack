@@ -4,6 +4,15 @@ import { createPinia, setActivePinia } from 'pinia'
 import { createRouter, createMemoryHistory } from 'vue-router'
 import Targets from './Targets.vue'
 
+// D-128/D-129: Delete now awaits the shared confirmDelete(...) dialog
+// (mounted separately in App.vue, not present in this isolated mount) --
+// mocked here so this file's own tests stay focused on Targets.vue's
+// delete-wiring/message content, not the shared dialog's own UI.
+vi.mock('../composables/useConfirmDialog', () => ({
+  confirmDelete: vi.fn().mockResolvedValue(true)
+}))
+import { confirmDelete } from '../composables/useConfirmDialog'
+
 // D-121: this page had zero filter/sort/count UI before this work -- these
 // tests establish coverage for the new filter dropdowns and the shared
 // "Showing N of M total" count summary (FilterCountSummary + useTotalCount),
@@ -90,6 +99,10 @@ describe('Targets.vue', () => {
     // active Pinia instance, unlike before this phase when the page used
     // no Pinia store at all.
     setActivePinia(createPinia())
+    // vi.restoreAllMocks() below clears confirmDelete's mocked resolved
+    // value after the first test that uses it -- re-establish it fresh
+    // before every test (see the identical note in RiskScoreBands.test.js).
+    confirmDelete.mockResolvedValue(true)
   })
 
   afterEach(() => {
@@ -252,5 +265,29 @@ describe('Targets.vue', () => {
     await flushPromises()
 
     expect(router.currentRoute.value.name).toBe('targets-bulk-import')
+  })
+
+  // D-129: the confirmation names the specific record and shows a
+  // structured Name/Scope/Address/Source summary -- Scope is the Target
+  // Type (no literal "Scope" field on Target), Address is the first
+  // identifier's value (a Target can have several; just the first is shown).
+  it('confirms delete with a Name/Scope/Address/Source summary before sending the DELETE request', async () => {
+    mockInitialLoad()
+    const wrapper = mount(Targets, { global: { plugins: [makeRouter()] } })
+    await flushPromises()
+
+    const deleteButton = wrapper.findAll('button').find(b => b.text() === 'Delete')
+    await deleteButton.trigger('click')
+    await flushPromises()
+
+    expect(confirmDelete).toHaveBeenCalledWith([
+      'Delete Target',
+      `Name: ${sampleTarget.targetName}`,
+      `Scope: ${sampleTarget.targetTypeDisplayName}`,
+      `Address: ${sampleTarget.identifiers[0].identifierValue}`,
+      `Source: ${sampleTarget.discoverySource}`,
+      'This cannot be undone.'
+    ].join('\n'))
+    expect(globalThis.fetch).toHaveBeenCalledWith(`/api/admin/targets/${sampleTarget.targetKey}`, { method: 'DELETE' })
   })
 })

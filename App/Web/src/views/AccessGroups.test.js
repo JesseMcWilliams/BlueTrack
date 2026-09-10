@@ -4,6 +4,15 @@ import { createPinia, setActivePinia } from 'pinia'
 import { createRouter, createMemoryHistory } from 'vue-router'
 import AccessGroups from './AccessGroups.vue'
 
+// D-128/D-129: Delete now awaits the shared confirmDelete(...) dialog
+// (mounted separately in App.vue, not present in this isolated mount) --
+// mocked here so this file's own tests stay focused on AccessGroups.vue's
+// delete-wiring/message content, not the shared dialog's own UI.
+vi.mock('../composables/useConfirmDialog', () => ({
+  confirmDelete: vi.fn().mockResolvedValue(true)
+}))
+import { confirmDelete } from '../composables/useConfirmDialog'
+
 // D-121: this page had zero filter/sort/count UI before this work, and
 // gains two brand-new fields (SOR Type/SOR Address) plus a previously
 // unrendered DiscoverySource column -- these tests cover the new filter
@@ -87,6 +96,10 @@ describe('AccessGroups.vue', () => {
     // pageSize store (src/stores/pageSize.js) for pagination -- needs an
     // active Pinia instance, unlike before this phase.
     setActivePinia(createPinia())
+    // vi.restoreAllMocks() below clears confirmDelete's mocked resolved
+    // value after the first test that uses it -- re-establish it fresh
+    // before every test (see the identical note in RiskScoreBands.test.js).
+    confirmDelete.mockResolvedValue(true)
   })
 
   afterEach(() => {
@@ -202,5 +215,27 @@ describe('AccessGroups.vue', () => {
     await flushPromises()
 
     expect(router.currentRoute.value.name).toBe('access-groups-bulk-import')
+  })
+
+  // D-129: the confirmation names the specific record and shows a
+  // structured Name/Scope/Address/Source summary, not just the row's name.
+  it('confirms delete with a Name/Scope/Address/Source summary before sending the DELETE request', async () => {
+    mockInitialLoad()
+    const wrapper = mount(AccessGroups, { global: { plugins: [makeRouter()] } })
+    await flushPromises()
+
+    const deleteButton = wrapper.findAll('button').find(b => b.text() === 'Delete')
+    await deleteButton.trigger('click')
+    await flushPromises()
+
+    expect(confirmDelete).toHaveBeenCalledWith([
+      'Delete Access Group',
+      `Name: ${sampleGroup.groupName}`,
+      `Scope: ${sampleGroup.groupScope}`,
+      `Address: ${sampleGroup.sorAddress}`,
+      `Source: ${sampleGroup.discoverySource}`,
+      'This cannot be undone.'
+    ].join('\n'))
+    expect(globalThis.fetch).toHaveBeenCalledWith(`/api/admin/access-groups/${sampleGroup.accessGroupKey}`, { method: 'DELETE' })
   })
 })

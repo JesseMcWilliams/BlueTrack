@@ -145,7 +145,18 @@ watch([scopeFilter, sorTypeFilter, sortQueryParam], () => {
 })
 
 async function remove(item) {
-  if (!(await confirmDelete(`Delete Access Group "${item.groupName}"? This cannot be undone.`))) return
+  // D-129: a structured Name/Scope/Address/Source summary, confirmed
+  // directly -- Access Group's own fields map onto this exactly
+  // (GroupScope/SorAddress/DiscoverySource).
+  const message = [
+    'Delete Access Group',
+    `Name: ${item.groupName}`,
+    `Scope: ${item.groupScope}`,
+    `Address: ${item.sorAddress ?? '—'}`,
+    `Source: ${item.discoverySource ?? '—'}`,
+    'This cannot be undone.'
+  ].join('\n')
+  if (!(await confirmDelete(message))) return
   const response = await fetch(`/api/admin/access-groups/${item.accessGroupKey}`, { method: 'DELETE' })
   if (!response.ok) {
     error.value = `Delete failed: ${response.status} (a group still referenced by a Target/Account mapping can't be deleted)`
