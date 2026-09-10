@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
+import { createRouter, createMemoryHistory } from 'vue-router'
 import AccessGroups from './AccessGroups.vue'
 
 // D-121: this page had zero filter/sort/count UI before this work, and
@@ -51,14 +52,31 @@ const sorTypes = [
   { sorTypeKey: 3, sorTypeName: 'App' }
 ]
 
-// Mounting triggers: 1) GET /api/admin/access-groups/sor-types, then
-// load()'s Promise.all([GET /api/admin/access-groups, GET /api/admin/targets]).
+// Mounting triggers: GET /api/admin/access-groups/sor-types, then load()'s
+// GET /api/admin/access-groups. (D-124 Phase 4: load() no longer also
+// fetches /api/admin/targets -- that only ever fed the inline form's
+// "Found On Target" dropdown, which moved to AccessGroupEdit.vue.)
 function mockInitialLoad({ groups = [sampleGroup], totalCount = groups.length, filteredCount = totalCount } = {}) {
   globalThis.fetch = vi.fn((url) => {
     if (url === '/api/admin/access-groups/sor-types') return Promise.resolve(jsonResponse(sorTypes))
-    if (url === '/api/admin/targets') return Promise.resolve(jsonResponse([]))
     if (url.startsWith('/api/admin/access-groups')) return Promise.resolve(jsonResponse(groups, { totalCount, filteredCount }))
     return Promise.resolve(jsonResponse(null, { ok: false, status: 404 }))
+  })
+}
+
+// D-124 Phase 4: AccessGroups.vue now links "+ New Access Group"/each row's
+// "Edit" to AccessGroupEdit.vue's routes instead of toggling an inline
+// form -- needs a real router installed so <router-link> resolves, same
+// pattern RiskExceptionsList.test.js already established.
+function makeRouter() {
+  return createRouter({
+    history: createMemoryHistory(),
+    routes: [
+      { path: '/', name: 'home', component: { template: '<div />' } },
+      { path: '/access-groups', name: 'access-groups', component: { template: '<div />' } },
+      { path: '/access-groups/new', name: 'access-group-create', component: { template: '<div />' } },
+      { path: '/access-groups/:accessGroupKey', name: 'access-group-edit', component: { template: '<div />' } }
+    ]
   })
 }
 
@@ -77,7 +95,7 @@ describe('AccessGroups.vue', () => {
   it('loads and renders the group inventory, including SOR Type/SOR Address/Discovery Source', async () => {
     mockInitialLoad()
 
-    const wrapper = mount(AccessGroups)
+    const wrapper = mount(AccessGroups, { global: { plugins: [makeRouter()] } })
     await flushPromises()
 
     expect(wrapper.text()).toContain('Server Admins')
@@ -89,7 +107,7 @@ describe('AccessGroups.vue', () => {
   it('shows the "Showing N of M matching (of total)" count summary once both headers are known', async () => {
     mockInitialLoad({ groups: [sampleGroup], totalCount: 30, filteredCount: 17 })
 
-    const wrapper = mount(AccessGroups)
+    const wrapper = mount(AccessGroups, { global: { plugins: [makeRouter()] } })
     await flushPromises()
 
     expect(wrapper.text()).toContain('Showing 1–1 of 17 matching (30 total)')
@@ -98,7 +116,7 @@ describe('AccessGroups.vue', () => {
   // D-124 Phase 3: pagination.
   it('sends page/pageSize query params on load, defaulting pageSize to 50', async () => {
     mockInitialLoad({ groups: [] })
-    const wrapper = mount(AccessGroups)
+    const wrapper = mount(AccessGroups, { global: { plugins: [makeRouter()] } })
     await flushPromises()
 
     const calls = globalThis.fetch.mock.calls.map(c => c[0]).filter(u => u.startsWith('/api/admin/access-groups?'))
@@ -107,7 +125,7 @@ describe('AccessGroups.vue', () => {
 
   it('clicking Next advances to page 2 and re-fetches with page=2, resetting on a subsequent filter change', async () => {
     mockInitialLoad({ groups: [sampleGroup], totalCount: 120, filteredCount: 120 })
-    const wrapper = mount(AccessGroups)
+    const wrapper = mount(AccessGroups, { global: { plugins: [makeRouter()] } })
     await flushPromises()
 
     const nextButton = wrapper.findAll('.pager button').find(b => b.text().includes('Next'))
@@ -126,7 +144,7 @@ describe('AccessGroups.vue', () => {
 
   it('sends the Scope filter as a groupScope query param', async () => {
     mockInitialLoad({ groups: [] })
-    const wrapper = mount(AccessGroups)
+    const wrapper = mount(AccessGroups, { global: { plugins: [makeRouter()] } })
     await flushPromises()
 
     const scopeSelect = wrapper.findAll('select')[0]
@@ -137,27 +155,24 @@ describe('AccessGroups.vue', () => {
     expect(calls.some(u => u.includes('groupScope=Local'))).toBe(true)
   })
 
-  it('opens the New Access Group form with SOR Type/SOR Address fields available', async () => {
+  // D-124 Phase 4: Add/Edit moved off this page's own inline form onto
+  // AccessGroupEdit.vue's routed pages -- SOR Type/SOR Address field
+  // coverage (including edit-mode pre-fill) moved to AccessGroupEdit.test.js.
+  it('links "+ New Access Group" to the access-group-create route', async () => {
     mockInitialLoad({ groups: [] })
-    const wrapper = mount(AccessGroups)
+    const wrapper = mount(AccessGroups, { global: { plugins: [makeRouter()] } })
     await flushPromises()
 
-    await wrapper.get('button.btn-primary').trigger('click')
-
-    expect(wrapper.find('form').exists()).toBe(true)
-    expect(wrapper.text()).toContain('SOR Type')
-    expect(wrapper.text()).toContain('SOR Address')
+    const link = wrapper.findAll('a').find(a => a.text() === '+ New Access Group')
+    expect(link.attributes('href')).toBe('/access-groups/new')
   })
 
-  it('edit form pre-fills the existing SOR Type/SOR Address values', async () => {
+  it('links each row\'s "Edit" to the access-group-edit route with that row\'s key', async () => {
     mockInitialLoad()
-    const wrapper = mount(AccessGroups)
+    const wrapper = mount(AccessGroups, { global: { plugins: [makeRouter()] } })
     await flushPromises()
 
-    const editButton = wrapper.findAll('button').find(b => b.text() === 'Edit')
-    await editButton.trigger('click')
-
-    const sorAddressInput = wrapper.findAll('input').find(i => i.element.value === 'company.com')
-    expect(sorAddressInput).toBeTruthy()
+    const link = wrapper.findAll('a').find(a => a.text() === 'Edit')
+    expect(link.attributes('href')).toBe(`/access-groups/${sampleGroup.accessGroupKey}`)
   })
 })

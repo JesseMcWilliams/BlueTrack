@@ -20,6 +20,11 @@
 // SOR Type dropdown. The filter/form <select>s bind TargetTypeKey (the FK),
 // not the raw code string, and show DisplayName ('LDAP Directory', not
 // 'LdapDirectory'; 'Active Directory' is a new, distinct entry).
+//
+// D-124 Phase 4: Add/Edit moved to its own routed page (TargetEdit.vue,
+// target-create/target-edit) -- this page no longer owns an inline
+// editing/startCreate/startEdit/cancelEdit form at all; "+ New Target" and
+// each row's "Edit" are now router-link navigations.
 import { ref, computed, onMounted, watch } from 'vue'
 import { useTotalCount } from '../composables/useTotalCount'
 import { usePageSizeStore } from '../stores/pageSize'
@@ -96,7 +101,6 @@ const identifierTypes = ref([])
 const targetTypes = ref([])
 const error = ref(null)
 const loading = ref(true)
-const editing = ref(null)
 
 const { totalCount, filteredCount, readTotalCount } = useTotalCount()
 const pageSizeStore = usePageSizeStore()
@@ -214,39 +218,6 @@ watch([typeFilter, applicationFilter, sortQueryParam], () => {
   load()
 })
 
-function startCreate() {
-  editing.value = { targetTypeKey: targetTypes.value[0]?.targetTypeKey ?? null, targetName: '', riskScore: 0, description: '', discoverySource: '', identifiers: [] }
-}
-function startEdit(item) {
-  editing.value = { ...item, identifiers: item.identifiers.map(i => ({ ...i })) }
-}
-function cancelEdit() {
-  editing.value = null
-}
-
-function addIdentifierRow() {
-  editing.value.identifiers.push({ identifierType: identifierTypes.value[0]?.identifierType ?? '', identifierValue: '' })
-}
-function removeIdentifierRow(index) {
-  editing.value.identifiers.splice(index, 1)
-}
-
-async function save() {
-  const isNew = editing.value.targetKey === undefined
-  const url = isNew ? '/api/admin/targets' : `/api/admin/targets/${editing.value.targetKey}`
-  const response = await fetch(url, {
-    method: isNew ? 'POST' : 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(editing.value)
-  })
-  if (!response.ok) {
-    error.value = `Save failed: ${response.status}`
-    return
-  }
-  editing.value = null
-  await load()
-}
-
 async function remove(item) {
   const response = await fetch(`/api/admin/targets/${item.targetKey}`, { method: 'DELETE' })
   if (!response.ok) {
@@ -283,7 +254,7 @@ async function remove(item) {
     <p v-if="loading" role="status">Loading...</p>
 
     <template v-else>
-      <button class="btn-primary" @click="startCreate">+ New Target</button>
+      <p><router-link :to="{ name: 'target-create' }">+ New Target</router-link></p>
 
       <table>
         <thead>
@@ -305,45 +276,13 @@ async function remove(item) {
             <td>{{ item.riskScore }}</td>
             <td>{{ item.identifiers.map(i => `${i.identifierType}=${i.identifierValue}`).join(', ') }}</td>
             <td>
-              <button @click="startEdit(item)">Edit</button>
+              <router-link :to="{ name: 'target-edit', params: { targetKey: item.targetKey } }">Edit</router-link>
               <button @click="remove(item)">Delete</button>
             </td>
           </tr>
         </tbody>
       </table>
       <p><small>Click a column to sort by it; shift-click another column to add it as a secondary sort key.</small></p>
-
-      <form v-if="editing" @submit.prevent="save">
-        <h3>{{ editing.targetKey === undefined ? 'New Target' : 'Edit Target' }}</h3>
-        <p><label class="field-label"><span class="field-label-text">Name:</span> <input v-model="editing.targetName" required /></label></p>
-        <p>
-          <label class="field-label">
-            <span class="field-label-text">Type:</span>
-            <select v-model="editing.targetTypeKey">
-              <option v-for="type in targetTypes" :key="type.targetTypeKey" :value="type.targetTypeKey">{{ type.displayName }}</option>
-            </select>
-          </label>
-        </p>
-        <p><label class="field-label"><span class="field-label-text">Risk Score (0-1000):</span> <input v-model.number="editing.riskScore" type="number" min="0" max="1000" required /></label></p>
-        <p><label class="field-label"><span class="field-label-text">Description:</span> <input v-model="editing.description" /></label></p>
-        <p><label class="field-label"><span class="field-label-text">Discovery Source:</span> <input v-model="editing.discoverySource" placeholder="Manual" /></label></p>
-
-        <h4>Identifiers</h4>
-        <div v-for="(identifier, index) in editing.identifiers" :key="index" class="filter-row">
-          <label class="field-label">
-            <span class="field-label-text">Type:</span>
-            <select v-model="identifier.identifierType">
-              <option v-for="type in identifierTypes" :key="type.identifierType" :value="type.identifierType">{{ type.identifierType }}</option>
-            </select>
-          </label>
-          <label class="field-label"><span class="field-label-text">Value:</span> <input v-model="identifier.identifierValue" required /></label>
-          <button type="button" @click="removeIdentifierRow(index)">Remove</button>
-        </div>
-        <p><button type="button" @click="addIdentifierRow">+ Add Identifier</button></p>
-
-        <button type="submit" class="btn-primary">Save</button>
-        <button type="button" @click="cancelEdit">Cancel</button>
-      </form>
 
       <h3>Bulk Import: Target Inventory</h3>
       <p>

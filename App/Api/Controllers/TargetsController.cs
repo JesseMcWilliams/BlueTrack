@@ -39,6 +39,19 @@ public sealed class TargetsController(
     [HttpGet("target-types")]
     public async Task<IActionResult> GetTargetTypes() => Ok(await repository.GetTargetTypesAsync());
 
+    /// <summary>D-124 Phase 4: backs the new routed Target Edit page, mirroring RiskExceptionsController.GetByKey's shape (a direct-navigation-safe single-row lookup, distinct from the paginated GetAll above).</summary>
+    [HttpGet("{targetKey:int}")]
+    public async Task<IActionResult> GetByKey(int targetKey)
+    {
+        var target = await repository.GetByKeyAsync(targetKey);
+        if (target is null)
+        {
+            return NotFound();
+        }
+
+        return Ok(target);
+    }
+
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] SaveTargetRequest request)
     {

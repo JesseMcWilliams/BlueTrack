@@ -135,11 +135,41 @@ const routes = [
     meta: { breadcrumb: 'Targets' },
     component: () => import('../views/Targets.vue')
   },
+  // D-124 Phase 4: Add/Edit moved off Targets.vue's own inline form onto
+  // its own routed page, mirroring risk-exception-create/-edit's shape.
+  {
+    path: '/targets/new',
+    name: 'target-create',
+    meta: { breadcrumb: 'New Target', breadcrumbParent: 'targets' },
+    component: () => import('../views/TargetEdit.vue')
+  },
+  {
+    path: '/targets/:targetKey',
+    name: 'target-edit',
+    meta: { breadcrumb: 'Edit Target', breadcrumbParent: 'targets' },
+    component: () => import('../views/TargetEdit.vue'),
+    props: true
+  },
   {
     path: '/access-groups',
     name: 'access-groups',
     meta: { breadcrumb: 'Access Groups' },
     component: () => import('../views/AccessGroups.vue')
+  },
+  // D-124 Phase 4: Add/Edit moved off AccessGroups.vue's own inline form
+  // onto its own routed page, mirroring risk-exception-create/-edit's shape.
+  {
+    path: '/access-groups/new',
+    name: 'access-group-create',
+    meta: { breadcrumb: 'New Access Group', breadcrumbParent: 'access-groups' },
+    component: () => import('../views/AccessGroupEdit.vue')
+  },
+  {
+    path: '/access-groups/:accessGroupKey',
+    name: 'access-group-edit',
+    meta: { breadcrumb: 'Edit Access Group', breadcrumbParent: 'access-groups' },
+    component: () => import('../views/AccessGroupEdit.vue'),
+    props: true
   },
   // Admin hub with sub-navigation (D-47) -- one top-nav entry, sections
   // inside gated per-permission at render time, not per-route here.
@@ -159,11 +189,36 @@ const routes = [
         meta: { breadcrumb: 'Identity Providers', breadcrumbParent: 'admin' },
         component: () => import('../views/admin/IdentityProviders.vue')
       },
+      // D-124 Phase 4: Add/Edit moved off IdentityProviders.vue's own
+      // inline form onto its own routed page -- breadcrumbParent stays
+      // 'admin' (flat), matching every other admin child route's own
+      // convention rather than pointing at the specific list page.
+      {
+        path: 'identity-providers/new',
+        name: 'admin-identity-provider-create',
+        meta: { breadcrumb: 'New Provider', breadcrumbParent: 'admin' },
+        component: () => import('../views/admin/IdentityProviderEdit.vue')
+      },
+      {
+        path: 'identity-providers/:providerKey',
+        name: 'admin-identity-provider-edit',
+        meta: { breadcrumb: 'Edit Provider', breadcrumbParent: 'admin' },
+        component: () => import('../views/admin/IdentityProviderEdit.vue'),
+        props: true
+      },
       {
         path: 'group-role-mapping',
         name: 'admin-group-role-mapping',
         meta: { breadcrumb: 'Group / Role Mapping', breadcrumbParent: 'admin' },
         component: () => import('../views/admin/GroupRoleMapping.vue')
+      },
+      // D-124 Phase 4 (partial conversion): only "Add Mapping" moves -- no
+      // matching Edit route exists on the underlying page today.
+      {
+        path: 'group-role-mapping/new',
+        name: 'admin-group-role-mapping-create',
+        meta: { breadcrumb: 'Add Mapping', breadcrumbParent: 'admin' },
+        component: () => import('../views/admin/GroupRoleMappingCreate.vue')
       },
       {
         path: 'roles-permissions',
@@ -171,11 +226,42 @@ const routes = [
         meta: { breadcrumb: 'Roles & Permissions', breadcrumbParent: 'admin' },
         component: () => import('../views/admin/RolesAndPermissions.vue')
       },
+      // D-124 Phase 4: Add/Edit moved off RolesAndPermissions.vue's own
+      // inline form onto its own routed page.
+      {
+        path: 'roles-permissions/new',
+        name: 'admin-role-create',
+        meta: { breadcrumb: 'New Role', breadcrumbParent: 'admin' },
+        component: () => import('../views/admin/RoleEdit.vue')
+      },
+      {
+        path: 'roles-permissions/:appRoleKey',
+        name: 'admin-role-edit',
+        meta: { breadcrumb: 'Edit Role', breadcrumbParent: 'admin' },
+        component: () => import('../views/admin/RoleEdit.vue'),
+        props: true
+      },
       {
         path: 'application-mapping',
         name: 'admin-application-mapping',
         meta: { breadcrumb: 'Application Mapping', breadcrumbParent: 'admin' },
         component: () => import('../views/admin/ApplicationSafeMapping.vue')
+      },
+      // D-124 Phase 4: Add/Edit moved off ApplicationSafeMapping.vue's
+      // Applications section onto its own routed page -- the Safes
+      // section (a plain per-row <select>, not a form) is untouched.
+      {
+        path: 'application-mapping/new',
+        name: 'admin-application-create',
+        meta: { breadcrumb: 'New Application', breadcrumbParent: 'admin' },
+        component: () => import('../views/admin/ApplicationEdit.vue')
+      },
+      {
+        path: 'application-mapping/:applicationKey',
+        name: 'admin-application-edit',
+        meta: { breadcrumb: 'Edit Application', breadcrumbParent: 'admin' },
+        component: () => import('../views/admin/ApplicationEdit.vue'),
+        props: true
       },
       {
         path: 'secrets-store',
@@ -188,6 +274,21 @@ const routes = [
         name: 'admin-field-metadata',
         meta: { breadcrumb: 'Field Metadata', breadcrumbParent: 'admin' },
         component: () => import('../views/admin/FieldMetadataManagement.vue')
+      },
+      // D-124 Phase 4: Add/Edit moved off FieldMetadataManagement.vue's own
+      // inline form onto its own routed page.
+      {
+        path: 'field-metadata/new',
+        name: 'admin-field-metadata-create',
+        meta: { breadcrumb: 'New Field', breadcrumbParent: 'admin' },
+        component: () => import('../views/admin/FieldMetadataEdit.vue')
+      },
+      {
+        path: 'field-metadata/:fieldMetadataKey',
+        name: 'admin-field-metadata-edit',
+        meta: { breadcrumb: 'Edit Field', breadcrumbParent: 'admin' },
+        component: () => import('../views/admin/FieldMetadataEdit.vue'),
+        props: true
       },
       {
         path: 'audit-log',
@@ -213,6 +314,14 @@ const routes = [
         meta: { breadcrumb: 'Notifications', breadcrumbParent: 'admin' },
         component: () => import('../views/admin/Notifications.vue')
       },
+      // D-124 Phase 4 (partial conversion): only "Add Recipient" moves --
+      // no matching Edit route exists on the underlying page today.
+      {
+        path: 'notifications/recipients/new',
+        name: 'admin-notification-recipient-create',
+        meta: { breadcrumb: 'Add Recipient', breadcrumbParent: 'admin' },
+        component: () => import('../views/admin/NotificationRecipientCreate.vue')
+      },
       {
         path: 'credentials',
         name: 'admin-credentials',
@@ -231,11 +340,41 @@ const routes = [
         meta: { breadcrumb: 'Import Mapping Profiles', breadcrumbParent: 'admin' },
         component: () => import('../views/admin/ImportMappingProfiles.vue')
       },
+      // D-124 Phase 4: Add/Edit moved off ImportMappingProfiles.vue's own
+      // inline form onto its own routed page.
+      {
+        path: 'import-mapping-profiles/new',
+        name: 'admin-import-mapping-profile-create',
+        meta: { breadcrumb: 'New Profile', breadcrumbParent: 'admin' },
+        component: () => import('../views/admin/ImportMappingProfileEdit.vue')
+      },
+      {
+        path: 'import-mapping-profiles/:importMappingProfileKey',
+        name: 'admin-import-mapping-profile-edit',
+        meta: { breadcrumb: 'Edit Profile', breadcrumbParent: 'admin' },
+        component: () => import('../views/admin/ImportMappingProfileEdit.vue'),
+        props: true
+      },
       {
         path: 'risk-score-bands',
         name: 'admin-risk-score-bands',
         meta: { breadcrumb: 'Risk Score Bands', breadcrumbParent: 'admin' },
         component: () => import('../views/admin/RiskScoreBands.vue')
+      },
+      // D-124 Phase 4: Add/Edit moved off RiskScoreBands.vue's own inline
+      // form onto its own routed page.
+      {
+        path: 'risk-score-bands/new',
+        name: 'admin-risk-score-band-create',
+        meta: { breadcrumb: 'New Band', breadcrumbParent: 'admin' },
+        component: () => import('../views/admin/RiskScoreBandEdit.vue')
+      },
+      {
+        path: 'risk-score-bands/:riskScoreBandKey',
+        name: 'admin-risk-score-band-edit',
+        meta: { breadcrumb: 'Edit Band', breadcrumbParent: 'admin' },
+        component: () => import('../views/admin/RiskScoreBandEdit.vue'),
+        props: true
       }
     ]
   },

@@ -97,6 +97,50 @@ public sealed class TargetRepository(IDbConnectionFactory connectionFactory)
         }).ToList();
     }
 
+    /// <summary>
+    /// D-124 Phase 4: a single Target by key, identifiers included -- backs
+    /// the new routed Target Edit page (App/Web/src/views/TargetEdit.vue),
+    /// which needs to load one specific row directly (e.g. after a page
+    /// refresh) rather than relying on an already-loaded list page, the way
+    /// GetByKeyAsync already exists on RiskExceptionRepository for the same
+    /// reason. Unlike GetAllAsync, this is never paginated -- a lookup by
+    /// its own primary key needs no OFFSET/FETCH at all.
+    /// </summary>
+    public async Task<TargetSummary?> GetByKeyAsync(int targetKey)
+    {
+        using var connection = connectionFactory.Create();
+        var sql = $"""
+            {SelectSql}
+            WHERE t.TargetKey = @TargetKey
+            """;
+        var target = await connection.QuerySingleOrDefaultAsync<TargetSummary>(sql, new { TargetKey = targetKey });
+        if (target is null)
+        {
+            return null;
+        }
+
+        var identifierRows = await connection.QueryAsync<TargetIdentifier>(
+            "SELECT IdentifierType, IdentifierValue FROM web.target_identifier WHERE TargetKey = @TargetKey ORDER BY IdentifierType",
+            new { TargetKey = targetKey });
+
+        return new TargetSummary
+        {
+            TargetKey = target.TargetKey,
+            TargetTypeKey = target.TargetTypeKey,
+            TargetTypeCode = target.TargetTypeCode,
+            TargetTypeDisplayName = target.TargetTypeDisplayName,
+            TargetName = target.TargetName,
+            InternalGuid = target.InternalGuid,
+            ApplicationKey = target.ApplicationKey,
+            ApplicationName = target.ApplicationName,
+            RiskScore = target.RiskScore,
+            Description = target.Description,
+            DiscoverySource = target.DiscoverySource,
+            ModifiedDate = target.ModifiedDate,
+            Identifiers = identifierRows.AsList()
+        };
+    }
+
     /// <summary>D-121: the grand total row count under the same base (no filter) condition -- backs the X-Total-Count response header.</summary>
     public async Task<int> GetTotalCountAsync()
     {

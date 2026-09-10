@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
+import { createRouter, createMemoryHistory } from 'vue-router'
 import Targets from './Targets.vue'
 
 // D-121: this page had zero filter/sort/count UI before this work -- these
@@ -65,6 +66,22 @@ function mockInitialLoad({ targets = [sampleTarget], totalCount = targets.length
   })
 }
 
+// D-124 Phase 4: Targets.vue now links "+ New Target"/each row's "Edit" to
+// TargetEdit.vue's routes instead of toggling an inline form -- needs a
+// real router installed so <router-link> resolves, same pattern
+// RiskExceptionsList.test.js already established.
+function makeRouter() {
+  return createRouter({
+    history: createMemoryHistory(),
+    routes: [
+      { path: '/', name: 'home', component: { template: '<div />' } },
+      { path: '/targets', name: 'targets', component: { template: '<div />' } },
+      { path: '/targets/new', name: 'target-create', component: { template: '<div />' } },
+      { path: '/targets/:targetKey', name: 'target-edit', component: { template: '<div />' } }
+    ]
+  })
+}
+
 describe('Targets.vue', () => {
   beforeEach(() => {
     // D-124 Phase 3: Targets.vue now reads the shared, server-persisted
@@ -81,7 +98,7 @@ describe('Targets.vue', () => {
   it('loads and renders the target inventory', async () => {
     mockInitialLoad()
 
-    const wrapper = mount(Targets)
+    const wrapper = mount(Targets, { global: { plugins: [makeRouter()] } })
     await flushPromises()
 
     expect(wrapper.text()).toContain('web01')
@@ -91,7 +108,7 @@ describe('Targets.vue', () => {
   it('shows the "Showing N of M matching (of total)" count summary once both headers are known', async () => {
     mockInitialLoad({ targets: [sampleTarget], totalCount: 100, filteredCount: 42 })
 
-    const wrapper = mount(Targets)
+    const wrapper = mount(Targets, { global: { plugins: [makeRouter()] } })
     await flushPromises()
 
     expect(wrapper.text()).toContain('Showing 1–1 of 42 matching (100 total)')
@@ -99,7 +116,7 @@ describe('Targets.vue', () => {
 
   it('does not show the count summary before the first load resolves its headers', async () => {
     globalThis.fetch = vi.fn(() => new Promise(() => {})) // never resolves
-    const wrapper = mount(Targets)
+    const wrapper = mount(Targets, { global: { plugins: [makeRouter()] } })
 
     expect(wrapper.find('.filter-count-summary').exists()).toBe(false)
   })
@@ -107,7 +124,7 @@ describe('Targets.vue', () => {
   // D-124 Phase 3: pagination.
   it('sends page/pageSize query params on load, defaulting pageSize to 50', async () => {
     mockInitialLoad({ targets: [] })
-    const wrapper = mount(Targets)
+    const wrapper = mount(Targets, { global: { plugins: [makeRouter()] } })
     await flushPromises()
 
     const targetsCalls = globalThis.fetch.mock.calls.map(c => c[0]).filter(u => u.startsWith('/api/admin/targets?'))
@@ -116,7 +133,7 @@ describe('Targets.vue', () => {
 
   it('shows the pager and disables Prev/Next appropriately on a single-page result', async () => {
     mockInitialLoad({ targets: [sampleTarget], totalCount: 1, filteredCount: 1 })
-    const wrapper = mount(Targets)
+    const wrapper = mount(Targets, { global: { plugins: [makeRouter()] } })
     await flushPromises()
 
     expect(wrapper.text()).toContain('Page 1 of 1')
@@ -127,7 +144,7 @@ describe('Targets.vue', () => {
 
   it('clicking Next advances to page 2 and re-fetches with page=2', async () => {
     mockInitialLoad({ targets: [sampleTarget], totalCount: 120, filteredCount: 120 })
-    const wrapper = mount(Targets)
+    const wrapper = mount(Targets, { global: { plugins: [makeRouter()] } })
     await flushPromises()
 
     const nextButton = wrapper.findAll('.pager button').find(b => b.text().includes('Next'))
@@ -141,7 +158,7 @@ describe('Targets.vue', () => {
 
   it('changing the page size resets to page 1, persists the preference, and re-fetches with the new pageSize', async () => {
     mockInitialLoad({ targets: [sampleTarget], totalCount: 120, filteredCount: 120 })
-    const wrapper = mount(Targets)
+    const wrapper = mount(Targets, { global: { plugins: [makeRouter()] } })
     await flushPromises()
 
     // Advance to page 2 first, so the reset-to-1 behavior is actually exercised.
@@ -165,7 +182,7 @@ describe('Targets.vue', () => {
 
   it('sends the Type filter as a targetTypeKey query param', async () => {
     mockInitialLoad({ targets: [] })
-    const wrapper = mount(Targets)
+    const wrapper = mount(Targets, { global: { plugins: [makeRouter()] } })
     await flushPromises()
 
     await wrapper.get('select').setValue('1') // Server's targetTypeKey in the mocked catalog
@@ -177,7 +194,7 @@ describe('Targets.vue', () => {
 
   it('renders the Type dropdown options using DisplayName, not the raw code', async () => {
     mockInitialLoad({ targets: [] })
-    const wrapper = mount(Targets)
+    const wrapper = mount(Targets, { global: { plugins: [makeRouter()] } })
     await flushPromises()
 
     const typeSelect = wrapper.get('select')
@@ -189,14 +206,24 @@ describe('Targets.vue', () => {
     expect(optionTexts).not.toContain('ActiveDirectory')
   })
 
-  it('opens the New Target form with defaults on + New Target', async () => {
+  // D-124 Phase 4: Add/Edit moved off this page's own inline form onto
+  // TargetEdit.vue's routed pages -- "+ New Target" and each row's "Edit"
+  // are now router-link navigations instead of toggling a form in place.
+  it('links "+ New Target" to the target-create route', async () => {
     mockInitialLoad({ targets: [] })
-    const wrapper = mount(Targets)
+    const wrapper = mount(Targets, { global: { plugins: [makeRouter()] } })
     await flushPromises()
 
-    await wrapper.get('button.btn-primary').trigger('click')
+    const link = wrapper.findAll('a').find(a => a.text() === '+ New Target')
+    expect(link.attributes('href')).toBe('/targets/new')
+  })
 
-    expect(wrapper.find('form').exists()).toBe(true)
-    expect(wrapper.text()).toContain('New Target')
+  it('links each row\'s "Edit" to the target-edit route with that row\'s key', async () => {
+    mockInitialLoad()
+    const wrapper = mount(Targets, { global: { plugins: [makeRouter()] } })
+    await flushPromises()
+
+    const link = wrapper.findAll('a').find(a => a.text() === 'Edit')
+    expect(link.attributes('href')).toBe(`/targets/${sampleTarget.targetKey}`)
   })
 })

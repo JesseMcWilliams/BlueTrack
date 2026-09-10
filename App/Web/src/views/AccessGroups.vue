@@ -15,6 +15,11 @@
 // previously never shown here. Also adds this page's first-ever filter/sort
 // support (scope/SOR type, sortable column headers) and the app-wide
 // "Showing N of M total" count summary (X-Total-Count).
+//
+// D-124 Phase 4: Add/Edit moved to its own routed page (AccessGroupEdit.vue,
+// access-group-create/access-group-edit) -- this page no longer owns an
+// inline editing/startCreate/startEdit/cancelEdit form at all; "+ New
+// Access Group" and each row's "Edit" are now router-link navigations.
 import { ref, computed, onMounted, watch } from 'vue'
 import { useTotalCount } from '../composables/useTotalCount'
 import { usePageSizeStore } from '../stores/pageSize'
@@ -48,11 +53,9 @@ async function importFile(key, url) {
 }
 
 const items = ref([])
-const targets = ref([])
 const sorTypes = ref([])
 const error = ref(null)
 const loading = ref(true)
-const editing = ref(null)
 
 const { totalCount, filteredCount, readTotalCount } = useTotalCount()
 const pageSizeStore = usePageSizeStore()
@@ -131,15 +134,10 @@ async function load() {
     params.set('page', page.value)
     params.set('pageSize', pageSizeStore.current)
 
-    const [groupsResponse, targetsResponse] = await Promise.all([
-      fetch(`/api/admin/access-groups?${params.toString()}`),
-      fetch('/api/admin/targets')
-    ])
+    const groupsResponse = await fetch(`/api/admin/access-groups?${params.toString()}`)
     if (!groupsResponse.ok) throw new Error(`Request failed: ${groupsResponse.status}`)
-    if (!targetsResponse.ok) throw new Error(`Request failed: ${targetsResponse.status}`)
     readTotalCount(groupsResponse)
     items.value = await groupsResponse.json()
-    targets.value = await targetsResponse.json()
   } catch (err) {
     error.value = err.message
   } finally {
@@ -163,32 +161,6 @@ watch([scopeFilter, sorTypeFilter, sortQueryParam], () => {
   page.value = 1
   load()
 })
-
-function startCreate() {
-  editing.value = { groupName: '', groupIdentifier: '', groupScope: 'Domain', foundOnTargetKey: null, sorTypeKey: null, sorAddress: '', baseRiskScore: 0, description: '', discoverySource: '' }
-}
-function startEdit(item) {
-  editing.value = { ...item }
-}
-function cancelEdit() {
-  editing.value = null
-}
-
-async function save() {
-  const isNew = editing.value.accessGroupKey === undefined
-  const url = isNew ? '/api/admin/access-groups' : `/api/admin/access-groups/${editing.value.accessGroupKey}`
-  const response = await fetch(url, {
-    method: isNew ? 'POST' : 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(editing.value)
-  })
-  if (!response.ok) {
-    error.value = `Save failed: ${response.status}`
-    return
-  }
-  editing.value = null
-  await load()
-}
 
 async function remove(item) {
   const response = await fetch(`/api/admin/access-groups/${item.accessGroupKey}`, { method: 'DELETE' })
@@ -227,7 +199,7 @@ async function remove(item) {
     <p v-if="loading" role="status">Loading...</p>
 
     <template v-else>
-      <button class="btn-primary" @click="startCreate">+ New Access Group</button>
+      <p><router-link :to="{ name: 'access-group-create' }">+ New Access Group</router-link></p>
 
       <table>
         <thead>
@@ -253,52 +225,13 @@ async function remove(item) {
             <td>{{ item.sorAddress ?? '—' }}</td>
             <td>{{ item.discoverySource ?? '—' }}</td>
             <td>
-              <button @click="startEdit(item)">Edit</button>
+              <router-link :to="{ name: 'access-group-edit', params: { accessGroupKey: item.accessGroupKey } }">Edit</router-link>
               <button @click="remove(item)">Delete</button>
             </td>
           </tr>
         </tbody>
       </table>
       <p><small>Click a column to sort by it; shift-click another column to add it as a secondary sort key.</small></p>
-
-      <form v-if="editing" @submit.prevent="save">
-        <h3>{{ editing.accessGroupKey === undefined ? 'New Access Group' : 'Edit Access Group' }}</h3>
-        <p><label class="field-label"><span class="field-label-text">Name:</span> <input v-model="editing.groupName" required /></label></p>
-        <p><label class="field-label"><span class="field-label-text">Identifier (e.g. AD SID/DN):</span> <input v-model="editing.groupIdentifier" required /></label></p>
-        <p>
-          <label class="field-label">
-            <span class="field-label-text">Scope:</span>
-            <select v-model="editing.groupScope">
-              <option value="Domain">Domain</option>
-              <option value="Local">Local</option>
-            </select>
-          </label>
-        </p>
-        <p v-if="editing.groupScope === 'Local'">
-          <label class="field-label">
-            <span class="field-label-text">Found On Target:</span>
-            <select v-model="editing.foundOnTargetKey">
-              <option :value="null">(none)</option>
-              <option v-for="target in targets" :key="target.targetKey" :value="target.targetKey">{{ target.targetName }}</option>
-            </select>
-          </label>
-        </p>
-        <p>
-          <label class="field-label">
-            <span class="field-label-text">SOR Type:</span>
-            <select v-model="editing.sorTypeKey">
-              <option :value="null">(none)</option>
-              <option v-for="type in sorTypes" :key="type.sorTypeKey" :value="type.sorTypeKey">{{ type.sorTypeName }}</option>
-            </select>
-          </label>
-        </p>
-        <p><label class="field-label"><span class="field-label-text">SOR Address:</span> <input v-model="editing.sorAddress" placeholder="e.g. company.com or 192.168.1.1" /></label></p>
-        <p><label class="field-label"><span class="field-label-text">Base Risk Score (0-1000):</span> <input v-model.number="editing.baseRiskScore" type="number" min="0" max="1000" required /></label></p>
-        <p><label class="field-label"><span class="field-label-text">Description:</span> <input v-model="editing.description" /></label></p>
-        <p><label class="field-label"><span class="field-label-text">Discovery Source:</span> <input v-model="editing.discoverySource" placeholder="Manual" /></label></p>
-        <button type="submit" class="btn-primary">Save</button>
-        <button type="button" @click="cancelEdit">Cancel</button>
-      </form>
 
       <h3>Bulk Import: Access Group Inventory</h3>
       <p><a href="/api/admin/risk-scoring/import/access-group-inventory/template">Download template</a> -- upserts by GroupIdentifier (a matching row updates the existing group instead of creating a duplicate).</p>

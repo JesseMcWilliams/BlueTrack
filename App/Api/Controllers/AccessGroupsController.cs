@@ -35,6 +35,19 @@ public sealed class AccessGroupsController(
     [HttpGet("sor-types")]
     public async Task<IActionResult> GetSorTypes() => Ok(await repository.GetSorTypesAsync());
 
+    /// <summary>D-124 Phase 4: backs the new routed Access Group Edit page, mirroring RiskExceptionsController.GetByKey's shape (a direct-navigation-safe single-row lookup, distinct from the paginated GetAll above).</summary>
+    [HttpGet("{accessGroupKey:int}")]
+    public async Task<IActionResult> GetByKey(int accessGroupKey)
+    {
+        var group = await repository.GetByKeyAsync(accessGroupKey);
+        if (group is null)
+        {
+            return NotFound();
+        }
+
+        return Ok(group);
+    }
+
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] SaveAccessGroupRequest request)
     {

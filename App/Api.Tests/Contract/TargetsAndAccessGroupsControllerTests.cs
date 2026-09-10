@@ -200,6 +200,88 @@ public class TargetsAndAccessGroupsControllerTests : IClassFixture<BlueTrackWebA
         return int.Parse(response.Headers.GetValues("X-Total-Count").Single());
     }
 
+    /// <summary>D-124 Phase 4: the new single-Target-by-key lookup backing the routed Target Edit page -- mirrors RiskExceptionsController.GetByKey's own contract-test shape.</summary>
+    [Fact]
+    public async Task Target_GetByKey_ReturnsTheTarget_WithIdentifiers()
+    {
+        var client = AdminClient();
+        var name = $"ContractTestTarget_{Guid.NewGuid():N}";
+        var serverTypeKey = await GetTargetTypeKeyAsync(client, "Server");
+        var createResponse = await client.PostAsJsonAsync("/api/admin/targets", new
+        {
+            targetTypeKey = serverTypeKey,
+            targetName = name,
+            riskScore = 500,
+            identifiers = new[] { new { identifierType = "Hostname", identifierValue = $"host-{Guid.NewGuid():N}" } }
+        });
+        var created = await createResponse.Content.ReadFromJsonAsync<TargetKeyResponse>();
+
+        try
+        {
+            var response = await client.GetAsync($"/api/admin/targets/{created!.TargetKey}");
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            var target = await response.Content.ReadFromJsonAsync<TargetResponse>();
+
+            Assert.Equal(created.TargetKey, target!.TargetKey);
+            Assert.Equal(500, target.RiskScore);
+            Assert.Single(target.Identifiers);
+        }
+        finally
+        {
+            await client.DeleteAsync($"/api/admin/targets/{created!.TargetKey}");
+        }
+    }
+
+    [Fact]
+    public async Task Target_GetByKey_ReturnsNotFound_ForAnUnknownKey()
+    {
+        var client = AdminClient();
+
+        var response = await client.GetAsync("/api/admin/targets/2147483647");
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    /// <summary>D-124 Phase 4: the new single-Access-Group-by-key lookup backing the routed Access Group Edit page.</summary>
+    [Fact]
+    public async Task AccessGroup_GetByKey_ReturnsTheGroup()
+    {
+        var client = AdminClient();
+        var identifier = $"CN=ContractTestGroup_{Guid.NewGuid():N}";
+        var createResponse = await client.PostAsJsonAsync("/api/admin/access-groups", new
+        {
+            groupName = "Contract Test GetByKey Group",
+            groupIdentifier = identifier,
+            groupScope = "Domain",
+            baseRiskScore = 300
+        });
+        var created = await createResponse.Content.ReadFromJsonAsync<AccessGroupKeyResponse>();
+
+        try
+        {
+            var response = await client.GetAsync($"/api/admin/access-groups/{created!.AccessGroupKey}");
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            var group = await response.Content.ReadFromJsonAsync<AccessGroupResponse>();
+
+            Assert.Equal(created.AccessGroupKey, group!.AccessGroupKey);
+            Assert.Equal("Contract Test GetByKey Group", group.GroupName);
+        }
+        finally
+        {
+            await client.DeleteAsync($"/api/admin/access-groups/{created!.AccessGroupKey}");
+        }
+    }
+
+    [Fact]
+    public async Task AccessGroup_GetByKey_ReturnsNotFound_ForAnUnknownKey()
+    {
+        var client = AdminClient();
+
+        var response = await client.GetAsync("/api/admin/access-groups/2147483647");
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
     [Fact]
     public async Task AccessGroup_CreateUpdateDelete_RoundTrips()
     {

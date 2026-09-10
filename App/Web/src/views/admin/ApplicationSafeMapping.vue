@@ -2,13 +2,18 @@
 // Application CRUD against /api/applications (detailed/create/update) plus
 // Safe -> Application assignment against /api/safes (SafesController).
 // dim_safe is small enough to load in full (unlike fact_account).
+//
+// D-124 Phase 4: the Applications section's Add/Edit moved to its own
+// routed page (ApplicationEdit.vue, admin-application-create/-edit) -- this
+// page no longer owns an inline editing/startCreate/startEdit/cancelEdit
+// form for Applications. The Safes section below (a plain per-row <select>
+// assignment, not a form) is untouched.
 import { ref, onMounted } from 'vue'
 
 const applications = ref([])
 const safes = ref([])
 const error = ref(null)
 const loading = ref(true)
-const editing = ref(null)
 
 async function load() {
   loading.value = true
@@ -29,32 +34,6 @@ async function load() {
 }
 
 onMounted(load)
-
-function startCreate() {
-  editing.value = { applicationCode: '', applicationName: '', description: '', ownerName: '', ownerEmail: '', technicalName: '', technicalEmail: '', notes: '' }
-}
-function startEdit(app) {
-  editing.value = { ...app }
-}
-function cancelEdit() {
-  editing.value = null
-}
-
-async function save() {
-  const isNew = editing.value.applicationKey === undefined
-  const url = isNew ? '/api/applications' : `/api/applications/${editing.value.applicationKey}`
-  const response = await fetch(url, {
-    method: isNew ? 'POST' : 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(editing.value)
-  })
-  if (!response.ok) {
-    error.value = `Save failed: ${response.status}`
-    return
-  }
-  editing.value = null
-  await load()
-}
 
 async function assignSafe(safe, applicationKeyRaw) {
   const applicationKey = applicationKeyRaw === '' ? null : Number(applicationKeyRaw)
@@ -79,7 +58,7 @@ async function assignSafe(safe, applicationKeyRaw) {
 
     <template v-else>
       <h3>Applications</h3>
-      <button class="btn-primary" @click="startCreate">+ New Application</button>
+      <p><router-link :to="{ name: 'admin-application-create' }">+ New Application</router-link></p>
       <table>
         <thead>
           <tr><th>Code</th><th>Name</th><th>Owner</th><th></th></tr>
@@ -89,24 +68,10 @@ async function assignSafe(safe, applicationKeyRaw) {
             <td>{{ app.applicationCode }}</td>
             <td>{{ app.applicationName }}</td>
             <td>{{ app.ownerName }}</td>
-            <td><button @click="startEdit(app)">Edit</button></td>
+            <td><router-link :to="{ name: 'admin-application-edit', params: { applicationKey: app.applicationKey } }">Edit</router-link></td>
           </tr>
         </tbody>
       </table>
-
-      <form v-if="editing" @submit.prevent="save">
-        <h4>{{ editing.applicationKey === undefined ? 'New Application' : 'Edit Application' }}</h4>
-        <p><label class="field-label"><span class="field-label-text">Code:</span> <input v-model="editing.applicationCode" required /></label></p>
-        <p><label class="field-label"><span class="field-label-text">Name:</span> <input v-model="editing.applicationName" required /></label></p>
-        <p><label class="field-label"><span class="field-label-text">Description:</span> <input v-model="editing.description" /></label></p>
-        <p><label class="field-label"><span class="field-label-text">Owner Name:</span> <input v-model="editing.ownerName" /></label></p>
-        <p><label class="field-label"><span class="field-label-text">Owner Email:</span> <input v-model="editing.ownerEmail" /></label></p>
-        <p><label class="field-label"><span class="field-label-text">Technical Contact Name:</span> <input v-model="editing.technicalName" /></label></p>
-        <p><label class="field-label"><span class="field-label-text">Technical Contact Email:</span> <input v-model="editing.technicalEmail" /></label></p>
-        <p><label class="field-label"><span class="field-label-text">Notes:</span> <input v-model="editing.notes" /></label></p>
-        <button type="submit" class="btn-primary">Save</button>
-        <button type="button" @click="cancelEdit">Cancel</button>
-      </form>
 
       <h3>Safes</h3>
       <table>

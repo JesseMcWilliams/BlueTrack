@@ -2,25 +2,23 @@
 // CRUD against /api/admin/roles + read-only /api/admin/permissions catalog
 // (RolesController). The permission catalog itself isn't editable here --
 // it's confirmed/fixed (D-05, D-61) -- only which permissions each role bundles.
+//
+// D-124 Phase 4: Add/Edit moved to its own routed page (RoleEdit.vue,
+// admin-role-create/-edit) -- this page no longer owns an inline
+// editing/startCreate/startEdit/cancelEdit/togglePermission form, and no
+// longer needs the permission catalog itself (that moved to RoleEdit.vue).
 import { ref, onMounted } from 'vue'
 
 const roles = ref([])
-const catalog = ref([])
 const error = ref(null)
 const loading = ref(true)
-const editing = ref(null)
 
 async function load() {
   loading.value = true
   try {
-    const [rolesResponse, catalogResponse] = await Promise.all([
-      fetch('/api/admin/roles'),
-      fetch('/api/admin/permissions')
-    ])
+    const rolesResponse = await fetch('/api/admin/roles')
     if (!rolesResponse.ok) throw new Error(`Roles request failed: ${rolesResponse.status}`)
-    if (!catalogResponse.ok) throw new Error(`Permissions request failed: ${catalogResponse.status}`)
     roles.value = await rolesResponse.json()
-    catalog.value = await catalogResponse.json()
   } catch (err) {
     error.value = err.message
   } finally {
@@ -29,38 +27,6 @@ async function load() {
 }
 
 onMounted(load)
-
-function startCreate() {
-  editing.value = { roleName: '', description: '', notificationEmail: '', permissionNames: [] }
-}
-function startEdit(role) {
-  editing.value = { ...role, permissionNames: [...role.permissionNames] }
-}
-function cancelEdit() {
-  editing.value = null
-}
-function togglePermission(name) {
-  const set = new Set(editing.value.permissionNames)
-  if (set.has(name)) set.delete(name)
-  else set.add(name)
-  editing.value.permissionNames = [...set]
-}
-
-async function save() {
-  const isNew = editing.value.appRoleKey === undefined
-  const url = isNew ? '/api/admin/roles' : `/api/admin/roles/${editing.value.appRoleKey}`
-  const response = await fetch(url, {
-    method: isNew ? 'POST' : 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(editing.value)
-  })
-  if (!response.ok) {
-    error.value = `Save failed: ${response.status}`
-    return
-  }
-  editing.value = null
-  await load()
-}
 
 async function remove(role) {
   const response = await fetch(`/api/admin/roles/${role.appRoleKey}`, { method: 'DELETE' })
@@ -79,7 +45,7 @@ async function remove(role) {
     <p v-if="loading" role="status">Loading...</p>
 
     <template v-else>
-      <button class="btn-primary" @click="startCreate">+ New Role</button>
+      <p><router-link :to="{ name: 'admin-role-create' }">+ New Role</router-link></p>
 
       <table>
         <thead>
@@ -92,32 +58,12 @@ async function remove(role) {
             <td>{{ role.notificationEmail }}</td>
             <td>{{ role.permissionNames.join(', ') }}</td>
             <td>
-              <button @click="startEdit(role)">Edit</button>
+              <router-link :to="{ name: 'admin-role-edit', params: { appRoleKey: role.appRoleKey } }">Edit</router-link>
               <button @click="remove(role)">Delete</button>
             </td>
           </tr>
         </tbody>
       </table>
-
-      <form v-if="editing" @submit.prevent="save">
-        <h3>{{ editing.appRoleKey === undefined ? 'New Role' : 'Edit Role' }}</h3>
-        <p><label class="field-label"><span class="field-label-text">Role Name:</span> <input v-model="editing.roleName" required /></label></p>
-        <p><label class="field-label"><span class="field-label-text">Description:</span> <input v-model="editing.description" /></label></p>
-        <p><label class="field-label"><span class="field-label-text">Notification Email:</span> <input v-model="editing.notificationEmail" type="email" placeholder="ops-team@company.com" /></label></p>
-        <p>
-          Permissions:
-          <label v-for="perm in catalog" :key="perm.permissionKey" style="display: block">
-            <input
-              type="checkbox"
-              :checked="editing.permissionNames.includes(perm.permissionName)"
-              @change="togglePermission(perm.permissionName)"
-            />
-            {{ perm.permissionName }} — {{ perm.description }}
-          </label>
-        </p>
-        <button type="submit" class="btn-primary">Save</button>
-        <button type="button" @click="cancelEdit">Cancel</button>
-      </form>
     </template>
   </div>
 </template>

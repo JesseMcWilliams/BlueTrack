@@ -45,6 +45,10 @@ test.describe('Targets/Access Groups are top-level nav entries, gated per permis
 })
 
 test.describe('Targets page', () => {
+  // D-124 Phase 4: Add/Edit moved off this page's own inline form onto
+  // TargetEdit.vue's routed pages (/targets/new, /targets/:targetKey) --
+  // confirms the whole navigate-fill-save-return round trip, not just that
+  // the form itself still submits.
   test('Analyst can add a Target, see it in the filtered list, and the count summary reflects it', async ({ page }) => {
     await signInAs(page, 'TestUser.Analyst')
     await page.goto('/targets')
@@ -55,15 +59,14 @@ test.describe('Targets page', () => {
     const totalBefore = await readTotalCount(page)
 
     const targetName = `E2E Test Target ${Date.now()}`
-    await page.getByRole('button', { name: '+ New Target' }).click()
-    // Scoped to the form: the filter row above also has a "Type:" dropdown
-    // (both are simultaneously in the DOM once the form is open), so a
-    // bare page.getByLabel('Type:') would be ambiguous.
-    const form = page.locator('form').first()
-    await form.getByLabel('Name:').fill(targetName)
-    await form.getByLabel('Type:').selectOption('Server')
-    await form.getByLabel('Risk Score (0-1000):').fill('250')
-    await form.locator('button[type="submit"]').click()
+    await page.getByRole('link', { name: '+ New Target' }).click()
+    await expect(page).toHaveURL(/\/targets\/new$/)
+    await expect(page.getByRole('heading', { name: 'New Target' })).toBeVisible()
+    await page.getByLabel('Name:').fill(targetName)
+    await page.getByLabel('Type:').selectOption('Server')
+    await page.getByLabel('Risk Score (0-1000):').fill('250')
+    await page.locator('form button[type="submit"]').click()
+    await expect(page).toHaveURL(/\/targets$/)
 
     const row = page.locator('tbody tr', { hasText: targetName })
     await expect(row).toBeVisible()
@@ -81,16 +84,15 @@ test.describe('Targets page', () => {
     await page.getByLabel('Type:').selectOption('')
 
     await expect(page.locator('tbody tr', { hasText: targetName })).toBeVisible()
-    await row.getByRole('button', { name: 'Edit' }).click()
+    await row.getByRole('link', { name: 'Edit' }).click()
+    await expect(page.getByRole('heading', { name: 'Edit Target' })).toBeVisible()
+    // Confirms the edit page actually pre-fetched and pre-filled this
+    // specific row (a fresh navigation, not the already-loaded list item).
+    await expect(page.getByLabel('Name:')).toHaveValue(targetName)
     const updatedName = `${targetName} (Updated)`
-    // Scoped to the form again: the page also has a "Link a Single Account
-    // to a Target" form with an "Account Name:" field, which a bare
-    // page.getByLabel('Name:') substring-matches too (Playwright's
-    // getByLabel is substring-matching by default) -- confirmed directly
-    // as a real strict-mode-violation failure before scoping this.
-    const editForm = page.locator('form').first()
-    await editForm.getByLabel('Name:').fill(updatedName)
-    await editForm.locator('button[type="submit"]').click()
+    await page.getByLabel('Name:').fill(updatedName)
+    await page.locator('form button[type="submit"]').click()
+    await expect(page).toHaveURL(/\/targets$/)
     await expect(page.locator('tbody tr', { hasText: updatedName })).toBeVisible()
 
     await page.locator('tbody tr', { hasText: updatedName }).getByRole('button', { name: 'Delete' }).click()
@@ -99,6 +101,9 @@ test.describe('Targets page', () => {
 })
 
 test.describe('Access Groups page', () => {
+  // D-124 Phase 4: Add/Edit moved off this page's own inline form onto
+  // AccessGroupEdit.vue's routed pages (/access-groups/new,
+  // /access-groups/:accessGroupKey).
   test('Analyst can add an Access Group with SOR Type/SOR Address and see Discovery Source in the table', async ({ page }) => {
     await signInAs(page, 'TestUser.Analyst')
     await page.goto('/access-groups')
@@ -107,18 +112,17 @@ test.describe('Access Groups page', () => {
     await expect(page.getByText('Loading...')).toHaveCount(0)
 
     const groupName = `E2E Test Group ${Date.now()}`
-    await page.getByRole('button', { name: '+ New Access Group' }).click()
-    // Scoped to the form: the filter row above also has "Scope:"/"SOR
-    // Type:" dropdowns (both are simultaneously in the DOM once the form
-    // is open), so bare page.getByLabel() calls for those would be ambiguous.
-    const form = page.locator('form').first()
-    await form.getByLabel('Name:').fill(groupName)
-    await form.getByLabel('Identifier (e.g. AD SID/DN):').fill(`CN=${groupName}`)
-    await form.getByLabel('SOR Type:').selectOption('Domain')
-    await form.getByLabel('SOR Address:').fill('e2e.example.com')
-    await form.getByLabel('Base Risk Score (0-1000):').fill('150')
-    await form.getByLabel('Discovery Source:').fill('E2E Test')
-    await form.locator('button[type="submit"]').click()
+    await page.getByRole('link', { name: '+ New Access Group' }).click()
+    await expect(page).toHaveURL(/\/access-groups\/new$/)
+    await expect(page.getByRole('heading', { name: 'New Access Group' })).toBeVisible()
+    await page.getByLabel('Name:').fill(groupName)
+    await page.getByLabel('Identifier (e.g. AD SID/DN):').fill(`CN=${groupName}`)
+    await page.getByLabel('SOR Type:').selectOption('Domain')
+    await page.getByLabel('SOR Address:').fill('e2e.example.com')
+    await page.getByLabel('Base Risk Score (0-1000):').fill('150')
+    await page.getByLabel('Discovery Source:').fill('E2E Test')
+    await page.locator('form button[type="submit"]').click()
+    await expect(page).toHaveURL(/\/access-groups$/)
 
     const row = page.locator('tbody tr', { hasText: groupName })
     await expect(row).toBeVisible()
@@ -126,7 +130,13 @@ test.describe('Access Groups page', () => {
     await expect(row).toContainText('e2e.example.com')
     await expect(row).toContainText('E2E Test')
 
-    await row.getByRole('button', { name: 'Delete' }).click()
+    await row.getByRole('link', { name: 'Edit' }).click()
+    await expect(page.getByRole('heading', { name: 'Edit Access Group' })).toBeVisible()
+    await expect(page.getByLabel('SOR Address:')).toHaveValue('e2e.example.com')
+    await page.getByRole('button', { name: 'Cancel' }).click()
+    await expect(page).toHaveURL(/\/access-groups$/)
+
+    await page.locator('tbody tr', { hasText: groupName }).getByRole('button', { name: 'Delete' }).click()
     await expect(page.locator('tbody tr', { hasText: groupName })).toHaveCount(0)
   })
 })

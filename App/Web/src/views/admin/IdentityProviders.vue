@@ -13,45 +13,16 @@
 // same ConfigurationValues JSON string on save (the API/database shape is
 // unchanged; System.Text.Json's case-insensitive read means these camelCase
 // keys deserialize the same as the PascalCase ones typed by hand before).
+//
+// D-124 Phase 4: Add/Edit (including the structured OIDC/SAML config field
+// handling above) moved to its own routed page (IdentityProviderEdit.vue,
+// admin-identity-provider-create/-edit) -- this page no longer owns an
+// inline editing form.
 import { ref, onMounted } from 'vue'
 
 const providers = ref([])
 const error = ref(null)
 const loading = ref(true)
-const editing = ref(null)
-const configFields = ref({})
-
-function defaultConfigFields(providerType) {
-  if (providerType === 'OIDC') {
-    return { authority: '', clientId: '', callbackPath: '/signin-oidc', groupsClaimType: 'groups' }
-  }
-  if (providerType === 'SAML') {
-    return {
-      spEntityId: '',
-      spCertificateThumbprint: '',
-      idpEntityId: '',
-      idpSingleSignOnDestination: '',
-      idpSingleLogoutDestination: '',
-      idpCertificateThumbprint: '',
-      groupClaimType: 'http://schemas.xmlsoap.org/claims/Group'
-    }
-  }
-  return {}
-}
-
-function parseConfigFields(providerType, configurationValues) {
-  const defaults = defaultConfigFields(providerType)
-  if (!configurationValues) return defaults
-  try {
-    return { ...defaults, ...JSON.parse(configurationValues) }
-  } catch {
-    return defaults
-  }
-}
-
-function onProviderTypeChange() {
-  configFields.value = defaultConfigFields(editing.value.providerType)
-}
 
 async function load() {
   loading.value = true
@@ -67,41 +38,6 @@ async function load() {
 }
 
 onMounted(load)
-
-function startCreate() {
-  editing.value = { providerType: 'OIDC', displayName: '', isEnabled: false, displayOrder: 0, plaintextSecret: '' }
-  configFields.value = defaultConfigFields('OIDC')
-}
-function startEdit(provider) {
-  // secretReference comes back redacted ("***") when set -- never round-tripped
-  // as an editable value. plaintextSecret is a separate write-only field.
-  editing.value = { ...provider, plaintextSecret: '' }
-  configFields.value = parseConfigFields(provider.providerType, provider.configurationValues)
-}
-function cancelEdit() {
-  editing.value = null
-}
-
-async function save() {
-  const isNew = editing.value.providerKey === undefined
-  const url = isNew ? '/api/admin/identity-providers' : `/api/admin/identity-providers/${editing.value.providerKey}`
-  // secretReference is never sent back -- it may hold the redacted "***"
-  // placeholder loaded from GET, and the server derives the real value
-  // from plaintextSecret instead (or leaves the stored one alone if blank).
-  const { providerType, displayName, isEnabled, displayOrder, plaintextSecret } = editing.value
-  const configurationValues = ['OIDC', 'SAML'].includes(providerType) ? JSON.stringify(configFields.value) : null
-  const response = await fetch(url, {
-    method: isNew ? 'POST' : 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ providerType, displayName, isEnabled, displayOrder, configurationValues, plaintextSecret: plaintextSecret || null })
-  })
-  if (!response.ok) {
-    error.value = `Save failed: ${response.status}`
-    return
-  }
-  editing.value = null
-  await load()
-}
 
 async function remove(provider) {
   const response = await fetch(`/api/admin/identity-providers/${provider.providerKey}`, { method: 'DELETE' })
@@ -120,7 +56,7 @@ async function remove(provider) {
     <p v-if="loading" role="status">Loading...</p>
 
     <template v-else>
-      <button class="btn-primary" @click="startCreate">+ New Provider</button>
+      <p><router-link :to="{ name: 'admin-identity-provider-create' }">+ New Provider</router-link></p>
 
       <table>
         <thead>
@@ -133,62 +69,12 @@ async function remove(provider) {
             <td>{{ provider.isEnabled }}</td>
             <td>{{ provider.displayOrder }}</td>
             <td>
-              <button @click="startEdit(provider)">Edit</button>
+              <router-link :to="{ name: 'admin-identity-provider-edit', params: { providerKey: provider.providerKey } }">Edit</router-link>
               <button @click="remove(provider)">Delete</button>
             </td>
           </tr>
         </tbody>
       </table>
-
-      <form v-if="editing" @submit.prevent="save">
-        <h3>{{ editing.providerKey === undefined ? 'New Provider' : 'Edit Provider' }}</h3>
-        <p>
-          <label class="field-label">
-            <span class="field-label-text">Provider Type:</span>
-            <select v-model="editing.providerType" @change="onProviderTypeChange">
-              <option value="WindowsIntegrated">WindowsIntegrated</option>
-              <option value="OIDC">OIDC</option>
-              <option value="SAML">SAML</option>
-              <option value="DevFakeAuth">DevFakeAuth</option>
-            </select>
-          </label>
-        </p>
-        <p><label class="field-label"><span class="field-label-text">Display Name:</span> <input v-model="editing.displayName" required /></label></p>
-        <p><label><input v-model="editing.isEnabled" type="checkbox" /> Enabled</label></p>
-        <p><label class="field-label"><span class="field-label-text">Display Order:</span> <input v-model.number="editing.displayOrder" type="number" /></label></p>
-
-        <template v-if="editing.providerType === 'OIDC'">
-          <p><label class="field-label"><span class="field-label-text">Authority:</span> <input v-model="configFields.authority" placeholder="https://login.microsoftonline.com/{tenant}/v2.0" /></label></p>
-          <p><label class="field-label"><span class="field-label-text">Client ID:</span> <input v-model="configFields.clientId" /></label></p>
-          <p><label class="field-label"><span class="field-label-text">Callback Path:</span> <input v-model="configFields.callbackPath" /></label></p>
-          <p><label class="field-label"><span class="field-label-text">Groups Claim Type:</span> <input v-model="configFields.groupsClaimType" /></label></p>
-        </template>
-        <template v-else-if="editing.providerType === 'SAML'">
-          <p><label class="field-label"><span class="field-label-text">SP Entity ID:</span> <input v-model="configFields.spEntityId" /></label></p>
-          <p>
-            <label class="field-label"><span class="field-label-text">SP Certificate Thumbprint:</span> <input v-model="configFields.spCertificateThumbprint" /></label>
-            <small>This app's own signing/decryption certificate, by thumbprint in the Windows Certificate Store (LocalMachine\My) -- not a certificate file or blob.</small>
-          </p>
-          <p><label class="field-label"><span class="field-label-text">IdP Entity ID:</span> <input v-model="configFields.idpEntityId" /></label></p>
-          <p><label class="field-label"><span class="field-label-text">IdP Single Sign-On Destination:</span> <input v-model="configFields.idpSingleSignOnDestination" /></label></p>
-          <p><label class="field-label"><span class="field-label-text">IdP Single Logout Destination:</span> <input v-model="configFields.idpSingleLogoutDestination" /></label></p>
-          <p>
-            <label class="field-label"><span class="field-label-text">IdP Certificate Thumbprint:</span> <input v-model="configFields.idpCertificateThumbprint" /></label>
-            <small>The IdP's signing certificate, by thumbprint in the Windows Certificate Store -- not a certificate file or blob.</small>
-          </p>
-          <p><label class="field-label"><span class="field-label-text">Group Claim Type:</span> <input v-model="configFields.groupClaimType" /></label></p>
-        </template>
-
-        <p>
-          <label class="field-label">
-            <span class="field-label-text">Secret (e.g. OIDC client secret):</span>
-            <input v-model="editing.plaintextSecret" type="password" size="30"
-              :placeholder="editing.secretReference ? '(already set -- leave blank to keep)' : '(none set)'" />
-          </label>
-        </p>
-        <button type="submit" class="btn-primary">Save</button>
-        <button type="button" @click="cancelEdit">Cancel</button>
-      </form>
     </template>
   </div>
 </template>

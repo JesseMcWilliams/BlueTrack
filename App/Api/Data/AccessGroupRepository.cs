@@ -65,6 +65,25 @@ public sealed class AccessGroupRepository(IDbConnectionFactory connectionFactory
         return rows.AsList();
     }
 
+    /// <summary>
+    /// D-124 Phase 4: a single Access Group by key -- backs the new routed
+    /// Access Group Edit page (App/Web/src/views/AccessGroupEdit.vue), which
+    /// needs to load one specific row directly rather than relying on an
+    /// already-loaded list page, the way GetByKeyAsync already exists on
+    /// RiskExceptionRepository for the same reason. Unlike GetAllAsync, this
+    /// is never paginated -- a lookup by its own primary key needs no
+    /// OFFSET/FETCH at all.
+    /// </summary>
+    public async Task<AccessGroupSummary?> GetByKeyAsync(int accessGroupKey)
+    {
+        using var connection = connectionFactory.Create();
+        var sql = $"""
+            {SelectSql}
+            WHERE g.AccessGroupKey = @AccessGroupKey
+            """;
+        return await connection.QuerySingleOrDefaultAsync<AccessGroupSummary>(sql, new { AccessGroupKey = accessGroupKey });
+    }
+
     /// <summary>D-121: the grand total row count under the same base (no filter) condition -- backs the X-Total-Count response header.</summary>
     public async Task<int> GetTotalCountAsync()
     {
