@@ -25,6 +25,7 @@
   --color-focus-ring: #2563eb; /* 5.17:1 vs #fff */
   --color-error-text: #b00020; /* 7.33:1 vs #fff */
   --color-success-text: #1e7e34; /* 5.14:1 vs #fff */
+  --color-row-hover: #e4e4e4; /* 16.52:1 text-vs-hover (needs 4.5:1) -- a hover tint, not body text, but computed the same way as every other token here */
 }
 
 :root[data-theme='Dark'] {
@@ -37,6 +38,7 @@
   --color-focus-ring: #ffb300; /* 6.15:1 vs #3c3c3c */
   --color-error-text: #ff8a8a; /* 4.86:1 vs #3c3c3c */
   --color-success-text: #7fdb7f; /* 6.48:1 vs #3c3c3c */
+  --color-row-hover: #525252; /* 7.42:1 text-vs-hover (needs 4.5:1) */
 }
 
 :root[data-theme='HighVisibility'] {
@@ -50,6 +52,7 @@
   --color-focus-ring: #ffffff;
   --color-error-text: #ffa500; /* ~10.6:1 vs #000 */
   --color-success-text: #00ff00; /* ~15.3:1 vs #000 */
+  --color-row-hover: #1f1f1f; /* 15.35:1 text-vs-hover (needs 7:1, this theme's own AAA target) -- still reads as "barely lighter than black", keeping the theme's max-contrast character */
 }
 
 /* Spacing scale (added 2026-09-06, usability pass): an 8px-based rem scale
@@ -159,7 +162,24 @@ h1, h2, h3 {
    2.3) and an alternating-row tint not part of that specified palette
    would need the same rigor applied to it as every other color in this
    file; row/column borders already carry the same scanning benefit
-   without that added surface area. */
+   without that added surface area.
+
+   Extended 2026-09-10 (requested directly, after asking which visual
+   treatments to add -- full grid lines, row hover, sticky header;
+   zebra striping was offered too but not chosen, so the reasoning
+   above still stands): border-bottom-only cells became a full border on
+   every cell, turning row-only separation into an actual grid. A new
+   --color-row-hover token (one per theme, defined alongside the other
+   theme tokens above) drives tbody row hover -- computed against a real
+   contrast checker like every other token in this file, not eyeballed:
+   text-on-hover clears each theme's own text target (Light 16.52:1,
+   Dark 7.42:1, High-Visibility 15.35:1, all comfortably above their
+   4.5:1/4.5:1/7:1 requirement) since it's a background under existing
+   text, not a new color needing its own independent contrast case the
+   way zebra striping would. thead th is now sticky -- needs its own
+   opaque --color-bg so page content doesn't show through underneath it
+   while scrolling; nothing else in this app is position:fixed/sticky at
+   the top of the viewport, so a plain `top: 0` needs no offset. */
 table {
   border-collapse: collapse;
   margin-bottom: var(--space-4);
@@ -167,10 +187,17 @@ table {
 th, td {
   padding: var(--space-2) var(--space-3);
   text-align: left;
-  border-bottom: 1px solid var(--color-border);
+  border: 1px solid var(--color-border);
 }
 thead th {
   border-bottom-width: 2px;
+  position: sticky;
+  top: 0;
+  background: var(--color-bg);
+  z-index: 1;
+}
+tbody tr:hover {
+  background: var(--color-row-hover);
 }
 
 /* General body rhythm (added 2026-09-06, usability pass): paragraphs
