@@ -61,6 +61,34 @@ const overrideScoreInput = ref(null)
 const overrideReasonInput = ref('')
 const overrideError = ref(null)
 const overrideSaving = ref(false)
+const recalculating = ref(false)
+const recalculateError = ref(null)
+
+async function refreshDetail() {
+  const detailResponse = await fetch(`/api/account-progress/${props.accountKey}`)
+  if (detailResponse.ok) {
+    detail.value = await detailResponse.json()
+    overrideScoreInput.value = detail.value.overrideRiskScore ?? null
+  }
+}
+
+// D-131: recalculates just this one account's Calculated Risk right now
+// (usp_RecalculateRiskScoreForAccount) -- the bulk "Recalculate Now" on
+// the Risk Score report only touches accounts already marked stale.
+async function recalculate() {
+  recalculateError.value = null
+  recalculating.value = true
+  try {
+    const response = await fetch(`/api/account-progress/${props.accountKey}/recalculate-risk-score`, { method: 'POST' })
+    if (!response.ok) {
+      recalculateError.value = `Recalculate failed: ${response.status}`
+      return
+    }
+    await refreshDetail()
+  } finally {
+    recalculating.value = false
+  }
+}
 
 async function saveOverride() {
   overrideError.value = null
@@ -85,11 +113,7 @@ async function saveOverride() {
       return
     }
     overrideReasonInput.value = ''
-    const detailResponse = await fetch(`/api/account-progress/${props.accountKey}`)
-    if (detailResponse.ok) {
-      detail.value = await detailResponse.json()
-      overrideScoreInput.value = detail.value.overrideRiskScore ?? null
-    }
+    await refreshDetail()
   } finally {
     overrideSaving.value = false
   }
@@ -449,6 +473,10 @@ onUnmounted(releaseLock)
             <dt>Calculated Risk</dt><dd>{{ detail.computedRiskScore ?? '(not yet calculated)' }}</dd>
             <dt>Risk Band</dt><dd>{{ detail.riskScoreBandName ?? '—' }}</dd>
           </dl>
+          <p v-if="recalculateError" role="alert">{{ recalculateError }}</p>
+          <p>
+            <button type="button" class="account-progress-recalculate" :disabled="recalculating" @click="recalculate">{{ recalculating ? 'Recalculating…' : 'Recalculate' }}</button>
+          </p>
           <p v-if="overrideError" role="alert">{{ overrideError }}</p>
           <p>
             <label class="field-label"><span class="field-label-text">Override Score (0-1000, blank clears it):</span>

@@ -16,7 +16,16 @@ const state = reactive({
 
 let pendingResolve = null
 
-/** Shows the shared dialog with `message`; resolves true on Confirm, false on Cancel/Escape. */
+/**
+ * Shows the shared dialog with `message`; resolves true on Confirm, false
+ * on Cancel/Escape.
+ *
+ * D-131: `message` can be a plain string (rendered as one line, unchanged
+ * behavior for the 8 simple Delete buttons) or `{ title, details, warning }`
+ * (D-129's structured Access Group/Target confirmation) -- `details` (an
+ * array of lines) renders visually indented, set off from `title` and
+ * `warning`, which don't.
+ */
 export function confirmDelete(message, confirmLabel = 'Delete') {
   state.message = message
   state.confirmLabel = confirmLabel

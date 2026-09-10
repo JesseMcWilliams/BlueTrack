@@ -69,16 +69,23 @@ function baseDetail(overrides = {}) {
   }
 }
 
-function mockLoad({ detailOverrides = {} } = {}) {
+function mockLoad({ detailOverrides = {}, recalculatedDetailOverrides = { computedRiskScore: 250, riskScoreBandName: 'Medium' } } = {}) {
+  let recalculated = false
   globalThis.fetch = vi.fn((url, options) => {
     if (url === '/api/account-progress/field-metadata') return Promise.resolve(jsonResponse(fieldMetadata))
     if (url === '/api/account-progress/reference-data') return Promise.resolve(jsonResponse(referenceData))
-    if (url === '/api/account-progress/42' && (!options || options.method === undefined)) return Promise.resolve(jsonResponse(baseDetail(detailOverrides)))
+    if (url === '/api/account-progress/42' && (!options || options.method === undefined)) {
+      return Promise.resolve(jsonResponse(baseDetail(recalculated ? { ...detailOverrides, ...recalculatedDetailOverrides } : detailOverrides)))
+    }
     if (url === '/api/account-progress/42/lock' && (!options || !options.method)) return Promise.resolve(emptyResponse()) // no existing lock
     if (url === '/api/account-progress/42/lock' && options?.method === 'POST') {
       return Promise.resolve(jsonResponse({ lockedByUserKey: 1, lockedByName: 'Test User', lockedAt: '2026-01-01T00:00:00Z' }))
     }
     if (url === '/api/account-progress/42/application-exceptions') return Promise.resolve(emptyResponse())
+    if (url === '/api/account-progress/42/recalculate-risk-score' && options?.method === 'POST') {
+      recalculated = true
+      return Promise.resolve(emptyResponse())
+    }
     if (url === '/api/risk-exceptions') return Promise.resolve(jsonResponse([]))
     return Promise.resolve(jsonResponse(null, { ok: false, status: 404 }))
   })
@@ -147,5 +154,24 @@ describe('AccountProgressDetail.vue', () => {
     await flushPromises() // the isRiskAccepted watcher's own loadLinkableExceptions() fetch
 
     expect(wrapper.find('#account-progress-tab-risk-exception').exists()).toBe(true)
+  })
+
+  // D-131: a per-account "Recalculate" action on the Risk Score tab --
+  // posts to its own dedicated endpoint (distinct from the Risk Score
+  // report's bulk "Recalculate Now") and refreshes this one account's
+  // Calculated Risk/Risk Band from the response.
+  it('Recalculate posts to the per-account endpoint and refreshes Calculated Risk/Risk Band', async () => {
+    mockLoad()
+    const wrapper = await mountEditable()
+    await wrapper.get('#account-progress-tab-risk-score').trigger('click')
+
+    expect(wrapper.get('#account-progress-panel-risk-score').text()).toContain('Calculated Risk100')
+
+    await wrapper.get('button.account-progress-recalculate').trigger('click')
+    await flushPromises()
+
+    expect(globalThis.fetch).toHaveBeenCalledWith('/api/account-progress/42/recalculate-risk-score', { method: 'POST' })
+    expect(wrapper.get('#account-progress-panel-risk-score').text()).toContain('Calculated Risk250')
+    expect(wrapper.get('#account-progress-panel-risk-score').text()).toContain('Risk BandMedium')
   })
 })

@@ -280,14 +280,16 @@ describe('Targets.vue', () => {
     await deleteButton.trigger('click')
     await flushPromises()
 
-    expect(confirmDelete).toHaveBeenCalledWith([
-      'Delete Target',
-      `Name: ${sampleTarget.targetName}`,
-      `Scope: ${sampleTarget.targetTypeDisplayName}`,
-      `Address: ${sampleTarget.identifiers[0].identifierValue}`,
-      `Source: ${sampleTarget.discoverySource}`,
-      'This cannot be undone.'
-    ].join('\n'))
+    expect(confirmDelete).toHaveBeenCalledWith({
+      title: 'Delete Target',
+      details: [
+        `Name: ${sampleTarget.targetName}`,
+        `Scope: ${sampleTarget.targetTypeDisplayName}`,
+        `Address: ${sampleTarget.identifiers[0].identifierValue}`,
+        `Source: ${sampleTarget.discoverySource}`
+      ],
+      warning: 'This cannot be undone.'
+    })
     expect(globalThis.fetch).toHaveBeenCalledWith(`/api/admin/targets/${sampleTarget.targetKey}`, { method: 'DELETE' })
   })
 })

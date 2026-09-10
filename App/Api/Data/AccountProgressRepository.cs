@@ -238,6 +238,20 @@ public sealed class AccountProgressRepository(IDbConnectionFactory connectionFac
         transaction.Commit();
     }
 
+    /// <summary>
+    /// D-131: a per-account "Recalculate" action on the Account Progress
+    /// edit screen's Risk Score tab -- usp_RecalculateRiskScoreForAccount
+    /// (Database/30) reuses the same usp_CalculateRiskScore dispatcher the
+    /// bulk usp_RecalculateRiskScores does, so this produces the identical
+    /// number that a full recalculation would for this one account,
+    /// regardless of whether it happened to be marked stale.
+    /// </summary>
+    public async Task RecalculateForAccountAsync(long accountKey)
+    {
+        using var connection = connectionFactory.Create();
+        await connection.ExecuteAsync("EXEC usp_RecalculateRiskScoreForAccount @AccountKey", new { AccountKey = accountKey });
+    }
+
     /// <summary>D-81: Active application-scoped exceptions covering this account, computed live (web.vw_account_application_exception).</summary>
     public async Task<IReadOnlyList<ApplicationScopedException>> GetApplicationScopedExceptionsAsync(long accountKey)
     {

@@ -228,14 +228,16 @@ describe('AccessGroups.vue', () => {
     await deleteButton.trigger('click')
     await flushPromises()
 
-    expect(confirmDelete).toHaveBeenCalledWith([
-      'Delete Access Group',
-      `Name: ${sampleGroup.groupName}`,
-      `Scope: ${sampleGroup.groupScope}`,
-      `Address: ${sampleGroup.sorAddress}`,
-      `Source: ${sampleGroup.discoverySource}`,
-      'This cannot be undone.'
-    ].join('\n'))
+    expect(confirmDelete).toHaveBeenCalledWith({
+      title: 'Delete Access Group',
+      details: [
+        `Name: ${sampleGroup.groupName}`,
+        `Scope: ${sampleGroup.groupScope}`,
+        `Address: ${sampleGroup.sorAddress}`,
+        `Source: ${sampleGroup.discoverySource}`
+      ],
+      warning: 'This cannot be undone.'
+    })
     expect(globalThis.fetch).toHaveBeenCalledWith(`/api/admin/access-groups/${sampleGroup.accessGroupKey}`, { method: 'DELETE' })
   })
 })

@@ -145,17 +145,19 @@ watch([scopeFilter, sorTypeFilter, sortQueryParam], () => {
 })
 
 async function remove(item) {
-  // D-129: a structured Name/Scope/Address/Source summary, confirmed
-  // directly -- Access Group's own fields map onto this exactly
-  // (GroupScope/SorAddress/DiscoverySource).
-  const message = [
-    'Delete Access Group',
-    `Name: ${item.groupName}`,
-    `Scope: ${item.groupScope}`,
-    `Address: ${item.sorAddress ?? '—'}`,
-    `Source: ${item.discoverySource ?? '—'}`,
-    'This cannot be undone.'
-  ].join('\n')
+  // D-129/D-131: a structured Name/Scope/Address/Source summary (rendered
+  // indented, set off from the title/warning) -- Access Group's own
+  // fields map onto this exactly (GroupScope/SorAddress/DiscoverySource).
+  const message = {
+    title: 'Delete Access Group',
+    details: [
+      `Name: ${item.groupName}`,
+      `Scope: ${item.groupScope}`,
+      `Address: ${item.sorAddress ?? '—'}`,
+      `Source: ${item.discoverySource ?? '—'}`
+    ],
+    warning: 'This cannot be undone.'
+  }
   if (!(await confirmDelete(message))) return
   const response = await fetch(`/api/admin/access-groups/${item.accessGroupKey}`, { method: 'DELETE' })
   if (!response.ok) {

@@ -293,4 +293,18 @@ public sealed class AccountProgressController(
 
         return NoContent();
     }
+
+    /// <summary>
+    /// D-131: recalculates just this one account's ComputedRiskScore right
+    /// now, regardless of its IsRiskScoreStale flag -- the bulk
+    /// usp_RecalculateRiskScores (ReportsController's own "Recalculate Now")
+    /// only ever touches rows already marked stale.
+    /// </summary>
+    [HttpPost("{accountKey:long}/recalculate-risk-score")]
+    [Authorize(Policy = Permissions.EditAccountProgress)]
+    public async Task<IActionResult> RecalculateRiskScore(long accountKey)
+    {
+        await repository.RecalculateForAccountAsync(accountKey);
+        return NoContent();
+    }
 }

@@ -193,18 +193,21 @@ watch([typeFilter, applicationFilter, sortQueryParam], () => {
 })
 
 async function remove(item) {
-  // D-129: a structured Name/Scope/Address/Source summary, confirmed
-  // directly -- Target has no literal Scope/Address field, so Scope shows
-  // its Target Type and Address shows its first identifier value (a
-  // Target can have several; just the first is shown, confirmed directly).
-  const message = [
-    'Delete Target',
-    `Name: ${item.targetName}`,
-    `Scope: ${item.targetTypeDisplayName}`,
-    `Address: ${item.identifiers[0]?.identifierValue ?? '—'}`,
-    `Source: ${item.discoverySource ?? '—'}`,
-    'This cannot be undone.'
-  ].join('\n')
+  // D-129/D-131: a structured Name/Scope/Address/Source summary (rendered
+  // indented, set off from the title/warning) -- Target has no literal
+  // Scope/Address field, so Scope shows its Target Type and Address shows
+  // its first identifier value (a Target can have several; just the
+  // first is shown, confirmed directly).
+  const message = {
+    title: 'Delete Target',
+    details: [
+      `Name: ${item.targetName}`,
+      `Scope: ${item.targetTypeDisplayName}`,
+      `Address: ${item.identifiers[0]?.identifierValue ?? '—'}`,
+      `Source: ${item.discoverySource ?? '—'}`
+    ],
+    warning: 'This cannot be undone.'
+  }
   if (!(await confirmDelete(message))) return
   const response = await fetch(`/api/admin/targets/${item.targetKey}`, { method: 'DELETE' })
   if (!response.ok) {
