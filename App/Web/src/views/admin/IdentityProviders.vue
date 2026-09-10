@@ -19,6 +19,9 @@
 // admin-identity-provider-create/-edit) -- this page no longer owns an
 // inline editing form.
 import { ref, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
+
+const router = useRouter()
 
 const providers = ref([])
 const error = ref(null)
@@ -56,7 +59,7 @@ async function remove(provider) {
     <p v-if="loading" role="status">Loading...</p>
 
     <template v-else>
-      <p><router-link :to="{ name: 'admin-identity-provider-create' }">+ New Provider</router-link></p>
+      <p><button type="button" class="btn-primary" @click="router.push({ name: 'admin-identity-provider-create' })">+ New Provider</button></p>
 
       <table>
         <thead>

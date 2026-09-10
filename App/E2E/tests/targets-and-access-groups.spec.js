@@ -59,7 +59,7 @@ test.describe('Targets page', () => {
     const totalBefore = await readTotalCount(page)
 
     const targetName = `E2E Test Target ${Date.now()}`
-    await page.getByRole('link', { name: '+ New Target' }).click()
+    await page.getByRole('button', { name: '+ New Target' }).click()
     await expect(page).toHaveURL(/\/targets\/new$/)
     await expect(page.getByRole('heading', { name: 'New Target' })).toBeVisible()
     await page.getByLabel('Name:').fill(targetName)
@@ -113,7 +113,7 @@ test.describe('Access Groups page', () => {
     await expect(page.getByText('Loading...')).toHaveCount(0)
 
     const groupName = `E2E Test Group ${Date.now()}`
-    await page.getByRole('link', { name: '+ New Access Group' }).click()
+    await page.getByRole('button', { name: '+ New Access Group' }).click()
     await expect(page).toHaveURL(/\/access-groups\/new$/)
     await expect(page.getByRole('heading', { name: 'New Access Group' })).toBeVisible()
     await page.getByLabel('Name:').fill(groupName)

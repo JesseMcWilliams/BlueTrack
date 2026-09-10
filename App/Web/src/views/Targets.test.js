@@ -208,15 +208,23 @@ describe('Targets.vue', () => {
   })
 
   // D-124 Phase 4: Add/Edit moved off this page's own inline form onto
-  // TargetEdit.vue's routed pages -- "+ New Target" and each row's "Edit"
-  // are now router-link navigations instead of toggling a form in place.
-  it('links "+ New Target" to the target-create route', async () => {
+  // TargetEdit.vue's routed pages. D-125: "+ New Target" is now a real
+  // <button> (this app's button styling is scoped to the button element
+  // itself, not a reusable class -- a styled <a> wouldn't actually look
+  // like one), navigating imperatively via router.push rather than a
+  // router-link, so this asserts on the router's resulting location
+  // instead of an href.
+  it('"+ New Target" button navigates to the target-create route', async () => {
     mockInitialLoad({ targets: [] })
-    const wrapper = mount(Targets, { global: { plugins: [makeRouter()] } })
+    const router = makeRouter()
+    const wrapper = mount(Targets, { global: { plugins: [router] } })
     await flushPromises()
 
-    const link = wrapper.findAll('a').find(a => a.text() === '+ New Target')
-    expect(link.attributes('href')).toBe('/targets/new')
+    const button = wrapper.findAll('button').find(b => b.text() === '+ New Target')
+    await button.trigger('click')
+    await flushPromises()
+
+    expect(router.currentRoute.value.name).toBe('target-create')
   })
 
   // D-125: clicking the Name is the edit action -- there's no separate
@@ -232,14 +240,17 @@ describe('Targets.vue', () => {
 
   // D-124 Phase 5: the 2 inline "Bulk Import" sections moved off this page
   // onto TargetsBulkImport.test.js -- coverage here is limited to the
-  // "Bulk Actions" link itself, matching how the "+ New Target"/"Edit"
-  // router-links are asserted above.
-  it('links "Bulk Actions" to the targets-bulk-import route', async () => {
+  // "Bulk Actions" button itself (D-125: a real <button>, see the note above).
+  it('"Bulk Actions" button navigates to the targets-bulk-import route', async () => {
     mockInitialLoad({ targets: [] })
-    const wrapper = mount(Targets, { global: { plugins: [makeRouter()] } })
+    const router = makeRouter()
+    const wrapper = mount(Targets, { global: { plugins: [router] } })
     await flushPromises()
 
-    const link = wrapper.findAll('a').find(a => a.text() === 'Bulk Actions')
-    expect(link.attributes('href')).toBe('/targets/bulk-import')
+    const button = wrapper.findAll('button').find(b => b.text() === 'Bulk Actions')
+    await button.trigger('click')
+    await flushPromises()
+
+    expect(router.currentRoute.value.name).toBe('targets-bulk-import')
   })
 })

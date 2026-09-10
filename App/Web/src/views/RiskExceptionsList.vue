@@ -3,6 +3,7 @@
 // stacked filters (status/scope type) plus multi-column sort, same pattern
 // as AccountProgressList.vue.
 import { ref, computed, watch, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { useRightsStore } from '../stores/rights'
 import { formatDate } from '../utils/formatDate'
 import { useTotalCount } from '../composables/useTotalCount'
@@ -10,6 +11,7 @@ import { usePageSizeStore } from '../stores/pageSize'
 import FilterCountSummary from '../components/FilterCountSummary.vue'
 import Pager from '../components/Pager.vue'
 
+const router = useRouter()
 const rights = useRightsStore()
 const { totalCount, filteredCount, readTotalCount } = useTotalCount()
 const pageSizeStore = usePageSizeStore()
@@ -120,7 +122,7 @@ watch([statusFilter, scopeTypeFilter, sortQueryParam], () => {
   <div>
     <h1>Risk Exceptions</h1>
     <p v-if="rights.hasPermission('ApproveExceptions')">
-      <router-link :to="{ name: 'risk-exception-create' }">+ New Exception</router-link>
+      <button type="button" class="btn-primary" @click="router.push({ name: 'risk-exception-create' })">+ New Exception</button>
     </p>
     <p class="filter-row">
       <label class="field-label"><span class="field-label-text">Status:</span>
@@ -167,6 +169,7 @@ watch([statusFilter, scopeTypeFilter, sortQueryParam], () => {
         </tr>
       </tbody>
     </table>
+    <Pager :page="page" :page-count="pageCount" @update:page="onPageChange" @page-size-change="onPageSizeChange" />
     <p><small>Click a column to sort by it; shift-click another column to add it as a secondary sort key.</small></p>
   </div>
 </template>

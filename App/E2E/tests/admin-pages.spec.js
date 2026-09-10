@@ -48,7 +48,7 @@ test.describe('Identity Providers admin page', () => {
     await page.goto('/admin/identity-providers')
     const displayName = `E2E Test Provider ${Date.now()}`
 
-    await page.getByRole('link', { name: '+ New Provider' }).click()
+    await page.getByRole('button', { name: '+ New Provider' }).click()
     await page.getByLabel('Display Name:').fill(displayName)
     await page.locator('form button[type="submit"]').click()
     await expect(page).toHaveURL(/\/admin\/identity-providers$/)
@@ -77,7 +77,7 @@ test.describe('Identity Providers admin page', () => {
     await page.goto('/admin/identity-providers')
     const displayName = `E2E OIDC Provider ${Date.now()}`
 
-    await page.getByRole('link', { name: '+ New Provider' }).click()
+    await page.getByRole('button', { name: '+ New Provider' }).click()
     await page.getByLabel('Display Name:').fill(displayName)
     await page.getByLabel('Authority:').fill('https://login.example.com/tenant123/v2.0')
     await page.getByLabel('Client ID:').fill('e2e-client-id')
@@ -131,7 +131,7 @@ test.describe('Group → Role Mapping admin page', () => {
     // page's own inline form onto GroupRoleMappingCreate.vue's routed page
     // (/admin/group-role-mapping/new) -- delete-only per row (unchanged)
     // and the Lookup/Test Tool below (unchanged) both stay on this page.
-    await page.getByRole('link', { name: '+ Add Mapping' }).click()
+    await page.getByRole('button', { name: '+ Add Mapping' }).click()
     await expect(page).toHaveURL(/\/admin\/group-role-mapping\/new$/)
     await page.getByLabel(/^Group Name/).fill('BUILTIN\\Users')
     // D-93-adjacent fix: Role is now a real <select> populated from
@@ -163,7 +163,7 @@ test.describe('Roles & Permissions admin page', () => {
     await page.goto('/admin/roles-permissions')
     const roleName = `E2ETestRole${Date.now()}`
 
-    await page.getByRole('link', { name: '+ New Role' }).click()
+    await page.getByRole('button', { name: '+ New Role' }).click()
     await page.getByLabel('Role Name:').fill(roleName)
     // A plain string (substring match) is used here, not an anchored regex --
     // confirmed directly that regex hasText tests the untrimmed text node
@@ -194,7 +194,7 @@ test.describe('Application ↔ Safe Mapping admin page', () => {
     const suffix = `${Date.now()}`
     const appName = `E2E Test Application ${suffix}`
 
-    await page.getByRole('link', { name: '+ New Application' }).click()
+    await page.getByRole('button', { name: '+ New Application' }).click()
     const appCode = `E2EAPP${suffix}`
     await page.getByLabel('Code:').fill(appCode)
     // exact: true -- "Name:" would otherwise substring-match "Owner Name:"/"Technical Contact Name:" too.
@@ -275,7 +275,7 @@ test.describe('Field Metadata Management admin page', () => {
     await page.goto('/admin/field-metadata')
     const fieldName = `E2ETestField${Date.now()}`
 
-    await page.getByRole('link', { name: '+ New Field' }).click()
+    await page.getByRole('button', { name: '+ New Field' }).click()
     await page.getByLabel('Field Name:').fill(fieldName)
     await page.getByLabel('Display Label:').fill('E2E Test Field Label')
     await page.locator('form button[type="submit"]').click()
@@ -443,7 +443,7 @@ test.describe('Notifications admin page', () => {
     await page.goto('/admin/notifications')
     const email = `e2etest${Date.now()}@example.com`
 
-    await page.getByRole('link', { name: '+ Add Recipient' }).click()
+    await page.getByRole('button', { name: '+ Add Recipient' }).click()
     await expect(page).toHaveURL(/\/admin\/notifications\/recipients\/new$/)
     await page.getByLabel('Email:').fill(email)
     await page.getByRole('button', { name: 'Add Recipient' }).click()
@@ -482,7 +482,7 @@ test.describe('Risk Score Bands admin page', () => {
     await page.goto('/admin/risk-score-bands')
     const bandName = `E2ETestBand${Date.now()}`
 
-    await page.getByRole('link', { name: '+ New Band' }).click()
+    await page.getByRole('button', { name: '+ New Band' }).click()
     await page.getByLabel('Name:').fill(bandName)
     await page.getByLabel('Min Score:').fill('10000')
     await page.getByLabel('Max Score:').fill('10100')
@@ -496,7 +496,7 @@ test.describe('Risk Score Bands admin page', () => {
     try {
       // A second band overlapping the first's range is rejected with the
       // server's own overlap message, not silently accepted.
-      await page.getByRole('link', { name: '+ New Band' }).click()
+      await page.getByRole('button', { name: '+ New Band' }).click()
       const overlappingName = `${bandName}Overlap`
       await page.getByLabel('Name:').fill(overlappingName)
       await page.getByLabel('Min Score:').fill('10050')

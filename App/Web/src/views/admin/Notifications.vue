@@ -15,6 +15,9 @@
 // place here, untouched, and the SMTP config / notification types / test
 // email sections are all untouched too.
 import { ref, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
+
+const router = useRouter()
 
 const config = ref(null)
 const configError = ref(null)
@@ -227,7 +230,7 @@ async function sendTestEmail() {
       </table>
       <p v-else>No recipients configured yet -- alerts have nowhere to go until at least one is added below.</p>
 
-      <p><router-link :to="{ name: 'admin-notification-recipient-create' }">+ Add Recipient</router-link></p>
+      <p><button type="button" class="btn-primary" @click="router.push({ name: 'admin-notification-recipient-create' })">+ Add Recipient</button></p>
     </template>
   </div>
 </template>

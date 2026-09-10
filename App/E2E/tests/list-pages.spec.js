@@ -58,13 +58,13 @@ test.describe('Risk Exceptions List', () => {
   test('Approver sees the New Exception link', async ({ page }) => {
     await signInAs(page, 'TestUser.Approver')
     await page.goto('/exceptions')
-    await expect(page.getByRole('link', { name: '+ New Exception' })).toBeVisible()
+    await expect(page.getByRole('button', { name: '+ New Exception' })).toBeVisible()
   })
 
   test('Viewer does not see the New Exception link', async ({ page }) => {
     await signInAs(page, 'TestUser.Viewer')
     await page.goto('/exceptions')
-    await expect(page.getByRole('link', { name: '+ New Exception' })).toHaveCount(0)
+    await expect(page.getByRole('button', { name: '+ New Exception' })).toHaveCount(0)
   })
 
   test('Viewer can load the list, filter by status, sort a column, and click through to an exception', async ({ page }) => {

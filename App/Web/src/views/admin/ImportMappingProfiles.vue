@@ -10,6 +10,9 @@
 // -- this page no longer owns an inline editing/startCreate/startEdit/
 // cancelEdit/addFieldRow/removeFieldRow form.
 import { ref, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
+
+const router = useRouter()
 
 const items = ref([])
 const error = ref(null)
@@ -48,7 +51,7 @@ async function remove(item) {
     <p v-if="loading" role="status">Loading...</p>
 
     <template v-else>
-      <p><router-link :to="{ name: 'admin-import-mapping-profile-create' }">+ New Profile</router-link></p>
+      <p><button type="button" class="btn-primary" @click="router.push({ name: 'admin-import-mapping-profile-create' })">+ New Profile</button></p>
 
       <table>
         <thead>

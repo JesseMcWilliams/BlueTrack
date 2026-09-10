@@ -8,6 +8,9 @@
 // editing/startCreate/startEdit/cancelEdit/togglePermission form, and no
 // longer needs the permission catalog itself (that moved to RoleEdit.vue).
 import { ref, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
+
+const router = useRouter()
 
 const roles = ref([])
 const error = ref(null)
@@ -45,7 +48,7 @@ async function remove(role) {
     <p v-if="loading" role="status">Loading...</p>
 
     <template v-else>
-      <p><router-link :to="{ name: 'admin-role-create' }">+ New Role</router-link></p>
+      <p><button type="button" class="btn-primary" @click="router.push({ name: 'admin-role-create' })">+ New Role</button></p>
 
       <table>
         <thead>

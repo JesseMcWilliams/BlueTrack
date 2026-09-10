@@ -67,14 +67,22 @@ describe('RiskScoreBands.vue', () => {
   // RiskScoreBandEdit.vue's routed pages -- the save-error-surfacing
   // coverage (including the overlapping-range case) moved to
   // RiskScoreBandEdit.test.js.
-  it('links "+ New Band" to the admin-risk-score-band-create route', async () => {
+  // D-125: "+ New Band" is now a real <button> (this app's button styling
+  // is scoped to the button element itself, not a reusable class),
+  // navigating imperatively via router.push -- asserts on the router's
+  // resulting location instead of an href.
+  it('"+ New Band" button navigates to the admin-risk-score-band-create route', async () => {
     globalThis.fetch.mockResolvedValueOnce(jsonResponse([]))
 
-    const wrapper = mount(RiskScoreBands, { global: { plugins: [makeRouter()] } })
+    const router = makeRouter()
+    const wrapper = mount(RiskScoreBands, { global: { plugins: [router] } })
     await flushPromises()
 
-    const link = wrapper.findAll('a').find(a => a.text() === '+ New Band')
-    expect(link.attributes('href')).toBe('/admin/risk-score-bands/new')
+    const button = wrapper.findAll('button').find(b => b.text() === '+ New Band')
+    await button.trigger('click')
+    await flushPromises()
+
+    expect(router.currentRoute.value.name).toBe('admin-risk-score-band-create')
   })
 
   it('links each row\'s "Edit" to the admin-risk-score-band-edit route with that row\'s key', async () => {

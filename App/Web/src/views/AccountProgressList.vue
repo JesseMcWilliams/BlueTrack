@@ -260,6 +260,7 @@ watch([stageFilter, statusFilter, riskLevelFilter, ownerFilter, sortQueryParam],
         </template>
       </tbody>
     </table>
+    <Pager :page="page" :page-count="pageCount" @update:page="onPageChange" @page-size-change="onPageSizeChange" />
     <p><small>Click a column to sort by it; shift-click another column to add it as a secondary sort key.</small></p>
   </div>
 </template>

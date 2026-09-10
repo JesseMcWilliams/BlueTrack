@@ -159,13 +159,21 @@ describe('AccessGroups.vue', () => {
   // D-124 Phase 4: Add/Edit moved off this page's own inline form onto
   // AccessGroupEdit.vue's routed pages -- SOR Type/SOR Address field
   // coverage (including edit-mode pre-fill) moved to AccessGroupEdit.test.js.
-  it('links "+ New Access Group" to the access-group-create route', async () => {
+  // D-125: "+ New Access Group" is now a real <button> (this app's button
+  // styling is scoped to the button element itself, not a reusable class),
+  // navigating imperatively via router.push -- asserts on the router's
+  // resulting location instead of an href.
+  it('"+ New Access Group" button navigates to the access-group-create route', async () => {
     mockInitialLoad({ groups: [] })
-    const wrapper = mount(AccessGroups, { global: { plugins: [makeRouter()] } })
+    const router = makeRouter()
+    const wrapper = mount(AccessGroups, { global: { plugins: [router] } })
     await flushPromises()
 
-    const link = wrapper.findAll('a').find(a => a.text() === '+ New Access Group')
-    expect(link.attributes('href')).toBe('/access-groups/new')
+    const button = wrapper.findAll('button').find(b => b.text() === '+ New Access Group')
+    await button.trigger('click')
+    await flushPromises()
+
+    expect(router.currentRoute.value.name).toBe('access-group-create')
   })
 
   // D-125: clicking the Name is the edit action -- there's no separate
@@ -183,12 +191,16 @@ describe('AccessGroups.vue', () => {
   // onto AccessGroupsBulkImport.test.js -- coverage here is limited to the
   // "Bulk Actions" link itself, matching how the "+ New Access Group"/"Edit"
   // router-links are asserted above.
-  it('links "Bulk Actions" to the access-groups-bulk-import route', async () => {
+  it('"Bulk Actions" button navigates to the access-groups-bulk-import route', async () => {
     mockInitialLoad({ groups: [] })
-    const wrapper = mount(AccessGroups, { global: { plugins: [makeRouter()] } })
+    const router = makeRouter()
+    const wrapper = mount(AccessGroups, { global: { plugins: [router] } })
     await flushPromises()
 
-    const link = wrapper.findAll('a').find(a => a.text() === 'Bulk Actions')
-    expect(link.attributes('href')).toBe('/access-groups/bulk-import')
+    const button = wrapper.findAll('button').find(b => b.text() === 'Bulk Actions')
+    await button.trigger('click')
+    await flushPromises()
+
+    expect(router.currentRoute.value.name).toBe('access-groups-bulk-import')
   })
 })

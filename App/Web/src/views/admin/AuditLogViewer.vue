@@ -203,5 +203,6 @@ async function toggleFieldChanges(event) {
         </template>
       </tbody>
     </table>
+    <Pager :page="page" :page-count="pageCount" @update:page="onPageChange" @page-size-change="onPageSizeChange" />
   </div>
 </template>

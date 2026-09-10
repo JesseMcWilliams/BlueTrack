@@ -11,6 +11,9 @@
 // form or its own roles fetch (used only by that form). Delete-only per
 // row and the Lookup/Test Tool below are both untouched.
 import { ref, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
+
+const router = useRouter()
 
 const mappings = ref([])
 const error = ref(null)
@@ -67,7 +70,7 @@ async function remove(mapping) {
     <p v-if="loading" role="status">Loading...</p>
 
     <template v-else>
-      <p><router-link :to="{ name: 'admin-group-role-mapping-create' }">+ Add Mapping</router-link></p>
+      <p><button type="button" class="btn-primary" @click="router.push({ name: 'admin-group-role-mapping-create' })">+ Add Mapping</button></p>
 
       <table>
         <thead>

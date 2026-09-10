@@ -33,10 +33,13 @@
 // Target" section stays here, since it's a single-record form (no file
 // upload), not a bulk import.
 import { ref, computed, onMounted, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import { useTotalCount } from '../composables/useTotalCount'
 import { usePageSizeStore } from '../stores/pageSize'
 import FilterCountSummary from '../components/FilterCountSummary.vue'
 import Pager from '../components/Pager.vue'
+
+const router = useRouter()
 
 const linkAccountName = ref('')
 const linkTargetKey = ref(null)
@@ -202,6 +205,10 @@ async function remove(item) {
   <div>
     <h1>Targets</h1>
     <p>Any final destination an account's access leads to -- a server, database, application, or other endpoint. Risk score (0-1000) is always analyst-set here, regardless of how the row itself was created.</p>
+    <p>
+      <button type="button" class="btn-primary" @click="router.push({ name: 'target-create' })">+ New Target</button>
+      <button type="button" @click="router.push({ name: 'targets-bulk-import' })">Bulk Actions</button>
+    </p>
     <p v-if="error" role="alert">{{ error }}</p>
 
     <p class="filter-row">
@@ -224,9 +231,6 @@ async function remove(item) {
     <p v-if="loading" role="status">Loading...</p>
 
     <template v-else>
-      <p><router-link :to="{ name: 'target-create' }">+ New Target</router-link></p>
-      <p><router-link :to="{ name: 'targets-bulk-import' }">Bulk Actions</router-link></p>
-
       <table>
         <thead>
           <tr>
@@ -252,6 +256,7 @@ async function remove(item) {
           </tr>
         </tbody>
       </table>
+      <Pager :page="page" :page-count="pageCount" @update:page="onPageChange" @page-size-change="onPageSizeChange" />
       <p><small>Click a column to sort by it; shift-click another column to add it as a secondary sort key.</small></p>
 
       <h4>Link a Single Account to a Target</h4>

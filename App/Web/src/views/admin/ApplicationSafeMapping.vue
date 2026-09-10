@@ -9,7 +9,9 @@
 // form for Applications. The Safes section below (a plain per-row <select>
 // assignment, not a form) is untouched.
 import { ref, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 
+const router = useRouter()
 const applications = ref([])
 const safes = ref([])
 const error = ref(null)
@@ -58,7 +60,7 @@ async function assignSafe(safe, applicationKeyRaw) {
 
     <template v-else>
       <h3>Applications</h3>
-      <p><router-link :to="{ name: 'admin-application-create' }">+ New Application</router-link></p>
+      <p><button type="button" class="btn-primary" @click="router.push({ name: 'admin-application-create' })">+ New Application</button></p>
       <table>
         <thead>
           <tr><th>Code</th><th>Name</th><th>Owner</th><th></th></tr>

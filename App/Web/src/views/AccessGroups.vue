@@ -26,11 +26,13 @@
 // page onto AccessGroupsBulkImport.vue, reached via the "Bulk Actions"
 // header link below.
 import { ref, computed, onMounted, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import { useTotalCount } from '../composables/useTotalCount'
 import { usePageSizeStore } from '../stores/pageSize'
 import FilterCountSummary from '../components/FilterCountSummary.vue'
 import Pager from '../components/Pager.vue'
 
+const router = useRouter()
 const items = ref([])
 const sorTypes = ref([])
 const error = ref(null)
@@ -155,6 +157,10 @@ async function remove(item) {
   <div>
     <h1>Access Groups</h1>
     <p>Privileged-access groups in the managed environment (e.g. an AD "Server Admins" group) -- not this app's own Safe-permission groups or its login/role mapping. Base risk score (0-1000) is analyst-set; the computed score (base plus reachable Targets) is calculated separately.</p>
+    <p>
+      <button type="button" class="btn-primary" @click="router.push({ name: 'access-group-create' })">+ New Access Group</button>
+      <button type="button" @click="router.push({ name: 'access-groups-bulk-import' })">Bulk Actions</button>
+    </p>
     <p v-if="error" role="alert">{{ error }}</p>
 
     <p class="filter-row">
@@ -178,9 +184,6 @@ async function remove(item) {
     <p v-if="loading" role="status">Loading...</p>
 
     <template v-else>
-      <p><router-link :to="{ name: 'access-group-create' }">+ New Access Group</router-link></p>
-      <p><router-link :to="{ name: 'access-groups-bulk-import' }">Bulk Actions</router-link></p>
-
       <table>
         <thead>
           <tr>
@@ -210,6 +213,7 @@ async function remove(item) {
           </tr>
         </tbody>
       </table>
+      <Pager :page="page" :page-count="pageCount" @update:page="onPageChange" @page-size-change="onPageSizeChange" />
       <p><small>Click a column to sort by it; shift-click another column to add it as a secondary sort key.</small></p>
     </template>
   </div>
