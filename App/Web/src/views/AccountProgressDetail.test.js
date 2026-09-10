@@ -59,6 +59,7 @@ function baseDetail(overrides = {}) {
     progressKey: 1,
     accountKey: 42,
     accountName: 'test-account',
+    userName: 'test-user',
     address: '10.0.0.42',
     currentStageKey: 1,
     currentStatusKey: 1,
@@ -140,16 +141,22 @@ describe('AccountProgressDetail.vue', () => {
     expect(wrapper.find('#account-progress-tab-risk-exception').exists()).toBe(false)
   })
 
-  // D-133: Account Name/Address are fact_account's own read-only context,
-  // not part of the editable fact_account_progress field set -- shown above
-  // the tabs (not inside any one of them) so they're visible regardless of
-  // which tab is active.
-  it('shows Account Name and Address above the tabs, regardless of the active tab', async () => {
+  // D-133/D-134: Username/Address/Account Name are fact_account's own
+  // read-only context, not part of the editable fact_account_progress field
+  // set -- shown once, above the tabs (not inside any one of them, and not
+  // duplicated between the edit form and the read-only view), so they're
+  // visible regardless of which tab is active or whether the viewer holds
+  // the edit lock. Username and Address sit on one line; Account Name is a
+  // secondary line below it (2026-09-10 layout request).
+  it('shows Username and Address on one line, with Account Name below, above the tabs', async () => {
     mockLoad()
     const wrapper = await mountEditable()
 
-    expect(wrapper.text()).toContain('Account Nametest-account')
-    expect(wrapper.text()).toContain('Address10.0.0.42')
+    const identity = wrapper.get('.account-progress-identity')
+    const primaryText = identity.get('.account-progress-identity-primary').text()
+    expect(primaryText).toContain('Username: test-user')
+    expect(primaryText).toContain('Address: 10.0.0.42')
+    expect(identity.get('.account-progress-identity-secondary').text()).toContain('Account Name: test-account')
   })
 
   it('clicking the Risk Score tab shows that panel and hides Details', async () => {
@@ -228,8 +235,9 @@ describe('AccountProgressDetail.vue', () => {
 
     expect(wrapper.find('form').exists()).toBe(false)
     const text = wrapper.text()
-    expect(text).toContain('Account Nametest-account')
-    expect(text).toContain('Address10.0.0.42')
+    expect(text).toContain('Username: test-user')
+    expect(text).toContain('Address: 10.0.0.42')
+    expect(text).toContain('Account Name: test-account')
     expect(text).toContain('StageDiscovered')
     expect(text).toContain('StatusNot Started')
     expect(text).toContain('Risk LevelHigh')

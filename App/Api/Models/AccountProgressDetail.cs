@@ -12,7 +12,8 @@ public sealed class AccountProgressDetail
     public long AccountKey { get; init; }
     public required string AccountName { get; init; }
 
-    /// <summary>D-133: shown alongside AccountName on the edit screen -- fact_account.Address, read-only context same as AccountName (not part of the editable fact_account_progress field set).</summary>
+    /// <summary>D-133/D-134: shown alongside AccountName on the edit screen -- fact_account.UserName/Address, read-only context same as AccountName (not part of the editable fact_account_progress field set).</summary>
+    public string? UserName { get; init; }
     public string? Address { get; init; }
 
     public int CurrentStageKey { get; init; }

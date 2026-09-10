@@ -452,13 +452,16 @@ onUnmounted(releaseLock)
         <button v-if="rights.hasPermission('EditAccountProgress')" @click="forceRelease">Force Release Lock</button>
       </p>
 
+      <div class="account-progress-identity">
+        <p class="account-progress-identity-primary">
+          <span class="account-progress-identity-item"><strong>Username:</strong> {{ detail.userName ?? '—' }}</span>
+          <span class="account-progress-identity-item"><strong>Address:</strong> {{ detail.address ?? '—' }}</span>
+        </p>
+        <p class="account-progress-identity-secondary">Account Name: {{ detail.accountName }}</p>
+      </div>
+
       <form v-if="lockedByMe" @submit.prevent="save">
         <p v-if="saveError" role="alert">{{ saveError }}</p>
-
-        <dl class="account-progress-identity">
-          <dt>Account Name</dt><dd>{{ detail.accountName }}</dd>
-          <dt>Address</dt><dd>{{ detail.address ?? '—' }}</dd>
-        </dl>
 
         <div role="tablist" class="account-progress-tabs" aria-label="Account Progress sections">
           <button
@@ -567,8 +570,6 @@ onUnmounted(releaseLock)
       </form>
 
       <dl v-else>
-        <dt>Account Name</dt><dd>{{ detail.accountName }}</dd>
-        <dt>Address</dt><dd>{{ detail.address ?? '—' }}</dd>
         <template v-for="field in sortedFields" :key="field.fieldName">
           <dt>{{ field.displayLabel }}</dt>
           <dd>{{ displayValueFor(field) }}</dd>
@@ -592,6 +593,20 @@ onUnmounted(releaseLock)
 <style scoped>
 .account-progress-identity {
   margin-bottom: var(--space-3);
+}
+.account-progress-identity-primary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin: 0;
+}
+.account-progress-identity-item + .account-progress-identity-item {
+  padding-left: var(--space-3);
+  border-left: 1px solid var(--color-border);
+}
+.account-progress-identity-secondary {
+  margin: var(--space-1) 0 0;
+  font-size: 0.875em;
 }
 .account-progress-tabs {
   display: flex;
