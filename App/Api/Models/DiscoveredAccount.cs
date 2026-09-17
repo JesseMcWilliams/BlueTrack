@@ -29,6 +29,14 @@ public sealed class DiscoveredAccount
 
     /// <summary>web.dim_risk_score_band (D-120), same join every other ComputedRiskScore/EffectiveRiskScore display in this app already does.</summary>
     public string? RiskScoreBandName { get; init; }
+
+    /// <summary>'New' | 'Accepted' | 'Dismissed' -- the onboarding-workflow follow-up (2026-09-16). GetListAsync defaults to 'New' only; Accepted/Dismissed rows stay for audit history, not deleted.</summary>
+    public required string Status { get; init; }
+
+    /// <summary>Set only on Accept -- the real dbo.fact_account row this candidate became.</summary>
+    public long? ResolvedAccountKey { get; init; }
+    public int? ReviewedBy { get; init; }
+    public DateTime? ReviewedDate { get; init; }
 }
 
 /// <summary>

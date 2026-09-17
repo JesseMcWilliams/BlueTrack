@@ -3,19 +3,30 @@
 // Real AD accounts not yet onboarded into CyberArk, found nightly by
 // matching AD group membership against the Access Group inventory, and
 // risk-scored the same way any other Access-Group-reachable entity is.
-// Read-only in this pass -- no accept/dismiss/onboard action yet (confirmed
-// directly: visibility only). Sortable table + per-row drill-down mirror
-// RiskScoreReport.vue's own shape exactly, since this is the same kind of
-// "score plus what's behind it" report.
+// Sortable table + per-row drill-down mirror RiskScoreReport.vue's own
+// shape exactly, since this is the same kind of "score plus what's behind
+// it" report.
+//
+// Accept/Dismiss (requested directly, follow-up 2026-09-16) gated
+// separately by ManageDiscoveredAccounts, since Accept writes a real
+// dbo.fact_account/fact_account_progress row -- a bigger deal than viewing
+// the report. Accept reuses the shared confirmDelete dialog (D-128) --
+// despite the name, it's this app's one generic confirm-before-a-real-write
+// dialog, already customizable via its confirmLabel param; Dismiss doesn't
+// prompt (low-stakes, doesn't touch fact_account, and a dismissed row isn't
+// deleted -- see GetListAsync's own Status filter).
 import { ref, computed, onMounted } from 'vue'
 import { formatDate } from '../../utils/formatDate'
 import { useTotalCount } from '../../composables/useTotalCount'
 import { usePageSizeStore } from '../../stores/pageSize'
+import { useRightsStore } from '../../stores/rights'
+import { confirmDelete } from '../../composables/useConfirmDialog'
 import FilterCountSummary from '../../components/FilterCountSummary.vue'
 import Pager from '../../components/Pager.vue'
 
 const { totalCount, filteredCount, readTotalCount } = useTotalCount()
 const pageSizeStore = usePageSizeStore()
+const rights = useRightsStore()
 
 const page = ref(1)
 const pageCount = computed(() => Math.max(1, Math.ceil((filteredCount.value ?? 0) / pageSizeStore.current)))
@@ -109,6 +120,42 @@ async function load() {
   }
 }
 
+const actionError = ref(null)
+const busyKey = ref(null)
+
+async function accept(row) {
+  if (!(await confirmDelete(
+    `Accept "${row.samAccountName}" (${row.domainName}) into onboarding tracking? This creates a real tracked account, visible immediately in the Account Progress list at the Discovered stage.`,
+    'Accept'
+  ))) return
+
+  actionError.value = null
+  busyKey.value = row.discoveredAccountKey
+  try {
+    const response = await fetch(`/api/reports/discovered-accounts/${row.discoveredAccountKey}/accept`, { method: 'POST' })
+    if (!response.ok) throw new Error(`Request failed: ${response.status}`)
+    await load()
+  } catch (err) {
+    actionError.value = err.message
+  } finally {
+    busyKey.value = null
+  }
+}
+
+async function dismiss(row) {
+  actionError.value = null
+  busyKey.value = row.discoveredAccountKey
+  try {
+    const response = await fetch(`/api/reports/discovered-accounts/${row.discoveredAccountKey}/dismiss`, { method: 'POST' })
+    if (!response.ok) throw new Error(`Request failed: ${response.status}`)
+    await load()
+  } catch (err) {
+    actionError.value = err.message
+  } finally {
+    busyKey.value = null
+  }
+}
+
 async function toggleDrilldown(discoveredAccountKey) {
   if (expandedKey.value === discoveredAccountKey) {
     expandedKey.value = null
@@ -139,10 +186,14 @@ onMounted(load)
     <p class="hint">
       Real Active Directory accounts not yet onboarded into CyberArk, found by matching AD group membership
       against the Access Group inventory -- risk-scored the same way an onboarded account would be. Click a
-      row's account name to see which Access Groups it matched.
+      row's account name to see which Access Groups it matched. Accept moves an account into onboarding
+      tracking (visible immediately in the Account Progress list); Dismiss clears a false positive or an
+      already-onboarded match without creating a tracked account. Neither talks to CyberArk directly -- actual
+      Vault onboarding still happens there.
     </p>
     <FilterCountSummary :shown="rows.length" :filtered-count="filteredCount" :total="totalCount" :page="page" :page-size="pageSizeStore.current" />
     <Pager :page="page" :page-count="pageCount" @update:page="onPageChange" @page-size-change="onPageSizeChange" />
+    <p v-if="actionError" role="alert">{{ actionError }}</p>
     <p v-if="loading" role="status">Loading...</p>
     <p v-else-if="error" role="alert">Could not load report: {{ error }}</p>
     <table v-else>
@@ -153,6 +204,7 @@ onMounted(load)
               {{ col.label }} <span aria-hidden="true">{{ sortIndicator(col.field) }}</span>
             </button>
           </th>
+          <th v-if="rights.hasPermission('ManageDiscoveredAccounts')"></th>
         </tr>
       </thead>
       <tbody>
@@ -173,9 +225,13 @@ onMounted(load)
             <td>{{ row.riskScoreBandName ?? '—' }}</td>
             <td>{{ formatDate(row.discoveredDate) }}</td>
             <td>{{ formatDate(row.lastSeenDate) }}</td>
+            <td v-if="rights.hasPermission('ManageDiscoveredAccounts')">
+              <button type="button" :disabled="busyKey === row.discoveredAccountKey" @click="accept(row)">Accept</button>
+              <button type="button" :disabled="busyKey === row.discoveredAccountKey" @click="dismiss(row)">Dismiss</button>
+            </td>
           </tr>
           <tr v-if="expandedKey === row.discoveredAccountKey">
-            <td colspan="6">
+            <td :colspan="rights.hasPermission('ManageDiscoveredAccounts') ? 7 : 6">
               <p v-if="accessGroupsLoading" role="status">Loading matched Access Groups...</p>
               <p v-else-if="accessGroupsError" role="alert">{{ accessGroupsError }}</p>
               <p v-else-if="accessGroups.length === 0">No matched Access Groups found.</p>

@@ -1,7 +1,19 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
+import { useRightsStore } from '../../stores/rights'
 import DiscoveredAccounts from './DiscoveredAccounts.vue'
+
+// D-128: confirmDelete is this app's one generic confirm-before-a-real-write
+// dialog (Accept reuses it here) -- mocked per AccessGroups.test.js/
+// Targets.test.js's own established pattern. Re-established in beforeEach,
+// not just the factory here, since a file-level afterEach(vi.restoreAllMocks())
+// silently clears a factory-level mockResolvedValue after the first test uses
+// it (a known Vitest footgun hit more than once in this project already).
+vi.mock('../../composables/useConfirmDialog', () => ({
+  confirmDelete: vi.fn().mockResolvedValue(true)
+}))
+import { confirmDelete } from '../../composables/useConfirmDialog'
 
 // AD Account Discovery feature (2026-09-16) -- mirrors RiskScoreReport.test.js's
 // own mocking style (same report shape: sortable/paginated list + per-row
@@ -36,10 +48,12 @@ const sampleRow = {
 }
 
 function mockInitialLoad({ rows = [sampleRow], totalCount = rows.length, filteredCount = totalCount } = {}) {
-  globalThis.fetch = vi.fn((url) => {
+  globalThis.fetch = vi.fn((url, options) => {
     if (url.startsWith('/api/reports/discovered-accounts/') && url.endsWith('/access-groups')) {
       return Promise.resolve(jsonResponse([{ accessGroupKey: 1, groupName: 'CyberArk Vault Admins' }]))
     }
+    if (url.endsWith('/accept') && options?.method === 'POST') return Promise.resolve(jsonResponse({ accountKey: 999 }))
+    if (url.endsWith('/dismiss') && options?.method === 'POST') return Promise.resolve(jsonResponse(null))
     if (url.startsWith('/api/reports/discovered-accounts')) return Promise.resolve(jsonResponse(rows, { totalCount, filteredCount }))
     return Promise.resolve(jsonResponse(null, { ok: false, status: 404 }))
   })
@@ -48,6 +62,7 @@ function mockInitialLoad({ rows = [sampleRow], totalCount = rows.length, filtere
 describe('DiscoveredAccounts.vue', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
+    confirmDelete.mockResolvedValue(true)
   })
 
   afterEach(() => {
@@ -97,5 +112,61 @@ describe('DiscoveredAccounts.vue', () => {
     await flushPromises()
 
     expect(wrapper.text()).toContain('CyberArk Vault Admins')
+  })
+
+  it('does not show Accept/Dismiss without ManageDiscoveredAccounts', async () => {
+    mockInitialLoad()
+    const wrapper = mount(DiscoveredAccounts)
+    await flushPromises()
+
+    expect(wrapper.findAll('button').some(b => b.text() === 'Accept')).toBe(false)
+    expect(wrapper.findAll('button').some(b => b.text() === 'Dismiss')).toBe(false)
+  })
+
+  it('Accept confirms via the shared dialog, then posts and reloads the list', async () => {
+    const rights = useRightsStore()
+    rights.permissionNames = ['ManageDiscoveredAccounts']
+    mockInitialLoad()
+    const wrapper = mount(DiscoveredAccounts)
+    await flushPromises()
+
+    const acceptButton = wrapper.findAll('button').find(b => b.text() === 'Accept')
+    await acceptButton.trigger('click')
+    await flushPromises()
+
+    expect(confirmDelete).toHaveBeenCalledWith(expect.stringContaining('Accept "jsmith"'), 'Accept')
+    expect(globalThis.fetch).toHaveBeenCalledWith('/api/reports/discovered-accounts/1/accept', { method: 'POST' })
+    // load() re-fetches the list on success
+    expect(globalThis.fetch.mock.calls.filter(c => c[0].startsWith('/api/reports/discovered-accounts?')).length).toBeGreaterThan(1)
+  })
+
+  it('Accept does nothing if the confirm dialog is declined', async () => {
+    confirmDelete.mockResolvedValueOnce(false)
+    const rights = useRightsStore()
+    rights.permissionNames = ['ManageDiscoveredAccounts']
+    mockInitialLoad()
+    const wrapper = mount(DiscoveredAccounts)
+    await flushPromises()
+
+    const acceptButton = wrapper.findAll('button').find(b => b.text() === 'Accept')
+    await acceptButton.trigger('click')
+    await flushPromises()
+
+    expect(globalThis.fetch).not.toHaveBeenCalledWith('/api/reports/discovered-accounts/1/accept', { method: 'POST' })
+  })
+
+  it('Dismiss posts without a confirm prompt, then reloads the list', async () => {
+    const rights = useRightsStore()
+    rights.permissionNames = ['ManageDiscoveredAccounts']
+    mockInitialLoad()
+    const wrapper = mount(DiscoveredAccounts)
+    await flushPromises()
+
+    const dismissButton = wrapper.findAll('button').find(b => b.text() === 'Dismiss')
+    await dismissButton.trigger('click')
+    await flushPromises()
+
+    expect(confirmDelete).not.toHaveBeenCalled()
+    expect(globalThis.fetch).toHaveBeenCalledWith('/api/reports/discovered-accounts/1/dismiss', { method: 'POST' })
   })
 })

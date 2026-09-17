@@ -11,7 +11,8 @@ namespace BlueTrack.Api.Controllers;
 public sealed class ReportsController(
     ReportsRepository repository,
     RiskScoreReportRepository riskScoreReportRepository,
-    DiscoveredAccountRepository discoveredAccountRepository) : ControllerBase
+    DiscoveredAccountRepository discoveredAccountRepository,
+    CurrentUserResolver currentUserResolver) : ControllerBase
 {
     [HttpGet("overdue-at-risk")]
     public async Task<IActionResult> GetOverdueAtRisk()
@@ -82,7 +83,7 @@ public sealed class ReportsController(
         return NoContent();
     }
 
-    /// <summary>AD Account Discovery feature (2026-09-16): real AD accounts not yet onboarded into CyberArk, matched against the Access Group inventory and risk-scored, gated by the new ViewDiscoveredAccounts permission. Read-only -- no accept/dismiss action in this pass (confirmed directly: visibility only).</summary>
+    /// <summary>AD Account Discovery feature (2026-09-16): real AD accounts not yet onboarded into CyberArk, matched against the Access Group inventory and risk-scored, gated by ViewDiscoveredAccounts. Defaults to Status='New' only -- Accept/Dismiss (below) move a row out of this default view without deleting it.</summary>
     [HttpGet("discovered-accounts")]
     [Authorize(Policy = Permissions.ViewDiscoveredAccounts)]
     public async Task<IActionResult> GetDiscoveredAccounts([FromQuery] string? sort = null, [FromQuery] int? page = null, [FromQuery] int? pageSize = null)
@@ -101,5 +102,36 @@ public sealed class ReportsController(
     {
         var results = await discoveredAccountRepository.GetMatchedAccessGroupsAsync(discoveredAccountKey);
         return Ok(results.Select(r => new { r.AccessGroupKey, r.GroupName }));
+    }
+
+    /// <summary>
+    /// Requested directly (2026-09-16): moves a candidate into onboarding
+    /// tracking -- a real dbo.fact_account/fact_account_progress row,
+    /// immediately visible in the Account Progress list. Gated separately
+    /// from ViewDiscoveredAccounts (ManageDiscoveredAccounts) since this
+    /// writes real account inventory data, not just views a report --
+    /// mirrors the ViewDeploymentInfo/TriggerBackup split.
+    /// </summary>
+    [HttpPost("discovered-accounts/{discoveredAccountKey:int}/accept")]
+    [Authorize(Policy = Permissions.ManageDiscoveredAccounts)]
+    public async Task<IActionResult> AcceptDiscoveredAccount(int discoveredAccountKey)
+    {
+        var user = await currentUserResolver.ResolveAsync(User);
+        if (user is null) return Unauthorized();
+
+        var accountKey = await discoveredAccountRepository.AcceptAsync(discoveredAccountKey, user.UserKey);
+        return Ok(new { accountKey });
+    }
+
+    /// <summary>False positive, or already onboarded (PossibleExistingAccountKey already flagged that) -- resolved with no dbo.fact_account write.</summary>
+    [HttpPost("discovered-accounts/{discoveredAccountKey:int}/dismiss")]
+    [Authorize(Policy = Permissions.ManageDiscoveredAccounts)]
+    public async Task<IActionResult> DismissDiscoveredAccount(int discoveredAccountKey)
+    {
+        var user = await currentUserResolver.ResolveAsync(User);
+        if (user is null) return Unauthorized();
+
+        await discoveredAccountRepository.DismissAsync(discoveredAccountKey, user.UserKey);
+        return NoContent();
     }
 }

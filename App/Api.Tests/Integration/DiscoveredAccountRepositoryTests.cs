@@ -190,6 +190,235 @@ public class DiscoveredAccountRepositoryTests
     }
 
     [Fact]
+    public async Task AcceptAsync_CreatesFactAccountAndProgressRow_ImmediatelyAtDiscoveredNotStarted()
+    {
+        var repository = CreateRepository();
+        var reviewedByUserKey = await TestUsers.GetUserKeyAsync("IntegrationTestUser1");
+        var objectSid = $"S-1-5-21-VERIFY-{Guid.NewGuid():N}";
+        var discoveredAccountKey = await repository.UpsertCandidateAsync(new DiscoveredAccountCandidate
+        {
+            DomainName = "company.local",
+            SamAccountName = $"accepttest_{Guid.NewGuid():N}",
+            DisplayName = "Accept Test User",
+            ObjectSid = objectSid,
+            IsEnabled = true,
+            MatchedAccessGroupKeys = []
+        }, computedRiskScore: 0);
+
+        await using var connection = new SqlConnection(TestDatabase.ConnectionString);
+        await connection.OpenAsync();
+        long accountKey = 0;
+
+        try
+        {
+            accountKey = await repository.AcceptAsync(discoveredAccountKey, reviewedByUserKey);
+
+            var account = await connection.QuerySingleAsync<(int SourceSystemKey, bool IsDeleted)>(
+                "SELECT SourceSystemKey, IsDeleted FROM fact_account WHERE AccountKey = @AccountKey", new { AccountKey = accountKey });
+            var discoveryKey = await connection.QuerySingleAsync<int>("SELECT SourceSystemKey FROM dim_source_system WHERE SourceSystemCode = 'DISCOVERY'");
+            Assert.Equal(discoveryKey, account.SourceSystemKey);
+            Assert.False(account.IsDeleted);
+
+            var progress = await connection.QuerySingleAsync<(int StageKey, int StatusKey)>(
+                "SELECT CurrentStageKey, CurrentStatusKey FROM fact_account_progress WHERE AccountKey = @AccountKey", new { AccountKey = accountKey });
+            var discoveredStageKey = await connection.QuerySingleAsync<int>("SELECT StageKey FROM dim_blueprint_stage WHERE StageName = 'Discovered'");
+            var notStartedStatusKey = await connection.QuerySingleAsync<int>("SELECT StatusKey FROM dim_progress_status WHERE StatusName = 'Not Started'");
+            Assert.Equal(discoveredStageKey, progress.StageKey);
+            Assert.Equal(notStartedStatusKey, progress.StatusKey);
+
+            var updated = await connection.QuerySingleAsync<(string Status, long? ResolvedAccountKey, int? ReviewedBy)>(
+                "SELECT Status, ResolvedAccountKey, ReviewedBy FROM web.discovered_account WHERE DiscoveredAccountKey = @Key", new { Key = discoveredAccountKey });
+            Assert.Equal("Accepted", updated.Status);
+            Assert.Equal(accountKey, updated.ResolvedAccountKey);
+            Assert.Equal(reviewedByUserKey, updated.ReviewedBy);
+        }
+        finally
+        {
+            await connection.ExecuteAsync("DELETE FROM web.discovered_account WHERE DiscoveredAccountKey = @Key", new { Key = discoveredAccountKey });
+            if (accountKey != 0)
+            {
+                await connection.ExecuteAsync("DELETE FROM dbo.fact_account_progress_history WHERE AccountKey = @AccountKey", new { AccountKey = accountKey });
+                await connection.ExecuteAsync("DELETE FROM dbo.fact_account_progress WHERE AccountKey = @AccountKey", new { AccountKey = accountKey });
+                await connection.ExecuteAsync("DELETE FROM fact_account WHERE AccountKey = @AccountKey", new { AccountKey = accountKey });
+            }
+        }
+    }
+
+    [Fact]
+    public async Task AcceptAsync_IsIdempotent_ReAcceptingReturnsSameAccountKey_NoDuplicate()
+    {
+        var repository = CreateRepository();
+        var reviewedByUserKey = await TestUsers.GetUserKeyAsync("IntegrationTestUser1");
+        var discoveredAccountKey = await repository.UpsertCandidateAsync(new DiscoveredAccountCandidate
+        {
+            DomainName = "company.local",
+            SamAccountName = $"idempotenttest_{Guid.NewGuid():N}",
+            ObjectSid = $"S-1-5-21-VERIFY-{Guid.NewGuid():N}",
+            IsEnabled = true,
+            MatchedAccessGroupKeys = []
+        }, computedRiskScore: 0);
+
+        await using var connection = new SqlConnection(TestDatabase.ConnectionString);
+        await connection.OpenAsync();
+        long firstAccountKey = 0;
+
+        try
+        {
+            firstAccountKey = await repository.AcceptAsync(discoveredAccountKey, reviewedByUserKey);
+            var secondAccountKey = await repository.AcceptAsync(discoveredAccountKey, reviewedByUserKey);
+
+            Assert.Equal(firstAccountKey, secondAccountKey);
+            var matchingRows = await connection.QuerySingleAsync<int>(
+                "SELECT COUNT(*) FROM fact_account WHERE AccountKey = @AccountKey", new { AccountKey = firstAccountKey });
+            Assert.Equal(1, matchingRows);
+        }
+        finally
+        {
+            await connection.ExecuteAsync("DELETE FROM web.discovered_account WHERE DiscoveredAccountKey = @Key", new { Key = discoveredAccountKey });
+            if (firstAccountKey != 0)
+            {
+                await connection.ExecuteAsync("DELETE FROM dbo.fact_account_progress_history WHERE AccountKey = @AccountKey", new { AccountKey = firstAccountKey });
+                await connection.ExecuteAsync("DELETE FROM dbo.fact_account_progress WHERE AccountKey = @AccountKey", new { AccountKey = firstAccountKey });
+                await connection.ExecuteAsync("DELETE FROM fact_account WHERE AccountKey = @AccountKey", new { AccountKey = firstAccountKey });
+            }
+        }
+    }
+
+    /// <summary>
+    /// The specific regression Database/36_BlueTrack_FixAutoAdvanceForDiscoveredAccounts.sql
+    /// exists to prevent: without that fix, a just-accepted DISCOVERY-sourced
+    /// account (no Safe at all, since it isn't actually vaulted) would get
+    /// wrongly auto-promoted straight to "Onboarded to Vault" on the very
+    /// next Load run. A second, real PRIVCLOUD account with no Safe is also
+    /// asserted to still advance -- proving the fix is scoped correctly, not
+    /// just disabling the rule entirely.
+    /// </summary>
+    [Fact]
+    public async Task AcceptAsync_ThenAutoAdvance_LeavesTheAcceptedAccountAtDiscovered_ButStillAdvancesARealAccountWithNoSafe()
+    {
+        var repository = CreateRepository();
+        var reviewedByUserKey = await TestUsers.GetUserKeyAsync("IntegrationTestUser1");
+        var discoveredAccountKey = await repository.UpsertCandidateAsync(new DiscoveredAccountCandidate
+        {
+            DomainName = "company.local",
+            SamAccountName = $"autoadvancetest_{Guid.NewGuid():N}",
+            ObjectSid = $"S-1-5-21-VERIFY-{Guid.NewGuid():N}",
+            IsEnabled = true,
+            MatchedAccessGroupKeys = []
+        }, computedRiskScore: 0);
+
+        await using var connection = new SqlConnection(TestDatabase.ConnectionString);
+        await connection.OpenAsync();
+        long discoveredSourcedAccountKey = 0;
+        long privCloudAccountKey = 0;
+
+        try
+        {
+            discoveredSourcedAccountKey = await repository.AcceptAsync(discoveredAccountKey, reviewedByUserKey);
+
+            // Control: a real PRIVCLOUD account with no Safe, at the same
+            // default Discovered/Not-Started state -- must still advance,
+            // proving the fix didn't overcorrect.
+            var discoveredStageKey = await connection.QuerySingleAsync<int>("SELECT StageKey FROM dim_blueprint_stage WHERE StageName = 'Discovered'");
+            var notStartedStatusKey = await connection.QuerySingleAsync<int>("SELECT StatusKey FROM dim_progress_status WHERE StatusName = 'Not Started'");
+            privCloudAccountKey = await connection.QuerySingleAsync<long>(
+                "INSERT INTO fact_account (SourceSystemKey, SourceAccountId, AccountName, IsDeleted) OUTPUT inserted.AccountKey VALUES (1, @SourceAccountId, 'IntegrationTest AutoAdvance Control', 0)",
+                new { SourceAccountId = $"IntegrationTest_{Guid.NewGuid():N}" });
+            await connection.ExecuteAsync(
+                "INSERT INTO fact_account_progress (AccountKey, CurrentStageKey, CurrentStatusKey) VALUES (@AccountKey, @StageKey, @StatusKey)",
+                new { AccountKey = privCloudAccountKey, StageKey = discoveredStageKey, StatusKey = notStartedStatusKey });
+
+            await connection.ExecuteAsync("EXEC usp_Load_AccountProgressAutoAdvance");
+
+            var discoveredSourcedStageAfter = await connection.QuerySingleAsync<int>(
+                "SELECT CurrentStageKey FROM fact_account_progress WHERE AccountKey = @AccountKey", new { AccountKey = discoveredSourcedAccountKey });
+            var privCloudStageAfter = await connection.QuerySingleAsync<int>(
+                "SELECT CurrentStageKey FROM fact_account_progress WHERE AccountKey = @AccountKey", new { AccountKey = privCloudAccountKey });
+            var onboardedStageKey = await connection.QuerySingleAsync<int>("SELECT StageKey FROM dim_blueprint_stage WHERE StageName = 'Onboarded to Vault'");
+
+            Assert.Equal(discoveredStageKey, discoveredSourcedStageAfter); // still Discovered -- the fix
+            Assert.Equal(onboardedStageKey, privCloudStageAfter); // still advances -- proves no overcorrection
+        }
+        finally
+        {
+            await connection.ExecuteAsync("DELETE FROM web.discovered_account WHERE DiscoveredAccountKey = @Key", new { Key = discoveredAccountKey });
+            foreach (var key in new[] { discoveredSourcedAccountKey, privCloudAccountKey })
+            {
+                if (key == 0) continue;
+                await connection.ExecuteAsync("DELETE FROM dbo.fact_account_progress_history WHERE AccountKey = @AccountKey", new { AccountKey = key });
+                await connection.ExecuteAsync("DELETE FROM dbo.fact_account_progress WHERE AccountKey = @AccountKey", new { AccountKey = key });
+                await connection.ExecuteAsync("DELETE FROM fact_account WHERE AccountKey = @AccountKey", new { AccountKey = key });
+            }
+        }
+    }
+
+    [Fact]
+    public async Task DismissAsync_SetsStatusAndReviewer_WithNoFactAccountWrite()
+    {
+        var repository = CreateRepository();
+        var reviewedByUserKey = await TestUsers.GetUserKeyAsync("IntegrationTestUser1");
+        var discoveredAccountKey = await repository.UpsertCandidateAsync(new DiscoveredAccountCandidate
+        {
+            DomainName = "company.local",
+            SamAccountName = $"dismisstest_{Guid.NewGuid():N}",
+            ObjectSid = $"S-1-5-21-VERIFY-{Guid.NewGuid():N}",
+            IsEnabled = true,
+            MatchedAccessGroupKeys = []
+        }, computedRiskScore: 0);
+
+        await using var connection = new SqlConnection(TestDatabase.ConnectionString);
+        await connection.OpenAsync();
+
+        try
+        {
+            await repository.DismissAsync(discoveredAccountKey, reviewedByUserKey);
+
+            var row = await connection.QuerySingleAsync<(string Status, long? ResolvedAccountKey, int? ReviewedBy)>(
+                "SELECT Status, ResolvedAccountKey, ReviewedBy FROM web.discovered_account WHERE DiscoveredAccountKey = @Key", new { Key = discoveredAccountKey });
+            Assert.Equal("Dismissed", row.Status);
+            Assert.Null(row.ResolvedAccountKey);
+            Assert.Equal(reviewedByUserKey, row.ReviewedBy);
+        }
+        finally
+        {
+            await connection.ExecuteAsync("DELETE FROM web.discovered_account WHERE DiscoveredAccountKey = @Key", new { Key = discoveredAccountKey });
+        }
+    }
+
+    [Fact]
+    public async Task GetListAsync_DefaultsToStatusNew_ExcludingAcceptedAndDismissed()
+    {
+        var repository = CreateRepository();
+        var reviewedByUserKey = await TestUsers.GetUserKeyAsync("IntegrationTestUser1");
+
+        var newKey = await repository.UpsertCandidateAsync(new DiscoveredAccountCandidate
+        {
+            DomainName = "company.local", SamAccountName = $"newtest_{Guid.NewGuid():N}", IsEnabled = true, MatchedAccessGroupKeys = []
+        }, computedRiskScore: 0);
+        var dismissedKey = await repository.UpsertCandidateAsync(new DiscoveredAccountCandidate
+        {
+            DomainName = "company.local", SamAccountName = $"dismissedtest_{Guid.NewGuid():N}", IsEnabled = true, MatchedAccessGroupKeys = []
+        }, computedRiskScore: 0);
+        await repository.DismissAsync(dismissedKey, reviewedByUserKey);
+
+        try
+        {
+            var defaultList = await repository.GetListAsync();
+            Assert.Contains(defaultList, r => r.DiscoveredAccountKey == newKey);
+            Assert.DoesNotContain(defaultList, r => r.DiscoveredAccountKey == dismissedKey);
+
+            var everything = await repository.GetListAsync(status: null);
+            Assert.Contains(everything, r => r.DiscoveredAccountKey == newKey);
+            Assert.Contains(everything, r => r.DiscoveredAccountKey == dismissedKey);
+        }
+        finally
+        {
+            await using var connection = new SqlConnection(TestDatabase.ConnectionString);
+            await connection.ExecuteAsync("DELETE FROM web.discovered_account WHERE DiscoveredAccountKey IN (@New, @Dismissed)", new { New = newKey, Dismissed = dismissedKey });
+        }
+    }
+
+    [Fact]
     public async Task CalculateRiskScoreAsync_MatchesHandCalculatedValue_ViaTheRepositoryWrapper()
     {
         var repository = CreateRepository();

@@ -91,6 +91,107 @@ public sealed class DiscoveredAccountRepository(IDbConnectionFactory connectionF
         });
     }
 
+    /// <summary>
+    /// Requested directly (2026-09-16): the workflow for moving a discovered
+    /// account into onboarding tracking. Inserts (or finds an existing) real
+    /// dbo.fact_account row under the 'DISCOVERY' source (already present in
+    /// dim_source_system -- confirmed directly, just never wired to a load
+    /// procedure before now), keyed on ObjectSid -- a stable, already-known
+    /// unique value, giving this natural idempotency: re-accepting an
+    /// already-accepted candidate is a no-op, not a duplicate-key error.
+    /// Creates its fact_account_progress row synchronously (Stage
+    /// "Discovered" / Status "Not Started", mirroring
+    /// usp_Load_FactAccountProgress's own shape -- AccountTypeKey/SORKey
+    /// left NULL, same as any account with no PlatformKey yet) rather than
+    /// waiting for the next nightly Load, so it shows up in the Account
+    /// Progress list immediately. Requires
+    /// Database/36_BlueTrack_FixAutoAdvanceForDiscoveredAccounts.sql to
+    /// already be applied -- without it, the next nightly Load would wrongly
+    /// auto-promote this account straight to "Onboarded to Vault" (see that
+    /// script's own header for the full explanation).
+    /// </summary>
+    public async Task<long> AcceptAsync(int discoveredAccountKey, int reviewedByUserKey)
+    {
+        using var connection = connectionFactory.Create();
+        connection.Open();
+        using var transaction = connection.BeginTransaction();
+
+        var candidate = await connection.QuerySingleOrDefaultAsync<(string DomainName, string SamAccountName, string? DisplayName, string? ObjectSid, string Status, long? ResolvedAccountKey)>(
+            "SELECT DomainName, SamAccountName, DisplayName, ObjectSid, Status, ResolvedAccountKey FROM web.discovered_account WHERE DiscoveredAccountKey = @DiscoveredAccountKey",
+            new { DiscoveredAccountKey = discoveredAccountKey }, transaction);
+
+        if (candidate.Status == "Accepted" && candidate.ResolvedAccountKey is not null)
+        {
+            transaction.Commit();
+            return candidate.ResolvedAccountKey.Value;
+        }
+
+        if (string.IsNullOrWhiteSpace(candidate.ObjectSid))
+        {
+            throw new InvalidOperationException($"Discovered account {discoveredAccountKey} has no ObjectSid recorded -- cannot accept without a stable unique identifier.");
+        }
+
+        var accountName = string.IsNullOrWhiteSpace(candidate.DisplayName)
+            ? $"{candidate.SamAccountName} ({candidate.DomainName})"
+            : $"{candidate.DisplayName} ({candidate.DomainName})";
+
+        const string acceptSql = """
+            DECLARE @DiscoveryKey INT = (SELECT SourceSystemKey FROM dbo.dim_source_system WHERE SourceSystemCode = 'DISCOVERY');
+            DECLARE @DiscoveredStageKey INT = (SELECT StageKey FROM dbo.dim_blueprint_stage WHERE StageName = 'Discovered');
+            DECLARE @NotStartedStatusKey INT = (SELECT StatusKey FROM dbo.dim_progress_status WHERE StatusName = 'Not Started');
+            DECLARE @AccountKey BIGINT;
+
+            SELECT @AccountKey = AccountKey FROM dbo.fact_account WHERE SourceSystemKey = @DiscoveryKey AND SourceAccountId = @ObjectSid;
+
+            IF @AccountKey IS NULL
+            BEGIN
+                INSERT INTO dbo.fact_account (SourceSystemKey, SourceAccountId, AccountName, UserName, PlatformLogonDomain, IsDeleted, CreatedDate)
+                VALUES (@DiscoveryKey, @ObjectSid, @AccountName, @SamAccountName, @DomainName, 0, CAST(SYSUTCDATETIME() AS DATE));
+                SET @AccountKey = SCOPE_IDENTITY();
+            END
+
+            IF NOT EXISTS (SELECT 1 FROM dbo.fact_account_progress WHERE AccountKey = @AccountKey)
+            BEGIN
+                INSERT INTO dbo.fact_account_progress (AccountKey, CurrentStageKey, CurrentStatusKey)
+                VALUES (@AccountKey, @DiscoveredStageKey, @NotStartedStatusKey);
+            END
+
+            SELECT @AccountKey;
+            """;
+
+        var accountKey = await connection.QuerySingleAsync<long>(acceptSql, new
+        {
+            candidate.ObjectSid,
+            AccountName = accountName,
+            candidate.SamAccountName,
+            candidate.DomainName
+        }, transaction);
+
+        await connection.ExecuteAsync(
+            """
+            UPDATE web.discovered_account
+            SET Status = 'Accepted', ResolvedAccountKey = @AccountKey, ReviewedBy = @ReviewedByUserKey, ReviewedDate = SYSUTCDATETIME()
+            WHERE DiscoveredAccountKey = @DiscoveredAccountKey
+            """,
+            new { AccountKey = accountKey, ReviewedByUserKey = reviewedByUserKey, DiscoveredAccountKey = discoveredAccountKey }, transaction);
+
+        transaction.Commit();
+        return accountKey;
+    }
+
+    /// <summary>Marks a candidate resolved with no dbo.fact_account write -- false positives, or the already-onboarded case (PossibleExistingAccountKey already flags that for the reviewer).</summary>
+    public async Task DismissAsync(int discoveredAccountKey, int reviewedByUserKey)
+    {
+        using var connection = connectionFactory.Create();
+        await connection.ExecuteAsync(
+            """
+            UPDATE web.discovered_account
+            SET Status = 'Dismissed', ReviewedBy = @ReviewedByUserKey, ReviewedDate = SYSUTCDATETIME()
+            WHERE DiscoveredAccountKey = @DiscoveredAccountKey
+            """,
+            new { ReviewedByUserKey = reviewedByUserKey, DiscoveredAccountKey = discoveredAccountKey });
+    }
+
     /// <summary>Replace-all-on-save -- mirrors TargetRepository's own convention for a Target's identifiers (small nested collection, no incremental diffing).</summary>
     public async Task ReplaceAccessGroupMappingsAsync(int discoveredAccountKey, IReadOnlyList<int> accessGroupKeys)
     {
@@ -127,44 +228,49 @@ public sealed class DiscoveredAccountRepository(IDbConnectionFactory connectionF
             da.DisplayName, da.IsEnabled, da.ComputedRiskScore, da.RiskScoreCalculatedDate,
             da.DiscoveredDate, da.LastSeenDate, da.PossibleExistingAccountKey,
             fa.AccountName AS PossibleExistingAccountName,
-            band.BandName AS RiskScoreBandName
+            band.BandName AS RiskScoreBandName,
+            da.Status, da.ResolvedAccountKey, da.ReviewedBy, da.ReviewedDate
         FROM web.discovered_account da
         LEFT JOIN dbo.fact_account fa ON fa.AccountKey = da.PossibleExistingAccountKey
         LEFT JOIN web.dim_risk_score_band band ON da.ComputedRiskScore BETWEEN band.MinScore AND band.MaxScore
         """;
 
-    /// <summary>Backs the Discovered Accounts report -- every candidate, sortable, with its Risk Band and (when set) the possible-existing-account's name resolved. D-124 Phase 3-style paging -- no filter params on this report (same as the Risk Score report), so GetFilteredCountAsync always equals GetTotalCountAsync.</summary>
+    /// <summary>Backs the Discovered Accounts report -- defaults to Status='New' only (Accepted/Dismissed rows stay in the table for audit history, not deleted, just filtered out of the default view); pass a null status to see every row regardless of status, for a possible future audit view. D-124 Phase 3-style paging.</summary>
     public async Task<IReadOnlyList<DiscoveredAccount>> GetListAsync(
         IReadOnlyList<(string Field, bool Descending)>? sortBy = null,
         int? page = null,
-        int? pageSize = null)
+        int? pageSize = null,
+        string? status = "New")
     {
         using var connection = connectionFactory.Create();
         var (normalizedPage, normalizedPageSize) = PagingParams.Normalize(page, pageSize);
         var sql = $"""
             {SelectSql}
+            WHERE (@Status IS NULL OR da.Status = @Status)
             ORDER BY {BuildOrderByClause(sortBy)}
             OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY
             """;
         var rows = await connection.QueryAsync<DiscoveredAccount>(sql, new
         {
+            Status = status,
             Offset = PagingParams.Offset(normalizedPage, normalizedPageSize),
             PageSize = normalizedPageSize
         });
         return rows.AsList();
     }
 
+    /// <summary>Grand total regardless of Status, matching this app's own GetTotalCountAsync convention elsewhere (e.g. AccessGroupRepository) -- GetFilteredCountAsync below is what actually matches the default Status='New' view.</summary>
     public async Task<int> GetTotalCountAsync()
     {
         using var connection = connectionFactory.Create();
         return await connection.QuerySingleAsync<int>("SELECT COUNT(*) FROM web.discovered_account");
     }
 
-    /// <summary>No filter params on this report (same as the Risk Score report) -- always equal to GetTotalCountAsync, kept as its own method for header consistency with every other paginated list endpoint.</summary>
-    public async Task<int> GetFilteredCountAsync()
+    public async Task<int> GetFilteredCountAsync(string? status = "New")
     {
         using var connection = connectionFactory.Create();
-        return await connection.QuerySingleAsync<int>("SELECT COUNT(*) FROM web.discovered_account");
+        return await connection.QuerySingleAsync<int>(
+            "SELECT COUNT(*) FROM web.discovered_account WHERE (@Status IS NULL OR Status = @Status)", new { Status = status });
     }
 
     private static string BuildOrderByClause(IReadOnlyList<(string Field, bool Descending)>? sortBy)
