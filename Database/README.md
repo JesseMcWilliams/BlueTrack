@@ -64,6 +64,8 @@ after `14`, never edits to an existing file in this list.
 | 32 | `32_BlueTrack_RiskScoringForAccessGroupSet.sql` | AD Account Discovery Phase B (D-137): a parallel risk-scoring path (`web.AccessGroupKeyList` TVP, `web.ufn_ReachableRiskValues_ForAccessGroupSet`, `usp_CalculateRiskScoreForAccessGroupSet`) for scoring a set of Access Groups directly -- for a candidate account that isn't in `dbo.fact_account` yet, so it can't go through the existing account-scoped scoring path (23). |
 | 33 | `33_BlueTrack_DiscoveredAccountSchema.sql` | AD Account Discovery Phase C (D-137): `web.discovered_account`/`web.discovered_account_access_group_map` -- real AD accounts not yet onboarded into CyberArk, found by matching AD group membership against the Access Group inventory. |
 | 34 | `34_BlueTrack_DiscoveredAccountsPermission.sql` | AD Account Discovery Phase D (D-137): `ViewDiscoveredAccounts` permission for the new read-only Discovered Accounts report, granted to Admin. |
+| 35 | `35_BlueTrack_DiscoveredAccountWorkflow.sql` | D-138: `web.discovered_account` gains `Status`/`ResolvedAccountKey`/`ReviewedBy`/`ReviewedDate` (the Accept/Dismiss workflow), plus a new `ManageDiscoveredAccounts` permission, granted to Admin. |
+| 36 | `36_BlueTrack_FixAutoAdvanceForDiscoveredAccounts.sql` | D-138: fixes a real pre-existing gap in `usp_Load_AccountProgressAutoAdvance` (Database/03) -- it had no `SourceSystemKey` filter, so a newly-accepted `DISCOVERY`-sourced account (no Safe at all) would have been wrongly auto-promoted straight to "Onboarded to Vault" on the next nightly Load. |
 
 `Test/` holds test-only fixtures (`01_BlueTrack_Test_DevFakeAuthMatrixSeed.sql`,
 `02_BlueTrack_Test_SyntheticAccountData.sql`) -- never run against a real
