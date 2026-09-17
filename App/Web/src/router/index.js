@@ -116,6 +116,12 @@ const routes = [
         name: 'reports-risk-score',
         meta: { breadcrumb: 'Risk Score', breadcrumbParent: 'reports' },
         component: () => import('../views/reports/RiskScoreReport.vue')
+      },
+      {
+        path: 'discovered-accounts',
+        name: 'reports-discovered-accounts',
+        meta: { breadcrumb: 'Discovered Accounts', breadcrumbParent: 'reports' },
+        component: () => import('../views/reports/DiscoveredAccounts.vue')
       }
     ]
   },

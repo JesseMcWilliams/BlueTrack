@@ -59,6 +59,8 @@ public class AdminControllersPermissionTests : IClassFixture<BlueTrackWebApplica
             new object[] { "/api/admin/risk-scoring/import-mapping-profiles" },
             new object[] { "/api/reports/risk-score" },
             new object[] { "/api/reports/risk-score/999999999/contributors" },
+            new object[] { "/api/reports/discovered-accounts" },
+            new object[] { "/api/reports/discovered-accounts/999999999/access-groups" },
             new object[] { "/api/audit-log" },
             new object[] { "/api/safes" },
             new object[] { "/api/applications/detailed" },
@@ -225,6 +227,30 @@ public class AdminControllersPermissionTests : IClassFixture<BlueTrackWebApplica
         var client = CreateClientAs("TestUser.Viewer");
 
         var response = await client.PostAsync("/api/admin/deployment/backup", null);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task DiscoveredAccountsAccept_AsViewer_IsForbidden()
+    {
+        // AD Account Discovery follow-up (2026-09-16): ManageDiscoveredAccounts
+        // is a separate policy from ViewDiscoveredAccounts (both endpoints
+        // live on ReportsController's own class-level [Authorize], not
+        // either specific policy) -- Viewer holds neither.
+        var client = CreateClientAs("TestUser.Viewer");
+
+        var response = await client.PostAsync("/api/reports/discovered-accounts/999999999/accept", null);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task DiscoveredAccountsDismiss_AsViewer_IsForbidden()
+    {
+        var client = CreateClientAs("TestUser.Viewer");
+
+        var response = await client.PostAsync("/api/reports/discovered-accounts/999999999/dismiss", null);
 
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
     }

@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Linq;
 using Xunit;
 
 namespace BlueTrack.Api.Tests.Contract;
@@ -137,46 +138,64 @@ public class CredentialsControllerTests : IClassFixture<BlueTrackWebApplicationF
     }
 
     [Fact]
-    public async Task LdapConfig_SaveAndGet_RoundTrips_ThenRestoresDisabledDefault()
+    public async Task LdapConfig_CreateUpdateDelete_RoundTrips()
     {
         var client = AdminClient();
-        var original = await client.GetFromJsonAsync<LdapConfigResponse>("/api/admin/credentials/ldap-config");
+        var domainName = $"ContractTest_{Guid.NewGuid():N}";
+
+        var createResponse = await client.PostAsJsonAsync("/api/admin/credentials/ldap-config", new
+        {
+            domainName,
+            isEnabled = true,
+            domainController = "dc01.contracttest.local",
+            searchBase = "DC=contracttest,DC=local",
+            useSsl = true,
+            useTrustedConnection = true,
+            credentialKey = (int?)null
+        });
+        Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
+        var key = (await createResponse.Content.ReadFromJsonAsync<LdapConfigKeyResponse>())!.LdapConfigKey;
 
         try
         {
-            var saveResponse = await client.PutAsJsonAsync("/api/admin/credentials/ldap-config", new
+            var afterCreate = await client.GetFromJsonAsync<List<LdapConfigResponse>>("/api/admin/credentials/ldap-config");
+            var created = afterCreate!.Single(c => c.LdapConfigKey == key);
+            Assert.True(created.IsEnabled);
+            Assert.Equal("dc01.contracttest.local", created.DomainController);
+            Assert.True(created.UseTrustedConnection);
+
+            var updateResponse = await client.PutAsJsonAsync($"/api/admin/credentials/ldap-config/{key}", new
             {
-                isEnabled = true,
-                domainController = "dc01.contracttest.local",
+                domainName,
+                isEnabled = false,
+                domainController = "dc02.contracttest.local",
                 searchBase = "DC=contracttest,DC=local",
-                useSsl = true,
+                useSsl = false,
                 useTrustedConnection = true,
                 credentialKey = (int?)null
             });
-            Assert.Equal(HttpStatusCode.NoContent, saveResponse.StatusCode);
+            Assert.Equal(HttpStatusCode.NoContent, updateResponse.StatusCode);
 
-            var reloaded = await client.GetFromJsonAsync<LdapConfigResponse>("/api/admin/credentials/ldap-config");
-            Assert.True(reloaded!.IsEnabled);
-            Assert.Equal("dc01.contracttest.local", reloaded.DomainController);
-            Assert.True(reloaded.UseTrustedConnection);
+            var afterUpdate = await client.GetFromJsonAsync<List<LdapConfigResponse>>("/api/admin/credentials/ldap-config");
+            var updated = afterUpdate!.Single(c => c.LdapConfigKey == key);
+            Assert.False(updated.IsEnabled);
+            Assert.Equal("dc02.contracttest.local", updated.DomainController);
         }
         finally
         {
-            await client.PutAsJsonAsync("/api/admin/credentials/ldap-config", new
-            {
-                isEnabled = original!.IsEnabled,
-                domainController = original.DomainController,
-                searchBase = original.SearchBase,
-                useSsl = original.UseSsl,
-                useTrustedConnection = original.UseTrustedConnection,
-                credentialKey = original.CredentialKey
-            });
+            var deleteResponse = await client.DeleteAsync($"/api/admin/credentials/ldap-config/{key}");
+            Assert.Equal(HttpStatusCode.NoContent, deleteResponse.StatusCode);
         }
     }
 
     private sealed class CredentialKeyResponse
     {
         public int CredentialKey { get; set; }
+    }
+
+    private sealed class LdapConfigKeyResponse
+    {
+        public int LdapConfigKey { get; set; }
     }
 
     private sealed class CredentialResponse
@@ -199,6 +218,8 @@ public class CredentialsControllerTests : IClassFixture<BlueTrackWebApplicationF
 
     private sealed class LdapConfigResponse
     {
+        public int LdapConfigKey { get; set; }
+        public string? DomainName { get; set; }
         public bool IsEnabled { get; set; }
         public string? DomainController { get; set; }
         public string? SearchBase { get; set; }

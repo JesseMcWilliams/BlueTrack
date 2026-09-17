@@ -68,15 +68,32 @@ public sealed class CredentialsController(
     }
 
     [HttpGet("ldap-config")]
-    public async Task<IActionResult> GetLdapConfig() => Ok(await ldapConfigRepository.GetAsync());
+    public async Task<IActionResult> GetAllLdapConfigs() => Ok(await ldapConfigRepository.GetAllAsync());
 
-    [HttpPut("ldap-config")]
-    public async Task<IActionResult> SaveLdapConfig([FromBody] SaveLdapConfigRequest request)
+    [HttpPost("ldap-config")]
+    public async Task<IActionResult> CreateLdapConfig([FromBody] SaveLdapConfigRequest request)
     {
         var user = await currentUserResolver.ResolveAsync(User);
         if (user is null) return Unauthorized();
 
-        await ldapConfigRepository.SaveAsync(request, user.UserKey);
+        var key = await ldapConfigRepository.CreateAsync(request, user.UserKey);
+        return CreatedAtAction(nameof(GetAllLdapConfigs), new { }, new { ldapConfigKey = key });
+    }
+
+    [HttpPut("ldap-config/{ldapConfigKey:int}")]
+    public async Task<IActionResult> UpdateLdapConfig(int ldapConfigKey, [FromBody] SaveLdapConfigRequest request)
+    {
+        var user = await currentUserResolver.ResolveAsync(User);
+        if (user is null) return Unauthorized();
+
+        await ldapConfigRepository.UpdateAsync(ldapConfigKey, request, user.UserKey);
+        return NoContent();
+    }
+
+    [HttpDelete("ldap-config/{ldapConfigKey:int}")]
+    public async Task<IActionResult> DeleteLdapConfig(int ldapConfigKey)
+    {
+        await ldapConfigRepository.DeleteAsync(ldapConfigKey);
         return NoContent();
     }
 }
