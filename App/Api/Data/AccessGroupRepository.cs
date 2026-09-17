@@ -84,6 +84,21 @@ public sealed class AccessGroupRepository(IDbConnectionFactory connectionFactory
         return await connection.QuerySingleOrDefaultAsync<AccessGroupSummary>(sql, new { AccessGroupKey = accessGroupKey });
     }
 
+    /// <summary>
+    /// AD Account Discovery feature (2026-09-16): every Access Group's
+    /// AccessGroupKey/GroupName/GroupIdentifier, unpaginated -- GetAllAsync
+    /// pages by design (D-124 Phase 3), which would silently truncate the set
+    /// AdAccountDiscoveryService needs to bind every AD group in AD, not just
+    /// one page of them.
+    /// </summary>
+    public async Task<IReadOnlyList<(int AccessGroupKey, string GroupName, string GroupIdentifier)>> GetAllIdentifiersAsync()
+    {
+        using var connection = connectionFactory.Create();
+        var rows = await connection.QueryAsync<(int, string, string)>(
+            "SELECT AccessGroupKey, GroupName, GroupIdentifier FROM web.dim_access_group");
+        return rows.AsList();
+    }
+
     /// <summary>D-121: the grand total row count under the same base (no filter) condition -- backs the X-Total-Count response header.</summary>
     public async Task<int> GetTotalCountAsync()
     {
