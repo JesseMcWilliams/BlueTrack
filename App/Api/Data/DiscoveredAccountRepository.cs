@@ -112,24 +112,74 @@ public sealed class DiscoveredAccountRepository(IDbConnectionFactory connectionF
         transaction.Commit();
     }
 
-    /// <summary>Backs the Discovered Accounts report -- every candidate, sortable, with its Risk Band and (when set) the possible-existing-account's name resolved.</summary>
-    public async Task<IReadOnlyList<DiscoveredAccount>> GetListAsync()
+    private static readonly IReadOnlyDictionary<string, string> SortableColumns = new Dictionary<string, string>
+    {
+        ["domainName"] = "da.DomainName",
+        ["samAccountName"] = "da.SamAccountName",
+        ["computedRiskScore"] = "da.ComputedRiskScore",
+        ["discoveredDate"] = "da.DiscoveredDate",
+        ["lastSeenDate"] = "da.LastSeenDate"
+    };
+
+    private const string SelectSql = """
+        SELECT
+            da.DiscoveredAccountKey, da.DomainName, da.SamAccountName, da.DistinguishedName, da.ObjectSid,
+            da.DisplayName, da.IsEnabled, da.ComputedRiskScore, da.RiskScoreCalculatedDate,
+            da.DiscoveredDate, da.LastSeenDate, da.PossibleExistingAccountKey,
+            fa.AccountName AS PossibleExistingAccountName,
+            band.BandName AS RiskScoreBandName
+        FROM web.discovered_account da
+        LEFT JOIN dbo.fact_account fa ON fa.AccountKey = da.PossibleExistingAccountKey
+        LEFT JOIN web.dim_risk_score_band band ON da.ComputedRiskScore BETWEEN band.MinScore AND band.MaxScore
+        """;
+
+    /// <summary>Backs the Discovered Accounts report -- every candidate, sortable, with its Risk Band and (when set) the possible-existing-account's name resolved. D-124 Phase 3-style paging -- no filter params on this report (same as the Risk Score report), so GetFilteredCountAsync always equals GetTotalCountAsync.</summary>
+    public async Task<IReadOnlyList<DiscoveredAccount>> GetListAsync(
+        IReadOnlyList<(string Field, bool Descending)>? sortBy = null,
+        int? page = null,
+        int? pageSize = null)
     {
         using var connection = connectionFactory.Create();
-        const string sql = """
-            SELECT
-                da.DiscoveredAccountKey, da.DomainName, da.SamAccountName, da.DistinguishedName, da.ObjectSid,
-                da.DisplayName, da.IsEnabled, da.ComputedRiskScore, da.RiskScoreCalculatedDate,
-                da.DiscoveredDate, da.LastSeenDate, da.PossibleExistingAccountKey,
-                fa.AccountName AS PossibleExistingAccountName,
-                band.BandName AS RiskScoreBandName
-            FROM web.discovered_account da
-            LEFT JOIN dbo.fact_account fa ON fa.AccountKey = da.PossibleExistingAccountKey
-            LEFT JOIN web.dim_risk_score_band band ON da.ComputedRiskScore BETWEEN band.MinScore AND band.MaxScore
-            ORDER BY da.ComputedRiskScore DESC
+        var (normalizedPage, normalizedPageSize) = PagingParams.Normalize(page, pageSize);
+        var sql = $"""
+            {SelectSql}
+            ORDER BY {BuildOrderByClause(sortBy)}
+            OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY
             """;
-        var rows = await connection.QueryAsync<DiscoveredAccount>(sql);
+        var rows = await connection.QueryAsync<DiscoveredAccount>(sql, new
+        {
+            Offset = PagingParams.Offset(normalizedPage, normalizedPageSize),
+            PageSize = normalizedPageSize
+        });
         return rows.AsList();
+    }
+
+    public async Task<int> GetTotalCountAsync()
+    {
+        using var connection = connectionFactory.Create();
+        return await connection.QuerySingleAsync<int>("SELECT COUNT(*) FROM web.discovered_account");
+    }
+
+    /// <summary>No filter params on this report (same as the Risk Score report) -- always equal to GetTotalCountAsync, kept as its own method for header consistency with every other paginated list endpoint.</summary>
+    public async Task<int> GetFilteredCountAsync()
+    {
+        using var connection = connectionFactory.Create();
+        return await connection.QuerySingleAsync<int>("SELECT COUNT(*) FROM web.discovered_account");
+    }
+
+    private static string BuildOrderByClause(IReadOnlyList<(string Field, bool Descending)>? sortBy)
+    {
+        if (sortBy is not { Count: > 0 })
+        {
+            return "da.ComputedRiskScore DESC";
+        }
+
+        var clauses = sortBy
+            .Where(s => SortableColumns.ContainsKey(s.Field))
+            .Select(s => $"{SortableColumns[s.Field]} {(s.Descending ? "DESC" : "ASC")}")
+            .ToList();
+
+        return clauses.Count > 0 ? string.Join(", ", clauses) : "da.ComputedRiskScore DESC";
     }
 
     /// <summary>Every AccessGroupKey a discovered account matched -- App/Api/AdDiscovery reads dim_access_group directly for the candidate list; this is what the report needs to show which groups drove the score.</summary>

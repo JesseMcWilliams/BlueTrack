@@ -8,7 +8,10 @@ namespace BlueTrack.Api.Controllers;
 [ApiController]
 [Route("api/reports")]
 [Authorize]
-public sealed class ReportsController(ReportsRepository repository, RiskScoreReportRepository riskScoreReportRepository) : ControllerBase
+public sealed class ReportsController(
+    ReportsRepository repository,
+    RiskScoreReportRepository riskScoreReportRepository,
+    DiscoveredAccountRepository discoveredAccountRepository) : ControllerBase
 {
     [HttpGet("overdue-at-risk")]
     public async Task<IActionResult> GetOverdueAtRisk()
@@ -77,5 +80,26 @@ public sealed class ReportsController(ReportsRepository repository, RiskScoreRep
     {
         await riskScoreReportRepository.RecalculateAllAsync();
         return NoContent();
+    }
+
+    /// <summary>AD Account Discovery feature (2026-09-16): real AD accounts not yet onboarded into CyberArk, matched against the Access Group inventory and risk-scored, gated by the new ViewDiscoveredAccounts permission. Read-only -- no accept/dismiss action in this pass (confirmed directly: visibility only).</summary>
+    [HttpGet("discovered-accounts")]
+    [Authorize(Policy = Permissions.ViewDiscoveredAccounts)]
+    public async Task<IActionResult> GetDiscoveredAccounts([FromQuery] string? sort = null, [FromQuery] int? page = null, [FromQuery] int? pageSize = null)
+    {
+        var sortBy = SortParser.Parse(sort);
+        var results = await discoveredAccountRepository.GetListAsync(sortBy, page, pageSize);
+        Response.Headers["X-Total-Count"] = (await discoveredAccountRepository.GetTotalCountAsync()).ToString();
+        Response.Headers["X-Filtered-Count"] = (await discoveredAccountRepository.GetFilteredCountAsync()).ToString();
+        return Ok(results);
+    }
+
+    /// <summary>Which Access Groups a discovered account matched -- mirrors the Risk Score report's own per-account contributor drill-down.</summary>
+    [HttpGet("discovered-accounts/{discoveredAccountKey:int}/access-groups")]
+    [Authorize(Policy = Permissions.ViewDiscoveredAccounts)]
+    public async Task<IActionResult> GetDiscoveredAccountAccessGroups(int discoveredAccountKey)
+    {
+        var results = await discoveredAccountRepository.GetMatchedAccessGroupsAsync(discoveredAccountKey);
+        return Ok(results.Select(r => new { r.AccessGroupKey, r.GroupName }));
     }
 }
