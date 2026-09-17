@@ -49,6 +49,7 @@ builder.Services.AddScoped<DeploymentRepository>();
 builder.Services.AddScoped<NotificationRepository>();
 builder.Services.AddScoped<CredentialRepository>();
 builder.Services.AddScoped<LdapConfigRepository>();
+builder.Services.AddScoped<LdapContextFactory>();
 builder.Services.AddScoped<LdapGroupMemberResolver>();
 builder.Services.AddScoped<TargetRepository>();
 builder.Services.AddScoped<AccessGroupRepository>();

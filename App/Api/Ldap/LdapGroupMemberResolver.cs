@@ -32,8 +32,16 @@ namespace BlueTrack.Api.Ldap;
 /// PrincipalContext, given no explicit username/password, binds as whatever
 /// identity the current process runs under and can expand real group
 /// membership just as well as an explicit bind account.
+///
+/// Extended 2026-09-16 (AD Account Discovery feature, D-116 follow-up):
+/// web.ldap_config went from a singleton to one row per domain. A group
+/// identifier here carries no domain hint of its own, so every enabled
+/// config is tried in turn per identifier until one binds it -- a SID only
+/// ever resolves in the one domain it actually belongs to, so trying the
+/// "wrong" domain's context first just returns null (not an error) and
+/// falls through to the next, same as an unresolvable identifier always did.
 /// </summary>
-public sealed class LdapGroupMemberResolver(LdapConfigRepository ldapConfigRepository, CredentialRepository credentialRepository)
+public sealed class LdapGroupMemberResolver(LdapConfigRepository ldapConfigRepository, LdapContextFactory contextFactory)
 {
     public async Task<IReadOnlyList<string>> ResolveMemberEmailsAsync(IReadOnlyList<string> groupIdentifiers)
     {
@@ -42,41 +50,38 @@ public sealed class LdapGroupMemberResolver(LdapConfigRepository ldapConfigRepos
             return [];
         }
 
-        var config = await ldapConfigRepository.GetAsync();
-        if (!config.IsEnabled || (!config.UseTrustedConnection && config.CredentialKey is null))
+        var configs = await ldapConfigRepository.GetEnabledAsync();
+        if (configs.Count == 0)
         {
             return [];
         }
 
-        var domainController = string.IsNullOrWhiteSpace(config.DomainController) ? null : config.DomainController;
-        var searchBase = string.IsNullOrWhiteSpace(config.SearchBase) ? null : config.SearchBase;
-
-        // Two distinct constructor overloads, not one call with nullable
-        // username/password -- confirmed via a live probe against this
-        // domain that the 3-arg (no-credentials) overload is what actually
-        // binds as the ambient process identity; passing explicit nulls into
-        // the 5-arg overload was never verified to behave the same way.
-        using var context = config.UseTrustedConnection
-            ? new PrincipalContext(ContextType.Domain, domainController, searchBase)
-            : await CreateCredentialedContextAsync(domainController, searchBase, config.CredentialKey!.Value);
-
         var emails = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-        foreach (var identifier in groupIdentifiers)
+        foreach (var config in configs)
         {
-            using var group = FindGroup(context, identifier);
-            if (group is null)
+            using var context = await contextFactory.TryCreateContextAsync(config);
+            if (context is null)
             {
                 continue;
             }
 
-            foreach (var member in group.GetMembers(recursive: true))
+            foreach (var identifier in groupIdentifiers)
             {
-                using (member)
+                using var group = FindGroup(context, identifier);
+                if (group is null)
                 {
-                    if (member is UserPrincipal user && !string.IsNullOrWhiteSpace(user.EmailAddress))
+                    continue;
+                }
+
+                foreach (var member in group.GetMembers(recursive: true))
+                {
+                    using (member)
                     {
-                        emails.Add(user.EmailAddress);
+                        if (member is UserPrincipal user && !string.IsNullOrWhiteSpace(user.EmailAddress))
+                        {
+                            emails.Add(user.EmailAddress);
+                        }
                     }
                 }
             }
@@ -85,14 +90,8 @@ public sealed class LdapGroupMemberResolver(LdapConfigRepository ldapConfigRepos
         return emails.ToList();
     }
 
-    private async Task<PrincipalContext> CreateCredentialedContextAsync(string? domainController, string? searchBase, int credentialKey)
-    {
-        var (username, password) = await credentialRepository.ResolveForUseAsync(credentialKey);
-        return new PrincipalContext(ContextType.Domain, domainController, searchBase, username, password);
-    }
-
     /// <summary>A SID (the normal shape for a real domain group here, see GroupIdentifierExtractor) needs IdentityType.Sid; anything else falls back to SamAccountName/Name.</summary>
-    private static GroupPrincipal? FindGroup(PrincipalContext context, string identifier)
+    internal static GroupPrincipal? FindGroup(PrincipalContext context, string identifier)
     {
         try
         {

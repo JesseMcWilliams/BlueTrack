@@ -17,9 +17,9 @@ const error = ref(null)
 const loading = ref(true)
 const testResults = ref({})
 
-const ldapConfig = ref(null)
+const ldapConfigs = ref([])
+const ldapEditing = ref(null)
 const ldapError = ref(null)
-const ldapSaved = ref(false)
 
 async function load() {
   loading.value = true
@@ -31,7 +31,7 @@ async function load() {
     if (!credentialsResponse.ok) throw new Error(`Credentials request failed: ${credentialsResponse.status}`)
     if (!ldapResponse.ok) throw new Error(`LDAP config request failed: ${ldapResponse.status}`)
     credentials.value = await credentialsResponse.json()
-    ldapConfig.value = await ldapResponse.json()
+    ldapConfigs.value = await ldapResponse.json()
   } catch (err) {
     error.value = err.message
   } finally {
@@ -86,19 +86,40 @@ async function test(credential) {
   testResults.value = { ...testResults.value, [credential.credentialKey]: result }
 }
 
+function startCreateLdapConfig() {
+  ldapEditing.value = { domainName: '', isEnabled: false, domainController: '', searchBase: '', useSsl: false, useTrustedConnection: false, credentialKey: null }
+}
+function startEditLdapConfig(config) {
+  ldapEditing.value = { ...config }
+}
+function cancelEditLdapConfig() {
+  ldapEditing.value = null
+}
+
 async function saveLdapConfig() {
   ldapError.value = null
-  ldapSaved.value = false
-  const response = await fetch('/api/admin/credentials/ldap-config', {
-    method: 'PUT',
+  const isNew = ldapEditing.value.ldapConfigKey === undefined
+  const url = isNew ? '/api/admin/credentials/ldap-config' : `/api/admin/credentials/ldap-config/${ldapEditing.value.ldapConfigKey}`
+  const response = await fetch(url, {
+    method: isNew ? 'POST' : 'PUT',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(ldapConfig.value)
+    body: JSON.stringify(ldapEditing.value)
   })
   if (!response.ok) {
     ldapError.value = `Save failed: ${response.status}`
     return
   }
-  ldapSaved.value = true
+  ldapEditing.value = null
+  await load()
+}
+
+async function removeLdapConfig(config) {
+  if (!(await confirmDelete(`Delete LDAP configuration "${config.domainName}"? This cannot be undone.`))) return
+  const response = await fetch(`/api/admin/credentials/ldap-config/${config.ldapConfigKey}`, { method: 'DELETE' })
+  if (!response.ok) {
+    ldapError.value = `Delete failed: ${response.status}`
+    return
+  }
   await load()
 }
 </script>
@@ -182,24 +203,47 @@ async function saveLdapConfig() {
       </form>
 
       <h3>LDAP Configuration</h3>
+      <p>One row per AD domain/forest this app needs to query (notification recipient resolution, AD Account Discovery). Each is independently enabled/disabled and can bind with its own credential.</p>
       <p v-if="ldapError" role="alert">{{ ldapError }}</p>
-      <p v-if="ldapSaved" role="status">Saved.</p>
-      <form v-if="ldapConfig" @submit.prevent="saveLdapConfig">
-        <p><label><input v-model="ldapConfig.isEnabled" type="checkbox" /> Enabled</label></p>
-        <p><label class="field-label"><span class="field-label-text">Domain Controller (blank = default domain):</span> <input v-model="ldapConfig.domainController" placeholder="dc01.company.local" /></label></p>
-        <p><label class="field-label"><span class="field-label-text">Search Base:</span> <input v-model="ldapConfig.searchBase" placeholder="DC=company,DC=local" /></label></p>
-        <p><label><input v-model="ldapConfig.useSsl" type="checkbox" /> Use SSL</label></p>
-        <p><label><input v-model="ldapConfig.useTrustedConnection" type="checkbox" /> Use trusted connection (app pool / local computer account)</label></p>
-        <p v-if="!ldapConfig.useTrustedConnection">
+      <button class="btn-primary" @click="startCreateLdapConfig">+ New Domain</button>
+
+      <table>
+        <thead>
+          <tr><th>Domain</th><th>Enabled</th><th>Domain Controller</th><th>Bind Method</th><th></th></tr>
+        </thead>
+        <tbody>
+          <tr v-for="config in ldapConfigs" :key="config.ldapConfigKey">
+            <td>{{ config.domainName }}</td>
+            <td>{{ config.isEnabled ? 'Yes' : 'No' }}</td>
+            <td>{{ config.domainController || '(default domain)' }}</td>
+            <td>{{ config.useTrustedConnection ? 'Trusted connection' : (config.credentialName || '(none)') }}</td>
+            <td>
+              <button @click="startEditLdapConfig(config)">Edit</button>
+              <button @click="removeLdapConfig(config)">Delete</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <form v-if="ldapEditing" @submit.prevent="saveLdapConfig">
+        <h4>{{ ldapEditing.ldapConfigKey === undefined ? 'New Domain' : 'Edit Domain' }}</h4>
+        <p><label class="field-label"><span class="field-label-text">Domain Name:</span> <input v-model="ldapEditing.domainName" required placeholder="company.local" /></label></p>
+        <p><label><input v-model="ldapEditing.isEnabled" type="checkbox" /> Enabled</label></p>
+        <p><label class="field-label"><span class="field-label-text">Domain Controller (blank = default domain):</span> <input v-model="ldapEditing.domainController" placeholder="dc01.company.local" /></label></p>
+        <p><label class="field-label"><span class="field-label-text">Search Base:</span> <input v-model="ldapEditing.searchBase" placeholder="DC=company,DC=local" /></label></p>
+        <p><label><input v-model="ldapEditing.useSsl" type="checkbox" /> Use SSL</label></p>
+        <p><label><input v-model="ldapEditing.useTrustedConnection" type="checkbox" /> Use trusted connection (app pool / local computer account)</label></p>
+        <p v-if="!ldapEditing.useTrustedConnection">
           <label class="field-label">
             <span class="field-label-text">Bind Account Credential:</span>
-            <select v-model="ldapConfig.credentialKey">
+            <select v-model="ldapEditing.credentialKey">
               <option :value="null">(none)</option>
               <option v-for="credential in credentials" :key="credential.credentialKey" :value="credential.credentialKey">{{ credential.credentialName }}</option>
             </select>
           </label>
         </p>
         <button type="submit" class="btn-primary">Save</button>
+        <button type="button" @click="cancelEditLdapConfig">Cancel</button>
       </form>
     </template>
   </div>
