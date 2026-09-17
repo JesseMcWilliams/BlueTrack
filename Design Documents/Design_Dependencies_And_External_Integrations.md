@@ -52,7 +52,11 @@ See `Design Documents/Design_Authentication_Architecture.md` for the full design
 
 ### 2.5 Directory services (LDAP/Active Directory)
 
-`System.DirectoryServices.AccountManagement`, used by exactly one component: `App/Api/Ldap/LdapGroupMemberResolver.cs`. It resolves a notification role's mapped AD group(s) to real recipient email addresses (binding via a stored `web.credential` LDAP bind account, expanding group membership recursively) — **notification recipient resolution only**, not authentication. Opt-in via `web.ldap_config.IsEnabled`.
+`System.DirectoryServices.AccountManagement`, used by two components under `App/Api/Ldap/` and `App/Api/AdDiscovery/`:
+- `LdapGroupMemberResolver` resolves a notification role's mapped AD group(s) to real recipient email addresses — **notification recipient resolution only**, not authentication.
+- `AdAccountDiscoveryService` (AD Account Discovery feature, 2026-09-16, D-137) enumerates real members of every already-inventoried Access Group's AD group, to find accounts not yet onboarded into CyberArk and risk-score them.
+
+Both share `LdapContextFactory` for binding and read `web.ldap_config` — now a real per-domain table (one row per AD domain/forest, each independently enabled with its own bind credential or trusted connection), not the singleton it originally shipped as. Opt-in per row via `IsEnabled`.
 
 ### 2.6 Email (SMTP)
 
@@ -119,7 +123,8 @@ Not external dependencies, but the top-level internal modules a change is likely
 | `Auth/` | Authentication provider wiring, permission policies, `UserRightsCache` |
 | `Audit/` | Audit log writer |
 | `HealthChecks/` | Deployment admin page's health-check implementations |
-| `Ldap/` | `LdapGroupMemberResolver` (2.5) |
+| `Ldap/` | `LdapGroupMemberResolver`, `LdapContextFactory` (2.5) |
+| `AdDiscovery/` | `AdAccountDiscoveryService`/`AdAccountDiscoveryBackgroundService` (2.5) — AD Account Discovery feature |
 | `Notifications/` | Notification framework — checks, senders, background service (2.6) |
 | `RiskScoring/` | Target/Access Group matching, CSV import, staleness propagation, band overlap validation |
 | `Secrets/` | `IVaultSecretProvider`/`ILocalSecretProtector` implementations (2.2/2.3) |

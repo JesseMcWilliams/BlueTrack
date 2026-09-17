@@ -40,7 +40,7 @@ Confirmed 2026-08-27 as a first pass — revise here as screens are added or spl
 - Global Application Configuration — audit retention, read-logging toggle (D-35, both on `audit_config`), idle timeout (D-28), breadcrumb position (D-57, both on `app_config` below)
 - Deployment — environment/version info, health checks, SQL Server backup status, gated by `ViewDeploymentInfo` (D-98, `Design_Admin_Deployment_Management.md`)
 - Notifications — SMTP config, recipients, notification-type target roles, gated by `ManageNotifications` (D-115/D-116/D-118, `Design_Notifications.md`)
-- Credentials & LDAP — vault-backend credential management plus LDAP trusted-connection config, gated by `ManageCredentials` (`Design_Credentials_Management.md`)
+- Credentials & LDAP — vault-backend credential management plus LDAP config, gated by `ManageCredentials` (`Design_Credentials_Management.md`). **Updated 2026-09-16 (D-137)**: LDAP config is now a real list, one row per AD domain/forest (previously a singleton) — needed once the AD Account Discovery feature had to query potentially more than one domain.
 - Target Match Review / Import Mapping Profiles — the Risk Scoring import admin pages, gated by `ManageTargets` (D-119, `Design_Risk_Scoring.md`). Targets/Access Groups themselves **moved out** of this hub to their own top-level nav entries (D-121, see Analyst-Facing above) — these two stay here, unmoved.
 - Risk Score Bands — admin-configurable named bands (e.g. Low/Medium/High/Critical) over the computed `EffectiveRiskScore`, surfaced on the Account Progress list and Risk Score report; NOT the same thing as `dim_risk_level`. Gated by `ManageRiskScoreBands` (D-120, `Design_Risk_Scoring.md` Phase F)
 
@@ -61,6 +61,7 @@ Dashboard | Accounts | Exceptions | Reports | Admin (groups the admin-facing pag
 - **Reconciliation Review Queue** — unconfirmed `account_reconciliation` matches (`IsConfirmed = 0`) needing a human decision, gated by the existing `ConfirmReconciliation` permission.
 - **Unresolved Entitlement Members** — Safe entitlements granted to a member this app can't resolve to a known user/group (D-107/D-108); no permission gate, read-only.
 - **Risk Score** — sortable list of computed/override/effective account risk scores with a per-account contributor drill-down, gated by `ViewRiskReport` (D-119, `Design_Risk_Scoring.md`).
+- **Discovered Accounts** (added 2026-09-16, D-137) — real AD accounts not yet onboarded into CyberArk, found nightly by matching AD group membership against the Access Group inventory (D-119) and risk-scored the same way, with a per-account drill-down showing which Access Groups it matched. Gated by `ViewDiscoveredAccounts`. Read-only in this pass — no accept/dismiss/onboard workflow yet.
 
 More report types can be added the same way later; this isn't meant to be exhaustive. **Documentation audit correction, 2026-09-09**: this list only had the original three as of 2026-08-27 — the last two were added since (D-107/D-108, D-119) but never made it back into this list.
 
