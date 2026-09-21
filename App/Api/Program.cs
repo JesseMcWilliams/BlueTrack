@@ -1,3 +1,4 @@
+using BlueTrack.Api.AdDiscovery;
 using BlueTrack.Api.Audit;
 using BlueTrack.Api.Auth;
 using BlueTrack.Api.Data;
@@ -49,6 +50,7 @@ builder.Services.AddScoped<DeploymentRepository>();
 builder.Services.AddScoped<NotificationRepository>();
 builder.Services.AddScoped<CredentialRepository>();
 builder.Services.AddScoped<LdapConfigRepository>();
+builder.Services.AddScoped<LdapContextFactory>();
 builder.Services.AddScoped<LdapGroupMemberResolver>();
 builder.Services.AddScoped<TargetRepository>();
 builder.Services.AddScoped<AccessGroupRepository>();
@@ -151,6 +153,13 @@ builder.Services.AddScoped<Saml2ConfigurationFactory>();
 builder.Services.AddScoped<INotificationSender, SmtpNotificationSender>();
 builder.Services.AddScoped<INotificationCheck, DevFakeAuthEnabledCheck>();
 builder.Services.AddHostedService<NotificationCheckBackgroundService>();
+
+// AD Account Discovery (2026-09-16): same same-process-BackgroundService
+// shape as Notifications above, for the same reason -- talking to LDAP
+// doesn't need a separate process, just its own DI scope per run.
+builder.Services.AddScoped<DiscoveredAccountRepository>();
+builder.Services.AddScoped<AdAccountDiscoveryService>();
+builder.Services.AddHostedService<AdAccountDiscoveryBackgroundService>();
 
 // D-96 Part 3.2: real, custom IHealthCheck implementations (this app's own
 // checks, not third-party health-check packages) -- consumed via
