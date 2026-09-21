@@ -8,9 +8,18 @@ This exists because, before it, there was no automated deployment path at all �
 
 1. **Prerequisites** — checks for the .NET 10 SDK, Node.js, the IIS role, the ASP.NET Core Hosting Bundle, and the IIS URL Rewrite Module; offers to install any that are missing.
 2. **Build** — `dotnet publish` (API) and `npm run build` (SPA) from source.
-3. **Database** — confirms SQL Server is reachable, runs `App/Migrator` against `Database` (and optionally `Database/Test`), writes an environment-specific `appsettings.{Environment}.json` next to the published API, and optionally installs the nightly Import+Load SQL Agent job.
+3. **Database** — confirms SQL Server is reachable; if the target database already exists with a schema (an upgrade, not a fresh install), takes a pre-deployment backup first (see "Rollback" below); runs `App/Migrator` against `Database` (and optionally `Database/Test`); writes an environment-specific `appsettings.{Environment}.json` next to the published API; and optionally installs the nightly Import+Load SQL Agent job.
 4. **IIS** — creates the Application Pool, the site (physical root = the built SPA), the nested `/api` Application (physical root = the published API), the HTTPS binding/certificate, and the site-root `web.config` (the SPA client-side-routing fallback rule).
 5. **Smoke test** — calls the Deployment Info health-check endpoint and reports the result.
+
+## Rollback
+
+`Design Documents/Design_Deployment_Methodology.md`'s rollback mechanism (Option B): formalize backup/restore rather than per-script "down" migrations.
+
+- **`Backup-BlueTrack.ps1`** — backs up BlueTrack (and, optionally with `-IncludeMsdb`, `msdb`) to a timestamped `.bak`, verifies it with `RESTORE VERIFYONLY`, and writes a manifest (database name, timestamp, git commit) recording what it preceded. `Install-BlueTrack.ps1` calls this automatically before migrating an existing (non-fresh) database — pass `-SkipPreDeployBackup` to opt out.
+- **`Restore-BlueTrack.ps1`** — restores BlueTrack (and, optionally with `-RestoreMsdbFilePath`, `msdb`) from a specific backup file. Destructive (`RESTORE DATABASE ... WITH REPLACE`) — requires typing `YES` to confirm, or `-Confirm:$false` for unattended use. Only ever handles the database side: also redeploy the application build matching the backup's manifest `GitCommit`, if one was recorded.
+- **`msdb` is opt-in, not automatic**, in both directions: SQL Agent job definitions (the nightly Import+Load job) live in `msdb`, which is shared by every database on the SQL Server instance. Restoring it later is instance-wide, not scoped to just BlueTrack — only do it if a job definition was actually lost.
+- **What this does not solve**: there are still no per-script "down" migrations for the numbered `Database/*.sql` files — full-database restore remains the only rollback path, which is what Option B always meant.
 
 Every phase is idempotent where it makes sense: re-running the script detects what's already there and skips it, rather than failing or duplicating (pass `-Force` to recreate the IIS pieces instead). Every step also supports `-WhatIf` to preview what would happen without doing it.
 
@@ -20,7 +29,7 @@ Every phase is idempotent where it makes sense: re-running the script detects wh
 - **Does not configure a real identity provider** (SAML/OIDC) — Windows Integrated authentication works out of the box; a real IdP needs real tenant metadata entered afterward via the Identity Providers admin page.
 - **Does not cut over the Secrets Store backend** — Windows DPAPI is active by default after install; switching to CyberArk CP/CCP/Conjur, Azure Key Vault, or AWS Secrets Manager happens afterward via the Secrets Store Configuration admin page.
 - **Does not load real CyberArk export data** — a fresh install has empty staging tables; see `Design Documents/Design_Deployment_Runbook.md`'s "First Data Load" section to run `usp_Import_All`/`usp_RunFullLoad` once real export files are in place.
-- **Does not add a rollback mechanism.** There's no automated "undo this deploy" path here or anywhere else in the project yet (an open question in `Design_Deployment_Methodology.md`) — back up first.
+- **Does not add per-script "down" migrations.** The rollback mechanism (see above) is full-database backup/restore, not an "undo this specific script" path — that's a deliberate scope boundary, not an oversight.
 - **Is not a general upgrade tool for an existing production install** — it's built for a fresh (or fresh-ish) environment. Re-running it is safe, but it isn't a patching/upgrade pipeline.
 
 ## Usage
@@ -70,6 +79,8 @@ Preview without changing anything:
 | `-Force` | Recreate IIS Application Pool/Site/Application even if they already exist | off |
 | `-SkipPrerequisiteInstall` | Report missing prerequisites but don't offer to install them | off |
 | `-SkipSmokeTest` | Skip the post-install health-check call | off |
+| `-BackupFolder` | Where the automatic pre-deployment backup is written, when the target database already has an existing schema | prompted only if needed |
+| `-SkipPreDeployBackup` | Skip the automatic pre-deployment backup entirely | off |
 | `-WhatIf` | Preview every action without performing it (standard PowerShell `SupportsShouldProcess`) | off |
 
 ### A note on the nightly Import+Load job
@@ -85,8 +96,11 @@ Deploy/
     BlueTrack.Prereqs.psm1        # prerequisite verification/auto-install
     BlueTrack.Build.psm1          # dotnet publish + npm run build
     BlueTrack.Database.psm1       # SQL connectivity, App/Migrator, appsettings, nightly job
+    BlueTrack.Rollback.psm1       # backup/restore rollback mechanism
     BlueTrack.Iis.psm1            # app pool, site, /api Application, web.config, bindings
     BlueTrack.Smoke.psm1          # post-install health-check call
+  Backup-BlueTrack.ps1            # standalone backup, outside a full install run
+  Restore-BlueTrack.ps1           # standalone emergency restore
   Templates/
     site-web.config.template      # SPA URL Rewrite fallback rule
   Logs/                           # transcript logs from each run (git-ignored)

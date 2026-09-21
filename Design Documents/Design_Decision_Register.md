@@ -167,11 +167,9 @@ OIDC/SAML (D-85/D-86) and the remaining Secrets Storage backends (D-84) are now 
 
 ## Outstanding Decisions — Not Yet Designed At All
 
-**Corrected 2026-09-09 (documentation audit)** — this section read "None currently" despite `Audit_Findings_Tracker.md` already tracking real undesigned items; kept in sync with that tracker going forward rather than duplicating its checklist here:
+**Corrected 2026-09-09 (documentation audit)** — this section read "None currently" despite `Audit_Findings_Tracker.md` already tracking real undesigned items; kept in sync with that tracker going forward rather than duplicating its checklist here.
 
-- Segregation-of-duties on Risk Exception approval (the person who made a change can also approve the exception excusing it) — design not started. See `Audit_Findings_Tracker.md`.
-- A rollback mechanism for schema changes (Migrator/numbered scripts) — none exists; flagged in `Design_Deployment_Methodology.md`'s Open Questions.
-- Environment-specific `appsettings.*.json` beyond Development — no pattern designed yet.
+**Corrected again 2026-09-21**: all three items previously listed here are resolved — ~~Segregation-of-duties on Risk Exception approval~~ (an admin-configurable toggle plus a detective report, D-138 area, `Database/31_BlueTrack_RiskExceptionSegregationOfDuties.sql`), ~~A rollback mechanism for schema changes~~ (full-database backup/restore, `Deploy/Backup-BlueTrack.ps1`/`Restore-BlueTrack.ps1`, resolved 2026-09-16 per `Design_Deployment_Methodology.md`'s Open Questions), and ~~Environment-specific `appsettings.*.json` beyond Development~~ (resolved 2026-09-11 by `Deploy/Install-BlueTrack.ps1`, just never reflected here until now). **None currently** — see `Audit_Findings_Tracker.md` for what open items remain elsewhere in the project.
 
 ---
 *Resolved decisions D-10 through D-22, and this reorganization of the open-question tiers, were added 2026-08-27. Q-27 was added the same day following a schema-vs-source-data review, then resolved the same day (D-55) once each gap was confirmed column-by-column. D-23 through D-58 were added 2026-08-27, resolving every open item raised this session — Q-01, Q-05, Q-07, Q-08, Q-13, Q-14, Q-16, Q-18, Q-19, Q-20, Q-21, Q-22, Q-23, Q-25, Q-26, Q-27, Q-28, Q-29, and Q-30 — in full. New `Design_Application_Structure.md` and `Design_Data_Editing_Behavior.md` documents were also added.*

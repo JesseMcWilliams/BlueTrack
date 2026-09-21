@@ -60,4 +60,19 @@
     </Reference>
   </ItemGroup>
 
+  <!--
+    Embedded so the Group / Role Mapping page's script-generator endpoint
+    (GroupRoleMappingsController) can read this tracked script's content at
+    runtime regardless of deployment layout: Deploy/Install-BlueTrack.ps1
+    publishes the API output separately from the repo, so Database/*.sql
+    is not otherwise guaranteed to exist alongside a running deployment.
+    The tracked Database/32 file stays the one source of truth; this just
+    compiles a copy of it into the DLL.
+  -->
+  <ItemGroup>
+    <EmbeddedResource Include="..\..\Database\32_BlueTrack_GrantBackupStatusReaderRole.sql">
+      <LogicalName>BlueTrack.Api.GrantBackupStatusReaderRole.sql</LogicalName>
+    </EmbeddedResource>
+  </ItemGroup>
+
 </Project>

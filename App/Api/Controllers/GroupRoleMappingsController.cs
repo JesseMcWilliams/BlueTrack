@@ -65,6 +65,31 @@ public sealed class GroupRoleMappingsController(
         });
     }
 
+    /// <summary>
+    /// D-107/Outstanding_Work_Survey.md: generates a filled-in copy of
+    /// Database/32_BlueTrack_GrantBackupStatusReaderRole.sql, targeting
+    /// whichever group the admin just resolved, for a DBA to run manually
+    /// via sqlcmd (Option B -- never through App/Migrator, see that
+    /// script's own header). Same "resolve, then act" shape as
+    /// resolve-group above -- reuses WindowsGroupResolver directly rather
+    /// than requiring a caller to resolve first and pass the result in.
+    /// </summary>
+    [HttpPost("generate-backupstatus-reader-script")]
+    public IActionResult GenerateBackupStatusReaderScript([FromBody] ResolveGroupRequest request)
+    {
+        var resolved = WindowsGroupResolver.TryResolve(request.GroupName);
+        if (resolved is null)
+        {
+            return Problem(title: "Group not found", detail: $"Could not resolve '{request.GroupName}' to a Windows account.", statusCode: StatusCodes.Status404NotFound);
+        }
+
+        var (_, resolvedAccountName) = resolved.Value;
+        var script = BackupStatusReaderScriptGenerator.Generate(resolvedAccountName);
+
+        var safeFileNamePart = string.Concat(resolvedAccountName.Select(c => char.IsLetterOrDigit(c) ? c : '_'));
+        return File(System.Text.Encoding.UTF8.GetBytes(script), "text/plain", $"Grant-db_backupstatus_reader-{safeFileNamePart}.sql");
+    }
+
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] CreateGroupRoleMappingRequest request)
     {

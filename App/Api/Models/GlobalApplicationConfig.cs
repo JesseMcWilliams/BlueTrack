@@ -20,6 +20,14 @@ public sealed class GlobalApplicationConfig
 
     /// <summary>D-119 Phase D: which of the two candidate scoring algorithms usp_CalculateRiskScore dispatches to.</summary>
     public required string ActiveRiskAlgorithm { get; init; }
+
+    /// <summary>
+    /// Segregation of duties: when true, AccountProgressController.Update
+    /// rejects linking a Risk Exception to an account if the current user
+    /// is also that exception's ApprovedBy. Off by default -- some
+    /// organizations don't have enough staff to separate the two roles.
+    /// </summary>
+    public bool EnforceRiskExceptionSegregationOfDuties { get; init; }
 }
 
 public sealed class SaveGlobalApplicationConfigRequest
@@ -32,4 +40,5 @@ public sealed class SaveGlobalApplicationConfigRequest
     public bool LogReadEvents { get; init; }
     public string? BackupFolder { get; init; }
     public required string ActiveRiskAlgorithm { get; init; }
+    public bool EnforceRiskExceptionSegregationOfDuties { get; init; }
 }

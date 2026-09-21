@@ -128,7 +128,7 @@ public sealed class RiskExceptionRepository(IDbConnectionFactory connectionFacto
 
         const string sql = """
             SELECT re.ExceptionKey, re.ExceptionID, re.AccountKey, re.ApplicationKey, re.Justification,
-                   re.ApprovalDate, re.ReviewDate, des.StatusName, re.ExternalTicketReference
+                   re.ApprovedBy, re.ApprovalDate, re.ReviewDate, des.StatusName, re.ExternalTicketReference
             FROM web.risk_exception re
             JOIN web.dim_exception_status des ON des.ExceptionStatusKey = re.ExceptionStatusKey
             WHERE re.ExceptionKey = @ExceptionKey
@@ -184,6 +184,44 @@ public sealed class RiskExceptionRepository(IDbConnectionFactory connectionFacto
         using var connection = connectionFactory.Create();
         const string sql = "UPDATE web.risk_exception SET ReviewDate = @NewReviewDate WHERE ExceptionKey = @ExceptionKey";
         await connection.ExecuteAsync(sql, new { ExceptionKey = exceptionKey, NewReviewDate = newReviewDate });
+    }
+
+    /// <summary>
+    /// Segregation-of-duties detective report (Option C): every historical
+    /// case where the user who linked an exception's ExceptionKey onto an
+    /// account's progress record (logged as a FieldEdit audit event on
+    /// fact_account_progress) is the same user recorded as that exception's
+    /// own ApprovedBy. Reported regardless of the enforcement toggle's
+    /// current or past state -- built entirely from the audit trail
+    /// AccountProgressController.Update already writes, no new schema
+    /// needed for this piece.
+    /// </summary>
+    public async Task<IReadOnlyList<RiskExceptionSodViolation>> GetSegregationOfDutiesViolationsAsync()
+    {
+        using var connection = connectionFactory.Create();
+
+        const string sql = """
+            SELECT
+                re.ExceptionKey,
+                re.ExceptionID,
+                fa.AccountKey,
+                fa.AccountName,
+                au.DisplayName AS UserDisplayName,
+                ae.OccurredAt
+            FROM web.audit_field_change afc
+            JOIN web.audit_event ae   ON ae.AuditEventKey = afc.AuditEventKey
+            JOIN dbo.fact_account fa   ON fa.AccountKey = TRY_CAST(ae.EntityKey AS BIGINT)
+            JOIN web.risk_exception re  ON re.ExceptionKey = TRY_CAST(afc.NewValue AS INT)
+            JOIN web.app_user au          ON au.UserKey = ae.PerformedByUserKey
+            WHERE ae.EntityName = 'fact_account_progress'
+              AND afc.FieldName = 'ExceptionKey'
+              AND afc.NewValue IS NOT NULL
+              AND ae.PerformedByUserKey = re.ApprovedBy
+            ORDER BY ae.OccurredAt DESC
+            """;
+
+        var rows = await connection.QueryAsync<RiskExceptionSodViolation>(sql);
+        return rows.AsList();
     }
 
     /// <summary>Revocation (design's workflow step 4).</summary>

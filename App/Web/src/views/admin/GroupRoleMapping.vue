@@ -54,6 +54,37 @@ async function lookup() {
   lookupResult.value = await response.json()
 }
 
+// D-107/Outstanding_Work_Survey.md: generates a filled-in copy of
+// Database/32_BlueTrack_GrantBackupStatusReaderRole.sql targeting the
+// group just resolved above, for a DBA to run manually via sqlcmd --
+// this app never runs it itself (it's an msdb permission grant, outside
+// what this app's own least-privileged connection can do to itself).
+const scriptGenerationError = ref(null)
+
+async function generateBackupStatusReaderScript() {
+  scriptGenerationError.value = null
+  const response = await fetch('/api/admin/group-role-mappings/generate-backupstatus-reader-script', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ groupName: lookupGroupName.value })
+  })
+  if (!response.ok) {
+    scriptGenerationError.value = response.status === 404 ? 'Could not resolve that group name.' : `Request failed: ${response.status}`
+    return
+  }
+  const blob = await response.blob()
+  const disposition = response.headers.get('Content-Disposition') || ''
+  const fileNameMatch = disposition.match(/filename="?([^"]+)"?/)
+  const fileName = fileNameMatch ? fileNameMatch[1] : 'Grant-db_backupstatus_reader.sql'
+
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = fileName
+  link.click()
+  URL.revokeObjectURL(url)
+}
+
 async function remove(mapping) {
   if (!(await confirmDelete(`Delete mapping "${mapping.identityGroupName} → ${mapping.roleName}"? This cannot be undone.`))) return
   const response = await fetch(`/api/admin/group-role-mappings/${mapping.mappingKey}`, { method: 'DELETE' })
@@ -99,6 +130,15 @@ async function remove(mapping) {
         <p>Resolved to: {{ lookupResult.resolvedAccountName }} ({{ lookupResult.sid }})</p>
         <p>Current role(s): {{ lookupResult.currentRoleNames.join(', ') || '(none mapped)' }}</p>
         <p>Current permission(s): {{ lookupResult.currentPermissionNames.join(', ') || '(none)' }}</p>
+        <p>
+          <button type="button" @click="generateBackupStatusReaderScript">Generate db_backupstatus_reader Script</button>
+        </p>
+        <p>
+          Downloads a copy of <code>Database/32_BlueTrack_GrantBackupStatusReaderRole.sql</code> targeting this
+          resolved account -- a DBA still has to run it manually via <code>sqlcmd</code> against <code>msdb</code>,
+          never through the app itself.
+        </p>
+        <p v-if="scriptGenerationError" role="alert">{{ scriptGenerationError }}</p>
       </div>
     </template>
   </div>

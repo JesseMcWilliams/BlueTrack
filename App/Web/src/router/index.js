@@ -116,6 +116,12 @@ const routes = [
         name: 'reports-risk-score',
         meta: { breadcrumb: 'Risk Score', breadcrumbParent: 'reports' },
         component: () => import('../views/reports/RiskScoreReport.vue')
+      },
+      {
+        path: 'risk-exception-sod',
+        name: 'reports-risk-exception-sod',
+        meta: { breadcrumb: 'Risk Exception Segregation of Duties', breadcrumbParent: 'reports' },
+        component: () => import('../views/reports/RiskExceptionSodReport.vue')
       }
     ]
   },

@@ -8,7 +8,10 @@ namespace BlueTrack.Api.Controllers;
 [ApiController]
 [Route("api/reports")]
 [Authorize]
-public sealed class ReportsController(ReportsRepository repository, RiskScoreReportRepository riskScoreReportRepository) : ControllerBase
+public sealed class ReportsController(
+    ReportsRepository repository,
+    RiskScoreReportRepository riskScoreReportRepository,
+    RiskExceptionRepository riskExceptionRepository) : ControllerBase
 {
     [HttpGet("overdue-at-risk")]
     public async Task<IActionResult> GetOverdueAtRisk()
@@ -77,5 +80,18 @@ public sealed class ReportsController(ReportsRepository repository, RiskScoreRep
     {
         await riskScoreReportRepository.RecalculateAllAsync();
         return NoContent();
+    }
+
+    /// <summary>
+    /// Segregation-of-duties detective report (Option C): every historical
+    /// case of the same user both approving a Risk Exception and linking it
+    /// to an account, regardless of whether enforcement is (or ever was) on.
+    /// </summary>
+    [HttpGet("risk-exception-sod")]
+    [Authorize(Policy = Permissions.ViewRiskExceptionSodReport)]
+    public async Task<IActionResult> GetRiskExceptionSodReport()
+    {
+        var results = await riskExceptionRepository.GetSegregationOfDutiesViolationsAsync();
+        return Ok(results);
     }
 }

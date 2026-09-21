@@ -58,7 +58,9 @@ param(
     # --- Behavior ---
     [switch]$Force,
     [switch]$SkipPrerequisiteInstall,
-    [switch]$SkipSmokeTest
+    [switch]$SkipSmokeTest,
+    [switch]$SkipPreDeployBackup,
+    [string]$BackupFolder
 )
 
 Set-StrictMode -Version Latest
@@ -135,6 +137,7 @@ try {
     Import-Module (Join-Path $DeployRoot 'Modules\BlueTrack.Prereqs.psm1') -Force
     Import-Module (Join-Path $DeployRoot 'Modules\BlueTrack.Build.psm1') -Force
     Import-Module (Join-Path $DeployRoot 'Modules\BlueTrack.Database.psm1') -Force
+    Import-Module (Join-Path $DeployRoot 'Modules\BlueTrack.Rollback.psm1') -Force
     Import-Module (Join-Path $DeployRoot 'Modules\BlueTrack.Smoke.psm1') -Force
 
     #region Phase: Prerequisites
@@ -176,6 +179,20 @@ try {
         throw "Could not connect to SQL Server instance '$SqlServerInstance'. This script does not install SQL Server itself -- confirm the instance is running and reachable, then re-run."
     }
     Write-Host 'SQL Server connectivity confirmed.'
+
+    # Rollback mechanism (Design_Deployment_Methodology.md, Option B):
+    # back up before migrating, but only when there's something to lose --
+    # a genuinely fresh/empty database has no existing schema/data worth a
+    # rollback point for.
+    if (-not $SkipPreDeployBackup -and (Test-BlueTrackDatabaseHasExistingSchema -ConnectionString $connectionString -DatabaseName $DatabaseName)) {
+        Write-Host "`n--- Pre-deployment backup ---" -ForegroundColor Cyan
+        if (-not $BackupFolder) {
+            $BackupFolder = Read-Host 'Existing database detected. Backup folder for the pre-deployment rollback point (local to the SQL Server service account)'
+        }
+        Backup-BlueTrackForRollback -ConnectionString $connectionString -DatabaseName $DatabaseName -BackupFolder $BackupFolder -RepoRoot $RepoRoot | Out-Null
+    } elseif ($SkipPreDeployBackup) {
+        Write-Warning 'Skipping the pre-deployment backup (-SkipPreDeployBackup) -- there is no rollback point for this run beyond whatever backup discipline you already have in place.'
+    }
 
     Invoke-BlueTrackMigrator -RepoRoot $RepoRoot -ConnectionString $connectionString -ScriptsFolder 'Database'
     if ($SeedTestData) {
@@ -225,6 +242,7 @@ try {
     Write-Host "Database:          $DatabaseName on $SqlServerInstance"
     Write-Host "Environment:       $Environment"
     Write-Host "Nightly job:       $(if ($InstallNightlyJob) { 'installed' } else { 'not installed (run manually later if needed)' })"
+    Write-Host "Pre-deploy backup: $(if ($SkipPreDeployBackup) { 'skipped (-SkipPreDeployBackup)' } elseif ($BackupFolder) { "taken -- see $BackupFolder" } else { 'not applicable (no existing schema to back up)' })"
     if (-not $SkipSmokeTest) {
         Write-Host "Smoke test:        $(if ($smokeTestPassed) { 'passed' } else { 'did not confirm healthy -- check the Deployment Info admin page manually' })"
     }

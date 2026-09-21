@@ -122,6 +122,44 @@ public class AdminControllersFunctionalTests : IClassFixture<BlueTrackWebApplica
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 
+    /// <summary>
+    /// D-107/Outstanding_Work_Survey.md: the generated script substitutes
+    /// the resolved account name into Database/32_BlueTrack_GrantBackupStatusReaderRole.sql's
+    /// __TARGET_ACCOUNT__ placeholder -- confirms the substitution actually
+    /// happened (not just that a file came back) and that no placeholder
+    /// text survives into the download.
+    /// </summary>
+    [Fact]
+    public async Task GroupRoleMapping_GenerateBackupStatusReaderScript_SubstitutesResolvedAccount()
+    {
+        var client = AdminClient();
+
+        var response = await client.PostAsJsonAsync("/api/admin/group-role-mappings/generate-backupstatus-reader-script", new
+        {
+            groupName = "BUILTIN\\Users"
+        });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("text/plain", response.Content.Headers.ContentType!.MediaType);
+        var script = await response.Content.ReadAsStringAsync();
+        Assert.Contains("db_backupstatus_reader", script);
+        Assert.Contains("ALTER ROLE db_backupstatus_reader ADD MEMBER [BUILTIN\\Users]", script);
+        Assert.DoesNotContain("__TARGET_ACCOUNT__", script);
+    }
+
+    [Fact]
+    public async Task GroupRoleMapping_GenerateBackupStatusReaderScript_UnknownGroup_ReturnsNotFound()
+    {
+        var client = AdminClient();
+
+        var response = await client.PostAsJsonAsync("/api/admin/group-role-mappings/generate-backupstatus-reader-script", new
+        {
+            groupName = "NoSuchGroup_ContractTest_9f8e7d"
+        });
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
     [Fact]
     public async Task GroupRoleMapping_CreateAndDelete_RoundTrips()
     {

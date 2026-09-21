@@ -44,6 +44,8 @@ public sealed class GlobalApplicationConfigController(
             changes.Add(new FieldChange("BackupFolder", before.BackupFolder, request.BackupFolder));
         if (before.ActiveRiskAlgorithm != request.ActiveRiskAlgorithm)
             changes.Add(new FieldChange("ActiveRiskAlgorithm", before.ActiveRiskAlgorithm, request.ActiveRiskAlgorithm));
+        if (before.EnforceRiskExceptionSegregationOfDuties != request.EnforceRiskExceptionSegregationOfDuties)
+            changes.Add(new FieldChange("EnforceRiskExceptionSegregationOfDuties", before.EnforceRiskExceptionSegregationOfDuties.ToString(), request.EnforceRiskExceptionSegregationOfDuties.ToString()));
 
         if (changes.Count > 0)
         {
