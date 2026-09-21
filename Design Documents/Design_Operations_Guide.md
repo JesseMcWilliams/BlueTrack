@@ -6,7 +6,7 @@
 
 Task-oriented instructions for whoever deploys and operates BlueTrack (a DBA, or whoever holds elevated SQL Server access) — distinct from `Design_Deployment_Runbook.md`, which walks through building or rebuilding an environment from scratch. This guide is about **day 2**: things a DBA/operator does occasionally on a running environment, outside of a full install, that have no UI of their own inside the application (or where the UI is only half the story).
 
-**Scope note (updated 2026-09-21)**: covers the rollback mechanism, granting `db_backupstatus_reader`, the nightly Import+Load job, audit log retention (a real, currently-unimplemented gap — see below), changing identity provider/secrets store configuration on a running environment, and replacing the bootstrap admin group. `Design_Deployment_Runbook.md` and `Deploy/README.md` remain the authoritative references for the full install/rebuild procedure — this guide doesn't repeat that ground, only what comes after it.
+**Scope note (updated 2026-09-21)**: covers the rollback mechanism, granting `db_backupstatus_reader`, the nightly Import+Load job, the audit log purge job, changing identity provider/secrets store configuration on a running environment, and replacing the bootstrap admin group. `Design_Deployment_Runbook.md` and `Deploy/README.md` remain the authoritative references for the full install/rebuild procedure — this guide doesn't repeat that ground, only what comes after it.
 
 ## Rollback (Backup and Restore)
 
@@ -86,11 +86,24 @@ ORDER BY h.instance_id DESC;
 
 **Never touch `14` itself for a routine schedule change** — its export folder path and EVD database name are real, hardcoded values for a specific host (`Design_Deployment_Runbook.md`'s "Environment-Specific Items" list); editing and re-running it is how you'd update those for this environment, not how you'd, say, change the 2:00 AM run time (that's a plain `sp_update_schedule` against the existing schedule, no need to touch the tracked file at all).
 
-## Audit Log Retention — a Known Gap, Not a Working Feature
+## The Audit Log Purge Job
 
-**Confirmed directly (2026-09-21), not assumed**: `RetentionDays` (Global Application Configuration) is a stored setting with **no enforcement anywhere**. `web.audit_purge_log` (the intended run-history table for a retention purge, `Design_Audit_Logging.md` D-62) exists in the schema, but the `usp_PurgeAuditLog` procedure it was designed to record is only ever mentioned in a schema comment — it was never actually written, and no SQL Agent job schedules it. Setting a retention period on the Global Application Configuration page does not cause anything to get deleted; the audit log simply grows forever until someone builds this.
+`RetentionDays` (Global Application Configuration) is backed by a real nightly purge as of 2026-09-21 — `Database/39_BlueTrack_AuditLogPurgeProcedure.sql` (`usp_PurgeAuditLog`, built to `Design_Audit_Logging.md`'s original D-62 design) and `Database/40_BlueTrack_ScheduleAuditLogPurgeJob.sql` (the SQL Agent job scheduling it). Same `msdb`-only, never-through-`App/Migrator` pattern as the Import+Load job above and `db_backupstatus_reader` — `39` is a normal DbUp-managed script, only `40` needs manual/`sqlcmd` installation.
 
-If disk space or a real compliance retention requirement makes this urgent before it gets built properly: `web.audit_event`/`web.audit_field_change` are documented as insert-only from the application's own service account (D-63) — a manual, one-off cleanup needs to run as a more privileged account, should delete `audit_field_change` rows before their parent `audit_event` rows (FK dependency), and should record what it did in `web.audit_purge_log` even by hand, so the gap this note describes doesn't also become "nobody knows when data was last purged or how much."
+Runs nightly at **3:00 AM**, one hour after Import+Load, so a long ETL run never overlaps the purge. Each run deletes `web.audit_field_change` rows before their parent `web.audit_event` rows (FK dependency) older than `RetentionDays` days, and records exactly one row in `web.audit_purge_log` either way:
+
+- **`Status = 'Succeeded'`**, with `RowsPurged` = how many `audit_event` rows were deleted (`0` is a valid, real outcome — nothing was old enough yet).
+- **`Status = 'Skipped'`**, `RowsPurged = NULL`, `ErrorMessage` explaining why — this is what happens every night until an admin sets a real `RetentionDays` value on Global Application Configuration. **Installing the job does not, by itself, start deleting anything** — `RetentionDays` is `NULL` by design on a fresh install (no default was ever decided; see `08_BlueTrack_WebSchema.sql`'s own seed comment), so nothing purges until a human picks a real number.
+- **`Status = 'Failed'`**, with `ErrorMessage` set — the transaction rolled back (nothing partially deleted); check the message, fix the underlying issue, and either wait for the next nightly run or re-run manually (below).
+
+**Checking the purge history:**
+```sql
+SELECT TOP 10 PurgeBatchId, CutoffDate, RowsPurged, StartedAt, CompletedAt, Status, ErrorMessage
+FROM web.audit_purge_log
+ORDER BY StartedAt DESC;
+```
+
+**Re-running it manually** (e.g. right after setting `RetentionDays` for the first time, rather than waiting for 3:00 AM): `EXEC dbo.usp_PurgeAuditLog;` directly against the target database, or restart the job through SQL Server Agent (`EXEC msdb.dbo.sp_start_job @job_name = 'BlueTrack (BlueTrack) - Audit Log Purge';`).
 
 ## Changing Identity Provider or Secrets Store Backend After Go-Live
 
@@ -113,7 +126,7 @@ Every fresh install maps `BUILTIN\Administrators` (SID `S-1-5-32-544`) to the Ad
 - `Deploy/README.md` — everything `Install-BlueTrack.ps1` and the standalone `Backup-BlueTrack.ps1`/`Restore-BlueTrack.ps1` scripts do, including parameters not repeated here.
 - `Design_Deployment_Methodology.md` — the rollback mechanism's own design rationale (Option B) and the deployment steps this guide's rollback section fits into.
 - `Design_Admin_Deployment_Management.md` — the Deployment page and the original design of the `db_backupstatus_reader` role (D-107).
-- `Design_Audit_Logging.md` — the retention/purge mechanism as designed (D-62) — what's built (the schema, `audit_purge_log`) vs. what isn't (`usp_PurgeAuditLog` itself, and its schedule).
+- `Design_Audit_Logging.md` — the retention/purge mechanism's full design and data model (D-62).
 - `Design_Secrets_Storage.md` / `Design_Credentials_Management.md` — DPAPI's `ProtectionScope` and disaster-recovery limitation (D-65/D-106) in full.
 - `Database/Import_Load_Process_Guide.docx` — the authoritative day-to-day Import/Load reference this guide's nightly-job section only summarizes operationally.
 - `Design_User_Guide.md` — the in-app admin side of everything referenced here that does have a UI (Identity Providers, Secrets Store Configuration, Group/Role Mapping, Global Application Configuration).
