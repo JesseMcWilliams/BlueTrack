@@ -2,13 +2,16 @@
 
 Every script below is run through DbUp by `App/Migrator` (see its own
 top-of-file comment) **except** `00_BlueTrack_CreateDatabase.sql`,
-`14_BlueTrack_ScheduleImportLoadJob.sql`, and
-`38_BlueTrack_GrantBackupStatusReaderRole.sql`, which Migrator always
+`14_BlueTrack_ScheduleImportLoadJob.sql`,
+`38_BlueTrack_GrantBackupStatusReaderRole.sql`, and
+`40_BlueTrack_ScheduleAuditLogPurgeJob.sql`, which Migrator always
 excludes regardless of any skip-list argument -- all for structural
-reasons, not convenience (00 must `USE master`, DbUp cannot; 14 and 38
+reasons, not convenience (00 must `USE master`, DbUp cannot; 14, 38, and 40
 must `USE msdb`, and DbUp's own post-script journal write then fails
 against the wrong database -- see each script's own header and
-`App/Migrator/Program.cs`).
+`App/Migrator/Program.cs`). `39` (the purge procedure itself) is a normal
+DbUp-managed script -- only `40` (the job that schedules it) needs the
+manual/sqlcmd treatment.
 Every DbUp-managed script uses DbUp's `$DatabaseName$` substitution token
 for the target database name (never a hardcoded literal, per D-89) -- the
 name comes from whatever `Initial Catalog` the caller's connection string
@@ -70,6 +73,8 @@ after `14`, never edits to an existing file in this list.
 | 36 | `36_BlueTrack_FixAutoAdvanceForDiscoveredAccounts.sql` | D-138: fixes a real pre-existing gap in `usp_Load_AccountProgressAutoAdvance` (Database/03) -- it had no `SourceSystemKey` filter, so a newly-accepted `DISCOVERY`-sourced account (no Safe at all) would have been wrongly auto-promoted straight to "Onboarded to Vault" on the next nightly Load. |
 | 37 | `37_BlueTrack_RiskExceptionSegregationOfDuties.sql` | `web.app_config.EnforceRiskExceptionSegregationOfDuties` (admin toggle, off by default), plus the `ViewRiskExceptionSodReport` permission backing the Risk Exception SoD detective report. Numbered 37, not 31 -- written on a branch that diverged before 31-36 above were claimed on main; renumbered when merging. |
 | 38 | `38_BlueTrack_GrantBackupStatusReaderRole.sql` | D-107's `db_backupstatus_reader` msdb role/grants, finally turned into a runnable file. Runs against `msdb`, not the target database. **Never run through `App/Migrator`, for any environment** -- always excluded (see above); run it manually via `sqlcmd`, or generate a filled-in copy from the Group / Role Mapping admin page's "Generate db_backupstatus_reader Script" button. Numbered 38, not 32, for the same reason as 37 above. |
+| 39 | `39_BlueTrack_AuditLogPurgeProcedure.sql` | D-62's `usp_PurgeAuditLog`, designed 2026-08-27 alongside `web.audit_purge_log` (`08`) but never actually written until now -- deletes `audit_field_change`/`audit_event` rows older than `web.audit_config.RetentionDays`, no-ops with a logged `'Skipped'` row if `RetentionDays` is still `NULL`. A normal DbUp-managed script (plain stored procedure in the target database). |
+| 40 | `40_BlueTrack_ScheduleAuditLogPurgeJob.sql` | Creates the nightly Audit Log Purge SQL Agent job (3:00 AM, one hour after the Import+Load job) calling `usp_PurgeAuditLog`. Runs against `msdb`, not the target database. **Never run through `App/Migrator`, for any environment** -- always excluded (see above); run it manually via `sqlcmd -S <server> -C -v DatabaseName="BlueTrack" -i 40_BlueTrack_ScheduleAuditLogPurgeJob.sql`. Installing this job doesn't itself enable purging -- `RetentionDays` still needs a real value set on Global Application Configuration first. |
 
 `Test/` holds test-only fixtures (`01_BlueTrack_Test_DevFakeAuthMatrixSeed.sql`,
 `02_BlueTrack_Test_SyntheticAccountData.sql`) -- never run against a real
@@ -94,6 +99,11 @@ one folder per run).
 6. For a real environment, once the Deployment page's backup-status check
    needs to work: run `38` by hand via sqlcmd, or generate a filled-in
    copy from the Group / Role Mapping admin page (see its row above).
+7. For a real environment, once an admin has set a real `RetentionDays`
+   value on Global Application Configuration: run `40` by hand via
+   sqlcmd (see its row above) to actually start purging aged-out audit
+   data on a schedule. `39` (the procedure itself) already ran as part
+   of step 2 -- this step only installs the job that calls it nightly.
 
 ## Folded-in history
 
