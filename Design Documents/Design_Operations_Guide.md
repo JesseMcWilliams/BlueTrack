@@ -4,9 +4,9 @@
 
 ## Scope
 
-Task-oriented instructions for whoever deploys and operates BlueTrack (a DBA, or whoever holds elevated SQL Server access) — distinct from `Design_Deployment_Runbook.md`, which walks through building or rebuilding an environment from scratch. This guide covers the operational tasks introduced alongside the rollback mechanism and the `db_backupstatus_reader` script generator (added 2026-09-16): things a DBA runs occasionally, outside of a full install, that have no UI of their own inside the application.
+Task-oriented instructions for whoever deploys and operates BlueTrack (a DBA, or whoever holds elevated SQL Server access) — distinct from `Design_Deployment_Runbook.md`, which walks through building or rebuilding an environment from scratch. This guide is about **day 2**: things a DBA/operator does occasionally on a running environment, outside of a full install, that have no UI of their own inside the application (or where the UI is only half the story).
 
-**Honest scope note**: like `Design_User_Guide.md`, this currently covers only these two features — it is not a complete operations manual for every part of the deployment. `Design_Deployment_Runbook.md` and `Deploy/README.md` remain the authoritative references for the full install/rebuild procedure.
+**Scope note (updated 2026-09-21)**: covers the rollback mechanism, granting `db_backupstatus_reader`, the nightly Import+Load job, audit log retention (a real, currently-unimplemented gap — see below), changing identity provider/secrets store configuration on a running environment, and replacing the bootstrap admin group. `Design_Deployment_Runbook.md` and `Deploy/README.md` remain the authoritative references for the full install/rebuild procedure — this guide doesn't repeat that ground, only what comes after it.
 
 ## Rollback (Backup and Restore)
 
@@ -60,16 +60,60 @@ sqlcmd -S <server> -C -i Grant-db_backupstatus_reader-<account>.sql
 
 (or, running the tracked file directly by name instead of a generated download, substitute the account first). The role/grants are safe to re-run — only the final `ALTER ROLE ADD MEMBER` line actually changes anything on a second run, and SQL Server's own `ALTER ROLE ADD MEMBER` is itself a no-op if the member is already there.
 
-**One real prerequisite**: the target account or group must already exist as a SQL Server login on this instance — granting `msdb` role membership doesn't create the login itself. If it doesn't exist yet, `ALTER ROLE` fails with a "principal ... does not exist" error; create the login first.
+**Two real prerequisites, confirmed directly running this against a real environment (2026-09-21)**: the target account needs, in order:
+1. **A SQL Server login on this instance.** If it doesn't exist yet, create one (for a Windows/AD account): `CREATE LOGIN [DOMAIN\AccountName] FROM WINDOWS;` — note this needs `DOMAIN\AccountName` form, not a UPN (`account@domain.com`); if you only have the UPN, resolve it first (e.g. `([System.Security.Principal.NTAccount]'account@domain.com').Translate([System.Security.Principal.NTAccount])` in PowerShell, or ask whoever manages AD).
+2. **A database user for that login, in `msdb` specifically.** `ALTER ROLE ADD MEMBER` operates on database principals, and SQL Server does **not** automatically create a database user for a login — a login alone isn't enough, even though it looks like it should be. If `ALTER ROLE` fails with `"...because it does not exist or you do not have permission"` and the login genuinely exists, this is almost certainly why: `USE msdb; CREATE USER [DOMAIN\AccountName] FOR LOGIN [DOMAIN\AccountName];` first, then retry `ALTER ROLE ADD MEMBER`.
 
 ## Segregation of Duties toggle — nothing for a DBA to do
 
 Unlike the two features above, `EnforceRiskExceptionSegregationOfDuties` (Global Application Configuration) is a plain application setting, defaulting off — no schema grant, no manual script, no `msdb` permission involved. An application admin turns it on or off directly in the UI; see `Design_User_Guide.md`.
 
+## The Nightly Import + Load Job
+
+The Import+Load SQL Agent job (`Database/14_BlueTrack_ScheduleImportLoadJob.sql`, created once per environment per `Design_Deployment_Runbook.md` step 5) runs at 2:00 AM, two steps — Import (refreshes staging from the Privilege Cloud/Self-Hosted exports), then Load (`usp_RunFullLoad`, which also drives the risk-scoring recalculation and the AD Account Discovery nightly pass). It lives entirely in `msdb`, like `db_backupstatus_reader` above — there's no in-app UI showing whether last night's run succeeded.
+
+**Checking whether it ran, and how it went:**
+```sql
+SELECT TOP 10 j.name, h.step_name, h.run_date, h.run_time, h.run_status, h.message
+FROM msdb.dbo.sysjobhistory h
+JOIN msdb.dbo.sysjobs j ON j.job_id = h.job_id
+WHERE j.name LIKE 'BlueTrack (%) - Import and Load'
+ORDER BY h.instance_id DESC;
+```
+`run_status`: `0` = Failed, `1` = Succeeded, `2` = Retry, `3` = Canceled, `4` = In progress (standard `sysjobhistory` semantics, not BlueTrack-specific). The job name embeds the database name (`BlueTrack (BlueTrack) - Import and Load` for the real database, `BlueTrack (BlueTrack Test) - Import and Load` for the test one) — both can coexist on the same SQL Server instance without colliding, per that script's own header.
+
+**Re-running it manually** (e.g. after fixing a bad export file): either restart the job through SQL Server Agent (`EXEC msdb.dbo.sp_start_job @job_name = 'BlueTrack (BlueTrack) - Import and Load';`), or run the same two steps directly against the target database for more control/visibility — see `Design_Deployment_Runbook.md`'s "First Data Load" section for the exact `usp_Import_All`/`usp_RunFullLoad` call shape and its real prerequisites (the EVD database must be reachable on the same instance; the SQL Server *service account*, not your own login, needs read access to the export folder).
+
+**Never touch `14` itself for a routine schedule change** — its export folder path and EVD database name are real, hardcoded values for a specific host (`Design_Deployment_Runbook.md`'s "Environment-Specific Items" list); editing and re-running it is how you'd update those for this environment, not how you'd, say, change the 2:00 AM run time (that's a plain `sp_update_schedule` against the existing schedule, no need to touch the tracked file at all).
+
+## Audit Log Retention — a Known Gap, Not a Working Feature
+
+**Confirmed directly (2026-09-21), not assumed**: `RetentionDays` (Global Application Configuration) is a stored setting with **no enforcement anywhere**. `web.audit_purge_log` (the intended run-history table for a retention purge, `Design_Audit_Logging.md` D-62) exists in the schema, but the `usp_PurgeAuditLog` procedure it was designed to record is only ever mentioned in a schema comment — it was never actually written, and no SQL Agent job schedules it. Setting a retention period on the Global Application Configuration page does not cause anything to get deleted; the audit log simply grows forever until someone builds this.
+
+If disk space or a real compliance retention requirement makes this urgent before it gets built properly: `web.audit_event`/`web.audit_field_change` are documented as insert-only from the application's own service account (D-63) — a manual, one-off cleanup needs to run as a more privileged account, should delete `audit_field_change` rows before their parent `audit_event` rows (FK dependency), and should record what it did in `web.audit_purge_log` even by hand, so the gap this note describes doesn't also become "nobody knows when data was last purged or how much."
+
+## Changing Identity Provider or Secrets Store Backend After Go-Live
+
+`Design_Deployment_Runbook.md`'s "Environment-Specific Items" covers configuring these correctly during initial setup; this note is about doing it again, later, on a running environment.
+
+- **Identity Providers**: enabling/disabling OIDC, or changing its Authority/Client ID/secret, needs an **app pool restart** to take effect (`AuthenticationExtensions.cs` registers OIDC's scheme at app startup) — the change won't apply until you recycle the app pool after saving it on the Identity Providers admin page. SAML is read fresh on every request, so no restart is needed there. Certificate thumbprint fields (SAML) refer to certificates already installed in the Windows Certificate Store (`LocalMachine\My`) on the box running BlueTrack — install the certificate there first, or the thumbprint you enter in the UI won't resolve to anything real.
+- **Secrets Store backend**: switching the active backend (Secrets Store Configuration admin page) doesn't migrate anything — Safe/Folder/Object (or backend-specific equivalents) that resolved correctly under the old backend may not exist, or may mean something different, under the new one. Use the page's own **Test Connection** tool against a known-good credential immediately after cutting over, before considering the change complete, since a broken lookup here silently breaks every feature that resolves a privileged-account secret. If cutting over *to* `WindowsDpapi` (or changing its `ProtectionScope` between Machine/User, D-106), remember DPAPI's own disaster-recovery limitation (D-65): ciphertext encrypted under one machine's DPAPI keys cannot be decrypted on a different machine — this matters for backup/restore-based disaster recovery specifically, not routine operation.
+
+## Replacing the Bootstrap Admin Group
+
+Every fresh install maps `BUILTIN\Administrators` (SID `S-1-5-32-544`) to the Admin role, deliberately, so the environment is usable immediately (`09_BlueTrack_WebSeed.sql`) — `Design_Deployment_Runbook.md` already flags leaving this in place permanently as something a real production environment shouldn't do. Doing the replacement safely, without locking yourself out mid-change:
+
+1. On the **Group / Role Mapping** admin page, resolve and add the *real* AD/Entra group that should hold Admin — **before** touching the `BUILTIN\Administrators` mapping. Confirm at least one real person is actually a member of that group and can sign in and reach the Admin hub.
+2. Only then delete the `BUILTIN\Administrators` → Admin mapping (same page).
+3. If something goes wrong before step 2 is confirmed working, the local machine's own `BUILTIN\Administrators` membership is still your way back in — don't remove local admin rights from your own operator account as part of this same change.
+
 ## See also
 
-- `Design_Deployment_Runbook.md` — the full step-by-step procedure for building or rebuilding an environment.
+- `Design_Deployment_Runbook.md` — the full step-by-step procedure for building or rebuilding an environment, including the nightly job's own initial creation (step 5) and the environment-specific items an initial identity provider/secrets store/admin group setup must not skip.
 - `Deploy/README.md` — everything `Install-BlueTrack.ps1` and the standalone `Backup-BlueTrack.ps1`/`Restore-BlueTrack.ps1` scripts do, including parameters not repeated here.
 - `Design_Deployment_Methodology.md` — the rollback mechanism's own design rationale (Option B) and the deployment steps this guide's rollback section fits into.
 - `Design_Admin_Deployment_Management.md` — the Deployment page and the original design of the `db_backupstatus_reader` role (D-107).
-- `Design_User_Guide.md` — the in-app admin's side of the script generator, and the Risk Exception SoD toggle/report.
+- `Design_Audit_Logging.md` — the retention/purge mechanism as designed (D-62) — what's built (the schema, `audit_purge_log`) vs. what isn't (`usp_PurgeAuditLog` itself, and its schedule).
+- `Design_Secrets_Storage.md` / `Design_Credentials_Management.md` — DPAPI's `ProtectionScope` and disaster-recovery limitation (D-65/D-106) in full.
+- `Database/Import_Load_Process_Guide.docx` — the authoritative day-to-day Import/Load reference this guide's nightly-job section only summarizes operationally.
+- `Design_User_Guide.md` — the in-app admin side of everything referenced here that does have a UI (Identity Providers, Secrets Store Configuration, Group/Role Mapping, Global Application Configuration).
