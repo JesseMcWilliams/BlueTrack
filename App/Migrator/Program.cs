@@ -47,6 +47,13 @@ using Microsoft.Data.SqlClient;
 // DBA-owned msdb permission grant, not part of this app's own schema, so
 // it belongs outside the normal migration sequence regardless.
 //
+// 40_BlueTrack_ScheduleAuditLogPurgeJob.sql is excluded for the same
+// structural reason as 14/38 -- it also `USE msdb;`. Unlike those two,
+// its companion 39_BlueTrack_AuditLogPurgeProcedure.sql (the actual
+// usp_PurgeAuditLog logic) is a plain stored procedure in the target
+// database, not msdb, and runs through this tool normally -- only the
+// job *scheduling* script needs the sqlcmd/manual-run treatment.
+//
 // The target database name is parsed out of <connectionString>'s own
 // Database/Initial Catalog and is the ONLY source of truth for which
 // database the scripts touch -- it's passed into every script as DbUp's
@@ -144,6 +151,7 @@ var alwaysExcludedScriptNames = new HashSet<string>(StringComparer.OrdinalIgnore
 {
     "14_BlueTrack_ScheduleImportLoadJob.sql",
     "38_BlueTrack_GrantBackupStatusReaderRole.sql",
+    "40_BlueTrack_ScheduleAuditLogPurgeJob.sql",
 };
 
 var upgrader = DeployChanges.To
