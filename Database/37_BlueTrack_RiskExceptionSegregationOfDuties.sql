@@ -1,8 +1,12 @@
 /* ============================================================================
-   31_BlueTrack_RiskExceptionSegregationOfDuties.sql
+   37_BlueTrack_RiskExceptionSegregationOfDuties.sql
 
-   RUN THIS AFTER 01-30. Guarded (column-exists check) -- safe to re-run,
-   per D-58's normal incremental-script convention.
+   RUN THIS AFTER 01-36. Guarded (column-exists check) -- safe to re-run,
+   per D-58's normal incremental-script convention. Numbered 37, not 31 --
+   originally written as 31/32 on a branch that diverged before AD Account
+   Discovery (D-137/D-138) claimed 31-36 on main; renumbered to the next
+   free slot when merging, per this project's own coordinated-numbering
+   convention (see Database/README.md's note on 27/28).
 
    Segregation of duties on Risk Exception approval, requested directly:
    a role-based control so the same person who approved an exception
@@ -44,4 +48,4 @@ BEGIN
 END
 GO
 
-PRINT '31_BlueTrack_RiskExceptionSegregationOfDuties.sql complete.';
+PRINT '37_BlueTrack_RiskExceptionSegregationOfDuties.sql complete.';

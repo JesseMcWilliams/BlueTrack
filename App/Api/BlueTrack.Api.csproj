@@ -70,7 +70,7 @@
     compiles a copy of it into the DLL.
   -->
   <ItemGroup>
-    <EmbeddedResource Include="..\..\Database\32_BlueTrack_GrantBackupStatusReaderRole.sql">
+    <EmbeddedResource Include="..\..\Database\38_BlueTrack_GrantBackupStatusReaderRole.sql">
       <LogicalName>BlueTrack.Api.GrantBackupStatusReaderRole.sql</LogicalName>
     </EmbeddedResource>
   </ItemGroup>

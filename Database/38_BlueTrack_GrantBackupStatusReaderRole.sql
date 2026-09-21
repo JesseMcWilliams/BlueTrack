@@ -1,5 +1,9 @@
 /* ============================================================================
-   32_BlueTrack_GrantBackupStatusReaderRole.sql
+   38_BlueTrack_GrantBackupStatusReaderRole.sql
+
+   Numbered 38, not 32 -- originally written on a branch that diverged
+   before AD Account Discovery (D-137/D-138) claimed 31-36 on main;
+   renumbered to the next free slot when merging.
 
    NEVER run this through App/Migrator -- it targets msdb, not the BlueTrack
    database, and (per 14_BlueTrack_ScheduleImportLoadJob.sql's own confirmed
@@ -9,7 +13,7 @@
    page's "Generate db_backupstatus_reader Script" button (targets a
    resolved AD group's account name automatically):
 
-       sqlcmd -S <server> -C -i 32_BlueTrack_GrantBackupStatusReaderRole.sql
+       sqlcmd -S <server> -C -i 38_BlueTrack_GrantBackupStatusReaderRole.sql
 
    D-107 (Design_Admin_Deployment_Management.md, Part 3.3) designed this
    role/grant set but never turned it into a runnable file -- this is that
@@ -53,4 +57,4 @@ GO
 ALTER ROLE db_backupstatus_reader ADD MEMBER [__TARGET_ACCOUNT__];
 GO
 
-PRINT '32_BlueTrack_GrantBackupStatusReaderRole.sql complete.';
+PRINT '38_BlueTrack_GrantBackupStatusReaderRole.sql complete.';

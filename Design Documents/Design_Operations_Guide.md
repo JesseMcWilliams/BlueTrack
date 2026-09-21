@@ -42,7 +42,7 @@ There are still no down-scripts for the numbered `Database/*.sql` files — full
 
 ## Granting `db_backupstatus_reader`
 
-The Deployment admin page's SQL Server backup-status check reads `msdb.dbo.backupset` (and related tables) — something BlueTrack's own least-privileged SQL account cannot do by default, and something the application can never grant to itself (a connection can't widen its own permissions from inside itself). `Database/32_BlueTrack_GrantBackupStatusReaderRole.sql` creates a dedicated `db_backupstatus_reader` role with exactly the `SELECT` grants needed, and adds a specific account or group to it.
+The Deployment admin page's SQL Server backup-status check reads `msdb.dbo.backupset` (and related tables) — something BlueTrack's own least-privileged SQL account cannot do by default, and something the application can never grant to itself (a connection can't widen its own permissions from inside itself). `Database/38_BlueTrack_GrantBackupStatusReaderRole.sql` creates a dedicated `db_backupstatus_reader` role with exactly the `SELECT` grants needed, and adds a specific account or group to it.
 
 **Never run this through `App/Migrator`** — like `14_BlueTrack_ScheduleImportLoadJob.sql`, it targets `msdb`, not the BlueTrack database, and Migrator always excludes it for that structural reason (see the script's own header and `Database/README.md`).
 
@@ -50,7 +50,7 @@ The Deployment admin page's SQL Server backup-status check reads `msdb.dbo.backu
 
 The easiest path: on the **Group / Role Mapping** admin page, resolve the AD group that should be able to read backup status, then click **Generate db_backupstatus_reader Script** (see `Design_User_Guide.md` for the exact UI steps) — this downloads a copy of the script with that group already substituted in.
 
-Alternatively, edit `Database/32_BlueTrack_GrantBackupStatusReaderRole.sql` directly, replacing its `__TARGET_ACCOUNT__` placeholder by hand with the login/account that should be able to read backup status (e.g. `DOMAIN\BlueTrackAppPoolAccount`, or a resolved AD group's account name).
+Alternatively, edit `Database/38_BlueTrack_GrantBackupStatusReaderRole.sql` directly, replacing its `__TARGET_ACCOUNT__` placeholder by hand with the login/account that should be able to read backup status (e.g. `DOMAIN\BlueTrackAppPoolAccount`, or a resolved AD group's account name).
 
 ### Running it
 

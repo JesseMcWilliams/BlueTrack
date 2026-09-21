@@ -4,7 +4,7 @@ namespace BlueTrack.Api.Auth;
 
 /// <summary>
 /// Substitutes a resolved account name into the embedded copy of
-/// Database/32_BlueTrack_GrantBackupStatusReaderRole.sql, for
+/// Database/38_BlueTrack_GrantBackupStatusReaderRole.sql, for
 /// GroupRoleMappingsController's script-generator endpoint. Mirrors
 /// Deploy/Modules/BlueTrack.Database.psm1's Install-BlueTrackNightlyJob:
 /// a plain string replacement against a known placeholder, guarded so
@@ -26,7 +26,7 @@ public static class BackupStatusReaderScriptGenerator
         if (!content.Contains(TargetAccountPlaceholder, StringComparison.Ordinal))
         {
             throw new InvalidOperationException(
-                $"Did not find the expected '{TargetAccountPlaceholder}' placeholder in 32_BlueTrack_GrantBackupStatusReaderRole.sql -- the script may have changed upstream. Update this generator before continuing.");
+                $"Did not find the expected '{TargetAccountPlaceholder}' placeholder in 38_BlueTrack_GrantBackupStatusReaderRole.sql -- the script may have changed upstream. Update this generator before continuing.");
         }
 
         return content.Replace(TargetAccountPlaceholder, targetAccountName, StringComparison.Ordinal);

@@ -1,13 +1,16 @@
 namespace BlueTrack.Api.Models;
 
 /// <summary>
-/// web.ldap_config (D-116) -- singleton, disabled by default. LDAP lookups
-/// are skipped entirely (not attempted, not an error) until both IsEnabled
-/// and CredentialKey are set -- see LdapGroupMemberResolver.
+/// web.ldap_config (D-116, extended for multiple domains 2026-09-16) -- one
+/// row per AD domain/forest this app needs to query, disabled by default per
+/// row. LDAP lookups against a given row are skipped entirely (not
+/// attempted, not an error) until both IsEnabled and CredentialKey (or
+/// UseTrustedConnection) are set -- see LdapGroupMemberResolver.
 /// </summary>
 public sealed class LdapConfig
 {
     public int LdapConfigKey { get; init; }
+    public required string DomainName { get; init; }
     public bool IsEnabled { get; init; }
     public string? DomainController { get; init; }
     public string? SearchBase { get; init; }
@@ -21,6 +24,7 @@ public sealed class LdapConfig
 
 public sealed class SaveLdapConfigRequest
 {
+    public required string DomainName { get; init; }
     public bool IsEnabled { get; init; }
     public string? DomainController { get; init; }
     public string? SearchBase { get; init; }

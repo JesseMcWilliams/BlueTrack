@@ -3,9 +3,9 @@
 Every script below is run through DbUp by `App/Migrator` (see its own
 top-of-file comment) **except** `00_BlueTrack_CreateDatabase.sql`,
 `14_BlueTrack_ScheduleImportLoadJob.sql`, and
-`32_BlueTrack_GrantBackupStatusReaderRole.sql`, which Migrator always
+`38_BlueTrack_GrantBackupStatusReaderRole.sql`, which Migrator always
 excludes regardless of any skip-list argument -- all for structural
-reasons, not convenience (00 must `USE master`, DbUp cannot; 14 and 32
+reasons, not convenience (00 must `USE master`, DbUp cannot; 14 and 38
 must `USE msdb`, and DbUp's own post-script journal write then fails
 against the wrong database -- see each script's own header and
 `App/Migrator/Program.cs`).
@@ -62,8 +62,14 @@ after `14`, never edits to an existing file in this list.
 | *27, 28* | *(reserved, not on this branch)* | Claimed by two other unmerged parallel branches (`fix/access-group-duplicate-sid`, `feature/target-generation-from-cyberark`) -- script numbers coordinated across branches so they don't collide once merged; not present here. |
 | 29 | `29_BlueTrack_TargetTypeDimension.sql` | D-124 Phase 2: `web.dim_target_type`, replacing `dim_target.TargetType`'s old free-text/hardcoded-frontend-array column with a real governed lookup (code + DisplayName) -- also splits out a distinct "Active Directory" sibling from the old generic "LdapDirectory" value. |
 | 30 | `30_BlueTrack_RecalculateSingleAccountRiskScore.sql` | D-131: `usp_RecalculateRiskScoreForAccount`, a single-account variant of `usp_RecalculateRiskScores` (23) that ignores the stale flag -- backs the Account Progress edit screen's own per-account "Recalculate" button. |
-| 31 | `31_BlueTrack_RiskExceptionSegregationOfDuties.sql` | `web.app_config.EnforceRiskExceptionSegregationOfDuties` (admin toggle, off by default), plus the `ViewRiskExceptionSodReport` permission backing the Risk Exception SoD detective report. |
-| 32 | `32_BlueTrack_GrantBackupStatusReaderRole.sql` | D-107's `db_backupstatus_reader` msdb role/grants, finally turned into a runnable file. Runs against `msdb`, not the target database. **Never run through `App/Migrator`, for any environment** -- always excluded (see above); run it manually via `sqlcmd`, or generate a filled-in copy from the Group / Role Mapping admin page's "Generate db_backupstatus_reader Script" button. |
+| 31 | `31_BlueTrack_MultiDomainLdapConfig.sql` | AD Account Discovery Phase A (D-137): `web.ldap_config` goes from a true singleton to a real per-domain table (`DomainName` added, unique) -- the existing row becomes `DomainName='Default'`, unchanged otherwise. |
+| 32 | `32_BlueTrack_RiskScoringForAccessGroupSet.sql` | AD Account Discovery Phase B (D-137): a parallel risk-scoring path (`web.AccessGroupKeyList` TVP, `web.ufn_ReachableRiskValues_ForAccessGroupSet`, `usp_CalculateRiskScoreForAccessGroupSet`) for scoring a set of Access Groups directly -- for a candidate account that isn't in `dbo.fact_account` yet, so it can't go through the existing account-scoped scoring path (23). |
+| 33 | `33_BlueTrack_DiscoveredAccountSchema.sql` | AD Account Discovery Phase C (D-137): `web.discovered_account`/`web.discovered_account_access_group_map` -- real AD accounts not yet onboarded into CyberArk, found by matching AD group membership against the Access Group inventory. |
+| 34 | `34_BlueTrack_DiscoveredAccountsPermission.sql` | AD Account Discovery Phase D (D-137): `ViewDiscoveredAccounts` permission for the new read-only Discovered Accounts report, granted to Admin. |
+| 35 | `35_BlueTrack_DiscoveredAccountWorkflow.sql` | D-138: `web.discovered_account` gains `Status`/`ResolvedAccountKey`/`ReviewedBy`/`ReviewedDate` (the Accept/Dismiss workflow), plus a new `ManageDiscoveredAccounts` permission, granted to Admin. |
+| 36 | `36_BlueTrack_FixAutoAdvanceForDiscoveredAccounts.sql` | D-138: fixes a real pre-existing gap in `usp_Load_AccountProgressAutoAdvance` (Database/03) -- it had no `SourceSystemKey` filter, so a newly-accepted `DISCOVERY`-sourced account (no Safe at all) would have been wrongly auto-promoted straight to "Onboarded to Vault" on the next nightly Load. |
+| 37 | `37_BlueTrack_RiskExceptionSegregationOfDuties.sql` | `web.app_config.EnforceRiskExceptionSegregationOfDuties` (admin toggle, off by default), plus the `ViewRiskExceptionSodReport` permission backing the Risk Exception SoD detective report. Numbered 37, not 31 -- written on a branch that diverged before 31-36 above were claimed on main; renumbered when merging. |
+| 38 | `38_BlueTrack_GrantBackupStatusReaderRole.sql` | D-107's `db_backupstatus_reader` msdb role/grants, finally turned into a runnable file. Runs against `msdb`, not the target database. **Never run through `App/Migrator`, for any environment** -- always excluded (see above); run it manually via `sqlcmd`, or generate a filled-in copy from the Group / Role Mapping admin page's "Generate db_backupstatus_reader Script" button. Numbered 38, not 32, for the same reason as 37 above. |
 
 `Test/` holds test-only fixtures (`01_BlueTrack_Test_DevFakeAuthMatrixSeed.sql`,
 `02_BlueTrack_Test_SyntheticAccountData.sql`) -- never run against a real
@@ -86,7 +92,7 @@ one folder per run).
    both been confirmed working manually at least once: run `14` by hand
    via sqlcmd (see its row above).
 6. For a real environment, once the Deployment page's backup-status check
-   needs to work: run `32` by hand via sqlcmd, or generate a filled-in
+   needs to work: run `38` by hand via sqlcmd, or generate a filled-in
    copy from the Group / Role Mapping admin page (see its row above).
 
 ## Folded-in history
