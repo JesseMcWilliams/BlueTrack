@@ -25,6 +25,9 @@ const rights = useRightsStore()
       <router-link v-if="rights.hasPermission('ViewRiskReport')" :to="{ name: 'reports-risk-score' }">
         Risk Score
       </router-link>
+      <router-link v-if="rights.hasPermission('ViewRiskExceptionSodReport')" :to="{ name: 'reports-risk-exception-sod' }">
+        Risk Exception SoD
+      </router-link>
       <router-link v-if="rights.hasPermission('ViewDiscoveredAccounts')" :to="{ name: 'reports-discovered-accounts' }">
         Discovered Accounts
       </router-link>

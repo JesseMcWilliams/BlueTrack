@@ -41,6 +41,12 @@ using Microsoft.Data.SqlClient;
 // never through this tool -- matching how 00 is handled, for a different
 // but similarly structural reason.
 //
+// 38_BlueTrack_GrantBackupStatusReaderRole.sql is excluded for the exact
+// same reason as 14 -- it also `USE msdb;` without switching back, so
+// DbUp's post-script journal write would fail the same way. It's also a
+// DBA-owned msdb permission grant, not part of this app's own schema, so
+// it belongs outside the normal migration sequence regardless.
+//
 // The target database name is parsed out of <connectionString>'s own
 // Database/Initial Catalog and is the ONLY source of truth for which
 // database the scripts touch -- it's passed into every script as DbUp's
@@ -137,6 +143,7 @@ await using (var masterConnection = new SqlConnection(masterConnectionStringBuil
 var alwaysExcludedScriptNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
 {
     "14_BlueTrack_ScheduleImportLoadJob.sql",
+    "38_BlueTrack_GrantBackupStatusReaderRole.sql",
 };
 
 var upgrader = DeployChanges.To

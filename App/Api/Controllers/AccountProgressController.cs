@@ -16,6 +16,7 @@ public sealed class AccountProgressController(
     ReferenceDataRepository referenceDataRepository,
     AccountProgressLockRepository lockRepository,
     RiskExceptionRepository riskExceptionRepository,
+    AppConfigRepository appConfigRepository,
     CurrentUserResolver currentUserResolver,
     AuditLogger auditLogger) : ControllerBase
 {
@@ -221,6 +222,18 @@ public sealed class AccountProgressController(
             {
                 return Problem(title: "Validation failed",
                     detail: "The linked exception must be an Active exception scoped to this account.",
+                    statusCode: StatusCodes.Status400BadRequest);
+            }
+
+            // Segregation of duties (admin-configurable, off by default --
+            // some organizations don't have separate staff for the two
+            // roles): the person who approved this exception can't also be
+            // the one linking it here.
+            var appConfig = await appConfigRepository.GetAsync();
+            if (appConfig.EnforceRiskExceptionSegregationOfDuties && exception.ApprovedBy == user.UserKey)
+            {
+                return Problem(title: "Validation failed",
+                    detail: "This exception was approved by you -- segregation of duties requires a different person to link it to an account.",
                     statusCode: StatusCodes.Status400BadRequest);
             }
 

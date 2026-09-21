@@ -87,6 +87,10 @@ async function save() {
         </label>
         <small>Which of the two candidate algorithms usp_CalculateRiskScore uses (D-119 Phase D).</small>
       </p>
+      <p>
+        <label><input v-model="config.enforceRiskExceptionSegregationOfDuties" type="checkbox" /> Enforce segregation of duties on Risk Exception approval</label>
+        <small>When enabled, the person who approved a Risk Exception cannot also be the one who links it to an account. Leave off if your organization doesn't have separate staff for the two roles.</small>
+      </p>
       <button type="submit" class="btn-primary">Save</button>
       <span v-if="saved" role="status"> Saved.</span>
     </form>

@@ -12,6 +12,9 @@ public sealed class RiskExceptionDetail
     public long? AccountKey { get; init; }
     public int? ApplicationKey { get; init; }
     public required string Justification { get; init; }
+
+    /// <summary>UserKey who approved this exception -- used by the Risk Exception segregation-of-duties check (AccountProgressController.Update).</summary>
+    public int ApprovedBy { get; init; }
     public DateTime ApprovalDate { get; init; }
     public DateTime ReviewDate { get; init; }
     public required string StatusName { get; init; }

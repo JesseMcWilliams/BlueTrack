@@ -11,6 +11,7 @@ namespace BlueTrack.Api.Controllers;
 public sealed class ReportsController(
     ReportsRepository repository,
     RiskScoreReportRepository riskScoreReportRepository,
+    RiskExceptionRepository riskExceptionRepository,
     DiscoveredAccountRepository discoveredAccountRepository,
     CurrentUserResolver currentUserResolver) : ControllerBase
 {
@@ -81,6 +82,19 @@ public sealed class ReportsController(
     {
         await riskScoreReportRepository.RecalculateAllAsync();
         return NoContent();
+    }
+
+    /// <summary>
+    /// Segregation-of-duties detective report (Option C): every historical
+    /// case of the same user both approving a Risk Exception and linking it
+    /// to an account, regardless of whether enforcement is (or ever was) on.
+    /// </summary>
+    [HttpGet("risk-exception-sod")]
+    [Authorize(Policy = Permissions.ViewRiskExceptionSodReport)]
+    public async Task<IActionResult> GetRiskExceptionSodReport()
+    {
+        var results = await riskExceptionRepository.GetSegregationOfDutiesViolationsAsync();
+        return Ok(results);
     }
 
     /// <summary>AD Account Discovery feature (2026-09-16): real AD accounts not yet onboarded into CyberArk, matched against the Access Group inventory and risk-scored, gated by ViewDiscoveredAccounts. Defaults to Status='New' only -- Accept/Dismiss (below) move a row out of this default view without deleting it.</summary>
