@@ -55,6 +55,14 @@ public sealed class ReportsController(
         return Ok(results);
     }
 
+    /// <summary>D-143: Total/In Scope/Onboarded/Managed/Compliant account counts. No specific permission required, matching Overdue/At-Risk and Stage/Status Summary above -- read-only, aggregate counts only, no account-level detail.</summary>
+    [HttpGet("kpi-summary")]
+    public async Task<IActionResult> GetKpiSummary()
+    {
+        var result = await repository.GetKpiSummaryAsync();
+        return Ok(result);
+    }
+
     /// <summary>D-101-105 Phase E: the new Risk Score report, gated by ViewRiskReport per the plan approved for D-119. D-124 Phase 3: page/pageSize add server-side paging; X-Filtered-Count is always equal to X-Total-Count here (no filter params on this report) but is still sent for consistency with the other five paginated endpoints.</summary>
     [HttpGet("risk-score")]
     [Authorize(Policy = Permissions.ViewRiskReport)]

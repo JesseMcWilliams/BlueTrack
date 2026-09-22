@@ -128,6 +128,12 @@ const routes = [
         name: 'reports-discovered-accounts',
         meta: { breadcrumb: 'Discovered Accounts', breadcrumbParent: 'reports' },
         component: () => import('../views/reports/DiscoveredAccounts.vue')
+      },
+      {
+        path: 'kpi-summary',
+        name: 'reports-kpi-summary',
+        meta: { breadcrumb: 'KPI Summary', breadcrumbParent: 'reports' },
+        component: () => import('../views/reports/KpiSummary.vue')
       }
     ]
   },
