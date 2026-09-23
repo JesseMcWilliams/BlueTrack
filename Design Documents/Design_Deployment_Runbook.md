@@ -9,7 +9,7 @@ The step-by-step procedure for standing up a brand-new BlueTrack environment (or
 - `Database/README.md` -- the script manifest (what each numbered file does, dependency order, folded-in history).
 - `Database/Import_Load_Process_Guide.docx` -- the day-to-day operational cadence for Import/Load once an environment is already running.
 
-This document exists because those two answer "what does each piece do," not "in what order do I actually run everything, and what must I remember to change for *this* environment." Written 2026-09-05, alongside the script restructure (D-106) that made a genuinely repeatable procedure possible for the first time -- see that Decision Register entry for the full rationale.
+This document exists because those two answer "what does each piece do," not "in what order do I actually run everything, and what must I remember to change for *this* environment." Written 2026-09-05, alongside the script restructure (D-144) that made a genuinely repeatable procedure possible for the first time -- see that Decision Register entry for the full rationale.
 
 ## Step-by-Step: New or Fully Rebuilt Environment
 
@@ -61,7 +61,7 @@ None of these are inferred from the connection string the way `$DatabaseName$`/`
 - **`09_BlueTrack_WebSeed.sql`'s bootstrap admin group** (`BUILTIN\Administrators`, SID `S-1-5-32-544`) -- a deliberate bootstrap default so a fresh install is usable immediately. Map a real AD/Entra group to the Admin role via the Group/Role Mapping admin screen once one exists; don't leave every local admin as a permanent BlueTrack Admin in a real production environment.
 - **OIDC/SAML identity providers** (`12`) -- seeded disabled, with placeholder `ConfigurationValues` documenting the expected shape only. Need real IdP tenant/metadata entered via the Identity Providers admin page, then enabling, before either is usable.
 - **Secrets Store backend** (`08`'s `web.secrets_store` seed) -- `WindowsDpapi` is active by default (D-36's first-built backend). A production cutover to CyberArk CP/CCP/Conjur, Azure Key Vault, or AWS Secrets Manager happens through the Secrets Store Configuration admin page, not by editing the seed script.
-- **D-58 resumes immediately once real data exists.** This restructure's "fold everything back into its parent file" approach (D-106) was a one-time reset explicitly authorized because the database had nothing worth protecting yet. The moment a real environment holds real tracked data again, further schema changes go back to being small, guarded, numbered scripts appended after `14` -- never edits to `01`-`14` themselves.
+- **D-58 resumes immediately once real data exists.** This restructure's "fold everything back into its parent file" approach (D-144) was a one-time reset explicitly authorized because the database had nothing worth protecting yet. The moment a real environment holds real tracked data again, further schema changes go back to being small, guarded, numbered scripts appended after `14` -- never edits to `01`-`14` themselves.
 
 ## Verification
 
@@ -75,5 +75,5 @@ After any full rebuild:
 
 - `Database/README.md` -- full script manifest and folded-in history.
 - `Database/Import_Load_Process_Guide.docx` -- ongoing operational cadence once an environment is running.
-- `Design Documents/Design_Decision_Register.md`, D-106 -- the restructure this runbook documents, and the two follow-on fixes (hardcoded job/schedule names, script 14's DbUp incompatibility) found while first exercising it against a real environment.
+- `Design Documents/Design_Decision_Register.md`, D-144 -- the restructure this runbook documents, and the two follow-on fixes (hardcoded job/schedule names, script 14's DbUp incompatibility) found while first exercising it against a real environment.
 - `Lessons_Learned.md` -- the BULK INSERT `ROWTERMINATOR` fix, the D-89 hardcoded-database-name incident, and the E2E worker-contention pattern referenced above.
