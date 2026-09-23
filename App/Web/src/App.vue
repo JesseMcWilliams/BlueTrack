@@ -47,6 +47,31 @@ async function checkDevFakeAuthDuration() {
   }
 }
 
+// D-156: Windows Integrated Authentication disabled banner. Backed by the
+// same code-level guard as the flag itself (AuthenticationExtensions.
+// IsNegotiateDisabled requires IsDevelopment() *and* the config flag,
+// never either alone) -- this banner is a visibility layer on top of that
+// guard, not a substitute for it. Checked via the public, anonymous
+// GET /api/auth/providers rather than something permission-gated,
+// deliberately: anyone looking at this environment, signed in or not,
+// should immediately know it isn't running with normal authentication.
+const negotiateDisabledWarning = ref(null)
+
+async function checkNegotiateDisabled() {
+  try {
+    const response = await fetch('/api/auth/providers')
+    if (!response.ok) return
+    const data = await response.json()
+    if (data.negotiateDisabled) {
+      negotiateDisabledWarning.value =
+        'Development mode: Windows Integrated Authentication is disabled in this environment. ' +
+        'This configuration must never be used outside local development or automated testing.'
+    }
+  } catch {
+    // Non-fatal -- this is an advisory banner, not a page any user needs to load.
+  }
+}
+
 // Loaded once here so every page can read permissions without each one
 // re-fetching /api/me -- the frontend permission-aware UI pass. Pages that
 // need permissions before rendering (e.g. AccountProgressDetail deciding
@@ -54,6 +79,7 @@ async function checkDevFakeAuthDuration() {
 // than assume this has already run -- Vue mounts children before parents,
 // so a child route can mount before this does.
 onMounted(async () => {
+  await checkNegotiateDisabled()
   await rights.ensureLoaded()
   await checkDevFakeAuthDuration()
 })
@@ -81,6 +107,7 @@ onMounted(async () => {
       <router-link :to="{ name: 'my-profile' }" class="top-nav__user-menu">My Profile</router-link>
     </nav>
     <Breadcrumbs />
+    <p v-if="negotiateDisabledWarning" role="alert" class="dev-fake-auth-warning">{{ negotiateDisabledWarning }}</p>
     <p v-if="devFakeAuthWarning" role="alert" class="dev-fake-auth-warning">{{ devFakeAuthWarning }}</p>
     <!-- D-92: route-change focus target (router/index.js's afterEach hook
          moves focus here) -- a client-routed SPA gives assistive tech no

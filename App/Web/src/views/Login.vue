@@ -35,8 +35,8 @@ async function load() {
   try {
     const response = await fetch('/api/auth/providers')
     if (!response.ok) throw new Error(`Request failed: ${response.status}`)
-    const list = await response.json()
-    providers.value = [...list].sort((a, b) => a.displayOrder - b.displayOrder)
+    const data = await response.json()
+    providers.value = [...data.providers].sort((a, b) => a.displayOrder - b.displayOrder)
 
     const defaultProvider = providers.value[0]
     const redirectUrl = defaultProvider ? externalRedirectUrl(defaultProvider) : null

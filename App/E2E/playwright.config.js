@@ -59,7 +59,14 @@ export default defineConfig({
       env: {
         ASPNETCORE_ENVIRONMENT: 'Development',
         ASPNETCORE_URLS: 'https://localhost:7033',
-        ConnectionStrings__BlueTrackDb: apiConnectionString
+        ConnectionStrings__BlueTrackDb: apiConnectionString,
+        // D-156: every test signs in via DevFakeAuth's Cookie scheme
+        // (auth.js's signInAs), never real Negotiate -- this API instance
+        // never needs Windows Integrated Authentication registered at
+        // all. Requires ASPNETCORE_ENVIRONMENT=Development above too
+        // (AuthenticationExtensions.IsNegotiateDisabled checks both), so
+        // this can never take effect outside this test-only config.
+        BlueTrack__DisableNegotiate: 'true'
       },
       url: 'https://localhost:7033/api/auth/providers',
       ignoreHTTPSErrors: true,

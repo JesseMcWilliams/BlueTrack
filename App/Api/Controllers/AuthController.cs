@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using BlueTrack.Api.Auth;
 using BlueTrack.Api.Data;
 
 namespace BlueTrack.Api.Controllers;
@@ -14,20 +15,28 @@ namespace BlueTrack.Api.Controllers;
 /// </summary>
 [ApiController]
 [Route("api/auth")]
-public sealed class AuthController(IdentityProviderRepository identityProviderRepository) : ControllerBase
+public sealed class AuthController(IdentityProviderRepository identityProviderRepository, AuthenticationModeInfo authenticationModeInfo) : ControllerBase
 {
     /// <summary>
     /// For a login screen to render its provider choices (D-41: default
     /// provider first, a small link for the rest) -- deliberately excludes
     /// DevFakeAuth's own admin-only config details, returning only what a
-    /// pre-login screen needs.
+    /// pre-login screen needs. `negotiateDisabled` (D-156) lets the SPA
+    /// shell show a banner before a user even signs in -- anonymous by
+    /// design, same as the rest of this response, since "this instance has
+    /// Windows Integrated Authentication turned off" is exactly the kind
+    /// of thing someone should see before they trust the environment at all.
     /// </summary>
     [HttpGet("providers")]
     [AllowAnonymous]
     public async Task<IActionResult> GetEnabledProviders()
     {
         var providers = await identityProviderRepository.GetEnabledAsync();
-        return Ok(providers.Select(p => new { p.ProviderType, p.DisplayName, p.DisplayOrder }));
+        return Ok(new
+        {
+            providers = providers.Select(p => new { p.ProviderType, p.DisplayName, p.DisplayOrder }),
+            negotiateDisabled = authenticationModeInfo.NegotiateDisabled
+        });
     }
 
     /// <summary>
