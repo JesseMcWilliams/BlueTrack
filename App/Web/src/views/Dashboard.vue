@@ -12,6 +12,7 @@ const completedCount = ref(0)
 const overdueAtRiskCount = ref(null)
 const overdueReviewCount = ref(null)
 const activeExceptionsCount = ref(null)
+const kpiSummary = ref(null)
 const errors = ref({})
 const loading = ref(true)
 
@@ -59,18 +60,20 @@ async function loadStageFunnel() {
 // slice for a contrast ratio to apply to.
 const pieSlicePalette = ['#4e79a7', '#f28e2b', '#59a14f', '#e15759', '#b07aa1', '#76b7b2', '#edc948', '#ff9da7']
 
-const pieSlices = computed(() => {
-  const total = stageFunnel.value.reduce((sum, s) => sum + s.accountCount, 0)
+// Shared by the Stage funnel pie and the KPI funnel-bucket pie below (D-143)
+// -- same arc math, different input buckets.
+function buildPieSlices(entries) {
+  const total = entries.reduce((sum, e) => sum + e.count, 0)
   if (total === 0) return []
 
   let cumulativeAngle = -Math.PI / 2 // start at 12 o'clock
   const radius = 45
   const center = 50
 
-  return stageFunnel.value
-    .filter(s => s.accountCount > 0)
-    .map((stage, index) => {
-      const fraction = stage.accountCount / total
+  return entries
+    .filter(e => e.count > 0)
+    .map((entry, index) => {
+      const fraction = entry.count / total
       const startAngle = cumulativeAngle
       const endAngle = cumulativeAngle + fraction * 2 * Math.PI
       cumulativeAngle = endAngle
@@ -89,9 +92,38 @@ const pieSlices = computed(() => {
         ? `M ${center - radius},${center} A ${radius},${radius} 0 1,1 ${center + radius},${center} A ${radius},${radius} 0 1,1 ${center - radius},${center} Z`
         : `M ${center},${center} L ${x1},${y1} A ${radius},${radius} 0 ${largeArcFlag},1 ${x2},${y2} Z`
 
-      return { stageName: stage.stageName, accountCount: stage.accountCount, d, color: pieSlicePalette[index % pieSlicePalette.length] }
+      return { name: entry.name, count: entry.count, d, color: pieSlicePalette[index % pieSlicePalette.length] }
     })
+}
+
+const pieSlices = computed(() => buildPieSlices(stageFunnel.value.map(s => ({ name: s.stageName, count: s.accountCount }))))
+
+// D-143: the same five KPI counts as the KPI Summary report, broken into
+// five mutually-exclusive buckets (each account falls into exactly one)
+// so they sum to TotalAccounts and can share one pie -- rather than four
+// separate two-slice pies for each ratio.
+const kpiFunnelBuckets = computed(() => {
+  const s = kpiSummary.value
+  if (!s) return []
+  return [
+    { name: 'Out of Scope', count: s.totalAccounts - s.inScopeAccounts },
+    { name: 'In Scope, Not Onboarded', count: s.inScopeAccounts - s.onboardedAccounts },
+    { name: 'Onboarded, Not Managed', count: s.onboardedAccounts - s.managedAccounts },
+    { name: 'Managed, Not Compliant', count: s.managedAccounts - s.compliantAccounts },
+    { name: 'Compliant', count: s.compliantAccounts }
+  ]
 })
+const kpiPieSlices = computed(() => buildPieSlices(kpiFunnelBuckets.value))
+
+async function loadKpiSummary() {
+  try {
+    const response = await fetch('/api/reports/kpi-summary')
+    if (!response.ok) throw new Error(`Request failed: ${response.status}`)
+    kpiSummary.value = await response.json()
+  } catch (err) {
+    errors.value.kpiSummary = err.message
+  }
+}
 
 async function load() {
   loading.value = true
@@ -99,6 +131,7 @@ async function load() {
 
   const tasks = [
     loadStageFunnel(),
+    loadKpiSummary(),
     loadCount('overdueAtRisk', '/api/reports/overdue-at-risk').then(count => { overdueAtRiskCount.value = count }),
     loadCount('overdueReview', '/api/risk-exceptions/overdue-review').then(count => { overdueReviewCount.value = count })
   ]
@@ -141,12 +174,36 @@ onMounted(load)
             <p>{{ completedCount }} account(s) Complete.</p>
           </div>
           <svg v-if="pieSlices.length > 0" class="stage-funnel-pie" viewBox="0 0 100 100" aria-hidden="true">
-            <path v-for="slice in pieSlices" :key="slice.stageName" :d="slice.d" :fill="slice.color">
-              <title>{{ slice.stageName }}: {{ slice.accountCount }}</title>
+            <path v-for="slice in pieSlices" :key="slice.name" :d="slice.d" :fill="slice.color">
+              <title>{{ slice.name }}: {{ slice.count }}</title>
             </path>
           </svg>
         </div>
         <p><router-link :to="{ name: 'reports-stage-status-summary' }">View full stage/status breakdown</router-link></p>
+      </section>
+
+      <section>
+        <h2>Key Progress Indicators</h2>
+        <p v-if="errors.kpiSummary" role="alert">{{ errors.kpiSummary }}</p>
+        <div v-else-if="kpiSummary" class="stage-funnel-layout">
+          <table>
+            <thead>
+              <tr><th>KPI</th><th>Percentage</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>In Scope vs. All Accounts</td><td>{{ kpiSummary.totalAccounts ? Math.round(kpiSummary.inScopeAccounts / kpiSummary.totalAccounts * 1000) / 10 + '%' : 'N/A' }}</td></tr>
+              <tr><td>Onboarded vs. In Scope</td><td>{{ kpiSummary.inScopeAccounts ? Math.round(kpiSummary.onboardedAccounts / kpiSummary.inScopeAccounts * 1000) / 10 + '%' : 'N/A' }}</td></tr>
+              <tr><td>Managed vs. Onboarded</td><td>{{ kpiSummary.onboardedAccounts ? Math.round(kpiSummary.managedAccounts / kpiSummary.onboardedAccounts * 1000) / 10 + '%' : 'N/A' }}</td></tr>
+              <tr><td>Compliant vs. Managed</td><td>{{ kpiSummary.managedAccounts ? Math.round(kpiSummary.compliantAccounts / kpiSummary.managedAccounts * 1000) / 10 + '%' : 'N/A' }}</td></tr>
+            </tbody>
+          </table>
+          <svg v-if="kpiPieSlices.length > 0" class="stage-funnel-pie" viewBox="0 0 100 100" aria-hidden="true">
+            <path v-for="slice in kpiPieSlices" :key="slice.name" :d="slice.d" :fill="slice.color">
+              <title>{{ slice.name }}: {{ slice.count }}</title>
+            </path>
+          </svg>
+        </div>
+        <p><router-link :to="{ name: 'reports-kpi-summary' }">View full KPI summary</router-link></p>
       </section>
 
       <section>

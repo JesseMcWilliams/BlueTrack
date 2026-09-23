@@ -73,11 +73,21 @@ public class ReportsControllerTests : IClassFixture<BlueTrackWebApplicationFacto
     }
 
     [Fact]
+    public async Task GetKpiSummary_AnyAuthenticatedUser_Succeeds()
+    {
+        var client = CreateClientAs("TestUser.Viewer");
+
+        var response = await client.GetAsync("/api/reports/kpi-summary");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    [Fact]
     public async Task AllReportEndpoints_Anonymous_AreUnauthorized()
     {
         var client = _factory.CreateClient();
 
-        foreach (var path in new[] { "/api/reports/overdue-at-risk", "/api/reports/stage-status-summary", "/api/reports/reconciliation-review-queue", "/api/reports/unresolved-entitlement-members" })
+        foreach (var path in new[] { "/api/reports/overdue-at-risk", "/api/reports/stage-status-summary", "/api/reports/reconciliation-review-queue", "/api/reports/unresolved-entitlement-members", "/api/reports/kpi-summary" })
         {
             var response = await client.GetAsync(path);
             Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);

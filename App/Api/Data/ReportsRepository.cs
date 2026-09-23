@@ -4,11 +4,11 @@ using BlueTrack.Api.Models;
 namespace BlueTrack.Api.Data;
 
 /// <summary>
-/// Backs the three Reports sub-pages confirmed by D-56: Overdue/At-Risk
-/// Worklist, Stage/Status Funnel Summary, and Reconciliation Review Queue.
-/// All three are read-only here -- the Reconciliation Review Queue's
-/// confirm/reject actions (gated by ConfirmReconciliation per D-56) aren't
-/// wired up yet, matching this scaffold's overall maturity level.
+/// Backs the Reports sub-pages that need no dedicated permission gate:
+/// Overdue/At-Risk Worklist, Stage/Status Funnel Summary, Reconciliation
+/// Review Queue, Unresolved Entitlement Members, and the KPI Summary
+/// (D-143). Permission-gated reports (Risk Score, Risk Exception SoD,
+/// Discovered Accounts) each have their own dedicated repository instead.
 /// </summary>
 public sealed class ReportsRepository(IDbConnectionFactory connectionFactory)
 {
@@ -102,5 +102,48 @@ public sealed class ReportsRepository(IDbConnectionFactory connectionFactory)
 
         var rows = await connection.QueryAsync<UnresolvedEntitlementMember>(sql);
         return rows.AsList();
+    }
+
+    /// <summary>
+    /// D-143: five nested counts -- Total >= InScope >= Onboarded >= Managed
+    /// >= Compliant -- so the four requested ratios (InScope/Total,
+    /// Onboarded/InScope, Managed/Onboarded, Compliant/Managed) can be
+    /// computed directly from this one row. "In scope" reuses the existing
+    /// Risk Accepted / Excluded status (D-19/D-59) rather than a new
+    /// exception type -- an account only leaves scope through that same,
+    /// already-enforced accepted-exception mechanism. Onboarded/Managed are
+    /// StageOrder thresholds (3, 4) on dim_blueprint_stage, and both are
+    /// additionally restricted to accounts still in scope so the funnel
+    /// stays strictly nested; Compliant requires both StageOrder 5 AND
+    /// status Complete specifically (an account can reach stage 5 while
+    /// still Blocked/In Progress on some final step).
+    /// </summary>
+    public async Task<KpiSummary> GetKpiSummaryAsync()
+    {
+        using var connection = connectionFactory.Create();
+
+        const string sql = """
+            WITH scope AS (
+                SELECT
+                    fa.AccountKey,
+                    stg.StageOrder,
+                    sts.StatusName
+                FROM dbo.fact_account fa
+                LEFT JOIN dbo.fact_account_progress fap ON fap.AccountKey = fa.AccountKey
+                LEFT JOIN dbo.dim_blueprint_stage stg ON stg.StageKey = fap.CurrentStageKey
+                LEFT JOIN dbo.dim_progress_status sts ON sts.StatusKey = fap.CurrentStatusKey
+                WHERE fa.IsDeleted = 0
+            )
+            SELECT
+                COUNT(*) AS TotalAccounts,
+                SUM(CASE WHEN ISNULL(StatusName, '') <> 'Risk Accepted / Excluded' THEN 1 ELSE 0 END) AS InScopeAccounts,
+                SUM(CASE WHEN ISNULL(StatusName, '') <> 'Risk Accepted / Excluded' AND StageOrder >= 3 THEN 1 ELSE 0 END) AS OnboardedAccounts,
+                SUM(CASE WHEN ISNULL(StatusName, '') <> 'Risk Accepted / Excluded' AND StageOrder >= 4 THEN 1 ELSE 0 END) AS ManagedAccounts,
+                SUM(CASE WHEN StageOrder = 5 AND StatusName = 'Complete' THEN 1 ELSE 0 END) AS CompliantAccounts
+            FROM scope
+            """;
+
+        var result = await connection.QuerySingleAsync<KpiSummary>(sql);
+        return result;
     }
 }

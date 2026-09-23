@@ -16,8 +16,9 @@ The top navigation is permission-gated — you only see the entries you actually
 
 **Where**: the home page you land on after signing in.
 
-Three at-a-glance summary cards, each linking into the full report/worklist behind it:
+Four at-a-glance summary cards, each linking into the full report/worklist behind it:
 - **Accounts by Stage** — a table plus a small pie chart of how many accounts sit at each Blueprint stage, with a count of how many are Complete. Links to the full Stage/Status Summary report.
+- **Key Progress Indicators** (added 2026-09-22) — the four KPI Summary ratios (In Scope vs. All Accounts, Onboarded vs. In Scope, Managed vs. Onboarded, Compliant vs. Managed) as percentages, plus a pie chart breaking every account into exactly one of five buckets: Out of Scope, In Scope-Not Onboarded, Onboarded-Not Managed, Managed-Not Compliant, or Compliant. Links to the full KPI Summary report.
 - **Overdue / At-Risk Accounts** — a count of accounts past their target remediation date. Links to that worklist.
 - **Risk Exceptions Needing Attention** — a count of exceptions past their review date (everyone sees this). If you hold `ApproveExceptions`, you also see a count of Active exceptions awaiting approval.
 
@@ -74,6 +75,7 @@ While an exception is Active, its edit page offers:
 - **Risk Score** (requires `ViewRiskReport`) — every account's Computed/Override/Effective risk score and Risk Band, sortable, with a **Recalculate Now** button and a per-account click-to-expand drill-down showing the real Targets/Access Groups behind that score.
 - **Discovered Accounts** (requires `ViewDiscoveredAccounts`) — real AD accounts not yet onboarded into CyberArk, found nightly and risk-scored the same way as tracked accounts. If you hold `ManageDiscoveredAccounts`, **Accept**/**Dismiss** buttons let you move a candidate into real Blueprint tracking or resolve it as a false positive.
 - **Risk Exception SoD** (requires `ViewRiskExceptionSodReport`) — see "Reviewing past cases" below.
+- **KPI Summary** (added 2026-09-22, no permission required) — the four progress ratios (In Scope vs. All Accounts, Onboarded vs. In Scope, Managed vs. Onboarded, Compliant vs. Managed) as counts and percentages. "In scope" means not currently excluded via an active Risk Accepted / Excluded exception. The same four ratios, plus a summary pie chart, also appear on the Dashboard's Key Progress Indicators card.
 
 ## My Profile
 

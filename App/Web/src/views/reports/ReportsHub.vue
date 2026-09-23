@@ -3,9 +3,10 @@
 // (D-47). Reconciliation Review (ConfirmReconciliation, D-56), Risk
 // Score (ViewRiskReport, D-101-105 Phase E), and Discovered Accounts
 // (ViewDiscoveredAccounts, AD Account Discovery feature) are gated by a
-// permission -- Overdue/At-Risk, Stage/Status Summary, and Unresolved
-// Entitlement Members (D-107/D-108) have no [Authorize(Policy = ...)] on
-// their API endpoints, so they stay unconditionally visible here too.
+// permission -- Overdue/At-Risk, Stage/Status Summary, Unresolved
+// Entitlement Members (D-107/D-108), and KPI Summary (D-143) have no
+// [Authorize(Policy = ...)] on their API endpoints, so they stay
+// unconditionally visible here too.
 import { useRightsStore } from '../../stores/rights'
 
 const rights = useRightsStore()
@@ -30,6 +31,9 @@ const rights = useRightsStore()
       </router-link>
       <router-link v-if="rights.hasPermission('ViewDiscoveredAccounts')" :to="{ name: 'reports-discovered-accounts' }">
         Discovered Accounts
+      </router-link>
+      <router-link :to="{ name: 'reports-kpi-summary' }">
+        KPI Summary
       </router-link>
     </nav>
     <router-view />
