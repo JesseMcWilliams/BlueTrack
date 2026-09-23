@@ -26,16 +26,21 @@ public class AuthControllerTests : IClassFixture<BlueTrackWebApplicationFactory>
         var response = await client.GetAsync("/api/auth/providers");
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        var providers = await response.Content.ReadFromJsonAsync<List<ProviderResponse>>();
-        Assert.NotNull(providers);
+        var body = await response.Content.ReadFromJsonAsync<ProvidersResponse>();
+        Assert.NotNull(body);
         // WindowsIntegrated (09_BlueTrack_WebSeed.sql) and
         // DevFakeAuth (Database/Test/01_BlueTrack_Test_DevFakeAuthMatrixSeed.sql)
         // are both enabled in BlueTrackTest.
-        Assert.Contains(providers!, p => p.ProviderType == "WindowsIntegrated");
-        Assert.Contains(providers!, p => p.ProviderType == "DevFakeAuth");
+        Assert.Contains(body!.Providers, p => p.ProviderType == "WindowsIntegrated");
+        Assert.Contains(body.Providers, p => p.ProviderType == "DevFakeAuth");
         // Never exposes DevFakeAuth's admin-only config details -- just the
         // pre-login-screen shape.
-        Assert.All(providers!, p => Assert.False(string.IsNullOrEmpty(p.DisplayName)));
+        Assert.All(body.Providers, p => Assert.False(string.IsNullOrEmpty(p.DisplayName)));
+        // D-156: BLUETRACK_TEST_CONNECTION-backed test runs never set
+        // BlueTrack:DisableNegotiate, so this must always read false here --
+        // a true value would mean the flag leaked into a context it wasn't
+        // meant for.
+        Assert.False(body.NegotiateDisabled);
     }
 
     [Fact]
@@ -77,5 +82,11 @@ public class AuthControllerTests : IClassFixture<BlueTrackWebApplicationFactory>
         public string ProviderType { get; set; } = "";
         public string DisplayName { get; set; } = "";
         public int DisplayOrder { get; set; }
+    }
+
+    private sealed class ProvidersResponse
+    {
+        public List<ProviderResponse> Providers { get; set; } = [];
+        public bool NegotiateDisabled { get; set; }
     }
 }

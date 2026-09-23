@@ -4,10 +4,19 @@ using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.Negotiate;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.Data.SqlClient;
+using Microsoft.Extensions.Hosting;
 using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 using BlueTrack.Api.Secrets;
 
 namespace BlueTrack.Api.Auth;
+
+/// <summary>
+/// D-156: a singleton snapshot of the negotiate-disabled decision, computed
+/// once at startup by AddBlueTrackAuthentication -- lets AuthController
+/// expose it to a pre-login browser (GET /api/auth/providers) without
+/// re-reading configuration/environment per request.
+/// </summary>
+public sealed record AuthenticationModeInfo(bool NegotiateDisabled);
 
 /// <summary>
 /// Wires up the modular provider set from Design_Authentication_Architecture.md.
@@ -65,24 +74,46 @@ namespace BlueTrack.Api.Auth;
 /// DevFakeAuth (Development-only, guarded in code, not just an admin
 /// toggle) is wired via NegotiateProviderResolver -- it shares the
 /// Negotiate scheme rather than being a separate one.
+///
+/// D-156 (2026-09-23): Negotiate can be skipped entirely via
+/// IsNegotiateDisabled -- built for App/E2E's Playwright suite, which
+/// never authenticates via real Negotiate (DevFakeAuth's Cookie-based
+/// test sign-in always wins over it anyway, D-149) but still paid for a
+/// fragile proxy workaround (D-155) that Negotiate's connection-binding
+/// requirement made necessary. Gated on *both* `IsDevelopment()` and the
+/// `BlueTrack:DisableNegotiate` config flag (not either alone) so this
+/// can never take effect outside a dev/test context even if the flag
+/// were accidentally set somewhere real -- the same defense-in-depth
+/// shape as DevTestAuthController's own code-level guard, not just a
+/// documented convention to be careful.
 /// </summary>
 public static class AuthenticationExtensions
 {
     public const string OidcAuthCookieName = "BlueTrack.OidcAuth";
 
-    public static IServiceCollection AddBlueTrackAuthentication(this IServiceCollection services, IConfiguration configuration)
+    public static bool IsNegotiateDisabled(IConfiguration configuration, IHostEnvironment environment) =>
+        environment.IsDevelopment() && configuration.GetValue<bool>("BlueTrack:DisableNegotiate");
+
+    public static IServiceCollection AddBlueTrackAuthentication(this IServiceCollection services, IConfiguration configuration, IHostEnvironment environment)
     {
         var oidcSettings = TryLoadOidcStartupSettings(configuration);
+        var negotiateDisabled = IsNegotiateDisabled(configuration, environment);
+        var defaultScheme = negotiateDisabled ? CookieAuthenticationDefaults.AuthenticationScheme : NegotiateDefaults.AuthenticationScheme;
 
-        var authBuilder = services
-            .AddAuthentication(NegotiateDefaults.AuthenticationScheme)
-            .AddNegotiate()
-            .AddCookie(CookieAuthenticationDefaults.AuthenticationScheme, options =>
-            {
-                options.Cookie.Name = OidcAuthCookieName;
-                options.Cookie.SameSite = SameSiteMode.Lax;
-                options.ExpireTimeSpan = TimeSpan.FromHours(8);
-            });
+        services.AddSingleton(new AuthenticationModeInfo(negotiateDisabled));
+
+        var authBuilder = services.AddAuthentication(defaultScheme);
+        if (!negotiateDisabled)
+        {
+            authBuilder.AddNegotiate();
+        }
+
+        authBuilder.AddCookie(CookieAuthenticationDefaults.AuthenticationScheme, options =>
+        {
+            options.Cookie.Name = OidcAuthCookieName;
+            options.Cookie.SameSite = SameSiteMode.Lax;
+            options.ExpireTimeSpan = TimeSpan.FromHours(8);
+        });
 
         if (oidcSettings is not null)
         {

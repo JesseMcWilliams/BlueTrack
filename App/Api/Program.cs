@@ -21,7 +21,7 @@ builder.Services.AddControllers();
 builder.Services.AddOpenApi();
 builder.Services.AddHttpContextAccessor(); // AuditLogger needs the request's source IP
 
-builder.Services.AddBlueTrackAuthentication(builder.Configuration);
+builder.Services.AddBlueTrackAuthentication(builder.Configuration, builder.Environment);
 
 // Windows Integrated Authentication to SQL Server (D-30) -- no SQL login,
 // no standing secret. See appsettings.json for the connection string shape.
@@ -132,11 +132,19 @@ builder.Services.AddSaml2(
 // to Negotiate here, after AddSaml2(), restores the original default --
 // SAML/OIDC are only ever reached via an explicit Challenge(..., "OIDC")
 // or Saml2Controller's own redirect, never as the app's automatic default.
+// D-156: mirrors AddBlueTrackAuthentication's own IsNegotiateDisabled
+// check -- if Negotiate was never registered, forcing the default back to
+// it here would reference a scheme that doesn't exist and throw the first
+// time anything needed the default (an anonymous request, for instance).
+var negotiateDisabledForDefaultScheme = AuthenticationExtensions.IsNegotiateDisabled(builder.Configuration, builder.Environment);
+var postSamlDefaultScheme = negotiateDisabledForDefaultScheme
+    ? Microsoft.AspNetCore.Authentication.Cookies.CookieAuthenticationDefaults.AuthenticationScheme
+    : Microsoft.AspNetCore.Authentication.Negotiate.NegotiateDefaults.AuthenticationScheme;
 builder.Services.Configure<Microsoft.AspNetCore.Authentication.AuthenticationOptions>(options =>
 {
-    options.DefaultScheme = Microsoft.AspNetCore.Authentication.Negotiate.NegotiateDefaults.AuthenticationScheme;
-    options.DefaultAuthenticateScheme = Microsoft.AspNetCore.Authentication.Negotiate.NegotiateDefaults.AuthenticationScheme;
-    options.DefaultChallengeScheme = Microsoft.AspNetCore.Authentication.Negotiate.NegotiateDefaults.AuthenticationScheme;
+    options.DefaultScheme = postSamlDefaultScheme;
+    options.DefaultAuthenticateScheme = postSamlDefaultScheme;
+    options.DefaultChallengeScheme = postSamlDefaultScheme;
 });
 
 builder.Services.AddScoped<Saml2ConfigurationFactory>();
