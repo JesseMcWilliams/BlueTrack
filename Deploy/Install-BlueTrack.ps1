@@ -85,6 +85,31 @@ Start-Transcript -Path $transcriptPath | Out-Null
 Write-Host "Logging this run to $transcriptPath"
 #endregion
 
+#region Helpers for required interactive prompts
+# A blank answer here (just pressing Enter) must never silently proceed --
+# each of these values is load-bearing several phases later (e.g. Hostname
+# isn't consumed until the IIS phase, well after Database has already run),
+# so catching a blank answer immediately, at the prompt itself, is much
+# cheaper than surfacing it as a cryptic parameter-binding error afterward.
+function Read-BlueTrackRequiredValue {
+    param([Parameter(Mandatory)] [string]$Prompt)
+    do {
+        $value = Read-Host $Prompt
+        if (-not $value) { Write-Warning 'This value is required and cannot be blank.' }
+    } while (-not $value)
+    return $value
+}
+
+function Read-BlueTrackEnvironment {
+    $allowed = 'Development', 'Test', 'Staging', 'Production'
+    do {
+        $value = Read-Host "Environment ($($allowed -join '/'))"
+        if ($value -notin $allowed) { Write-Warning "Must be one of: $($allowed -join ', ')." }
+    } while ($value -notin $allowed)
+    return $value
+}
+#endregion
+
 try {
     #region Load config file, then prompt for anything still missing
     if ($ConfigFile) {
@@ -100,16 +125,16 @@ try {
     }
 
     if (-not $Environment) {
-        $Environment = Read-Host 'Environment (Development/Test/Staging/Production)'
+        $Environment = Read-BlueTrackEnvironment
     }
     if (-not $SqlServerInstance) {
-        $SqlServerInstance = Read-Host 'SQL Server instance (e.g. localhost, SERVER\INSTANCE)'
+        $SqlServerInstance = Read-BlueTrackRequiredValue 'SQL Server instance (e.g. localhost, SERVER\INSTANCE)'
     }
     if (-not $UseWindowsAuth -and -not $SqlCredential) {
         $SqlCredential = Get-Credential -Message 'SQL Server login for BlueTrack (Windows Integrated Security was declined)'
     }
     if (-not $Hostname) {
-        $Hostname = Read-Host 'Site hostname (e.g. bluetrack.company.com)'
+        $Hostname = Read-BlueTrackRequiredValue 'Site hostname (e.g. bluetrack.company.com)'
     }
     if (-not $PSBoundParameters.ContainsKey('SeedTestData') -and $Environment -ne 'Production') {
         $SeedTestData = (Read-Host "Seed DevFakeAuth/synthetic test data (Database/Test)? Never do this for Production. (y/N)") -match '^[Yy]'
@@ -118,8 +143,8 @@ try {
         $InstallNightlyJob = (Read-Host 'Install the nightly Import+Load SQL Agent job now? (y/N)') -match '^[Yy]'
     }
     if ($InstallNightlyJob) {
-        if (-not $ExportFolderPath) { $ExportFolderPath = Read-Host 'Privilege Cloud CSV export folder path (local to the SQL Server service account)' }
-        if (-not $EvdDatabaseName) { $EvdDatabaseName = Read-Host 'Self-Hosted EVD database name (same SQL Server instance)' }
+        if (-not $ExportFolderPath) { $ExportFolderPath = Read-BlueTrackRequiredValue 'Privilege Cloud CSV export folder path (local to the SQL Server service account)' }
+        if (-not $EvdDatabaseName) { $EvdDatabaseName = Read-BlueTrackRequiredValue 'Self-Hosted EVD database name (same SQL Server instance)' }
     }
     if (-not $CertificateThumbprint -and -not $GenerateSelfSignedCert) {
         $certChoice = Read-Host "HTTPS certificate: enter a thumbprint, or leave blank to generate a self-signed cert for '$Hostname' (Dev/Test only)"
@@ -187,7 +212,7 @@ try {
     if (-not $SkipPreDeployBackup -and (Test-BlueTrackDatabaseHasExistingSchema -ConnectionString $connectionString -DatabaseName $DatabaseName)) {
         Write-Host "`n--- Pre-deployment backup ---" -ForegroundColor Cyan
         if (-not $BackupFolder) {
-            $BackupFolder = Read-Host 'Existing database detected. Backup folder for the pre-deployment rollback point (local to the SQL Server service account)'
+            $BackupFolder = Read-BlueTrackRequiredValue 'Existing database detected. Backup folder for the pre-deployment rollback point (local to the SQL Server service account)'
         }
         Backup-BlueTrackForRollback -ConnectionString $connectionString -DatabaseName $DatabaseName -BackupFolder $BackupFolder -RepoRoot $RepoRoot | Out-Null
     } elseif ($SkipPreDeployBackup) {
