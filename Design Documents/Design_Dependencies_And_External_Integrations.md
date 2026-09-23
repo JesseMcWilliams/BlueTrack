@@ -84,7 +84,10 @@ Both share `LdapContextFactory` for binding and read `web.ldap_config` — now a
 | Microsoft.Extensions.Caching.SqlServer | 10.0.11 | SQL-Server-backed distributed cache (2.7) |
 | System.DirectoryServices.AccountManagement | 10.0.11 | LDAP/AD group-membership resolution (2.5) |
 | System.Security.Cryptography.ProtectedData | 10.0.11 | Windows DPAPI secrets backend (2.3) |
+| System.Security.Cryptography.Xml | 10.0.10 | Not called directly -- pins a transitive dependency of `ITfoxtec.Identity.Saml2` past a vulnerable floor (see note below) |
 | *NetStandardPasswordSDK* (local reference, not NuGet) | n/a | CyberArk Credential Provider (2.2) |
+
+**Security note (2026-09-23, D-153):** `ITfoxtec.Identity.Saml2` (the SAML2 library, 2.4) transitively pulls `System.Security.Cryptography.Xml` at a 10.0.7 floor, which carries 5 high-severity advisories (GHSA-23rf-6693-g89p, GHSA-8q5v-6pqq-x66h, GHSA-cvvh-rhrc-wg4q, GHSA-g8r8-53c2-pm3f, GHSA-mmjf-rqrv-855v) -- all the same class of .NET 10 XML-encryption denial-of-service issue, CVSS 7.5, network-exploitable with no user interaction. Relevant here specifically because SAML processes externally-supplied XML (assertions/responses) over the network whenever that provider is enabled -- not just a theoretical transitive warning. Fixed by adding the explicit `System.Security.Cryptography.Xml` 10.0.10 reference in the table above, overriding the vulnerable floor. **`dotnet build` will show a `NU1510` warning suggesting this reference be removed as "automatically available and not needed"** -- do not remove it: the "automatically available" version is exactly the vulnerable 10.0.7 this override exists to replace. Re-check `dotnet list package --vulnerable --include-transitive` after any future `ITfoxtec.Identity.Saml2` upgrade to see whether its own floor has finally moved past 10.0.10, at which point this explicit override (and this note) can be removed.
 
 ## 4. NuGet packages — `App/Migrator` and `App/Api.Tests`
 
