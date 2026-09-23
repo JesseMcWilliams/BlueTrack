@@ -392,19 +392,51 @@ test.describe('Credentials & LDAP admin page', () => {
     await signInAs(page, 'TestUser.Admin')
     await page.goto('/admin/credentials')
 
+    // The Enabled checkbox lives inside the LDAP edit form, which is
+    // conditionally rendered (Credentials.vue: `v-if="ldapEditing"`) --
+    // absent until "+ New Domain" (or an existing row's Edit) opens it.
+    // Found 2026-09-23: this test went straight to checking a checkbox
+    // that didn't exist yet, timing out every run regardless of
+    // environment -- a real, consistently-broken test, not flakiness.
+    // DomainName is unique (UQ_ldap_config_DomainName) -- a fixed literal
+    // would collide with a leftover row from an earlier local run that
+    // didn't rebuild BlueTrackTest, same reason other fixtures in this
+    // suite with no re-run isolation use a Date.now()-suffixed name.
+    const domainName = `e2e-test-${Date.now()}.local`
+    await page.getByRole('button', { name: '+ New Domain' }).click()
+    await page.getByLabel('Domain Name:').fill(domainName)
     await page.getByLabel('Enabled').check()
     await page.getByLabel('Use trusted connection (app pool / local computer account)').check()
     // Bind Account Credential picker hides once trusted connection is checked.
     await expect(page.getByLabel('Bind Account Credential:')).toHaveCount(0)
     await page.locator('form', { has: page.getByRole('button', { name: 'Save' }) }).last().getByRole('button', { name: 'Save' }).click()
 
+    // saveLdapConfig() is async (a fetch, then ldapEditing.value = null on
+    // success) -- clicking Save only dispatches the click event, it
+    // doesn't wait for that fetch to finish. Found 2026-09-23: reloading
+    // immediately after the click raced the actual POST, so the row
+    // sometimes didn't exist yet when the reload's list refetch ran.
+    // Waiting for the form to close (the save's own success signal) before
+    // reloading makes this deterministic instead of racy.
+    await expect(page.getByLabel('Domain Name:')).toHaveCount(0)
     await page.reload()
+    const row = page.locator('tbody tr', { hasText: domainName })
+    await expect(row).toBeVisible()
+    await row.getByRole('button', { name: 'Edit' }).click()
     await expect(page.getByLabel('Enabled')).toBeChecked()
     await expect(page.getByLabel('Use trusted connection (app pool / local computer account)')).toBeChecked()
 
     await page.getByLabel('Enabled').uncheck()
     await page.getByLabel('Use trusted connection (app pool / local computer account)').uncheck()
     await page.locator('form', { has: page.getByRole('button', { name: 'Save' }) }).last().getByRole('button', { name: 'Save' }).click()
+
+    // Cleanup: ldap_config has a real Delete endpoint (unlike several
+    // other entities in this suite), so remove the row this test created
+    // rather than leaving it behind for every future local run.
+    await expect(page.locator('tbody tr', { hasText: domainName })).toContainText('No')
+    await page.locator('tbody tr', { hasText: domainName }).getByRole('button', { name: 'Delete' }).click()
+    await confirmDelete(page)
+    await expect(page.locator('tbody tr', { hasText: domainName })).toHaveCount(0)
   })
 
   test('A user without ManageCredentials is denied with a plain error', async ({ page }) => {
