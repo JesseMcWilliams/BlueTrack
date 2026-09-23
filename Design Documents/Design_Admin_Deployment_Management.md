@@ -22,6 +22,44 @@ Confirmed exact shapes from the actual settings classes (`App/Api/Models/OidcPro
 
 **Implemented 2026-09-04.** `IdentityProviders.vue` now renders OIDC's four fields and SAML's seven fields (both certificate fields labeled as Windows Certificate Store thumbprints, per the note above) in place of the old textarea, keyed off `editing.providerType`; a `configFields` object holds the structured values, serialized to/parsed from `ConfigurationValues` JSON on save/edit using the same camelCase-vs-PascalCase case-insensitive match every other reader in this app already relies on (`ProviderSettingsReader`'s `JsonSerializerOptions { PropertyNameCaseInsensitive = true }`, confirmed directly, not assumed). No backend change. Verified with a new Playwright test (`admin-pages.spec.js`) asserting the structured OIDC fields actually round-trip through save → reload → re-edit, not just that the form submits. See PR #14.
 
+## Part 1b: Completing the trust — what to give the IdP, and known gaps
+
+**Added 2026-09-23**, after a direct documentation-completeness check found that nothing in this project's docs told an admin what BlueTrack itself exposes back to an IdP. Part 1 above only covers BlueTrack's own side of the form; setting up a real IdP also needs these values, confirmed directly against `Saml2Controller.cs`, `AuthenticationExtensions.cs`, and `IdentityProvidersHealthCheck.cs` (not guessed).
+
+### OIDC
+
+**What BlueTrack needs from the IdP's own app/client registration**: the **Authority** (issuer URL, e.g. `https://login.microsoftonline.com/{tenant}/v2.0` for Entra ID — already the form's own placeholder text) and a **Client ID**/**Client Secret** pair.
+
+**What to give the IdP**: a **redirect URI**, `https://<your-BlueTrack-hostname><Callback Path>` — with the default Callback Path (`/signin-oidc`), that's `https://<your-BlueTrack-hostname>/signin-oidc`. Register this exact URL in the IdP's app registration *before* enabling OIDC here, or the IdP will reject the callback. This isn't a BlueTrack endpoint you call directly — `Microsoft.AspNetCore.Authentication.OpenIdConnect`'s own middleware intercepts requests to this path automatically once the scheme is registered.
+
+**A real gap, not just a documentation one**: if the Secret field is left blank (or was never actually set) while Authority/Client ID are filled in and the provider is enabled, OIDC silently fails to register at app startup — `AuthenticationExtensions.cs` logs one console line (`"...has no stored client secret...not registering the OIDC scheme"`) and nothing else. The Deployment page's health check does **not** catch this — `IdentityProvidersHealthCheck.cs` only confirms Authority/Client ID are non-blank, never that a secret was actually stored. Confirm OIDC is genuinely working by attempting a real sign-in after the required restart, not by trusting a healthy status alone.
+
+### SAML
+
+**What BlueTrack needs from the IdP**: the **IdP Entity ID** (Issuer) and **IdP Single Sign-On Destination** (the SSO URL), plus the **IdP Certificate Thumbprint** — the IdP's own signing certificate, which must already be installed into this server's Windows Certificate Store (`LocalMachine\My`) *before* its thumbprint is entered in the form; this is a lookup by thumbprint, never a file upload (`Saml2ConfigurationFactory.cs`'s `FindCertificate`).
+
+**What to give the IdP**:
+- **SP Entity ID / Audience URI**: whatever you enter in the **SP Entity ID** field on this page — sent as-is as the SAML `Issuer`, so it must match exactly what's registered on the IdP side.
+- **ACS URL** (also called Reply URL, Single Sign-On URL, or Assertion Consumer Service URL depending on the vendor): `https://<your-BlueTrack-hostname>/api/auth/saml/acs` — a fixed route (`Saml2Controller.cs`'s `Acs` action), not configurable.
+- **SP metadata**, if the IdP can import it directly instead of each field being entered by hand: `GET https://<your-BlueTrack-hostname>/api/auth/saml/metadata` — returns real, signed SP metadata (including the ACS URL above, and BlueTrack's own SP signing certificate if **SP Certificate Thumbprint** is set) once a SAML provider row is enabled with all required fields populated; a 503 otherwise.
+
+**Known limitation, stated plainly**: this integration has been verified structurally — genuine signed SP metadata generated, a correctly-formed and signed `AuthnRequest` produced, using a real self-signed certificate installed for the test (see `Design_Authentication_Architecture.md`'s own Implementation Status note) — but has never been round-tripped end to end against a real vendor IdP. Treat a first real setup as needing careful, hands-on verification of an actual sign-in, not an assume-it-works integration.
+
+### Provider-specific quick reference
+
+The concepts above map onto four commonly-requested IdPs' own terminology as follows. **Exact current menu labels and navigation are not verified against any of these vendors' live admin consoles in this pass — vendor UIs change over time, so confirm current steps against each vendor's own documentation rather than treating the table below as a verified click-path.**
+
+| BlueTrack concept | Okta | Microsoft Entra ID (Azure AD) | Ping (PingOne / PingFederate) | Authentik |
+|---|---|---|---|---|
+| OIDC: registering BlueTrack | An OIDC "App Integration" (Web Application) | An "App registration" | An OIDC "Application" | An OAuth2/OIDC "Provider" plus an "Application" |
+| OIDC: Authority/issuer value | The org or custom authorization server's issuer URL | `https://login.microsoftonline.com/{tenant-id}/v2.0` | The PingOne/PingFederate environment's own OIDC issuer URL | `https://{authentik-host}/application/o/{slug}/` |
+| OIDC: where the redirect URI goes | "Sign-in redirect URIs" | "Redirect URI" (under Authentication) | "Redirect URIs" | "Redirect URIs" |
+| OIDC: Client ID/Secret | Shown on the app integration's own overview page after creation | "Application (client) ID", with a generated secret under "Certificates & secrets" | Shown after app creation | Shown after provider creation |
+| SAML: registering BlueTrack | A SAML 2.0 "App Integration" | A non-gallery "Enterprise Application" (SAML-based single sign-on) | A SAML "Application" | A SAML "Provider" |
+| SAML: the ACS URL field | "Single sign-on URL" | "Reply URL (Assertion Consumer Service URL)" | "Assertion Consumer Service (ACS) URL" | "ACS URL" |
+| SAML: the SP Entity ID field | "Audience URI (SP Entity ID)" | "Identifier (Entity ID)" | "SP Entity ID" / "Partner Entity ID" | "Issuer" |
+| SAML: importing SP metadata | Supports pointing at/uploading SP metadata directly | Supports uploading an SP metadata file | Supports importing SP metadata by URL or file | Supports importing SP metadata by URL or file |
+
 ## Part 2: Secrets Store — structured config fields per backend
 
 Confirmed exact shapes from the actual provider classes (each backend's private `*Settings` class in `App/Api/Secrets/`) — not guessed:
