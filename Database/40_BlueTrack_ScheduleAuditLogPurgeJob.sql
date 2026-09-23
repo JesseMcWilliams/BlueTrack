@@ -44,7 +44,7 @@ DECLARE @JobId BINARY(16);
 EXEC msdb.dbo.sp_add_job
     @job_name = 'BlueTrack ($(DatabaseName)) - Audit Log Purge',
     @enabled = 1,
-    @description = 'Nightly audit_event/audit_field_change purge (usp_PurgeAuditLog) for the BlueTrack database, per web.audit_config.RetentionDays. See Design Documents/Design_Audit_Logging.md and Design_Operations_Guide.md.',
+    @description = 'Nightly audit_event/audit_field_change purge (usp_PurgeAuditLog) for the BlueTrack database, per web.audit_config.RetentionDays. See Design Documents/Design_Audit_Logging.md and Guides/Admin_OperationsGuide.md.',
     @job_id = @JobId OUTPUT;
 
 EXEC msdb.dbo.sp_add_jobstep

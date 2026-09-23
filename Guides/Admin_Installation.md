@@ -24,7 +24,7 @@ From an elevated PowerShell session:
     -GenerateSelfSignedCert
 ```
 
-This one script builds the API and SPA, creates and migrates the database, provisions the IIS site, and smoke-tests the result. Add `-WhatIf` first if you want to preview what it will do without changing anything. See `Deploy/README.md` for the full option list and `Design Documents/Design_Deployment_Runbook.md` for the manual step-by-step this automates, if you ever need to run a step by hand.
+This one script builds the API and SPA, creates and migrates the database, provisions the IIS site, and smoke-tests the result. Add `-WhatIf` first if you want to preview what it will do without changing anything. See `Deploy/README.md` for the full option list and `Admin_DeploymentRunbook.md` for the manual step-by-step this automates, if you ever need to run a step by hand.
 
 ## 3. First sign-in
 
@@ -32,11 +32,11 @@ A fresh install ships with `BUILTIN\Administrators` bootstrapped as the Admin ro
 
 ## 4. Replace the bootstrap admin group
 
-Once you're in, go to **Admin > Group / Role Mapping** and map a real AD/Entra group to the Admin role. Plan to remove the `BUILTIN\Administrators` bootstrap mapping once your real admin group is confirmed working — see `Design Documents/Design_User_Guide.md`'s Group / Role Mapping section for the exact steps.
+Once you're in, go to **Admin > Group / Role Mapping** and map a real AD/Entra group to the Admin role. Plan to remove the `BUILTIN\Administrators` bootstrap mapping once your real admin group is confirmed working — see `User_Guide.md`'s Group / Role Mapping section for the exact steps.
 
 ## 5. Load real data
 
-A fresh install's staging tables are empty. Follow `Design Documents/Design_Deployment_Runbook.md`'s "First Data Load" section to run `usp_Import_All` / `usp_RunFullLoad` once your CyberArk export files are in place, then (for a real, non-disposable environment) schedule the nightly Import+Load job as that runbook describes.
+A fresh install's staging tables are empty. Follow `Admin_DeploymentRunbook.md`'s "First Data Load" section to run `usp_Import_All` / `usp_RunFullLoad` once your CyberArk export files are in place, then (for a real, non-disposable environment) schedule the nightly Import+Load job as that runbook describes.
 
 ## 6. What's next
 
@@ -45,5 +45,5 @@ Installation gets you a running, reachable BlueTrack with Windows Integrated aut
 ## See also
 
 - `Deploy/README.md` — the installer's full option reference.
-- `Design Documents/Design_Deployment_Runbook.md` — the manual step-by-step procedure, and the environment-specific items a redeployment must not skip.
+- `Admin_DeploymentRunbook.md` — the manual step-by-step procedure, and the environment-specific items a redeployment must not skip.
 - `Design Documents/Design_Deployment_Methodology.md` — the reasoning behind the deployment approach.

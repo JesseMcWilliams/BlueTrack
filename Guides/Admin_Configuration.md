@@ -4,13 +4,13 @@
 
 ## Who this is for
 
-An admin picking up right after [Admin_Installation.md](Admin_Installation.md), working through the settings a real environment normally needs to change before regular users start relying on it day to day. Each step links to the relevant section of `Design Documents/Design_User_Guide.md` for the full field-by-field detail — this guide is the suggested order to work through them in, not a duplicate of that reference.
+An admin picking up right after [Admin_Installation.md](Admin_Installation.md), working through the settings a real environment normally needs to change before regular users start relying on it day to day. Each step links to the relevant section of `User_Guide.md` for the full field-by-field detail — this guide is the suggested order to work through them in, not a duplicate of that reference.
 
 Everything below lives under **Admin** in the top nav, except where noted.
 
 ## 1. Identity Providers
 
-Windows Integrated authentication works out of the box, but a real environment usually needs a real IdP. Add and enable OIDC or SAML under **Admin > Identity Providers** — see `Design_User_Guide.md`'s Identity Providers section for the exact fields, and `Design_Admin_Deployment_Management.md`'s Part 1b for what to hand your IdP administrator (including vendor-specific notes for Okta, Entra ID, Ping, and Authentik). Remember: enabling/changing OIDC needs an app restart to take effect; SAML changes are read fresh on every request.
+Windows Integrated authentication works out of the box, but a real environment usually needs a real IdP. Add and enable OIDC or SAML under **Admin > Identity Providers** — see `User_Guide.md`'s Identity Providers section for the exact fields, and `Design Documents/Design_Admin_Deployment_Management.md`'s Part 1b for what to hand your IdP administrator (including vendor-specific notes for Okta, Entra ID, Ping, and Authentik). Remember: enabling/changing OIDC needs an app restart to take effect; SAML changes are read fresh on every request.
 
 ## 2. Secrets Store Configuration
 
@@ -22,7 +22,7 @@ Review the built-in roles under **Admin > Roles & Permissions** and adjust their
 
 ## 4. Global Application Configuration
 
-One form, one Save button, covering idle timeout, breadcrumb position, the Exception ID pattern, the Account Progress lock timeout, audit retention, the backup folder, the risk score algorithm, and the segregation-of-duties checkbox for Risk Exception approval. Review every field here at least once — see `Design_User_Guide.md`'s Global Application Configuration section for what each one does.
+One form, one Save button, covering idle timeout, breadcrumb position, the Exception ID pattern, the Account Progress lock timeout, audit retention, the backup folder, the risk score algorithm, and the segregation-of-duties checkbox for Risk Exception approval. Review every field here at least once — see `User_Guide.md`'s Global Application Configuration section for what each one does.
 
 ## 5. Notifications
 
@@ -42,7 +42,7 @@ Once these are set, regular use can begin. Ongoing operational tasks — data im
 
 ## See also
 
-- `Design Documents/Design_User_Guide.md` — the full field-by-field reference for every Admin hub section.
+- `User_Guide.md` — the full field-by-field reference for every Admin hub section.
 - `Design Documents/Design_Admin_Deployment_Management.md` — the Identity Providers/Secrets Store design rationale and IdP-setup detail.
 - `Design Documents/Design_Risk_Scoring.md` — the model behind Risk Score Bands, Targets, and Access Groups.
 - `Design Documents/Design_Notifications.md` — the Notifications page's design rationale.

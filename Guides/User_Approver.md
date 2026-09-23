@@ -35,5 +35,5 @@ Unconfirmed cross-source account matches — currently a read-only view; there's
 
 ## See also
 
-- `Design Documents/Design_User_Guide.md` — the full reference guide for every page.
+- `User_Guide.md` — the full reference guide for every page.
 - `Design Documents/Design_Risk_Exception_Tracking.md` — the full Risk Exception approval workflow, including the segregation-of-duties check.

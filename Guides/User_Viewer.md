@@ -31,4 +31,4 @@ Shows your display name, mapped role, and permission list. Click **Reload My Rig
 
 ## See also
 
-- `Design Documents/Design_User_Guide.md` — the full reference guide, covering every page in the application, not just the ones a Viewer role reaches.
+- `User_Guide.md` — the full reference guide, covering every page in the application, not just the ones a Viewer role reaches.

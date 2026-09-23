@@ -17,6 +17,8 @@ App/
 Database/       Numbered SQL scripts (schema, seed data, stored procedures) -- see Database/README.md
 Design Documents/  One design doc per subsystem, plus Design_Decision_Register.md (the authoritative,
                    append-only log of every numbered design decision, D-1 onward)
+Guides/          Short, linear, role-based walkthroughs (Admin_*/User_*) -- supplements Design Documents/
+                 rather than duplicating its field-by-field reference detail
 Reference/       Sample CyberArk Privileged Cloud/Self-Hosted export files used for local dev/first load
 Lessons_Learned.md  Real incidents/gotchas found while building this
 ```
@@ -48,7 +50,7 @@ Individual privileged credentials this app itself needs (e.g. an SMTP or LDAP bi
 
 **Prerequisites**: Windows, .NET 10 SDK, Node.js/npm, a reachable SQL Server instance you can create databases on. Building the API against CyberArk CP as the active secrets backend additionally requires CyberArk's Application Password SDK installed locally (see the comment in `App/Api/BlueTrack.Api.csproj`); every other backend builds without it.
 
-1. **Stand up the database** (see `Database/README.md` and `Design Documents/Design_Deployment_Runbook.md` for full detail):
+1. **Stand up the database** (see `Database/README.md` and `Guides/Admin_DeploymentRunbook.md` for full detail):
    ```
    dotnet run --project App/Migrator -- "<connection string>" "Database"
    ```
@@ -78,7 +80,7 @@ Operationally:
 - **`Deploy/Install-BlueTrack.ps1`** automates a full from-scratch deployment — prerequisite verification/install, build, database creation/migration, IIS site provisioning, and a smoke test — in one PowerShell script. See `Deploy/README.md` for exactly what it does and its explicit scope boundaries (it never installs SQL Server itself, configures a real identity provider, or loads real CyberArk data). **Not yet run end-to-end against a genuinely blank server** — reviewed and dry-run-traced only; verify on a disposable VM before trusting it for a real environment.
 
 For the complete, authoritative version of everything summarized above, see:
-- `Design Documents/Design_Deployment_Runbook.md` — step-by-step environment stand-up/rebuild procedure
+- `Guides/Admin_DeploymentRunbook.md` — step-by-step environment stand-up/rebuild procedure
 - `Design Documents/Design_Deployment_Methodology.md` — build/publish/IIS-deploy process
 - `Design Documents/Design_Admin_Deployment_Management.md` — the Deployment admin page itself
 - `Database/README.md` — every script, in order, with what it does
@@ -88,6 +90,7 @@ For the complete, authoritative version of everything summarized above, see:
 - **`Design Documents/Design_Decision_Register.md`** — the single most important document in this repo: an append-only, numbered (`D-1`, `D-2`, ...) log of every real design decision made on this project, with the question asked and the exact decision reached (including live-verification results and test counts). When in doubt about *why* something is built the way it is, this is where the answer lives.
 - **`Design Documents/Design_Dependencies_And_External_Integrations.md`** — every external system, API, and library this project depends on, and exactly what each one is used for.
 - Every other `Design Documents/Design_*.md` file covers one subsystem in depth (authentication, authorization, risk scoring, secrets storage, notifications, testing strategy, accessibility/theming, etc.).
+- **`Guides/README.md`** — the index of short, linear, task-oriented walkthroughs for admins (installation, configuration, ongoing data management) and each user role (Viewer, Analyst, Approver, Auditor); start here if you just need to *use* the app rather than understand why it's built a certain way.
 - **`Lessons_Learned.md`** — real incidents and gotchas encountered building this, worth reading before touching an area it covers.
 
 ## License

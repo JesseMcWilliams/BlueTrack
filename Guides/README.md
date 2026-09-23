@@ -19,6 +19,7 @@ Each covers one BlueTrack role in isolation. The roles are siblings built on a s
 
 ## See also
 
-- `Design Documents/Design_User_Guide.md` — the full reference guide covering every page in the application, for every role at once.
-- `Design Documents/Design_Operations_Guide.md` — the DBA/operator-facing tasks with no UI of their own.
+- `User_Guide.md` — the full reference guide covering every page in the application, for every role at once.
+- `Admin_OperationsGuide.md` — the DBA/operator-facing tasks with no UI of their own.
+- `Admin_DeploymentRunbook.md` — the step-by-step procedure for standing up or rebuilding an environment.
 - `Design Documents/Design_Application_Structure.md` — the authoritative page inventory and navigation conventions.

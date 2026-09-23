@@ -8,7 +8,7 @@ Someone whose BlueTrack role grants `ViewDashboard`, `EditAccountProgress`, `Man
 
 ## The Dashboard
 
-**Where**: the home page after signing in (`Dashboard` in the top nav). Four summary cards — Accounts by Stage, Key Progress Indicators, Overdue/At-Risk Accounts, and Risk Exceptions Needing Attention — each linking to the full report behind it. See `Design Documents/Design_User_Guide.md`'s Dashboard section for the full breakdown.
+**Where**: the home page after signing in (`Dashboard` in the top nav). Four summary cards — Accounts by Stage, Key Progress Indicators, Overdue/At-Risk Accounts, and Risk Exceptions Needing Attention — each linking to the full report behind it. See `User_Guide.md`'s Dashboard section for the full breakdown.
 
 ## Working Account Progress
 
@@ -39,5 +39,5 @@ See `Design Documents/Design_Risk_Scoring.md` for the full model behind how thes
 
 ## See also
 
-- `Design Documents/Design_User_Guide.md` — the full reference guide for every page.
+- `User_Guide.md` — the full reference guide for every page.
 - `Design Documents/Design_Risk_Scoring.md` / `Design_Risk_Scoring_Import.md` — the data model and algorithm behind Targets, Access Groups, and computed risk scores.

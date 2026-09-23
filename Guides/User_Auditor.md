@@ -22,7 +22,7 @@ Read-only — no add/edit/delete anywhere on it. Filter by Event Type, Entity, a
 
 **Where**: `Dashboard` in the top nav.
 
-Four summary cards — Accounts by Stage, Key Progress Indicators, Overdue/At-Risk Accounts, and Risk Exceptions Needing Attention. Since an Auditor role doesn't hold `ApproveExceptions`, the Exceptions card shows only the general overdue-review count, not an approval-queue count. See `Design Documents/Design_User_Guide.md`'s Dashboard section for the full breakdown.
+Four summary cards — Accounts by Stage, Key Progress Indicators, Overdue/At-Risk Accounts, and Risk Exceptions Needing Attention. Since an Auditor role doesn't hold `ApproveExceptions`, the Exceptions card shows only the general overdue-review count, not an approval-queue count. See `User_Guide.md`'s Dashboard section for the full breakdown.
 
 ## Your profile
 
@@ -30,5 +30,5 @@ Four summary cards — Accounts by Stage, Key Progress Indicators, Overdue/At-Ri
 
 ## See also
 
-- `Design Documents/Design_User_Guide.md` — the full reference guide, covering every page in the application.
+- `User_Guide.md` — the full reference guide, covering every page in the application.
 - `Design Documents/Design_Audit_Logging.md` — what gets logged and why, for the data behind the Audit Log Viewer.

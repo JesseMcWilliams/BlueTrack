@@ -8,7 +8,7 @@ An admin (or whoever holds elevated SQL Server access) handling the recurring, d
 
 ## 1. Confirm the nightly Import + Load job ran
 
-The Import+Load SQL Agent job runs at 2:00 AM, refreshing staging data from your CyberArk exports and then recalculating risk scores and running AD Account Discovery. There's no in-app UI showing whether last night's run succeeded — check via SQL directly. See `Design Documents/Design_Operations_Guide.md`'s "The Nightly Import + Load Job" section for the exact query.
+The Import+Load SQL Agent job runs at 2:00 AM, refreshing staging data from your CyberArk exports and then recalculating risk scores and running AD Account Discovery. There's no in-app UI showing whether last night's run succeeded — check via SQL directly. See `Admin_OperationsGuide.md`'s "The Nightly Import + Load Job" section for the exact query.
 
 ## 2. Work the Target Match Review queue
 
@@ -30,11 +30,11 @@ BlueTrack's rollback mechanism is full-database backup/restore, not per-script u
 .\Backup-BlueTrack.ps1 -SqlServerInstance "SQLSERVER01" -DatabaseName BlueTrack -BackupFolder "D:\Backups\BlueTrack"
 ```
 
-The Admin **Deployment** page's **Backup App** button does the same on demand, from the UI, if you'd rather not use PowerShell directly. See `Design Documents/Design_Operations_Guide.md`'s "Rollback" section for the restore procedure if you ever need it — restoring is destructive and requires explicit confirmation by design.
+The Admin **Deployment** page's **Backup App** button does the same on demand, from the UI, if you'd rather not use PowerShell directly. See `Admin_OperationsGuide.md`'s "Rollback" section for the restore procedure if you ever need it — restoring is destructive and requires explicit confirmation by design.
 
 ## 6. Grant `db_backupstatus_reader` (one-time, per environment)
 
-If the Deployment page's SQL Server Backup Status section shows an error instead of real backup history, a SQL Server account needs to be a member of `db_backupstatus_reader` in `msdb` — something BlueTrack can never grant itself. Resolve the target group on **Admin > Group / Role Mapping**'s Lookup / Test Tool, click **Generate db_backupstatus_reader Script**, and hand the downloaded `.sql` file to whoever administers the SQL Server instance to run manually via `sqlcmd`. See `Design_Operations_Guide.md` for the exact command and the two real prerequisites (a SQL Server login, and an `msdb` database user for that login).
+If the Deployment page's SQL Server Backup Status section shows an error instead of real backup history, a SQL Server account needs to be a member of `db_backupstatus_reader` in `msdb` — something BlueTrack can never grant itself. Resolve the target group on **Admin > Group / Role Mapping**'s Lookup / Test Tool, click **Generate db_backupstatus_reader Script**, and hand the downloaded `.sql` file to whoever administers the SQL Server instance to run manually via `sqlcmd`. See `Admin_OperationsGuide.md` for the exact command and the two real prerequisites (a SQL Server login, and an `msdb` database user for that login).
 
 ## 7. Review the audit log
 
@@ -46,6 +46,6 @@ If the Deployment page's SQL Server Backup Status section shows an error instead
 
 ## See also
 
-- `Design Documents/Design_Operations_Guide.md` — the authoritative reference for every task above with no UI of its own.
-- `Design Documents/Design_Deployment_Runbook.md` — the First Data Load procedure, if you're loading a brand-new data source for the first time.
+- `Admin_OperationsGuide.md` — the authoritative reference for every task above with no UI of its own.
+- `Admin_DeploymentRunbook.md` — the First Data Load procedure, if you're loading a brand-new data source for the first time.
 - `Design Documents/Design_Risk_Exception_Tracking.md` — the full Risk Exception approval workflow, including the segregation-of-duties check.
