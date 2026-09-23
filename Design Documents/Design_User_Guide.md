@@ -196,6 +196,7 @@ Named ranges over the computed risk score (e.g. Low/Medium/High/Critical) — th
 
 ## See also
 
+- `../Guides/` (added 2026-09-23) — short, linear, role-based walkthroughs (Admin_Installation/Configuration/DataManagement, User_Viewer/Analyst/Approver/Auditor) that supplement this page's field-by-field reference rather than duplicate it.
 - `Design_Operations_Guide.md` — the DBA/operator-facing side of everything with no UI of its own (rollback backup/restore scripts) or that a DBA has to act on once this app hands it over (the generated `db_backupstatus_reader` script).
 - `Design_Application_Structure.md` — the authoritative full page inventory and navigation conventions this guide is organized around.
 - `Design_Risk_Exception_Tracking.md` — the full Risk Exception approval workflow, including the segregation-of-duties check.
