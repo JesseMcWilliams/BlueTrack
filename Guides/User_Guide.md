@@ -4,9 +4,9 @@
 
 ## Scope
 
-This is a task-oriented, "how do I use this" guide for BlueTrack administrators working in the web UI — distinct from the `Design_*.md` documents elsewhere in this folder, which record *why* something was built a particular way, not how to operate it day to day.
+This is a task-oriented, "how do I use this" guide for BlueTrack administrators working in the web UI — distinct from the `Design_*.md` documents in `Design Documents/`, which record *why* something was built a particular way, not how to operate it day to day.
 
-**Scope note (updated 2026-09-21)**: this guide now covers every page in the application inventory (`Design_Application_Structure.md`) — the core analyst workflow (Dashboard, Account Progress, Risk Exceptions, Reports), Targets/Access Groups, and the full 14-section Admin hub. Each section was written from the actual Vue component source, not guessed. Kept up to date feature by feature as the app changes, rather than a one-time snapshot — if a page's UI changes, its section here should be revisited.
+**Scope note (updated 2026-09-21)**: this guide now covers every page in the application inventory (`Design Documents/Design_Application_Structure.md`) — the core analyst workflow (Dashboard, Account Progress, Risk Exceptions, Reports), Targets/Access Groups, and the full 14-section Admin hub. Each section was written from the actual Vue component source, not guessed. Kept up to date feature by feature as the app changes, rather than a one-time snapshot — if a page's UI changes, its section here should be revisited.
 
 ## Getting Around
 
@@ -121,9 +121,9 @@ The **Lookup / Test Tool** section lets you resolve a group name and see what it
 
 #### Generating a `db_backupstatus_reader` Grant Script
 
-The Deployment page's SQL Server backup-status check needs a SQL Server account to be a member of a `db_backupstatus_reader` role in `msdb` before it can report anything — a permission this application can never grant itself (see `Design_Operations_Guide.md` for why). Once you've resolved a group in the Lookup / Test Tool above, a **Generate db_backupstatus_reader Script** button appears below the result.
+The Deployment page's SQL Server backup-status check needs a SQL Server account to be a member of a `db_backupstatus_reader` role in `msdb` before it can report anything — a permission this application can never grant itself (see `Admin_OperationsGuide.md` for why). Once you've resolved a group in the Lookup / Test Tool above, a **Generate db_backupstatus_reader Script** button appears below the result.
 
-**Steps**: resolve the target group (above), click **Generate db_backupstatus_reader Script**, and your browser downloads a `.sql` file already targeted at that group. Send it to whoever administers the SQL Server instance — **this application never runs the script itself**; it must be run manually via `sqlcmd` against `msdb`. See `Design_Operations_Guide.md` for the exact command.
+**Steps**: resolve the target group (above), click **Generate db_backupstatus_reader Script**, and your browser downloads a `.sql` file already targeted at that group. Send it to whoever administers the SQL Server instance — **this application never runs the script itself**; it must be run manually via `sqlcmd` against `msdb`. See `Admin_OperationsGuide.md` for the exact command.
 
 ### Roles & Permissions
 
@@ -166,7 +166,7 @@ A checkbox, **"Enforce segregation of duties on Risk Exception approval"**, cont
 Read-only environment/version info, health checks, and SQL Server backup status.
 - **Environment**: Environment name, Version, and build timestamp (UTC).
 - **Health Checks**: a table of Component / Status / Description — checks SQL Server connectivity, the active Secrets Store backend, and configured identity providers.
-- **SQL Server Backup Status**: a table of Backup Type / Last Backup Finish Date, read from SQL Server's own native backup history — or an alert explaining why it's unavailable (typically a missing `db_backupstatus_reader` grant; see `Design_Operations_Guide.md`). A **Backup App** button (gated separately by `TriggerBackup`, distinct from just viewing this page) triggers a real on-demand database backup and downloads a zip of the app's own config files.
+- **SQL Server Backup Status**: a table of Backup Type / Last Backup Finish Date, read from SQL Server's own native backup history — or an alert explaining why it's unavailable (typically a missing `db_backupstatus_reader` grant; see `Admin_OperationsGuide.md`). A **Backup App** button (gated separately by `TriggerBackup`, distinct from just viewing this page) triggers a real on-demand database backup and downloads a zip of the app's own config files.
 
 ### Notifications
 
@@ -196,11 +196,12 @@ Named ranges over the computed risk score (e.g. Low/Medium/High/Critical) — th
 
 ## See also
 
-- `Design_Operations_Guide.md` — the DBA/operator-facing side of everything with no UI of its own (rollback backup/restore scripts) or that a DBA has to act on once this app hands it over (the generated `db_backupstatus_reader` script).
-- `Design_Application_Structure.md` — the authoritative full page inventory and navigation conventions this guide is organized around.
-- `Design_Risk_Exception_Tracking.md` — the full Risk Exception approval workflow, including the segregation-of-duties check.
-- `Design_Risk_Scoring.md` / `Design_Risk_Scoring_Import.md` — the data model and algorithm behind Targets, Access Groups, the Risk Score tab/report, and Risk Bands.
-- `Design_Interface_Extensibility.md` — the field-metadata system behind the Account Progress edit form and Field Metadata Management.
-- `Design_Credentials_Management.md` — the Credentials & LDAP page's own design rationale.
-- `Design_Notifications.md` — the Notifications page's own design rationale.
-- `Design_Admin_Deployment_Management.md` — the Identity Providers/Secrets Store structured-field UI and the Deployment page, including the backup-status check that `db_backupstatus_reader` exists to support.
+- `README.md` (this folder, added 2026-09-23) — the index of short, linear, role-based walkthroughs (Admin_Installation/Configuration/DataManagement, User_Viewer/Analyst/Approver/Auditor) that supplement this page's field-by-field reference rather than duplicate it.
+- `Admin_OperationsGuide.md` — the DBA/operator-facing side of everything with no UI of its own (rollback backup/restore scripts) or that a DBA has to act on once this app hands it over (the generated `db_backupstatus_reader` script).
+- `Design Documents/Design_Application_Structure.md` — the authoritative full page inventory and navigation conventions this guide is organized around.
+- `Design Documents/Design_Risk_Exception_Tracking.md` — the full Risk Exception approval workflow, including the segregation-of-duties check.
+- `Design Documents/Design_Risk_Scoring.md` / `Design_Risk_Scoring_Import.md` — the data model and algorithm behind Targets, Access Groups, the Risk Score tab/report, and Risk Bands.
+- `Design Documents/Design_Interface_Extensibility.md` — the field-metadata system behind the Account Progress edit form and Field Metadata Management.
+- `Design Documents/Design_Credentials_Management.md` — the Credentials & LDAP page's own design rationale.
+- `Design Documents/Design_Notifications.md` — the Notifications page's own design rationale.
+- `Design Documents/Design_Admin_Deployment_Management.md` — the Identity Providers/Secrets Store structured-field UI and the Deployment page, including the backup-status check that `db_backupstatus_reader` exists to support.

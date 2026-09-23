@@ -9,7 +9,7 @@
    the same day in 08_BlueTrack_WebSchema.sql, but usp_PurgeAuditLog itself
    was only ever mentioned in that table's own header comment, never
    actually written. Found 2026-09-21 while documenting day-2 operations
-   (Design_Operations_Guide.md) -- audit_config.RetentionDays was a stored
+   (Guides/Admin_OperationsGuide.md) -- audit_config.RetentionDays was a stored
    setting with no enforcement anywhere; setting it did nothing. This
    script closes that gap: the procedure itself. See
    40_BlueTrack_ScheduleAuditLogPurgeJob.sql for the SQL Agent job that

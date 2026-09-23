@@ -246,7 +246,7 @@ try {
     if (-not $SkipSmokeTest) {
         Write-Host "Smoke test:        $(if ($smokeTestPassed) { 'passed' } else { 'did not confirm healthy -- check the Deployment Info admin page manually' })"
     }
-    Write-Host "`nManual follow-ups this script deliberately does NOT do (see Design Documents/Design_Deployment_Runbook.md):"
+    Write-Host "`nManual follow-ups this script deliberately does NOT do (see Guides/Admin_DeploymentRunbook.md):"
     Write-Host '  - Replace the bootstrap BUILTIN\Administrators admin mapping with a real AD/Entra group.'
     Write-Host '  - Configure a real identity provider (SAML/OIDC) if not using Windows Integrated auth.'
     Write-Host '  - Cut over the Secrets Store backend from Windows DPAPI if a different backend is intended.'
