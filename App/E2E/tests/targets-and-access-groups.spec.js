@@ -73,7 +73,12 @@ test.describe('Targets page', () => {
     await expect(row).toBeVisible()
 
     // Count summary tracks the grand total, not just the filtered view (D-121).
-    await expect(page.getByText(/^Showing \d+ of \d+ total$/)).toBeVisible()
+    // Found 2026-09-23: this regex matched an older, simpler format --
+    // FilterCountSummary.vue actually renders "Showing X-Y of M matching
+    // (N total)" (the richer format added alongside D-121's own filtering),
+    // so this locator never matched anything, timing out every run
+    // regardless of environment -- not flakiness, a stale test.
+    await expect(page.getByText(/matching \(\d+ total\)/)).toBeVisible()
     const totalAfter = await readTotalCount(page)
     expect(totalAfter).toBe(totalBefore + 1)
 
@@ -146,8 +151,8 @@ test.describe('Access Groups page', () => {
   })
 })
 
-/** Reads the "Showing N of M total" count summary's M -- assumes it's already visible. */
+/** Reads FilterCountSummary.vue's "Showing X-Y of M matching (N total)" summary's N -- assumes it's already visible. */
 async function readTotalCount(page) {
-  const text = await page.getByText(/^Showing \d+ of \d+ total$/).textContent()
-  return Number(text.match(/of (\d+) total/)[1])
+  const text = await page.getByText(/matching \(\d+ total\)/).textContent()
+  return Number(text.match(/\((\d+) total\)/)[1])
 }
