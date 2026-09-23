@@ -33,16 +33,23 @@ test.describe('Account Progress List', () => {
     const filteredRows = page.locator('tbody tr')
     const filteredCount = await filteredRows.count()
     expect(filteredCount).toBeGreaterThan(0)
+    // Found 2026-09-23: column index 1 is Address, not Stage -- this
+    // locator has been stale against AccountProgressList.vue's real column
+    // order (Username, Address, Stage, Status, ...) since at least
+    // whenever Address was added before Stage, always failing (Address is
+    // legitimately blank for synthetic accounts), not flaky.
     for (let i = 0; i < filteredCount; i++) {
-      await expect(filteredRows.nth(i).locator('td').nth(1)).toHaveText('Onboarded to Vault')
+      await expect(filteredRows.nth(i).locator('td').nth(2)).toHaveText('Onboarded to Vault')
     }
     await page.getByLabel('Stage:').selectOption('')
 
     // Sort: a plain click makes the column the sole ascending sort key
     // (D-92: the ARIA APG Sortable Table pattern -- a real <button> inside
     // the <th>, aria-sort on the <th> itself).
-    await page.getByRole('button', { name: /^Account/ }).click()
-    await expect(page.getByRole('columnheader', { name: /Account/ })).toHaveAttribute('aria-sort', 'ascending')
+    // Found 2026-09-23: this column's label is "Username" (AccountProgressList.vue's
+    // own sortable-column config), not "Account" -- always failing, not flaky.
+    await page.getByRole('button', { name: /^Username/ }).click()
+    await expect(page.getByRole('columnheader', { name: /Username/ })).toHaveAttribute('aria-sort', 'ascending')
 
     const targetRow = page.locator('tbody tr', { hasText: 'TestAccount03' })
     await expect(targetRow).toBeVisible()
@@ -68,16 +75,32 @@ test.describe('Risk Exceptions List', () => {
   })
 
   test('Viewer can load the list, filter by status, sort a column, and click through to an exception', async ({ page }) => {
+    // Self-contained Active exception fixture -- this used to rely on
+    // account-progress-and-risk-exceptions.spec.js (a different file)
+    // having already created one as a side effect of its own tests, a
+    // fragile cross-file dependency that broke whenever execution order
+    // (or that file's own tests) didn't cooperate. Found 2026-09-23: not
+    // flaky in the usual sense, genuinely absent whenever the dependency
+    // didn't hold. Creates its own row instead, same pattern already used
+    // by that other file's "Overdue Exception Reviews worklist" test.
+    await signInAs(page, 'TestUser.Approver')
+    const accountsResponse = await page.request.get('/api/account-progress')
+    const accounts = await accountsResponse.json()
+    const account = accounts.find(a => a.accountName === 'TestAccount03')
+    await page.goto('/exceptions/new')
+    await page.getByLabel('Account Key:').fill(String(account.accountKey))
+    await page.getByLabel('Justification:').fill(`E2E list-pages fixture ${Date.now()}`)
+    const reviewDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
+    await page.getByLabel('Review Date:').fill(reviewDate)
+    await page.getByRole('button', { name: 'Create Exception' }).click()
+    await expect(page.getByText('Status')).toBeVisible()
+
     await signInAs(page, 'TestUser.Viewer')
     await page.goto('/exceptions')
 
     await expect(page.getByRole('heading', { name: 'Risk Exceptions' })).toBeVisible()
     await expect(page.getByText(/^Could not load exceptions:/)).toHaveCount(0)
 
-    // Other tests in this suite (account-progress-and-risk-exceptions.spec.js)
-    // create real Active exceptions against the same BlueTrackTest database,
-    // so at least one Active row is expected here -- not asserting an exact
-    // count, matching the lesson already applied in permission-boundaries.spec.js.
     await page.getByLabel('Status:').selectOption('Active')
     await expect(page.getByText('Loading...')).toHaveCount(0)
     const activeRows = page.locator('tbody tr')
