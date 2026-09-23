@@ -75,8 +75,18 @@ DECLARE @TestSafeKey INT = (SELECT SafeKey FROM dim_safe WHERE SafeName = 'TestS
 DECLARE @TestPendingSafeKey INT = (SELECT SafeKey FROM dim_safe WHERE SafeName = 'TestSafe01_Pending');
 DECLARE @TestPlatformKey INT = (SELECT PlatformKey FROM dim_platform WHERE PlatformID = 'TestPlatform01');
 
-INSERT INTO fact_account (SourceSystemKey, SourceAccountId, AccountName, PlatformKey, SafeKey)
-SELECT x.SourceSystemKey, v.SourceAccountId, v.AccountName, @TestPlatformKey, v.SafeKey
+-- UserName intentionally matches AccountName here -- a real CyberArk-sourced
+-- account usually has a distinct UserName, but AccountProgressList.vue's
+-- linkable first column renders account.userName, not account.accountName
+-- (App/Api/Data/AccountProgressRepository.cs selects fa.UserName raw, no
+-- fallback), and this column was NULL for every synthetic account until
+-- found 2026-09-23: several Playwright E2E tests filter rows via
+-- `hasText: 'TestAccountNN'`, which can only ever match if that literal
+-- text is visible somewhere in the row -- with UserName null, it never was,
+-- so those locators always resolved to zero rows. Not a timing/flakiness
+-- issue at all, just missing seed data.
+INSERT INTO fact_account (SourceSystemKey, SourceAccountId, AccountName, UserName, PlatformKey, SafeKey)
+SELECT x.SourceSystemKey, v.SourceAccountId, v.AccountName, v.AccountName, @TestPlatformKey, v.SafeKey
 FROM (VALUES
     ('TestAccount01', 'TestAccount01', @TestSafeKey),
     ('TestAccount02', 'TestAccount02', @TestPendingSafeKey),

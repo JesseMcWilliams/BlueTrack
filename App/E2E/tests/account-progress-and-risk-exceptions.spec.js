@@ -70,33 +70,35 @@ test.describe('Account Progress list -- risk score override', () => {
   })
 
   test('Approver (who holds EditAccountProgress) can set then clear an override', async ({ page }) => {
+    // Found 2026-09-23: this test targeted an inline "Edit Override" button
+    // on the list row that no longer exists anywhere in the app -- override
+    // editing was refactored onto the account Detail page's own "Risk
+    // Score" tab as a direct always-editable field (AccountProgressDetail.vue's
+    // own comment: "Edit Override" (removed)) -- and the column index this
+    // test read from (`td.nth(6)`) was also stale against the list's
+    // current column order. Not a timing/environment issue at all; the
+    // test never matched the current UI. Rewritten against the real flow.
     await signInAs(page, 'TestUser.Approver')
-    await page.goto('/accounts')
+    const accountKey = await getTestAccountKey(page, 'TestAccount03')
+    await page.goto(`/accounts/${accountKey}`)
 
-    const row = page.locator('tbody tr', { hasText: 'TestAccount03' })
-    // The edit form renders as a sibling <tr>, not inside the data row --
-    // "the row currently holding the number input" uniquely identifies it
-    // since only one row's override can be open for edit at a time.
-    const editRow = page.locator('tbody tr').filter({ has: page.locator('input[type="number"]') })
-
-    await row.getByRole('button', { name: 'Edit Override' }).click()
+    await page.getByRole('tab', { name: 'Risk Score' }).click()
 
     // Setting a score with no Reason is rejected client-side before any request.
-    await editRow.locator('input[type="number"]').fill('750')
-    await editRow.locator('button:has-text("Save")').click()
-    await expect(editRow.getByText('A Reason is required when setting an override.')).toBeVisible()
+    await page.getByLabel('Override Score (0-1000, blank clears it):').fill('750')
+    await page.getByRole('button', { name: 'Save Override' }).click()
+    await expect(page.getByText('A Reason is required when setting an override.')).toBeVisible()
 
-    await editRow.locator('input[type="text"]').fill('Playwright E2E override')
-    await editRow.locator('button:has-text("Save")').click()
+    await page.getByLabel('Reason:').fill('Playwright E2E override')
+    await page.getByRole('button', { name: 'Save Override' }).click()
 
-    await expect(row.locator('td').nth(6)).toContainText('750')
+    await expect(page.locator('dl')).toContainText('750')
 
     // Clearing the override needs no Reason.
-    await row.getByRole('button', { name: 'Edit Override' }).click()
-    await editRow.locator('input[type="number"]').fill('')
-    await editRow.locator('button:has-text("Save")').click()
+    await page.getByLabel('Override Score (0-1000, blank clears it):').fill('')
+    await page.getByRole('button', { name: 'Save Override' }).click()
 
-    await expect(row.locator('td').nth(6)).not.toContainText('750')
+    await expect(page.locator('dl')).not.toContainText('750')
   })
 
   test('Viewer (who does not hold EditAccountProgress) sees no Edit Override button', async ({ page }) => {

@@ -187,33 +187,62 @@ app.UseHttpsRedirection();
 
 app.UseAuthentication();
 
+// app.UseSaml2() must run before the cookie-preference middleware below,
+// not after -- found 2026-09-23 (D-149): ITfoxtec's SAML middleware resets
+// context.User back to whatever UseAuthentication() originally produced
+// (Negotiate's WindowsIdentity, when present) on *every* request, not just
+// SAML-specific routes -- confirmed directly with a temporary debug header
+// showing context.User flip back to the NTLM identity immediately after
+// UseSaml2() ran, even though the middleware before it had just set it to
+// the cookie principal. Same class of "ITfoxtec.Identity.Saml2 has
+// surprising unconditional side effects on the auth pipeline" finding as
+// D-86 (which broke Windows Integrated auth outright the first time this
+// library was wired in) -- always regression-test Windows auth after
+// touching anything here.
+app.UseSaml2();
+
 // D-84: OIDC/SAML fallback -- Negotiate is still the app's actual default
 // scheme (AuthenticationExtensions.cs's own comment explains why a policy
-// scheme broke Kestrel's Negotiate integration when tried). For a request
-// Negotiate didn't authenticate, check for either cookie-based session
-// (OIDC's Cookies scheme, or SAML's own "saml2" scheme via ITfoxtec) and
-// adopt whichever one succeeds -- so [Authorize] downstream sees an
-// authenticated user without every controller needing to list every
-// scheme explicitly.
+// scheme broke Kestrel's Negotiate integration when tried). Check for an
+// explicit cookie-based session (OIDC's Cookies scheme, SAML's own "saml2"
+// scheme via ITfoxtec, or DevFakeAuth's dev-only test sign-in, which also
+// rides the Cookie scheme) and prefer it over whatever Negotiate already
+// authenticated -- so [Authorize] downstream sees an authenticated user
+// without every controller needing to list every scheme explicitly.
+//
+// D-149 (2026-09-23): this used to only check the cookie when Negotiate
+// had NOT already authenticated the request (`if (context.User.Identity
+// is not { IsAuthenticated: true })`). On a domain-joined machine talking
+// to a trusted-zone host (localhost included), the browser completes
+// Negotiate silently and automatically, so that guard was true almost
+// every time -- meaning an explicit sign-in via OIDC/SAML/DevFakeAuth's
+// test endpoint was silently overridden by whichever real Windows account
+// happened to be running the browser, every single request. Found via
+// Playwright E2E tests: every `signInAs(page, 'TestUser.Approver')`-style
+// call succeeded at the HTTP level, but the resulting session was actually
+// authenticated as the real local Windows account, not the intended
+// simulated role, explaining a whole class of role/permission-dependent
+// test failures that looked like environmental flakiness. Now the cookie
+// check always runs and wins when it succeeds -- Negotiate's identity is
+// only left in place when no cookie session exists at all, which is the
+// normal case for a real Windows-Integrated-Auth-only user and is
+// unaffected by this change. Must run after app.UseSaml2() above, not
+// before, or ITfoxtec's own reset (see that comment) undoes this again.
 app.Use(async (context, next) =>
 {
-    if (context.User.Identity is not { IsAuthenticated: true })
+    foreach (var scheme in new[] { CookieAuthenticationDefaults.AuthenticationScheme, Saml2Constants.AuthenticationScheme })
     {
-        foreach (var scheme in new[] { CookieAuthenticationDefaults.AuthenticationScheme, Saml2Constants.AuthenticationScheme })
+        var result = await context.AuthenticateAsync(scheme);
+        if (result.Succeeded && result.Principal is not null)
         {
-            var result = await context.AuthenticateAsync(scheme);
-            if (result.Succeeded && result.Principal is not null)
-            {
-                context.User = result.Principal;
-                break;
-            }
+            context.User = result.Principal;
+            break;
         }
     }
 
     await next(context);
 });
 
-app.UseSaml2();
 app.UseAuthorization();
 
 app.MapControllers();

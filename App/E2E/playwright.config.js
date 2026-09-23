@@ -26,9 +26,21 @@ export default defineConfig({
   // dev host (also this project's self-hosted CI runner -- D-88) collapse
   // under concurrent load, timing out even the trivial dev sign-in call
   // for most of the suite. 2 workers ran the full suite cleanly and
-  // repeatably; a higher CPU-count default is fine for a suite this size
-  // but not on this shared box.
-  workers: 2,
+  // repeatably at the time.
+  //
+  // **Reduced to 1, 2026-09-23 (D-150)**: the suite has grown to 57 tests
+  // since the original 25-test measurement above, and 2 workers had gone
+  // back to producing intermittent timeouts -- a different ~10-test subset
+  // failing each run, generic 30s "Test timeout exceeded" with no specific
+  // error, consistent with the same shared-box resource contention this
+  // comment already describes, not a code bug (see D-149, which fixed a
+  // real, separate, non-flaky auth bug found during the same
+  // investigation). Confirm serially reproducible failures still happen
+  // at workers: 1 before assuming this alone fixes it -- if so, the next
+  // step is profiling what's actually slow under load (SQL Server query
+  // contention vs. dotnet API cold paths vs. browser CPU starvation), not
+  // just capping workers further.
+  workers: 1,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   reporter: 'list',
