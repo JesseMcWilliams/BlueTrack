@@ -1,5 +1,15 @@
+:on error exit
 /* ============================================================================
    41_BlueTrack_GrantAppServiceAccountAccess.sql
+
+   D-167: the `:on error exit` line above is load-bearing, not decoration --
+   sqlcmd's own default behavior is to print an error and keep running the
+   REMAINING GO-separated batches anyway, meaning a missing-login failure
+   (see below) would print a clear error, then keep going, hit several more
+   confusing native SQL errors, and still print "...complete." at the very
+   end -- exactly what happened live the first time this script hit that
+   exact failure, making it easy to miss the real (first, actionable) error
+   under the noise and wrongly assume the run succeeded.
 
    NEVER run this through App/Migrator, for any environment -- always
    excluded (see App/Migrator/Program.cs). Unlike 00/14/38/40, this isn't a
@@ -56,6 +66,19 @@
    the default `ApplicationPoolIdentity` case, the deployment server's own
    computer account, `DOMAIN\HOSTNAME$`) before running this file.
    ============================================================================ */
+
+-- D-167: confirmed live that skipping the CREATE LOGIN prerequisite above
+-- doesn't fail loudly and obviously here -- re-running this script against
+-- an account with a database user but no server login can silently leave
+-- things in a broken, hard-to-diagnose state, still failing later with
+-- SQL Server's own generic "Login failed" / "Could not find a login
+-- matching the name provided" once the app actually tries to connect.
+-- Check for the prerequisite explicitly and fail loudly, here, instead.
+IF NOT EXISTS (SELECT 1 FROM sys.server_principals WHERE name = '__TARGET_ACCOUNT__')
+BEGIN
+    THROW 50000, 'No SQL Server login exists yet for __TARGET_ACCOUNT__. Run CREATE LOGIN [__TARGET_ACCOUNT__] FROM WINDOWS; first (see this script''s own header, prerequisite 1), then re-run this script.', 1;
+END
+GO
 
 IF NOT EXISTS (SELECT 1 FROM sys.database_principals WHERE name = '__TARGET_ACCOUNT__')
 BEGIN

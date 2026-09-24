@@ -21,6 +21,23 @@
   no code changes and no double prefix, so the real external API root
   becomes /BlueTrack/api/...
 
+  D-166: D-163 fixed the API's OWN server-side routing (verified via
+  direct curl/PowerShell requests), but never verified through an actual
+  browser, and the SPA's own frontend code (App/Web/src/**/*.vue) calls
+  fetch('/api/...') everywhere, matching the ORIGINAL contract Vite's own
+  dev-server proxy has always used and still uses today. Once deployed
+  behind IIS with the API now living at /BlueTrack/api/..., those
+  unmodified /api/... calls no longer match ANY nested Application, so
+  IIS's own SPA-fallback rule below caught them and served index.html,
+  and the browser's fetch() then failed trying to parse that HTML as JSON.
+  This rule bridges the gap transparently, server-side, before the SPA
+  fallback ever runs: any request under /api/ is silently rewritten,
+  not redirected (the browser's own URL/JS never see this happen), to
+  /BlueTrack/api/, which D-163's real nested Application then serves
+  correctly. This keeps the frontend build, the Vite dev proxy, and
+  App/E2E completely untouched and environment-agnostic, since none of
+  them need to know the IIS-specific nested Application's own name.
+
   Requires the IIS URL Rewrite Module (verified/installed by
   Deploy/Modules/BlueTrack.Prereqs.psm1 before this file is ever deployed).
 -->
@@ -28,6 +45,10 @@
   <system.webServer>
     <rewrite>
       <rules>
+        <rule name="BlueTrack API back-compat bridge (D-166)" stopProcessing="true">
+          <match url="^api/(.*)$" />
+          <action type="Rewrite" url="BlueTrack/api/{R:1}" />
+        </rule>
         <rule name="BlueTrack SPA fallback" stopProcessing="true">
           <match url=".*" />
           <conditions logicalGrouping="MatchAll">
