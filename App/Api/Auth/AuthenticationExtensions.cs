@@ -3,6 +3,7 @@ using Dapper;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.Negotiate;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
+using Microsoft.AspNetCore.Server.IIS;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Hosting;
 using Microsoft.IdentityModel.Protocols.OpenIdConnect;
@@ -86,6 +87,40 @@ public sealed record AuthenticationModeInfo(bool NegotiateDisabled);
 /// were accidentally set somewhere real -- the same defense-in-depth
 /// shape as DevTestAuthController's own code-level guard, not just a
 /// documented convention to be careful.
+///
+/// D-162 (2026-09-23): `.AddNegotiate()` cannot coexist with being hosted
+/// under IIS/ANCM at all -- confirmed directly on a real host, in-process
+/// and out-of-process, before and after a full iisreset. ASP.NET Core's
+/// own `NegotiateOptionsValidationStartupFilter` fails fast at startup
+/// whenever the server exposes `IServerIntegratedAuth` (which IIS/ANCM
+/// always does once hosted behind it, regardless of the IIS-level
+/// windowsAuthentication toggle -- that per-site setting only controls
+/// whether IIS's own native handshake actually succeeds, not whether the
+/// capability is reported at all). Every previous Windows-Integrated-Auth
+/// verification this session was via `dotnet run`/Kestrel directly, so
+/// this had never been exercised until the first real IIS deployment.
+/// IsIisHosted() detects ANCM hosting via the `ASPNETCORE_APPL_PATH`
+/// environment variable IIS sets for its child process in both hosting
+/// models (absent under Kestrel-direct/E2E, so this changes nothing
+/// there) -- checked *before* `services.AddAuthentication()` runs, since
+/// the crash is a startup-time fail-fast, not something that can be
+/// caught and worked around after the fact. When IIS-hosted, Negotiate
+/// is skipped entirely and `IISServerDefaults.AuthenticationScheme`
+/// ("Windows") is used as the primary scheme instead -- this needs no
+/// explicit `.AddScheme()` call, since IIS in-process hosting registers
+/// its own authentication handler automatically; it just needs to be
+/// named as the (default) scheme IIS's own Windows Authentication feature
+/// should defer its already-negotiated identity to.
+/// `NegotiateProviderResolver`'s `principal.Identity is WindowsIdentity`
+/// check needs no change either way: IIS's in-process auth handler
+/// builds its principal from the real `WindowsIdentity` it obtained from
+/// the native module's token, exactly like `.AddNegotiate()` does.
+/// `New-BlueTrackSite` (Deploy/Modules/BlueTrack.Iis.psm1) enables IIS's
+/// own windowsAuthentication (alongside anonymousAuthentication, so
+/// Cookie/OIDC/SAML/DevFakeAuth-only requests still reach the app) on the
+/// `/api` Application specifically -- without that, this scheme would
+/// silently authenticate nobody rather than crash, which is why both
+/// sides of this fix have to land together.
 /// </summary>
 public static class AuthenticationExtensions
 {
@@ -94,16 +129,48 @@ public static class AuthenticationExtensions
     public static bool IsNegotiateDisabled(IConfiguration configuration, IHostEnvironment environment) =>
         environment.IsDevelopment() && configuration.GetValue<bool>("BlueTrack:DisableNegotiate");
 
+    /// <summary>
+    /// True when this process was launched by IIS/ANCM's in-process hosting
+    /// model -- absent entirely when running via `dotnet run` (Kestrel-direct:
+    /// local dev, App/E2E) or under TestServer. `ASPNETCORE_IIS_HTTPAUTH` is
+    /// the specific variable ANCM sets to tell the in-process native module
+    /// which auth schemes IIS has configured for this Application (confirmed
+    /// directly on a real host: reads `anonymous;` here even with IIS's own
+    /// windowsAuthentication fully disabled) -- its mere presence is exactly
+    /// the signal that causes `IServerIntegratedAuth` to be populated, which
+    /// is what actually triggers the D-162 crash. (`ASPNETCORE_APPL_PATH`,
+    /// the more commonly-cited "am I behind ANCM" variable, is NOT set for
+    /// in-process hosting -- only out-of-process -- confirmed the hard way,
+    /// via a temporary diagnostic dump of every ASPNETCORE_*/IIS_* variable
+    /// actually present in the real worker process.)
+    /// </summary>
+    public static bool IsIisHosted() => !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("ASPNETCORE_IIS_HTTPAUTH"));
+
+    /// <summary>
+    /// The scheme name that provides "Windows Integrated" identity,
+    /// whichever underlying mechanism actually implements it for this
+    /// hosting context -- see the D-162 class comment above.
+    /// </summary>
+    public static string GetPrimaryAuthenticationScheme(IConfiguration configuration, IHostEnvironment environment)
+    {
+        if (IsNegotiateDisabled(configuration, environment))
+        {
+            return CookieAuthenticationDefaults.AuthenticationScheme;
+        }
+
+        return IsIisHosted() ? IISServerDefaults.AuthenticationScheme : NegotiateDefaults.AuthenticationScheme;
+    }
+
     public static IServiceCollection AddBlueTrackAuthentication(this IServiceCollection services, IConfiguration configuration, IHostEnvironment environment)
     {
         var oidcSettings = TryLoadOidcStartupSettings(configuration);
         var negotiateDisabled = IsNegotiateDisabled(configuration, environment);
-        var defaultScheme = negotiateDisabled ? CookieAuthenticationDefaults.AuthenticationScheme : NegotiateDefaults.AuthenticationScheme;
+        var defaultScheme = GetPrimaryAuthenticationScheme(configuration, environment);
 
         services.AddSingleton(new AuthenticationModeInfo(negotiateDisabled));
 
         var authBuilder = services.AddAuthentication(defaultScheme);
-        if (!negotiateDisabled)
+        if (!negotiateDisabled && !IsIisHosted())
         {
             authBuilder.AddNegotiate();
         }

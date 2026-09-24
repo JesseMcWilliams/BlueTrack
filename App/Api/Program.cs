@@ -129,17 +129,17 @@ builder.Services.AddSaml2(
 // Default(Challenge)Scheme to its own "saml2" cookie scheme, which broke
 // Windows Integrated auth entirely (a bare 401 with no WWW-Authenticate
 // header, instead of the Negotiate challenge round trip). Forcing it back
-// to Negotiate here, after AddSaml2(), restores the original default --
-// SAML/OIDC are only ever reached via an explicit Challenge(..., "OIDC")
-// or Saml2Controller's own redirect, never as the app's automatic default.
-// D-156: mirrors AddBlueTrackAuthentication's own IsNegotiateDisabled
-// check -- if Negotiate was never registered, forcing the default back to
-// it here would reference a scheme that doesn't exist and throw the first
-// time anything needed the default (an anonymous request, for instance).
-var negotiateDisabledForDefaultScheme = AuthenticationExtensions.IsNegotiateDisabled(builder.Configuration, builder.Environment);
-var postSamlDefaultScheme = negotiateDisabledForDefaultScheme
-    ? Microsoft.AspNetCore.Authentication.Cookies.CookieAuthenticationDefaults.AuthenticationScheme
-    : Microsoft.AspNetCore.Authentication.Negotiate.NegotiateDefaults.AuthenticationScheme;
+// to the primary scheme here, after AddSaml2(), restores the original
+// default -- SAML/OIDC are only ever reached via an explicit
+// Challenge(..., "OIDC") or Saml2Controller's own redirect, never as the
+// app's automatic default.
+// D-156/D-162: reuses AddBlueTrackAuthentication's own scheme-selection
+// logic (GetPrimaryAuthenticationScheme) rather than duplicating it, so
+// this can never drift out of sync with which scheme was actually
+// registered there -- referencing a scheme that was never registered
+// (Negotiate skipped for D-156 or D-162) would throw the first time
+// anything needed the default (an anonymous request, for instance).
+var postSamlDefaultScheme = AuthenticationExtensions.GetPrimaryAuthenticationScheme(builder.Configuration, builder.Environment);
 builder.Services.Configure<Microsoft.AspNetCore.Authentication.AuthenticationOptions>(options =>
 {
     options.DefaultScheme = postSamlDefaultScheme;

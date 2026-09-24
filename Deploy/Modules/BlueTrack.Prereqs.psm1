@@ -69,6 +69,23 @@ function Test-BlueTrackPrerequisite {
         Detail          = if ($iisInstalled) { 'Installed' } else { 'Web-Server Windows feature not installed' }
     }
 
+    # --- IIS Windows Authentication role service (D-162) --------------------
+    # BlueTrack.Api defers Windows Integrated Auth to IIS's own native
+    # handshake when IIS-hosted (AuthenticationExtensions.cs's
+    # IsIisHosted()/GetPrimaryAuthenticationScheme()) rather than running its
+    # own Negotiate handler, which cannot coexist with IIS/ANCM at all --
+    # this Windows feature is what actually lets an IIS site's
+    # windowsAuthentication setting be turned on.
+    $windowsAuthFeature = Get-WindowsFeature -Name Web-Windows-Auth -ErrorAction SilentlyContinue
+    $windowsAuthInstalled = [bool]($windowsAuthFeature -and $windowsAuthFeature.InstallState -eq 'Installed')
+    $results += [pscustomobject]@{
+        Name            = 'IIS Windows Authentication'
+        Installed       = $windowsAuthInstalled
+        Version         = $null
+        AutoInstallable = $true
+        Detail          = if ($windowsAuthInstalled) { 'Installed' } else { 'Web-Windows-Auth Windows feature not installed -- needed for BlueTrack.Api to defer Windows Integrated Auth to IIS when IIS-hosted (D-162)' }
+    }
+
     # --- ASP.NET Core Hosting Bundle (installs the ANCM IIS module) --------
     $ancmPath = Join-Path ${env:ProgramFiles} 'IIS\Asp.Net Core Module\V2\aspnetcorev2.dll'
     $ancmInstalled = Test-Path $ancmPath
@@ -151,6 +168,11 @@ function Install-BlueTrackPrerequisite {
             if ($PSCmdlet.ShouldProcess('Web-Server role + required sub-features', 'Install-WindowsFeature')) {
                 Install-WindowsFeature -Name Web-Server, Web-Static-Content, Web-Default-Doc, Web-Http-Errors, `
                     Web-Http-Redirect, Web-Http-Logging, Web-Request-Monitor, Web-Filtering, Web-Mgmt-Console -IncludeManagementTools
+            }
+        }
+        'IIS Windows Authentication' {
+            if ($PSCmdlet.ShouldProcess('Web-Windows-Auth role service', 'Install-WindowsFeature')) {
+                Install-WindowsFeature -Name Web-Windows-Auth
             }
         }
         'ASP.NET Core Hosting Bundle (ANCM)' {
