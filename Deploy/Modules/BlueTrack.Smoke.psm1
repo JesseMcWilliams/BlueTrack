@@ -8,8 +8,8 @@ Set-StrictMode -Version Latest
 function Test-BlueTrackDeployment {
     <#
     .SYNOPSIS
-        Calls GET /api/admin/deployment under the caller's own Windows identity
-        (Negotiate) and reports each returned health check.
+        Calls GET /BlueTrack/api/admin/deployment under the caller's own
+        Windows identity (Negotiate) and reports each returned health check.
     .DESCRIPTION
         This endpoint is gated by the ViewDeploymentInfo permission, not
         anonymous (confirmed in App/Api/Controllers/DeploymentController.cs) --
@@ -27,7 +27,7 @@ function Test-BlueTrackDeployment {
         [int]$TimeoutSeconds = 30
     )
 
-    $endpoint = "$($SiteUrl.TrimEnd('/'))/api/admin/deployment"
+    $endpoint = "$($SiteUrl.TrimEnd('/'))/BlueTrack/api/admin/deployment"
     Write-Host "Smoke test: GET $endpoint (Windows-integrated auth, current identity)..."
 
     try {
