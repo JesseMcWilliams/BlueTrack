@@ -3,15 +3,20 @@
 Every script below is run through DbUp by `App/Migrator` (see its own
 top-of-file comment) **except** `00_BlueTrack_CreateDatabase.sql`,
 `14_BlueTrack_ScheduleImportLoadJob.sql`,
-`38_BlueTrack_GrantBackupStatusReaderRole.sql`, and
-`40_BlueTrack_ScheduleAuditLogPurgeJob.sql`, which Migrator always
-excludes regardless of any skip-list argument -- all for structural
-reasons, not convenience (00 must `USE master`, DbUp cannot; 14, 38, and 40
-must `USE msdb`, and DbUp's own post-script journal write then fails
-against the wrong database -- see each script's own header and
-`App/Migrator/Program.cs`). `39` (the purge procedure itself) is a normal
-DbUp-managed script -- only `40` (the job that schedules it) needs the
-manual/sqlcmd treatment.
+`38_BlueTrack_GrantBackupStatusReaderRole.sql`,
+`40_BlueTrack_ScheduleAuditLogPurgeJob.sql`, and
+`41_BlueTrack_GrantAppServiceAccountAccess.sql`, which Migrator always
+excludes regardless of any skip-list argument. `00`, `14`, `38`, and `40`
+are excluded for structural reasons (00 must `USE master`, DbUp cannot;
+14, 38, and 40 must `USE msdb`, and DbUp's own post-script journal write
+then fails against the wrong database -- see each script's own header
+and `App/Migrator/Program.cs`). `39` (the purge procedure itself) is a
+normal DbUp-managed script -- only `40` (the job that schedules it) needs
+the manual/sqlcmd treatment. `41` is excluded for a different reason --
+not structural, but because granting a real service account real database
+permissions is a deliberate, DBA-run-and-reviewed action (same treatment
+as `38`'s msdb grant, D-107), and its account-name placeholder would
+hard-fail if ever run unedited through an automated sequence.
 Every DbUp-managed script uses DbUp's `$DatabaseName$` substitution token
 for the target database name (never a hardcoded literal, per D-89) -- the
 name comes from whatever `Initial Catalog` the caller's connection string
@@ -75,6 +80,7 @@ after `14`, never edits to an existing file in this list.
 | 38 | `38_BlueTrack_GrantBackupStatusReaderRole.sql` | D-107's `db_backupstatus_reader` msdb role/grants, finally turned into a runnable file. Runs against `msdb`, not the target database. **Never run through `App/Migrator`, for any environment** -- always excluded (see above); run it manually via `sqlcmd`, or generate a filled-in copy from the Group / Role Mapping admin page's "Generate db_backupstatus_reader Script" button. Numbered 38, not 32, for the same reason as 37 above. |
 | 39 | `39_BlueTrack_AuditLogPurgeProcedure.sql` | D-62's `usp_PurgeAuditLog`, designed 2026-08-27 alongside `web.audit_purge_log` (`08`) but never actually written until now -- deletes `audit_field_change`/`audit_event` rows older than `web.audit_config.RetentionDays`, no-ops with a logged `'Skipped'` row if `RetentionDays` is still `NULL`. A normal DbUp-managed script (plain stored procedure in the target database). |
 | 40 | `40_BlueTrack_ScheduleAuditLogPurgeJob.sql` | Creates the nightly Audit Log Purge SQL Agent job (3:00 AM, one hour after the Import+Load job) calling `usp_PurgeAuditLog`. Runs against `msdb`, not the target database. **Never run through `App/Migrator`, for any environment** -- always excluded (see above); run it manually via `sqlcmd -S <server> -C -v DatabaseName="BlueTrack" -i 40_BlueTrack_ScheduleAuditLogPurgeJob.sql`. Installing this job doesn't itself enable purging -- `RetentionDays` still needs a real value set on Global Application Configuration first. |
+| 41 | `41_BlueTrack_GrantAppServiceAccountAccess.sql` | D-30's "least privilege, not `db_owner`" principle, finally turned into an actual grant: `db_datareader` + `db_datawriter` + `EXECUTE` on `dbo`/`web` for the app's own SQL Server service account (confirmed live, D-164: an IIS App Pool's `ApplicationPoolIdentity` authenticates to SQL Server over the network as the computer account, `DOMAIN\HOSTNAME$`, not as the App Pool identity itself). Runs against the target database itself, not `msdb` -- **still never run through `App/Migrator`**, since granting a real account real permissions is a deliberate, DBA-run-and-reviewed action (same treatment as `38`), and its `__TARGET_ACCOUNT__` placeholder would hard-fail if ever run unedited; run it manually via `sqlcmd -S <server> -C -d BlueTrack -i 41_BlueTrack_GrantAppServiceAccountAccess.sql` after substituting the real account. |
 
 `Test/` holds test-only fixtures (`01_BlueTrack_Test_DevFakeAuthMatrixSeed.sql`,
 `02_BlueTrack_Test_SyntheticAccountData.sql`) -- never run against a real

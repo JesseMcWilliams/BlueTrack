@@ -54,6 +54,15 @@ using Microsoft.Data.SqlClient;
 // database, not msdb, and runs through this tool normally -- only the
 // job *scheduling* script needs the sqlcmd/manual-run treatment.
 //
+// 41_BlueTrack_GrantAppServiceAccountAccess.sql is excluded for a
+// DIFFERENT reason -- not structural (it never leaves the target
+// database, so DbUp's journal write would succeed fine). Its
+// __TARGET_ACCOUNT__ placeholder would hard-fail CREATE USER outright if
+// ever run unedited, and granting a real service account real database
+// permissions is treated the same deliberate, DBA-run-and-reviewed way
+// 38's msdb grant already is (D-107), not something that should happen
+// silently as one step of an unattended migration run.
+//
 // The target database name is parsed out of <connectionString>'s own
 // Database/Initial Catalog and is the ONLY source of truth for which
 // database the scripts touch -- it's passed into every script as DbUp's
@@ -152,6 +161,7 @@ var alwaysExcludedScriptNames = new HashSet<string>(StringComparer.OrdinalIgnore
     "14_BlueTrack_ScheduleImportLoadJob.sql",
     "38_BlueTrack_GrantBackupStatusReaderRole.sql",
     "40_BlueTrack_ScheduleAuditLogPurgeJob.sql",
+    "41_BlueTrack_GrantAppServiceAccountAccess.sql",
 };
 
 var upgrader = DeployChanges.To
