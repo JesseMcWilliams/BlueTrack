@@ -1,7 +1,7 @@
 #Requires -Modules WebAdministration
 <#
 .SYNOPSIS
-    Creates the IIS Application Pool, Site, and nested /api Application
+    Creates the IIS Application Pool, Site, and nested /BlueTrack Application
     BlueTrack needs -- the piece Design_Deployment_Methodology.md flagged as
     not yet built anywhere in the repo. Every step here is idempotent
     (check-then-create); pass -Force to remove and recreate something that
@@ -74,7 +74,7 @@ function New-BlueTrackSite {
     <#
     .SYNOPSIS
         Creates the IIS site (physical root = the built SPA), its bindings,
-        and the nested /api Application pointing at the published API output.
+        and the nested /BlueTrack Application pointing at the published API output.
     #>
     [CmdletBinding(SupportsShouldProcess)]
     param(
@@ -92,7 +92,7 @@ function New-BlueTrackSite {
     $existingSite = Get-Website -Name $SiteName -ErrorAction SilentlyContinue
     if ($existingSite) {
         if (-not $Force) {
-            Write-Host "Site '$SiteName' already exists -- leaving it alone (pass -Force to recreate). Only the nested /api Application and web.config will be (re)checked."
+            Write-Host "Site '$SiteName' already exists -- leaving it alone (pass -Force to recreate). Only the nested /BlueTrack Application and web.config will be (re)checked."
         } else {
             if ($PSCmdlet.ShouldProcess($SiteName, 'Remove existing site')) {
                 Remove-Website -Name $SiteName
@@ -114,19 +114,24 @@ function New-BlueTrackSite {
         }
     }
 
-    $existingApiApp = Get-WebApplication -Site $SiteName -Name 'api' -ErrorAction SilentlyContinue
+    # D-163: named "BlueTrack", not "api" -- see the matching comment in
+    # Deploy/Templates/site-web.config.template for why. The real external
+    # API root ends up being /BlueTrack/api/... (the "api" segment comes
+    # from the controllers' own route templates, not from this Application's
+    # name), not the /BlueTrack/api/api/... a name of "api" would require.
+    $existingApiApp = Get-WebApplication -Site $SiteName -Name 'BlueTrack' -ErrorAction SilentlyContinue
     if ($existingApiApp -and -not $Force) {
-        Write-Host "Application '/api' under site '$SiteName' already exists -- leaving it alone (pass -Force to recreate)."
+        Write-Host "Application '/BlueTrack' under site '$SiteName' already exists -- leaving it alone (pass -Force to recreate)."
     } else {
-        if ($existingApiApp -and $PSCmdlet.ShouldProcess("$SiteName/api", 'Remove existing Application')) {
-            Remove-WebApplication -Site $SiteName -Name 'api'
+        if ($existingApiApp -and $PSCmdlet.ShouldProcess("$SiteName/BlueTrack", 'Remove existing Application')) {
+            Remove-WebApplication -Site $SiteName -Name 'BlueTrack'
         }
-        if ($PSCmdlet.ShouldProcess("$SiteName/api", "Create Application at $ApiPhysicalPath")) {
-            New-WebApplication -Site $SiteName -Name 'api' -PhysicalPath $ApiPhysicalPath -ApplicationPool $AppPoolName | Out-Null
+        if ($PSCmdlet.ShouldProcess("$SiteName/BlueTrack", "Create Application at $ApiPhysicalPath")) {
+            New-WebApplication -Site $SiteName -Name 'BlueTrack' -PhysicalPath $ApiPhysicalPath -ApplicationPool $AppPoolName | Out-Null
         }
     }
-    # Note: the /api Application's own web.config (ANCM registration) is
-    # generated automatically by `dotnet publish` into $ApiPhysicalPath --
+    # Note: the /BlueTrack Application's own web.config (ANCM registration)
+    # is generated automatically by `dotnet publish` into $ApiPhysicalPath --
     # nothing to author here.
 
     # D-162: BlueTrack.Api defers Windows Integrated Auth to IIS's own
@@ -140,7 +145,7 @@ function New-BlueTrackSite {
     # even reach the app; ASP.NET Core's own [Authorize] enforcement
     # downstream still gates unauthenticated requests exactly as it does
     # for a self-hosted deployment.
-    if ($PSCmdlet.ShouldProcess("$SiteName/api", 'Enable IIS Windows Authentication (with Anonymous also enabled)')) {
+    if ($PSCmdlet.ShouldProcess("$SiteName/BlueTrack", 'Enable IIS Windows Authentication (with Anonymous also enabled)')) {
         # These two sections are locked (overrideModeDefault="Deny") on a
         # stock IIS install -- confirmed directly on a real host, where
         # Set-WebConfigurationProperty against either one failed with
@@ -152,8 +157,8 @@ function New-BlueTrackSite {
         & "$env:windir\system32\inetsrv\appcmd.exe" unlock config -section:system.webServer/security/authentication/windowsAuthentication | Out-Host
         & "$env:windir\system32\inetsrv\appcmd.exe" unlock config -section:system.webServer/security/authentication/anonymousAuthentication | Out-Host
 
-        Set-WebConfigurationProperty -Filter '/system.webServer/security/authentication/windowsAuthentication' -PSPath "IIS:\Sites\$SiteName\api" -Name Enabled -Value $true
-        Set-WebConfigurationProperty -Filter '/system.webServer/security/authentication/anonymousAuthentication' -PSPath "IIS:\Sites\$SiteName\api" -Name Enabled -Value $true
+        Set-WebConfigurationProperty -Filter '/system.webServer/security/authentication/windowsAuthentication' -PSPath "IIS:\Sites\$SiteName\BlueTrack" -Name Enabled -Value $true
+        Set-WebConfigurationProperty -Filter '/system.webServer/security/authentication/anonymousAuthentication' -PSPath "IIS:\Sites\$SiteName\BlueTrack" -Name Enabled -Value $true
     }
 }
 

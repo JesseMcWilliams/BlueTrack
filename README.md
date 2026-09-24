@@ -71,7 +71,7 @@ cd App/E2E && npm test      # Playwright — real browser against the built SPA 
 
 ## Deployment & operation overview
 
-BlueTrack targets a deliberately simple, **single-server topology**: SQL Server and IIS co-located on the same Windows box, for every environment (Dev/Test/Staging/Prod) — no web farm, no load balancer. The built SPA (`App/Web/dist/`) is served as static files at the IIS site root; the API runs as a nested IIS Application at `/api` via the ASP.NET Core Module, in-process. The app assumes a domain-joined server for its default Windows Integrated auth path; SAML/OIDC/DevFakeAuth exist for environments where that doesn't hold.
+BlueTrack targets a deliberately simple, **single-server topology**: SQL Server and IIS co-located on the same Windows box, for every environment (Dev/Test/Staging/Prod) — no web farm, no load balancer. The built SPA (`App/Web/dist/`) is served as static files at the IIS site root; the API runs as a nested IIS Application at `/BlueTrack` via the ASP.NET Core Module, in-process (named `BlueTrack`, not `api`, since the controllers' own routes already start with a literal `api/` segment — D-163). The app assumes a domain-joined server for its default Windows Integrated auth path; SAML/OIDC/DevFakeAuth exist for environments where that doesn't hold.
 
 Operationally:
 - A **nightly SQL Server Agent job** (installed once via `Database/14_BlueTrack_ScheduleImportLoadJob.sql`, run by hand — never through the Migrator) imports the latest CyberArk exports and re-runs the full transform/load, including risk-score recalculation for anything marked stale.
