@@ -49,6 +49,7 @@ param(
 
     # --- IIS ---
     [string]$SiteName = 'BlueTrack',
+    [string]$ApiInstallPath,
     [string]$Hostname,
     [int]$HttpPort = 80,
     [int]$HttpsPort = 443,
@@ -190,7 +191,14 @@ try {
 
     #region Phase: Build
     Write-Host "`n=== Phase: Build ===" -ForegroundColor Cyan
-    $publishDir = Join-Path $env:TEMP "BlueTrack-publish-$Environment"
+    # Deliberately NOT $env:TEMP: that folder's ACLs are scoped to the user
+    # running this script (plus SYSTEM/Administrators) and exclude the IIS
+    # App Pool identity, and it's ephemeral (can be cleared any time) -- both
+    # wrong for a directory IIS points a running Application at permanently.
+    if (-not $ApiInstallPath) {
+        $ApiInstallPath = Join-Path $env:SystemDrive "inetpub\BlueTrack\$Environment\api"
+    }
+    $publishDir = $ApiInstallPath
     Publish-BlueTrackApi -RepoRoot $RepoRoot -OutputDirectory $publishDir
     $spaDist = Invoke-BlueTrackWebBuild -RepoRoot $RepoRoot
     #endregion
@@ -286,5 +294,3 @@ try {
     Stop-Transcript | Out-Null
     exit 1
 }
-
-Stop-Transcript | Out-Null
