@@ -6,10 +6,10 @@ This exists because, before it, there was no automated deployment path at all �
 
 ## What it does
 
-1. **Prerequisites** — checks for the .NET 10 SDK, Node.js, the IIS role, the ASP.NET Core Hosting Bundle, and the IIS URL Rewrite Module; offers to install any that are missing.
+1. **Prerequisites** — checks for the .NET 10 SDK, Node.js, the IIS role, the IIS Windows Authentication role service, the ASP.NET Core Hosting Bundle, and the IIS URL Rewrite Module; offers to install any that are missing.
 2. **Build** — `dotnet publish` (API) and `npm run build` (SPA) from source. The API publishes to `C:\inetpub\BlueTrack\<Environment>\api` by default (override with `-ApiInstallPath`) — deliberately not a temp folder, since IIS's Application Pool identity needs durable read access to whatever directory it's pointed at, and `%TEMP%` is both ephemeral and scoped to the account that ran this script.
 3. **Database** — confirms SQL Server is reachable; if the target database already exists with a schema (an upgrade, not a fresh install), takes a pre-deployment backup first (see "Rollback" below); runs `App/Migrator` against `Database` (and optionally `Database/Test`); writes an environment-specific `appsettings.{Environment}.json` next to the published API; and optionally installs the nightly Import+Load SQL Agent job.
-4. **IIS** — creates the Application Pool, the site (physical root = the built SPA), the nested `/api` Application (physical root = the published API), the HTTPS binding/certificate, and the site-root `web.config` (the SPA client-side-routing fallback rule).
+4. **IIS** — creates the Application Pool, the site (physical root = the built SPA), the nested `/api` Application (physical root = the published API), the HTTPS binding/certificate, and the site-root `web.config` (the SPA client-side-routing fallback rule). Also enables IIS's own Windows Authentication (alongside Anonymous) on the `/api` Application — BlueTrack.Api defers Windows Integrated Auth to IIS's native handshake when IIS-hosted rather than running its own Negotiate handler, which cannot coexist with IIS/ANCM at all (D-162).
 5. **Smoke test** — calls the Deployment Info health-check endpoint and reports the result.
 
 ## Rollback

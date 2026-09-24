@@ -128,6 +128,33 @@ function New-BlueTrackSite {
     # Note: the /api Application's own web.config (ANCM registration) is
     # generated automatically by `dotnet publish` into $ApiPhysicalPath --
     # nothing to author here.
+
+    # D-162: BlueTrack.Api defers Windows Integrated Auth to IIS's own
+    # native handshake when IIS-hosted (AuthenticationExtensions.cs's
+    # IsIisHosted()/GetPrimaryAuthenticationScheme()) rather than running
+    # its own Negotiate handler, which cannot coexist with IIS/ANCM at
+    # all. Both windowsAuthentication AND anonymousAuthentication stay
+    # enabled together (not windowsAuthentication alone) so the app's own
+    # Cookie/OIDC/SAML/DevFakeAuth-authenticated requests -- which never
+    # present Windows credentials -- aren't rejected by IIS before they
+    # even reach the app; ASP.NET Core's own [Authorize] enforcement
+    # downstream still gates unauthenticated requests exactly as it does
+    # for a self-hosted deployment.
+    if ($PSCmdlet.ShouldProcess("$SiteName/api", 'Enable IIS Windows Authentication (with Anonymous also enabled)')) {
+        # These two sections are locked (overrideModeDefault="Deny") on a
+        # stock IIS install -- confirmed directly on a real host, where
+        # Set-WebConfigurationProperty against either one failed with
+        # "This configuration section cannot be used at this path" until
+        # unlocked. Unlocking is a one-time, server-wide, idempotent action
+        # (safe to repeat every run) that only WIDENS what any site is
+        # *allowed* to configure -- it doesn't change any existing site's
+        # actual auth behavior on its own.
+        & "$env:windir\system32\inetsrv\appcmd.exe" unlock config -section:system.webServer/security/authentication/windowsAuthentication | Out-Host
+        & "$env:windir\system32\inetsrv\appcmd.exe" unlock config -section:system.webServer/security/authentication/anonymousAuthentication | Out-Host
+
+        Set-WebConfigurationProperty -Filter '/system.webServer/security/authentication/windowsAuthentication' -PSPath "IIS:\Sites\$SiteName\api" -Name Enabled -Value $true
+        Set-WebConfigurationProperty -Filter '/system.webServer/security/authentication/anonymousAuthentication' -PSPath "IIS:\Sites\$SiteName\api" -Name Enabled -Value $true
+    }
 }
 
 function Set-BlueTrackSiteWebConfig {
