@@ -24,7 +24,10 @@ function Publish-BlueTrackApi {
     }
 
     if ($PSCmdlet.ShouldProcess($apiProject, "dotnet publish -c Release -o $OutputDirectory")) {
-        & dotnet publish $apiProject -c Release -o $OutputDirectory
+        # Piped through Out-Host -- see the matching comment in
+        # Invoke-BlueTrackWebBuild below; this function also returns a typed
+        # value ($OutputDirectory) that a future caller could capture.
+        & dotnet publish $apiProject -c Release -o $OutputDirectory | Out-Host
         if ($LASTEXITCODE -ne 0) {
             throw "dotnet publish failed for App/Api (exit code $LASTEXITCODE) -- see the output above for the actual build error."
         }
@@ -53,13 +56,19 @@ function Invoke-BlueTrackWebBuild {
     Push-Location $webProject
     try {
         if ($PSCmdlet.ShouldProcess($webProject, 'npm ci')) {
-            & npm ci
+            # Piped through Out-Host, not left as pipeline output: this
+            # function's caller assigns its return value ($spaDist = ...),
+            # and without this, npm's own console output would be captured
+            # into that assignment alongside the path this function returns,
+            # turning $spaDist into a multi-element array instead of a
+            # single string -- exactly the bug that shipped once already.
+            & npm ci | Out-Host
             if ($LASTEXITCODE -ne 0) {
                 throw "npm ci failed in App/Web (exit code $LASTEXITCODE)."
             }
         }
         if ($PSCmdlet.ShouldProcess($webProject, 'npm run build')) {
-            & npm run build
+            & npm run build | Out-Host
             if ($LASTEXITCODE -ne 0) {
                 throw "npm run build failed in App/Web (exit code $LASTEXITCODE) -- see the output above for the actual build error."
             }

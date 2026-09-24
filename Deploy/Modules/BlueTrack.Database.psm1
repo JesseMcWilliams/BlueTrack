@@ -88,7 +88,10 @@ function Invoke-BlueTrackMigrator {
     }
 
     if ($PSCmdlet.ShouldProcess($scriptsPath, "App/Migrator against $ScriptsFolder")) {
-        & dotnet run --project $migratorProject --configuration Release --no-build -- $ConnectionString $scriptsPath
+        # Piped through Out-Host so this function's console output can never
+        # leak into a caller's return-value capture -- see BlueTrack.Build.psm1's
+        # Invoke-BlueTrackWebBuild for the real bug this defends against.
+        & dotnet run --project $migratorProject --configuration Release --no-build -- $ConnectionString $scriptsPath | Out-Host
         if ($LASTEXITCODE -ne 0) {
             throw "App/Migrator failed applying '$ScriptsFolder' (exit code $LASTEXITCODE) -- see the console output above for which script failed."
         }
@@ -182,7 +185,7 @@ function Install-BlueTrackNightlyJob {
     try {
         Write-Host "Generated a temp copy of the nightly job script with:`n  Export folder: $normalizedFolder`n  EVD database:  $EvdDatabaseName`n(the tracked repo file was not modified)"
         if ($PSCmdlet.ShouldProcess("$SqlServerInstance / $DatabaseName", 'Install nightly Import+Load SQL Agent job via sqlcmd')) {
-            & sqlcmd -S $SqlServerInstance -C -v DatabaseName="$DatabaseName" -i $tempScript
+            & sqlcmd -S $SqlServerInstance -C -v DatabaseName="$DatabaseName" -i $tempScript | Out-Host
             if ($LASTEXITCODE -ne 0) {
                 throw "sqlcmd failed installing the nightly job (exit code $LASTEXITCODE)."
             }
