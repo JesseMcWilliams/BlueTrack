@@ -64,6 +64,20 @@ sqlcmd -S <server> -C -i Grant-db_backupstatus_reader-<account>.sql
 1. **A SQL Server login on this instance.** If it doesn't exist yet, create one (for a Windows/AD account): `CREATE LOGIN [DOMAIN\AccountName] FROM WINDOWS;` — note this needs `DOMAIN\AccountName` form, not a UPN (`account@domain.com`); if you only have the UPN, resolve it first (e.g. `([System.Security.Principal.NTAccount]'account@domain.com').Translate([System.Security.Principal.NTAccount])` in PowerShell, or ask whoever manages AD).
 2. **A database user for that login, in `msdb` specifically.** `ALTER ROLE ADD MEMBER` operates on database principals, and SQL Server does **not** automatically create a database user for a login — a login alone isn't enough, even though it looks like it should be. If `ALTER ROLE` fails with `"...because it does not exist or you do not have permission"` and the login genuinely exists, this is almost certainly why: `USE msdb; CREATE USER [DOMAIN\AccountName] FOR LOGIN [DOMAIN\AccountName];` first, then retry `ALTER ROLE ADD MEMBER`.
 
+## Granting the app's own SQL Server access
+
+D-30's own design principle ("Windows Integrated Authentication to SQL Server — no SQL login, no standing secret") was never turned into an actual scripted grant until `Database/41_BlueTrack_GrantAppServiceAccountAccess.sql` (D-164). It grants `db_datareader` + `db_datawriter` + `EXECUTE` on `dbo`/`web` — least-privilege, not `db_owner` — to whichever account the app connects as.
+
+**Never run this through `App/Migrator`** — same reasoning as `db_backupstatus_reader` above: granting a real account real permissions is a deliberate, DBA-run action, and its `__TARGET_ACCOUNT__` placeholder would hard-fail if ever run unedited.
+
+```
+sqlcmd -S <server> -C -d BlueTrack -i 41_BlueTrack_GrantAppServiceAccountAccess.sql
+```
+
+**Which account to grant it to, confirmed directly on a real host**: an IIS App Pool using the default `ApplicationPoolIdentity` authenticates to SQL Server over the network as the *computer account* (`DOMAIN\HOSTNAME$`), not as the App Pool identity itself — confirmed via a live `SqlException` ("Login failed for user 'DOMAIN\HOSTNAME$'") with no login for that account yet. The same two prerequisites as `db_backupstatus_reader` above apply (a real SQL Server login, then a database user for it — this script's own guarded `CREATE USER` step handles the second one for you).
+
+**A real, unresolved gap found the same day, not yet root-caused**: on this same host, granting the computer account's login the permissions above still left every DB-touching endpoint failing with `Login failed for user 'DOMAIN\HOSTNAME$'. Reason: Could not find a login matching the name provided.` — despite the login existing, not being disabled, and its SID matching the account's real SID exactly (confirmed three independent ways: `sys.server_principals`, a direct `.NET SecurityIdentifier` resolution, and a fresh `DROP`/`CREATE LOGIN ... FROM WINDOWS`, all agreeing). Toggling the App Pool's `loadUserProfile` to `true` (a commonly-cited fix for ApplicationPoolIdentity's network-authentication limitations) didn't change the result either. This matches a known, general limitation of `ApplicationPoolIdentity`: Microsoft's own guidance is that it's not fully reliable for outbound Windows-authenticated connections to remote services like SQL Server. **Not yet resolved** — the standard fix is a dedicated domain service account (or gMSA) as the App Pool identity instead of `ApplicationPoolIdentity`, which is a real configuration decision for whoever administers this environment, not something to guess at further here.
+
 ## Segregation of Duties toggle — nothing for a DBA to do
 
 Unlike the two features above, `EnforceRiskExceptionSegregationOfDuties` (Global Application Configuration) is a plain application setting, defaulting off — no schema grant, no manual script, no `msdb` permission involved. An application admin turns it on or off directly in the UI; see `User_Guide.md`.
