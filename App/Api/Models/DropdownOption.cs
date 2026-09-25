@@ -1,6 +1,6 @@
 namespace BlueTrack.Api.Models;
 
-/// <summary>One option for a field-metadata-driven Dropdown field (Design_Interface_Extensibility.md).</summary>
+/// <summary>One option for a field-metadata-driven Dropdown field (Design_Interface-Extensibility.md).</summary>
 public sealed class DropdownOption
 {
     public int Key { get; init; }

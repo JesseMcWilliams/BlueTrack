@@ -30,7 +30,7 @@
   </ItemGroup>
 
   <!--
-    CyberArk CP integration (D-32/D-38/D-40, Design_Secrets_Storage.md).
+    CyberArk CP integration (D-32/D-38/D-40, Design_Secrets-Storage.md).
     Referenced directly from the Credential Provider's local install rather
     than a NuGet package or a copy checked into this repo: CyberArk
     doesn't publish this SDK to NuGet, and committing a vendor binary into

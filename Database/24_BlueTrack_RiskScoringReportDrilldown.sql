@@ -4,7 +4,7 @@
    RUN THIS AFTER 01-23. Safe to re-run (CREATE OR ALTER -- pure logic, no
    data of its own).
 
-   Design_Risk_Scoring.md, D-101-105, D-119 Phase E: the new Risk Score
+   Design_Risk-Scoring.md, D-101-105, D-119 Phase E: the new Risk Score
    report's drill-down needs to show which real Targets/Access Groups are
    contributing to an Account's score, not just the bare numeric values
    web.ufn_ReachableRiskValues (23_BlueTrack_RiskScoringCalculation.sql)

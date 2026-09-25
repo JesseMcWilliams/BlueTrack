@@ -2,7 +2,7 @@
 // Calls GET /api/risk-exceptions/overdue-review (RiskExceptionsController)
 // -- Active exceptions past ReviewDate (D-19). Distinct from the Reports
 // area's Overdue/At-Risk Worklist, which is about account progress, not
-// exceptions (Design_Application_Structure.md's own note on this).
+// exceptions (Design_Application-Structure.md's own note on this).
 import { ref, onMounted } from 'vue'
 import { formatDate } from '../utils/formatDate'
 

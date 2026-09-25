@@ -7,7 +7,7 @@ namespace BlueTrack.Api.Tests.Contract;
 /// <summary>
 /// Layer 3: the login-flow endpoints that don't need a real external IdP
 /// to exercise -- OIDC/SAML with real metadata stay manually verified per
-/// Design_Testing_Strategy.md's own "Explicitly not automated" section.
+/// Design_Testing-Strategy.md's own "Explicitly not automated" section.
 /// </summary>
 public class AuthControllerTests : IClassFixture<BlueTrackWebApplicationFactory>
 {

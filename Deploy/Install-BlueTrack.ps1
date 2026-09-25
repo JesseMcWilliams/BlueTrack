@@ -213,7 +213,7 @@ try {
     }
     Write-Host 'SQL Server connectivity confirmed.'
 
-    # Rollback mechanism (Design_Deployment_Methodology.md, Option B):
+    # Rollback mechanism (Design_Deployment-Methodology.md, Option B):
     # back up before migrating, but only when there's something to lose --
     # a genuinely fresh/empty database has no existing schema/data worth a
     # rollback point for.
@@ -279,7 +279,7 @@ try {
     if (-not $SkipSmokeTest) {
         Write-Host "Smoke test:        $(if ($smokeTestPassed) { 'passed' } else { 'did not confirm healthy -- check the Deployment Info admin page manually' })"
     }
-    Write-Host "`nManual follow-ups this script deliberately does NOT do (see Guides/Admin_DeploymentRunbook.md):"
+    Write-Host "`nManual follow-ups this script deliberately does NOT do (see User_Docs/Admin_DeploymentRunbook.md):"
     Write-Host '  - Replace the bootstrap BUILTIN\Administrators admin mapping with a real AD/Entra group.'
     Write-Host '  - Configure a real identity provider (SAML/OIDC) if not using Windows Integrated auth.'
     Write-Host '  - Cut over the Secrets Store backend from Windows DPAPI if a different backend is intended.'

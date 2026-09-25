@@ -1,6 +1,6 @@
 name: CI
 
-# Design_Testing_Strategy.md's own "What CI needs, mechanically" section,
+# Design_Testing-Strategy.md's own "What CI needs, mechanically" section,
 # run on the self-hosted runner registered on this dev host (D-58's
 # drop-and-recreate philosophy, restated there: BlueTrackTest is rebuilt
 # fresh every run, never reused).
@@ -10,7 +10,7 @@ name: CI
 # (self-hosted, Windows, X64). If this runner was registered with a
 # different/additional label, update `runs-on` to match.
 #
-# CI gating (Design_Testing_Strategy.md's Open Questions #3) is NOT decided
+# CI gating (Design_Testing-Strategy.md's Open Questions #3) is NOT decided
 # yet -- this workflow runs on push/pull_request so results are visible,
 # but nothing here makes it a required check. That's a separate, explicit
 # branch-protection setting for whoever owns that decision.
@@ -67,7 +67,7 @@ jobs:
           dotnet run --project App/Migrator --configuration Release --no-build --
           "${{ env.BLUETRACK_TEST_CONNECTION }}" "Database/Test"
 
-      # Layers 1-3 (Design_Testing_Strategy.md): API unit, integration
+      # Layers 1-3 (Design_Testing-Strategy.md): API unit, integration
       # (real BlueTrackTest), and contract (WebApplicationFactory) tests,
       # all in one xUnit project.
       - name: Run App/Api.Tests (unit, integration, contract)

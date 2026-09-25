@@ -7,7 +7,7 @@ using BlueTrack.Api.Models;
 
 namespace BlueTrack.Api.Controllers;
 
-/// <summary>Design_Risk_Scoring.md, D-101-105, Phase A: single add/edit/delete for Access Groups. Bulk CSV upload follows in Phase B.</summary>
+/// <summary>Design_Risk-Scoring.md, D-101-105, Phase A: single add/edit/delete for Access Groups. Bulk CSV upload follows in Phase B.</summary>
 [ApiController]
 [Route("api/admin/access-groups")]
 [Authorize(Policy = Permissions.ManageAccessGroups)]

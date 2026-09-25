@@ -1,7 +1,7 @@
 /* ============================================================================
    02_BlueTrack_Test_SyntheticAccountData.sql
 
-   Test-only synthetic data (Design_Testing_Strategy.md) -- NOT part of the
+   Test-only synthetic data (Design_Testing-Strategy.md) -- NOT part of the
    real environment's numbered-script sequence. Never run this against
    BlueTrack (or any real environment); it only belongs in a disposable
    database like BlueTrackTest.
@@ -20,7 +20,7 @@
    BlueTrackTest's normal state -- it's a schema-only build, no ETL ever
    runs against it).
 
-   Synthetic only, per Design_Testing_Strategy.md's own principle: no row
+   Synthetic only, per Design_Testing-Strategy.md's own principle: no row
    here is copied from real Self-Hosted or Privilege Cloud data.
 
    Guarded throughout -- safe to re-run.

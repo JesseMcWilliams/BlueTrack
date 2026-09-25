@@ -10,7 +10,7 @@ public sealed record TargetMatchResult(TargetMatchOutcome Outcome, int? TargetKe
 public sealed record TargetMatchIdentifier(string IdentifierType, string IdentifierValue);
 
 /// <summary>
-/// Design_Risk_Scoring.md's "Target Matching" section (D-101-105, D-119
+/// Design_Risk-Scoring.md's "Target Matching" section (D-101-105, D-119
 /// Phase B) -- the priority-ordered identifier-matching/dedup logic used by
 /// both the CSV-upload import path and the internal PendingSafeDerived
 /// mechanism (Phase C). The design doc proposed this as a T-SQL stored

@@ -33,7 +33,7 @@ public sealed class GroupRoleMappingsController(
     public async Task<IActionResult> GetRoles() => Ok(await roleRepository.GetRolesAsync());
 
     /// <summary>
-    /// The lookup/test tool (Design_Authorization_Model.md): resolves a
+    /// The lookup/test tool (Design_Authorization-Model.md): resolves a
     /// friendly group name to its SID and shows what role(s)/permissions
     /// it currently resolves to, without saving anything.
     /// </summary>
@@ -66,7 +66,7 @@ public sealed class GroupRoleMappingsController(
     }
 
     /// <summary>
-    /// D-107/Outstanding_Work_Survey.md: generates a filled-in copy of
+    /// D-107/Archive_Planning_Outstanding-Work-Survey-2026-09-16.md: generates a filled-in copy of
     /// Database/38_BlueTrack_GrantBackupStatusReaderRole.sql, targeting
     /// whichever group the admin just resolved, for a DBA to run manually
     /// via sqlcmd (Option B -- never through App/Migrator, see that

@@ -1,7 +1,7 @@
 <script setup>
 // Against /api/admin/secrets-store (SecretsStoreController). Windows DPAPI,
 // CyberArk CP/CCP, Azure Key Vault, AWS Secrets Manager, and CyberArk
-// Conjur are all implemented (Design_Secrets_Storage.md, D-84) -- this page
+// Conjur are all implemented (Design_Secrets-Storage.md, D-84) -- this page
 // manages the config record (which backend is active, its non-secret
 // settings, and a write-only credential field for backends that need one
 // to authenticate to their own remote service).

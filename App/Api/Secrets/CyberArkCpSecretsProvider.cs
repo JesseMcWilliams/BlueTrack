@@ -7,7 +7,7 @@ using BlueTrack.Api.Data;
 namespace BlueTrack.Api.Secrets;
 
 /// <summary>
-/// CyberArk CP integration (D-16/D-32/D-38/D-39/D-40, Design_Secrets_Storage.md).
+/// CyberArk CP integration (D-16/D-32/D-38/D-39/D-40, Design_Secrets-Storage.md).
 /// Calls the local NetStandardPasswordSDK directly (CP is installed on the
 /// app server itself, D-09) -- no network/REST call.
 /// </summary>

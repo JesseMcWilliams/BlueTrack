@@ -2,7 +2,7 @@
 <#
 .SYNOPSIS
     Creates the IIS Application Pool, Site, and nested /BlueTrack Application
-    BlueTrack needs -- the piece Design_Deployment_Methodology.md flagged as
+    BlueTrack needs -- the piece Design_Deployment-Methodology.md flagged as
     not yet built anywhere in the repo. Every step here is idempotent
     (check-then-create); pass -Force to remove and recreate something that
     already exists instead of leaving it alone.
@@ -167,7 +167,7 @@ function Set-BlueTrackSiteWebConfig {
     .SYNOPSIS
         Writes the site-root web.config (SPA fallback-to-index.html URL Rewrite
         rule) from Deploy/Templates/site-web.config.template. This is the piece
-        Design_Deployment_Methodology.md flagged as not yet built anywhere.
+        Design_Deployment-Methodology.md flagged as not yet built anywhere.
     #>
     [CmdletBinding(SupportsShouldProcess)]
     param(

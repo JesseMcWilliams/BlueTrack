@@ -8,7 +8,7 @@ using BlueTrack.Api.Models;
 namespace BlueTrack.Api.Controllers;
 
 /// <summary>
-/// Demonstrates the Login Flow (Design_Authentication_Architecture.md):
+/// Demonstrates the Login Flow (Design_Authentication-Architecture.md):
 /// step 6 resolves the normalized identity against web.app_user (upserting
 /// on every login, via CurrentUserResolver), step 7 resolves the user's
 /// roles/permissions via UserRightsResolver. Only Windows Integrated is

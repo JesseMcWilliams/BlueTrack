@@ -4,7 +4,7 @@ using BlueTrack.Api.Data;
 namespace BlueTrack.Api.RiskScoring;
 
 /// <summary>
-/// Design_Risk_Scoring.md's "Import Field Mapping" section (D-101-105,
+/// Design_Risk-Scoring.md's "Import Field Mapping" section (D-101-105,
 /// D-119 Phase B): resolves an internal field name to whatever source CSV
 /// column an admin-configured web.import_mapping_profile says corresponds
 /// to it. No profile selected/configured for a FeedType means the CSV's

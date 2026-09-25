@@ -35,7 +35,7 @@
 
    Implements every table designed across the .md files in Design Documents
    during the 2026-08-27 web interface design session, referenced below by decision ID
-   (see Design_Decision_Register.md for the full record of each decision).
+   (see Design_Decision-Register.md for the full record of each decision).
 
    SCHEMA SEPARATION (D-64): every table in this file lives in a new `web`
    schema, not the default `dbo` schema the rest of this project uses for
@@ -148,7 +148,7 @@ GO
 
 
 /* ============================================================================
-   2. AUTHENTICATION -- Design_Authentication_Architecture.md
+   2. AUTHENTICATION -- Design_Authentication-Architecture.md
    ============================================================================ */
 
 -- identity_provider_config: one row per configured provider instance
@@ -164,7 +164,7 @@ CREATE TABLE web.identity_provider_config (
     IsEnabled             BIT              NOT NULL DEFAULT 0,
     DisplayOrder          INT              NOT NULL DEFAULT 0,
     ConfigurationValues   NVARCHAR(MAX)    NULL,        -- non-secret settings as JSON; see design doc's own note that this is an implementation detail
-    SecretReference       NVARCHAR(500)    NULL,        -- pointer into whichever Secrets Storage backend is active -- never the raw secret (Design_Secrets_Storage.md)
+    SecretReference       NVARCHAR(500)    NULL,        -- pointer into whichever Secrets Storage backend is active -- never the raw secret (Design_Secrets-Storage.md)
     CreatedDate           DATETIME2        NOT NULL DEFAULT SYSUTCDATETIME(),
     CreatedBy             INT              NULL,        -- FK to web.app_user added below
     ModifiedBy            INT              NULL,        -- FK to web.app_user added below
@@ -174,7 +174,7 @@ GO
 
 
 /* ============================================================================
-   3. AUTHORIZATION -- Design_Authorization_Model.md
+   3. AUTHORIZATION -- Design_Authorization-Model.md
    ============================================================================ */
 
 -- app_permission: the confirmed permission catalog (D-05, D-61). Unlike
@@ -205,7 +205,7 @@ INSERT INTO web.app_permission (PermissionName, Description) VALUES
 GO
 
 -- app_role: named permission bundles. Deliberately created empty --
--- Design_Authorization_Model.md's example bundles (Viewer/Analyst/Approver/
+-- Design_Authorization-Model.md's example bundles (Viewer/Analyst/Approver/
 -- Admin) are explicitly flagged as "illustrative starting point, not a
 -- fixed requirement -- confirm ... before these are built as the literal
 -- default rows." Populate after that confirmation, not here.
@@ -270,7 +270,7 @@ GO
 
 
 /* ============================================================================
-   4. RISK EXCEPTION TRACKING -- Design_Risk_Exception_Tracking.md
+   4. RISK EXCEPTION TRACKING -- Design_Risk-Exception-Tracking.md
    ============================================================================ */
 
 -- dim_application (D-18, D-25/Q-25, D-31, D-44, D-46): a curated business
@@ -324,7 +324,7 @@ GO
 -- CHECK constraint here: the design doc calls for this enforced at the
 -- application layer, consistent with how this project avoids
 -- database-level enforcement of business rules elsewhere (see
--- Design_Risk_Exception_Tracking.md).
+-- Design_Risk-Exception-Tracking.md).
 CREATE TABLE web.risk_exception (
     ExceptionKey          INT IDENTITY(1,1) PRIMARY KEY,
     ExceptionID             NVARCHAR(50)     NOT NULL UNIQUE,   -- flexible/org-configurable numbering scheme (D-17), e.g. EXC-2026-0001
@@ -356,7 +356,7 @@ GO
 
 
 /* ============================================================================
-   5. DATA & EDITING BEHAVIOR -- Design_Data_Editing_Behavior.md
+   5. DATA & EDITING BEHAVIOR -- Design_Data-Editing-Behavior.md
    ============================================================================ */
 
 -- account_progress_lock (D-50): pessimistic locking. Separate from
@@ -372,7 +372,7 @@ GO
 
 
 /* ============================================================================
-   6. AUDIT LOGGING -- Design_Audit_Logging.md
+   6. AUDIT LOGGING -- Design_Audit-Logging.md
 
    dim_audit_event_type's seed list folds in, directly, the two event types
    originally added by old 13_BlueTrack_AuditEventTypes.sql
@@ -460,7 +460,7 @@ GO
 
 
 /* ============================================================================
-   7. APPLICATION STRUCTURE -- Design_Application_Structure.md
+   7. APPLICATION STRUCTURE -- Design_Application-Structure.md
 
    app_config folds in, directly, the columns originally added by old
    12_BlueTrack_ExceptionIdNumbering.sql (ExceptionIdPattern/
@@ -494,7 +494,7 @@ GO
 
 
 /* ============================================================================
-   8. INTERFACE EXTENSIBILITY -- Design_Interface_Extensibility.md
+   8. INTERFACE EXTENSIBILITY -- Design_Interface-Extensibility.md
    ============================================================================ */
 
 -- account_progress_field_metadata: the field-metadata-driven pattern's
@@ -515,7 +515,7 @@ GO
 
 
 /* ============================================================================
-   9. SECRETS STORE -- Design_Secrets_Storage.md
+   9. SECRETS STORE -- Design_Secrets-Storage.md
 
    Folded in 2026-09-05 from old 14_BlueTrack_SecretsStoreSchema.sql. This
    is the config *record* only (which backend is active, plus its
@@ -586,7 +586,7 @@ GO
 
 
 /* ============================================================================
-   11. USER PREFERENCES -- Design_Accessibility_And_Theming.md
+   11. USER PREFERENCES -- Design_Accessibility-And-Theming.md
 
    Folded in 2026-09-05 from old 23_BlueTrack_UserPreferenceSchema.sql
    (D-93). A generalized per-user preferences store, keyed by an arbitrary
@@ -609,7 +609,7 @@ GO
 
 /* ============================================================================
    12. REPORTING VIEW -- application-scoped exception coverage
-   (Design_Risk_Exception_Tracking.md, D-81)
+   (Design_Risk-Exception-Tracking.md, D-81)
 
    Folded in 2026-09-05 from old 19_BlueTrack_ApplicationExceptionView.sql.
    Application-scoped exceptions were explicitly left with an undecided

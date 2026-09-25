@@ -6,7 +6,7 @@ using Xunit;
 namespace BlueTrack.Api.Tests.Integration;
 
 /// <summary>
-/// The web.app_user upsert-on-login step (Design_Authentication_Architecture.md
+/// The web.app_user upsert-on-login step (Design_Authentication-Architecture.md
 /// step 6). Uses the real DevFakeAuth provider row (seeded by
 /// Database/Test/01_BlueTrack_Test_DevFakeAuthMatrixSeed.sql) rather than a
 /// fake ProviderKey, since ProviderKey has a real FK to web.identity_provider_config.

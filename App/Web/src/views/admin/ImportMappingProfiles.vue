@@ -1,5 +1,5 @@
 <script setup>
-// Design_Risk_Scoring.md, D-101-105, D-119 Phase B: a named field mapping
+// Design_Risk-Scoring.md, D-101-105, D-119 Phase B: a named field mapping
 // per distinct source file shape -- an admin types in which real column
 // name in their export corresponds to each internal field. Uploading this
 // app's own generated template needs no profile at all (its headers

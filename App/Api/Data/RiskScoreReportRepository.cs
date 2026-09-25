@@ -3,7 +3,7 @@ using BlueTrack.Api.Models;
 
 namespace BlueTrack.Api.Data;
 
-/// <summary>Backs the new Risk Score report (Design_Risk_Scoring.md, D-101-105, Phase E).</summary>
+/// <summary>Backs the new Risk Score report (Design_Risk-Scoring.md, D-101-105, Phase E).</summary>
 public sealed class RiskScoreReportRepository(IDbConnectionFactory connectionFactory)
 {
     private static readonly IReadOnlyDictionary<string, string> SortableColumns = new Dictionary<string, string>

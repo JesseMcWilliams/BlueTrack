@@ -6,7 +6,7 @@ namespace BlueTrack.Api.Data;
 /// Backs the Phase B bulk-CSV import mechanics for the three mapping feeds
 /// (Access Group -> Target, Account -> Access Group, direct Account ->
 /// Target) plus the shared account/target/access-group resolution helpers
-/// every import row needs (Design_Risk_Scoring.md, D-101-105, D-119).
+/// every import row needs (Design_Risk-Scoring.md, D-101-105, D-119).
 /// </summary>
 public sealed class RiskScoringImportRepository(IDbConnectionFactory connectionFactory)
 {
@@ -40,7 +40,7 @@ public sealed class RiskScoringImportRepository(IDbConnectionFactory connectionF
             "SELECT AccessGroupKey FROM web.dim_access_group WHERE GroupIdentifier = @GroupIdentifier", new { GroupIdentifier = groupIdentifier });
     }
 
-    /// <summary>Resolution only -- never creates a Target (matches Design_Risk_Scoring.md's PendingSafeDerived/mapping-import rule that a miss here just means no row yet, not an auto-create).</summary>
+    /// <summary>Resolution only -- never creates a Target (matches Design_Risk-Scoring.md's PendingSafeDerived/mapping-import rule that a miss here just means no row yet, not an auto-create).</summary>
     public async Task<int?> ResolveTargetKeyByIdentifierAsync(string identifierType, string identifierValue)
     {
         using var connection = connectionFactory.Create();

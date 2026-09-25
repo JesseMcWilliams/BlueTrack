@@ -1,6 +1,6 @@
 namespace BlueTrack.Api.Models;
 
-/// <summary>web.dim_target (Design_Risk_Scoring.md, D-101-105) -- any final destination an account's access leads to.</summary>
+/// <summary>web.dim_target (Design_Risk-Scoring.md, D-101-105) -- any final destination an account's access leads to.</summary>
 public sealed class TargetSummary
 {
     public int TargetKey { get; init; }

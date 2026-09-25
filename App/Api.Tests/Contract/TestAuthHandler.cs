@@ -8,7 +8,7 @@ using Microsoft.Extensions.Options;
 namespace BlueTrack.Api.Tests.Contract;
 
 /// <summary>
-/// Layer 3 (Design_Testing_Strategy.md): simulates DevFakeAuth roles for
+/// Layer 3 (Design_Testing-Strategy.md): simulates DevFakeAuth roles for
 /// in-process WebApplicationFactory tests, without a real Negotiate
 /// handshake or WindowsIdentity.
 ///

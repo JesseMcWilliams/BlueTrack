@@ -9,13 +9,13 @@ using BlueTrack.Api.RiskScoring;
 namespace BlueTrack.Api.Controllers;
 
 /// <summary>
-/// Design_Risk_Scoring.md, D-101-105, D-119 Phase B: bulk CSV upload for
+/// Design_Risk-Scoring.md, D-101-105, D-119 Phase B: bulk CSV upload for
 /// all four ETL-fed relationships plus Target/Access Group inventory,
 /// unified into one mechanic -- the design doc's own "uploading an existing
 /// external export as-is just needs a one-time mapping profile" already
 /// meant a scheduled network-path puller was never required. Every
 /// endpoint validates row-by-row (a bad row doesn't fail the whole batch)
-/// and returns a summary, matching Design_Risk_Scoring.md's own "reports
+/// and returns a summary, matching Design_Risk-Scoring.md's own "reports
 /// errors per row rather than failing the whole batch on one bad row".
 /// </summary>
 [ApiController]

@@ -2,7 +2,7 @@ namespace BlueTrack.Api.Models;
 
 /// <summary>
 /// One row across the Risk Exceptions list/approval/overdue-review pages
-/// (Design_Risk_Exception_Tracking.md). ScopeType/ScopeName describe
+/// (Design_Risk-Exception-Tracking.md). ScopeType/ScopeName describe
 /// whichever of AccountKey/ApplicationKey is actually set (exactly one
 /// always is, enforced at the application layer per D-18/Q-25).
 /// </summary>

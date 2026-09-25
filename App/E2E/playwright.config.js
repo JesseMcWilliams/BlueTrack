@@ -1,13 +1,13 @@
 import { defineConfig, devices } from '@playwright/test'
 
-// Layer 4 (Design_Testing_Strategy.md): full browser-driven tests against
+// Layer 4 (Design_Testing-Strategy.md): full browser-driven tests against
 // a real running API + built SPA + disposable database (BlueTrackTest),
 // signed in via DevFakeAuth's dev-only test sign-in endpoint
 // (App/Api/Controllers/DevTestAuthController.cs) as different simulated
 // roles -- see tests/auth.js for why that endpoint exists instead of a
 // real Negotiate login.
 //
-// CI (Design_Testing_Strategy.md's own "What CI needs, mechanically")
+// CI (Design_Testing-Strategy.md's own "What CI needs, mechanically")
 // builds BlueTrackTest and runs `npm run build` itself before this; the
 // webServer entries below exist so a developer can also just run
 // `npm test` locally from a clean checkout, per that same document's

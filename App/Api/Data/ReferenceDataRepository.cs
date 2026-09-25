@@ -5,7 +5,7 @@ namespace BlueTrack.Api.Data;
 
 /// <summary>
 /// Backs the field-metadata-driven Account Progress edit form's Dropdown
-/// fields (Design_Interface_Extensibility.md) -- one query per reference
+/// fields (Design_Interface-Extensibility.md) -- one query per reference
 /// table named in account_progress_field_metadata.ReferenceTable. A fixed
 /// switch over a small known set of tables, not dynamic SQL: ReferenceTable
 /// values come from our own seeded metadata, not user input, but column

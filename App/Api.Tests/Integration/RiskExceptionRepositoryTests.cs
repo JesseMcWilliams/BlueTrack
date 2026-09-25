@@ -5,7 +5,7 @@ using Xunit;
 namespace BlueTrack.Api.Tests.Integration;
 
 /// <summary>
-/// Design_Risk_Exception_Tracking.md's create/extend-review/revoke
+/// Design_Risk-Exception-Tracking.md's create/extend-review/revoke
 /// workflow, against real BlueTrackTest and the synthetic accounts from
 /// Database/Test/02_BlueTrack_Test_SyntheticAccountData.sql.
 /// </summary>

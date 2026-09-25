@@ -4,7 +4,7 @@ using Dapper;
 namespace BlueTrack.Api.RiskScoring;
 
 /// <summary>
-/// Design_Risk_Scoring.md, D-119 Phase D: staleness is set explicitly
+/// Design_Risk-Scoring.md, D-119 Phase D: staleness is set explicitly
 /// everywhere (this app has no triggers) whenever a Target's RiskScore or
 /// an Access Group's BaseRiskScore changes. web.ufn_ReachableRiskValues
 /// flattens an Account straight through to these raw values -- never

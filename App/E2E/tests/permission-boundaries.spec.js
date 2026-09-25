@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test'
 import { signInAs } from './auth.js'
 
-// Layer 4 (Design_Testing_Strategy.md): confirms the DevFakeAuth test
+// Layer 4 (Design_Testing-Strategy.md): confirms the DevFakeAuth test
 // matrix (Database/Test/01_BlueTrack_Test_DevFakeAuthMatrixSeed.sql) is
 // reachable end to end -- real browser, real running API + built SPA,
 // real BlueTrackTest database.

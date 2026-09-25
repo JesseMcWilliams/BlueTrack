@@ -7,7 +7,7 @@
 
    RUN THIS AFTER 01-10.
 
-   DevFakeAuth (Design_Authentication_Architecture.md): not a separate
+   DevFakeAuth (Design_Authentication-Architecture.md): not a separate
    authentication mechanism -- it's the same Negotiate handler Windows
    Integrated already uses, with one substitution: group membership is
    resolved from identity_group_role_map rows scoped to THIS provider,

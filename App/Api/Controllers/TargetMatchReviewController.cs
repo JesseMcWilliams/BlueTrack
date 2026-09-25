@@ -7,7 +7,7 @@ using BlueTrack.Api.Models;
 
 namespace BlueTrack.Api.Controllers;
 
-/// <summary>Design_Risk_Scoring.md, D-101-105, D-119 Phase B: the weak-match (IP-only, etc.) review queue. Gated by ManageTargets per that doc's own suggestion.</summary>
+/// <summary>Design_Risk-Scoring.md, D-101-105, D-119 Phase B: the weak-match (IP-only, etc.) review queue. Gated by ManageTargets per that doc's own suggestion.</summary>
 [ApiController]
 [Route("api/admin/risk-scoring/target-match-review")]
 [Authorize(Policy = Permissions.ManageTargets)]

@@ -4,7 +4,7 @@ using BlueTrack.Api.Data;
 namespace BlueTrack.Api.Audit;
 
 /// <summary>
-/// Writes to web.audit_event/web.audit_field_change (Design_Audit_Logging.md,
+/// Writes to web.audit_event/web.audit_field_change (Design_Audit-Logging.md,
 /// D-10/D-11). Logon auditing is handled separately by UserRightsResolver's
 /// cache-miss detection (D-82), not through this class directly.
 /// </summary>

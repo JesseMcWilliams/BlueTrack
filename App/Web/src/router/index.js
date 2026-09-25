@@ -2,7 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import { nextTick } from 'vue'
 import { useRightsStore } from '../stores/rights'
 
-// Routes mirror the confirmed page inventory (Design_Application_Structure.md,
+// Routes mirror the confirmed page inventory (Design_Application-Structure.md,
 // D-43), with Admin (D-47) and Reports (D-56) as hub pages with sub-navigation
 // rather than flat top-level entries.
 //

@@ -5,7 +5,7 @@ namespace BlueTrack.Api.Data;
 
 /// <summary>
 /// Backs the Audit Log Viewer's search/filter (by user, date range, event
-/// type, entity, per Design_Audit_Logging.md's Admin UI Requirements) and
+/// type, entity, per Design_Audit-Logging.md's Admin UI Requirements) and
 /// its field-level drill-down.
 /// </summary>
 public sealed class AuditRepository(IDbConnectionFactory connectionFactory)

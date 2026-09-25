@@ -10,7 +10,7 @@ namespace BlueTrack.Api.Data;
 /// *record* only (which backend is active, plus its non-secret settings) --
 /// the actual backends (Windows DPAPI, CyberArk CP/CCP/Conjur, Azure Key
 /// Vault, AWS Secrets Manager) live in App/Api/Secrets
-/// (Design_Secrets_Storage.md, 08_BlueTrack_WebSchema.sql).
+/// (Design_Secrets-Storage.md, 08_BlueTrack_WebSchema.sql).
 /// </summary>
 public sealed class SecretsStoreRepository(IDbConnectionFactory connectionFactory, ILocalSecretProtector localSecretProtector)
 {
@@ -39,7 +39,7 @@ public sealed class SecretsStoreRepository(IDbConnectionFactory connectionFactor
     }
 
     /// <summary>
-    /// Exactly one active backend at a time (Design_Secrets_Storage.md) --
+    /// Exactly one active backend at a time (Design_Secrets-Storage.md) --
     /// enforced here at the application layer via a transaction, not a
     /// database constraint, consistent with how this project avoids
     /// triggers/CHECK constraints for business rules elsewhere.

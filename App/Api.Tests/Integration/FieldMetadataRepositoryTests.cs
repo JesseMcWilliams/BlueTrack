@@ -4,7 +4,7 @@ using Xunit;
 
 namespace BlueTrack.Api.Tests.Integration;
 
-/// <summary>web.account_progress_field_metadata (Design_Interface_Extensibility.md), backing the Account Progress edit form.</summary>
+/// <summary>web.account_progress_field_metadata (Design_Interface-Extensibility.md), backing the Account Progress edit form.</summary>
 public class FieldMetadataRepositoryTests
 {
     private static FieldMetadataRepository CreateRepository() => new(new TestDbConnectionFactory());

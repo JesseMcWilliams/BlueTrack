@@ -1,6 +1,6 @@
 namespace BlueTrack.Api.Models;
 
-/// <summary>One row from web.secrets_store (Design_Secrets_Storage.md).</summary>
+/// <summary>One row from web.secrets_store (Design_Secrets-Storage.md).</summary>
 public sealed class SecretsStoreBackend
 {
     public int SecretStoreKey { get; init; }

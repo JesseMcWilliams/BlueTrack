@@ -1,7 +1,7 @@
 <script setup>
 // Searchable/filterable view against /api/audit-log (AuditLogController) --
 // filters map to query params, and a click on a row drills into its
-// field-level changes (Design_Audit_Logging.md's Admin UI Requirements).
+// field-level changes (Design_Audit-Logging.md's Admin UI Requirements).
 import { ref, computed, watch, onMounted } from 'vue'
 import { useTotalCount } from '../../composables/useTotalCount'
 import { usePageSizeStore } from '../../stores/pageSize'

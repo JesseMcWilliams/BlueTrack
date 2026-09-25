@@ -15,7 +15,7 @@
 
        sqlcmd -S <server> -C -i 38_BlueTrack_GrantBackupStatusReaderRole.sql
 
-   D-107 (Design_Admin_Deployment_Management.md, Part 3.3) designed this
+   D-107 (Design_Admin-Deployment-Management.md, Part 3.3) designed this
    role/grant set but never turned it into a runnable file -- this is that
    file. Confirmed real, flagged gap: this app's own least-privileged SQL
    service account has no read access to msdb.dbo.backupset by default, so

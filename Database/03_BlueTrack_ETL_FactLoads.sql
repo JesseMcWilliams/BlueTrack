@@ -192,7 +192,7 @@ GO
    picked up retroactively -- but the same untouched-default check means
    it will never move an account a person has already started curating
    (changed its status, stage, owner, notes, etc.), which would otherwise
-   silently fight Design_Data_Editing_Behavior.md's regression-requires-
+   silently fight Design_Data-Editing-Behavior.md's regression-requires-
    a-reason rule the next time this runs.
 
    NOT written to web.audit_event -- that table's PerformedByUserKey is

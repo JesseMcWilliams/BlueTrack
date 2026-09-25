@@ -7,7 +7,7 @@ using BlueTrack.Api.Models;
 
 namespace BlueTrack.Api.Controllers;
 
-/// <summary>Design_Risk_Scoring.md, D-101-105, D-119 Phase B. Gated by ManageTargets -- covers mapping profiles for both Target- and Access-Group-related feeds; a narrower per-feed-type permission wasn't judged worth the extra granularity for a config surface this small.</summary>
+/// <summary>Design_Risk-Scoring.md, D-101-105, D-119 Phase B. Gated by ManageTargets -- covers mapping profiles for both Target- and Access-Group-related feeds; a narrower per-feed-type permission wasn't judged worth the extra granularity for a config surface this small.</summary>
 [ApiController]
 [Route("api/admin/risk-scoring/import-mapping-profiles")]
 [Authorize(Policy = Permissions.ManageTargets)]

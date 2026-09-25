@@ -10,7 +10,7 @@ namespace BlueTrack.Api.Tests.Contract;
 /// and every action correctly hits its own NotConfigured() 503, the same
 /// pattern already proven for OIDC in AuthControllerTests. Validating a
 /// real signed SAML assertion in Acs stays out of scope per
-/// Design_Testing_Strategy.md's "Explicitly not automated" section --
+/// Design_Testing-Strategy.md's "Explicitly not automated" section --
 /// nothing here reaches a real IdP.
 /// </summary>
 public class Saml2ControllerTests : IClassFixture<BlueTrackWebApplicationFactory>

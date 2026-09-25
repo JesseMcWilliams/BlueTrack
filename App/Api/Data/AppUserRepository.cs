@@ -4,7 +4,7 @@ using BlueTrack.Api.Models;
 namespace BlueTrack.Api.Data;
 
 /// <summary>
-/// Implements the app_user upsert from the Login Flow (Design_Authentication_Architecture.md,
+/// Implements the app_user upsert from the Login Flow (Design_Authentication-Architecture.md,
 /// step 6): insert on first login, refresh LastLogin on every one after that.
 /// </summary>
 public sealed class AppUserRepository(IDbConnectionFactory connectionFactory)

@@ -2,7 +2,7 @@
 // Against /api/admin/deployment (DeploymentController). Read-only:
 // environment/version info, health checks (SQL Server, the active Secrets
 // Store backend, identity providers), and SQL Server native backup status
-// (Design_Admin_Deployment_Management.md, D-96, Part 3). D-117 adds a
+// (Design_Admin-Deployment-Management.md, D-96, Part 3). D-117 adds a
 // "Backup App" button (needs TriggerBackup, a separate permission from this
 // page's own read-only ViewDeploymentInfo) -- triggers a real BACKUP
 // DATABASE server-side and downloads a zip of appsettings*.json.

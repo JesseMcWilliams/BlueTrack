@@ -57,7 +57,7 @@ after `14`, never edits to an existing file in this list.
 | 14 | `14_BlueTrack_ScheduleImportLoadJob.sql` | Creates the nightly SQL Server Agent job (Import then Load, 2:00 AM) once Import and Load have both been confirmed working manually. Runs against `msdb`, not the target database. **Never run through `App/Migrator`, for any environment** -- always excluded (see above); run it manually via `sqlcmd -S <server> -C -v DatabaseName="BlueTrack" -i 14_BlueTrack_ScheduleImportLoadJob.sql`. Both the job name and schedule name embed the substituted database name so `BlueTrack` and `BlueTrackTest` (if ever scheduled on the same SQL Server instance) get distinctly-named jobs rather than colliding. |
 | 15 | `15_BlueTrack_UnresolvedEntitlementMembersView.sql` | First post-restructure incremental script (D-58 resumed, per D-107). Adds `vw_unresolved_entitlement_members`, surfacing `fact_safe_entitlement` rows whose member is a CyberArk Identity/Entra-federated user or built-in cloud role rather than a classic Vault-native user/group (D-107's `UnresolvedMemberId` column) -- backs the Reports > Unresolved Entitlement Members page. |
 | 16 | `16_BlueTrack_NotificationSchema.sql` | The general, reusable notification framework (`Design_Notifications.md`): admin-managed recipients, per-notification-type target roles, SMTP config. |
-| 17 | `17_BlueTrack_CredentialsLdapBackupSchema.sql` | `web.credential` (a generic named-credential store, DPAPI or any registered `IVaultSecretProvider`, distinct from `web.secrets_store`'s single active privileged-account backend) plus LDAP trusted-connection/backup-status support (`Design_Credentials_Management.md`). |
+| 17 | `17_BlueTrack_CredentialsLdapBackupSchema.sql` | `web.credential` (a generic named-credential store, DPAPI or any registered `IVaultSecretProvider`, distinct from `web.secrets_store`'s single active privileged-account backend) plus LDAP trusted-connection/backup-status support (`Design_Credentials-Management.md`). |
 | 18 | `18_BlueTrack_SmtpTlsOverridesSchema.sql` | Two admin-editable SMTP TLS override checkboxes (ignore CRL/OCSP revocation checks; ignore all SSL errors), both default off -- found necessary testing against a real relay whose CRL/OCSP endpoint was unreachable from this network. |
 | 19 | `19_BlueTrack_LdapTrustedConnectionSchema.sql` | `UseTrustedConnection` on the LDAP config -- binds as the app pool's own Windows identity instead of always requiring an explicit bind-account credential, default off (unchanged behavior). |
 | 20 | `20_BlueTrack_RiskScoringSchema.sql` | Risk Scoring Phase A (D-119): the core inventory schema -- `dim_target`/`target_identifier`, `dim_access_group`, the access-mapping tables, `web.account_risk_score` (computed/override/effective score), and the `ManageTargets`/`ManageAccessGroups`/`ViewRiskReport` permissions. |
@@ -148,14 +148,14 @@ bugs found while renumbering it -- see its own header).
 
 ## See also
 
-- `Guides/Admin_DeploymentRunbook.md` -- full step-by-step
+- `User_Docs/Admin_DeploymentRunbook.md` -- full step-by-step
   procedure for standing up or rebuilding an environment, plus the
   environment-specific items a redeployment must not skip.
 - `Import_Load_Process_Guide.docx` -- operational runbook for the Import/Load
   cadence and the nightly Agent job.
-- `Design Documents/Design_Decision_Register.md` -- the full record of every
+- `Claude_Docs/Design_Decision-Register.md` -- the full record of every
   numbered decision (`D-nn`) referenced throughout these scripts' comments.
-- `Lessons_Learned.md` -- real incidents/gotchas found while building this,
+- `Claude_Docs/Reference_Lessons-Learned.md` -- real incidents/gotchas found while building this,
   several of which are directly encoded in these scripts (the BULK INSERT
   `ROWTERMINATOR` fix in `07`, the `$DatabaseName$`/`$(DatabaseName)`-only
   rule everywhere, CRLF line endings expected by SSMS).

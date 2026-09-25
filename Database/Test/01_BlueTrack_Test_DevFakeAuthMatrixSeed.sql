@@ -1,7 +1,7 @@
 /* ============================================================================
    01_BlueTrack_Test_DevFakeAuthMatrixSeed.sql
 
-   Test-only seed data (Design_Testing_Strategy.md) -- NOT part of the real
+   Test-only seed data (Design_Testing-Strategy.md) -- NOT part of the real
    environment's numbered-script sequence (the numbered .sql files directly
    under Database/). Never run this against BlueTrack (or any real
    environment); it only belongs in a
@@ -15,12 +15,12 @@
 
    WHAT THIS DOES: seeds the role/permission matrix that layers 3
    (API/contract tests) and 4 (Playwright E2E) need to exercise every
-   permission boundary -- Design_Testing_Strategy.md's own call-out that
+   permission boundary -- Design_Testing-Strategy.md's own call-out that
    the real 11_BlueTrack_DevFakeAuthSeed.sql "only seeds one disabled
    placeholder row, not the role/permission matrix (Viewer/Analyst/
    Approver/Admin, at minimum) this layer needs."
 
-   Synthetic identities only (Design_Testing_Strategy.md's own principle):
+   Synthetic identities only (Design_Testing-Strategy.md's own principle):
    TestUser.Viewer / TestUser.Analyst / TestUser.Approver / TestUser.Admin,
    distinct from any real person's Windows account. These are matched via
    DevFakeAuth's own mechanism (App/Api/Auth/GroupIdentifierExtractor.cs's
@@ -40,7 +40,7 @@
 
    Permission bundles below are a test-fixture judgment call, not a
    business decision about real Viewer/Analyst/Approver/Admin permissions
-   (Design_Authorization_Model.md's example bundles are still explicitly
+   (Design_Authorization-Model.md's example bundles are still explicitly
    "illustrative... confirm before building as literal default rows" for
    any REAL environment) -- scoped entirely to BlueTrackTest, never copied
    to a real environment's role definitions.

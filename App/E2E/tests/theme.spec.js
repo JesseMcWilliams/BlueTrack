@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test'
 import { signInAs } from './auth.js'
 
-// Layer 4: the theme picker (Design_Accessibility_And_Theming.md, D-93) --
+// Layer 4: the theme picker (Design_Accessibility-And-Theming.md, D-93) --
 // confirms the real end-to-end path: picking a theme in MyProfile.vue
 // applies <html data-theme>, persists server-side (web.user_preference via
 // PUT /api/me/preferences/Theme), and survives a fresh page load (proving

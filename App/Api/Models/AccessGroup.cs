@@ -1,7 +1,7 @@
 namespace BlueTrack.Api.Models;
 
 /// <summary>
-/// web.dim_access_group (Design_Risk_Scoring.md, D-101-105) -- a
+/// web.dim_access_group (Design_Risk-Scoring.md, D-101-105) -- a
 /// privileged-access group in the MANAGED environment (e.g. an AD "Server
 /// Admins" group) -- distinct from dbo.dim_group (CyberArk vault-internal
 /// Safe permissions) and web.identity_group_role_map (BlueTrack's own

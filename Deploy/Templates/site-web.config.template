@@ -2,7 +2,7 @@
 <!--
   Site-root web.config for the built BlueTrack SPA (App/Web/dist/).
 
-  This is the piece Design Documents/Design_Deployment_Methodology.md flagged
+  This is the piece Claude_Docs/Design_Deployment-Methodology.md flagged
   as not yet built anywhere in the repo: the standard "SPA under IIS" fallback
   rule so Vue Router's client-side routes (e.g. /account-progress/42) resolve
   to index.html instead of a raw IIS 404, while real static files (JS/CSS/

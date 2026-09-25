@@ -86,7 +86,7 @@ public sealed class AdAccountDiscoveryService(
                 // (a group only exists in the one domain it was created in),
                 // and for any GroupIdentifier that isn't actually a real
                 // SID/name in this domain (dim_access_group.GroupIdentifier
-                // is free text, not validated -- see Design_Decision_Register.md).
+                // is free text, not validated -- see Design_Decision-Register.md).
                 using var group = LdapGroupMemberResolver.FindGroup(context, groupIdentifier);
                 if (group is null)
                 {

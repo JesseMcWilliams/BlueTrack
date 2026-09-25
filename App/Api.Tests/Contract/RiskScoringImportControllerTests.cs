@@ -6,7 +6,7 @@ using Xunit;
 namespace BlueTrack.Api.Tests.Contract;
 
 /// <summary>
-/// Design_Risk_Scoring.md, D-101-105, D-119 Phase B: CSV bulk import for
+/// Design_Risk-Scoring.md, D-101-105, D-119 Phase B: CSV bulk import for
 /// the Target inventory, exercising TargetMatchingService's three real
 /// branches (auto-merge on a strong identifier match, route to review on a
 /// weak-only match, create new on no match) through the actual HTTP upload

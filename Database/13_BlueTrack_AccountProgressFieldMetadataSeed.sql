@@ -8,7 +8,7 @@
 
    RUN THIS AFTER 01-12.
 
-   Seeds web.account_progress_field_metadata (Design_Interface_Extensibility.md)
+   Seeds web.account_progress_field_metadata (Design_Interface-Extensibility.md)
    with one row per editable dbo.fact_account_progress column, so the
    Account Progress edit form has something to actually render -- this is
    the "consuming side" of the field-metadata-driven pattern the design doc
@@ -17,7 +17,7 @@
 
    NOT included here: ExceptionKey. It's populated by the Risk Exception
    workflow (linking/creating an exception), not hand-typed on this form --
-   see Design_Risk_Exception_Tracking.md's own note that this wiring isn't
+   see Design_Risk-Exception-Tracking.md's own note that this wiring isn't
    built yet.
 
    FieldType uses the design doc's own controlled-list examples (Text,

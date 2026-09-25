@@ -43,7 +43,7 @@ async function remove(item) {
 <template>
   <div>
     <h2>Field Metadata Management</h2>
-    <p>Governed field-definition list backing the Account Progress edit form (Design_Interface_Extensibility.md).</p>
+    <p>Governed field-definition list backing the Account Progress edit form (Design_Interface-Extensibility.md).</p>
     <p v-if="error" role="alert">{{ error }}</p>
     <p v-if="loading" role="status">Loading...</p>
 

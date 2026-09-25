@@ -5,7 +5,7 @@ using Xunit;
 namespace BlueTrack.Api.Tests.Integration;
 
 /// <summary>
-/// Design_Risk_Scoring.md, D-101-105, D-119 Phase C:
+/// Design_Risk-Scoring.md, D-101-105, D-119 Phase C:
 /// usp_DeriveAccountTargetMap_FromPendingSafes -- the one of three direct
 /// Account->Target mechanisms needing no external file, reusing the same
 /// SafeName LIKE '%[_]Pending%' match D-91's usp_Load_AccountProgressAutoAdvance

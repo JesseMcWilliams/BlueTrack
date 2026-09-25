@@ -3,7 +3,7 @@ import { mount, flushPromises } from '@vue/test-utils'
 import { createRouter, createMemoryHistory } from 'vue-router'
 import GroupRoleMapping from './GroupRoleMapping.vue'
 
-// D-107/Outstanding_Work_Survey.md: this project had no existing Vitest
+// D-107/Archive_Planning_Outstanding-Work-Survey-2026-09-16.md: this project had no existing Vitest
 // coverage for GroupRoleMapping.vue -- mirrors RiskScoreBands.test.js's own
 // globalThis.fetch mocking style, established for a page with no prior
 // test file rather than an existing convention to extend.

@@ -5,7 +5,7 @@
    checks) -- safe to re-run, per D-58's normal incremental-script convention.
 
    Resolved directly with the user (2026-09-08), all in
-   Design_Credentials_Management.md / Design_Notifications.md's updated
+   Design_Credentials-Management.md / Design_Notifications.md's updated
    sections:
      - A generic web.credential store: pick a secrets backend (Windows DPAPI
        or any registered IVaultSecretProvider) per named credential, not one

@@ -7,7 +7,7 @@ using Xunit;
 namespace BlueTrack.Api.Tests.Contract;
 
 /// <summary>
-/// Layer 3 (Design_Testing_Strategy.md): Account Progress editing --
+/// Layer 3 (Design_Testing-Strategy.md): Account Progress editing --
 /// locking (D-50), the two D-51 validation rules, and the Risk Exception
 /// wiring (D-77) -- exercised together over real HTTP, against the
 /// synthetic accounts seeded by

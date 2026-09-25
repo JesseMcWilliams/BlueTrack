@@ -4,7 +4,7 @@ namespace BlueTrack.Api.Models;
 /// The full editable fact_account_progress row shape for the Account
 /// Progress edit form. AccountName/ExceptionKey are read-only context, not
 /// directly editable here -- ExceptionKey is set by the Risk Exception
-/// workflow, not hand-typed (see Design_Risk_Exception_Tracking.md).
+/// workflow, not hand-typed (see Design_Risk-Exception-Tracking.md).
 /// </summary>
 public sealed class AccountProgressDetail
 {
@@ -46,7 +46,7 @@ public sealed class AccountProgressDetail
 /// when regressing CurrentStageKey to a lower StageOrder (D-51) -- the API
 /// enforces this, the field isn't blanket-required. ExceptionKey is
 /// required only when CurrentStatusKey resolves to "Risk Accepted /
-/// Excluded" (Design_Risk_Exception_Tracking.md workflow step 2) -- ignored
+/// Excluded" (Design_Risk-Exception-Tracking.md workflow step 2) -- ignored
 /// (and the stored value cleared) for every other status.
 /// </summary>
 public sealed class SaveAccountProgressRequest
