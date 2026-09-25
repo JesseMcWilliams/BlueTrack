@@ -4,7 +4,7 @@ using BlueTrack.Api.RiskScoring;
 
 namespace BlueTrack.Api.Data;
 
-/// <summary>Backs the new Access Groups admin page (Design_Risk_Scoring.md, D-101-105, Phase A).</summary>
+/// <summary>Backs the new Access Groups admin page (Design_Risk-Scoring.md, D-101-105, Phase A).</summary>
 public sealed class AccessGroupRepository(IDbConnectionFactory connectionFactory)
 {
     // D-121: sort field whitelist -- the requested field comes straight off

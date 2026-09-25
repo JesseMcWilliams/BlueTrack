@@ -11,7 +11,7 @@ public sealed class GroupRoleMappingSummary
 
 /// <summary>
 /// Body for both the create endpoint and the standalone lookup/test tool
-/// (Design_Authorization_Model.md's Admin UI Requirements) -- an admin
+/// (Design_Authorization-Model.md's Admin UI Requirements) -- an admin
 /// types a friendly group name, never a raw SID.
 /// </summary>
 public sealed class ResolveGroupRequest

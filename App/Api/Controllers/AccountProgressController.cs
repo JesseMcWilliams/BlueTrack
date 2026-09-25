@@ -44,7 +44,7 @@ public sealed class AccountProgressController(
 
     /// <summary>
     /// The field-metadata-driven form's own definition list
-    /// (Design_Interface_Extensibility.md) -- any authenticated user can
+    /// (Design_Interface-Extensibility.md) -- any authenticated user can
     /// read this to render the edit form; managing the list itself is
     /// gated separately (ManageFieldMetadata, FieldMetadataController).
     /// </summary>
@@ -197,7 +197,7 @@ public sealed class AccountProgressController(
             }
         }
 
-        // Risk Exception wiring (Design_Risk_Exception_Tracking.md workflow
+        // Risk Exception wiring (Design_Risk-Exception-Tracking.md workflow
         // steps 1-2): status can't be set to Risk Accepted / Excluded
         // without linking an Active exception scoped to this account.
         // Cleared for every other status -- ExceptionKey only means anything

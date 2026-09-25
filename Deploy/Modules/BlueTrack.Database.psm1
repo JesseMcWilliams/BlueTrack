@@ -104,7 +104,7 @@ function Set-BlueTrackEnvironmentConfig {
         Writes appsettings.{Environment}.json into the published API output
         directory with the resolved connection string -- ASP.NET Core's own
         built-in environment-specific config convention, applied here since
-        Design_Deployment_Methodology.md left this an open question.
+        Design_Deployment-Methodology.md left this an open question.
     .NOTES
         Never edits the tracked App/Api/appsettings.json -- only writes into
         the publish output, which is not committed to source control.

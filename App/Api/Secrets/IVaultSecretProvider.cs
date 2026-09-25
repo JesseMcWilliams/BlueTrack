@@ -30,7 +30,7 @@ public interface IVaultSecretProvider
 public sealed record SecretQuery(string Safe, string Folder, string Object);
 
 /// <summary>
-/// Content is char[], not string, per Design_Secrets_Storage.md's own note
+/// Content is char[], not string, per Design_Secrets-Storage.md's own note
 /// that a live secret held in application memory "needs the same care as
 /// any in-memory credential handling." UserName/Address are non-secret
 /// identifying metadata (D-39) -- safe to log or show in an admin UI,

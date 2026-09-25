@@ -4,12 +4,12 @@
    RUN THIS AFTER 01-38. Safe to re-run (CREATE OR ALTER -- pure logic, no
    data of its own, unlike a table).
 
-   D-62 (Design_Audit_Logging.md) designed this purge mechanism back on
+   D-62 (Design_Audit-Logging.md) designed this purge mechanism back on
    2026-08-27 -- web.audit_purge_log (its own run-history table) was built
    the same day in 08_BlueTrack_WebSchema.sql, but usp_PurgeAuditLog itself
    was only ever mentioned in that table's own header comment, never
    actually written. Found 2026-09-21 while documenting day-2 operations
-   (Guides/Admin_OperationsGuide.md) -- audit_config.RetentionDays was a stored
+   (User_Docs/Admin_OperationsGuide.md) -- audit_config.RetentionDays was a stored
    setting with no enforcement anywhere; setting it did nothing. This
    script closes that gap: the procedure itself. See
    40_BlueTrack_ScheduleAuditLogPurgeJob.sql for the SQL Agent job that
@@ -19,7 +19,7 @@
    Deletes web.audit_field_change rows before their parent web.audit_event
    rows (FK dependency), for events older than
    RetentionDays before today. RowsPurged records only the audit_event
-   count, matching Design_Audit_Logging.md's own column description
+   count, matching Design_Audit-Logging.md's own column description
    ("How long audit records are kept" -- audit_event IS the record;
    audit_field_change rows are its detail, not counted separately).
 

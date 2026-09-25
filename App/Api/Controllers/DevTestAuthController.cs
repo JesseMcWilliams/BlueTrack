@@ -10,7 +10,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace BlueTrack.Api.Controllers;
 
 /// <summary>
-/// Test-only sign-in for Playwright E2E tests (Design_Testing_Strategy.md
+/// Test-only sign-in for Playwright E2E tests (Design_Testing-Strategy.md
 /// layer 4) -- lets a real browser switch between simulated DevFakeAuth
 /// roles (TestUser.Viewer / .Analyst / .Approver / .Admin, seeded by
 /// Database/Test/01_BlueTrack_Test_DevFakeAuthMatrixSeed.sql) without a

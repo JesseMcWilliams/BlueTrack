@@ -5,7 +5,7 @@ using Xunit;
 namespace BlueTrack.Api.Tests.Integration;
 
 /// <summary>
-/// Design_Risk_Scoring.md, D-101-105, D-119 Phase D: both candidate
+/// Design_Risk-Scoring.md, D-101-105, D-119 Phase D: both candidate
 /// scoring algorithms, the dispatcher, deduplication (a Target reached
 /// through two different Access Groups counts once), and
 /// usp_RecalculateRiskScores' staleness/override handling -- all exercised

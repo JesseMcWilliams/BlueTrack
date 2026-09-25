@@ -7,7 +7,7 @@
    rather than an edit to an existing numbered file, since the database now
    holds real loaded data.
 
-   D-108-adjacent finding (Design_Decision_Register.md, D-107): 74 of 111
+   D-108-adjacent finding (Design_Decision-Register.md, D-107): 74 of 111
    entitlement rows on the first real Privilege Cloud load were granted
    directly to a CyberArk Identity/Entra-federated user or a built-in cloud
    role -- referenced by a GUID or role name that never appears in

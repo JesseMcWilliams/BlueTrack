@@ -1,7 +1,7 @@
 namespace BlueTrack.Api.Secrets;
 
 /// <summary>
-/// D-48's error-code categorization (Design_Secrets_Storage.md), confirmed
+/// D-48's error-code categorization (Design_Secrets-Storage.md), confirmed
 /// against CyberArk's official Application Provider Messages reference.
 /// The .NET SDK surfaces the code via PSDKException.Reason (confirmed by
 /// reflecting NetStandardPasswordSDK.dll directly -- D-48 flagged this as

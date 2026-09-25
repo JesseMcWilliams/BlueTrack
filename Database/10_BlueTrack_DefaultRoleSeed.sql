@@ -7,7 +7,7 @@
 
    RUN THIS AFTER 01-09.
 
-   Design_Authorization_Model.md's "Example Permission Bundles" (Viewer/
+   Design_Authorization-Model.md's "Example Permission Bundles" (Viewer/
    Analyst/Approver) were explicitly "illustrative... confirm before
    building as literal default rows" -- 09_BlueTrack_WebSeed.sql's
    own comment on the bootstrap Admin role says the same thing. The user
@@ -48,7 +48,7 @@ GO
 
 
 /* ============================================================================
-   2. Their permission bundles (Design_Authorization_Model.md's Example
+   2. Their permission bundles (Design_Authorization-Model.md's Example
       Permission Bundles table, confirmed as literal default rows).
    ============================================================================ */
 DECLARE @ViewerRoleKey INT = (SELECT AppRoleKey FROM web.app_role WHERE RoleName = 'Viewer');

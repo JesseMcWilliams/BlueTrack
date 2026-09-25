@@ -1,7 +1,7 @@
 namespace BlueTrack.Api.Models;
 
 /// <summary>
-/// One row for the Account Progress list/grid page (Design_Application_Structure.md).
+/// One row for the Account Progress list/grid page (Design_Application-Structure.md).
 /// A read projection, not the full fact_account_progress shape.
 /// </summary>
 public sealed class AccountProgressSummary

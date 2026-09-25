@@ -54,7 +54,7 @@ async function lookup() {
   lookupResult.value = await response.json()
 }
 
-// D-107/Outstanding_Work_Survey.md: generates a filled-in copy of
+// D-107/Archive_Planning_Outstanding-Work-Survey-2026-09-16.md: generates a filled-in copy of
 // Database/38_BlueTrack_GrantBackupStatusReaderRole.sql targeting the
 // group just resolved above, for a DBA to run manually via sqlcmd --
 // this app never runs it itself (it's an msdb permission grant, outside

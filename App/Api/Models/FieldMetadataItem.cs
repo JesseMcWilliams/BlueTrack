@@ -1,6 +1,6 @@
 namespace BlueTrack.Api.Models;
 
-/// <summary>One row from web.account_progress_field_metadata (Design_Interface_Extensibility.md).</summary>
+/// <summary>One row from web.account_progress_field_metadata (Design_Interface-Extensibility.md).</summary>
 public sealed class FieldMetadataItem
 {
     public int FieldMetadataKey { get; init; }

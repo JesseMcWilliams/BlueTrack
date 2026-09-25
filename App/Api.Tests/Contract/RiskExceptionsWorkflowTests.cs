@@ -7,7 +7,7 @@ namespace BlueTrack.Api.Tests.Contract;
 
 /// <summary>
 /// Layer 3: the create/extend-review/revoke workflow
-/// (Design_Risk_Exception_Tracking.md) over real HTTP, plus the
+/// (Design_Risk-Exception-Tracking.md) over real HTTP, plus the
 /// exactly-one-of-AccountKey/ApplicationKey validation rule and
 /// permission enforcement per action.
 /// </summary>

@@ -5,7 +5,7 @@ using Xunit;
 namespace BlueTrack.Api.Tests.Integration;
 
 /// <summary>
-/// Design_Audit_Logging.md D-62: usp_PurgeAuditLog (Database/39), designed
+/// Design_Audit-Logging.md D-62: usp_PurgeAuditLog (Database/39), designed
 /// 2026-08-27 alongside web.audit_purge_log but not actually written until
 /// 2026-09-21. web.audit_config is a singleton (exactly one row) shared by
 /// every test in this suite, so every test here saves and restores

@@ -2,7 +2,7 @@
 
 A PowerShell script (`Install-BlueTrack.ps1`) that performs a full deployment of BlueTrack from scratch: verifies/installs prerequisites, builds the API and SPA from source, creates and migrates the database, provisions the IIS site, and smoke-tests the result.
 
-This exists because, before it, there was no automated deployment path at all — see `Design Documents/Design_Deployment_Methodology.md` and `Guides/Admin_DeploymentRunbook.md` for the manual procedure this automates (and extends: the IIS site/`web.config` this script creates didn't exist anywhere in the repo before it).
+This exists because, before it, there was no automated deployment path at all — see `Claude_Docs/Design_Deployment-Methodology.md` and `User_Docs/Admin_DeploymentRunbook.md` for the manual procedure this automates (and extends: the IIS site/`web.config` this script creates didn't exist anywhere in the repo before it).
 
 ## What it does
 
@@ -14,7 +14,7 @@ This exists because, before it, there was no automated deployment path at all �
 
 ## Rollback
 
-`Design Documents/Design_Deployment_Methodology.md`'s rollback mechanism (Option B): formalize backup/restore rather than per-script "down" migrations.
+`Claude_Docs/Design_Deployment-Methodology.md`'s rollback mechanism (Option B): formalize backup/restore rather than per-script "down" migrations.
 
 - **`Backup-BlueTrack.ps1`** — backs up BlueTrack (and, optionally with `-IncludeMsdb`, `msdb`) to a timestamped `.bak`, verifies it with `RESTORE VERIFYONLY`, and writes a manifest (database name, timestamp, git commit) recording what it preceded. `Install-BlueTrack.ps1` calls this automatically before migrating an existing (non-fresh) database — pass `-SkipPreDeployBackup` to opt out.
 - **`Restore-BlueTrack.ps1`** — restores BlueTrack (and, optionally with `-RestoreMsdbFilePath`, `msdb`) from a specific backup file. Destructive (`RESTORE DATABASE ... WITH REPLACE`) — requires typing `YES` to confirm, or `-Confirm:$false` for unattended use. Only ever handles the database side: also redeploy the application build matching the backup's manifest `GitCommit`, if one was recorded.
@@ -28,7 +28,7 @@ Every phase is idempotent where it makes sense: re-running the script detects wh
 - **Does not install SQL Server.** Verifying SQL Server connectivity is in scope; standing up the Database Engine itself is an edition/licensing decision this script won't make unattended. Install SQL Server first, then run this.
 - **Does not configure a real identity provider** (SAML/OIDC) — Windows Integrated authentication works out of the box; a real IdP needs real tenant metadata entered afterward via the Identity Providers admin page.
 - **Does not cut over the Secrets Store backend** — Windows DPAPI is active by default after install; switching to CyberArk CP/CCP/Conjur, Azure Key Vault, or AWS Secrets Manager happens afterward via the Secrets Store Configuration admin page.
-- **Does not load real CyberArk export data** — a fresh install has empty staging tables; see `Guides/Admin_DeploymentRunbook.md`'s "First Data Load" section to run `usp_Import_All`/`usp_RunFullLoad` once real export files are in place.
+- **Does not load real CyberArk export data** — a fresh install has empty staging tables; see `User_Docs/Admin_DeploymentRunbook.md`'s "First Data Load" section to run `usp_Import_All`/`usp_RunFullLoad` once real export files are in place.
 - **Does not add per-script "down" migrations.** The rollback mechanism (see above) is full-database backup/restore, not an "undo this specific script" path — that's a deliberate scope boundary, not an oversight.
 - **Is not a general upgrade tool for an existing production install** — it's built for a fresh (or fresh-ish) environment. Re-running it is safe, but it isn't a patching/upgrade pipeline.
 

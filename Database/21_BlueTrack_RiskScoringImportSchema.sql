@@ -3,7 +3,7 @@
 
    RUN THIS AFTER 01-20. Guarded -- safe to re-run.
 
-   Design_Risk_Scoring.md (D-101-105, D-119) Phase B: the target-match
+   Design_Risk-Scoring.md (D-101-105, D-119) Phase B: the target-match
    review queue and the configurable import field-mapping layer. Both were
    scoped for this phase specifically -- the review queue only gets rows
    once real CSV/import matching starts happening (Phase B), and the

@@ -123,7 +123,7 @@ public class AdminControllersFunctionalTests : IClassFixture<BlueTrackWebApplica
     }
 
     /// <summary>
-    /// D-107/Outstanding_Work_Survey.md: the generated script substitutes
+    /// D-107/Archive_Planning_Outstanding-Work-Survey-2026-09-16.md: the generated script substitutes
     /// the resolved account name into Database/38_BlueTrack_GrantBackupStatusReaderRole.sql's
     /// __TARGET_ACCOUNT__ placeholder -- confirms the substitution actually
     /// happened (not just that a file came back) and that no placeholder
@@ -371,7 +371,7 @@ public class AdminControllersFunctionalTests : IClassFixture<BlueTrackWebApplica
     /// at all (its own doc comment: "DPAPI does NOT implement this
     /// interface"), so this exercises VaultSecretProviderResolver's
     /// no-provider-for-active-backend branch without ever reaching a real
-    /// vault -- in scope per Design_Testing_Strategy.md, unlike the actual
+    /// vault -- in scope per Design_Testing-Strategy.md, unlike the actual
     /// live-call paths of the CyberArk/Azure/AWS providers.
     /// </summary>
     [Fact]

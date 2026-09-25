@@ -1,5 +1,5 @@
 <script setup>
-// Design_Risk_Scoring.md, D-101-105, Phase A: single add/edit/delete for
+// Design_Risk-Scoring.md, D-101-105, Phase A: single add/edit/delete for
 // the Target inventory. Each Target's identifiers (web.target_identifier)
 // are a small nested collection edited alongside the Target itself --
 // replace-all-on-save (TargetRepository's own comment on why).

@@ -6,7 +6,7 @@ namespace BlueTrack.Api.Tests.Contract;
 
 /// <summary>
 /// Layer 3: permission-gate coverage across every Admin controller not
-/// covered by its own dedicated test class. Design_Testing_Strategy.md's
+/// covered by its own dedicated test class. Design_Testing-Strategy.md's
 /// own motivating example for this whole layer was exactly this class of
 /// bug -- an endpoint missing its intended policy (D-56's ungated
 /// reconciliation-review-queue, found during frontend work) -- so a gate

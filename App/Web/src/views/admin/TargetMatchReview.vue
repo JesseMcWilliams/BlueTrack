@@ -1,5 +1,5 @@
 <script setup>
-// Design_Risk_Scoring.md, D-101-105, D-119 Phase B: the weak-match
+// Design_Risk-Scoring.md, D-101-105, D-119 Phase B: the weak-match
 // (IP-only, etc.) review queue -- these rows never got auto-merged during
 // an import, so an analyst confirms Merged/NewTarget/Ignored by hand.
 import { ref, onMounted } from 'vue'

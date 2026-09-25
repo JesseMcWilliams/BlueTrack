@@ -8,7 +8,7 @@ namespace BlueTrack.Api.Auth;
 public sealed record UserRights(IReadOnlyList<string> RoleNames, IReadOnlyList<string> PermissionNames);
 
 /// <summary>
-/// Claims Normalization Pipeline steps 2-4 (Design_Authorization_Model.md),
+/// Claims Normalization Pipeline steps 2-4 (Design_Authorization-Model.md),
 /// now cached per identity (D-13/D-82) -- a live group -> role ->
 /// permission resolution only happens on a cache miss (ResolveAsync) or an
 /// explicit refresh (RefreshAsync: D-14's self-service Reload Rights).

@@ -1,5 +1,5 @@
 <script setup>
-// Field-metadata-driven edit form (Design_Interface_Extensibility.md) with
+// Field-metadata-driven edit form (Design_Interface-Extensibility.md) with
 // pessimistic locking (D-50) and the two validation rules from D-51
 // (enforced server-side; this form just surfaces whatever error comes back).
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
@@ -155,7 +155,7 @@ let heartbeatTimer = null
 
 const sortedFields = computed(() => [...fieldMetadata.value].sort((a, b) => a.displayOrder - b.displayOrder))
 
-// Risk Exception wiring (Design_Risk_Exception_Tracking.md workflow steps
+// Risk Exception wiring (Design_Risk-Exception-Tracking.md workflow steps
 // 1-2): status can't be set to Risk Accepted / Excluded without linking an
 // Active exception scoped to this account -- the API enforces this, this
 // just gives the form a way to pick or create one before saving.

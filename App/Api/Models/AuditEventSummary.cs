@@ -1,6 +1,6 @@
 namespace BlueTrack.Api.Models;
 
-/// <summary>One row on the Audit Log Viewer (Design_Audit_Logging.md).</summary>
+/// <summary>One row on the Audit Log Viewer (Design_Audit-Logging.md).</summary>
 public sealed class AuditEventSummary
 {
     public long AuditEventKey { get; init; }

@@ -24,7 +24,7 @@ file sealed class NegotiateFreeSchemeProvider(IOptions<AuthenticationOptions> op
 }
 
 /// <summary>
-/// Layer 3 (Design_Testing_Strategy.md): hosts the real BlueTrack.Api
+/// Layer 3 (Design_Testing-Strategy.md): hosts the real BlueTrack.Api
 /// Program in-process over real HTTP (WebApplicationFactory), backed by
 /// BlueTrackTest (see TestDatabase), authenticating via TestAuthHandler
 /// instead of a real Negotiate handshake.

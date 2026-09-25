@@ -5,7 +5,7 @@ using Xunit;
 namespace BlueTrack.Api.Tests.Contract;
 
 /// <summary>
-/// Design_Risk_Scoring.md, D-101-105, Phase A: Targets and Access Groups
+/// Design_Risk-Scoring.md, D-101-105, Phase A: Targets and Access Groups
 /// admin CRUD. All state created here is cleaned up by the test that
 /// created it.
 /// </summary>

@@ -3,7 +3,7 @@ using BlueTrack.Api.Models;
 
 namespace BlueTrack.Api.Data;
 
-/// <summary>Backs the Import Mapping Profiles admin page (Design_Risk_Scoring.md, D-101-105, D-119 Phase B).</summary>
+/// <summary>Backs the Import Mapping Profiles admin page (Design_Risk-Scoring.md, D-101-105, D-119 Phase B).</summary>
 public sealed class ImportMappingProfileRepository(IDbConnectionFactory connectionFactory)
 {
     public async Task<IReadOnlyList<ImportMappingProfileSummary>> GetAllAsync()

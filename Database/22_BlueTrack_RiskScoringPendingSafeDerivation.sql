@@ -4,7 +4,7 @@
    RUN THIS AFTER 01-21. Safe to re-run (CREATE OR ALTER for the two
    procedures -- pure logic, no data of its own, unlike a table).
 
-   Design_Risk_Scoring.md, D-101-105, D-119 Phase C: the PendingSafeDerived
+   Design_Risk-Scoring.md, D-101-105, D-119 Phase C: the PendingSafeDerived
    mechanism for direct Account->Target links -- the one of three
    confirmed mechanisms (see "Direct Account->Target Access" in that doc)
    that needs no external file at all. CyberArk's own Account Discovery

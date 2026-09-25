@@ -8,7 +8,7 @@
    admin-configurable lookup of named bands over that computed score --
    deliberately NOT tied to dbo.dim_risk_level (the pre-existing, manually
    assigned Low/Medium/High/Critical label with no numeric score, which
-   stays exactly as-is -- see Design_Risk_Scoring.md's own explicit note
+   stays exactly as-is -- see Design_Risk-Scoring.md's own explicit note
    that these are two different concepts).
 
    Follows this project's established drop-and-recreate pattern for a new

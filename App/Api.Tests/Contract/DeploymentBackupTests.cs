@@ -10,7 +10,7 @@ namespace BlueTrack.Api.Tests.Contract;
 /// AdminControllersFunctionalTests's singleton-row convention. This test
 /// does trigger a real BACKUP DATABASE against BlueTrackTest -- consistent
 /// with this project's "real infrastructure, not mocks" testing philosophy
-/// (Design_Testing_Strategy.md) -- writing a real (small, disposable-database)
+/// (Design_Testing-Strategy.md) -- writing a real (small, disposable-database)
 /// .bak file to SQL Server's own default backup directory on every run.
 /// </summary>
 public class DeploymentBackupTests : IClassFixture<BlueTrackWebApplicationFactory>

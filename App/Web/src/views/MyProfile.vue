@@ -2,7 +2,7 @@
 // Self-service "Reload My Rights" (D-14) -- re-resolves group membership
 // live via POST /api/me/reload-rights and updates the shared rights store
 // every permission-aware control on the page reads from. Also the theme
-// picker (Design_Accessibility_And_Theming.md, D-93) -- confirmed location
+// picker (Design_Accessibility-And-Theming.md, D-93) -- confirmed location
 // for this per-user preference, alongside the other self-service settings.
 import { onMounted } from 'vue'
 import { useRightsStore } from '../stores/rights'

@@ -7,7 +7,7 @@ namespace BlueTrack.Api.Tests.Integration;
 
 /// <summary>
 /// web.audit_event/web.audit_field_change back the Audit Log Viewer
-/// (Design_Audit_Logging.md). web.audit_event accumulates real rows from
+/// (Design_Audit-Logging.md). web.audit_event accumulates real rows from
 /// every other test run (AuditLogger.LogAsync is called by many
 /// controllers), so every test here inserts its own event with a unique
 /// EntityName/EntityKey and filters on that rather than assuming the log

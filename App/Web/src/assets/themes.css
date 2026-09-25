@@ -1,5 +1,5 @@
 /*
-  Theme tokens (Design_Accessibility_And_Theming.md, D-93). Applied via a
+  Theme tokens (Design_Accessibility-And-Theming.md, D-93). Applied via a
   data-theme attribute set on <html> by stores/theme.js -- never assume a
   theme from prefers-color-scheme alone once a user has made an explicit
   choice (that override always wins; see theme.js).
@@ -75,7 +75,7 @@
   --space-6: 3rem;
 }
 
-/* Defensive only (Design_Accessibility_And_Theming.md 2.3): real Windows
+/* Defensive only (Design_Accessibility-And-Theming.md 2.3): real Windows
    Forced Colors Mode remaps colors at the OS level regardless of theme --
    don't fight it with custom backgrounds/borders here, just make sure
    nothing depends on a background-color alone to convey structure. */
@@ -152,13 +152,13 @@ h1, h2, h3 {
    Cell padding here (0.5rem 0.75rem, roughly 8x12px) plus the row's own
    line height clears WCAG 2.2 SC 2.5.8's 24x24px minimum target size for
    any row that acts as a click target (this app's stated scope is WCAG
-   2.1 AA, per Design_Accessibility_And_Theming.md -- 2.5.8 is a 2.2
+   2.1 AA, per Design_Accessibility-And-Theming.md -- 2.5.8 is a 2.2
    criterion, adopted here anyway since it's directly applicable and
    costs nothing to also clear). The header row gets its own border and
    is left un-bolded-further -- th already renders bold by browser
    default -- just visually separated from the data rows below it.
    Zebra striping deliberately not added: this app's High-Visibility theme
-   is a hand-designed AAA palette (Design_Accessibility_And_Theming.md
+   is a hand-designed AAA palette (Design_Accessibility-And-Theming.md
    2.3) and an alternating-row tint not part of that specified palette
    would need the same rigor applied to it as every other color in this
    file; row/column borders already carry the same scanning benefit

@@ -6,7 +6,7 @@ using Xunit;
 
 namespace BlueTrack.Api.Tests.Integration;
 
-/// <summary>web.dim_target/web.target_identifier/web.dim_access_group (Design_Risk_Scoring.md, D-101-105, Phase A).</summary>
+/// <summary>web.dim_target/web.target_identifier/web.dim_access_group (Design_Risk-Scoring.md, D-101-105, Phase A).</summary>
 public class TargetAndAccessGroupRepositoryTests
 {
     private static TargetRepository CreateTargetRepository() => new(new TestDbConnectionFactory());

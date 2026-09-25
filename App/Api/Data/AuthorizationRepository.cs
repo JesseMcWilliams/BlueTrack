@@ -4,7 +4,7 @@ namespace BlueTrack.Api.Data;
 
 /// <summary>
 /// Backs the Claims Normalization Pipeline's steps 3-4
-/// (Design_Authorization_Model.md): look up which roles a set of normalized
+/// (Design_Authorization-Model.md): look up which roles a set of normalized
 /// group identifiers map to for a given provider, then union those roles'
 /// permissions (or role names, for display) together.
 /// </summary>

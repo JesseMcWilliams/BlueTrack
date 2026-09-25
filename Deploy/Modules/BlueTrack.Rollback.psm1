@@ -1,7 +1,7 @@
 <#
 .SYNOPSIS
     Backup-before-deploy and emergency restore -- BlueTrack's rollback
-    mechanism (Design_Deployment_Methodology.md: Option B, formalize
+    mechanism (Design_Deployment-Methodology.md: Option B, formalize
     backup/restore rather than per-script "down" migrations).
 #>
 

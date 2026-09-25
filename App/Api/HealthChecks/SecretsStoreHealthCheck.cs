@@ -7,7 +7,7 @@ namespace BlueTrack.Api.HealthChecks;
 /// D-96 Part 3.2: confirms the active Secrets Store backend resolves to a
 /// real provider implementation via the existing VaultSecretProviderResolver
 /// -- deliberately dispatch-only, no live secret retrieval (same "stays
-/// out of automated scope" stance Design_Testing_Strategy.md already takes
+/// out of automated scope" stance Design_Testing-Strategy.md already takes
 /// for real vaults).
 /// </summary>
 public sealed class SecretsStoreHealthCheck(VaultSecretProviderResolver resolver) : IHealthCheck

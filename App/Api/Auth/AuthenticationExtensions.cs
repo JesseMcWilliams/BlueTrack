@@ -20,7 +20,7 @@ namespace BlueTrack.Api.Auth;
 public sealed record AuthenticationModeInfo(bool NegotiateDisabled);
 
 /// <summary>
-/// Wires up the modular provider set from Design_Authentication_Architecture.md.
+/// Wires up the modular provider set from Design_Authentication-Architecture.md.
 /// Windows Integrated is registered unconditionally -- it needs no external
 /// config (D-30 already puts the app itself on Windows Integrated auth to
 /// SQL Server, so the app server is domain-joined regardless).
@@ -70,7 +70,7 @@ public sealed record AuthenticationModeInfo(bool NegotiateDisabled);
 /// since ITfoxtec.Identity.Saml2 isn't an AddAuthentication()-scheme-based
 /// library -- it's a set of MVC action helpers the app's own controller
 /// calls directly, following the D-25/D-26/D-27 SAML Security Hardening
-/// requirements in Design_Authentication_Architecture.md.
+/// requirements in Design_Authentication-Architecture.md.
 ///
 /// DevFakeAuth (Development-only, guarded in code, not just an admin
 /// toggle) is wired via NegotiateProviderResolver -- it shares the

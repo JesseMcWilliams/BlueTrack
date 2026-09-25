@@ -7,7 +7,7 @@ using Xunit;
 namespace BlueTrack.Api.Tests.Integration;
 
 /// <summary>
-/// Design_Testing_Strategy.md explicitly calls for one thing to be tested
+/// Design_Testing-Strategy.md explicitly calls for one thing to be tested
 /// on each of the new placeholder secrets providers even though a real
 /// vault isn't reachable: "each provider throws a correctly-classified
 /// SecretRetrievalException when misconfigured." Every branch tested here

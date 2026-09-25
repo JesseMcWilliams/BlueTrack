@@ -89,7 +89,7 @@ using Microsoft.Data.SqlClient;
 // this reason: SQL Server can't drop a database a connection is currently
 // using, which is what the 2026-09-03 incident's fix required). A caller
 // that wants a genuinely fresh database (CI's disposable BlueTrackTest,
-// per Design_Testing_Strategy.md) drops it explicitly, as its own visible
+// per Design_Testing-Strategy.md) drops it explicitly, as its own visible
 // step, before invoking this tool -- not something this shared tool does
 // silently on every run, since most callers (real Dev/Staging/Prod
 // environments) must never have their database dropped.

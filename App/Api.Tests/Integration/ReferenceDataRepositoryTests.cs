@@ -5,7 +5,7 @@ namespace BlueTrack.Api.Tests.Integration;
 
 /// <summary>
 /// Backs the Dropdown fields on the field-metadata-driven Account Progress
-/// edit form (Design_Interface_Extensibility.md). All five reference
+/// edit form (Design_Interface-Extensibility.md). All five reference
 /// tables are seeded, fixed dimension tables (never empty in a built database).
 /// </summary>
 public class ReferenceDataRepositoryTests

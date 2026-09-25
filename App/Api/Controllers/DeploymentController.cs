@@ -10,7 +10,7 @@ using BlueTrack.Api.Models;
 namespace BlueTrack.Api.Controllers;
 
 /// <summary>
-/// Backs the new Deployment admin page (Design_Admin_Deployment_Management.md,
+/// Backs the new Deployment admin page (Design_Admin-Deployment-Management.md,
 /// D-96, Part 3) -- read-only environment/version info, health checks, and
 /// SQL Server backup status.
 ///

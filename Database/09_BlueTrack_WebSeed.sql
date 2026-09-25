@@ -48,7 +48,7 @@ GO
 /* ============================================================================
    2. Bootstrap Admin role.
 
-   Design_Authorization_Model.md's example bundles (Viewer/Analyst/Approver/
+   Design_Authorization-Model.md's example bundles (Viewer/Analyst/Approver/
    Admin) are explicitly "illustrative... confirm before building as
    literal default rows" -- this one exception is seeded anyway, because
    without at least one all-permissions role, nobody could log in and use

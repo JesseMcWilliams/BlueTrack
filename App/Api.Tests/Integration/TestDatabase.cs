@@ -5,7 +5,7 @@ using Microsoft.Data.SqlClient;
 namespace BlueTrack.Api.Tests.Integration;
 
 /// <summary>
-/// Layer 2 (Design_Testing_Strategy.md): real SQL Server, real Dapper
+/// Layer 2 (Design_Testing-Strategy.md): real SQL Server, real Dapper
 /// repositories, no HTTP layer. Points at the disposable BlueTrackTest
 /// database -- built by App/Migrator against Database/ (skipping 09) plus
 /// Database/Test/01_BlueTrack_Test_DevFakeAuthMatrixSeed.sql, never a copy

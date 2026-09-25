@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 
-// Theme preference (Design_Accessibility_And_Theming.md, D-93): 'Light',
+// Theme preference (Design_Accessibility-And-Theming.md, D-93): 'Light',
 // 'Dark', or 'HighVisibility' -- these exact strings are used as both the
 // <html data-theme> attribute value (themes.css) and the server-side
 // web.user_preference.PreferenceValue, so no mapping is needed between them.

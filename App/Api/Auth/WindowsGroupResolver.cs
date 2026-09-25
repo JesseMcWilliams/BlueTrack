@@ -4,7 +4,7 @@ namespace BlueTrack.Api.Auth;
 
 /// <summary>
 /// The Group → Role Mapping admin page's "lookup/test tool"
-/// (Design_Authorization_Model.md's Admin UI Requirements): an admin types
+/// (Design_Authorization-Model.md's Admin UI Requirements): an admin types
 /// a friendly Windows group name, this translates it to the SID that
 /// GroupIdentifierExtractor will actually see on a token and that
 /// identity_group_role_map stores (D-69) -- so nobody has to hand-type a

@@ -8,7 +8,7 @@ using Xunit;
 namespace BlueTrack.Api.Tests.Contract;
 
 /// <summary>
-/// Design_Risk_Scoring.md, D-101-105, D-119 Phase E: the new Risk Score
+/// Design_Risk-Scoring.md, D-101-105, D-119 Phase E: the new Risk Score
 /// report (ViewRiskReport) and the Account Progress "Edit Override" action
 /// (EditAccountProgress), exercised over real HTTP against the synthetic
 /// accounts seeded by Database/Test/02_BlueTrack_Test_SyntheticAccountData.sql.

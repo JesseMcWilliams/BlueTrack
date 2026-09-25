@@ -5,7 +5,7 @@ using BlueTrack.Api.RiskScoring;
 namespace BlueTrack.Api.Data;
 
 /// <summary>
-/// Backs the new Targets admin page (Design_Risk_Scoring.md, D-101-105,
+/// Backs the new Targets admin page (Design_Risk-Scoring.md, D-101-105,
 /// Phase A). A Target's identifiers (web.target_identifier) are managed as
 /// a nested child collection -- replace-all-on-save (delete then re-insert
 /// every identifier row for a Target on each update), the simplest correct

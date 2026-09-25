@@ -3,7 +3,7 @@ using Xunit;
 
 namespace BlueTrack.Api.Tests.Integration;
 
-/// <summary>web.user_preference (Design_Accessibility_And_Theming.md, D-93) -- a generalized per-user key/value preference store, Theme being the first consumer.</summary>
+/// <summary>web.user_preference (Design_Accessibility-And-Theming.md, D-93) -- a generalized per-user key/value preference store, Theme being the first consumer.</summary>
 public class UserPreferenceRepositoryTests
 {
     private static UserPreferenceRepository CreateRepository() => new(new TestDbConnectionFactory());

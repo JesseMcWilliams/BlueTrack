@@ -4,7 +4,7 @@
    RUN THIS AFTER 01-19. Guarded (`IF OBJECT_ID(...) IS NULL` per table) --
    safe to re-run, per D-58's normal incremental-script convention.
 
-   Design_Risk_Scoring.md (D-101-105, 2026-09-05): a computed, numeric
+   Design_Risk-Scoring.md (D-101-105, 2026-09-05): a computed, numeric
    account risk score -- deliberately different from dbo.dim_risk_level
    (Low/Medium/High/Critical, a manually-assigned label with no numeric
    score, which stays exactly as-is). Confirmed by direct code review

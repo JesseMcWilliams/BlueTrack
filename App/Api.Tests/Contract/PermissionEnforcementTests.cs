@@ -4,7 +4,7 @@ using Xunit;
 namespace BlueTrack.Api.Tests.Contract;
 
 /// <summary>
-/// Layer 3 (Design_Testing_Strategy.md): permission-policy enforcement per
+/// Layer 3 (Design_Testing-Strategy.md): permission-policy enforcement per
 /// endpoint, exercised end to end (real HTTP, real controllers, real
 /// PermissionClaimsTransformation/authorization policies) against the
 /// DevFakeAuth role matrix (Database/Test/01_BlueTrack_Test_DevFakeAuthMatrixSeed.sql).

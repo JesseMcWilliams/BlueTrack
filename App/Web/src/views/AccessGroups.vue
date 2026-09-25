@@ -1,5 +1,5 @@
 <script setup>
-// Design_Risk_Scoring.md, D-101-105, Phase A: single add/edit/delete for
+// Design_Risk-Scoring.md, D-101-105, Phase A: single add/edit/delete for
 // Access Groups -- a privileged-access group in the MANAGED environment
 // (e.g. an AD "Server Admins" group), distinct from CyberArk's own
 // dim_group (Safe permissions) and web.identity_group_role_map (this

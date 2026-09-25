@@ -1,6 +1,6 @@
 namespace BlueTrack.Api.Models;
 
-/// <summary>One row for the new Risk Score report (Design_Risk_Scoring.md, D-101-105, Phase E).</summary>
+/// <summary>One row for the new Risk Score report (Design_Risk-Scoring.md, D-101-105, Phase E).</summary>
 public sealed class RiskScoreReportRow
 {
     public long AccountKey { get; init; }

@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test'
 import { signInAs } from './auth.js'
 import { confirmDelete } from './confirmDialog.js'
 
-// Layer 4 (Design_Testing_Strategy.md): D-121 promoted Targets/Access
+// Layer 4 (Design_Testing-Strategy.md): D-121 promoted Targets/Access
 // Groups out of the Admin hub to their own top-level nav entries and
 // granted Analyst full parity with Admin on ManageTargets/
 // ManageAccessGroups -- this is the first E2E coverage for either page.

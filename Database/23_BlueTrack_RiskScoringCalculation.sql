@@ -4,7 +4,7 @@
    RUN THIS AFTER 01-22. Safe to re-run (CREATE OR ALTER throughout -- pure
    logic, no data of its own).
 
-   Design_Risk_Scoring.md, D-101-105, D-119 Phase D: the scoring algorithm
+   Design_Risk-Scoring.md, D-101-105, D-119 Phase D: the scoring algorithm
    itself. Like Phase C (and unlike Phase B's per-import matching logic),
    this genuinely needs to be T-SQL -- usp_RecalculateRiskScores runs
    automatically inside the existing usp_RunFullLoad SQL Agent job, a pure

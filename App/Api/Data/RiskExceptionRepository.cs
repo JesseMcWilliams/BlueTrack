@@ -6,7 +6,7 @@ namespace BlueTrack.Api.Data;
 /// <summary>
 /// Backs the Risk Exceptions list, approval worklist (Active only), and
 /// overdue-review worklist (Active and past ReviewDate) pages, plus the
-/// create/edit form (Design_Risk_Exception_Tracking.md), and the Account
+/// create/edit form (Design_Risk-Exception-Tracking.md), and the Account
 /// Progress edit form's "link an existing exception" picker (accountKey
 /// filter on GetListAsync).
 /// </summary>

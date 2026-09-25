@@ -4,7 +4,7 @@ using System.Security.Principal;
 namespace BlueTrack.Api.Auth;
 
 /// <summary>
-/// Claims Normalization Pipeline step 2 (Design_Authorization_Model.md):
+/// Claims Normalization Pipeline step 2 (Design_Authorization-Model.md):
 /// extracts raw group identifiers regardless of source shape. The
 /// WindowsIntegrated shape reads SIDs straight off the Windows access token
 /// (no extra AD/LDAP round trip), matching that design doc's own "Windows
@@ -44,7 +44,7 @@ public static class GroupIdentifierExtractor
     }
 
     /// <summary>
-    /// DevFakeAuth's substitution (Design_Authentication_Architecture.md):
+    /// DevFakeAuth's substitution (Design_Authentication-Architecture.md):
     /// "resolves against a small dev-only mapping (local Windows username
     /// -> simulated app role or group)" -- the identifier is the
     /// authenticated Windows username itself, not a group SID, matched
