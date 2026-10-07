@@ -129,6 +129,12 @@ While tracking down a batch of E2E failures that looked like the already-documen
 - **`https://dot.net/v1/dotnet-hosting-win.exe` isn't an installer.** It redirects to the dotnet.microsoft.com home page, so the download was HTML and Windows refused to run it ("not a valid application for this OS platform"). Resolve download links from `release-metadata/<channel>/releases.json` instead, and check the hash and Authenticode signature before running anything.
 - **`dotnet run --no-build` runs whatever was built last.** The installer ran `App/Migrator` with `--no-build` and never built it. On a reused checkout that ran a stale build that predated script 41's exclusion, so the Migrator tried to apply 41 (it failed on its sqlcmd-only `:on error exit` line). On a fresh copy there's no build at all. Let `dotnet run` build.
 
+## 2026-10-07 — A deployed site's smoke test: a 401 that cleared itself, then a 500 from a missing SQL login (D-170)
+
+- **`ApplicationPoolIdentity` reaches SQL Server as the computer account, even locally.** With SQL Server on the same machine as IIS, the expected login was `IIS APPPOOL\<pool>`; SQL Server actually logged `Login failed for user 'SAIA\DCACYBSQL01$'` (event 18456, `Could not find a login matching the name provided`). Grant `DOMAIN\HOSTNAME$`, not the virtual account. The 18456 event names the exact account; read it before guessing.
+- **`401.1` with `0x8009030e` (`SEC_E_NO_CREDENTIALS`) cleared after `klist purge`.** The App Pool used `ApplicationPoolIdentity`, kernel-mode auth was on, `useAppPoolCredentials` off, no `HTTP/` SPN anywhere (the computer's `HOST/` SPNs cover it), and the account wasn't in Protected Users. After `klist purge` the same request authenticated. A stale Kerberos ticket is the likely cause, but it wasn't confirmed; try `klist purge` first next time.
+- **A 401, a 403 and a 500 have three different causes.** The smoke test used to print one certificate/permission message for every failure, which pointed away from the real (SQL login) problem. It now explains each status.
+
 ## Process notes
 
 - **Check the Decision Register first.** `Claude_Docs/Design_Decision-Register.md` is the index of every design decision made so far, resolved and open. Don't re-derive or re-litigate something it already answers.

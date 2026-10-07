@@ -82,6 +82,8 @@ param(
     [bool]$InstallNightlyJob,
     [string]$ExportFolderPath,
     [string]$EvdDatabaseName,
+    [bool]$GrantAppPoolSqlAccess,
+    [string]$AppPoolSqlLogin,
 
     # --- IIS ---
     [string]$SiteName = 'BlueTrack',
@@ -162,6 +164,8 @@ $Steps = @(
     @{ Name = 'Db.NightlyJob'; Needs = @('Database', 'InstallNightlyJob'); Description = 'Install the nightly Import+Load SQL Agent job'
         Condition = { $InstallNightlyJob }; SkipReason = 'InstallNightlyJob is off' }
     @{ Name = 'Iis.AppPool'; Description = 'Create the Application Pool' }
+    @{ Name = 'Db.AppPoolAccess'; Needs = @('Database', 'GrantAppPoolSqlAccess'); Description = 'Give the app pool''s account a SQL login + Database/41 grants'
+        Condition = { $UseWindowsAuth -and $GrantAppPoolSqlAccess }; SkipReason = 'GrantAppPoolSqlAccess is off, or the API uses SQL authentication' }
     @{ Name = 'Iis.Certificate'; Needs = @('Certificate'); Description = 'Resolve or generate the HTTPS certificate' }
     @{ Name = 'Iis.Site'; Needs = @('Certificate', 'ApiInstallPath'); Description = 'Create the site, /BlueTrack Application and bindings' }
     @{ Name = 'Iis.WebConfig'; Description = 'Write the site-root web.config and recycle the app pool' }
@@ -289,6 +293,14 @@ function Resolve-InstallAnswer {
                 Register-InstallAnswer ApiInstallPath (Join-Path $env:SystemDrive "inetpub\BlueTrack\$($script:Environment)\api")
             }
         }
+        'GrantAppPoolSqlAccess' {
+            # Only meaningful with Windows Integrated Security: with a SQL
+            # login, the API connects as that login, not the app pool.
+            if ($script:UseWindowsAuth -and -not $script:Answered.Contains('GrantAppPoolSqlAccess')) {
+                $grant = (Read-Host "Give the IIS app pool's Windows account a SQL Server login and read/write/execute rights on '$($script:DatabaseName)' (Database/41, not db_owner)? The site can't reach the database without it. (y/N)") -match '^[Yy]'
+                Register-InstallAnswer GrantAppPoolSqlAccess $grant
+            }
+        }
         default { throw "Unknown step need '$Name'." }
     }
 }
@@ -398,6 +410,17 @@ $StepActions = @{
         Get-InstallConnectionString | Out-Null
         Install-BlueTrackNightlyJob -RepoRoot $RepoRoot -SqlServerInstance $SqlServerInstance -DatabaseName $DatabaseName `
             -ExportFolderPath $ExportFolderPath -EvdDatabaseName $EvdDatabaseName
+    }
+    'Db.AppPoolAccess' = {
+        Import-IisModule
+        Get-InstallConnectionString | Out-Null
+        $account = $AppPoolSqlLogin
+        if (-not $account) {
+            $account = Get-BlueTrackAppPoolSqlLogin -AppPoolName "$SiteName-AppPool"
+        }
+        Write-Host "App pool '$SiteName-AppPool' reaches SQL Server as: $account"
+        Grant-BlueTrackAppPoolSqlAccess -RepoRoot $RepoRoot -SqlServerInstance $SqlServerInstance -DatabaseName $DatabaseName -Account $account
+        return @{ Status = 'Completed'; Message = "Granted $account" }
     }
     'Iis.AppPool'     = {
         Import-IisModule
@@ -582,6 +605,18 @@ try {
     #region Summary
     Write-Host "`n=== Summary ===" -ForegroundColor Cyan
     if ($runResults) { $runResults | Format-Table -AutoSize -Wrap | Out-Host }
+
+    # Without this grant every database-touching request fails with "Login
+    # failed for user 'DOMAIN\HOSTNAME$'" (D-164, D-170), so say so here
+    # rather than leave it to be found as a 500 later.
+    if ($UseWindowsAuth -and $Progress.ContainsKey('Db.AppPoolAccess') -and $Progress['Db.AppPoolAccess'].Status -eq 'NotApplicable') {
+        $grantAccount = $AppPoolSqlLogin
+        if (-not $grantAccount) {
+            try { Import-IisModule; $grantAccount = Get-BlueTrackAppPoolSqlLogin -AppPoolName "$SiteName-AppPool" } catch { $grantAccount = 'DOMAIN\HOSTNAME$' }
+        }
+        Write-Warning "The app pool's SQL Server access was not granted (GrantAppPoolSqlAccess is off). Until it is, the site returns 500 with 'Login failed for user '$grantAccount''. Grant it with: .\Install-BlueTrack.ps1 -Step Db.AppPoolAccess -GrantAppPoolSqlAccess `$true"
+    }
+
     $outstanding = @($Steps | Where-Object { -not ($Progress.ContainsKey($_.Name) -and $Progress[$_.Name].Status -in 'Completed', 'NotApplicable') })
     if ($outstanding.Count -gt 0) {
         Write-Host "Not yet completed: $(($outstanding | ForEach-Object { $_.Name }) -join ', ')" -ForegroundColor Yellow

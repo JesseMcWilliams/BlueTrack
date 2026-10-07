@@ -199,4 +199,62 @@ function Install-BlueTrackNightlyJob {
     }
 }
 
-Export-ModuleMember -Function Format-BlueTrackConnectionString, Test-BlueTrackSqlConnection, Invoke-BlueTrackMigrator, Set-BlueTrackEnvironmentConfig, Install-BlueTrackNightlyJob
+function Grant-BlueTrackAppPoolSqlAccess {
+    <#
+    .SYNOPSIS
+        Gives the IIS Application Pool's account the SQL Server access the API
+        needs (D-170): CREATE LOGIN if it's missing, then
+        Database/41_BlueTrack_GrantAppServiceAccountAccess.sql for that account.
+    .DESCRIPTION
+        Script 41's own rules still apply: least privilege (db_datareader,
+        db_datawriter, EXECUTE on dbo/web -- not db_owner), and the tracked
+        file is never modified -- only a temp copy with __TARGET_ACCOUNT__
+        filled in. Runs via sqlcmd under the installing user's Windows
+        login, which needs securityadmin (for CREATE LOGIN) and rights to
+        manage users/roles in the target database.
+    #>
+    [CmdletBinding(SupportsShouldProcess)]
+    param(
+        [Parameter(Mandatory)] [string]$RepoRoot,
+        [Parameter(Mandatory)] [string]$SqlServerInstance,
+        [Parameter(Mandatory)] [string]$DatabaseName,
+        [Parameter(Mandatory)] [string]$Account
+    )
+
+    # The account goes into both N'...' literals and [...] identifiers below
+    # by plain text substitution, so refuse anything that could break out of
+    # either. Real Windows account names never contain these.
+    if ($Account -notmatch '^[^\\''\[\]]+\\[^\\''\[\]]+$') {
+        throw "'$Account' isn't a DOMAIN\Name account name this step can safely substitute into SQL."
+    }
+
+    $sourceScript = Join-Path $RepoRoot 'Database\41_BlueTrack_GrantAppServiceAccountAccess.sql'
+    if (-not (Test-Path $sourceScript)) {
+        throw "Could not find '$sourceScript'."
+    }
+
+    $createLogin = "IF NOT EXISTS (SELECT 1 FROM sys.server_principals WHERE name = N'$Account') CREATE LOGIN [$Account] FROM WINDOWS;"
+    $tempScript = Join-Path $env:TEMP "41_BlueTrack_GrantAppServiceAccountAccess.$([guid]::NewGuid()).sql"
+    Set-Content -Path $tempScript -Value ((Get-Content -Path $sourceScript -Raw).Replace('__TARGET_ACCOUNT__', $Account)) -Encoding UTF8
+
+    try {
+        if ($PSCmdlet.ShouldProcess($SqlServerInstance, "CREATE LOGIN [$Account] FROM WINDOWS (if missing)")) {
+            & sqlcmd -S $SqlServerInstance -C -b -Q $createLogin | Out-Host
+            if ($LASTEXITCODE -ne 0) {
+                throw "sqlcmd failed creating the SQL Server login for '$Account' (exit code $LASTEXITCODE). The installing user needs the securityadmin (or sysadmin) server role."
+            }
+        }
+        if ($PSCmdlet.ShouldProcess("$SqlServerInstance / $DatabaseName", "Run 41_BlueTrack_GrantAppServiceAccountAccess.sql for '$Account'")) {
+            # Script 41 starts with :on error exit (D-167), so its first
+            # failure stops it and sets a nonzero exit code.
+            & sqlcmd -S $SqlServerInstance -C -d $DatabaseName -i $tempScript | Out-Host
+            if ($LASTEXITCODE -ne 0) {
+                throw "sqlcmd failed granting '$Account' access to '$DatabaseName' (exit code $LASTEXITCODE) -- see the output above."
+            }
+        }
+    } finally {
+        Remove-Item -Path $tempScript -ErrorAction SilentlyContinue -WhatIf:$false
+    }
+}
+
+Export-ModuleMember -Function Format-BlueTrackConnectionString, Test-BlueTrackSqlConnection, Invoke-BlueTrackMigrator, Set-BlueTrackEnvironmentConfig, Install-BlueTrackNightlyJob, Grant-BlueTrackAppPoolSqlAccess

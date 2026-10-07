@@ -9,6 +9,8 @@
     "ExportFolderPath": "D:\\DataDrop\\Exports\\PrivilegedCloud",
     "EvdDatabaseName": "CyberArk",
     "BackupFolder": "D:\\SQLBackups\\BlueTrack",
+    "GrantAppPoolSqlAccess": true,
+    "AppPoolSqlLogin": "",
     "SiteName": "BlueTrack",
     "ApiInstallPath": "C:\\inetpub\\BlueTrack\\Production\\api",
     "Hostname": "bluetrack.company.com",
