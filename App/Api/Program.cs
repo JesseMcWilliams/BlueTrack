@@ -82,7 +82,10 @@ builder.Services.AddScoped<UserRightsCache>();
 // VaultSecretProviderResolver picks whichever one matches the currently-
 // active web.secrets_store row. Windows DPAPI doesn't fit that shape at
 // all (D-79) -- it registers as the separate ILocalSecretProtector instead.
+#if CYBERARK_CP
+// Only when built with the CyberArk SDK present (D-169, App/CyberArkSdk.targets).
 builder.Services.AddScoped<IVaultSecretProvider, CyberArkCpSecretsProvider>();
+#endif
 builder.Services.AddHttpClient(nameof(CyberArkCcpSecretsProvider));
 builder.Services.AddScoped<IVaultSecretProvider, CyberArkCcpSecretsProvider>();
 builder.Services.AddScoped<VaultSecretProviderResolver>();

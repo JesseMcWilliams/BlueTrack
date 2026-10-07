@@ -91,7 +91,11 @@ function Invoke-BlueTrackMigrator {
         # Piped through Out-Host so this function's console output can never
         # leak into a caller's return-value capture -- see BlueTrack.Build.psm1's
         # Invoke-BlueTrackWebBuild for the real bug this defends against.
-        & dotnet run --project $migratorProject --configuration Release --no-build -- $ConnectionString $scriptsPath | Out-Host
+        # No --no-build: nothing else in the install builds App/Migrator, so on
+        # a fresh copy of the repo there's no build to use, and on a reused
+        # one --no-build would run a stale build (one from before a script was
+        # added to its exclusion list ran that script).
+        & dotnet run --project $migratorProject --configuration Release -- $ConnectionString $scriptsPath | Out-Host
         if ($LASTEXITCODE -ne 0) {
             throw "App/Migrator failed applying '$ScriptsFolder' (exit code $LASTEXITCODE) -- see the console output above for which script failed."
         }

@@ -18,4 +18,7 @@
     <ProjectReference Include="..\Api\BlueTrack.Api.csproj" />
   </ItemGroup>
 
+  <!-- Defines CYBERARK_CP when the CyberArk SDK is present, as for the API (D-169). -->
+  <Import Project="..\CyberArkSdk.targets" />
+
 </Project>
