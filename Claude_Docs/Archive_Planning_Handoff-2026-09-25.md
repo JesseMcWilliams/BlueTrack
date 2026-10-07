@@ -1,6 +1,6 @@
 # BlueTrack: Handoff, 2026-09-25
 
-> **Stage: Planning.** Point-in-time snapshot for the next Claude session. Once every item below is closed, rename to `Archive_Planning_Handoff-2026-09-25.md` with `git mv`.
+> **Stage: Archive.** Point-in-time snapshot, archived 2026-10-07. Items 11-13 are closed; item 10's open *(verify)* items stay tracked in `Planning_Backlog.md`.
 
 ## What was done
 - Ran the `ape-project-setup` skill: the scaffold script had already run earlier; this session filled `CLAUDE.md` (no FILL/TODO markers left) and migrated the docs.
@@ -19,6 +19,8 @@
 Neither PR is merged. Merge only when the user asks.
 
 ## Open items (numbering continues from the session)
+Outcome: 10 carried into `Planning_Backlog.md` (the installer work became D-168/D-169, PR #58); 11 committed; 12 re-run on the server by the user; 13 handled by the user.
+
 10. User to confirm the two *(verify)* items in `Planning_Backlog.md` (installer on a blank server; CI runner labels) and the single-file test commands in `CLAUDE.md` ("Tests").
 11. `.claude/settings.json` (a local `sqlcmd` permission) is untracked and was left out of the commit. User to decide: commit it or gitignore it.
 12. `Database/40_BlueTrack_ScheduleAuditLogPurgeJob.sql`'s job description string now names the new doc paths. The real server keeps the old text until that script is re-run by hand. Cosmetic only.
