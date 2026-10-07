@@ -12,7 +12,8 @@ The install runs as named steps, grouped into the five phases below. `-ListSteps
 2. **Build** — `dotnet publish` (API) and `npm run build` (SPA) from source. The API publishes to `C:\inetpub\BlueTrack\<Environment>\api` by default (override with `-ApiInstallPath`) — deliberately not a temp folder, since IIS's Application Pool identity needs durable read access to whatever directory it's pointed at, and `%TEMP%` is both ephemeral and scoped to the account that ran this script.
 3. **Database** — confirms SQL Server is reachable; if the target database already exists with a schema (an upgrade, not a fresh install), takes a pre-deployment backup first (see "Rollback" below); runs `App/Migrator` against `Database` (and optionally `Database/Test`); writes an environment-specific `appsettings.{Environment}.json` next to the published API; and optionally installs the nightly Import+Load SQL Agent job.
 4. **IIS** — creates the Application Pool, the site (physical root = the built SPA), the nested `/BlueTrack` Application (physical root = the published API), the HTTPS binding/certificate, and the site-root `web.config` (the SPA client-side-routing fallback rule). The nested Application is named `BlueTrack`, not `api` — the controllers' own routes already start with a literal `api/` segment, and naming the Application `/api` too would double it up externally (D-163); the real API root ends up at `/BlueTrack/api/...`. Also enables IIS's own Windows Authentication (alongside Anonymous) on that Application — BlueTrack.Api defers Windows Integrated Auth to IIS's native handshake when IIS-hosted rather than running its own Negotiate handler, which cannot coexist with IIS/ANCM at all (D-162).
-5. **Smoke test** — calls the Deployment Info health-check endpoint and reports the result.
+   Then, with your consent (`-GrantAppPoolSqlAccess`), the `Db.AppPoolAccess` step gives the App Pool's Windows account SQL Server access: `CREATE LOGIN` if it's missing, then `Database/41_BlueTrack_GrantAppServiceAccountAccess.sql` (read/write/execute, not `db_owner`). See "App pool SQL access" below.
+5. **Smoke test** — calls the Deployment Info health-check endpoint and reports the result. A failure is explained by HTTP status; see "Smoke test failures" below.
 
 ## Rollback
 
@@ -72,6 +73,8 @@ Preview without changing anything:
 | `-SqlCredential` | SQL login (only used when `-UseWindowsAuth $false`) | prompted via `Get-Credential` |
 | `-SeedTestData` | Also run `Database/Test` (DevFakeAuth/synthetic accounts) — never for Production | prompted |
 | `-InstallNightlyJob` | Install the nightly Import+Load SQL Agent job | prompted |
+| `-GrantAppPoolSqlAccess` | Give the App Pool's account a SQL login and the script 41 grants (`Db.AppPoolAccess` step). Only asked with Windows Integrated Security | prompted |
+| `-AppPoolSqlLogin` | Account to grant, overriding the one worked out from the App Pool (e.g. on a server that isn't domain-joined) | worked out |
 | `-ExportFolderPath` / `-EvdDatabaseName` | Required if `-InstallNightlyJob` — see below | prompted |
 | `-SiteName` | IIS site name | `BlueTrack` |
 | `-Hostname` | Site host header / binding hostname | prompted |
@@ -129,6 +132,24 @@ File names the offline lookup matches in `-InstallerSourcePath` (the newest vers
 | IIS URL Rewrite 2.1 | `rewrite_amd64*.msi` | https://www.iis.net/downloads/microsoft/url-rewrite |
 
 To have the hash checked as well, put a sidecar file next to the installer, `<installer>.sha512` or `<installer>.sha256`, holding the hash (a bare hash or `sha256sum`-style `<hash>  <file>` line). The IIS role and its Windows Authentication role service are Windows features (`Install-WindowsFeature`) and need no installer file.
+
+### App pool SQL access
+
+With Windows Integrated Security, the API connects to SQL Server as the App Pool's Windows account, and nothing works until that account has a login (D-164, D-170). The account is:
+
+- **`ApplicationPoolIdentity`** (the installer's default), `NetworkService` or `LocalSystem`: the **computer account**, `DOMAIN\HOSTNAME$`. This holds even when SQL Server is on the same machine, confirmed live (`Login failed for user 'SAIA\DCACYBSQL01$'`); it is not `IIS APPPOOL\<pool>`.
+- **A custom identity** (a gMSA or service account): that account.
+
+`Db.AppPoolAccess` works this out, creates the login if it's missing and runs script 41 for it. The installing user needs `securityadmin` (or `sysadmin`). Granting the computer account also gives that access to anything else on the server running as `NETWORK SERVICE`, `SYSTEM` or another App Pool; a dedicated gMSA avoids that (`User_Docs/Admin_Installation.md`, section 3).
+
+### Smoke test failures
+
+| Result | Meaning | What to do |
+|---|---|---|
+| `401` | IIS rejected the Windows login; BlueTrack wasn't reached. Seen live as `401.1` / `0x8009030e`. | Run `klist purge`, then `-Step Smoke` (that cleared it live; a stale Kerberos ticket is the likely, unconfirmed cause). If it persists with a custom App Pool identity, check SPNs and `useAppPoolCredentials` (see the install guide's gMSA section). |
+| `403` | Signed in, but without `ViewDeploymentInfo`. | Run the installer elevated as a local administrator (the bootstrap Admin role is mapped to `BUILTIN\Administrators`), or map your group to Admin. |
+| `500` | BlueTrack.Api failed; the exception is in the Application event log (`.NET Runtime`, event 1000). | The usual cause is a missing SQL login for the App Pool's account. The smoke test prints SQL Server's matching `Login failed` event if there is one; run `-Step Db.AppPoolAccess -GrantAppPoolSqlAccess $true`. |
+| No response | DNS, binding or certificate. | Check the hostname resolves here, the HTTPS binding exists, and this machine trusts the certificate. |
 
 ### A note on the nightly Import+Load job
 

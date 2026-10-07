@@ -35,7 +35,11 @@
    *computer account* (`DOMAIN\HOSTNAME$`), not as the named App Pool
    identity itself -- confirmed directly via a live SqlException
    ("Login failed for user 'DOMAIN\HOSTNAME$'") on a real host with no
-   login for that account yet. A domain service account (or gMSA) used as
+   login for that account yet. The same holds when SQL Server runs on the
+   same machine as IIS (confirmed live 2026-10-07, D-170: "Login failed for
+   user 'SAIA\DCACYBSQL01$'"). Deploy/Install-BlueTrack.ps1's
+   Db.AppPoolAccess step works out the account and runs a filled-in temp
+   copy of this file for you. A domain service account (or gMSA) used as
    the App Pool identity instead would authenticate as itself, the same
    way; either way, something needs this exact grant.
 

@@ -197,4 +197,51 @@ function Restart-BlueTrackAppPool {
     }
 }
 
-Export-ModuleMember -Function New-BlueTrackAppPool, New-BlueTrackCertificateBinding, New-BlueTrackSite, Set-BlueTrackSiteWebConfig, Restart-BlueTrackAppPool
+function Get-BlueTrackAppPoolSqlLogin {
+    <#
+    .SYNOPSIS
+        The Windows account an Application Pool presents to SQL Server under
+        Windows Integrated Security, in DOMAIN\Name form (D-170).
+    .DESCRIPTION
+        ApplicationPoolIdentity, NetworkService and LocalSystem all reach SQL
+        Server as the computer account (DOMAIN\HOSTNAME$) -- confirmed live,
+        for SQL Server on another machine (D-164) and on the same machine
+        (2026-10-07: "Login failed for user 'SAIA\DCACYBSQL01$'"), not as
+        "IIS APPPOOL\<pool>". A custom identity (a gMSA or service account)
+        reaches it as itself. LocalService has no network identity at all.
+    .OUTPUTS
+        [string] the login name, e.g. SAIA\DCACYBSQL01$.
+    #>
+    [CmdletBinding()]
+    [OutputType([string])]
+    param(
+        [Parameter(Mandatory)] [string]$AppPoolName
+    )
+
+    $processModel = Get-ItemProperty "IIS:\AppPools\$AppPoolName" -Name processModel -ErrorAction SilentlyContinue
+    if (-not $processModel) {
+        throw "Application Pool '$AppPoolName' not found -- run the Iis.AppPool step first."
+    }
+
+    switch ($processModel.identityType) {
+        'SpecificUser' {
+            return $processModel.userName
+        }
+        'LocalService' {
+            throw "Application Pool '$AppPoolName' runs as LocalService, which has no network identity and cannot use Windows authentication to SQL Server. Use ApplicationPoolIdentity or a dedicated account."
+        }
+        default {
+            # ApplicationPoolIdentity / NetworkService / LocalSystem.
+            if (-not (Get-CimInstance Win32_ComputerSystem).PartOfDomain) {
+                throw "This server isn't domain-joined, so there's no DOMAIN\$($env:COMPUTERNAME)`$ computer account to grant. Pass -AppPoolSqlLogin with the account SQL Server reports in its 'Login failed for user' message."
+            }
+            # Resolved via its SID, so the domain part is the machine's own
+            # NetBIOS domain, not the (possibly different) installing user's.
+            $account = New-Object System.Security.Principal.NTAccount("$($env:COMPUTERNAME)`$")
+            $sid = $account.Translate([System.Security.Principal.SecurityIdentifier])
+            return $sid.Translate([System.Security.Principal.NTAccount]).Value
+        }
+    }
+}
+
+Export-ModuleMember -Function New-BlueTrackAppPool, New-BlueTrackCertificateBinding, New-BlueTrackSite, Set-BlueTrackSiteWebConfig, Restart-BlueTrackAppPool, Get-BlueTrackAppPoolSqlLogin

@@ -33,8 +33,8 @@ function Test-BlueTrackDeployment {
     try {
         $response = Invoke-RestMethod -Uri $endpoint -UseDefaultCredentials -TimeoutSec $TimeoutSeconds
     } catch {
-        Write-Warning "Smoke test could not reach or authenticate against '$endpoint': $($_.Exception.Message)"
-        Write-Warning 'This does not necessarily mean the install failed -- confirm the certificate is trusted, the hostname resolves, and the identity running this script holds ViewDeploymentInfo (the bootstrap BUILTIN\Administrators group does by default).'
+        Write-Warning "Smoke test failed calling '$endpoint': $($_.Exception.Message)"
+        Write-BlueTrackSmokeDiagnosis -ErrorRecord $_
         return $false
     }
 
@@ -53,6 +53,49 @@ function Test-BlueTrackDeployment {
     }
 
     return $allHealthy
+}
+
+function Write-BlueTrackSmokeDiagnosis {
+    <#
+    .SYNOPSIS
+        Explains a failed smoke-test call by HTTP status (D-170). Each status
+        has a different cause; before this, every failure printed the same
+        certificate/ViewDeploymentInfo advice, which was wrong for a 500.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)] [System.Management.Automation.ErrorRecord]$ErrorRecord
+    )
+
+    $status = $null
+    $exception = $ErrorRecord.Exception
+    if ($exception.PSObject.Properties['Response'] -and $exception.Response) {
+        $status = [int]$exception.Response.StatusCode
+    }
+
+    switch ($status) {
+        401 {
+            Write-Warning 'HTTP 401: IIS rejected the Windows login before the request reached BlueTrack (BlueTrack''s permissions are not involved yet).'
+            Write-Warning 'Seen live as 401.1 / 0x8009030e and cleared by "klist purge" (a stale Kerberos ticket is the likely, unconfirmed cause): run klist purge, then -Step Smoke. If it persists, check the app pool identity, SPNs and useAppPoolCredentials -- Deploy/README.md, "Smoke test failures".'
+        }
+        403 {
+            Write-Warning 'HTTP 403: you are signed in, but your account lacks ViewDeploymentInfo. The bootstrap Admin role has it, mapped to BUILTIN\Administrators (S-1-5-32-544) by Database/09_BlueTrack_WebSeed.sql -- run this script elevated as a local administrator, or map your group to Admin.'
+        }
+        { $_ -ge 500 } {
+            Write-Warning "HTTP $($status): the request reached BlueTrack.Api and it failed. The exception is in the Application event log (source '.NET Runtime', event 1000)."
+            # The usual cause on a fresh install: the app pool's account has no
+            # SQL Server login. SQL Server logs that as event 18456 naming the
+            # account -- only visible here when SQL Server runs on this machine.
+            $loginFailure = Get-WinEvent -FilterHashtable @{ LogName = 'Application'; Id = 18456; StartTime = (Get-Date).AddMinutes(-10) } -MaxEvents 1 -ErrorAction SilentlyContinue
+            if ($loginFailure) {
+                Write-Warning "SQL Server logged a login failure for '$($loginFailure.Properties[0].Value)': $($loginFailure.Properties[1].Value)"
+                Write-Warning 'Grant that account access with: .\Install-BlueTrack.ps1 -Step Db.AppPoolAccess -GrantAppPoolSqlAccess $true'
+            }
+        }
+        default {
+            Write-Warning 'No HTTP response: confirm the hostname resolves to this server, the HTTPS binding exists, and the certificate is trusted by this machine.'
+        }
+    }
 }
 
 Export-ModuleMember -Function Test-BlueTrackDeployment
