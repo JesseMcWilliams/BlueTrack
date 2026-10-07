@@ -197,51 +197,97 @@ function Restart-BlueTrackAppPool {
     }
 }
 
+function Test-BlueTrackSqlServerIsLocal {
+    <#
+    .SYNOPSIS
+        Whether a SQL Server instance name (Server=/Data Source= value) points
+        at this machine: localhost, ., (local), this computer's name or FQDN,
+        or a name/address that resolves to one of this machine's addresses.
+    #>
+    [CmdletBinding()]
+    [OutputType([bool])]
+    param(
+        [Parameter(Mandatory)] [string]$SqlServerInstance
+    )
+
+    # Strip a protocol prefix (tcp:, np:, lpc:), an instance name and a port.
+    $hostPart = ($SqlServerInstance -replace '^[a-zA-Z]+:', '') -split '[\x5C,]' | Select-Object -First 1
+    $hostPart = $hostPart.Trim()
+    if ($hostPart -in '.', '(local)', 'localhost', '127.0.0.1', '::1', '') { return $true }
+
+    $computer = Get-CimInstance Win32_ComputerSystem
+    $localNames = @($env:COMPUTERNAME)
+    if ($computer.PartOfDomain) { $localNames += "$($env:COMPUTERNAME).$($computer.Domain)" }
+    if ($hostPart -in $localNames) { return $true }
+
+    try {
+        $localAddresses = @([System.Net.Dns]::GetHostAddresses($env:COMPUTERNAME) | ForEach-Object { $_.ToString() })
+        $targetAddresses = @([System.Net.Dns]::GetHostAddresses($hostPart) | ForEach-Object { $_.ToString() })
+        return [bool]($targetAddresses | Where-Object { $_ -in $localAddresses -or $_ -in '127.0.0.1', '::1' })
+    } catch {
+        # Unresolvable here: treat as remote and let the grant or the
+        # smoke test's 18456 diagnosis show otherwise.
+        return $false
+    }
+}
+
 function Get-BlueTrackAppPoolSqlLogin {
     <#
     .SYNOPSIS
-        The Windows account an Application Pool presents to SQL Server under
-        Windows Integrated Security, in DOMAIN\Name form (D-170).
+        The Windows account an Application Pool actually presents to SQL
+        Server under Windows Integrated Security (D-171).
     .DESCRIPTION
-        ApplicationPoolIdentity, NetworkService and LocalSystem all reach SQL
-        Server as the computer account (DOMAIN\HOSTNAME$) -- confirmed live,
-        for SQL Server on another machine (D-164) and on the same machine
-        (2026-10-07: "Login failed for user 'SAIA\DCACYBSQL01$'"), not as
-        "IIS APPPOOL\<pool>". A custom identity (a gMSA or service account)
-        reaches it as itself. LocalService has no network identity at all.
+        A custom identity (a gMSA or service account) arrives as itself.
+        Otherwise it depends on where SQL Server runs:
+          - Same machine as IIS: the pool's own local identity --
+            IIS APPPOOL\<pool> for ApplicationPoolIdentity. Confirmed live on
+            two hosts (Server 2019 and 2022) from the SID on SQL Server's
+            18456 events. SQL Server's message text names the computer
+            account (DOMAIN\HOSTNAME$) instead, but a login for that is never
+            matched (D-170 granted it and still failed). NetworkService,
+            LocalSystem and LocalService follow the same rule (their own
+            NT AUTHORITY account); untested.
+          - Another machine: the computer account, DOMAIN\HOSTNAME$ --
+            standard Windows behavior for these identities on the network,
+            not yet tested on a BlueTrack host.
     .OUTPUTS
-        [string] the login name, e.g. SAIA\DCACYBSQL01$.
+        [string] the login name, e.g. IIS APPPOOL\BlueTrack-AppPool.
     #>
     [CmdletBinding()]
     [OutputType([string])]
     param(
-        [Parameter(Mandatory)] [string]$AppPoolName
+        [Parameter(Mandatory)] [string]$AppPoolName,
+        [Parameter(Mandatory)] [string]$SqlServerInstance
     )
 
     $processModel = Get-ItemProperty "IIS:\AppPools\$AppPoolName" -Name processModel -ErrorAction SilentlyContinue
     if (-not $processModel) {
         throw "Application Pool '$AppPoolName' not found -- run the Iis.AppPool step first."
     }
+    if ($processModel.identityType -eq 'SpecificUser') {
+        return $processModel.userName
+    }
 
-    switch ($processModel.identityType) {
-        'SpecificUser' {
-            return $processModel.userName
-        }
-        'LocalService' {
-            throw "Application Pool '$AppPoolName' runs as LocalService, which has no network identity and cannot use Windows authentication to SQL Server. Use ApplicationPoolIdentity or a dedicated account."
-        }
-        default {
-            # ApplicationPoolIdentity / NetworkService / LocalSystem.
-            if (-not (Get-CimInstance Win32_ComputerSystem).PartOfDomain) {
-                throw "This server isn't domain-joined, so there's no DOMAIN\$($env:COMPUTERNAME)`$ computer account to grant. Pass -AppPoolSqlLogin with the account SQL Server reports in its 'Login failed for user' message."
-            }
-            # Resolved via its SID, so the domain part is the machine's own
-            # NetBIOS domain, not the (possibly different) installing user's.
-            $account = New-Object System.Security.Principal.NTAccount("$($env:COMPUTERNAME)`$")
-            $sid = $account.Translate([System.Security.Principal.SecurityIdentifier])
-            return $sid.Translate([System.Security.Principal.NTAccount]).Value
+    if (Test-BlueTrackSqlServerIsLocal -SqlServerInstance $SqlServerInstance) {
+        switch ($processModel.identityType) {
+            'ApplicationPoolIdentity' { return "IIS APPPOOL\$AppPoolName" }
+            'NetworkService' { return 'NT AUTHORITY\NETWORK SERVICE' }
+            'LocalSystem' { return 'NT AUTHORITY\SYSTEM' }
+            'LocalService' { return 'NT AUTHORITY\LOCAL SERVICE' }
         }
     }
+
+    if ($processModel.identityType -eq 'LocalService') {
+        throw "Application Pool '$AppPoolName' runs as LocalService, which has no network identity and cannot use Windows authentication to a SQL Server on another machine. Use ApplicationPoolIdentity or a dedicated account."
+    }
+    if (-not (Get-CimInstance Win32_ComputerSystem).PartOfDomain) {
+        throw "This server isn't domain-joined, so there's no DOMAIN\$($env:COMPUTERNAME)`$ computer account for a remote SQL Server to accept. Use a SQL login (-UseWindowsAuth `$false) or pass -AppPoolSqlLogin."
+    }
+    # Resolved via its SID, so the domain part is the machine's own NetBIOS
+    # domain, not the (possibly different) installing user's.
+    $account = New-Object System.Security.Principal.NTAccount("$($env:COMPUTERNAME)`$")
+    $sid = $account.Translate([System.Security.Principal.SecurityIdentifier])
+    return $sid.Translate([System.Security.Principal.NTAccount]).Value
 }
 
-Export-ModuleMember -Function New-BlueTrackAppPool, New-BlueTrackCertificateBinding, New-BlueTrackSite, Set-BlueTrackSiteWebConfig, Restart-BlueTrackAppPool, Get-BlueTrackAppPoolSqlLogin
+Export-ModuleMember -Function New-BlueTrackAppPool, New-BlueTrackCertificateBinding, New-BlueTrackSite, Set-BlueTrackSiteWebConfig, Restart-BlueTrackAppPool, Get-BlueTrackAppPoolSqlLogin, Test-BlueTrackSqlServerIsLocal

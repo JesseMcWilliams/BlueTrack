@@ -30,16 +30,19 @@
    design comment -- "Windows Integrated Authentication to SQL Server, no
    SQL login, no standing secret" -- names the PRINCIPLE but this repo had
    no script or documented permission set turning it into an actual grant):
-   on a real IIS deployment, the App Pool's `ApplicationPoolIdentity`
-   virtual account authenticates to SQL Server over the network as the
-   *computer account* (`DOMAIN\HOSTNAME$`), not as the named App Pool
-   identity itself -- confirmed directly via a live SqlException
-   ("Login failed for user 'DOMAIN\HOSTNAME$'") on a real host with no
-   login for that account yet. The same holds when SQL Server runs on the
-   same machine as IIS (confirmed live 2026-10-07, D-170: "Login failed for
-   user 'SAIA\DCACYBSQL01$'"). Deploy/Install-BlueTrack.ps1's
-   Db.AppPoolAccess step works out the account and runs a filled-in temp
-   copy of this file for you. A domain service account (or gMSA) used as
+   which account the App Pool's `ApplicationPoolIdentity` presents depends
+   on where SQL Server runs (D-171):
+     - Same machine as IIS (the normal single-server layout): its own
+       virtual account, `IIS APPPOOL\<pool>`. Confirmed live on two hosts
+       from the SID on SQL Server's 18456 events. TRAP: SQL Server's
+       "Login failed for user '...'" message names the computer account
+       (`DOMAIN\HOSTNAME$`) here, but a login for that is never matched --
+       D-164 and D-170 both granted it and the error continued.
+     - Another machine: the *computer account* (`DOMAIN\HOSTNAME$`) --
+       standard Windows behavior, not yet tested on a BlueTrack host.
+   Deploy/Install-BlueTrack.ps1's Db.AppPoolAccess step works out the
+   account and runs a filled-in temp copy of this file for you. A domain
+   service account (or gMSA) used as
    the App Pool identity instead would authenticate as itself, the same
    way; either way, something needs this exact grant.
 
@@ -67,8 +70,9 @@
 
    __TARGET_ACCOUNT__ below is a placeholder -- replace it by hand with
    the real login/account (e.g. `DOMAIN\BlueTrackAppPoolAccount`, or, for
-   the default `ApplicationPoolIdentity` case, the deployment server's own
-   computer account, `DOMAIN\HOSTNAME$`) before running this file.
+   the default `ApplicationPoolIdentity` case, `IIS APPPOOL\<pool>` with
+   SQL Server on the same machine, or the computer account
+   `DOMAIN\HOSTNAME$` with SQL Server elsewhere) before running this file.
    ============================================================================ */
 
 -- D-167: confirmed live that skipping the CREATE LOGIN prerequisite above

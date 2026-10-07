@@ -416,7 +416,7 @@ $StepActions = @{
         Get-InstallConnectionString | Out-Null
         $account = $AppPoolSqlLogin
         if (-not $account) {
-            $account = Get-BlueTrackAppPoolSqlLogin -AppPoolName "$SiteName-AppPool"
+            $account = Get-BlueTrackAppPoolSqlLogin -AppPoolName "$SiteName-AppPool" -SqlServerInstance $SqlServerInstance
         }
         Write-Host "App pool '$SiteName-AppPool' reaches SQL Server as: $account"
         Grant-BlueTrackAppPoolSqlAccess -RepoRoot $RepoRoot -SqlServerInstance $SqlServerInstance -DatabaseName $DatabaseName -Account $account
@@ -607,14 +607,14 @@ try {
     if ($runResults) { $runResults | Format-Table -AutoSize -Wrap | Out-Host }
 
     # Without this grant every database-touching request fails with "Login
-    # failed for user 'DOMAIN\HOSTNAME$'" (D-164, D-170), so say so here
-    # rather than leave it to be found as a 500 later.
+    # failed for user ..." (D-164, D-170, D-171), so say so here rather than
+    # leave it to be found as a 500 later.
     if ($UseWindowsAuth -and $Progress.ContainsKey('Db.AppPoolAccess') -and $Progress['Db.AppPoolAccess'].Status -eq 'NotApplicable') {
         $grantAccount = $AppPoolSqlLogin
         if (-not $grantAccount) {
-            try { Import-IisModule; $grantAccount = Get-BlueTrackAppPoolSqlLogin -AppPoolName "$SiteName-AppPool" } catch { $grantAccount = 'DOMAIN\HOSTNAME$' }
+            try { Import-IisModule; $grantAccount = Get-BlueTrackAppPoolSqlLogin -AppPoolName "$SiteName-AppPool" -SqlServerInstance $SqlServerInstance } catch { $grantAccount = "the app pool's account" }
         }
-        Write-Warning "The app pool's SQL Server access was not granted (GrantAppPoolSqlAccess is off). Until it is, the site returns 500 with 'Login failed for user '$grantAccount''. Grant it with: .\Install-BlueTrack.ps1 -Step Db.AppPoolAccess -GrantAppPoolSqlAccess `$true"
+        Write-Warning "The app pool's SQL Server access was not granted (GrantAppPoolSqlAccess is off). Until $grantAccount has a SQL login, the site returns 500 ('Login failed for user ...'; the name in that message can differ from the account that needs the login -- D-171). Grant it with: .\Install-BlueTrack.ps1 -Step Db.AppPoolAccess -GrantAppPoolSqlAccess `$true"
     }
 
     $outstanding = @($Steps | Where-Object { -not ($Progress.ContainsKey($_.Name) -and $Progress[$_.Name].Status -in 'Completed', 'NotApplicable') })
