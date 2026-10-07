@@ -1,4 +1,5 @@
 using BlueTrack.Api.Data;
+using Dapper;
 using Xunit;
 
 namespace BlueTrack.Api.Tests.Integration;
@@ -122,5 +123,73 @@ public class AccountProgressLockRepositoryTests
         var status = await repository.GetStatusAsync(accountKey);
 
         Assert.Null(status);
+    }
+
+    // D-174: abandoned locks (no heartbeat within LockTimeoutMinutes). Found
+    // when a lock left by a CI run kept TestAccount03 read-only for
+    // TestUser.Approver itself, failing two Playwright tests.
+
+    /// <summary>Backdates the lock's heartbeat to one minute past the timeout.</summary>
+    private static async Task MakeLockStaleAsync(long accountKey)
+    {
+        using var connection = new TestDbConnectionFactory().Create();
+        await connection.ExecuteAsync("""
+            UPDATE web.account_progress_lock
+            SET LastHeartbeatAt = DATEADD(MINUTE, -((SELECT LockTimeoutMinutes FROM web.app_config) + 1), SYSUTCDATETIME())
+            WHERE AccountKey = @AccountKey
+            """, new { AccountKey = accountKey });
+    }
+
+    [Fact]
+    public async Task GetStatusAsync_StaleLock_ReturnsNull()
+    {
+        var (accountKey, user1, _) = await GetFixtureAsync();
+        var repository = new AccountProgressLockRepository(new TestDbConnectionFactory());
+        await repository.TryAcquireAsync(accountKey, user1);
+        await MakeLockStaleAsync(accountKey);
+
+        var status = await repository.GetStatusAsync(accountKey);
+
+        Assert.Null(status);
+        await repository.ForceReleaseAsync(accountKey);
+    }
+
+    [Fact]
+    public async Task TryAcquireAsync_StaleLockByAnotherUser_GrantsToCaller()
+    {
+        var (accountKey, user1, user2) = await GetFixtureAsync();
+        var repository = new AccountProgressLockRepository(new TestDbConnectionFactory());
+        await repository.TryAcquireAsync(accountKey, user1);
+        await MakeLockStaleAsync(accountKey);
+
+        var status = await repository.TryAcquireAsync(accountKey, user2);
+
+        Assert.NotNull(status);
+        Assert.Equal(user2, status!.LockedByUserKey);
+        Assert.False(await repository.IsHeldByAsync(accountKey, user1));
+        await repository.ReleaseAsync(accountKey, user2);
+    }
+
+    [Fact]
+    public async Task IsHeldByAsync_StaleLockByCaller_StillTrue()
+    {
+        var (accountKey, user1, _) = await GetFixtureAsync();
+        var repository = new AccountProgressLockRepository(new TestDbConnectionFactory());
+        await repository.TryAcquireAsync(accountKey, user1);
+        await MakeLockStaleAsync(accountKey);
+
+        Assert.True(await repository.IsHeldByAsync(accountKey, user1));
+        await repository.ForceReleaseAsync(accountKey);
+    }
+
+    [Fact]
+    public async Task IsHeldByAsync_NonHolder_False()
+    {
+        var (accountKey, user1, user2) = await GetFixtureAsync();
+        var repository = new AccountProgressLockRepository(new TestDbConnectionFactory());
+        await repository.TryAcquireAsync(accountKey, user1);
+
+        Assert.False(await repository.IsHeldByAsync(accountKey, user2));
+        await repository.ReleaseAsync(accountKey, user1);
     }
 }
