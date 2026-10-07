@@ -34,6 +34,10 @@ Given the single-server, no-redundancy environment, this stays a small, explicit
 
 `Install-BlueTrack.ps1` runs the sequence above as named steps (`Prereq.*`, `Build.*`, `Db.*`, `Iis.*`, `Smoke`). Answers and each step's outcome are saved under `Deploy/State/`, so a failed install continues with `-Resume`, and any step can be re-run with `-Step` or `-StartAt`. Prerequisites install from an offline installer folder, winget, or the vendor's release metadata, in that order under `-PrerequisiteSource Auto`, and every installer is hash- and signature-checked before it runs. Usage: `Deploy/README.md`.
 
+### Windows auth at the site root (D-172)
+
+The installer enables IIS Windows authentication (with Anonymous) at the site root as well as on `/BlueTrack`, because the SPA's `/api/...` calls arrive at the root and kernel-mode authentication runs with the root's settings before D-166's rewrite. The smoke test calls `/BlueTrack/...` directly and can't catch this; check browser sign-in after every install.
+
 ### App pool SQL access and smoke-test diagnosis (D-170, D-171)
 
 With Windows Integrated Security, the `Db.AppPoolAccess` step (opt-in via `-GrantAppPoolSqlAccess`) gives the App Pool's Windows account a SQL login and script 41's grants. For `ApplicationPoolIdentity` that's `IIS APPPOOL\<pool>` when SQL Server is on the same machine (the D-09 layout) and the computer account `DOMAIN\HOSTNAME$` when it's elsewhere; a custom identity is itself. A failed smoke test is explained by HTTP status (401 IIS sign-in, 403 permission, 500 app error plus SQL Server's matching `Login failed` event, with the account from the event's SID, since the message text can name the wrong one). Details: `Deploy/README.md`, "App pool SQL access" and "Smoke test failures".

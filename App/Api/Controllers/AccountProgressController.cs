@@ -163,8 +163,10 @@ public sealed class AccountProgressController(
         var user = await currentUserResolver.ResolveAsync(User);
         if (user is null) return Unauthorized();
 
-        var lockStatus = await lockRepository.GetStatusAsync(accountKey);
-        if (lockStatus is null || lockStatus.LockedByUserKey != user.UserKey)
+        // D-174: ownership, not liveness -- GetStatusAsync now hides a lock
+        // whose heartbeat lapsed, which would otherwise refuse a save from
+        // the holder who merely paused while nobody else took over.
+        if (!await lockRepository.IsHeldByAsync(accountKey, user.UserKey))
         {
             return Conflict("This record is not locked by you -- acquire the edit lock before saving.");
         }
