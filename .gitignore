@@ -24,3 +24,8 @@ TestResults.xml
 .vscode/
 Thumbs.db
 desktop.ini
+
+# Install-BlueTrack.ps1 saved answers/progress, and real per-environment answer files (D-168)
+Deploy/State/
+Deploy/answers.*.json
+!Deploy/answers.sample.json

@@ -6,7 +6,9 @@ This exists because, before it, there was no automated deployment path at all �
 
 ## What it does
 
-1. **Prerequisites** — checks for the .NET 10 SDK, Node.js, the IIS role, the IIS Windows Authentication role service, the ASP.NET Core Hosting Bundle, and the IIS URL Rewrite Module; offers to install any that are missing.
+The install runs as named steps, grouped into the five phases below. `-ListSteps` prints them with each one's saved status; see "Steps, resume and re-run" for running a subset.
+
+1. **Prerequisites** — checks for the .NET 10 SDK, Node.js, the IIS role, the IIS Windows Authentication role service, the ASP.NET Core Hosting Bundle, and the IIS URL Rewrite Module; offers to install any that are missing (see "Prerequisite installers"). Each is its own step (`Prereq.<Name>`).
 2. **Build** — `dotnet publish` (API) and `npm run build` (SPA) from source. The API publishes to `C:\inetpub\BlueTrack\<Environment>\api` by default (override with `-ApiInstallPath`) — deliberately not a temp folder, since IIS's Application Pool identity needs durable read access to whatever directory it's pointed at, and `%TEMP%` is both ephemeral and scoped to the account that ran this script.
 3. **Database** — confirms SQL Server is reachable; if the target database already exists with a schema (an upgrade, not a fresh install), takes a pre-deployment backup first (see "Rollback" below); runs `App/Migrator` against `Database` (and optionally `Database/Test`); writes an environment-specific `appsettings.{Environment}.json` next to the published API; and optionally installs the nightly Import+Load SQL Agent job.
 4. **IIS** — creates the Application Pool, the site (physical root = the built SPA), the nested `/BlueTrack` Application (physical root = the published API), the HTTPS binding/certificate, and the site-root `web.config` (the SPA client-side-routing fallback rule). The nested Application is named `BlueTrack`, not `api` — the controllers' own routes already start with a literal `api/` segment, and naming the Application `/api` too would double it up externally (D-163); the real API root ends up at `/BlueTrack/api/...`. Also enables IIS's own Windows Authentication (alongside Anonymous) on that Application — BlueTrack.Api defers Windows Integrated Auth to IIS's native handshake when IIS-hosted rather than running its own Negotiate handler, which cannot coexist with IIS/ANCM at all (D-162).
@@ -21,7 +23,7 @@ This exists because, before it, there was no automated deployment path at all �
 - **`msdb` is opt-in, not automatic**, in both directions: SQL Agent job definitions (the nightly Import+Load job) live in `msdb`, which is shared by every database on the SQL Server instance. Restoring it later is instance-wide, not scoped to just BlueTrack — only do it if a job definition was actually lost.
 - **What this does not solve**: there are still no per-script "down" migrations for the numbered `Database/*.sql` files — full-database restore remains the only rollback path, which is what Option B always meant.
 
-Every phase is idempotent where it makes sense: re-running the script detects what's already there and skips it, rather than failing or duplicating (pass `-Force` to recreate the IIS pieces instead). Every step also supports `-WhatIf` to preview what would happen without doing it.
+Every phase is idempotent where it makes sense: re-running the script detects what's already there and skips it, rather than failing or duplicating (pass `-Force` to recreate the IIS pieces instead). Every step also supports `-WhatIf` to preview what would happen without doing it. Before D-168, `-WhatIf` did not reach the `BlueTrack.*.psm1` functions when the script was run from a prompt, so a "preview" really built, migrated and created IIS objects; see `Claude_Docs/Reference_Lessons-Learned.md`.
 
 ## What it deliberately does NOT do
 
@@ -34,7 +36,7 @@ Every phase is idempotent where it makes sense: re-running the script detects wh
 
 ## Usage
 
-Run from an elevated PowerShell session:
+Run from an elevated PowerShell session, from the `Deploy` folder (the script lives there, not at the repo root):
 
 ```powershell
 .\Install-BlueTrack.ps1 `
@@ -46,7 +48,7 @@ Run from an elevated PowerShell session:
     -GenerateSelfSignedCert
 ```
 
-Or unattended, via a config file:
+Or unattended, via a config file. Start from `answers.sample.json`: copy it to `answers.<env>.json` (git-ignored) and edit it. Leave a setting out to be prompted for it; `SqlCredential` is always prompted and never saved.
 
 ```powershell
 .\Install-BlueTrack.ps1 -ConfigFile .\answers.prod.json
@@ -82,6 +84,51 @@ Preview without changing anything:
 | `-BackupFolder` | Where the automatic pre-deployment backup is written, when the target database already has an existing schema | prompted only if needed |
 | `-SkipPreDeployBackup` | Skip the automatic pre-deployment backup entirely | off |
 | `-WhatIf` | Preview every action without performing it (standard PowerShell `SupportsShouldProcess`) | off |
+| `-ListSteps` | List the steps and their saved status, then exit | off |
+| `-Step` | Run only these steps (wildcards allowed, e.g. `Prereq.*`), whatever their saved status | all |
+| `-StartAt` | Run this step and every step after it | none |
+| `-Resume` | Run every step not yet `Completed`/`NotApplicable`, with the saved answers | off |
+| `-PrerequisiteSource` | `Auto` / `Offline` / `Winget` / `Download` — see "Prerequisite installers" | `Auto` |
+| `-InstallerSourcePath` | Folder of pre-downloaded installers, for servers without internet access | none |
+
+### Steps, resume and re-run
+
+Answers and step outcomes are saved under `Deploy/State/` (git-ignored), one pair of files per `-SiteName`:
+
+- `answers.<SiteName>.json` — every answer given so far, written before the first step runs and again whenever a step adds one (the backup folder, a generated certificate's thumbprint). It has the same shape as `answers.sample.json`, so it also works as a `-ConfigFile`. It never holds a credential.
+- `progress.<SiteName>.json` — each step's last status: `Completed`, `Failed` (with the error), `Declined` (a prerequisite you chose not to install) or `NotApplicable` (its setting was off, e.g. `InstallNightlyJob`).
+
+```powershell
+.\Install-BlueTrack.ps1 -ListSteps                       # where did it get to?
+.\Install-BlueTrack.ps1 -Resume                          # carry on from the failed step
+.\Install-BlueTrack.ps1 -Step Prereq.HostingBundle       # (re)install one prerequisite, no y/N prompt
+.\Install-BlueTrack.ps1 -StartAt Iis.AppPool             # redo the IIS phase onward
+```
+
+`-Resume`, `-Step` and `-StartAt` load the saved answers, so they don't prompt again. If `Deploy/State/` holds only one site, it's picked automatically; otherwise pass `-SiteName`. Precedence: command line, then `-ConfigFile`, then saved answers. A plain run (none of the three) starts a fresh progress record. The script only prompts for what the selected steps need: `-Step Prereq.*` asks for nothing.
+
+### Prerequisite installers
+
+`-PrerequisiteSource Auto` (the default) uses the first that applies:
+
+1. **Offline** — when `-InstallerSourcePath` is given. For servers without internet access: download the installers on another machine and copy them into one folder.
+2. **winget** — when it's on `PATH` (the .NET SDK and Node.js only).
+3. **Download** — from the vendor's own release metadata: Microsoft's `release-metadata/10.0/releases.json` for the .NET SDK and Hosting Bundle, `nodejs.org/dist/index.json` for Node.js LTS, and Microsoft's fixed URL Rewrite 2.1 link. The file is checked against the SHA-512/SHA-256 hash the vendor publishes (URL Rewrite has none).
+
+Every installer, however it was obtained, must carry a valid Authenticode signature before it runs, and its exit code is checked (3010 = success, reboot needed). After an install, the script re-runs the check and fails the step if it still doesn't pass.
+
+#### Offline prerequisites
+
+File names the offline lookup matches in `-InstallerSourcePath` (the newest version wins if there are several):
+
+| Prerequisite | File name pattern | Where to get it |
+|---|---|---|
+| .NET 10 SDK | `dotnet-sdk-10.*-win-x64.exe` | https://dotnet.microsoft.com/download/dotnet/10.0 |
+| ASP.NET Core Hosting Bundle | `dotnet-hosting-10.*-win.exe` | same page, "Hosting Bundle" |
+| Node.js LTS | `node-v*-x64.msi` | https://nodejs.org/dist/ |
+| IIS URL Rewrite 2.1 | `rewrite_amd64*.msi` | https://www.iis.net/downloads/microsoft/url-rewrite |
+
+To have the hash checked as well, put a sidecar file next to the installer, `<installer>.sha512` or `<installer>.sha256`, holding the hash (a bare hash or `sha256sum`-style `<hash>  <file>` line). The IIS role and its Windows Authentication role service are Windows features (`Install-WindowsFeature`) and need no installer file.
 
 ### A note on the nightly Import+Load job
 
@@ -92,8 +139,10 @@ Preview without changing anything:
 ```
 Deploy/
   Install-BlueTrack.ps1           # entry point
+  answers.sample.json             # starting point for a -ConfigFile answer file
   Modules/
-    BlueTrack.Prereqs.psm1        # prerequisite verification/auto-install
+    BlueTrack.Prereqs.psm1        # prerequisite verification/auto-install (offline/winget/download)
+    BlueTrack.State.psm1          # saved answers + step progress (Deploy/State/)
     BlueTrack.Build.psm1          # dotnet publish + npm run build
     BlueTrack.Database.psm1       # SQL connectivity, App/Migrator, appsettings, nightly job
     BlueTrack.Rollback.psm1       # backup/restore rollback mechanism
@@ -104,6 +153,7 @@ Deploy/
   Templates/
     site-web.config.template      # SPA URL Rewrite fallback rule
   Logs/                           # transcript logs from each run (git-ignored)
+  State/                          # answers.<SiteName>.json + progress.<SiteName>.json (git-ignored)
 ```
 
 ## Known limitation

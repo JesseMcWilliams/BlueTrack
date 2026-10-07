@@ -123,6 +123,12 @@ While tracking down a batch of E2E failures that looked like the already-documen
 
 **General lesson:** when a wedged/hung proxied request is suspected, verify with a plain `curl` comparison (direct-to-API vs. through-the-proxy) before spending time on either "it's just contention" or "it's a real app bug" — the pattern is otherwise easy to misdiagnose either way, and it can also manifest as a *misleading success* (a request completing under a stale/wrong identity) rather than only an outright hang, which reads like a permissions bug if you're not looking for it.
 
+## 2026-10-05 — Three installer bugs that only showed up on a real server or a real dry run (fixed same day, D-168)
+
+- **`-WhatIf` didn't reach script modules.** Running `.\Install-BlueTrack.ps1 -WhatIf` from a prompt sets `$WhatIfPreference` in the script's scope only. Script modules resolve preference variables from their own scope and the global one, so every `BlueTrack.*.psm1` function acted for real: a "preview" published the API, ran `npm ci`, and ran the Migrator. A test run as `powershell -File script.ps1 -WhatIf` does *not* show the bug (that runs the script at global scope), so test with `& .\script.ps1 -WhatIf`. Fix: `$PSDefaultParameterValues['*-BlueTrack*:WhatIf'] = $true` when `$WhatIfPreference` is set. Not `'*:WhatIf'`: `ForEach-Object` rejects `-WhatIf` with a scriptblock.
+- **`https://dot.net/v1/dotnet-hosting-win.exe` isn't an installer.** It redirects to the dotnet.microsoft.com home page, so the download was HTML and Windows refused to run it ("not a valid application for this OS platform"). Resolve download links from `release-metadata/<channel>/releases.json` instead, and check the hash and Authenticode signature before running anything.
+- **`dotnet run --no-build` runs whatever was built last.** The installer ran `App/Migrator` with `--no-build` and never built it. On a reused checkout that ran a stale build that predated script 41's exclusion, so the Migrator tried to apply 41 (it failed on its sqlcmd-only `:on error exit` line). On a fresh copy there's no build at all. Let `dotnet run` build.
+
 ## Process notes
 
 - **Check the Decision Register first.** `Claude_Docs/Design_Decision-Register.md` is the index of every design decision made so far, resolved and open. Don't re-derive or re-litigate something it already answers.

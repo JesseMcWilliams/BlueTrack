@@ -1,0 +1,21 @@
+{
+    "_comment": "Sample answer file for Install-BlueTrack.ps1 -ConfigFile. Copy to answers.<env>.json (git-ignored) and edit. Leave a setting out (or empty) to be prompted for it. Settings starting with _ are ignored. Never put a password here: SqlCredential is always prompted. Every setting is described in Deploy/README.md, 'Parameters'.",
+    "Environment": "Production",
+    "SqlServerInstance": "SQLSERVER01",
+    "DatabaseName": "BlueTrack",
+    "UseWindowsAuth": true,
+    "SeedTestData": false,
+    "InstallNightlyJob": true,
+    "ExportFolderPath": "D:\\DataDrop\\Exports\\PrivilegedCloud",
+    "EvdDatabaseName": "CyberArk",
+    "BackupFolder": "D:\\SQLBackups\\BlueTrack",
+    "SiteName": "BlueTrack",
+    "ApiInstallPath": "C:\\inetpub\\BlueTrack\\Production\\api",
+    "Hostname": "bluetrack.company.com",
+    "HttpPort": 80,
+    "HttpsPort": 443,
+    "CertificateThumbprint": "0000000000000000000000000000000000000000",
+    "GenerateSelfSignedCert": false,
+    "PrerequisiteSource": "Auto",
+    "InstallerSourcePath": ""
+}
