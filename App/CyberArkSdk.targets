@@ -1,0 +1,42 @@
+<Project>
+  <!--
+    CyberArk Application Password SDK detection (D-169), imported by
+    BlueTrack.Api.csproj and BlueTrack.Api.Tests.csproj.
+
+    The SDK (NetStandardPasswordSDK.dll) only exists on a machine with the
+    CyberArk Credential Provider installed, and only CyberArkCpSecretsProvider
+    uses it. When the DLL is missing, the API builds without that provider:
+    the CyberArkCP backend then reports "no provider implementation" through
+    VaultSecretProviderResolver, and every other backend works as normal.
+
+    CyberArkSdkPath defaults to the CP's standard install path. Override it
+    with a git-ignored BlueTrack.Api.csproj.user (MSBuild auto-imports
+    *.csproj.user), a CyberArkSdkPath environment variable, or
+    -p:CyberArkSdkPath=... on the command line.
+  -->
+  <!--
+    The test project reads the API's .csproj.user too, so both projects
+    agree on whether the SDK is there (the tests reference the CP provider
+    type only when the API compiled it).
+  -->
+  <Import Project="$(MSBuildThisFileDirectory)Api\BlueTrack.Api.csproj.user"
+          Condition="'$(MSBuildProjectName)' != 'BlueTrack.Api' and Exists('$(MSBuildThisFileDirectory)Api\BlueTrack.Api.csproj.user')" />
+  <PropertyGroup>
+    <CyberArkSdkPath Condition="'$(CyberArkSdkPath)' == ''">C:\Program Files\CyberArk\ApplicationPasswordSdk</CyberArkSdkPath>
+  </PropertyGroup>
+
+  <!--
+    A target, not a top-level PropertyGroup: *.csproj.user is imported
+    after the project body, so a property condition evaluated there would
+    still see the default path. BeforeBuild runs ahead of CoreCompile's own
+    input hashing, so adding or removing the SDK triggers a recompile.
+  -->
+  <Target Name="BlueTrackDetectCyberArkSdk" BeforeTargets="BeforeBuild">
+    <PropertyGroup>
+      <CyberArkCpAvailable Condition="Exists('$(CyberArkSdkPath)\NetStandardPasswordSDK.dll')">true</CyberArkCpAvailable>
+      <DefineConstants Condition="'$(CyberArkCpAvailable)' == 'true'">$(DefineConstants);CYBERARK_CP</DefineConstants>
+    </PropertyGroup>
+    <Message Importance="high" Condition="'$(CyberArkCpAvailable)' != 'true'"
+             Text="$(MSBuildProjectName): CyberArk Application Password SDK not found at '$(CyberArkSdkPath)' -- building without the CyberArk CP secrets backend (D-169)." />
+  </Target>
+</Project>

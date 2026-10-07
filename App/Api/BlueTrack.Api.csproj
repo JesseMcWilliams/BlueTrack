@@ -35,30 +35,25 @@
     than a NuGet package or a copy checked into this repo: CyberArk
     doesn't publish this SDK to NuGet, and committing a vendor binary into
     git raises its own licensing/redistribution questions this project
-    hasn't needed to answer for any other dependency. This DOES mean a
-    build only succeeds on a machine with the CP's Application Password SDK
-    installed and findable, an accepted constraint, consistent with how
-    this whole app already assumes a specific environment (D-09 single
-    server, domain-joined, Windows-only per BlueTrack.Api's
-    SupportedOSPlatform).
+    hasn't needed to answer for any other dependency.
 
-    CyberArkSdkPath below defaults to this box's actual install path.
-    Override it, rather than editing this tracked file, if another
-    machine's CP is installed somewhere else: create a local,
-    git-ignored BlueTrack.Api.csproj.user next to this file with a
-    CyberArkSdkPath element in a PropertyGroup (MSBuild auto-imports
-    *.csproj.user; see App/Api/BlueTrack.Api.csproj.user on this box for
-    a template), or set a CyberArkSdkPath environment variable, which
-    MSBuild falls back to for any property nothing else sets.
+    Optional since D-169: on a machine without the SDK, the reference and
+    CyberArkCpSecretsProvider.cs are left out and the API builds without
+    the CyberArk CP backend. The path default, its overrides (including
+    App/Api/BlueTrack.Api.csproj.user) and the CYBERARK_CP constant live in
+    ../CyberArkSdk.targets. Item conditions, unlike top-level property
+    conditions, see the final CyberArkSdkPath, including a .csproj.user
+    override.
   -->
-  <PropertyGroup>
-    <CyberArkSdkPath Condition="'$(CyberArkSdkPath)' == ''">C:\Program Files\CyberArk\ApplicationPasswordSdk</CyberArkSdkPath>
-  </PropertyGroup>
-  <ItemGroup>
+  <Import Project="..\CyberArkSdk.targets" />
+  <ItemGroup Condition="Exists('$(CyberArkSdkPath)\NetStandardPasswordSDK.dll')">
     <Reference Include="NetStandardPasswordSDK">
       <HintPath>$(CyberArkSdkPath)\NetStandardPasswordSDK.dll</HintPath>
       <Private>true</Private>
     </Reference>
+  </ItemGroup>
+  <ItemGroup Condition="!Exists('$(CyberArkSdkPath)\NetStandardPasswordSDK.dll')">
+    <Compile Remove="Secrets\CyberArkCpSecretsProvider.cs" />
   </ItemGroup>
 
   <!--

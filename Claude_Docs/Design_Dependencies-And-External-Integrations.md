@@ -28,7 +28,7 @@ The `dbo` schema's operational data (accounts, safes, platforms, entitlements) c
 Used only for BlueTrack's own operational credentials (e.g. an SMTP or LDAP bind account) via the pluggable `IVaultSecretProvider` abstraction (`App/Api/Secrets/`, `Design_Secrets-Storage.md`) — never for the warehouse data above:
 
 - **CyberArk Central Credential Provider (CCP)** — a real REST call (`AddHttpClient(nameof(CyberArkCcpSecretsProvider))`, `App/Api/Program.cs`) to a configured PVWA host's `AIMWebService/api/Accounts` endpoint. Confirmed working against a real PVWA host.
-- **CyberArk Credential Provider (CP)** — an in-process call via CyberArk's own Application Password SDK (`NetStandardPasswordSDK.dll`, referenced by local `HintPath` in `App/Api/BlueTrack.Api.csproj` since CyberArk doesn't publish it to NuGet). Requires the CP agent installed and running on the same box.
+- **CyberArk Credential Provider (CP)** — an in-process call via CyberArk's own Application Password SDK (`NetStandardPasswordSDK.dll`, referenced by local `HintPath` in `App/Api/BlueTrack.Api.csproj` since CyberArk doesn't publish it to NuGet). Requires the CP agent installed and running on the same box. Optional at build time (D-169): without the DLL, `App/CyberArkSdk.targets` leaves `CyberArkCpSecretsProvider` out, and the `CyberArkCP` backend reports "no provider implementation" if activated.
 - **CyberArk Conjur** — a hand-rolled REST client against Conjur's Authn API (`AddHttpClient(nameof(CyberArkConjurSecretsProvider))`). Built as scaffolding; not verified against a live Conjur instance.
 
 ### 2.3 Other secrets backends (same `IVaultSecretProvider` abstraction)

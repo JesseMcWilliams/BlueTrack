@@ -4,5 +4,6 @@
 
 | Date | Change | User doc / section it affects |
 |---|---|---|
+| 2026-10-07 | The API builds without the CyberArk Application Password SDK; the CyberArk CP secrets backend is then unavailable on that server. | `User_Docs/Admin_Installation.md` (prerequisites); `User_Docs/Admin_Configuration.md` (Secrets Store); Dev Host Setup `.docx` at next release |
 | 2026-10-05 | Installer: `answers.sample.json`; `-ListSteps`/`-Step`/`-StartAt`/`-Resume` with saved answers in `Deploy/State/`; offline/winget/download prerequisite sources (`-PrerequisiteSource`, `-InstallerSourcePath`); `-WhatIf` now a true preview. | `User_Docs/Admin_Installation.md`; Installation `.docx` at next release |
 | 2026-09-25 | Guides moved from `Guides/` to `User_Docs/`; the Installation and Dev Host Setup `.docx` files moved to `Published_Docs/`. | `User_Docs/README.md`; any external links to the old paths |

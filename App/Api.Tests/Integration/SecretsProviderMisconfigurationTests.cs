@@ -25,6 +25,8 @@ namespace BlueTrack.Api.Tests.Integration;
 /// </summary>
 public class SecretsProviderMisconfigurationTests
 {
+#if CYBERARK_CP
+    // Only compiled when the CyberArk SDK is present (D-169).
     [Fact]
     public async Task CyberArkCp_EmptyBackendSettings_ThrowsNotConfigured()
     {
@@ -49,6 +51,7 @@ public class SecretsProviderMisconfigurationTests
 
         await SetBackendSettingsAsync("CyberArkCP", null);
     }
+#endif
 
     [Fact]
     public async Task CyberArkCcp_EmptyBackendSettings_ThrowsNotConfigured()
