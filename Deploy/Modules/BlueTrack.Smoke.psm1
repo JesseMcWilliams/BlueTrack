@@ -88,8 +88,22 @@ function Write-BlueTrackSmokeDiagnosis {
             # account -- only visible here when SQL Server runs on this machine.
             $loginFailure = Get-WinEvent -FilterHashtable @{ LogName = 'Application'; Id = 18456; StartTime = (Get-Date).AddMinutes(-10) } -MaxEvents 1 -ErrorAction SilentlyContinue
             if ($loginFailure) {
-                Write-Warning "SQL Server logged a login failure for '$($loginFailure.Properties[0].Value)': $($loginFailure.Properties[1].Value)"
-                Write-Warning 'Grant that account access with: .\Install-BlueTrack.ps1 -Step Db.AppPoolAccess -GrantAppPoolSqlAccess $true'
+                # The account name in the message can be wrong: with SQL Server
+                # on this machine it names the computer account while the
+                # connection really arrives as IIS APPPOOL\<pool> (D-171). The
+                # event's own SID is the account that needs the login.
+                $nameInMessage = $loginFailure.Properties[0].Value
+                $sidAccount = $null
+                if ($loginFailure.UserId) {
+                    try { $sidAccount = $loginFailure.UserId.Translate([System.Security.Principal.NTAccount]).Value } catch { $sidAccount = $loginFailure.UserId.Value }
+                }
+                Write-Warning "SQL Server logged a login failure: $($loginFailure.Properties[1].Value.Trim())"
+                if ($sidAccount -and $sidAccount -ne $nameInMessage) {
+                    Write-Warning "The message names '$nameInMessage', but the connection arrived as '$sidAccount' (the event's SID) -- that is the account that needs the SQL login."
+                } else {
+                    Write-Warning "Account: '$nameInMessage'."
+                }
+                Write-Warning 'Grant it with: .\Install-BlueTrack.ps1 -Step Db.AppPoolAccess -GrantAppPoolSqlAccess $true (or -AppPoolSqlLogin to name the account yourself).'
             }
         }
         default {

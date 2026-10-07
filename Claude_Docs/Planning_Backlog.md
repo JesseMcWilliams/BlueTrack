@@ -6,7 +6,6 @@
 - **Azure Key Vault, AWS Secrets Manager, CyberArk Conjur** secrets backends: tested only against unreachable placeholder endpoints (error handling, not a real secret round-trip). CyberArk CP, CCP and Windows DPAPI are verified live.
 - **SAML and OIDC**: working code, pointed only at placeholder IdP config. SAML Single Logout isn't built.
 - **Break-glass**: exists only as a decision (credential in CyberArk, logon triggers an alert). No distinct code path exists.
-- **`Deploy/Install-BlueTrack.ps1` on a genuinely blank server** *(verify)*: the installer has since run end to end against real IIS (D-159–D-162), but not confirmed on a blank server.
 - **AD Account Discovery multi-domain**: code loops over every enabled domain, but only one real domain exists to test against.
 
 ## Deliberately deferred (confirmed choices, not gaps)

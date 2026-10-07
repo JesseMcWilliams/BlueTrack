@@ -135,12 +135,17 @@ To have the hash checked as well, put a sidecar file next to the installer, `<in
 
 ### App pool SQL access
 
-With Windows Integrated Security, the API connects to SQL Server as the App Pool's Windows account, and nothing works until that account has a login (D-164, D-170). The account is:
+With Windows Integrated Security, the API connects to SQL Server as the App Pool's Windows account, and nothing works until that account has a login (D-164, D-171). The account is:
 
-- **`ApplicationPoolIdentity`** (the installer's default), `NetworkService` or `LocalSystem`: the **computer account**, `DOMAIN\HOSTNAME$`. This holds even when SQL Server is on the same machine, confirmed live (`Login failed for user 'SAIA\DCACYBSQL01$'`); it is not `IIS APPPOOL\<pool>`.
-- **A custom identity** (a gMSA or service account): that account.
+| App Pool identity | SQL Server on the same machine (BlueTrack's normal single-server layout, D-09) | SQL Server on another machine |
+|---|---|---|
+| `ApplicationPoolIdentity` (the installer's default) | `IIS APPPOOL\<pool>`, e.g. `IIS APPPOOL\BlueTrack-AppPool`. Confirmed on two hosts (Server 2019 and 2022). | The computer account, `DOMAIN\HOSTNAME$` (standard Windows behavior; not yet tested on a BlueTrack host). |
+| `NetworkService` / `LocalSystem` | `NT AUTHORITY\NETWORK SERVICE` / `NT AUTHORITY\SYSTEM` (same rule; untested). | The computer account. |
+| A custom identity (gMSA or service account) | That account. | That account. |
 
-`Db.AppPoolAccess` works this out, creates the login if it's missing and runs script 41 for it. The installing user needs `securityadmin` (or `sysadmin`). Granting the computer account also gives that access to anything else on the server running as `NETWORK SERVICE`, `SYSTEM` or another App Pool; a dedicated gMSA avoids that (`User_Docs/Admin_Installation.md`, section 3).
+**Trap:** with SQL Server on the same machine, SQL Server's `Login failed for user '...'` message names the *computer account* even though the connection arrives as `IIS APPPOOL\<pool>`. A login for the computer account is never matched, so the error persists after granting it (this is what D-164 and D-170 both hit). The account that needs the login is the one in the event's SID: `Get-WinEvent -FilterHashtable @{LogName='Application'; Id=18456} -MaxEvents 1 | ForEach-Object { $_.UserId.Translate([System.Security.Principal.NTAccount]).Value }`.
+
+`Db.AppPoolAccess` works this out from the App Pool's identity and whether `-SqlServerInstance` is this machine, creates the login if it's missing and runs script 41 for it. `-AppPoolSqlLogin` overrides the account. The installing user needs `securityadmin` (or `sysadmin`). For least privilege, a dedicated gMSA is still preferred: a computer-account grant (remote SQL Server) also covers everything else on the server running as `NETWORK SERVICE`, `SYSTEM` or an App Pool (`User_Docs/Admin_Installation.md`, section 3).
 
 ### Smoke test failures
 
@@ -148,7 +153,7 @@ With Windows Integrated Security, the API connects to SQL Server as the App Pool
 |---|---|---|
 | `401` | IIS rejected the Windows login; BlueTrack wasn't reached. Seen live as `401.1` / `0x8009030e`. | Run `klist purge`, then `-Step Smoke` (that cleared it live; a stale Kerberos ticket is the likely, unconfirmed cause). If it persists with a custom App Pool identity, check SPNs and `useAppPoolCredentials` (see the install guide's gMSA section). |
 | `403` | Signed in, but without `ViewDeploymentInfo`. | Run the installer elevated as a local administrator (the bootstrap Admin role is mapped to `BUILTIN\Administrators`), or map your group to Admin. |
-| `500` | BlueTrack.Api failed; the exception is in the Application event log (`.NET Runtime`, event 1000). | The usual cause is a missing SQL login for the App Pool's account. The smoke test prints SQL Server's matching `Login failed` event if there is one; run `-Step Db.AppPoolAccess -GrantAppPoolSqlAccess $true`. |
+| `500` | BlueTrack.Api failed; the exception is in the Application event log (`.NET Runtime`, event 1000). | The usual cause is a missing SQL login for the App Pool's account. The smoke test prints SQL Server's matching `Login failed` event if there is one, including the account the connection really arrived as when the message names a different one (see the trap above); run `-Step Db.AppPoolAccess -GrantAppPoolSqlAccess $true`. |
 | No response | DNS, binding or certificate. | Check the hostname resolves here, the HTTPS binding exists, and this machine trusts the certificate. |
 
 ### A note on the nightly Import+Load job
@@ -179,4 +184,4 @@ Deploy/
 
 ## Known limitation
 
-This has been reviewed and syntax-checked, and dry-run (`-WhatIf`) logic has been traced against an already-running BlueTrack instance to confirm the idempotency checks behave correctly — but it has **not yet been run end-to-end against a genuinely blank server**. Do that once, on a disposable VM, before trusting it for a real environment.
+Verified end to end on a real new server (DCACYBSQL01, Windows Server 2022, 2026-10-07): every step ran and the smoke test passed. That run surfaced the D-168 to D-171 fixes, and the final SQL grant was applied by hand before `Db.AppPoolAccess` was corrected (D-171), so the corrected step itself hasn't yet run on a fresh server. Not yet tested: SQL Server on a different machine from IIS.
