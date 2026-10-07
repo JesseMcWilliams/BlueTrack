@@ -160,6 +160,23 @@ function New-BlueTrackSite {
         Set-WebConfigurationProperty -Filter '/system.webServer/security/authentication/windowsAuthentication' -PSPath "IIS:\Sites\$SiteName\BlueTrack" -Name Enabled -Value $true
         Set-WebConfigurationProperty -Filter '/system.webServer/security/authentication/anonymousAuthentication' -PSPath "IIS:\Sites\$SiteName\BlueTrack" -Name Enabled -Value $true
     }
+
+    # D-172: the SPA calls /api/... at the SITE ROOT, which D-166's rewrite
+    # rule hands to /BlueTrack/api/... inside IIS. With kernel-mode auth,
+    # HTTP.sys handles the Negotiate/NTLM exchange using the settings of the
+    # URL as the browser sent it -- the root's -- before that rewrite. With
+    # Windows auth off at the root, every sign-in through /api/... failed
+    # with 401.1 (confirmed live on DCACYBSQL01: /BlueTrack/api/me signed in,
+    # /api/me never did) while the smoke test, which calls /BlueTrack/...
+    # directly, passed. Enabled at the root too, with Anonymous still on, so
+    # the SPA's static files never ask for credentials. Written to
+    # applicationHost.config (not the root web.config) because that file is
+    # regenerated from Templates/ by Set-BlueTrackSiteWebConfig and wiped by
+    # every SPA build.
+    if ($PSCmdlet.ShouldProcess($SiteName, 'Enable IIS Windows Authentication at the site root (with Anonymous also enabled)')) {
+        Set-WebConfigurationProperty -PSPath 'MACHINE/WEBROOT/APPHOST' -Location $SiteName -Filter 'system.webServer/security/authentication/windowsAuthentication' -Name enabled -Value $true
+        Set-WebConfigurationProperty -PSPath 'MACHINE/WEBROOT/APPHOST' -Location $SiteName -Filter 'system.webServer/security/authentication/anonymousAuthentication' -Name enabled -Value $true
+    }
 }
 
 function Set-BlueTrackSiteWebConfig {
