@@ -91,6 +91,15 @@
    -- even though usp_Import_All has always required it. Fixed in the guide
    at the same time as this script was added.
 
+   SOURCE SELECTION (D-176, needs 42_BlueTrack_ImportSourceSelection.sql):
+   the Import step passes @ImportPrivilegeCloud and @ImportSelfHosted to
+   usp_Import_All. Both are 1 below (import both sources). For a
+   Privilege-Cloud-only implementation set @ImportSelfHosted = 0; for a
+   Self-Hosted-only one set @ImportPrivilegeCloud = 0. The source that's
+   off is skipped and its staging tables are emptied each night; its folder
+   or EVD value below is then ignored. Deploy/Install-BlueTrack.ps1 sets
+   both from its ImportSources answer.
+
    This script is guarded (drops and recreates the job if it already exists)
    so it can be safely re-run.
    ============================================================================ */
@@ -152,7 +161,9 @@ EXEC usp_Import_All
     @SafesFile = @SafesFile,
     @AccountsFile = @AccountsFile,
     @EntitlementsFile = @EntitlementsFile,
-    @EntitlementsExportDate = @Today;
+    @EntitlementsExportDate = @Today,
+    @ImportPrivilegeCloud = 1,
+    @ImportSelfHosted = 1;
 ';
 
 -- Step 2: Load.

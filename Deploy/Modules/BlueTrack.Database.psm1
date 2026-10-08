@@ -144,15 +144,27 @@ function Install-BlueTrackNightlyJob {
         Confirmed directly against the script's own source: @Folder and the EVD
         database name are literal T-SQL inside the job step's @command text, not
         sqlcmd -v variables (only $(DatabaseName) is a real substitutable variable).
+
+        D-176: -ImportSources sets the step's @ImportPrivilegeCloud /
+        @ImportSelfHosted flags the same way. The export folder is only
+        needed for Privilege Cloud and the EVD database only for Self-Hosted;
+        a source that's off keeps the script's placeholder value, which
+        usp_Import_All then ignores.
     #>
     [CmdletBinding(SupportsShouldProcess)]
     param(
         [Parameter(Mandatory)] [string]$RepoRoot,
         [Parameter(Mandatory)] [string]$SqlServerInstance,
         [Parameter(Mandatory)] [string]$DatabaseName,
-        [Parameter(Mandatory)] [string]$ExportFolderPath,
-        [Parameter(Mandatory)] [string]$EvdDatabaseName
+        [ValidateSet('Both', 'PrivilegeCloud', 'SelfHosted')] [string]$ImportSources = 'Both',
+        [string]$ExportFolderPath,
+        [string]$EvdDatabaseName
     )
+
+    $importPrivilegeCloud = $ImportSources -in 'Both', 'PrivilegeCloud'
+    $importSelfHosted = $ImportSources -in 'Both', 'SelfHosted'
+    if ($importPrivilegeCloud -and -not $ExportFolderPath) { throw "ImportSources '$ImportSources' includes Privilege Cloud, so -ExportFolderPath is required." }
+    if ($importSelfHosted -and -not $EvdDatabaseName) { throw "ImportSources '$ImportSources' includes Self-Hosted, so -EvdDatabaseName is required." }
 
     $sourceScript = Join-Path $RepoRoot 'Database\14_BlueTrack_ScheduleImportLoadJob.sql'
     if (-not (Test-Path $sourceScript)) {
@@ -176,18 +188,31 @@ function Install-BlueTrackNightlyJob {
         throw "Did not find the expected EVD-database-name literal in 14_BlueTrack_ScheduleImportLoadJob.sql -- the script may have changed upstream. Update this function's substitution logic before continuing."
     }
 
-    $normalizedFolder = $ExportFolderPath.TrimEnd('\')
-    $newFolderLiteral = "N''$normalizedFolder''"
-    $newEvdLiteral = "N''$EvdDatabaseName''"
+    # The two source flags, exact text in Step 1 (D-176).
+    $originalPcFlag = '@ImportPrivilegeCloud = 1,'
+    $originalShFlag = '@ImportSelfHosted = 1;'
+    if (-not $content.Contains($originalPcFlag) -or -not $content.Contains($originalShFlag)) {
+        throw "Did not find the expected @ImportPrivilegeCloud / @ImportSelfHosted lines in 14_BlueTrack_ScheduleImportLoadJob.sql -- the script may have changed upstream. Update this function's substitution logic before continuing."
+    }
 
-    $content = $content.Replace($originalFolderLiteral, $newFolderLiteral)
-    $content = $content.Replace($originalEvdLiteral, $newEvdLiteral)
+    $normalizedFolder = '(not used)'
+    if ($importPrivilegeCloud) {
+        $normalizedFolder = $ExportFolderPath.TrimEnd('\')
+        $content = $content.Replace($originalFolderLiteral, "N''$normalizedFolder''")
+    }
+    $evdShown = '(not used)'
+    if ($importSelfHosted) {
+        $evdShown = $EvdDatabaseName
+        $content = $content.Replace($originalEvdLiteral, "N''$EvdDatabaseName''")
+    }
+    $content = $content.Replace($originalPcFlag, "@ImportPrivilegeCloud = $([int]$importPrivilegeCloud),")
+    $content = $content.Replace($originalShFlag, "@ImportSelfHosted = $([int]$importSelfHosted);")
 
     $tempScript = Join-Path $env:TEMP "14_BlueTrack_ScheduleImportLoadJob.$([guid]::NewGuid()).sql"
     Set-Content -Path $tempScript -Value $content -Encoding UTF8
 
     try {
-        Write-Host "Generated a temp copy of the nightly job script with:`n  Export folder: $normalizedFolder`n  EVD database:  $EvdDatabaseName`n(the tracked repo file was not modified)"
+        Write-Host "Generated a temp copy of the nightly job script with:`n  Sources:       $ImportSources`n  Export folder: $normalizedFolder`n  EVD database:  $evdShown`n(the tracked repo file was not modified)"
         if ($PSCmdlet.ShouldProcess("$SqlServerInstance / $DatabaseName", 'Install nightly Import+Load SQL Agent job via sqlcmd')) {
             & sqlcmd -S $SqlServerInstance -C -v DatabaseName="$DatabaseName" -i $tempScript | Out-Host
             if ($LASTEXITCODE -ne 0) {

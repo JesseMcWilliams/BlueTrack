@@ -18,7 +18,7 @@ Set-StrictMode -Version Latest
 # deliberately not here: the first are per-run choices, the second a secret.
 $script:AnswerNames = @(
     'Environment', 'SqlServerInstance', 'DatabaseName', 'UseWindowsAuth', 'SeedTestData',
-    'InstallNightlyJob', 'ExportFolderPath', 'EvdDatabaseName', 'BackupFolder',
+    'InstallNightlyJob', 'ImportSources', 'ExportFolderPath', 'EvdDatabaseName', 'BackupFolder',
     'GrantAppPoolSqlAccess', 'AppPoolSqlLogin', 'ResetIis',
     'SiteName', 'ApiInstallPath', 'Hostname', 'HttpPort', 'HttpsPort',
     'CertificateThumbprint', 'GenerateSelfSignedCert',
