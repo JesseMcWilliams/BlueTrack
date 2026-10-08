@@ -24,12 +24,36 @@ function Publish-BlueTrackApi {
     }
 
     if ($PSCmdlet.ShouldProcess($apiProject, "dotnet publish -c Release -o $OutputDirectory")) {
-        # Piped through Out-Host -- see the matching comment in
-        # Invoke-BlueTrackWebBuild below; this function also returns a typed
-        # value ($OutputDirectory) that a future caller could capture.
-        & dotnet publish $apiProject -c Release -o $OutputDirectory | Out-Host
-        if ($LASTEXITCODE -ne 0) {
-            throw "dotnet publish failed for App/Api (exit code $LASTEXITCODE) -- see the output above for the actual build error."
+        # D-175: a deployed API running in-process under IIS holds
+        # BlueTrack.Api.dll open, so publishing over it failed with MSB3021
+        # ("being used by another process") and needed an iisreset. The ASP.NET
+        # Core Module's own mechanism instead: while app_offline.htm exists in
+        # the app's folder, it shuts the app down and releases its files (and
+        # serves that page). Only this app stops; it starts again on the next
+        # request after the file is removed.
+        $appOffline = Join-Path $OutputDirectory 'app_offline.htm'
+        $takenOffline = $false
+        if (Test-Path (Join-Path $OutputDirectory 'BlueTrack.Api.dll')) {
+            Set-Content -Path $appOffline -Value '<!DOCTYPE html><html><body><h1>BlueTrack is being updated</h1><p>Try again in a minute.</p></body></html>' -Encoding UTF8
+            $takenOffline = $true
+            Write-Host 'Took the running API offline (app_offline.htm) so its files can be replaced.'
+            # The module notices the file and stops the app within a moment;
+            # give it time to release the DLL before publishing over it.
+            Start-Sleep -Seconds 5
+        }
+        try {
+            # Piped through Out-Host -- see the matching comment in
+            # Invoke-BlueTrackWebBuild below; this function also returns a typed
+            # value ($OutputDirectory) that a future caller could capture.
+            & dotnet publish $apiProject -c Release -o $OutputDirectory | Out-Host
+            if ($LASTEXITCODE -ne 0) {
+                throw "dotnet publish failed for App/Api (exit code $LASTEXITCODE) -- see the output above for the actual build error."
+            }
+        } finally {
+            if ($takenOffline) {
+                Remove-Item -Path $appOffline -ErrorAction SilentlyContinue
+                Write-Host 'API back online (app_offline.htm removed).'
+            }
         }
     }
 

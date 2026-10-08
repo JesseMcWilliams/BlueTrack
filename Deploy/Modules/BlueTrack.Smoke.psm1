@@ -9,7 +9,9 @@ function Test-BlueTrackDeployment {
     <#
     .SYNOPSIS
         Calls GET /BlueTrack/api/admin/deployment under the caller's own
-        Windows identity (Negotiate) and reports each returned health check.
+        Windows identity (Negotiate) and reports each returned health check,
+        then the same endpoint through the site root (/api/...), which is the
+        path the browser uses (D-175).
     .DESCRIPTION
         This endpoint is gated by the ViewDeploymentInfo permission, not
         anonymous (confirmed in App/Api/Controllers/DeploymentController.cs) --
@@ -19,9 +21,11 @@ function Test-BlueTrackDeployment {
         itself may still be fine; this just means the smoke test couldn't
         confirm it (e.g. a cert trust issue, or the caller isn't a BlueTrack admin).
     .OUTPUTS
-        [bool] whether every reported health check came back healthy.
+        [bool] whether every reported health check came back healthy and the
+        browser path signed in too.
     #>
     [CmdletBinding()]
+    [OutputType([bool])]
     param(
         [Parameter(Mandatory)] [string]$SiteUrl,   # e.g. https://bluetrack.company.com
         [int]$TimeoutSeconds = 30
@@ -50,6 +54,27 @@ function Test-BlueTrackDeployment {
         Write-Host 'Smoke test: all reported health checks are healthy.' -ForegroundColor Green
     } else {
         Write-Warning 'Smoke test: at least one health check is not healthy -- review the Deployment Info admin page.'
+    }
+
+    # D-175: the browser never calls /BlueTrack/... -- the SPA calls /api/...
+    # at the site root, which D-166's rewrite rule hands to /BlueTrack. That
+    # path failed sign-in on its own on DCACYBSQL01 (looping 401.1 until a
+    # full iisreset) while the call above passed, so check it too.
+    $rootEndpoint = "$($SiteUrl.TrimEnd('/'))/api/admin/deployment"
+    Write-Host "Smoke test: GET $rootEndpoint (the browser's path, through the site-root rewrite)..."
+    try {
+        Invoke-RestMethod -Uri $rootEndpoint -UseDefaultCredentials -TimeoutSec $TimeoutSeconds | Out-Null
+        Write-Host 'Smoke test: the browser path signs in too.' -ForegroundColor Green
+    } catch {
+        Write-Warning "Smoke test failed calling '$rootEndpoint': $($_.Exception.Message)"
+        $status = $null
+        if ($_.Exception.PSObject.Properties['Response'] -and $_.Exception.Response) { $status = [int]$_.Exception.Response.StatusCode }
+        if ($status -eq 401) {
+            Write-Warning '/BlueTrack/... signs in but the browser path (/api/...) does not. Seen live after IIS changes, and fixed by a full IIS restart: run iisreset (it briefly stops every site), or .\Install-BlueTrack.ps1 -Step Iis.Reset -ResetIis $true, then -Step Smoke. See Deploy/README.md, "Smoke test failures".'
+        } else {
+            Write-BlueTrackSmokeDiagnosis -ErrorRecord $_
+        }
+        return $false
     }
 
     return $allHealthy

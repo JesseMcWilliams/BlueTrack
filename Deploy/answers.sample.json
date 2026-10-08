@@ -11,6 +11,7 @@
     "BackupFolder": "D:\\SQLBackups\\BlueTrack",
     "GrantAppPoolSqlAccess": true,
     "AppPoolSqlLogin": "",
+    "ResetIis": true,
     "SiteName": "BlueTrack",
     "ApiInstallPath": "C:\\inetpub\\BlueTrack\\Production\\api",
     "Hostname": "bluetrack.company.com",
