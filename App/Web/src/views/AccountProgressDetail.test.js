@@ -81,7 +81,7 @@ function baseDetail(overrides = {}) {
   }
 }
 
-function mockLoad({ detailOverrides = {}, recalculatedDetailOverrides = { computedRiskScore: 250, riskScoreBandName: 'Medium' } } = {}) {
+function mockLoad({ detailOverrides = {}, recalculatedDetailOverrides = { computedRiskScore: 250, riskScoreBandName: 'Medium' }, existingLock = null } = {}) {
   let recalculated = false
   globalThis.fetch = vi.fn((url, options) => {
     if (url === '/api/account-progress/field-metadata') return Promise.resolve(jsonResponse(fieldMetadata))
@@ -89,7 +89,9 @@ function mockLoad({ detailOverrides = {}, recalculatedDetailOverrides = { comput
     if (url === '/api/account-progress/42' && (!options || options.method === undefined)) {
       return Promise.resolve(jsonResponse(baseDetail(recalculated ? { ...detailOverrides, ...recalculatedDetailOverrides } : detailOverrides)))
     }
-    if (url === '/api/account-progress/42/lock' && (!options || !options.method)) return Promise.resolve(emptyResponse()) // no existing lock
+    if (url === '/api/account-progress/42/lock' && (!options || !options.method)) {
+      return Promise.resolve(existingLock ? jsonResponse(existingLock) : emptyResponse()) // emptyResponse = no existing lock
+    }
     if (url === '/api/account-progress/42/lock' && options?.method === 'POST') {
       return Promise.resolve(jsonResponse({ lockedByUserKey: 1, lockedByName: 'Test User', lockedAt: '2026-01-01T00:00:00Z' }))
     }
@@ -130,6 +132,31 @@ describe('AccountProgressDetail.vue', () => {
 
   afterEach(() => {
     vi.restoreAllMocks()
+  })
+
+  // D-177: a lock the current user already holds (another tab, or an
+  // earlier visit that left without saving) is taken over, not shown as
+  // "Currently being edited by <themselves>"; someone else's still isn't.
+  it('takes over an edit lock held by the same user', async () => {
+    useRightsStore().userKey = 1
+    mockLoad({ existingLock: { lockedByUserKey: 1, lockedByName: 'Test User', lockedAt: '2026-01-01T00:00:00Z' } })
+    const wrapper = await mountEditable()
+
+    const acquireCalls = globalThis.fetch.mock.calls.filter(([url, options]) => url === '/api/account-progress/42/lock' && options?.method === 'POST')
+    expect(acquireCalls).toHaveLength(1)
+    expect(wrapper.find('form button[type="submit"]').exists()).toBe(true)
+    expect(wrapper.text()).not.toContain('Currently being edited by')
+  })
+
+  it('does not take over an edit lock held by someone else', async () => {
+    useRightsStore().userKey = 1
+    mockLoad({ existingLock: { lockedByUserKey: 2, lockedByName: 'Other User', lockedAt: '2026-01-01T00:00:00Z' } })
+    const wrapper = await mountEditable()
+
+    const acquireCalls = globalThis.fetch.mock.calls.filter(([url, options]) => url === '/api/account-progress/42/lock' && options?.method === 'POST')
+    expect(acquireCalls).toHaveLength(0)
+    expect(wrapper.find('form button[type="submit"]').exists()).toBe(false)
+    expect(wrapper.text()).toContain('Currently being edited by Other User')
   })
 
   it('defaults to the Details tab, with Details/Risk Score visible and Risk Exception absent (not Risk Accepted)', async () => {

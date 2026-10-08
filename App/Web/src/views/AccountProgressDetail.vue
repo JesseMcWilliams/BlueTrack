@@ -296,7 +296,12 @@ async function load() {
     // not have resolved yet even though App.vue also calls it (Vue mounts
     // children before parents).
     await rights.ensureLoaded()
-    if (!lockStatus.value && rights.hasPermission('EditAccountProgress')) {
+    // D-177: also take over a lock this same user already holds -- another
+    // tab, or an earlier visit that left without saving. AcquireLock grants
+    // it to its own holder; previously the page never asked, so the user
+    // saw "Currently being edited by <themselves>" until it expired.
+    const heldByMe = lockStatus.value && lockStatus.value.lockedByUserKey === rights.userKey
+    if ((!lockStatus.value || heldByMe) && rights.hasPermission('EditAccountProgress')) {
       await acquireLock()
     }
   } catch (err) {
