@@ -4,6 +4,7 @@
 
 | Date | Change | User doc / section it affects |
 |---|---|---|
+| 2026-10-08 | The nightly Import+Load job supports Privilege-Cloud-only and Self-Hosted-only implementations: the installer asks which sources you have (`-ImportSources`), and `usp_Import_All` takes `@ImportPrivilegeCloud`/`@ImportSelfHosted` for manual imports (D-176). | `Admin_DeploymentRunbook.md` ("First Data Load"); `Admin_OperationsGuide.md`; `Admin_Installation.md`; Installation `.docx` at next release |
 | 2026-10-08 | Opening an Account Progress record you already have open elsewhere (another tab, or a visit you left without saving) now lets you edit it, instead of saying it's "Currently being edited by" you (D-177). | `User_Guide.md` (Account Progress editing / locks) |
 | 2026-10-08 | Installer: optional `Iis.Reset` step (`-ResetIis`, runs `iisreset`, briefly stops every site); the smoke test also checks the browser's `/api/...` path; redeploying over a running API no longer needs a manual `iisreset` (D-175). | `User_Docs/Admin_Installation.md`; Installation `.docx` at next release |
 | 2026-10-07 | An abandoned Account Progress edit lock (no activity for `LockTimeoutMinutes`, 5 by default) now expires on its own: the next person to open the record gets the lock instead of "Currently being edited by …" (D-174). | `User_Guide.md` (Account Progress editing / locks) |

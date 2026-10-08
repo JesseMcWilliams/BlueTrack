@@ -6,6 +6,7 @@
     "UseWindowsAuth": true,
     "SeedTestData": false,
     "InstallNightlyJob": true,
+    "ImportSources": "Both",
     "ExportFolderPath": "D:\\DataDrop\\Exports\\PrivilegedCloud",
     "EvdDatabaseName": "CyberArk",
     "BackupFolder": "D:\\SQLBackups\\BlueTrack",

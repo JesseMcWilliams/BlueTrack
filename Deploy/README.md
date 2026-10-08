@@ -76,7 +76,8 @@ Preview without changing anything:
 | `-GrantAppPoolSqlAccess` | Give the App Pool's account a SQL login and the script 41 grants (`Db.AppPoolAccess` step). Only asked with Windows Integrated Security | prompted |
 | `-AppPoolSqlLogin` | Account to grant, overriding the one worked out from the App Pool (e.g. on a server that isn't domain-joined) | worked out |
 | `-ResetIis` | Run `iisreset` after the IIS steps (`Iis.Reset`), before the smoke test. Briefly stops **every** site on the server | prompted |
-| `-ExportFolderPath` / `-EvdDatabaseName` | Required if `-InstallNightlyJob` — see below | prompted |
+| `-ImportSources` | Which CyberArk sources the nightly job imports: `Both`, `PrivilegeCloud` or `SelfHosted` (D-176) | prompted, if `-InstallNightlyJob` |
+| `-ExportFolderPath` / `-EvdDatabaseName` | Privilege Cloud export folder / Self-Hosted EVD database; each only needed when `-ImportSources` includes that source — see below | prompted, if needed |
 | `-SiteName` | IIS site name | `BlueTrack` |
 | `-Hostname` | Site host header / binding hostname | prompted |
 | `-HttpPort` / `-HttpsPort` | IIS bindings | `80` / `443` |
@@ -160,7 +161,7 @@ With Windows Integrated Security, the API connects to SQL Server as the App Pool
 
 ### A note on the nightly Import+Load job
 
-`Database/14_BlueTrack_ScheduleImportLoadJob.sql` has its export-folder path and Self-Hosted EVD database name hardcoded as literal T-SQL — they aren't `sqlcmd` variables the way the target database name is. `Install-BlueTrackNightlyJob` (in `Modules/BlueTrack.Database.psm1`) generates a **temporary copy** of that script with your `-ExportFolderPath`/`-EvdDatabaseName` substituted in before running it via `sqlcmd` — the tracked file in `Database/` is never modified.
+`Database/14_BlueTrack_ScheduleImportLoadJob.sql` has its export-folder path and Self-Hosted EVD database name hardcoded as literal T-SQL — they aren't `sqlcmd` variables the way the target database name is. `Install-BlueTrackNightlyJob` (in `Modules/BlueTrack.Database.psm1`) generates a **temporary copy** of that script with your `-ExportFolderPath`/`-EvdDatabaseName` substituted in before running it via `sqlcmd` — the tracked file in `Database/` is never modified. It also sets the job's `@ImportPrivilegeCloud`/`@ImportSelfHosted` flags from `-ImportSources` (D-176). For a Privilege-Cloud-only or Self-Hosted-only implementation, the job imports just that source and empties the other's staging tables each night. A missing export for a source that's switched on still fails the job, with a message naming the file or database.
 
 ## Structure
 

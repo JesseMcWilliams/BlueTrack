@@ -23,7 +23,7 @@ Reference/       Sample CyberArk Privileged Cloud/Self-Hosted export files (giti
 
 ## How the pieces fit together
 
-- **Data warehouse (`dbo` schema)**: CyberArk Privileged Cloud CSV exports and a same-instance Self-Hosted (EVD) database are loaded into staging tables, then transformed into `fact_account`/`fact_account_progress`/dimension tables via `usp_Import_All` and `usp_RunFullLoad`. This runs nightly via a SQL Server Agent job on a real environment.
+- **Data warehouse (`dbo` schema)**: CyberArk Privileged Cloud CSV exports and a same-instance Self-Hosted (EVD) database are loaded into staging tables, then transformed into `fact_account`/`fact_account_progress`/dimension tables via `usp_Import_All` and `usp_RunFullLoad`. This runs nightly via a SQL Server Agent job on a real environment. An implementation can have either source or both: `usp_Import_All`'s `@ImportPrivilegeCloud`/`@ImportSelfHosted` flags, set from the installer's `ImportSources` answer, skip a missing source and empty its staging tables (D-176).
 - **Web application (`web` schema)**: everything the browser-facing app owns — authentication/authorization, risk exceptions, audit logging, notifications, secrets-store configuration, and the Risk Scoring inventory (Targets/Access Groups) — lives in its own schema, separate from the warehouse data it reports on.
 - **API + SPA**: the API is a thin Dapper-over-SQL-Server layer (stored procedures for anything computation-heavy, e.g. risk scoring), authorization-gated per endpoint; the SPA is a conventional Vue Router + Pinia app that consumes it over `/api`.
 

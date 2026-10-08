@@ -82,6 +82,8 @@ param(
     [bool]$InstallNightlyJob,
     [string]$ExportFolderPath,
     [string]$EvdDatabaseName,
+    [ValidateSet('Both', 'PrivilegeCloud', 'SelfHosted')]
+    [string]$ImportSources,
     [bool]$GrantAppPoolSqlAccess,
     [string]$AppPoolSqlLogin,
     [bool]$ResetIis,
@@ -274,8 +276,18 @@ function Resolve-InstallAnswer {
                 Register-InstallAnswer InstallNightlyJob ((Read-Host 'Install the nightly Import+Load SQL Agent job now? (y/N)') -match '^[Yy]')
             }
             if ($script:InstallNightlyJob) {
-                if (-not $script:ExportFolderPath) { Register-InstallAnswer ExportFolderPath (Read-BlueTrackRequiredValue 'Privilege Cloud CSV export folder path (local to the SQL Server service account)') }
-                if (-not $script:EvdDatabaseName) { Register-InstallAnswer EvdDatabaseName (Read-BlueTrackRequiredValue 'Self-Hosted EVD database name (same SQL Server instance)') }
+                # D-176: an implementation may have only one CyberArk source;
+                # the job then imports just that one.
+                if (-not $script:ImportSources) {
+                    $allowed = 'Both', 'PrivilegeCloud', 'SelfHosted'
+                    do {
+                        $value = Read-Host "Which CyberArk sources does this implementation have? ($($allowed -join '/'))"
+                        if ($value -notin $allowed) { Write-Warning "Must be one of: $($allowed -join ', ')." }
+                    } while ($value -notin $allowed)
+                    Register-InstallAnswer ImportSources $value
+                }
+                if ($script:ImportSources -in 'Both', 'PrivilegeCloud' -and -not $script:ExportFolderPath) { Register-InstallAnswer ExportFolderPath (Read-BlueTrackRequiredValue 'Privilege Cloud CSV export folder path (local to the SQL Server service account)') }
+                if ($script:ImportSources -in 'Both', 'SelfHosted' -and -not $script:EvdDatabaseName) { Register-InstallAnswer EvdDatabaseName (Read-BlueTrackRequiredValue 'Self-Hosted EVD database name (same SQL Server instance)') }
             }
         }
         'Certificate' {
@@ -418,7 +430,7 @@ $StepActions = @{
     'Db.NightlyJob'   = {
         Get-InstallConnectionString | Out-Null
         Install-BlueTrackNightlyJob -RepoRoot $RepoRoot -SqlServerInstance $SqlServerInstance -DatabaseName $DatabaseName `
-            -ExportFolderPath $ExportFolderPath -EvdDatabaseName $EvdDatabaseName
+            -ImportSources $ImportSources -ExportFolderPath $ExportFolderPath -EvdDatabaseName $EvdDatabaseName
     }
     'Db.AppPoolAccess' = {
         Import-IisModule
