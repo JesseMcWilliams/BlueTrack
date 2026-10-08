@@ -161,15 +161,15 @@ function New-BlueTrackSite {
         Set-WebConfigurationProperty -Filter '/system.webServer/security/authentication/anonymousAuthentication' -PSPath "IIS:\Sites\$SiteName\BlueTrack" -Name Enabled -Value $true
     }
 
-    # D-172: the SPA calls /api/... at the SITE ROOT, which D-166's rewrite
-    # rule hands to /BlueTrack/api/... inside IIS. With kernel-mode auth,
-    # HTTP.sys handles the Negotiate/NTLM exchange using the settings of the
-    # URL as the browser sent it -- the root's -- before that rewrite. With
-    # Windows auth off at the root, every sign-in through /api/... failed
-    # with 401.1 (confirmed live on DCACYBSQL01: /BlueTrack/api/me signed in,
-    # /api/me never did) while the smoke test, which calls /BlueTrack/...
-    # directly, passed. Enabled at the root too, with Anonymous still on, so
-    # the SPA's static files never ask for credentials. Written to
+    # D-172, corrected by D-175: the SPA calls /api/... at the SITE ROOT,
+    # which D-166's rewrite rule hands to /BlueTrack/api/... inside IIS. On
+    # DCACYBSQL01 browser sign-in through /api/... looped (401.1) while
+    # /BlueTrack/api/me worked; turning Windows auth on here appeared to fix
+    # it, but the loop came back after a redeploy with this still on, and a
+    # full iisreset is what cleared it (see Restart-BlueTrackIisService). On
+    # this dev host the rewritten path signed in with this setting on or off.
+    # Kept as harmless and consistent, with Anonymous still on so the SPA's
+    # static files never ask for credentials. Written to
     # applicationHost.config (not the root web.config) because that file is
     # regenerated from Templates/ by Set-BlueTrackSiteWebConfig and wiped by
     # every SPA build.
@@ -307,4 +307,27 @@ function Get-BlueTrackAppPoolSqlLogin {
     return $sid.Translate([System.Security.Principal.NTAccount]).Value
 }
 
-Export-ModuleMember -Function New-BlueTrackAppPool, New-BlueTrackCertificateBinding, New-BlueTrackSite, Set-BlueTrackSiteWebConfig, Restart-BlueTrackAppPool, Get-BlueTrackAppPoolSqlLogin, Test-BlueTrackSqlServerIsLocal
+function Restart-BlueTrackIisService {
+    <#
+    .SYNOPSIS
+        Full IIS restart (iisreset) after the IIS steps (D-175).
+    .DESCRIPTION
+        On DCACYBSQL01, after a redeploy changed IIS configuration and
+        recycled the app pool, browser sign-in through the rewritten /api/...
+        path looped (401.1) until a full iisreset -- an app pool recycle
+        wasn't enough. This dev host showed the same kind of failure on the
+        first request after an IIS configuration change. Stops EVERY site on
+        the server briefly, which is why the step is opt-in.
+    #>
+    [CmdletBinding(SupportsShouldProcess)]
+    param()
+
+    if ($PSCmdlet.ShouldProcess('IIS (all sites on this server)', 'iisreset /restart')) {
+        & "$env:windir\System32\iisreset.exe" /restart | Out-Host
+        if ($LASTEXITCODE -ne 0) {
+            throw "iisreset failed (exit code $LASTEXITCODE)."
+        }
+    }
+}
+
+Export-ModuleMember -Function New-BlueTrackAppPool, New-BlueTrackCertificateBinding, New-BlueTrackSite, Set-BlueTrackSiteWebConfig, Restart-BlueTrackAppPool, Get-BlueTrackAppPoolSqlLogin, Test-BlueTrackSqlServerIsLocal, Restart-BlueTrackIisService

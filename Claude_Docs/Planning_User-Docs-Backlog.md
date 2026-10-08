@@ -4,6 +4,7 @@
 
 | Date | Change | User doc / section it affects |
 |---|---|---|
+| 2026-10-08 | Installer: optional `Iis.Reset` step (`-ResetIis`, runs `iisreset`, briefly stops every site); the smoke test also checks the browser's `/api/...` path; redeploying over a running API no longer needs a manual `iisreset` (D-175). | `User_Docs/Admin_Installation.md`; Installation `.docx` at next release |
 | 2026-10-07 | An abandoned Account Progress edit lock (no activity for `LockTimeoutMinutes`, 5 by default) now expires on its own: the next person to open the record gets the lock instead of "Currently being edited by …" (D-174). | `User_Guide.md` (Account Progress editing / locks) |
 | 2026-10-07 | Windows sign-in now lands on the dashboard (or the page you asked for) instead of staying on the sign-in page; the sign-in page has a **Continue** button for Windows Integrated (D-173). The installer enables Windows auth at the IIS site root so browser sign-in works (D-172). | `User_Docs/Admin_Installation.md` (first sign-in); `User_Guide.md` (signing in); Installation `.docx` at next release |
 | 2026-10-07 | Correction (D-171): with SQL Server on the same machine, `ApplicationPoolIdentity` needs a login for `IIS APPPOOL\<pool>`, not the computer account named in SQL Server's error message. `Admin_Installation.md` section 3 and `Admin_OperationsGuide.md` already updated. | Installation `.docx` at next release |

@@ -34,9 +34,9 @@ Given the single-server, no-redundancy environment, this stays a small, explicit
 
 `Install-BlueTrack.ps1` runs the sequence above as named steps (`Prereq.*`, `Build.*`, `Db.*`, `Iis.*`, `Smoke`). Answers and each step's outcome are saved under `Deploy/State/`, so a failed install continues with `-Resume`, and any step can be re-run with `-Step` or `-StartAt`. Prerequisites install from an offline installer folder, winget, or the vendor's release metadata, in that order under `-PrerequisiteSource Auto`, and every installer is hash- and signature-checked before it runs. Usage: `Deploy/README.md`.
 
-### Windows auth at the site root (D-172)
+### IIS restart, the browser path, and redeploying over a running API (D-172, D-175)
 
-The installer enables IIS Windows authentication (with Anonymous) at the site root as well as on `/BlueTrack`, because the SPA's `/api/...` calls arrive at the root and kernel-mode authentication runs with the root's settings before D-166's rewrite. The smoke test calls `/BlueTrack/...` directly and can't catch this; check browser sign-in after every install.
+After IIS changes and an app pool recycle, browser sign-in through the rewritten `/api/...` path can loop (`401.1`) while `/BlueTrack/...` works; on DCACYBSQL01 only a full `iisreset` cleared it. So the optional `Iis.Reset` step (`-ResetIis`) restarts IIS after the IIS steps, and the smoke test now also calls `/api/admin/deployment` through the site root, the browser's path. D-172's Windows auth at the site root is kept, but it was not the fix it appeared to be. `Build.Api` uses `app_offline.htm` to release a running API's files before publishing over them.
 
 ### App pool SQL access and smoke-test diagnosis (D-170, D-171)
 

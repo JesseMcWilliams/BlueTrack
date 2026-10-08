@@ -84,6 +84,7 @@ param(
     [string]$EvdDatabaseName,
     [bool]$GrantAppPoolSqlAccess,
     [string]$AppPoolSqlLogin,
+    [bool]$ResetIis,
 
     # --- IIS ---
     [string]$SiteName = 'BlueTrack',
@@ -169,6 +170,8 @@ $Steps = @(
     @{ Name = 'Iis.Certificate'; Needs = @('Certificate'); Description = 'Resolve or generate the HTTPS certificate' }
     @{ Name = 'Iis.Site'; Needs = @('Certificate', 'ApiInstallPath'); Description = 'Create the site, /BlueTrack Application and bindings' }
     @{ Name = 'Iis.WebConfig'; Description = 'Write the site-root web.config and recycle the app pool' }
+    @{ Name = 'Iis.Reset'; Needs = @('ResetIis'); Description = 'iisreset so every IIS change takes effect (stops all sites briefly)'
+        Condition = { $ResetIis }; SkipReason = 'ResetIis is off' }
     @{ Name = 'Smoke'; Needs = @('Hostname'); Description = 'Call the Deployment Info health check'
         Condition = { -not $SkipSmokeTest }; SkipReason = '-SkipSmokeTest' }
 )
@@ -291,6 +294,12 @@ function Resolve-InstallAnswer {
             if (-not $script:ApiInstallPath) {
                 Resolve-InstallAnswer Environment
                 Register-InstallAnswer ApiInstallPath (Join-Path $env:SystemDrive "inetpub\BlueTrack\$($script:Environment)\api")
+            }
+        }
+        'ResetIis' {
+            if (-not $script:Answered.Contains('ResetIis')) {
+                $reset = (Read-Host 'Restart IIS (iisreset) after the IIS steps, so every change takes effect? This briefly stops EVERY site on this server. Recommended for the first install and after IIS changes. (y/N)') -match '^[Yy]'
+                Register-InstallAnswer ResetIis $reset
             }
         }
         'GrantAppPoolSqlAccess' {
@@ -457,13 +466,18 @@ $StepActions = @{
         Set-BlueTrackSiteWebConfig -RepoRoot $RepoRoot -SpaPhysicalPath $SpaDist
         Restart-BlueTrackAppPool -Name "$SiteName-AppPool"
     }
+    'Iis.Reset'       = {
+        Import-IisModule
+        Restart-BlueTrackIisService
+        Start-Sleep -Seconds 5 # let W3SVC and the app pools come back before the smoke test
+    }
     'Smoke'           = {
         Start-Sleep -Seconds 5 # give the app pool a moment to warm up after recycling
         $siteUrl = "https://$($Hostname):$HttpsPort"
         if (Test-BlueTrackDeployment -SiteUrl $siteUrl) {
             return @{ Status = 'Completed'; Message = "Healthy at $siteUrl" }
         }
-        return @{ Status = 'Failed'; Message = 'Did not confirm healthy -- check the Deployment Info admin page manually' }
+        return @{ Status = 'Failed'; Message = 'Did not confirm healthy (health checks or the browser /api/... path) -- see the warnings above' }
     }
 }
 #endregion
@@ -609,6 +623,13 @@ try {
     # Without this grant every database-touching request fails with "Login
     # failed for user ..." (D-164, D-170, D-171), so say so here rather than
     # leave it to be found as a 500 later.
+    # D-175: without a full IIS restart, browser sign-in through /api/... can
+    # loop (401.1) after IIS changes even though the smoke test passes.
+    if ($Progress.ContainsKey('Iis.Reset') -and $Progress['Iis.Reset'].Status -eq 'NotApplicable' -and
+        @($runResults | Where-Object { $_.Step -like 'Iis.*' -and $_.Status -eq 'Completed' }).Count -gt 0) {
+        Write-Warning "IIS settings changed this run but IIS wasn't restarted (ResetIis is off). If browser sign-in keeps asking for credentials, run iisreset (it briefly stops every site), or: .\Install-BlueTrack.ps1 -Step Iis.Reset -ResetIis `$true"
+    }
+
     if ($UseWindowsAuth -and $Progress.ContainsKey('Db.AppPoolAccess') -and $Progress['Db.AppPoolAccess'].Status -eq 'NotApplicable') {
         $grantAccount = $AppPoolSqlLogin
         if (-not $grantAccount) {
