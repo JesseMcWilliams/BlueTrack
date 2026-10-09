@@ -66,6 +66,8 @@ builder.Services.AddScoped<ImportMappingService>();
 // uploads and the scheduled data feeds (Planning_Data-Sources.md).
 builder.Services.AddScoped<BlueTrack.Api.Imports.RiskScoringImportService>();
 builder.Services.AddScoped<BlueTrack.Api.Imports.ApplicationMappingImportService>();
+builder.Services.AddScoped<BlueTrack.Api.AccountProgress.AccountProgressSaveService>();
+builder.Services.AddScoped<BlueTrack.Api.AccountProgress.AccountProgressBulkEditService>();
 
 // D-13/D-82: cached rights per identity, backed by
 // Microsoft.Extensions.Caching.SqlServer (web.distributed_cache) -- see

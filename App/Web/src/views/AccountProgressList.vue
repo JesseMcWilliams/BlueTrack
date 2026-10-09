@@ -9,6 +9,45 @@ import { useTotalCount } from '../composables/useTotalCount'
 import { usePageSizeStore } from '../stores/pageSize'
 import FilterCountSummary from '../components/FilterCountSummary.vue'
 import Pager from '../components/Pager.vue'
+import { useRouter } from 'vue-router'
+import { useRightsStore } from '../stores/rights'
+import { useAccountSelectionStore } from '../stores/accountSelection'
+
+// D-182: bulk edit. "Select accounts" turns on a checkbox column; the
+// selection (a store) survives paging, sorting and filtering. Select all
+// on page / Invert apply to the current page; Select all matching asks the
+// API for every account matching the filters, up to the bulk-edit limit.
+const router = useRouter()
+const rights = useRightsStore()
+const selection = useAccountSelectionStore()
+const selectAllMessage = ref(null)
+const pageKeys = computed(() => accounts.value.map(a => a.accountKey))
+const selectedOnPage = computed(() => pageKeys.value.filter(k => selection.isSelected(k)).length)
+
+function currentFilterParams() {
+  const params = new URLSearchParams()
+  if (stageFilter.value) params.set('stage', stageFilter.value)
+  if (statusFilter.value) params.set('status', statusFilter.value)
+  if (riskLevelFilter.value) params.set('riskLevel', riskLevelFilter.value)
+  if (ownerFilter.value) params.set('owner', ownerFilter.value)
+  if (searchFilter.value.trim()) params.set('search', searchFilter.value.trim())
+  return params
+}
+
+async function selectAllMatching() {
+  selectAllMessage.value = null
+  const response = await fetch(`/api/account-progress/keys?${currentFilterParams().toString()}`)
+  if (!response.ok) {
+    selectAllMessage.value = `Could not select: ${response.status}`
+    return
+  }
+  const result = await response.json()
+  if (result.matchingCount > result.maxAccounts) {
+    selectAllMessage.value = `${result.matchingCount} accounts match, more than the bulk edit limit of ${result.maxAccounts}. Narrow the filters first.`
+    return
+  }
+  selection.add(result.accountKeys)
+}
 
 const { totalCount, filteredCount, readTotalCount } = useTotalCount()
 const pageSizeStore = usePageSizeStore()
@@ -102,12 +141,7 @@ async function load() {
   loading.value = true
   error.value = null
   try {
-    const params = new URLSearchParams()
-    if (stageFilter.value) params.set('stage', stageFilter.value)
-    if (statusFilter.value) params.set('status', statusFilter.value)
-    if (riskLevelFilter.value) params.set('riskLevel', riskLevelFilter.value)
-    if (ownerFilter.value) params.set('owner', ownerFilter.value)
-    if (searchFilter.value.trim()) params.set('search', searchFilter.value.trim())
+    const params = currentFilterParams()
     if (sortQueryParam.value) params.set('sort', sortQueryParam.value)
     params.set('page', page.value)
     params.set('pageSize', pageSizeStore.current)
@@ -168,6 +202,18 @@ watch([stageFilter, statusFilter, riskLevelFilter, ownerFilter, searchFilter, so
       </label>
       <label class="field-label"><span class="field-label-text">Owner:</span> <input v-model="ownerFilter" type="text" placeholder="contains..." /></label>
     </p>
+    <div v-if="rights.hasPermission('EditAccountProgress')" class="selection-bar">
+      <label><input type="checkbox" :checked="selection.enabled" @change="selection.setEnabled($event.target.checked)" /> Select accounts for bulk edit</label>
+      <template v-if="selection.enabled">
+        <strong role="status">{{ selection.count }} selected</strong><span v-if="selection.count"> ({{ selectedOnPage }} on this page)</span>
+        <button type="button" @click="selection.add(pageKeys)">Select all on page</button>
+        <button type="button" @click="selectAllMatching">Select all matching ({{ filteredCount ?? 0 }})</button>
+        <button type="button" @click="selection.invert(pageKeys)">Invert selection on page</button>
+        <button type="button" :disabled="selection.count === 0" @click="selection.clear()">Clear</button>
+        <button type="button" class="btn-primary" :disabled="selection.count === 0" @click="router.push({ name: 'account-progress-bulk-edit' })">Bulk edit…</button>
+      </template>
+    </div>
+    <p v-if="selectAllMessage" role="alert">{{ selectAllMessage }}</p>
     <FilterCountSummary :shown="accounts.length" :filtered-count="filteredCount" :total="totalCount" :page="page" :page-size="pageSizeStore.current" />
     <Pager :page="page" :page-count="pageCount" @update:page="onPageChange" @page-size-change="onPageSizeChange" />
     <p v-if="loading" role="status">Loading...</p>
@@ -175,6 +221,7 @@ watch([stageFilter, statusFilter, riskLevelFilter, ownerFilter, searchFilter, so
     <table v-else>
       <thead>
         <tr>
+          <th v-if="selection.enabled"><span class="visually-hidden">Selected</span></th>
           <th v-for="col in columns" :key="col.field" :aria-sort="ariaSortFor(col.field)">
             <button type="button" @click="toggleSort(col.field, $event)">
               {{ col.label }} <span aria-hidden="true">{{ sortIndicator(col.field) }}</span>
@@ -185,6 +232,9 @@ watch([stageFilter, statusFilter, riskLevelFilter, ownerFilter, searchFilter, so
       <tbody>
         <template v-for="account in accounts" :key="account.accountKey">
           <tr>
+            <td v-if="selection.enabled">
+              <input type="checkbox" :checked="selection.isSelected(account.accountKey)" :aria-label="`Select ${account.userName} on ${account.address}`" @change="selection.toggle(account.accountKey)" />
+            </td>
             <td><router-link :to="{ name: 'account-progress-detail', params: { accountKey: account.accountKey } }">{{ account.userName }}</router-link></td>
             <td>{{ account.address }}</td>
             <td>{{ account.stageName }}</td>
@@ -202,3 +252,13 @@ watch([stageFilter, statusFilter, riskLevelFilter, ownerFilter, searchFilter, so
     <p><small>Click a column to sort by it; shift-click another column to add it as a secondary sort key.</small></p>
   </div>
 </template>
+
+<style scoped>
+.selection-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1rem;
+  margin: 0.5rem 0;
+}
+</style>

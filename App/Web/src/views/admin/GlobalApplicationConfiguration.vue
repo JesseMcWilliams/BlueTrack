@@ -102,6 +102,10 @@ async function save() {
         <label><input v-model="config.enforceRiskExceptionSegregationOfDuties" type="checkbox" /> Enforce segregation of duties on Risk Exception approval</label>
         <small>When enabled, the person who approved a Risk Exception cannot also be the one who links it to an account. Leave off if your organization doesn't have separate staff for the two roles.</small>
       </p>
+      <p>
+        <label class="field-label"><span class="field-label-text">Bulk edit limit (accounts):</span> <input v-model.number="config.bulkEditMaxAccounts" type="number" min="1" max="10000" required /></label>
+        <small>The most accounts one Account Progress bulk edit may change (D-182).</small>
+      </p>
       <fieldset>
         <legend>Data feeds (Admin → Data Sources)</legend>
         <p>

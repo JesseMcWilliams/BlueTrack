@@ -110,6 +110,65 @@ test.describe('Account Progress list -- risk score override', () => {
   })
 })
 
+test.describe('Account Progress bulk edit (D-182)', () => {
+  test('Analyst selects accounts, uses the selection buttons, and bulk edits a field', async ({ page }) => {
+    await signInAs(page, 'TestUser.Analyst')
+    await page.goto('/accounts')
+    await page.getByPlaceholder('username or address...').fill('TestAccount0')
+    await expect(page.locator('tbody tr')).toHaveCount(4)
+
+    await page.getByLabel('Select accounts for bulk edit').check()
+    const bar = page.locator('.selection-bar')
+    await bar.getByRole('button', { name: 'Select all on page' }).click()
+    await expect(bar).toContainText('4 selected')
+    await bar.getByRole('button', { name: 'Invert selection on page' }).click()
+    await expect(bar).toContainText('0 selected')
+
+    const rows = page.locator('tbody tr')
+    await rows.filter({ hasText: 'TestAccount01' }).getByRole('checkbox').check()
+    await rows.filter({ hasText: 'TestAccount02' }).getByRole('checkbox').check()
+    await expect(bar).toContainText('2 selected')
+
+    // Remember the two accounts' current Business Unit, to put back afterwards.
+    const keys = []
+    for (const name of ['TestAccount01', 'TestAccount02']) {
+      const href = await rows.filter({ hasText: name }).getByRole('link').first().getAttribute('href')
+      keys.push(Number(href.split('/').pop()))
+    }
+    const originals = []
+    for (const key of keys) {
+      const detail = await (await page.request.get(`/api/account-progress/${key}`)).json()
+      originals.push({ key, businessUnit: detail.businessUnit })
+    }
+
+    try {
+      await bar.getByRole('button', { name: 'Bulk edit…' }).click()
+      await expect(page).toHaveURL(/\/accounts\/bulk-edit$/)
+      await expect(page.getByText('2 accounts selected')).toBeVisible()
+      await page.getByLabel('Change Business Unit').check()
+      await page.getByLabel('Business Unit', { exact: true }).fill('E2E Bulk Unit')
+      await page.getByRole('button', { name: 'Apply to 2 accounts' }).click()
+      await expect(page.getByText('2 updated, 0 already had these values, 0 skipped.')).toBeVisible()
+
+      await page.getByRole('button', { name: 'Back to Accounts' }).click()
+      await expect(page).toHaveURL(/\/accounts$/)
+    } finally {
+      for (const o of originals) {
+        await page.request.post('/api/account-progress/bulk-edit', {
+          data: { accountKeys: [o.key], fields: ['BusinessUnit'], businessUnit: o.businessUnit }
+        })
+      }
+    }
+  })
+
+  test('Viewer does not see the bulk edit selection', async ({ page }) => {
+    await signInAs(page, 'TestUser.Viewer')
+    await page.goto('/accounts')
+    await expect(page.locator('th', { hasText: 'Risk Band' })).toBeVisible()
+    await expect(page.getByLabel('Select accounts for bulk edit')).toHaveCount(0)
+  })
+})
+
 test.describe('Risk Exception create/extend/revoke workflow', () => {
   test('Approver can create, extend, and revoke an exception end to end', async ({ page }) => {
     await signInAs(page, 'TestUser.Approver')

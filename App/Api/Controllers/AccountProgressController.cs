@@ -15,10 +15,10 @@ public sealed class AccountProgressController(
     FieldMetadataRepository fieldMetadataRepository,
     ReferenceDataRepository referenceDataRepository,
     AccountProgressLockRepository lockRepository,
-    RiskExceptionRepository riskExceptionRepository,
     AppConfigRepository appConfigRepository,
     CurrentUserResolver currentUserResolver,
-    AuditLogger auditLogger) : ControllerBase
+    AuditLogger auditLogger,
+    AccountProgress.AccountProgressSaveService saveService) : ControllerBase
 {
     /// <summary>
     /// D-42: multiple simultaneous filters (stage/status/riskLevel/owner)
@@ -42,6 +42,43 @@ public sealed class AccountProgressController(
         Response.Headers["X-Total-Count"] = (await repository.GetTotalCountAsync()).ToString();
         Response.Headers["X-Filtered-Count"] = (await repository.GetFilteredCountAsync(stage, status, riskLevel, owner, search)).ToString();
         return Ok(results);
+    }
+
+    /// <summary>
+    /// D-182: "Select all matching" for bulk edit -- the keys of every
+    /// account matching the same filters as the list. Returns no keys when
+    /// more accounts match than one bulk edit may change, so the page can
+    /// say so instead of selecting a partial set.
+    /// </summary>
+    [HttpGet("keys")]
+    [Authorize(Policy = Permissions.EditAccountProgress)]
+    public async Task<IActionResult> GetMatchingKeys(
+        [FromQuery] string? stage = null,
+        [FromQuery] string? status = null,
+        [FromQuery] string? riskLevel = null,
+        [FromQuery] string? owner = null,
+        [FromQuery] string? search = null)
+    {
+        var max = (await appConfigRepository.GetAsync()).BulkEditMaxAccounts;
+        var matching = await repository.GetFilteredCountAsync(stage, status, riskLevel, owner, search);
+        var keys = matching > max ? [] : await repository.GetFilteredKeysAsync(stage, status, riskLevel, owner, search, max);
+        return Ok(new AccountProgressKeysResult { MatchingCount = matching, MaxAccounts = max, AccountKeys = keys });
+    }
+
+    /// <summary>D-182: one set of field values applied to many accounts; see AccountProgressBulkEditService.</summary>
+    [HttpPost("bulk-edit")]
+    [Authorize(Policy = Permissions.EditAccountProgress)]
+    public async Task<IActionResult> BulkEdit([FromBody] BulkEditAccountProgressRequest request,
+        [FromServices] AccountProgress.AccountProgressBulkEditService bulkEditService)
+    {
+        var user = await currentUserResolver.ResolveAsync(User);
+        if (user is null) return Unauthorized();
+
+        if (await bulkEditService.ValidateAsync(request) is { } error)
+        {
+            return Problem(title: "Invalid bulk edit", detail: error, statusCode: StatusCodes.Status400BadRequest);
+        }
+        return Ok(await bulkEditService.ApplyAsync(request, user.UserKey));
     }
 
     /// <summary>
@@ -179,98 +216,14 @@ public sealed class AccountProgressController(
             return NotFound();
         }
 
-        // D-51 rule 1: Complete requires ActualCompletionDate.
-        var newStatusName = await repository.GetStatusNameAsync(request.CurrentStatusKey);
-        if (newStatusName == "Complete" && request.ActualCompletionDate is null)
+        // D-51 and the Risk Exception link rules live in
+        // AccountProgressSaveService, shared with bulk edit (D-182).
+        var result = await saveService.SaveAsync(accountKey, before, request, user.UserKey);
+        if (!result.Saved)
         {
-            return Problem(title: "Validation failed", detail: "ActualCompletionDate is required when Status is set to Complete.",
-                statusCode: StatusCodes.Status400BadRequest);
+            return Problem(title: "Validation failed", detail: result.Error, statusCode: StatusCodes.Status400BadRequest);
         }
-
-        // D-51 rule 2: a stage regression (lower StageOrder) requires a Reason.
-        var isRegression = false;
-        if (request.CurrentStageKey != before.CurrentStageKey)
-        {
-            var oldOrder = await repository.GetStageOrderAsync(before.CurrentStageKey);
-            var newOrder = await repository.GetStageOrderAsync(request.CurrentStageKey);
-            isRegression = oldOrder is not null && newOrder is not null && newOrder < oldOrder;
-            if (isRegression && string.IsNullOrWhiteSpace(request.Reason))
-            {
-                return Problem(title: "Validation failed", detail: "A Reason is required when regressing to an earlier Blueprint stage.",
-                    statusCode: StatusCodes.Status400BadRequest);
-            }
-        }
-
-        // Risk Exception wiring (Design_Risk-Exception-Tracking.md workflow
-        // steps 1-2): status can't be set to Risk Accepted / Excluded
-        // without linking an Active exception scoped to this account.
-        // Cleared for every other status -- ExceptionKey only means anything
-        // while the account is actually in that status (per the column's
-        // own documented contract in 08_BlueTrack_WebSchema.sql).
-        // Application-scoped exceptions can't be linked from here yet -- the
-        // design itself leaves the batch propagation to every account under
-        // that application as "an implementation detail for later, not
-        // decided here."
-        int? resolvedExceptionKey = null;
-        if (newStatusName == "Risk Accepted / Excluded")
-        {
-            if (request.ExceptionKey is null)
-            {
-                return Problem(title: "Validation failed",
-                    detail: "An Active exception must be linked (or created) before setting status to Risk Accepted / Excluded.",
-                    statusCode: StatusCodes.Status400BadRequest);
-            }
-
-            var exception = await riskExceptionRepository.GetByKeyAsync(request.ExceptionKey.Value);
-            if (exception is null || exception.AccountKey != accountKey || exception.StatusName != "Active")
-            {
-                return Problem(title: "Validation failed",
-                    detail: "The linked exception must be an Active exception scoped to this account.",
-                    statusCode: StatusCodes.Status400BadRequest);
-            }
-
-            // Segregation of duties (admin-configurable, off by default --
-            // some organizations don't have separate staff for the two
-            // roles): the person who approved this exception can't also be
-            // the one linking it here.
-            var appConfig = await appConfigRepository.GetAsync();
-            if (appConfig.EnforceRiskExceptionSegregationOfDuties && exception.ApprovedBy == user.UserKey)
-            {
-                return Problem(title: "Validation failed",
-                    detail: "This exception was approved by you -- segregation of duties requires a different person to link it to an account.",
-                    statusCode: StatusCodes.Status400BadRequest);
-            }
-
-            resolvedExceptionKey = exception.ExceptionKey;
-        }
-
-        await repository.UpdateAsync(accountKey, request, resolvedExceptionKey);
         await lockRepository.ReleaseAsync(accountKey, user.UserKey);
-
-        List<FieldChange> changes = [];
-        void AddIfChanged(string name, object? oldValue, object? newValue)
-        {
-            var oldText = oldValue?.ToString();
-            var newText = newValue?.ToString();
-            if (oldText != newText) changes.Add(new FieldChange(name, oldText, newText));
-        }
-        AddIfChanged("CurrentStageKey", before.CurrentStageKey, request.CurrentStageKey);
-        AddIfChanged("CurrentStatusKey", before.CurrentStatusKey, request.CurrentStatusKey);
-        AddIfChanged("RiskLevelKey", before.RiskLevelKey, request.RiskLevelKey);
-        AddIfChanged("AccountTypeKey", before.AccountTypeKey, request.AccountTypeKey);
-        AddIfChanged("SORKey", before.SORKey, request.SORKey);
-        AddIfChanged("OwnerName", before.OwnerName, request.OwnerName);
-        AddIfChanged("BusinessUnit", before.BusinessUnit, request.BusinessUnit);
-        AddIfChanged("TargetRemediationDate", before.TargetRemediationDate?.ToString("yyyy-MM-dd"), request.TargetRemediationDate?.ToString("yyyy-MM-dd"));
-        AddIfChanged("ActualCompletionDate", before.ActualCompletionDate?.ToString("yyyy-MM-dd"), request.ActualCompletionDate?.ToString("yyyy-MM-dd"));
-        AddIfChanged("Notes", before.Notes, request.Notes);
-        AddIfChanged("ExceptionKey", before.ExceptionKey, resolvedExceptionKey);
-
-        if (changes.Count > 0)
-        {
-            await auditLogger.LogAsync("FieldEdit", user.UserKey, "fact_account_progress", accountKey.ToString(),
-                reason: isRegression ? request.Reason : null, fieldChanges: changes);
-        }
 
         return NoContent();
     }

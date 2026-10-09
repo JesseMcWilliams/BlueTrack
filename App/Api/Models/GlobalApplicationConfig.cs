@@ -38,6 +38,9 @@ public sealed class GlobalApplicationConfig
     public required string BusinessHoursStart { get; init; }
     public required string BusinessHoursEnd { get; init; }
     public required string BusinessDays { get; init; }
+
+    /// <summary>D-182: the most accounts one Account Progress bulk edit may change.</summary>
+    public int BulkEditMaxAccounts { get; init; }
 }
 
 public sealed class SaveGlobalApplicationConfigRequest
@@ -59,4 +62,7 @@ public sealed class SaveGlobalApplicationConfigRequest
     public string? BusinessHoursStart { get; init; }
     public string? BusinessHoursEnd { get; init; }
     public string? BusinessDays { get; init; }
+
+    /// <summary>D-182: null = unchanged.</summary>
+    public int? BulkEditMaxAccounts { get; init; }
 }
