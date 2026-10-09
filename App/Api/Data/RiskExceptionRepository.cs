@@ -16,7 +16,7 @@ public sealed class RiskExceptionRepository(IDbConnectionFactory connectionFacto
     {
         ["exceptionID"] = "re.ExceptionID",
         ["scopeName"] = "ScopeName",
-        ["approvedByName"] = "au.DisplayName",
+        ["approvedByName"] = "COALESCE(au.DisplayName, re.ApprovedByName)",
         ["approvalDate"] = "re.ApprovalDate",
         ["reviewDate"] = "re.ReviewDate",
         ["statusName"] = "des.StatusName"
@@ -128,9 +128,13 @@ public sealed class RiskExceptionRepository(IDbConnectionFactory connectionFacto
 
         const string sql = """
             SELECT re.ExceptionKey, re.ExceptionID, re.AccountKey, re.ApplicationKey, re.Justification,
-                   re.ApprovedBy, re.ApprovalDate, re.ReviewDate, des.StatusName, re.ExternalTicketReference
+                   re.ApprovedBy, COALESCE(au.DisplayName, re.ApprovedByName) AS ApprovedByName,
+                   re.ApprovalDate, re.ReviewDate, des.StatusName, re.ExternalTicketReference,
+                   re.SourceTool, re.SourceExceptionId, re.SourceUrl, iu.DisplayName AS ImportedByName, re.ImportedDate
             FROM web.risk_exception re
             JOIN web.dim_exception_status des ON des.ExceptionStatusKey = re.ExceptionStatusKey
+            LEFT JOIN web.app_user au ON au.UserKey = re.ApprovedBy
+            LEFT JOIN web.app_user iu ON iu.UserKey = re.ImportedBy
             WHERE re.ExceptionKey = @ExceptionKey
             """;
 
@@ -147,14 +151,7 @@ public sealed class RiskExceptionRepository(IDbConnectionFactory connectionFacto
     {
         using var connection = connectionFactory.Create();
 
-        var config = await connection.QuerySingleAsync<ExceptionIdConfig>("""
-            UPDATE web.app_config
-            SET ExceptionIdNextSequence = CASE WHEN ExceptionIdSequenceYear = @CurrentYear THEN ExceptionIdNextSequence + 1 ELSE 1 END,
-                ExceptionIdSequenceYear = @CurrentYear
-            OUTPUT inserted.ExceptionIdPattern, inserted.ExceptionIdNextSequence
-            """, new { CurrentYear = DateTime.UtcNow.Year });
-
-        var exceptionId = ExceptionIdGenerator.Generate(config.ExceptionIdPattern, DateTime.UtcNow.Year, config.ExceptionIdNextSequence);
+        var exceptionId = await NextExceptionIdAsync(connection);
         var approvalDate = DateTime.UtcNow.Date;
 
         const string insertSql = """
@@ -176,6 +173,78 @@ public sealed class RiskExceptionRepository(IDbConnectionFactory connectionFacto
             request.ReviewDate,
             request.ExternalTicketReference
         });
+    }
+
+    /// <summary>D-17: takes the next number in the configured ExceptionID pattern.</summary>
+    private static async Task<string> NextExceptionIdAsync(System.Data.IDbConnection connection)
+    {
+        var config = await connection.QuerySingleAsync<ExceptionIdConfig>("""
+            UPDATE web.app_config
+            SET ExceptionIdNextSequence = CASE WHEN ExceptionIdSequenceYear = @CurrentYear THEN ExceptionIdNextSequence + 1 ELSE 1 END,
+                ExceptionIdSequenceYear = @CurrentYear
+            OUTPUT inserted.ExceptionIdPattern, inserted.ExceptionIdNextSequence
+            """, new { CurrentYear = DateTime.UtcNow.Year });
+        return ExceptionIdGenerator.Generate(config.ExceptionIdPattern, DateTime.UtcNow.Year, config.ExceptionIdNextSequence);
+    }
+
+    /// <summary>
+    /// D-183: an exception imported from another tool. It gets a BlueTrack
+    /// ExceptionID (the configured pattern) and keeps the source's own ID,
+    /// tool, link, approver name and dates. Returns the key and the new ID.
+    /// </summary>
+    public async Task<(int ExceptionKey, string ExceptionId)> CreateImportedAsync(ImportedRiskException exception, int importedByUserKey)
+    {
+        using var connection = connectionFactory.Create();
+        var exceptionId = await NextExceptionIdAsync(connection);
+        var key = await connection.QuerySingleAsync<int>("""
+            INSERT INTO web.risk_exception
+                (ExceptionID, AccountKey, ApplicationKey, Justification, ApprovedBy, ApprovedByName, ApprovalDate, ReviewDate,
+                 ExceptionStatusKey, ExternalTicketReference, SourceTool, SourceExceptionId, SourceUrl, ImportedBy, ImportedDate)
+            OUTPUT inserted.ExceptionKey
+            SELECT @ExceptionID, @AccountKey, @ApplicationKey, @Justification, NULL, @ApprovedByName, @ApprovalDate, @ReviewDate,
+                   (SELECT ExceptionStatusKey FROM web.dim_exception_status WHERE StatusName = @StatusName),
+                   @ExternalTicketReference, @SourceTool, @SourceExceptionId, @SourceUrl, @ImportedBy, SYSUTCDATETIME()
+            """, new
+        {
+            ExceptionID = exceptionId,
+            exception.AccountKey,
+            exception.ApplicationKey,
+            exception.Justification,
+            exception.ApprovedByName,
+            exception.ApprovalDate,
+            exception.ReviewDate,
+            exception.StatusName,
+            exception.ExternalTicketReference,
+            exception.SourceTool,
+            exception.SourceExceptionId,
+            exception.SourceUrl,
+            ImportedBy = importedByUserKey
+        });
+        return (key, exceptionId);
+    }
+
+    /// <summary>D-183: the BlueTrack ExceptionID already imported for this source tool + ID, if any.</summary>
+    public async Task<string?> FindBySourceAsync(string sourceTool, string sourceExceptionId)
+    {
+        using var connection = connectionFactory.Create();
+        return await connection.QuerySingleOrDefaultAsync<string>(
+            "SELECT ExceptionID FROM web.risk_exception WHERE SourceTool = @sourceTool AND SourceExceptionId = @sourceExceptionId",
+            new { sourceTool, sourceExceptionId });
+    }
+
+    /// <summary>
+    /// D-183: active accounts whose username and address match exactly
+    /// (ignoring case and surrounding spaces). Both are required: an
+    /// account with no address is never matched (agreed 2026-10-09).
+    /// </summary>
+    public async Task<IReadOnlyList<long>> FindAccountKeysAsync(string userName, string address)
+    {
+        using var connection = connectionFactory.Create();
+        return (await connection.QueryAsync<long>("""
+            SELECT AccountKey FROM dbo.fact_account
+            WHERE IsDeleted = 0 AND UPPER(LTRIM(RTRIM(UserName))) = UPPER(@userName)
+              AND UPPER(LTRIM(RTRIM(Address))) = UPPER(@address)
+            """, new { userName = userName.Trim(), address = address.Trim() })).AsList();
     }
 
     /// <summary>Re-approval (design's workflow step 4): extends ReviewDate without changing status.</summary>
@@ -257,11 +326,12 @@ public sealed class RiskExceptionRepository(IDbConnectionFactory connectionFacto
             CASE WHEN re.AccountKey IS NOT NULL THEN 'Account' ELSE 'Application' END AS ScopeType,
             COALESCE(fa.AccountName, da.ApplicationName) AS ScopeName,
             re.Justification,
-            au.DisplayName AS ApprovedByName,
+            COALESCE(au.DisplayName, re.ApprovedByName) AS ApprovedByName,
             re.ApprovalDate,
             re.ReviewDate,
             des.StatusName,
-            re.ExternalTicketReference
+            re.ExternalTicketReference,
+            re.SourceTool, re.SourceExceptionId, re.SourceUrl
         """ + "\n" + FromJoinSql;
 
     private const string ListSql = ListSqlBase + """

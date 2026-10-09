@@ -58,6 +58,13 @@ const routes = [
     meta: { breadcrumb: 'Exceptions' },
     component: () => import('../views/RiskExceptionsList.vue')
   },
+  // D-183: import exceptions approved in another tool.
+  {
+    path: '/exceptions/bulk-import',
+    name: 'risk-exceptions-bulk-import',
+    meta: { breadcrumb: 'Bulk Actions', breadcrumbParent: 'risk-exceptions-list' },
+    component: () => import('../views/RiskExceptionsBulkImport.vue')
+  },
   {
     path: '/exceptions/new',
     name: 'risk-exception-create',
