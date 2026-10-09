@@ -36,6 +36,18 @@ If recipient resolution or AD Account Discovery needs to query a domain, add it 
 
 Define your Low/Medium/High/Critical (or however you name them) bands under **Admin > Risk Score Bands**, and map your CyberArk Safes to Applications under **Admin > Application ↔ Safe Mapping** — both feed directly into the risk-scoring reports every analyst and approver will see.
 
+## 8. Data Sources
+
+**Admin > Data Sources** (permission `ManageDataSources`, granted to Admin) imports CSV files from folders on a schedule, using the same imports as the Bulk Actions uploads (D-181):
+
+- **A feed** names the import it runs (target inventory, access groups, account links, applications or safe assignments), an optional mapping profile, a folder and a file name pattern. The pattern may contain today's date in braces, such as `targets_{yyyy-MM-dd}.csv`, and the `*` and `?` wildcards. The newest matching file is imported and left in place.
+- **Test** shows the file a run would pick up now and its columns, and lists any column the import requires that the file lacks (under the mapping profile's names when one applies).
+- **Nightly:** every enabled feed runs in the order shown, at the **Nightly run time** on Global Application Configuration (default 04:00, after the 02:00 Import+Load job). Run history is kept for **Keep run history (days)** (default 15).
+- **Run now / Run all** start a run straight away. Inside the **business hours** set on Global Application Configuration (default 07:00-18:00, Monday to Friday), they ask for confirmation first. Only one run happens at a time.
+- **History:** each feed's page lists its runs; click a run to see its row errors. Nightly runs are recorded as by the user "BlueTrack Data Feeds (system)", which can't be signed in as; Run now is recorded as by the person who clicked it.
+- **Folder access:** feeds are read by the App Pool's account, which needs read access to each folder ([Admin_Installation.md](Admin_Installation.md), "Data feed folders").
+- After an upgrade that adds this page, an Admin who was already signed in needs **Reload My Rights** (My Profile) to see it.
+
 ## What's next
 
 Once these are set, regular use can begin. Ongoing operational tasks — data imports, backup status, audit review — are covered in [Admin_DataManagement.md](Admin_DataManagement.md).

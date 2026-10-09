@@ -41,4 +41,14 @@ public static class CsvFileReader
 
         return rows;
     }
+
+    /// <summary>D-181: just the header row, for the Data Sources Test button (doesn't read the rest of the file).</summary>
+    public static async Task<IReadOnlyList<string>> ReadHeaderAsync(Stream fileStream)
+    {
+        using var reader = new StreamReader(fileStream);
+        using var csv = new CsvReader(reader, new CsvConfiguration(CultureInfo.InvariantCulture));
+        if (!await csv.ReadAsync()) return [];
+        csv.ReadHeader();
+        return csv.HeaderRecord ?? [];
+    }
 }

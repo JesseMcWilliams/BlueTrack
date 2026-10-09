@@ -402,6 +402,26 @@ const routes = [
         component: () => import('../views/admin/ImportMappingProfileEdit.vue'),
         props: true
       },
+      // D-181 (Data Sources phase 2): scheduled CSV data feeds.
+      {
+        path: 'data-sources',
+        name: 'admin-data-sources',
+        meta: { breadcrumb: 'Data Sources', breadcrumbParent: 'admin' },
+        component: () => import('../views/admin/DataSources.vue')
+      },
+      {
+        path: 'data-sources/new',
+        name: 'admin-data-feed-create',
+        meta: { breadcrumb: 'New Feed', breadcrumbParent: 'admin-data-sources' },
+        component: () => import('../views/admin/DataFeedEdit.vue')
+      },
+      {
+        path: 'data-sources/:dataFeedKey',
+        name: 'admin-data-feed-edit',
+        meta: { breadcrumb: 'Edit Feed', breadcrumbParent: 'admin-data-sources' },
+        component: () => import('../views/admin/DataFeedEdit.vue'),
+        props: true
+      },
       {
         path: 'risk-score-bands',
         name: 'admin-risk-score-bands',

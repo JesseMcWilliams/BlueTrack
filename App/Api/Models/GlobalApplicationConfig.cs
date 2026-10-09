@@ -28,6 +28,16 @@ public sealed class GlobalApplicationConfig
     /// organizations don't have enough staff to separate the two roles.
     /// </summary>
     public bool EnforceRiskExceptionSegregationOfDuties { get; init; }
+
+    // D-181 (Data Sources phase 2): when the nightly data feeds run, how
+    // long their run history is kept, and the business hours inside which
+    // Run now warns. Times are "HH:mm", server local time; BusinessDays is
+    // comma-separated three-letter English day names ("Mon,Tue,...").
+    public required string DataFeedRunTime { get; init; }
+    public int DataFeedRunRetentionDays { get; init; }
+    public required string BusinessHoursStart { get; init; }
+    public required string BusinessHoursEnd { get; init; }
+    public required string BusinessDays { get; init; }
 }
 
 public sealed class SaveGlobalApplicationConfigRequest
@@ -41,4 +51,12 @@ public sealed class SaveGlobalApplicationConfigRequest
     public string? BackupFolder { get; init; }
     public required string ActiveRiskAlgorithm { get; init; }
     public bool EnforceRiskExceptionSegregationOfDuties { get; init; }
+
+    // D-181: optional, so a caller sending the older shape leaves these
+    // settings as they are (null = unchanged), rather than resetting them.
+    public string? DataFeedRunTime { get; init; }
+    public int? DataFeedRunRetentionDays { get; init; }
+    public string? BusinessHoursStart { get; init; }
+    public string? BusinessHoursEnd { get; init; }
+    public string? BusinessDays { get; init; }
 }

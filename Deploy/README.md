@@ -149,6 +149,10 @@ With Windows Integrated Security, the API connects to SQL Server as the App Pool
 
 `Db.AppPoolAccess` works this out from the App Pool's identity and whether `-SqlServerInstance` is this machine, creates the login if it's missing and runs script 41 for it. `-AppPoolSqlLogin` overrides the account. The installing user needs `securityadmin` (or `sysadmin`). For least privilege, a dedicated gMSA is still preferred: a computer-account grant (remote SQL Server) also covers everything else on the server running as `NETWORK SERVICE`, `SYSTEM` or an App Pool (`User_Docs/Admin_Installation.md`, section 3).
 
+### Data feed folders
+
+The Data Sources page's feeds (D-181) are read by the API itself, so the **App Pool's account** (the table above: `IIS APPPOOL\<pool>` for a local folder, the computer account `DOMAIN\HOSTNAME$` for a share on another machine, or the gMSA) needs read access to each feed folder. The page's **Test** button checks this as that account. The installer doesn't grant folder access. After an upgrade adds `ManageDataSources`, an Admin who was already signed in sees Data Sources after **Reload My Rights** (or once their cached rights expire).
+
 ### Smoke test failures
 
 | Result | Meaning | What to do |

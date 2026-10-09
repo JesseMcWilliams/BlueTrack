@@ -4,6 +4,7 @@
 
 | Date | Change | User doc / section it affects |
 |---|---|---|
+| 2026-10-09 | New **Admin > Data Sources** page (`ManageDataSources`): scheduled CSV data feeds over the existing imports, with Test, Run now / Run all (confirms during business hours) and run history; new nightly run time, history retention and business-hours settings on Global Application Configuration; the App Pool's account needs read access to feed folders (D-181). | `Admin_Configuration.md` section 8 and `Admin_Installation.md` ("Data feed folders") already updated; `User_Guide.md` (Global Application Configuration fields) |
 | 2026-10-09 | Application ↔ Safe Mapping has a **Bulk Actions** page with two CSV imports: Applications (create/update by code) and Safe → Application assignments (D-180). | `User_Guide.md` (Application ↔ Safe Mapping) |
 | 2026-10-09 | Group → Role Mapping shows Windows groups by name (`DOMAIN\Group`), with the stored SID beneath (D-179). | `User_Guide.md` (Group / Role Mapping); `Admin_Installation.md` section 5 |
 | 2026-10-09 | Account Progress has a **Search** box that finds accounts by username or address (D-178). | `User_Guide.md` (Account Progress list) |

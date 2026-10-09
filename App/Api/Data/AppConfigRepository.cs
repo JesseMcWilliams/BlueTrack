@@ -16,7 +16,10 @@ public sealed class AppConfigRepository(IDbConnectionFactory connectionFactory)
         const string sql = """
             SELECT ac.IdleTimeoutMinutes, ac.BreadcrumbPosition, ac.ExceptionIdPattern, ac.LockTimeoutMinutes,
                    ac.BackupFolder, ac.ActiveRiskAlgorithm, ac.EnforceRiskExceptionSegregationOfDuties,
-                   auc.RetentionDays, auc.LogReadEvents
+                   auc.RetentionDays, auc.LogReadEvents,
+                   CONVERT(varchar(5), ac.DataFeedRunTime, 108) AS DataFeedRunTime, ac.DataFeedRunRetentionDays,
+                   CONVERT(varchar(5), ac.BusinessHoursStart, 108) AS BusinessHoursStart,
+                   CONVERT(varchar(5), ac.BusinessHoursEnd, 108) AS BusinessHoursEnd, ac.BusinessDays
             FROM web.app_config ac
             CROSS JOIN web.audit_config auc
             """;
@@ -41,7 +44,13 @@ public sealed class AppConfigRepository(IDbConnectionFactory connectionFactory)
             SET IdleTimeoutMinutes = @IdleTimeoutMinutes, BreadcrumbPosition = @BreadcrumbPosition,
                 ExceptionIdPattern = @ExceptionIdPattern, LockTimeoutMinutes = @LockTimeoutMinutes,
                 BackupFolder = @BackupFolder, ActiveRiskAlgorithm = @ActiveRiskAlgorithm,
-                EnforceRiskExceptionSegregationOfDuties = @EnforceRiskExceptionSegregationOfDuties
+                EnforceRiskExceptionSegregationOfDuties = @EnforceRiskExceptionSegregationOfDuties,
+                -- D-181: null = leave unchanged (older callers don't send these).
+                DataFeedRunTime = COALESCE(CAST(@DataFeedRunTime AS time(0)), DataFeedRunTime),
+                DataFeedRunRetentionDays = COALESCE(@DataFeedRunRetentionDays, DataFeedRunRetentionDays),
+                BusinessHoursStart = COALESCE(CAST(@BusinessHoursStart AS time(0)), BusinessHoursStart),
+                BusinessHoursEnd = COALESCE(CAST(@BusinessHoursEnd AS time(0)), BusinessHoursEnd),
+                BusinessDays = COALESCE(@BusinessDays, BusinessDays)
             """, new
         {
             request.IdleTimeoutMinutes,
@@ -50,7 +59,12 @@ public sealed class AppConfigRepository(IDbConnectionFactory connectionFactory)
             request.LockTimeoutMinutes,
             request.BackupFolder,
             request.ActiveRiskAlgorithm,
-            request.EnforceRiskExceptionSegregationOfDuties
+            request.EnforceRiskExceptionSegregationOfDuties,
+            request.DataFeedRunTime,
+            request.DataFeedRunRetentionDays,
+            request.BusinessHoursStart,
+            request.BusinessHoursEnd,
+            request.BusinessDays
         }, transaction);
 
         await connection.ExecuteAsync("""
