@@ -60,7 +60,7 @@ test.describe('Identity Providers admin page', () => {
     const row = page.locator('tbody tr', { hasText: displayName })
     await expect(row).toBeVisible()
 
-    await row.getByRole('link', { name: 'Edit' }).click()
+    await row.getByRole('link', { name: displayName }).click()
     const updatedName = `${displayName} (Updated)`
     await expect(page.getByLabel('Display Name:')).toHaveValue(displayName)
     await page.getByLabel('Display Name:').fill(updatedName)
@@ -94,7 +94,7 @@ test.describe('Identity Providers admin page', () => {
     await expect(row).toBeVisible()
 
     try {
-      await row.getByRole('link', { name: 'Edit' }).click()
+      await row.getByRole('link', { name: displayName }).click()
       await expect(page.getByLabel('Authority:')).toHaveValue('https://login.example.com/tenant123/v2.0')
       await expect(page.getByLabel('Client ID:')).toHaveValue('e2e-client-id')
       await expect(page.getByLabel('Callback Path:')).toHaveValue('/signin-oidc')
@@ -316,7 +316,7 @@ test.describe('Field Metadata Management admin page', () => {
     const row = page.locator('tbody tr', { hasText: fieldName })
     await expect(row).toBeVisible()
 
-    await row.getByRole('link', { name: 'Edit' }).click()
+    await row.getByRole('link', { name: fieldName }).click()
     await expect(page.getByLabel('Field Name:')).toHaveValue(fieldName)
     await page.getByLabel('Display Label:').fill('Updated Label')
     await page.locator('form button[type="submit"]').click()
@@ -574,7 +574,7 @@ test.describe('Risk Score Bands admin page', () => {
       await page.getByRole('button', { name: 'Cancel' }).click()
       await expect(page).toHaveURL(/\/admin\/risk-score-bands$/)
 
-      await row.getByRole('link', { name: 'Edit' }).click()
+      await row.getByRole('link', { name: bandName }).click()
       const updatedName = `${bandName} (Updated)`
       await expect(page.getByLabel('Name:')).toHaveValue(bandName)
       await page.getByLabel('Name:').fill(updatedName)
