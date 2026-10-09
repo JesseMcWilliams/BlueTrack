@@ -85,6 +85,7 @@ after `14`, never edits to an existing file in this list.
 | 43 | `43_BlueTrack_DataFeeds.sql` | D-181 (Data Sources phase 2): `web.data_feed` and `web.data_feed_run`; five `web.app_config` settings (`DataFeedRunTime` 04:00, `DataFeedRunRetentionDays` 15, `BusinessHoursStart`/`End` 07:00-18:00, `BusinessDays` Mon-Fri); the `ManageDataSources` permission for Admin; the 'BlueTrack Data Feeds (system)' user (`S-1-0-0`) that scheduled runs are attributed to. Guarded, safe to re-run. |
 | 44 | `44_BlueTrack_AccountProgressBulkEdit.sql` | D-182: `web.app_config.BulkEditMaxAccounts` (default 500) and the `BulkEdit` audit event type, for Account Progress bulk edit. Guarded, safe to re-run. |
 | 45 | `45_BlueTrack_RiskExceptionImport.sql` | D-183: `web.risk_exception.ApprovedBy` becomes nullable; adds `ApprovedByName`, `SourceTool`, `SourceExceptionId`, `SourceUrl`, `ImportedBy`, `ImportedDate`, the `CK_risk_exception_Approver` check, the filtered unique index `UX_risk_exception_Source`, and the `ExceptionImported` audit event type. Guarded, safe to re-run. |
+| 46 | `46_BlueTrack_ImportSkipDeletedAccounts.sql` | D-184: redefines `usp_Load_FactAccount` so an account the export marks as deleted is never imported and an existing one is flagged; Self-Hosted `CAFDeletionDate` is now honored (placeholder dates before 1970-01-02, or before creation, are ignored). Safe to re-run (`CREATE OR ALTER`). |
 
 `Test/` holds test-only fixtures (`01_BlueTrack_Test_DevFakeAuthMatrixSeed.sql`,
 `02_BlueTrack_Test_SyntheticAccountData.sql`) -- never run against a real

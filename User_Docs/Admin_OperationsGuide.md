@@ -86,6 +86,8 @@ Unlike the two features above, `EnforceRiskExceptionSegregationOfDuties` (Global
 
 The Import+Load SQL Agent job (`Database/14_BlueTrack_ScheduleImportLoadJob.sql`, created once per environment per `Admin_DeploymentRunbook.md` step 5) runs at 2:00 AM, two steps — Import (refreshes staging from the Privilege Cloud/Self-Hosted exports), then Load (`usp_RunFullLoad`, which also drives the risk-scoring recalculation and the AD Account Discovery nightly pass). It lives entirely in `msdb`, like `db_backupstatus_reader` above — there's no in-app UI showing whether last night's run succeeded.
 
+**Deleted accounts (D-184):** an account the CyberArk export marks as deleted is never added to BlueTrack. If BlueTrack already has it, it's kept and flagged as deleted, so its progress, exceptions and history remain; an account that disappears from the export is flagged the same way. Privilege Cloud uses the export's `Deleted` column. Self-Hosted uses the file's deletion date (`CAFDeletionDate`), counted only when it's a real date: some versions write the epoch (1970-01-01) as a placeholder, so a date before 1970-01-02, or one earlier than the account's creation date, is ignored.
+
 **Checking whether it ran, and how it went:**
 ```sql
 SELECT TOP 10 j.name, h.step_name, h.run_date, h.run_time, h.run_status, h.message
