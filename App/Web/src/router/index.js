@@ -38,6 +38,13 @@ const routes = [
     meta: { breadcrumb: 'Accounts' },
     component: () => import('../views/AccountProgressList.vue')
   },
+  // D-182: bulk edit of the accounts selected on the list.
+  {
+    path: '/accounts/bulk-edit',
+    name: 'account-progress-bulk-edit',
+    meta: { breadcrumb: 'Bulk Edit', breadcrumbParent: 'account-progress-list' },
+    component: () => import('../views/AccountProgressBulkEdit.vue')
+  },
   {
     path: '/accounts/:accountKey',
     name: 'account-progress-detail',

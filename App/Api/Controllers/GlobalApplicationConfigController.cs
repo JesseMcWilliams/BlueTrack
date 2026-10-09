@@ -28,6 +28,10 @@ public sealed class GlobalApplicationConfigController(
         // fail as a SQL CAST error.
         var scheduleErrors = DataFeeds.FeedSchedule.Validate(request.DataFeedRunTime, request.DataFeedRunRetentionDays,
             request.BusinessHoursStart, request.BusinessHoursEnd, request.BusinessDays);
+        if (request.BulkEditMaxAccounts is < 1 or > 10000)
+        {
+            return Problem(title: "Invalid bulk edit limit", detail: "BulkEditMaxAccounts must be between 1 and 10000.", statusCode: StatusCodes.Status400BadRequest);
+        }
         if (scheduleErrors.Count > 0)
         {
             return Problem(title: "Invalid data feed schedule settings", detail: string.Join(" ", scheduleErrors), statusCode: StatusCodes.Status400BadRequest);
@@ -65,6 +69,7 @@ public sealed class GlobalApplicationConfigController(
         TrackIfSent("BusinessHoursStart", before.BusinessHoursStart, request.BusinessHoursStart);
         TrackIfSent("BusinessHoursEnd", before.BusinessHoursEnd, request.BusinessHoursEnd);
         TrackIfSent("BusinessDays", before.BusinessDays, request.BusinessDays);
+        TrackIfSent("BulkEditMaxAccounts", before.BulkEditMaxAccounts.ToString(), request.BulkEditMaxAccounts?.ToString());
 
         if (changes.Count > 0)
         {

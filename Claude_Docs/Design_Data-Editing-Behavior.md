@@ -43,6 +43,10 @@ Additional rules can be added the same way (a new row here plus a Decision Regis
 
 ## Bulk Edit (Q-19)
 
+**Built 2026-10-09 (D-182), superseding the deferral below.** Account Progress has a selection mode and a Bulk Edit page. Each selected account is locked, saved through `AccountProgressSaveService` (the same D-51 and Risk Exception rules as the edit page, shared code), audited per account, and unlocked; an account another user has locked, or one failing a rule, is skipped and reported, without stopping the rest. One `BulkEdit` audit event summarizes each run. The size limit is `app_config.BulkEditMaxAccounts` (default 500). Risk Exception links stay per account.
+
+Original 2026-08-27 entry:
+
 **Resolved 2026-08-27 (D-52):** deferred for the initial build. Single-record editing ships first, consistent with the same "simple first, refine later" pattern as D-20 (Interface Extensibility's per-field permissions). Bulk edit inside the app is distinct from the Excel intake template (which handles bulk *loading* of new source data via ETL, not editing existing progress records) — revisit if single-record editing proves too slow in practice. Bulk edit would need to interact with per-row locking (D-50), per-row validation results rather than all-or-nothing (D-51), and per-row field-level audit events (D-10) — real scope, not free, which is part of why it's deferred rather than built now.
 
 ## UI Edits vs. the Nightly Import (Q-20)
@@ -60,7 +64,7 @@ The Account Progress edit form is built end to end against everything decided ab
 - **Field-level audit (D-10, via D-73):** every changed field is diffed and logged to `audit_event`/`audit_field_change` on save.
 - The form itself is genuinely field-metadata-driven, per `Design_Interface-Extensibility.md` — see that document's own Implementation Status note.
 
-**Not built:** bulk edit (D-52, deferred by design) and anything about the UI-vs-nightly-import interaction (D-53 needed no code change, confirmed by reading the ETL procedures directly).
+**Not built:** anything about the UI-vs-nightly-import interaction (D-53 needed no code change, confirmed by reading the ETL procedures directly).
 
 ## Open Questions
 

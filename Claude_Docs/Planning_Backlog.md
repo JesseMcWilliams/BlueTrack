@@ -12,9 +12,8 @@
 - **AD Account Discovery multi-domain**: code loops over every enabled domain, but only one real domain exists to test against.
 
 ## Deliberately deferred (confirmed choices, not gaps)
-- Bulk edit on Account Progress (D-52).
 - Per-field permission granularity on the field-metadata system (D-20).
-- Multi-select bulk actions across list-page rows (D-136). Nothing built yet.
+- Multi-select bulk actions across list-page rows (D-136): built for Account Progress only (D-182); other lists not yet.
 
 ## Waiting on real external data or specs
 - Self-Hosted CyberArk pivot logic uses **placeholder property names**, unconfirmed against real `stg_sh_objectproperties` data.

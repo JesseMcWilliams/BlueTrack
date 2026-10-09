@@ -19,7 +19,8 @@ public sealed class AppConfigRepository(IDbConnectionFactory connectionFactory)
                    auc.RetentionDays, auc.LogReadEvents,
                    CONVERT(varchar(5), ac.DataFeedRunTime, 108) AS DataFeedRunTime, ac.DataFeedRunRetentionDays,
                    CONVERT(varchar(5), ac.BusinessHoursStart, 108) AS BusinessHoursStart,
-                   CONVERT(varchar(5), ac.BusinessHoursEnd, 108) AS BusinessHoursEnd, ac.BusinessDays
+                   CONVERT(varchar(5), ac.BusinessHoursEnd, 108) AS BusinessHoursEnd, ac.BusinessDays,
+                   ac.BulkEditMaxAccounts
             FROM web.app_config ac
             CROSS JOIN web.audit_config auc
             """;
@@ -50,7 +51,8 @@ public sealed class AppConfigRepository(IDbConnectionFactory connectionFactory)
                 DataFeedRunRetentionDays = COALESCE(@DataFeedRunRetentionDays, DataFeedRunRetentionDays),
                 BusinessHoursStart = COALESCE(CAST(@BusinessHoursStart AS time(0)), BusinessHoursStart),
                 BusinessHoursEnd = COALESCE(CAST(@BusinessHoursEnd AS time(0)), BusinessHoursEnd),
-                BusinessDays = COALESCE(@BusinessDays, BusinessDays)
+                BusinessDays = COALESCE(@BusinessDays, BusinessDays),
+                BulkEditMaxAccounts = COALESCE(@BulkEditMaxAccounts, BulkEditMaxAccounts)
             """, new
         {
             request.IdleTimeoutMinutes,
@@ -64,7 +66,8 @@ public sealed class AppConfigRepository(IDbConnectionFactory connectionFactory)
             request.DataFeedRunRetentionDays,
             request.BusinessHoursStart,
             request.BusinessHoursEnd,
-            request.BusinessDays
+            request.BusinessDays,
+            request.BulkEditMaxAccounts
         }, transaction);
 
         await connection.ExecuteAsync("""

@@ -135,6 +135,27 @@ public sealed class AccountProgressRepository(IDbConnectionFactory connectionFac
         });
     }
 
+    /// <summary>
+    /// D-182: the keys of every account matching the list's filters, for the
+    /// bulk edit's "Select all matching". At most <paramref name="limit"/>;
+    /// the caller compares against GetFilteredCountAsync to know if there were more.
+    /// </summary>
+    public async Task<IReadOnlyList<long>> GetFilteredKeysAsync(
+        string? stageName, string? statusName, string? riskLevelName, string? ownerContains, string? search, int limit)
+    {
+        using var connection = connectionFactory.Create();
+        var sql = $"SELECT TOP (@Limit) fa.AccountKey {FilterFromSql} ORDER BY fa.AccountName, fa.AccountKey";
+        return (await connection.QueryAsync<long>(sql, new
+        {
+            StageName = stageName,
+            StatusName = statusName,
+            RiskLevelName = riskLevelName,
+            OwnerContains = ownerContains,
+            SearchPattern = ToContainsPattern(search),
+            Limit = limit
+        })).AsList();
+    }
+
     private static string BuildOrderByClause(IReadOnlyList<(string Field, bool Descending)>? sortBy)
     {
         if (sortBy is not { Count: > 0 })
