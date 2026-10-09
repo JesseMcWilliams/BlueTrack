@@ -19,7 +19,18 @@ public sealed class GroupRoleMappingsController(
     AuditLogger auditLogger) : ControllerBase
 {
     [HttpGet]
-    public async Task<IActionResult> GetAll() => Ok(await repository.GetAllAsync());
+    public async Task<IActionResult> GetAll()
+    {
+        var mappings = await repository.GetAllAsync();
+        foreach (var mapping in mappings)
+        {
+            if (mapping.ProviderType == "WindowsIntegrated")
+            {
+                mapping.GroupDisplayName = WindowsGroupResolver.TryGetAccountName(mapping.IdentityGroupName);
+            }
+        }
+        return Ok(mappings);
+    }
 
     /// <summary>
     /// Backs the Role dropdown on this page's own "Add Mapping" form --

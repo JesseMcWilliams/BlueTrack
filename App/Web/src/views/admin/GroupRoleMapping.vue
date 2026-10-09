@@ -85,8 +85,15 @@ async function generateBackupStatusReaderScript() {
   URL.revokeObjectURL(url)
 }
 
+// D-179: Windows mappings store only a SID (D-69); the API resolves it to
+// DOMAIN\Group when listing. Fall back to the stored identifier when it
+// couldn't be resolved, or for providers whose identifier is already readable.
+function groupLabel(mapping) {
+  return mapping.groupDisplayName || mapping.identityGroupName
+}
+
 async function remove(mapping) {
-  if (!(await confirmDelete(`Delete mapping "${mapping.identityGroupName} → ${mapping.roleName}"? This cannot be undone.`))) return
+  if (!(await confirmDelete(`Delete mapping "${groupLabel(mapping)} → ${mapping.roleName}"? This cannot be undone.`))) return
   const response = await fetch(`/api/admin/group-role-mappings/${mapping.mappingKey}`, { method: 'DELETE' })
   if (!response.ok) {
     error.value = `Delete failed: ${response.status}`
@@ -107,12 +114,16 @@ async function remove(mapping) {
 
       <table>
         <thead>
-          <tr><th>Provider</th><th>Group (stored identifier)</th><th>Role</th><th></th></tr>
+          <tr><th>Provider</th><th>Group</th><th>Role</th><th></th></tr>
         </thead>
         <tbody>
           <tr v-for="mapping in mappings" :key="mapping.mappingKey">
             <td>{{ mapping.providerType }}</td>
-            <td>{{ mapping.identityGroupName }}</td>
+            <td>
+              {{ groupLabel(mapping) }}
+              <span v-if="mapping.groupDisplayName" class="group-identifier">{{ mapping.identityGroupName }}</span>
+              <span v-else-if="mapping.providerType === 'WindowsIntegrated'" class="group-identifier">(name could not be resolved)</span>
+            </td>
             <td>{{ mapping.roleName }}</td>
             <td><button @click="remove(mapping)">Delete</button></td>
           </tr>
@@ -143,3 +154,12 @@ async function remove(mapping) {
     </template>
   </div>
 </template>
+
+<style scoped>
+/* D-179: the stored SID under the resolved group name. Size only, no colour,
+   so every theme (including High Visibility) keeps its own text colour. */
+.group-identifier {
+  display: block;
+  font-size: 0.85em;
+}
+</style>

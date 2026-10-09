@@ -111,11 +111,11 @@ test.describe('Group → Role Mapping admin page', () => {
     await signInAs(page, 'TestUser.Admin')
     await page.goto('/admin/group-role-mapping')
 
-    // The table's "Group (stored identifier)" column shows the RESOLVED
-    // SID, not the friendly name typed into the form (D-69) -- BUILTIN\Users
-    // resolves to the well-known, machine-independent SID S-1-5-32-545
-    // (confirmed directly in this table and in the audit log), so that's
-    // what every lookup below has to match on, not the literal "BUILTIN\Users" text.
+    // The mapping stores the RESOLVED SID, not the friendly name typed into
+    // the form (D-69) -- BUILTIN\Users resolves to the well-known,
+    // machine-independent SID S-1-5-32-545. Since D-179 the Group column
+    // shows the group name with that SID beneath it; rows are still found
+    // by SID, which is unique, while the name is checked separately below.
     const builtinUsersSid = 'S-1-5-32-545'
 
     // Self-healing: identity_group_role_map has a UNIQUE (ProviderKey,
@@ -147,6 +147,8 @@ test.describe('Group → Role Mapping admin page', () => {
 
     const row = page.locator('tbody tr', { hasText: builtinUsersSid })
     await expect(row).toBeVisible()
+    // D-179: the SID is resolved back to its group name for display.
+    await expect(row).toContainText('BUILTIN\\Users')
     await row.getByRole('button', { name: 'Delete' }).click()
     await confirmDelete(page)
     await expect(row).toHaveCount(0)

@@ -4,7 +4,6 @@
 
 ## Requested, not started
 - **Data Sources admin page** (requested 2026-10-08, on hold): manage import sources from the app (enable/disable, settings, status, **Run now**), and add CSV-based systems (groups, accounts, servers, applications). Proposal and agreed answers: `Planning_Data-Sources.md`.
-- **Group → Role Mapping: show the group name** (requested 2026-10-08). The list's "Group (stored identifier)" column shows only the SID for Windows groups. Resolve each SID to `DOMAIN\Group` for display (the reverse of `WindowsGroupResolver`, which turns a typed name into a SID when adding a mapping), falling back to the SID when Windows can't resolve it.
 - **Application ↔ Safe Mapping: CSV import** (requested 2026-10-08). The page has no import today. Follow the existing Targets and Access Groups bulk-import pages (`TargetsBulkImport.vue`, `AccessGroupsBulkImport.vue`).
 
 ## Built, but never proven against a real live service

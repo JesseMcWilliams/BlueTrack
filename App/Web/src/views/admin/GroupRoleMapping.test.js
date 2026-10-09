@@ -50,6 +50,26 @@ describe('GroupRoleMapping.vue', () => {
     vi.restoreAllMocks()
   })
 
+  // D-179: Windows mappings show the resolved group name, with the stored
+  // SID beneath; an unresolvable SID says so; other providers are unchanged.
+  it('shows each Windows group by name with its SID, and says when a SID could not be resolved', async () => {
+    globalThis.fetch.mockResolvedValueOnce(jsonResponse([
+      { mappingKey: 1, providerType: 'WindowsIntegrated', identityGroupName: 'S-1-5-32-544', roleName: 'Admin', groupDisplayName: 'BUILTIN\\Administrators' },
+      { mappingKey: 2, providerType: 'WindowsIntegrated', identityGroupName: 'S-1-5-21-1-2-3-4567', roleName: 'Viewer', groupDisplayName: null },
+      { mappingKey: 3, providerType: 'OIDC', identityGroupName: 'bluetrack-analysts', roleName: 'Analyst', groupDisplayName: null }
+    ]))
+
+    const wrapper = mount(GroupRoleMapping, { global: { plugins: [makeRouter()] } })
+    await flushPromises()
+
+    const groupCells = wrapper.findAll('tbody tr').map(row => row.findAll('td')[1].text())
+    expect(groupCells[0]).toContain('BUILTIN\\Administrators')
+    expect(groupCells[0]).toContain('S-1-5-32-544')
+    expect(groupCells[1]).toContain('S-1-5-21-1-2-3-4567')
+    expect(groupCells[1]).toContain('(name could not be resolved)')
+    expect(groupCells[2]).toBe('bluetrack-analysts')
+  })
+
   it('does not show the script-generator button before a lookup succeeds', async () => {
     globalThis.fetch.mockResolvedValueOnce(jsonResponse([]))
 

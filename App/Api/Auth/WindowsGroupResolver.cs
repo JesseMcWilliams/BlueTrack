@@ -26,4 +26,25 @@ public static class WindowsGroupResolver
             return null;
         }
     }
+
+    /// <summary>
+    /// D-179: the reverse, for display -- the Group → Role Mapping list
+    /// stores only SIDs (D-69), so it resolves each back to DOMAIN\Group.
+    /// Null when the SID can't be resolved (deleted group, unreachable
+    /// domain) or isn't a SID at all; the page then shows the SID alone.
+    /// </summary>
+    public static string? TryGetAccountName(string sid)
+    {
+        try
+        {
+            return ((NTAccount)new SecurityIdentifier(sid).Translate(typeof(NTAccount))).Value;
+        }
+        catch (Exception ex) when (ex is IdentityNotMappedException or ArgumentException or SystemException)
+        {
+            // ArgumentException: not SID syntax. SystemException: the domain
+            // couldn't be reached (e.g. a broken trust). Display only, so any
+            // of these just means "show the SID".
+            return null;
+        }
+    }
 }

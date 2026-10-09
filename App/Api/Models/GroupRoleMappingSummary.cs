@@ -7,6 +7,14 @@ public sealed class GroupRoleMappingSummary
     public required string ProviderType { get; init; }
     public required string IdentityGroupName { get; init; } // the stored raw identifier (a SID for WindowsIntegrated, D-69)
     public required string RoleName { get; init; }
+
+    /// <summary>
+    /// D-179: DOMAIN\Group for a WindowsIntegrated SID, resolved when the
+    /// list is read (so a renamed group shows its current name). Null for
+    /// other providers, whose stored identifier is already readable, or
+    /// when the SID can't be resolved.
+    /// </summary>
+    public string? GroupDisplayName { get; set; }
 }
 
 /// <summary>
