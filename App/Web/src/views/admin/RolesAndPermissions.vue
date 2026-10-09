@@ -58,12 +58,11 @@ async function remove(role) {
         </thead>
         <tbody>
           <tr v-for="role in roles" :key="role.appRoleKey">
-            <td>{{ role.roleName }}</td>
+            <td><router-link :to="{ name: 'admin-role-edit', params: { appRoleKey: role.appRoleKey } }">{{ role.roleName }}</router-link></td>
             <td>{{ role.description }}</td>
             <td>{{ role.notificationEmail }}</td>
             <td>{{ role.permissionNames.join(', ') }}</td>
             <td>
-              <router-link :to="{ name: 'admin-role-edit', params: { appRoleKey: role.appRoleKey } }">Edit</router-link>
               <button @click="remove(role)">Delete</button>
             </td>
           </tr>

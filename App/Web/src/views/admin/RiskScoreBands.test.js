@@ -108,7 +108,7 @@ describe('RiskScoreBands.vue', () => {
     const wrapper = mount(RiskScoreBands, { global: { plugins: [makeRouter()] } })
     await flushPromises()
 
-    const link = wrapper.findAll('a').find(a => a.text() === 'Edit')
+    const link = wrapper.findAll('a').find(a => a.text() === 'Low')
     expect(link.attributes('href')).toBe('/admin/risk-score-bands/1')
   })
 

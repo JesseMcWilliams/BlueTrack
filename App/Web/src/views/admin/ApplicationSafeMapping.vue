@@ -66,14 +66,13 @@ async function assignSafe(safe, applicationKeyRaw) {
       </p>
       <table>
         <thead>
-          <tr><th>Code</th><th>Name</th><th>Owner</th><th></th></tr>
+          <tr><th>Code</th><th>Name</th><th>Owner</th></tr>
         </thead>
         <tbody>
           <tr v-for="app in applications" :key="app.applicationKey">
             <td>{{ app.applicationCode }}</td>
-            <td>{{ app.applicationName }}</td>
+            <td><router-link :to="{ name: 'admin-application-edit', params: { applicationKey: app.applicationKey } }">{{ app.applicationName }}</router-link></td>
             <td>{{ app.ownerName }}</td>
-            <td><router-link :to="{ name: 'admin-application-edit', params: { applicationKey: app.applicationKey } }">Edit</router-link></td>
           </tr>
         </tbody>
       </table>
