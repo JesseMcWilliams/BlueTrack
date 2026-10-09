@@ -102,4 +102,65 @@ public class AccountProgressRepositoryTests
             await connection.ExecuteAsync("DELETE FROM fact_account WHERE AccountKey IN @Keys", new { Keys = accountKeys });
         }
     }
+
+    /// <summary>
+    /// D-178: the list's search box matches Username or Address ("contains"),
+    /// and '_' in the search text is literal, not LIKE's any-one-character
+    /// wildcard. Own uniquely-named rows, as in the paging test above.
+    /// </summary>
+    [Fact]
+    public async Task GetSummaryListAsync_Search_MatchesUserNameOrAddressLiterally()
+    {
+        var repository = new AccountProgressRepository(new TestDbConnectionFactory());
+        var suffix = Guid.NewGuid().ToString("N")[..8];
+
+        await using var connection = new SqlConnection(TestDatabase.ConnectionString);
+        await connection.OpenAsync();
+        var discoveredStageKey = await connection.QuerySingleAsync<int>("SELECT StageKey FROM dbo.dim_blueprint_stage WHERE StageName = 'Discovered'");
+        var notStartedStatusKey = await connection.QuerySingleAsync<int>("SELECT StatusKey FROM dbo.dim_progress_status WHERE StatusName = 'Not Started'");
+
+        // A: underscore username + address. B: same username shape with 'X'
+        // where A has '_' -- it would match too if '_' were a wildcard.
+        var rows = new[]
+        {
+            (Name: $"SearchTest-{suffix}-A", UserName: $"svc_{suffix}_db", Address: $"srv-{suffix}.corp.example"),
+            (Name: $"SearchTest-{suffix}-B", UserName: $"svcX{suffix}Xdb", Address: (string?)null)
+        };
+        var accountKeys = new List<long>();
+        foreach (var row in rows)
+        {
+            var accountKey = await connection.QuerySingleAsync<long>(
+                "INSERT INTO fact_account (SourceSystemKey, SourceAccountId, AccountName, UserName, Address, IsDeleted) OUTPUT inserted.AccountKey VALUES (1, @SourceAccountId, @AccountName, @UserName, @Address, 0)",
+                new { SourceAccountId = $"IntegrationTest_{Guid.NewGuid():N}", AccountName = row.Name, row.UserName, row.Address });
+            await connection.ExecuteAsync(
+                "INSERT INTO fact_account_progress (AccountKey, CurrentStageKey, CurrentStatusKey) VALUES (@AccountKey, @StageKey, @StatusKey)",
+                new { AccountKey = accountKey, StageKey = discoveredStageKey, StatusKey = notStartedStatusKey });
+            accountKeys.Add(accountKey);
+        }
+
+        try
+        {
+            // Username, partial, case-insensitive (default collation): both rows contain the suffix.
+            var bySuffix = await repository.GetSummaryListAsync(search: suffix.ToUpperInvariant());
+            Assert.Equal(new[] { rows[0].Name, rows[1].Name }, bySuffix.Select(a => a.AccountName).OrderBy(n => n));
+
+            // Address only matches A.
+            var byAddress = await repository.GetSummaryListAsync(search: $"srv-{suffix}.corp");
+            Assert.Equal(rows[0].Name, Assert.Single(byAddress).AccountName);
+
+            // '_' is literal: matches A's "svc_<suffix>_", not B's "svcX<suffix>X".
+            var byUnderscore = await repository.GetSummaryListAsync(search: $"svc_{suffix}_");
+            Assert.Equal(rows[0].Name, Assert.Single(byUnderscore).AccountName);
+
+            // The filtered count (X-Filtered-Count) uses the same condition.
+            Assert.Equal(2, await repository.GetFilteredCountAsync(search: suffix));
+            Assert.Equal(1, await repository.GetFilteredCountAsync(search: $"svc_{suffix}_"));
+        }
+        finally
+        {
+            await connection.ExecuteAsync("DELETE FROM dbo.fact_account_progress_history WHERE AccountKey IN @Keys", new { Keys = accountKeys });
+            await connection.ExecuteAsync("DELETE FROM dbo.fact_account_progress WHERE AccountKey IN @Keys", new { Keys = accountKeys });
+            await connection.ExecuteAsync("DELETE FROM fact_account WHERE AccountKey IN @Keys", new { Keys = accountKeys });
+        }
+    }
 }

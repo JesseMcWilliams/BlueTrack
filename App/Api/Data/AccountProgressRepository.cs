@@ -46,7 +46,21 @@ public sealed class AccountProgressRepository(IDbConnectionFactory connectionFac
           AND (@StatusName IS NULL OR sts.StatusName = @StatusName)
           AND (@RiskLevelName IS NULL OR rl.RiskLevelName = @RiskLevelName)
           AND (@OwnerContains IS NULL OR fap.OwnerName LIKE '%' + @OwnerContains + '%')
+          AND (@SearchPattern IS NULL OR fa.UserName LIKE @SearchPattern OR fa.Address LIKE @SearchPattern)
         """;
+
+    /// <summary>
+    /// D-178: the list's search box matches Username or Address, "contains".
+    /// Account names often contain '_' (and an address can contain '['),
+    /// which LIKE would otherwise read as wildcards, so the text is matched
+    /// literally: each of [ % _ is wrapped in brackets.
+    /// </summary>
+    private static string? ToContainsPattern(string? search)
+    {
+        if (string.IsNullOrWhiteSpace(search)) return null;
+        var escaped = search.Trim().Replace("[", "[[]").Replace("%", "[%]").Replace("_", "[_]");
+        return $"%{escaped}%";
+    }
 
     /// <summary>D-124 Phase 3: page/pageSize add SQL Server OFFSET/FETCH paging after the ORDER BY.</summary>
     public async Task<IReadOnlyList<AccountProgressSummary>> GetSummaryListAsync(
@@ -56,7 +70,8 @@ public sealed class AccountProgressRepository(IDbConnectionFactory connectionFac
         string? ownerContains = null,
         IReadOnlyList<(string Field, bool Descending)>? sortBy = null,
         int? page = null,
-        int? pageSize = null)
+        int? pageSize = null,
+        string? search = null)
     {
         using var connection = connectionFactory.Create();
         var (normalizedPage, normalizedPageSize) = PagingParams.Normalize(page, pageSize);
@@ -86,6 +101,7 @@ public sealed class AccountProgressRepository(IDbConnectionFactory connectionFac
             StatusName = statusName,
             RiskLevelName = riskLevelName,
             OwnerContains = ownerContains,
+            SearchPattern = ToContainsPattern(search),
             Offset = PagingParams.Offset(normalizedPage, normalizedPageSize),
             PageSize = normalizedPageSize
         });
@@ -104,7 +120,8 @@ public sealed class AccountProgressRepository(IDbConnectionFactory connectionFac
         string? stageName = null,
         string? statusName = null,
         string? riskLevelName = null,
-        string? ownerContains = null)
+        string? ownerContains = null,
+        string? search = null)
     {
         using var connection = connectionFactory.Create();
         var sql = $"SELECT COUNT(*) {FilterFromSql}";
@@ -113,7 +130,8 @@ public sealed class AccountProgressRepository(IDbConnectionFactory connectionFac
             StageName = stageName,
             StatusName = statusName,
             RiskLevelName = riskLevelName,
-            OwnerContains = ownerContains
+            OwnerContains = ownerContains,
+            SearchPattern = ToContainsPattern(search)
         });
     }
 
