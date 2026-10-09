@@ -107,7 +107,8 @@ test.describe('Risk Exceptions List', () => {
     const activeCount = await activeRows.count()
     expect(activeCount).toBeGreaterThan(0)
     for (let i = 0; i < activeCount; i++) {
-      await expect(activeRows.nth(i).locator('td').last()).not.toHaveText('')
+      // The Justification column (D-183 added Source after it, often blank).
+      await expect(activeRows.nth(i).locator('td').nth(6)).not.toHaveText('')
     }
 
     await page.getByRole('button', { name: /^Exception ID/ }).click()

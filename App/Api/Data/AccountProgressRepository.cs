@@ -237,6 +237,14 @@ public sealed class AccountProgressRepository(IDbConnectionFactory connectionFac
     }
 
     /// <summary>D-51 rule 2: a stage regression (lower StageOrder) requires a Reason.</summary>
+    /// <summary>D-183: a status's key by its name (the Risk Exceptions import links with "Risk Accepted / Excluded").</summary>
+    public async Task<int?> GetStatusKeyAsync(string statusName)
+    {
+        using var connection = connectionFactory.Create();
+        return await connection.QuerySingleOrDefaultAsync<int?>(
+            "SELECT StatusKey FROM dbo.dim_progress_status WHERE StatusName = @statusName", new { statusName });
+    }
+
     public async Task<int?> GetStageOrderAsync(int stageKey)
     {
         using var connection = connectionFactory.Create();

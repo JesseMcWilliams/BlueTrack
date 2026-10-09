@@ -18,4 +18,9 @@ public sealed class RiskExceptionSummary
     public DateTime ReviewDate { get; init; }
     public required string StatusName { get; init; }
     public string? ExternalTicketReference { get; init; }
+
+    // D-183: where an imported exception came from.
+    public string? SourceTool { get; init; }
+    public string? SourceExceptionId { get; init; }
+    public string? SourceUrl { get; init; }
 }

@@ -154,12 +154,23 @@ async function revoke() {
         <dd>{{ detail.justification }}</dd>
         <dt>Approval Date</dt>
         <dd>{{ formatDate(detail.approvalDate) }}</dd>
+        <dt>Approved By</dt>
+        <dd>{{ detail.approvedByName }}</dd>
         <dt>Review Date</dt>
         <dd>{{ formatDate(detail.reviewDate) }}</dd>
         <dt>Status</dt>
         <dd>{{ detail.statusName }}</dd>
         <dt>External Ticket</dt>
         <dd>{{ detail.externalTicketReference }}</dd>
+        <template v-if="detail.sourceTool">
+          <dt>Source</dt>
+          <dd>
+            <a v-if="detail.sourceUrl" :href="detail.sourceUrl" target="_blank" rel="noopener noreferrer">{{ detail.sourceTool }} {{ detail.sourceExceptionId }}</a>
+            <template v-else>{{ detail.sourceTool }} {{ detail.sourceExceptionId }}</template>
+          </dd>
+          <dt>Imported</dt>
+          <dd>{{ formatDate(detail.importedDate) }} by {{ detail.importedByName }}</dd>
+        </template>
       </dl>
 
       <template v-if="detail.statusName === 'Active'">

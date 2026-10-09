@@ -1,3 +1,4 @@
+using System.Text;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using BlueTrack.Api.Audit;
@@ -15,6 +16,24 @@ public sealed class RiskExceptionsController(
     CurrentUserResolver currentUserResolver,
     AuditLogger auditLogger) : ControllerBase
 {
+    /// <summary>D-183: the Risk Exceptions import's CSV template (headers only).</summary>
+    [HttpGet("import/template")]
+    [Authorize(Policy = Permissions.ApproveExceptions)]
+    public IActionResult GetImportTemplate() =>
+        File(Encoding.UTF8.GetBytes(string.Join(',', Imports.RiskExceptionImportService.Columns) + "\r\n"), "text/csv", "risk-exceptions-template.csv");
+
+    /// <summary>D-183: imports exceptions approved in another tool; see RiskExceptionImportService. Gated like creating an exception.</summary>
+    [HttpPost("import")]
+    [Authorize(Policy = Permissions.ApproveExceptions)]
+    public async Task<IActionResult> Import(IFormFile file, [FromServices] Imports.RiskExceptionImportService importService)
+    {
+        var user = await currentUserResolver.ResolveAsync(User);
+        if (user is null) return Unauthorized();
+
+        var rows = await RiskScoring.CsvFileReader.ReadRowsAsync(file.OpenReadStream());
+        return Ok(await importService.ImportAsync(rows, user.UserKey));
+    }
+
     /// <summary>D-42: stacked filters (status/accountKey/scopeType) plus multi-column sort. D-124 Phase 3: page/pageSize add server-side paging; X-Filtered-Count carries how many rows match the current filter, ignoring paging.</summary>
     [HttpGet]
     public async Task<IActionResult> GetList(

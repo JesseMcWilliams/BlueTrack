@@ -49,11 +49,14 @@ A Risk Accepted / Excluded status represents a deliberate decision not to bring 
 | AccountKey | FK to fact_account, **nullable** | Which account this exception applies to, when scoped to a single account — stored directly here, not only inferred through `fact_account_progress`, so history survives even if the account's current status later changes. |
 | ApplicationKey | FK to dim_application, **nullable** | Which application this exception applies to, when scoped to an entire application rather than one account (D-18). **Resolved 2026-08-27** (Q-25): exactly one of `AccountKey` / `ApplicationKey` must be set per exception — enforced at the application layer, consistent with how this project avoids database triggers for business rules (see the workflow step below). |
 | Justification | text | Why the exception was granted |
-| ApprovedBy | FK to app_user | **Resolved 2026-08-27 (D-59):** was plain text, now a FK — see `Design_Authentication-Architecture.md`. Who approved it |
+| ApprovedBy | FK to app_user, nullable since D-183 | **Resolved 2026-08-27 (D-59):** was plain text, now a FK — see `Design_Authentication-Architecture.md`. Who approved it. Null for an imported exception, which names its approver in `ApprovedByName` (`CK_risk_exception_Approver` requires one of the two). |
+| ApprovedByName | text, nullable | D-183: the approver's name in the tool an imported exception came from. Lists show it where `ApprovedBy` is null. |
 | ApprovalDate | date | When it was approved |
 | ReviewDate | date | When it needs to be revisited — exceptions are treated as time-bound, not permanent, by design |
 | ExceptionStatusKey | FK to dim_exception_status | Active / Expired / Revoked |
 | ExternalTicketReference | text, nullable | An optional link to a ticket in an external system (ServiceNow, Jira, etc.) if your org tracks exceptions there too |
+| SourceTool, SourceExceptionId, SourceUrl | text, nullable | D-183: where an imported exception came from: the tool, its ID there (unique per tool, `UX_risk_exception_Source`) and a link (http/https only). |
+| ImportedBy, ImportedDate | FK to app_user, datetime | D-183: who imported it, and when. |
 
 ### fact_account_progress.ExceptionKey
 
@@ -79,6 +82,8 @@ Built end to end: the exception List, Approval Worklist, Overdue-Review Worklist
 **Resolved 2026-09-03 (D-77):** the Account Progress edit form now enforces workflow steps 1-2 for account-scoped exceptions — `fact_account_progress.CurrentStatusKey` cannot be saved as Risk Accepted / Excluded without linking an Active exception scoped to that account (either picking an existing one or creating one inline from the same form), and `ExceptionKey` is set to match. Moving status away from Risk Accepted / Excluded clears `ExceptionKey` back to null (the historical `risk_exception` row itself is untouched — only the "currently active" pointer). Verified end to end: rejection with no link, rejection when the linked exception belongs to a different account, successful link, and the clear-on-status-change, each producing the correct field-level audit diff.
 
 **Resolved 2026-09-04 (D-81):** application-scoped exceptions now do propagate, as a live view rather than a batch update. `web.vw_account_application_exception` joins `fact_account.SafeKey` → `dim_safe.ApplicationKey` → `web.risk_exception` (Active only) at query time — `fact_account_progress.ExceptionKey` itself is untouched, staying exactly the account-scoped pointer D-77 made it. `GET /api/account-progress/{accountKey}/application-exceptions` exposes this, shown read-only on the Account Progress edit form. Verified end to end, including the two self-healing cases the view approach was chosen for: revoking the exception, and reassigning the covering Safe to a different Application, each removed the coverage immediately with no code needing to run.
+
+**Built 2026-10-09 (D-183): bulk import from another tool.** Risk Exceptions > **Bulk Actions** (`ApproveExceptions`) imports a CSV (`RiskExceptionImportService`; template from `GET /api/risk-exceptions/import/template`). Each row gets a new ExceptionID from the configured pattern and keeps its source tool, ID and link; a tool + ID already imported is a row error, never an update. Scope is an account by username + address (exact, case-insensitive; a blank address matches an account with none) or an application by code. Status may be Active, Expired or Revoked. `LinkToAccountProgress = Yes` links an Active account exception to that account's progress (Risk Accepted / Excluded) through the edit page's save rules, skipping an account someone else is editing. Each import writes an `ExceptionImported` audit event. Dates are `yyyy-MM-dd` only, to avoid day/month ambiguity.
 
 ## Open Questions
 

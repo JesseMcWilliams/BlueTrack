@@ -123,6 +123,7 @@ watch([statusFilter, scopeTypeFilter, sortQueryParam], () => {
     <h1>Risk Exceptions</h1>
     <p v-if="rights.hasPermission('ApproveExceptions')">
       <button type="button" class="btn-primary" @click="router.push({ name: 'risk-exception-create' })">+ New Exception</button>
+      <button type="button" @click="router.push({ name: 'risk-exceptions-bulk-import' })">Bulk Actions</button>
     </p>
     <p class="filter-row">
       <label class="field-label"><span class="field-label-text">Status:</span>
@@ -155,6 +156,7 @@ watch([statusFilter, scopeTypeFilter, sortQueryParam], () => {
             </button>
           </th>
           <th>Justification</th>
+          <th>Source</th>
         </tr>
       </thead>
       <tbody>
@@ -166,6 +168,12 @@ watch([statusFilter, scopeTypeFilter, sortQueryParam], () => {
           <td>{{ formatDate(exception.reviewDate) }}</td>
           <td>{{ exception.statusName }}</td>
           <td>{{ exception.justification }}</td>
+          <td>
+            <template v-if="exception.sourceTool">
+              <a v-if="exception.sourceUrl" :href="exception.sourceUrl" target="_blank" rel="noopener noreferrer">{{ exception.sourceTool }} {{ exception.sourceExceptionId }}</a>
+              <template v-else>{{ exception.sourceTool }} {{ exception.sourceExceptionId }}</template>
+            </template>
+          </td>
         </tr>
       </tbody>
     </table>

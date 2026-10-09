@@ -207,3 +207,30 @@ test.describe('Risk Exception create/extend/revoke workflow', () => {
     await expect(page.getByText('You do not have the ApproveExceptions permission.')).toBeVisible()
   })
 })
+
+test.describe('Risk Exceptions bulk import (D-183)', () => {
+  test('Approver opens Bulk Actions, uploads a file, and sees the row errors', async ({ page }) => {
+    await signInAs(page, 'TestUser.Approver')
+    await page.goto('/exceptions')
+    await page.getByRole('button', { name: 'Bulk Actions' }).click()
+    await expect(page).toHaveURL(/\/exceptions\/bulk-import$/)
+    await expect(page.getByRole('link', { name: 'Download template' })).toBeVisible()
+
+    // A row that can't be imported (no such account), so nothing is created.
+    const csv = 'SourceTool,SourceExceptionId,SourceUrl,AccountUserName,AccountAddress,ApplicationCode,Justification,ApprovedByName,ApprovalDate,ReviewDate,Status,ExternalTicketReference,LinkToAccountProgress\r\n' +
+      'E2E-GRC,E2E-1,,NoSuchE2EUser,,,Test,Pat Approver,2026-01-15,2027-01-15,,,\r\n'
+    await page.getByLabel('Risk exceptions CSV file').setInputFiles({ name: 'exceptions.csv', mimeType: 'text/csv', buffer: Buffer.from(csv) })
+    await page.getByRole('button', { name: 'Import' }).click()
+
+    const result = page.getByTestId('exceptions-result')
+    await expect(result).toContainText('1 rows -- 0 imported, 0 linked to Account Progress, 1 errors')
+    await expect(result).toContainText("Row 2: No account with username 'NoSuchE2EUser' and no address.")
+  })
+
+  test('Analyst (no ApproveExceptions) has no Bulk Actions button', async ({ page }) => {
+    await signInAs(page, 'TestUser.Analyst')
+    await page.goto('/exceptions')
+    await expect(page.locator('h1', { hasText: 'Risk Exceptions' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Bulk Actions' })).toHaveCount(0)
+  })
+})
