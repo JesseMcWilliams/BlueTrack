@@ -234,17 +234,17 @@ public sealed class RiskExceptionRepository(IDbConnectionFactory connectionFacto
 
     /// <summary>
     /// D-183: active accounts whose username and address match exactly
-    /// (ignoring case and surrounding spaces). A null address matches only
-    /// accounts that have no address.
+    /// (ignoring case and surrounding spaces). Both are required: an
+    /// account with no address is never matched (agreed 2026-10-09).
     /// </summary>
-    public async Task<IReadOnlyList<long>> FindAccountKeysAsync(string userName, string? address)
+    public async Task<IReadOnlyList<long>> FindAccountKeysAsync(string userName, string address)
     {
         using var connection = connectionFactory.Create();
         return (await connection.QueryAsync<long>("""
             SELECT AccountKey FROM dbo.fact_account
             WHERE IsDeleted = 0 AND UPPER(LTRIM(RTRIM(UserName))) = UPPER(@userName)
-              AND UPPER(ISNULL(LTRIM(RTRIM(Address)), '')) = UPPER(@address)
-            """, new { userName = userName.Trim(), address = address?.Trim() ?? "" })).AsList();
+              AND UPPER(LTRIM(RTRIM(Address))) = UPPER(@address)
+            """, new { userName = userName.Trim(), address = address.Trim() })).AsList();
     }
 
     /// <summary>Re-approval (design's workflow step 4): extends ReviewDate without changing status.</summary>

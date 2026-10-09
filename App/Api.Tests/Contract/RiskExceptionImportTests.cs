@@ -43,6 +43,16 @@ public class RiskExceptionImportTests : IClassFixture<BlueTrackWebApplicationFac
         return content;
     }
 
+    // The seeded accounts have no address, and an account without one is
+    // never matched (D-183), so tests give TestAccount04 one for the duration.
+    private const string Address = "ct-import.example.com";
+
+    private static async Task SetAddressAsync(string? address)
+    {
+        await using var connection = new SqlConnection(TestDatabase.ConnectionString);
+        await connection.ExecuteAsync("UPDATE dbo.fact_account SET Address = @address WHERE SourceAccountId = 'TestAccount04'", new { address });
+    }
+
     private sealed record RowError(int RowNumber, string Error);
     private sealed record CreatedId(int RowNumber, string ExceptionId, string SourceExceptionId);
     private sealed record ImportResult(int TotalRows, int CreatedCount, int LinkedCount, List<CreatedId> Created, List<RowError> Errors);
@@ -65,30 +75,33 @@ public class RiskExceptionImportTests : IClassFixture<BlueTrackWebApplicationFac
             await connection.ExecuteAsync("INSERT INTO web.dim_application (ApplicationCode, ApplicationName) VALUES (@appCode, @appCode)", new { appCode });
         }
         var client = Client("TestUser.Approver");
+        await SetAddressAsync(Address);
 
         try
         {
             var response = await client.PostAsync("/api/risk-exceptions/import", Upload(
-                $"{tool},A-1,https://grc.example.com/A-1,TestAccount04,,,Legacy app,Pat Approver,2026-01-15,2027-01-15,,TKT-1,No",
+                $"{tool},A-1,https://grc.example.com/A-1,TestAccount04,{Address},,Legacy app,Pat Approver,2026-01-15,2027-01-15,,TKT-1,No",
                 $"{tool},A-2,,,,{appCode},App-wide,Pat Approver,2026-02-01,2027-02-01,Expired,,",
-                $"{tool},A-1,,TestAccount04,,,Repeat in file,Pat Approver,2026-01-15,2027-01-15,,,",
-                $"{tool},A-3,,TestAccount04,,{appCode},Both scopes,Pat Approver,2026-01-15,2027-01-15,,,",
-                $"{tool},A-4,,TestAccount04,,,Bad date,Pat Approver,15/01/2026,2027-01-15,,,",
-                $"{tool},A-5,javascript:alert(1),TestAccount04,,,Bad link,Pat Approver,2026-01-15,2027-01-15,,,",
-                $"{tool},A-6,,NoSuchUser,,,Unknown account,Pat Approver,2026-01-15,2027-01-15,,,",
-                $"{tool},A-7,,,,{appCode},Link an app,Pat Approver,2026-01-15,2027-01-15,,,Yes"));
+                $"{tool},A-1,,TestAccount04,{Address},,Repeat in file,Pat Approver,2026-01-15,2027-01-15,,,",
+                $"{tool},A-3,,TestAccount04,{Address},{appCode},Both scopes,Pat Approver,2026-01-15,2027-01-15,,,",
+                $"{tool},A-4,,TestAccount04,{Address},,Bad date,Pat Approver,15/01/2026,2027-01-15,,,",
+                $"{tool},A-5,javascript:alert(1),TestAccount04,{Address},,Bad link,Pat Approver,2026-01-15,2027-01-15,,,",
+                $"{tool},A-6,,NoSuchUser,{Address},,Unknown account,Pat Approver,2026-01-15,2027-01-15,,,",
+                $"{tool},A-7,,,,{appCode},Link an app,Pat Approver,2026-01-15,2027-01-15,,,Yes",
+                $"{tool},A-8,,TestAccount04,,,No address,Pat Approver,2026-01-15,2027-01-15,,,"));
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
             var result = (await response.Content.ReadFromJsonAsync<ImportResult>())!;
 
-            Assert.Equal(8, result.TotalRows);
+            Assert.Equal(9, result.TotalRows);
             Assert.Equal(2, result.CreatedCount);
             Assert.Equal(0, result.LinkedCount);
-            Assert.Equal([4, 5, 6, 7, 8, 9], result.Errors.Select(e => e.RowNumber));
+            Assert.Equal([4, 5, 6, 7, 8, 9, 10], result.Errors.Select(e => e.RowNumber));
             Assert.Contains("already imported", result.Errors[0].Error);
             Assert.Contains("exactly one scope", result.Errors[1].Error);
             Assert.Contains("yyyy-MM-dd", result.Errors[2].Error);
             Assert.Contains("http", result.Errors[3].Error);
             Assert.Contains("No account with username 'NoSuchUser'", result.Errors[4].Error);
+            Assert.Contains("a blank address isn't matched", result.Errors[6].Error);
             Assert.Contains("account exceptions only", result.Errors[5].Error);
 
             // Each gets a BlueTrack ID, not the source's.
@@ -111,12 +124,13 @@ public class RiskExceptionImportTests : IClassFixture<BlueTrackWebApplicationFac
 
             // Importing the same source exception again is an error, naming the existing ID.
             var again = (await (await client.PostAsync("/api/risk-exceptions/import", Upload(
-                $"{tool},A-1,,TestAccount04,,,Again,Pat Approver,2026-01-15,2027-01-15,,,"))).Content.ReadFromJsonAsync<ImportResult>())!;
+                $"{tool},A-1,,TestAccount04,{Address},,Again,Pat Approver,2026-01-15,2027-01-15,,,"))).Content.ReadFromJsonAsync<ImportResult>())!;
             Assert.Equal(0, again.CreatedCount);
             Assert.Contains($"already imported, as {first.ExceptionId}", Assert.Single(again.Errors).Error);
         }
         finally
         {
+            await SetAddressAsync(null);
             await CleanUpAsync(tool, appCode);
         }
     }
@@ -129,11 +143,12 @@ public class RiskExceptionImportTests : IClassFixture<BlueTrackWebApplicationFac
         await new AccountProgressLockRepository(new TestDbConnectionFactory()).ForceReleaseAsync(accountKey);
         var progress = new AccountProgressRepository(new TestDbConnectionFactory());
         var before = (await progress.GetDetailAsync(accountKey))!;
+        await SetAddressAsync(Address);
 
         try
         {
             var result = (await (await Client("TestUser.Approver").PostAsync("/api/risk-exceptions/import", Upload(
-                $"{tool},L-1,,TestAccount04,,,Accepted risk,Pat Approver,2026-01-15,2027-01-15,Active,,Yes"))).Content.ReadFromJsonAsync<ImportResult>())!;
+                $"{tool},L-1,,TestAccount04,{Address},,Accepted risk,Pat Approver,2026-01-15,2027-01-15,Active,,Yes"))).Content.ReadFromJsonAsync<ImportResult>())!;
 
             Assert.Empty(result.Errors);
             Assert.Equal(1, result.LinkedCount);
@@ -150,6 +165,7 @@ public class RiskExceptionImportTests : IClassFixture<BlueTrackWebApplicationFac
                 AccountTypeKey = before.AccountTypeKey, SORKey = before.SORKey, OwnerName = before.OwnerName, BusinessUnit = before.BusinessUnit,
                 TargetRemediationDate = before.TargetRemediationDate, ActualCompletionDate = before.ActualCompletionDate, Notes = before.Notes
             }, before.ExceptionKey);
+            await SetAddressAsync(null);
             await CleanUpAsync(tool);
         }
     }

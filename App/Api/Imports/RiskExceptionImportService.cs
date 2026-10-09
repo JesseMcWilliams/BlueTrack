@@ -15,8 +15,8 @@ namespace BlueTrack.Api.Imports;
 ///   - The approver is the source's, by name (ApprovedByName); no BlueTrack
 ///     user is recorded as approver. The importer is recorded as ImportedBy.
 ///   - Scope: an account by AccountUserName + AccountAddress (exact match,
-///     ignoring case and surrounding spaces; a blank address matches an
-///     account with no address) or an application by
+///     ignoring case and surrounding spaces; both required, so a blank
+///     address matches nothing) or an application by
 ///     ApplicationCode -- exactly one.
 ///   - Status column: Active / Expired / Revoked; blank means Active.
 ///   - LinkToAccountProgress = Yes also links an Active account exception to
@@ -85,19 +85,18 @@ public sealed class RiskExceptionImportService(
                 var applicationCode = Cell("ApplicationCode");
                 var isAccount = userName is not null || address is not null;
                 if (isAccount == (applicationCode is not null))
-                    throw new InvalidOperationException("Give either AccountUserName (+ AccountAddress), or ApplicationCode -- exactly one scope.");
+                    throw new InvalidOperationException("Give either AccountUserName + AccountAddress, or ApplicationCode -- exactly one scope.");
 
                 long? accountKey = null;
                 int? applicationKey = null;
                 if (isAccount)
                 {
-                    if (userName is null) throw new InvalidOperationException("An account needs AccountUserName (AccountAddress is blank only for an account with no address).");
+                    if (userName is null || address is null)
+                        throw new InvalidOperationException("An account needs both AccountUserName and AccountAddress; a blank address isn't matched.");
                     var matches = await exceptionRepository.FindAccountKeysAsync(userName, address);
                     accountKey = matches.Count switch
                     {
-                        0 => throw new InvalidOperationException(address is null
-                            ? $"No account with username '{userName}' and no address."
-                            : $"No account with username '{userName}' and address '{address}'."),
+                        0 => throw new InvalidOperationException($"No account with username '{userName}' and address '{address}'."),
                         1 => matches[0],
                         _ => throw new InvalidOperationException($"{matches.Count} accounts have username '{userName}' and address '{address}'; can't tell which.")
                     };

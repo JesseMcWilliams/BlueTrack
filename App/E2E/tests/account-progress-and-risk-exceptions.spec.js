@@ -218,13 +218,13 @@ test.describe('Risk Exceptions bulk import (D-183)', () => {
 
     // A row that can't be imported (no such account), so nothing is created.
     const csv = 'SourceTool,SourceExceptionId,SourceUrl,AccountUserName,AccountAddress,ApplicationCode,Justification,ApprovedByName,ApprovalDate,ReviewDate,Status,ExternalTicketReference,LinkToAccountProgress\r\n' +
-      'E2E-GRC,E2E-1,,NoSuchE2EUser,,,Test,Pat Approver,2026-01-15,2027-01-15,,,\r\n'
+      'E2E-GRC,E2E-1,,NoSuchE2EUser,nowhere.example.com,,Test,Pat Approver,2026-01-15,2027-01-15,,,\r\n'
     await page.getByLabel('Risk exceptions CSV file').setInputFiles({ name: 'exceptions.csv', mimeType: 'text/csv', buffer: Buffer.from(csv) })
     await page.getByRole('button', { name: 'Import' }).click()
 
     const result = page.getByTestId('exceptions-result')
     await expect(result).toContainText('1 rows -- 0 imported, 0 linked to Account Progress, 1 errors')
-    await expect(result).toContainText("Row 2: No account with username 'NoSuchE2EUser' and no address.")
+    await expect(result).toContainText("Row 2: No account with username 'NoSuchE2EUser' and address 'nowhere.example.com'.")
   })
 
   test('Analyst (no ApproveExceptions) has no Bulk Actions button', async ({ page }) => {

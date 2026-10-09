@@ -33,7 +33,7 @@ async function importFile() {
     <ul>
       <li><strong>SourceTool</strong>, <strong>SourceExceptionId</strong> (required): where it came from. The same tool and ID already imported is an error.</li>
       <li><strong>SourceUrl</strong>: a link to it in that tool (http:// or https://).</li>
-      <li>What it covers, exactly one of: <strong>AccountUserName</strong> + <strong>AccountAddress</strong> (an exact match; leave the address blank for an account that has none), or <strong>ApplicationCode</strong>.</li>
+      <li>What it covers, exactly one of: <strong>AccountUserName</strong> + <strong>AccountAddress</strong> (both required, an exact match; an account without an address can't be matched), or <strong>ApplicationCode</strong>.</li>
       <li><strong>Justification</strong>, <strong>ApprovedByName</strong> (the approver in that tool), <strong>ApprovalDate</strong>, <strong>ReviewDate</strong> (required; dates as yyyy-MM-dd).</li>
       <li><strong>Status</strong>: Active, Expired or Revoked (blank means Active). <strong>ExternalTicketReference</strong> is optional.</li>
       <li><strong>LinkToAccountProgress</strong>: Yes also sets an Active account exception's account to Risk Accepted / Excluded, linked to it (blank means No).</li>
