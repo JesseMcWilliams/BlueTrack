@@ -62,11 +62,10 @@ async function remove(item) {
         <tbody>
           <tr v-for="item in items" :key="item.importMappingProfileKey">
             <td>{{ item.feedType }}</td>
-            <td>{{ item.profileName }}</td>
+            <td><router-link :to="{ name: 'admin-import-mapping-profile-edit', params: { importMappingProfileKey: item.importMappingProfileKey } }">{{ item.profileName }}</router-link></td>
             <td>{{ item.isActive ? 'Yes' : 'No' }}</td>
             <td>{{ item.fields.map(f => `${f.sourceColumnName} -> ${f.targetFieldName}`).join(', ') }}</td>
             <td>
-              <router-link :to="{ name: 'admin-import-mapping-profile-edit', params: { importMappingProfileKey: item.importMappingProfileKey } }">Edit</router-link>
               <button @click="remove(item)">Delete</button>
             </td>
           </tr>

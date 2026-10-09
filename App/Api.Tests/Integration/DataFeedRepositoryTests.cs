@@ -23,7 +23,7 @@ public class DataFeedRepositoryTests
     public async Task Feed_CreateUpdateDelete_RoundTrips_AndDeleteCascadesRuns()
     {
         var repository = CreateRepository();
-        var userKey = await TestUsers.GetUserKeyAsync("TestUser.Admin");
+        var userKey = await TestUsers.GetUserKeyAsync("IntegrationTestUser1");
         var name = $"IntegrationTestFeed_{Guid.NewGuid():N}";
 
         var key = await repository.CreateAsync(NewFeed(name), userKey);
@@ -76,7 +76,7 @@ public class DataFeedRepositoryTests
     public async Task PurgeRunsAsync_DeletesOnlyRunsOlderThanTheRetention()
     {
         var repository = CreateRepository();
-        var key = await repository.CreateAsync(NewFeed($"IntegrationTestFeed_{Guid.NewGuid():N}"), await TestUsers.GetUserKeyAsync("TestUser.Admin"));
+        var key = await repository.CreateAsync(NewFeed($"IntegrationTestFeed_{Guid.NewGuid():N}"), await TestUsers.GetUserKeyAsync("IntegrationTestUser1"));
         try
         {
             NewDataFeedRun Run(DateTime started) => new()
