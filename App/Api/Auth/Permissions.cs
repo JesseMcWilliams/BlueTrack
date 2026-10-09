@@ -33,6 +33,7 @@ public static class Permissions
     public const string ViewRiskExceptionSodReport = "ViewRiskExceptionSodReport";
     public const string ViewDiscoveredAccounts = "ViewDiscoveredAccounts";
     public const string ManageDiscoveredAccounts = "ManageDiscoveredAccounts";
+    public const string ManageDataSources = "ManageDataSources";
 
     public static readonly IReadOnlyList<string> All =
     [
@@ -42,6 +43,6 @@ public static class Permissions
         ManageFieldMetadata, ViewAuditLog, ManageApplicationConfiguration, ViewDeploymentInfo,
         ManageNotifications, ManageCredentials, TriggerBackup,
         ManageTargets, ManageAccessGroups, ViewRiskReport, ManageRiskScoreBands, ViewRiskExceptionSodReport,
-        ViewDiscoveredAccounts, ManageDiscoveredAccounts
+        ViewDiscoveredAccounts, ManageDiscoveredAccounts, ManageDataSources
     ];
 }

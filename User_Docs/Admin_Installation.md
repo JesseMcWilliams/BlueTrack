@@ -71,6 +71,16 @@ Once you're in, go to **Admin > Group / Role Mapping** and map a real AD/Entra g
 
 A fresh install's staging tables are empty. Follow `Admin_DeploymentRunbook.md`'s "First Data Load" section to run `usp_Import_All` / `usp_RunFullLoad` once your CyberArk export files are in place, then (for a real, non-disposable environment) schedule the nightly Import+Load job as that runbook describes.
 
+### Data feed folders (Admin > Data Sources)
+
+If you'll use scheduled CSV data feeds (**Admin > Data Sources**, D-181), grant the **App Pool's account** read access to each feed folder; the installer doesn't. Unlike the CyberArk export folder, which SQL Server's service account reads, feeds are read by the API itself. The account is the same one that needs the SQL login (section 3):
+
+- `ApplicationPoolIdentity` and a folder on this server: `IIS APPPOOL\<pool>`, e.g. `IIS APPPOOL\BlueTrack-AppPool`.
+- `ApplicationPoolIdentity` and a share on another machine: the server's computer account, `DOMAIN\HOSTNAME$`.
+- A gMSA or service account: that account.
+
+For example, for a local folder: `icacls D:\Feeds\BlueTrack /grant "IIS APPPOOL\BlueTrack-AppPool:(OI)(CI)RX"`. A share also needs share-level read permission for the account. Afterwards, the feed's **Test** button confirms the access, since it runs as that account.
+
 ## 7. What's next
 
 Installation gets you a running, reachable BlueTrack with Windows Integrated authentication and the default Windows DPAPI secrets backend. Before opening it up to regular users, continue to [Admin_Configuration.md](Admin_Configuration.md) to review identity providers, the secrets store backend, roles, notifications, and the other admin-wide settings that a real environment normally needs to change from their installed defaults.

@@ -1,3 +1,6 @@
+import fs from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
 import { test, expect } from '@playwright/test'
 import { signInAs } from './auth.js'
 import { confirmDelete } from './confirmDialog.js'
@@ -595,6 +598,70 @@ test.describe('Risk Score Bands admin page', () => {
   test('A user without ManageRiskScoreBands is denied with a plain error', async ({ page }) => {
     await signInAs(page, 'TestUser.Viewer')
     await page.goto('/admin/risk-score-bands')
+
+    await expect(page.getByText(/Request failed: 403/)).toBeVisible()
+  })
+})
+
+test.describe('Data Sources admin page (D-181)', () => {
+  test('Admin can add a data feed, test its folder, edit it and delete it', async ({ page }) => {
+    // The API runs on this host, so a temp folder here is one it can read.
+    const folder = fs.mkdtempSync(path.join(os.tmpdir(), 'BlueTrackE2EFeed_'))
+    const feedName = `E2ETestFeed${Date.now()}`
+    try {
+      await signInAs(page, 'TestUser.Admin')
+      await page.goto('/admin')
+      await page.locator('nav.admin-subnav').getByRole('link', { name: 'Data Sources' }).click()
+      await expect(page).toHaveURL(/\/admin\/data-sources$/)
+
+      await page.getByRole('button', { name: '+ New Feed' }).click()
+      await page.getByLabel('Name:', { exact: true }).fill(feedName)
+      await page.getByLabel('Import:').selectOption('SafeAssignments')
+      await page.getByLabel('Folder path:').fill(folder)
+      await page.getByLabel('File name pattern:').fill('safes_{yyyy-MM-dd}.csv')
+      await page.getByLabel('Run order:').fill('950')
+      await page.getByLabel('Enabled (runs nightly)').uncheck()
+
+      await page.getByRole('button', { name: 'Test' }).click()
+      await expect(page.getByText(/no file matches 'safes_\d{4}-\d\d-\d\d\.csv' today/)).toBeVisible()
+
+      fs.writeFileSync(path.join(folder, 'safes_e2e.csv'), 'SafeName,Application\r\n')
+      await page.getByLabel('File name pattern:').fill('safes_*.csv')
+      await page.getByRole('button', { name: 'Test' }).click()
+      await expect(page.getByText('Found safes_e2e.csv, with 2 columns.')).toBeVisible()
+      await expect(page.getByText('Has every column the import needs.')).toBeVisible()
+
+      await page.locator('form button[type="submit"]').click()
+      await expect(page).toHaveURL(/\/admin\/data-sources$/)
+      const row = page.locator('tbody tr', { hasText: feedName })
+      await expect(row).toContainText('Safe → application assignments')
+      await expect(row).toContainText('Never run')
+
+      await row.getByRole('link', { name: feedName }).click()
+      await expect(page.getByLabel('Folder path:')).toHaveValue(folder)
+      await expect(page.getByText("This feed hasn't run yet.")).toBeVisible()
+      await page.getByLabel('Run order:').fill('951')
+      await page.locator('form button[type="submit"]').click()
+      await expect(page.locator('tbody tr', { hasText: feedName })).toContainText('951')
+
+      await page.locator('tbody tr', { hasText: feedName }).getByRole('button', { name: 'Delete' }).click()
+      await confirmDelete(page)
+      await expect(page.locator('tbody tr', { hasText: feedName })).toHaveCount(0)
+    } catch (err) {
+      const leftover = page.locator('tbody tr', { hasText: feedName })
+      if (await leftover.count() > 0) {
+        await leftover.getByRole('button', { name: 'Delete' }).click()
+        await confirmDelete(page)
+      }
+      throw err
+    } finally {
+      fs.rmSync(folder, { recursive: true, force: true })
+    }
+  })
+
+  test('A user without ManageDataSources is denied with a plain error', async ({ page }) => {
+    await signInAs(page, 'TestUser.Viewer')
+    await page.goto('/admin/data-sources')
 
     await expect(page.getByText(/Request failed: 403/)).toBeVisible()
   })

@@ -1,3 +1,4 @@
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using BlueTrack.Api.AdDiscovery;
 using BlueTrack.Api.Audit;
 using BlueTrack.Api.Auth;
@@ -175,6 +176,14 @@ builder.Services.AddHostedService<NotificationCheckBackgroundService>();
 builder.Services.AddScoped<DiscoveredAccountRepository>();
 builder.Services.AddScoped<AdAccountDiscoveryService>();
 builder.Services.AddHostedService<AdAccountDiscoveryBackgroundService>();
+
+// D-181 (Data Sources phase 2): scheduled CSV feeds over the phase 1 import
+// services. DataFeedRunner is a Singleton so its one-run-at-a-time gate is
+// shared by the nightly schedule and every Run now request.
+builder.Services.TryAddSingleton(TimeProvider.System);
+builder.Services.AddScoped<DataFeedRepository>();
+builder.Services.AddSingleton<BlueTrack.Api.DataFeeds.DataFeedRunner>();
+builder.Services.AddHostedService<BlueTrack.Api.DataFeeds.DataFeedBackgroundService>();
 
 // D-96 Part 3.2: real, custom IHealthCheck implementations (this app's own
 // checks, not third-party health-check packages) -- consumed via

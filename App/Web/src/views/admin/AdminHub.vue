@@ -22,7 +22,8 @@ const sections = [
   { name: 'admin-credentials', label: 'Credentials & LDAP', permission: 'ManageCredentials' },
   { name: 'admin-target-match-review', label: 'Target Match Review', permission: 'ManageTargets' },
   { name: 'admin-import-mapping-profiles', label: 'Import Mapping Profiles', permission: 'ManageTargets' },
-  { name: 'admin-risk-score-bands', label: 'Risk Score Bands', permission: 'ManageRiskScoreBands' }
+  { name: 'admin-risk-score-bands', label: 'Risk Score Bands', permission: 'ManageRiskScoreBands' },
+  { name: 'admin-data-sources', label: 'Data Sources', permission: 'ManageDataSources' }
 ]
 
 const visibleSections = computed(() => sections.filter(s => rights.hasPermission(s.permission)))

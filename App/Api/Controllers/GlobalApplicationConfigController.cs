@@ -24,6 +24,15 @@ public sealed class GlobalApplicationConfigController(
         var user = await currentUserResolver.ResolveAsync(User);
         if (user is null) return Unauthorized();
 
+        // D-181: the data-feed schedule settings are checked here, not left to
+        // fail as a SQL CAST error.
+        var scheduleErrors = DataFeeds.FeedSchedule.Validate(request.DataFeedRunTime, request.DataFeedRunRetentionDays,
+            request.BusinessHoursStart, request.BusinessHoursEnd, request.BusinessDays);
+        if (scheduleErrors.Count > 0)
+        {
+            return Problem(title: "Invalid data feed schedule settings", detail: string.Join(" ", scheduleErrors), statusCode: StatusCodes.Status400BadRequest);
+        }
+
         var before = await repository.GetAsync();
         await repository.UpdateAsync(request, user.UserKey);
 
@@ -46,6 +55,16 @@ public sealed class GlobalApplicationConfigController(
             changes.Add(new FieldChange("ActiveRiskAlgorithm", before.ActiveRiskAlgorithm, request.ActiveRiskAlgorithm));
         if (before.EnforceRiskExceptionSegregationOfDuties != request.EnforceRiskExceptionSegregationOfDuties)
             changes.Add(new FieldChange("EnforceRiskExceptionSegregationOfDuties", before.EnforceRiskExceptionSegregationOfDuties.ToString(), request.EnforceRiskExceptionSegregationOfDuties.ToString()));
+
+        void TrackIfSent(string field, string? beforeValue, string? newValue)
+        {
+            if (newValue is not null && newValue != beforeValue) changes.Add(new FieldChange(field, beforeValue, newValue));
+        }
+        TrackIfSent("DataFeedRunTime", before.DataFeedRunTime, request.DataFeedRunTime);
+        TrackIfSent("DataFeedRunRetentionDays", before.DataFeedRunRetentionDays.ToString(), request.DataFeedRunRetentionDays?.ToString());
+        TrackIfSent("BusinessHoursStart", before.BusinessHoursStart, request.BusinessHoursStart);
+        TrackIfSent("BusinessHoursEnd", before.BusinessHoursEnd, request.BusinessHoursEnd);
+        TrackIfSent("BusinessDays", before.BusinessDays, request.BusinessDays);
 
         if (changes.Count > 0)
         {
