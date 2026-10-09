@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using BlueTrack.Api.Auth;
 using BlueTrack.Api.Data;
+using BlueTrack.Api.Imports;
 using BlueTrack.Api.Models;
 using BlueTrack.Api.RiskScoring;
 
@@ -17,14 +18,16 @@ namespace BlueTrack.Api.Controllers;
 /// endpoint validates row-by-row (a bad row doesn't fail the whole batch)
 /// and returns a summary, matching Design_Risk-Scoring.md's own "reports
 /// errors per row rather than failing the whole batch on one bad row".
+/// The import logic itself lives in RiskScoringImportService (Data Sources
+/// phase 1), shared with the scheduled data feeds; this controller keeps
+/// the HTTP side: routes, permissions, templates, reading the upload.
 /// </summary>
 [ApiController]
 [Route("api/admin/risk-scoring/import")]
 public sealed class RiskScoringImportController(
     TargetRepository targetRepository,
     RiskScoringImportRepository importRepository,
-    TargetMatchingService targetMatchingService,
-    ImportMappingService importMappingService,
+    RiskScoringImportService importService,
     CurrentUserResolver currentUserResolver) : ControllerBase
 {
     private static readonly string[] FixedTargetColumns = ["TargetType", "TargetName", "RiskScore", "Description", "DiscoverySource"];
@@ -46,53 +49,7 @@ public sealed class RiskScoringImportController(
         if (user is null) return Unauthorized();
 
         var rows = await CsvFileReader.ReadRowsAsync(file.OpenReadStream());
-        var mapping = await importMappingService.GetActiveMappingAsync("TargetInventory", mappingProfileKey);
-        var identifierTypes = await targetRepository.GetIdentifierTypesAsync();
-        // D-124 Phase 2: TargetType is now an FK (TargetTypeKey) -- the CSV
-        // keeps using the stable TypeCode (not DisplayName, which is only the
-        // prettied-up UI label), resolved here against web.dim_target_type.
-        var targetTypesByCode = (await targetRepository.GetTargetTypesAsync()).ToDictionary(t => t.TypeCode, t => t.TargetTypeKey);
-        var importBatchId = Guid.NewGuid();
-
-        var result = new ImportRunResult();
-        for (var i = 0; i < rows.Count; i++)
-        {
-            var rowNumber = i + 2; // header is row 1
-            try
-            {
-                var row = rows[i];
-                var targetTypeCode = ImportMappingService.ResolveField(row, mapping, "TargetType") ?? throw new InvalidOperationException("TargetType is required.");
-                if (!targetTypesByCode.TryGetValue(targetTypeCode, out var targetTypeKey))
-                {
-                    throw new InvalidOperationException($"TargetType '{targetTypeCode}' is not a recognized target type code.");
-                }
-                var targetName = ImportMappingService.ResolveField(row, mapping, "TargetName") ?? throw new InvalidOperationException("TargetName is required.");
-                var riskScoreText = ImportMappingService.ResolveField(row, mapping, "RiskScore") ?? throw new InvalidOperationException("RiskScore is required.");
-                if (!int.TryParse(riskScoreText, out var riskScore))
-                {
-                    throw new InvalidOperationException($"RiskScore '{riskScoreText}' is not a whole number.");
-                }
-
-                var identifiers = identifierTypes
-                    .Select(t => new TargetMatchIdentifier(t.IdentifierType, ImportMappingService.ResolveField(row, mapping, t.IdentifierType) ?? ""))
-                    .Where(i => !string.IsNullOrWhiteSpace(i.IdentifierValue))
-                    .ToList();
-
-                var matchResult = await targetMatchingService.MatchOrCreateAsync(
-                    targetTypeKey, targetName, riskScore,
-                    ImportMappingService.ResolveField(row, mapping, "Description"),
-                    ImportMappingService.ResolveField(row, mapping, "DiscoverySource"),
-                    identifiers, importBatchId, file.FileName, user.UserKey);
-
-                result.Record(matchResult.Outcome);
-            }
-            catch (Exception ex)
-            {
-                result.Errors.Add(new ImportRowError { RowNumber = rowNumber, Error = ex.Message });
-            }
-        }
-
-        return Ok(result.ToResponse(rows.Count));
+        return Ok(await importService.ImportTargetInventoryAsync(rows, mappingProfileKey, file.FileName, user.UserKey));
     }
 
     [HttpGet("access-group-inventory/template")]
@@ -105,35 +62,7 @@ public sealed class RiskScoringImportController(
     public async Task<IActionResult> ImportAccessGroupInventory(IFormFile file, [FromForm] int? mappingProfileKey)
     {
         var rows = await CsvFileReader.ReadRowsAsync(file.OpenReadStream());
-        var mapping = await importMappingService.GetActiveMappingAsync("AccessGroupInventory", mappingProfileKey);
-        var importBatchId = Guid.NewGuid();
-
-        var result = new ImportRunResult();
-        for (var i = 0; i < rows.Count; i++)
-        {
-            try
-            {
-                var row = rows[i];
-                var groupName = ImportMappingService.ResolveField(row, mapping, "GroupName") ?? throw new InvalidOperationException("GroupName is required.");
-                var groupIdentifier = ImportMappingService.ResolveField(row, mapping, "GroupIdentifier") ?? throw new InvalidOperationException("GroupIdentifier is required.");
-                var groupScope = ImportMappingService.ResolveField(row, mapping, "GroupScope") ?? "Domain";
-                var baseRiskScoreText = ImportMappingService.ResolveField(row, mapping, "BaseRiskScore") ?? throw new InvalidOperationException("BaseRiskScore is required.");
-                if (!int.TryParse(baseRiskScoreText, out var baseRiskScore))
-                {
-                    throw new InvalidOperationException($"BaseRiskScore '{baseRiskScoreText}' is not a whole number.");
-                }
-
-                await importRepository.UpsertAccessGroupAsync(groupName, groupIdentifier, groupScope, baseRiskScore,
-                    ImportMappingService.ResolveField(row, mapping, "Description"), null, importBatchId, file.FileName);
-                result.Record(TargetMatchOutcome.Created); // upsert -- treated as "succeeded", not distinguishing create/update here
-            }
-            catch (Exception ex)
-            {
-                result.Errors.Add(new ImportRowError { RowNumber = i + 2, Error = ex.Message });
-            }
-        }
-
-        return Ok(result.ToResponse(rows.Count));
+        return Ok(await importService.ImportAccessGroupInventoryAsync(rows, mappingProfileKey, file.FileName));
     }
 
     [HttpGet("access-group-target-map/template")]
@@ -146,34 +75,7 @@ public sealed class RiskScoringImportController(
     public async Task<IActionResult> ImportAccessGroupTargetMap(IFormFile file, [FromForm] int? mappingProfileKey)
     {
         var rows = await CsvFileReader.ReadRowsAsync(file.OpenReadStream());
-        var mapping = await importMappingService.GetActiveMappingAsync("AccessGroupTargetMap", mappingProfileKey);
-        var importBatchId = Guid.NewGuid();
-
-        var result = new ImportRunResult();
-        for (var i = 0; i < rows.Count; i++)
-        {
-            try
-            {
-                var row = rows[i];
-                var groupIdentifier = ImportMappingService.ResolveField(row, mapping, "GroupIdentifier") ?? throw new InvalidOperationException("GroupIdentifier is required.");
-                var identifierType = ImportMappingService.ResolveField(row, mapping, "TargetIdentifierType") ?? throw new InvalidOperationException("TargetIdentifierType is required.");
-                var identifierValue = ImportMappingService.ResolveField(row, mapping, "TargetIdentifierValue") ?? throw new InvalidOperationException("TargetIdentifierValue is required.");
-
-                var accessGroupKey = await importRepository.ResolveAccessGroupKeyAsync(groupIdentifier)
-                    ?? throw new InvalidOperationException($"No Access Group found with identifier '{groupIdentifier}'.");
-                var targetKey = await importRepository.ResolveTargetKeyByIdentifierAsync(identifierType, identifierValue)
-                    ?? throw new InvalidOperationException($"No Target found with {identifierType} '{identifierValue}'.");
-
-                var inserted = await importRepository.InsertAccessGroupTargetMapAsync(accessGroupKey, targetKey, importBatchId, file.FileName);
-                result.Record(inserted ? TargetMatchOutcome.Created : TargetMatchOutcome.Merged);
-            }
-            catch (Exception ex)
-            {
-                result.Errors.Add(new ImportRowError { RowNumber = i + 2, Error = ex.Message });
-            }
-        }
-
-        return Ok(result.ToResponse(rows.Count));
+        return Ok(await importService.ImportAccessGroupTargetMapAsync(rows, mappingProfileKey, file.FileName));
     }
 
     [HttpGet("account-access-group-membership/template")]
@@ -186,34 +88,7 @@ public sealed class RiskScoringImportController(
     public async Task<IActionResult> ImportAccountAccessGroupMembership(IFormFile file, [FromForm] int? mappingProfileKey)
     {
         var rows = await CsvFileReader.ReadRowsAsync(file.OpenReadStream());
-        var mapping = await importMappingService.GetActiveMappingAsync("AccountAccessGroupMembership", mappingProfileKey);
-        var importBatchId = Guid.NewGuid();
-
-        var result = new ImportRunResult();
-        for (var i = 0; i < rows.Count; i++)
-        {
-            try
-            {
-                var row = rows[i];
-                var accountName = ImportMappingService.ResolveField(row, mapping, "AccountName");
-                var accountKeyText = ImportMappingService.ResolveField(row, mapping, "AccountKey");
-                var groupIdentifier = ImportMappingService.ResolveField(row, mapping, "GroupIdentifier") ?? throw new InvalidOperationException("GroupIdentifier is required.");
-
-                var accountKey = await importRepository.ResolveAccountKeyAsync(accountKeyText, accountName)
-                    ?? throw new InvalidOperationException($"No account found (AccountKey='{accountKeyText}', AccountName='{accountName}').");
-                var accessGroupKey = await importRepository.ResolveAccessGroupKeyAsync(groupIdentifier)
-                    ?? throw new InvalidOperationException($"No Access Group found with identifier '{groupIdentifier}'.");
-
-                var inserted = await importRepository.InsertAccountAccessGroupMapAsync(accountKey, accessGroupKey, importBatchId, file.FileName);
-                result.Record(inserted ? TargetMatchOutcome.Created : TargetMatchOutcome.Merged);
-            }
-            catch (Exception ex)
-            {
-                result.Errors.Add(new ImportRowError { RowNumber = i + 2, Error = ex.Message });
-            }
-        }
-
-        return Ok(result.ToResponse(rows.Count));
+        return Ok(await importService.ImportAccountAccessGroupMembershipAsync(rows, mappingProfileKey, file.FileName));
     }
 
     [HttpGet("account-target-map/template")]
@@ -226,35 +101,7 @@ public sealed class RiskScoringImportController(
     public async Task<IActionResult> ImportAccountTargetMap(IFormFile file, [FromForm] int? mappingProfileKey)
     {
         var rows = await CsvFileReader.ReadRowsAsync(file.OpenReadStream());
-        var mapping = await importMappingService.GetActiveMappingAsync("AccountTargetMap", mappingProfileKey);
-        var importBatchId = Guid.NewGuid();
-
-        var result = new ImportRunResult();
-        for (var i = 0; i < rows.Count; i++)
-        {
-            try
-            {
-                var row = rows[i];
-                var accountName = ImportMappingService.ResolveField(row, mapping, "AccountName");
-                var accountKeyText = ImportMappingService.ResolveField(row, mapping, "AccountKey");
-                var identifierType = ImportMappingService.ResolveField(row, mapping, "TargetIdentifierType") ?? throw new InvalidOperationException("TargetIdentifierType is required.");
-                var identifierValue = ImportMappingService.ResolveField(row, mapping, "TargetIdentifierValue") ?? throw new InvalidOperationException("TargetIdentifierValue is required.");
-
-                var accountKey = await importRepository.ResolveAccountKeyAsync(accountKeyText, accountName)
-                    ?? throw new InvalidOperationException($"No account found (AccountKey='{accountKeyText}', AccountName='{accountName}').");
-                var targetKey = await importRepository.ResolveTargetKeyByIdentifierAsync(identifierType, identifierValue)
-                    ?? throw new InvalidOperationException($"No Target found with {identifierType} '{identifierValue}'.");
-
-                var inserted = await importRepository.InsertAccountTargetMapAsync(accountKey, targetKey, "ManualImport", importBatchId, file.FileName);
-                result.Record(inserted ? TargetMatchOutcome.Created : TargetMatchOutcome.Merged);
-            }
-            catch (Exception ex)
-            {
-                result.Errors.Add(new ImportRowError { RowNumber = i + 2, Error = ex.Message });
-            }
-        }
-
-        return Ok(result.ToResponse(rows.Count));
+        return Ok(await importService.ImportAccountTargetMapAsync(rows, mappingProfileKey, file.FileName));
     }
 
     /// <summary>Single-add analog of account-target-map -- an analyst picks one Account and one Target directly.</summary>
@@ -267,34 +114,6 @@ public sealed class RiskScoringImportController(
 
         var inserted = await importRepository.InsertAccountTargetMapAsync(accountKey.Value, request.TargetKey, "ManualImport", null, null);
         return inserted ? NoContent() : Conflict(new { message = "This account is already directly linked to this target." });
-    }
-
-    private sealed class ImportRunResult
-    {
-        public int Created { get; private set; }
-        public int Merged { get; private set; }
-        public int PendingReview { get; private set; }
-        public List<ImportRowError> Errors { get; } = [];
-
-        public void Record(TargetMatchOutcome outcome)
-        {
-            switch (outcome)
-            {
-                case TargetMatchOutcome.Created: Created++; break;
-                case TargetMatchOutcome.Merged: Merged++; break;
-                case TargetMatchOutcome.PendingReview: PendingReview++; break;
-            }
-        }
-
-        public ImportResultResponse ToResponse(int totalRows) => new()
-        {
-            TotalRows = totalRows,
-            SucceededCount = Created + Merged + PendingReview,
-            CreatedCount = Created,
-            MergedCount = Merged,
-            PendingReviewCount = PendingReview,
-            Errors = Errors
-        };
     }
 }
 

@@ -93,7 +93,7 @@ Stay on the existing SQL import and nightly Agent job (D-176), which already wor
 
 ## Phasing
 
-1. **Shared import services** (2), no behavior change.
+1. **Shared import services** (2), no behavior change. **Built 2026-10-09:** `App/Api/Imports/RiskScoringImportService.cs` and `ApplicationMappingImportService.cs`; every existing test passed unchanged (xUnit 456, Vitest 137, Playwright 58). For phase 2: `ImportTargetInventoryAsync` records the user who ran it (`TargetMatchingService.MatchOrCreateAsync`), so a scheduled feed needs a user to attribute its changes to, for example a dedicated system account.
 2. **Feeds** (1, 3, 4, 7) for the existing pipelines: registry, background runner, Run now, status and history, page.
 3. **CyberArk settings on the page** (6): settings table, `usp_Import_Configured`, job and installer changes.
 4. **Account inventory feed** (5): accounts as Discovered with their source, exact-match linking to CyberArk accounts, hiding linked feed accounts (with the filter), and the possible-match remediation report.

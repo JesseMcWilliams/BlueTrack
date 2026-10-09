@@ -61,6 +61,10 @@ builder.Services.AddScoped<RiskScoreReportRepository>();
 builder.Services.AddScoped<RiskScoreBandRepository>();
 builder.Services.AddScoped<TargetMatchingService>();
 builder.Services.AddScoped<ImportMappingService>();
+// Data Sources phase 1: the CSV import logic, shared by the Bulk Actions
+// uploads and the scheduled data feeds (Planning_Data-Sources.md).
+builder.Services.AddScoped<BlueTrack.Api.Imports.RiskScoringImportService>();
+builder.Services.AddScoped<BlueTrack.Api.Imports.ApplicationMappingImportService>();
 
 // D-13/D-82: cached rights per identity, backed by
 // Microsoft.Extensions.Caching.SqlServer (web.distributed_cache) -- see
