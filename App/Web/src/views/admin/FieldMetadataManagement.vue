@@ -58,13 +58,12 @@ async function remove(item) {
         </thead>
         <tbody>
           <tr v-for="item in items" :key="item.fieldMetadataKey">
-            <td>{{ item.fieldName }}</td>
+            <td><router-link :to="{ name: 'admin-field-metadata-edit', params: { fieldMetadataKey: item.fieldMetadataKey } }">{{ item.fieldName }}</router-link></td>
             <td>{{ item.displayLabel }}</td>
             <td>{{ item.fieldType }}</td>
             <td>{{ item.isRequired }}</td>
             <td>{{ item.displayOrder }}</td>
             <td>
-              <router-link :to="{ name: 'admin-field-metadata-edit', params: { fieldMetadataKey: item.fieldMetadataKey } }">Edit</router-link>
               <button @click="remove(item)">Delete</button>
             </td>
           </tr>

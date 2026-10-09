@@ -60,12 +60,11 @@ async function remove(item) {
         </thead>
         <tbody>
           <tr v-for="item in items" :key="item.riskScoreBandKey">
-            <td>{{ item.bandName }}</td>
+            <td><router-link :to="{ name: 'admin-risk-score-band-edit', params: { riskScoreBandKey: item.riskScoreBandKey } }">{{ item.bandName }}</router-link></td>
             <td>{{ item.minScore }}</td>
             <td>{{ item.maxScore }}</td>
             <td>{{ item.riskOrder }}</td>
             <td>
-              <router-link :to="{ name: 'admin-risk-score-band-edit', params: { riskScoreBandKey: item.riskScoreBandKey } }">Edit</router-link>
               <button @click="remove(item)">Delete</button>
             </td>
           </tr>

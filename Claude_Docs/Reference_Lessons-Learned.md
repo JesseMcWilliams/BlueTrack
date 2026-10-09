@@ -142,6 +142,12 @@ While tracking down a batch of E2E failures that looked like the already-documen
 - **A timeout enforced only on the write path never fires if the UI reads first.** Stale edit locks were deleted only inside the acquire call, but the edit page asked for status first and only acquired when it saw no lock, so an abandoned lock never expired (D-174). Apply an expiry rule in the read that drives the UI, not only in the write it gates. Found because a CI run left a lock in the shared `BlueTrackTest` database, which then failed two Playwright tests locally.
 - **A cached "not signed in" never re-checks itself.** After Windows sign-in finished, the SPA stayed on `/login`: the rights store had cached the guard's 401 and nothing asked `/api/me` again. `Login.vue` now does (D-173).
 
+## 2026-10-09 — An integration test passed locally and failed on CI's fresh database (D-181)
+
+**What happened:** `DataFeedRepositoryTests` looked up `TestUser.Admin` with `TestUsers.GetUserKeyAsync`. That `app_user` row is created only when a contract test signs in as `TestUser.Admin`, so it existed on this host's long-lived `BlueTrackTest` but not on CI's freshly rebuilt one, where the integration tests ran first. PR #70 was then merged without checking that CI had failed.
+
+**Lesson:** integration tests use the seeded users `IntegrationTestUser1`/`IntegrationTestUser2` (`Database/Test/02_...`), never `TestUser.*`. And check `gh pr checks` before merging a PR: a local pass doesn't prove a pass on a fresh database.
+
 ## Process notes
 
 - **Check the Decision Register first.** `Claude_Docs/Design_Decision-Register.md` is the index of every design decision made so far, resolved and open. Don't re-derive or re-litigate something it already answers.
