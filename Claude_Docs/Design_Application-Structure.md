@@ -18,7 +18,7 @@ Confirmed 2026-08-27 as a first pass — revise here as screens are added or spl
 ### Analyst-Facing (Viewer / Analyst / Approver permissions)
 
 - Dashboard (home)
-- Account Progress — list/grid, filterable by stage/status/risk level/source/safe/application
+- Account Progress — list/grid, filterable by stage/status/risk level/source/safe/application. As built, the filters are stage, status, risk level and owner, plus a **Search** box matching Username or Address ("contains", `search` query parameter, server-side with paging; `_`, `%` and `[` are matched literally) (D-178).
 - Account Progress — detail/edit (the field-metadata-driven form from `Design_Interface-Extensibility.md`). **Updated 2026-09-10 (D-130-D-135):** split into ARIA APG tabs (Details/Risk Score/Risk Exception, the last shown only when status is Risk Accepted / Excluded) once the page grew past one long scroll; the Risk Score tab shows Calculated Risk/Risk Band/Effective Risk Score plus the Override Score/Reason field (D-127) and a per-account Recalculate action (D-131); Username/Address/Account Name (`fact_account`'s own read-only context, not part of the editable field-metadata set) show above the tabs, Username/Address on one line and Account Name below (D-133/D-134/D-135).
 - Risk Exceptions — list (Active/Expired/Revoked)
 - Risk Exceptions — create/edit (account- or application-scoped, D-18/D-31)

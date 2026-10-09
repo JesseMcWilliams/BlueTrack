@@ -177,6 +177,21 @@ public class AdminControllersFunctionalTests : IClassFixture<BlueTrackWebApplica
         Assert.Equal(HttpStatusCode.NoContent, deleteResponse.StatusCode);
     }
 
+    /// <summary>D-179: the list resolves each WindowsIntegrated SID to its group name for display.</summary>
+    [Fact]
+    public async Task GroupRoleMapping_GetAll_ResolvesWindowsSidsToGroupNames()
+    {
+        var client = AdminClient();
+
+        var mappings = await client.GetFromJsonAsync<List<GroupRoleMappingListItem>>("/api/admin/group-role-mappings");
+
+        // Seeded by 09_BlueTrack_WebSeed.sql: BUILTIN\Administrators -> Admin.
+        var bootstrap = Assert.Single(mappings!, m => m.ProviderType == "WindowsIntegrated" && m.IdentityGroupName == "S-1-5-32-544");
+        Assert.Equal(@"BUILTIN\Administrators", bootstrap.GroupDisplayName);
+    }
+
+    private sealed record GroupRoleMappingListItem(int MappingKey, string ProviderType, string IdentityGroupName, string RoleName, string? GroupDisplayName);
+
     /// <summary>Backs the Role dropdown on the Group → Role Mapping admin page's Add Mapping form.</summary>
     [Fact]
     public async Task GroupRoleMapping_GetRoles_ReturnsTheRealRoleCatalog()

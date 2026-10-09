@@ -118,6 +118,29 @@ describe('AccountProgressList.vue', () => {
     expect(calls.at(-1)).toContain('owner=jane')
   })
 
+  // D-178: one search box for Username or Address, sent as `search`.
+  it('the search box sends a trimmed search param and resets to page 1; blank sends none', async () => {
+    mockInitialLoad({ accounts: [sampleAccount], totalCount: 200, filteredCount: 200 })
+    const wrapper = mount(AccountProgressList, { global: { plugins: [makeRouter()] } })
+    await flushPromises()
+
+    const nextButton = wrapper.findAll('.pager button').find(b => b.text().includes('Next'))
+    await nextButton.trigger('click')
+    await flushPromises()
+
+    const searchInput = wrapper.get('input[type="search"]')
+    await searchInput.setValue('  web01  ')
+    await flushPromises()
+    let calls = globalThis.fetch.mock.calls.map(c => c[0]).filter(u => u.startsWith('/api/account-progress?'))
+    expect(calls.at(-1)).toContain('search=web01&')
+    expect(calls.at(-1)).toContain('page=1')
+
+    await searchInput.setValue('   ')
+    await flushPromises()
+    calls = globalThis.fetch.mock.calls.map(c => c[0]).filter(u => u.startsWith('/api/account-progress?'))
+    expect(calls.at(-1)).not.toContain('search=')
+  })
+
   it('changing the page size persists the preference and re-fetches with the new pageSize', async () => {
     mockInitialLoad({ accounts: [sampleAccount], totalCount: 200, filteredCount: 200 })
     const wrapper = mount(AccountProgressList, { global: { plugins: [makeRouter()] } })

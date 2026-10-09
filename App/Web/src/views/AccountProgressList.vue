@@ -37,6 +37,8 @@ const stageFilter = ref('')
 const statusFilter = ref('')
 const riskLevelFilter = ref('')
 const ownerFilter = ref('')
+// D-178: one box matching Username or Address ("contains"), server-side.
+const searchFilter = ref('')
 
 // Each entry: { field, descending }. Order in this array IS sort priority.
 const sortColumns = ref([])
@@ -105,6 +107,7 @@ async function load() {
     if (statusFilter.value) params.set('status', statusFilter.value)
     if (riskLevelFilter.value) params.set('riskLevel', riskLevelFilter.value)
     if (ownerFilter.value) params.set('owner', ownerFilter.value)
+    if (searchFilter.value.trim()) params.set('search', searchFilter.value.trim())
     if (sortQueryParam.value) params.set('sort', sortQueryParam.value)
     params.set('page', page.value)
     params.set('pageSize', pageSizeStore.current)
@@ -134,7 +137,7 @@ onMounted(async () => {
 
 // D-124 Phase 3: a filter/sort change resets to page 1 -- see Targets.vue's
 // identical comment for why page-size/Prev/Next changes are handled separately.
-watch([stageFilter, statusFilter, riskLevelFilter, ownerFilter, sortQueryParam], () => {
+watch([stageFilter, statusFilter, riskLevelFilter, ownerFilter, searchFilter, sortQueryParam], () => {
   page.value = 1
   load()
 })
@@ -144,6 +147,7 @@ watch([stageFilter, statusFilter, riskLevelFilter, ownerFilter, sortQueryParam],
   <div>
     <h1>Account Progress</h1>
     <p class="filter-row">
+      <label class="field-label"><span class="field-label-text">Search:</span> <input v-model="searchFilter" type="search" placeholder="username or address..." /></label>
       <label class="field-label"><span class="field-label-text">Stage:</span>
         <select v-model="stageFilter">
           <option value="">All</option>

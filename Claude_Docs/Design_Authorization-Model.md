@@ -93,7 +93,7 @@ Microsoft Entra ID currently caps the number of groups included directly in a to
 ## Admin UI Requirements
 
 - Manage `app_permission` and `app_role` definitions, and which permissions each role bundles (`role_permission`).
-- Add/edit/remove `identity_group_role_map` entries, scoped per provider.
+- Add/edit/remove `identity_group_role_map` entries, scoped per provider. **D-179 (2026-10-09):** the list shows WindowsIntegrated groups by name. `GET /api/admin/group-role-mappings` resolves each stored SID to `DOMAIN\Group` when it's read (`WindowsGroupResolver.TryGetAccountName`, field `groupDisplayName`), so a renamed group shows its current name; the page shows the SID beneath it, or "(name could not be resolved)" if Windows can't resolve it. Other providers' identifiers are shown as stored.
 - A lookup/test tool: given a group name and provider, show which role(s) and resulting permission set it resolves to — useful for verifying a mapping before relying on it.
 - Trigger a Reload Rights action for another user's active session (requires the `ManageGroupRoleMapping` or an equivalent admin permission).
 
