@@ -60,7 +60,10 @@ async function assignSafe(safe, applicationKeyRaw) {
 
     <template v-else>
       <h3>Applications</h3>
-      <p><button type="button" class="btn-primary" @click="router.push({ name: 'admin-application-create' })">+ New Application</button></p>
+      <p>
+        <button type="button" class="btn-primary" @click="router.push({ name: 'admin-application-create' })">+ New Application</button>
+        <button type="button" @click="router.push({ name: 'admin-application-mapping-bulk-import' })">Bulk Actions</button>
+      </p>
       <table>
         <thead>
           <tr><th>Code</th><th>Name</th><th>Owner</th><th></th></tr>

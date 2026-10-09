@@ -4,7 +4,6 @@
 
 ## Requested, not started
 - **Data Sources admin page** (requested 2026-10-08, on hold): manage import sources from the app (enable/disable, settings, status, **Run now**), and add CSV-based systems (groups, accounts, servers, applications). Proposal and agreed answers: `Planning_Data-Sources.md`.
-- **Application ↔ Safe Mapping: CSV import** (requested 2026-10-08). The page has no import today. Follow the existing Targets and Access Groups bulk-import pages (`TargetsBulkImport.vue`, `AccessGroupsBulkImport.vue`).
 
 ## Built, but never proven against a real live service
 - **Azure Key Vault, AWS Secrets Manager, CyberArk Conjur** secrets backends: tested only against unreachable placeholder endpoints (error handling, not a real secret round-trip). CyberArk CP, CCP and Windows DPAPI are verified live.

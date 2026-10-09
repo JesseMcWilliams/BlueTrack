@@ -4,6 +4,7 @@
 
 | Date | Change | User doc / section it affects |
 |---|---|---|
+| 2026-10-09 | Application ↔ Safe Mapping has a **Bulk Actions** page with two CSV imports: Applications (create/update by code) and Safe → Application assignments (D-180). | `User_Guide.md` (Application ↔ Safe Mapping) |
 | 2026-10-09 | Group → Role Mapping shows Windows groups by name (`DOMAIN\Group`), with the stored SID beneath (D-179). | `User_Guide.md` (Group / Role Mapping); `Admin_Installation.md` section 5 |
 | 2026-10-09 | Account Progress has a **Search** box that finds accounts by username or address (D-178). | `User_Guide.md` (Account Progress list) |
 | 2026-10-08 | The nightly Import+Load job supports Privilege-Cloud-only and Self-Hosted-only implementations: the installer asks which sources you have (`-ImportSources`), and `usp_Import_All` takes `@ImportPrivilegeCloud`/`@ImportSelfHosted` for manual imports (D-176). | `Admin_DeploymentRunbook.md` ("First Data Load"); `Admin_OperationsGuide.md`; `Admin_Installation.md`; Installation `.docx` at next release |

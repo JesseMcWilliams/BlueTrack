@@ -27,7 +27,7 @@ The installer was taken to a first real server, DCACYBSQL01 (Windows Server 2022
 184. **`Iis.Reset` (D-175) never ran for real**: it restarts every site on the host, so it was only tested with `-WhatIf`. Check it on the next real install.
 185. **Browser sign-in loop cause not established** (D-172/D-175): a full `iisreset` after the deploy cleared it. If it recurs, capture IIS Failed Request Tracing for `401` before resetting.
 186. **Data Sources page: on hold** (`Planning_Data-Sources.md`). All design questions answered except, per new system, its CSV layout and how its accounts match CyberArk's. The user said "not yet" to building phase 1.
-187. **Backlog "Requested, not started"** (`Planning_Backlog.md`): group names on Group → Role Mapping, CSV import for Application ↔ Safe Mapping, an Account Progress search box (username/address).
+187. ~~Backlog "Requested, not started": group names, Application ↔ Safe CSV import, Account Progress search.~~ **Closed 2026-10-09:** search box (D-178) and group names (D-179) merged in PR #66; the CSV imports (D-180) on branch `2026-10-09-application-safe-csv-import`.
 188. **Backlog *(verify)* items:** CI runner labels in `ci.yml`; whether re-running `Build.Api` alone turns off Windows auth on `/BlueTrack` (its setting may live in the published API's `web.config`).
 189. **Dev host lab site** (`bluetrack.company.com`) serves from `App\Web\dist` with no root `web.config`; deferred by the user (backlog).
 
