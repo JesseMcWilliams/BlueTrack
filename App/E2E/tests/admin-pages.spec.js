@@ -228,6 +228,27 @@ test.describe('Application ↔ Safe Mapping admin page', () => {
       await expect(safeRow.locator('select option:checked')).toHaveText('(none)')
     }
   })
+
+  // D-180: Bulk Actions opens the two CSV imports. The upload uses a file
+  // whose only row is invalid (no ApplicationCode), so it exercises the real
+  // endpoint end to end while creating nothing (applications can't be deleted).
+  test('Bulk Actions opens the CSV imports, and an Applications upload reports its row errors', async ({ page }) => {
+    await signInAs(page, 'TestUser.Admin')
+    await page.goto('/admin/application-mapping')
+
+    await page.getByRole('button', { name: 'Bulk Actions' }).click()
+    await expect(page).toHaveURL(/\/admin\/application-mapping\/bulk-import$/)
+    await expect(page.getByRole('heading', { name: 'Bulk Import: Applications' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Bulk Import: Safe → Application Assignments' })).toBeVisible()
+
+    await page.getByLabel('Applications CSV file').setInputFiles({
+      name: 'apps.csv', mimeType: 'text/csv', buffer: Buffer.from('ApplicationCode,ApplicationName\n,No Code Row\n')
+    })
+    await page.getByRole('button', { name: 'Import' }).first().click()
+    const summary = page.getByTestId('applications-result')
+    await expect(summary).toContainText('1 rows -- 0 created')
+    await expect(summary).toContainText('Row 2: ApplicationCode is required.')
+  })
 })
 
 test.describe('Secrets Store Configuration admin page', () => {

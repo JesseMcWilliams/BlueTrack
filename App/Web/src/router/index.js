@@ -293,6 +293,16 @@ const routes = [
         meta: { breadcrumb: 'New Application', breadcrumbParent: 'admin' },
         component: () => import('../views/admin/ApplicationEdit.vue')
       },
+      // D-180: the two CSV imports (Applications; Safe -> Application
+      // assignments), reached via the page's "Bulk Actions" button like
+      // Targets/Access Groups (D-124 Phase 5). Listed before the
+      // :applicationKey route so 'bulk-import' is never read as a key.
+      {
+        path: 'application-mapping/bulk-import',
+        name: 'admin-application-mapping-bulk-import',
+        meta: { breadcrumb: 'Bulk Actions', breadcrumbParent: 'admin-application-mapping' },
+        component: () => import('../views/admin/ApplicationSafeMappingBulkImport.vue')
+      },
       {
         path: 'application-mapping/:applicationKey',
         name: 'admin-application-edit',

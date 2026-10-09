@@ -84,6 +84,19 @@ public sealed class ApplicationRepository(IDbConnectionFactory connectionFactory
         return rows.AsList();
     }
 
+    /// <summary>D-180: every safe with its source, for the assignments CSV import's name matching.</summary>
+    public async Task<IReadOnlyList<SafeForMatching>> GetSafesForMatchingAsync()
+    {
+        using var connection = connectionFactory.Create();
+        const string sql = """
+            SELECT s.SafeKey, s.SafeName, s.SourceSystemKey, ss.SourceSystemName, s.ApplicationKey
+            FROM dbo.dim_safe s
+            JOIN dbo.dim_source_system ss ON ss.SourceSystemKey = s.SourceSystemKey
+            """;
+        var rows = await connection.QueryAsync<SafeForMatching>(sql);
+        return rows.AsList();
+    }
+
     public async Task AssignSafeApplicationAsync(int safeKey, int? applicationKey)
     {
         using var connection = connectionFactory.Create();

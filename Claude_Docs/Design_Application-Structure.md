@@ -33,7 +33,7 @@ Confirmed 2026-08-27 as a first pass — revise here as screens are added or spl
 - Identity Providers — list/add/edit, enable/disable, test config
 - Group → Role Mapping — CRUD + lookup/test tool + trigger Reload Rights for another user
 - Roles & Permissions — manage `app_role`/`app_permission`/`role_permission`
-- Application ↔ Safe Mapping — curate `dim_application`/`dim_safe.ApplicationKey` (D-31, D-44)
+- Application ↔ Safe Mapping — curate `dim_application`/`dim_safe.ApplicationKey` (D-31, D-44). Its **Bulk Actions** page (`/admin/application-mapping/bulk-import`) has two CSV imports with fixed columns and downloadable templates (D-180): **Applications** (matched by `ApplicationCode`; creates or updates, and a blank cell leaves the field unchanged) and **Safe → Application assignments** (`SafeName`, `Application` as code or name, optional `Source`; without a source every safe of that name is assigned, an existing assignment is overwritten, safes not in the file are untouched). Both report per-row errors and audit-log every change like the page's own edits; `CurateApplicationMapping` guards them.
 - Secrets Store Configuration — active backend + backend-specific settings
 - Field Metadata Management — the governed field-definition list (Interface Extensibility)
 - Audit Log Viewer — searchable/filterable, gated by `ViewAuditLog`
