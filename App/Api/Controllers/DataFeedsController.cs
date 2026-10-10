@@ -244,9 +244,10 @@ public sealed class DataFeedsController(
     private async Task<IActionResult?> ValidateAsync(SaveDataFeedRequest request, int? dataFeedKey)
     {
         var errors = new List<string>();
+        string? duplicate = null;
         if (string.IsNullOrWhiteSpace(request.DisplayName)) errors.Add("Name is required.");
         else if (request.DisplayName.Length > 200) errors.Add("Name must be 200 characters or fewer.");
-        else if (await repository.DisplayNameExistsAsync(request.DisplayName.Trim(), dataFeedKey)) errors.Add($"A data feed named '{request.DisplayName}' already exists.");
+        else if (await repository.DisplayNameExistsAsync(request.DisplayName.Trim(), dataFeedKey)) duplicate = $"A data feed named '{request.DisplayName}' already exists.";
         if (!FeedTypes.ContainsKey(request.FeedType ?? "")) errors.Add("Feed type is not one of the supported imports.");
         if (string.IsNullOrWhiteSpace(request.FolderPath)) errors.Add("Folder path is required.");
         else if (request.FolderPath.Length > 500) errors.Add("Folder path must be 500 characters or fewer.");
@@ -261,8 +262,12 @@ public sealed class DataFeedsController(
             else if (profile is null || profile.FeedType != request.FeedType) errors.Add("The mapping profile isn't one for this feed type.");
         }
 
-        return errors.Count == 0
-            ? null
-            : Problem(title: "Invalid data feed", detail: string.Join(" ", errors), statusCode: StatusCodes.Status400BadRequest);
+        // D-194: invalid fields are 400; a valid request whose name is taken is 409.
+        if (errors.Count > 0)
+        {
+            if (duplicate is not null) errors.Insert(0, duplicate);
+            return Problem(title: "Invalid data feed", detail: string.Join(" ", errors), statusCode: StatusCodes.Status400BadRequest);
+        }
+        return duplicate is null ? null : Problem(title: "Data feed already exists", detail: duplicate, statusCode: StatusCodes.Status409Conflict);
     }
 }

@@ -35,7 +35,8 @@ async function resolve(item, resolution) {
     body: JSON.stringify(body)
   })
   if (!response.ok) {
-    error.value = `Resolve failed: ${response.status}`
+    const problem = await response.json().catch(() => null)
+    error.value = problem?.detail ?? `Resolve failed: ${response.status}`
     return
   }
   await load()

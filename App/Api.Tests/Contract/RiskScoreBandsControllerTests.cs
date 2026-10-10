@@ -70,7 +70,7 @@ public class RiskScoreBandsControllerTests : IClassFixture<BlueTrackWebApplicati
     }
 
     [Fact]
-    public async Task Band_Create_OverlappingRange_Returns400()
+    public async Task Band_Create_OverlappingRange_Returns409()
     {
         var client = AdminClient();
         var firstCreate = await client.PostAsJsonAsync("/api/admin/risk-score-bands", new
@@ -92,7 +92,7 @@ public class RiskScoreBandsControllerTests : IClassFixture<BlueTrackWebApplicati
                 maxScore = 6150,
                 riskOrder = 990
             });
-            Assert.Equal(HttpStatusCode.BadRequest, overlappingCreate.StatusCode);
+            Assert.Equal(HttpStatusCode.Conflict, overlappingCreate.StatusCode);
         }
         finally
         {

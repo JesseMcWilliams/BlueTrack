@@ -73,8 +73,8 @@ public class DataFeedsControllerTests : IClassFixture<BlueTrackWebApplicationFac
 
         try
         {
-            // Duplicate name.
-            Assert.Equal(HttpStatusCode.BadRequest, (await client.PostAsJsonAsync("/api/admin/data-feeds", Feed(name, folder, "*.csv"))).StatusCode);
+            // Duplicate name: a conflict, not an invalid request (D-194).
+            Assert.Equal(HttpStatusCode.Conflict, (await client.PostAsJsonAsync("/api/admin/data-feeds", Feed(name, folder, "*.csv"))).StatusCode);
 
             // Test with no file yet, then with one.
             var noFile = await (await client.PostAsJsonAsync("/api/admin/data-feeds/test", new { folderPath = folder, fileNamePattern = "safes_{yyyy-MM-dd}.csv" }))

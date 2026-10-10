@@ -153,9 +153,17 @@ public sealed class AccessGroupsController(
         var user = await currentUserResolver.ResolveAsync(User);
         if (user is null) return Unauthorized();
 
-        var key = await repository.CreateAsync(request, user.UserKey);
-        await auditLogger.LogAsync("FieldEdit", user.UserKey, "dim_access_group", key.ToString(), detail: $"Access Group '{request.GroupName}' created");
-        return CreatedAtAction(nameof(GetAll), new { }, new { accessGroupKey = key });
+        // D-122: a duplicate (GroupName, GroupIdentifier, FoundOnTargetKey) is a 409 Conflict with a message, not an unhandled SQL error.
+        try
+        {
+            var key = await repository.CreateAsync(request, user.UserKey);
+            await auditLogger.LogAsync("FieldEdit", user.UserKey, "dim_access_group", key.ToString(), detail: $"Access Group '{request.GroupName}' created");
+            return CreatedAtAction(nameof(GetAll), new { }, new { accessGroupKey = key });
+        }
+        catch (RiskScoring.DuplicateAccessGroupException ex)
+        {
+            return Conflict(new { message = ex.Message });
+        }
     }
 
     [HttpPut("{accessGroupKey:int}")]
@@ -164,9 +172,16 @@ public sealed class AccessGroupsController(
         var user = await currentUserResolver.ResolveAsync(User);
         if (user is null) return Unauthorized();
 
-        await repository.UpdateAsync(accessGroupKey, request, user.UserKey);
-        await auditLogger.LogAsync("FieldEdit", user.UserKey, "dim_access_group", accessGroupKey.ToString(), detail: $"Access Group '{request.GroupName}' updated");
-        return NoContent();
+        try
+        {
+            await repository.UpdateAsync(accessGroupKey, request, user.UserKey);
+            await auditLogger.LogAsync("FieldEdit", user.UserKey, "dim_access_group", accessGroupKey.ToString(), detail: $"Access Group '{request.GroupName}' updated");
+            return NoContent();
+        }
+        catch (RiskScoring.DuplicateAccessGroupException ex)
+        {
+            return Conflict(new { message = ex.Message });
+        }
     }
 
     [HttpDelete("{accessGroupKey:int}")]

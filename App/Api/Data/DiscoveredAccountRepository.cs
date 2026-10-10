@@ -1,3 +1,4 @@
+using BlueTrack.Api.Errors;
 using System.Data;
 using Dapper;
 using BlueTrack.Api.Models;
@@ -119,6 +120,10 @@ public sealed class DiscoveredAccountRepository(IDbConnectionFactory connectionF
         var candidate = await connection.QuerySingleOrDefaultAsync<(string DomainName, string SamAccountName, string? DisplayName, string? ObjectSid, string Status, long? ResolvedAccountKey)>(
             "SELECT DomainName, SamAccountName, DisplayName, ObjectSid, Status, ResolvedAccountKey FROM web.discovered_account WHERE DiscoveredAccountKey = @DiscoveredAccountKey",
             new { DiscoveredAccountKey = discoveredAccountKey }, transaction);
+        if (candidate.Status is null)
+        {
+            throw ApiProblemException.NotFound($"Discovered account {discoveredAccountKey} doesn't exist.");
+        }
 
         if (candidate.Status == "Accepted" && candidate.ResolvedAccountKey is not null)
         {
@@ -128,7 +133,8 @@ public sealed class DiscoveredAccountRepository(IDbConnectionFactory connectionF
 
         if (string.IsNullOrWhiteSpace(candidate.ObjectSid))
         {
-            throw new InvalidOperationException($"Discovered account {discoveredAccountKey} has no ObjectSid recorded -- cannot accept without a stable unique identifier.");
+            // D-194: 409 -- the record itself (not the request) lacks what accepting needs.
+            throw ApiProblemException.Conflict("This discovered account has no SID recorded, so it can't be accepted without a stable unique identifier.");
         }
 
         var accountName = string.IsNullOrWhiteSpace(candidate.DisplayName)
@@ -183,13 +189,18 @@ public sealed class DiscoveredAccountRepository(IDbConnectionFactory connectionF
     public async Task DismissAsync(int discoveredAccountKey, int reviewedByUserKey)
     {
         using var connection = connectionFactory.Create();
-        await connection.ExecuteAsync(
+        // D-194: an Accepted candidate already has an account in tracking, so dismissing it is a 409; a missing one is 404.
+        var status = await connection.QuerySingleOrDefaultAsync<string?>(
             """
+            DECLARE @Status NVARCHAR(50) = (SELECT Status FROM web.discovered_account WHERE DiscoveredAccountKey = @DiscoveredAccountKey);
             UPDATE web.discovered_account
             SET Status = 'Dismissed', ReviewedBy = @ReviewedByUserKey, ReviewedDate = SYSUTCDATETIME()
-            WHERE DiscoveredAccountKey = @DiscoveredAccountKey
+            WHERE DiscoveredAccountKey = @DiscoveredAccountKey AND Status <> 'Accepted';
+            SELECT @Status;
             """,
             new { ReviewedByUserKey = reviewedByUserKey, DiscoveredAccountKey = discoveredAccountKey });
+        if (status is null) throw ApiProblemException.NotFound($"Discovered account {discoveredAccountKey} doesn't exist.");
+        if (status == "Accepted") throw ApiProblemException.Conflict("This discovered account was already accepted into tracking, so it can't be dismissed.");
     }
 
     /// <summary>Replace-all-on-save -- mirrors TargetRepository's own convention for a Target's identifiers (small nested collection, no incremental diffing).</summary>

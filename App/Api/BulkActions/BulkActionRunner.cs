@@ -50,10 +50,10 @@ public sealed class BulkActionRunner(AppConfigRepository appConfigRepository)
             {
                 skipped.Add(new BulkSkippedItem { Key = key, Name = ex.Name, Reason = ex.Message });
             }
-            catch (Microsoft.Data.SqlClient.SqlException ex) when (ex.Number == 547)
+            catch (Microsoft.Data.SqlClient.SqlException ex) when (Errors.SqlConstraintExceptionHandler.Classify(ex) is { } constraint)
             {
-                // A foreign key refused it, e.g. deleting a Target that access groups or accounts still point at.
-                skipped.Add(new BulkSkippedItem { Key = key, Reason = "Other records still use it, so it can't be deleted or changed this way." });
+                // D-194: a constraint refused it, e.g. deleting a Target that access groups or accounts still point at.
+                skipped.Add(new BulkSkippedItem { Key = key, Reason = constraint.Detail });
             }
             catch (Exception ex)
             {

@@ -459,6 +459,86 @@ public class TargetsAndAccessGroupsControllerTests : IClassFixture<BlueTrackWebA
         public string DisplayName { get; set; } = "";
     }
 
+    /// <summary>
+    /// D-122: an exact duplicate (same name and identifier, both Domain scope)
+    /// is a 409 Conflict with a message, not an unhandled 500.
+    /// </summary>
+    [Fact]
+    public async Task AccessGroup_Create_DuplicateNameIdentifierFoundOn_Returns409WithAMessage()
+    {
+        var client = AdminClient();
+        var identifier = $"CN=ContractTestDuplicateGroup_{Guid.NewGuid():N}";
+        var body = new { groupName = "Contract Test Duplicate Group", groupIdentifier = identifier, groupScope = "Domain", baseRiskScore = 300 };
+
+        var firstCreate = await client.PostAsJsonAsync("/api/admin/access-groups", body);
+        Assert.Equal(HttpStatusCode.Created, firstCreate.StatusCode);
+        var first = await firstCreate.Content.ReadFromJsonAsync<AccessGroupKeyResponse>();
+
+        try
+        {
+            var duplicate = await client.PostAsJsonAsync("/api/admin/access-groups", body);
+            Assert.Equal(HttpStatusCode.Conflict, duplicate.StatusCode);
+            var problem = await duplicate.Content.ReadFromJsonAsync<System.Text.Json.Nodes.JsonObject>();
+            Assert.Contains("already exists", problem!["message"]!.GetValue<string>());
+        }
+        finally
+        {
+            await client.DeleteAsync($"/api/admin/access-groups/{first!.AccessGroupKey}");
+        }
+    }
+
+    /// <summary>D-194: constraint violations with no endpoint-specific check reach SqlConstraintExceptionHandler -- 409 with a message, never a 500.</summary>
+    [Fact]
+    public async Task Target_DuplicateIdentifier_And_DeleteWhileInUse_Return409()
+    {
+        var client = AdminClient();
+        var serverTypeKey = await GetTargetTypeKeyAsync(client, "Server");
+        var identifier = new { identifierType = "Hostname", identifierValue = $"host-{Guid.NewGuid():N}" };
+        object Target() => new { targetTypeKey = serverTypeKey, targetName = $"ContractTestTarget_{Guid.NewGuid():N}", riskScore = 500, identifiers = new[] { identifier } };
+
+        var firstCreate = await client.PostAsJsonAsync("/api/admin/targets", Target());
+        Assert.Equal(HttpStatusCode.Created, firstCreate.StatusCode);
+        var target = (await firstCreate.Content.ReadFromJsonAsync<TargetKeyResponse>())!.TargetKey;
+        int? group = null;
+
+        try
+        {
+            var duplicate = await client.PostAsJsonAsync("/api/admin/targets", Target());
+            Assert.Equal(HttpStatusCode.Conflict, duplicate.StatusCode);
+            var problem = await duplicate.Content.ReadFromJsonAsync<System.Text.Json.Nodes.JsonObject>();
+            Assert.Contains("already exists", problem!["detail"]!.GetValue<string>());
+            Assert.Equal(problem["detail"]!.GetValue<string>(), problem["message"]!.GetValue<string>());
+
+            var groupCreate = await client.PostAsJsonAsync("/api/admin/access-groups", new
+            {
+                groupName = "Contract Test In-Use Group",
+                groupIdentifier = $"ContractTestLocalGroup_{Guid.NewGuid():N}",
+                groupScope = "Local",
+                foundOnTargetKey = target,
+                baseRiskScore = 300
+            });
+            Assert.Equal(HttpStatusCode.Created, groupCreate.StatusCode);
+            group = (await groupCreate.Content.ReadFromJsonAsync<AccessGroupKeyResponse>())!.AccessGroupKey;
+
+            var inUseDelete = await client.DeleteAsync($"/api/admin/targets/{target}");
+            Assert.Equal(HttpStatusCode.Conflict, inUseDelete.StatusCode);
+            Assert.Contains("still use it", (await inUseDelete.Content.ReadFromJsonAsync<System.Text.Json.Nodes.JsonObject>())!["detail"]!.GetValue<string>());
+        }
+        finally
+        {
+            if (group is not null) await client.DeleteAsync($"/api/admin/access-groups/{group}");
+            await client.DeleteAsync($"/api/admin/targets/{target}");
+        }
+    }
+
+    /// <summary>D-194: resolving a review that doesn't exist is 404, not a 500.</summary>
+    [Fact]
+    public async Task TargetMatchReview_ResolveMissing_Returns404()
+    {
+        var response = await AdminClient().PostAsJsonAsync("/api/admin/risk-scoring/target-match-review/0/resolve", new { resolution = "Ignored" });
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
     private sealed class AccessGroupKeyResponse
     {
         public int AccessGroupKey { get; set; }

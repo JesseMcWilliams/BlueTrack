@@ -113,7 +113,8 @@ async function extendReview() {
       body: JSON.stringify({ newReviewDate: newReviewDate.value })
     })
     if (!response.ok) {
-      throw new Error(`Request failed: ${response.status}`)
+      const problem = await response.json().catch(() => null)
+      throw new Error(problem?.detail ?? `Request failed: ${response.status}`)
     }
     detail.value.reviewDate = newReviewDate.value
   } catch (err) {

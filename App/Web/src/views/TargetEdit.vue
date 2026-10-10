@@ -87,7 +87,8 @@ async function save() {
       body: JSON.stringify(editing.value)
     })
     if (!response.ok) {
-      saveError.value = `Save failed: ${response.status}`
+      const problem = await response.json().catch(() => null)
+      saveError.value = problem?.detail ?? `Save failed: ${response.status}`
       return
     }
     router.push({ name: 'targets' })
