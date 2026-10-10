@@ -10,9 +10,9 @@ Set-StrictMode -Version Latest
 function Backup-BlueTrackForRollback {
     <#
     .SYNOPSIS
-        Backs up the BlueTrack database (and, optionally, msdb) to a timestamped
-        .bak file, verifies it, and writes a manifest recording what was backed
-        up and which commit it preceded.
+        Backs up the BlueTrack database (and, optionally, msdb) to a
+        timestamped backup (.bak) file, verifies it, and writes a manifest
+        recording what was backed up and which commit it preceded.
     .DESCRIPTION
         -IncludeMsdb is opt-in, not automatic: SQL Server Agent job definitions
         (e.g. the nightly Import+Load job, Database/14_BlueTrack_ScheduleImportLoadJob.sql)
@@ -228,6 +228,7 @@ function Test-BlueTrackDatabaseHasExistingSchema {
         worth backing up (a genuinely fresh/empty database does not).
     #>
     [CmdletBinding()]
+    [OutputType([bool])]
     param(
         [Parameter(Mandatory)] [string]$ConnectionString,
         [Parameter(Mandatory)] [string]$DatabaseName

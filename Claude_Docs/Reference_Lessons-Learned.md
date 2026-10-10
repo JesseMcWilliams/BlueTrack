@@ -172,6 +172,8 @@ While tracking down a batch of E2E failures that looked like the already-documen
 
 ## Tooling note
 
+- **A help line starting with `.` silently discards the whole comment-based help (2026-10-09):** PowerShell reads any line in a `<# ... #>` help block that begins with `.word` as a help keyword; an unknown one (a wrapped line starting `.bak file, ...`) makes it ignore the block, so `Get-Help` shows only the syntax and PSScriptAnalyzer reports `PSProvideCommentHelp` although help is there. Don't wrap a line so it starts with a period.
+
 - **An E2E test that opens an account as an editor holds its edit lock (2026-10-09):** the detail page takes the lock on load, and closing the page doesn't release it. A later test (or a re-run within `LockTimeoutMinutes`) then finds that account "being edited" and bulk edits skip it. Release it in the test's cleanup: `page.request.delete('/api/account-progress/<key>/lock')`.
 
 - **`sqlcmd` needs `-I` for these scripts (2026-10-09):** without it, `sqlcmd` runs with `QUOTED_IDENTIFIER OFF`, and a procedure created that way fails at run time on any table with a computed column or filtered index (e.g. `web.account_risk_score`): "MERGE failed because the following SET options have incorrect settings: 'QUOTED_IDENTIFIER'". The Migrator always has it on. When applying a script by hand, use `sqlcmd -I`.

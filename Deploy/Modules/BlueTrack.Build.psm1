@@ -13,6 +13,7 @@ function Publish-BlueTrackApi {
         The publish output directory path, on success. Throws on failure.
     #>
     [CmdletBinding(SupportsShouldProcess)]
+    [OutputType([string])]
     param(
         [Parameter(Mandatory)] [string]$RepoRoot,
         [Parameter(Mandatory)] [string]$OutputDirectory
