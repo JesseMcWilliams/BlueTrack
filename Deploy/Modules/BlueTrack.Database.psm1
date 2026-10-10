@@ -137,7 +137,7 @@ function Install-BlueTrackNightlyJob {
     <#
     .SYNOPSIS
         Installs the nightly Import+Load SQL Agent job by generating a temp
-        copy of Database/14_BlueTrack_ScheduleImportLoadJob.sql with the two
+        copy of Database/Manual/04_BlueTrack_ScheduleImportLoadJob.sql with the two
         hardcoded literals (export folder, EVD database name) substituted for
         this environment's real values, then running it via sqlcmd.
     .DESCRIPTION
@@ -167,7 +167,7 @@ function Install-BlueTrackNightlyJob {
     if ($importPrivilegeCloud -and -not $ExportFolderPath) { throw "ImportSources '$ImportSources' includes Privilege Cloud, so -ExportFolderPath is required." }
     if ($importSelfHosted -and -not $EvdDatabaseName) { throw "ImportSources '$ImportSources' includes Self-Hosted, so -EvdDatabaseName is required." }
 
-    $sourceScript = Join-Path $RepoRoot 'Database\14_BlueTrack_ScheduleImportLoadJob.sql'
+    $sourceScript = Join-Path $RepoRoot 'Database\Manual\04_BlueTrack_ScheduleImportLoadJob.sql'
     if (-not (Test-Path $sourceScript)) {
         throw "Could not find '$sourceScript'."
     }
@@ -183,17 +183,17 @@ function Install-BlueTrackNightlyJob {
     $originalEvdLiteral = "N''CyberArkSH''"
 
     if ($content -notmatch [regex]::Escape($originalFolderLiteral)) {
-        throw "Did not find the expected export-folder literal in 14_BlueTrack_ScheduleImportLoadJob.sql -- the script may have changed upstream. Update this function's substitution logic before continuing."
+        throw "Did not find the expected export-folder literal in 04_BlueTrack_ScheduleImportLoadJob.sql -- the script may have changed upstream. Update this function's substitution logic before continuing."
     }
     if ($content -notmatch [regex]::Escape($originalEvdLiteral)) {
-        throw "Did not find the expected EVD-database-name literal in 14_BlueTrack_ScheduleImportLoadJob.sql -- the script may have changed upstream. Update this function's substitution logic before continuing."
+        throw "Did not find the expected EVD-database-name literal in 04_BlueTrack_ScheduleImportLoadJob.sql -- the script may have changed upstream. Update this function's substitution logic before continuing."
     }
 
     # The two source flags, exact text in Step 1 (D-176).
     $originalPcFlag = '@ImportPrivilegeCloud = 1,'
     $originalShFlag = '@ImportSelfHosted = 1;'
     if (-not $content.Contains($originalPcFlag) -or -not $content.Contains($originalShFlag)) {
-        throw "Did not find the expected @ImportPrivilegeCloud / @ImportSelfHosted lines in 14_BlueTrack_ScheduleImportLoadJob.sql -- the script may have changed upstream. Update this function's substitution logic before continuing."
+        throw "Did not find the expected @ImportPrivilegeCloud / @ImportSelfHosted lines in 04_BlueTrack_ScheduleImportLoadJob.sql -- the script may have changed upstream. Update this function's substitution logic before continuing."
     }
 
     $normalizedFolder = '(not used)'
@@ -209,7 +209,7 @@ function Install-BlueTrackNightlyJob {
     $content = $content.Replace($originalPcFlag, "@ImportPrivilegeCloud = $([int]$importPrivilegeCloud),")
     $content = $content.Replace($originalShFlag, "@ImportSelfHosted = $([int]$importSelfHosted);")
 
-    $tempScript = Join-Path $env:TEMP "14_BlueTrack_ScheduleImportLoadJob.$([guid]::NewGuid()).sql"
+    $tempScript = Join-Path $env:TEMP "04_BlueTrack_ScheduleImportLoadJob.$([guid]::NewGuid()).sql"
     Set-Content -Path $tempScript -Value $content -Encoding UTF8
 
     try {
@@ -230,7 +230,7 @@ function Grant-BlueTrackAppPoolSqlAccess {
     .SYNOPSIS
         Gives the IIS Application Pool's account the SQL Server access the API
         needs (D-170): CREATE LOGIN if it's missing, then
-        Database/41_BlueTrack_GrantAppServiceAccountAccess.sql for that account.
+        Database/Manual/02_BlueTrack_GrantAppServiceAccountAccess.sql for that account.
     .DESCRIPTION
         Script 41's own rules still apply: least privilege (db_datareader,
         db_datawriter, EXECUTE on dbo/web -- not db_owner), and the tracked
@@ -254,13 +254,13 @@ function Grant-BlueTrackAppPoolSqlAccess {
         throw "'$Account' isn't a DOMAIN\Name account name this step can safely substitute into SQL."
     }
 
-    $sourceScript = Join-Path $RepoRoot 'Database\41_BlueTrack_GrantAppServiceAccountAccess.sql'
+    $sourceScript = Join-Path $RepoRoot 'Database\Manual\02_BlueTrack_GrantAppServiceAccountAccess.sql'
     if (-not (Test-Path $sourceScript)) {
         throw "Could not find '$sourceScript'."
     }
 
     $createLogin = "IF NOT EXISTS (SELECT 1 FROM sys.server_principals WHERE name = N'$Account') CREATE LOGIN [$Account] FROM WINDOWS;"
-    $tempScript = Join-Path $env:TEMP "41_BlueTrack_GrantAppServiceAccountAccess.$([guid]::NewGuid()).sql"
+    $tempScript = Join-Path $env:TEMP "02_BlueTrack_GrantAppServiceAccountAccess.$([guid]::NewGuid()).sql"
     Set-Content -Path $tempScript -Value ((Get-Content -Path $sourceScript -Raw).Replace('__TARGET_ACCOUNT__', $Account)) -Encoding UTF8
 
     try {
@@ -270,7 +270,7 @@ function Grant-BlueTrackAppPoolSqlAccess {
                 throw "sqlcmd failed creating the SQL Server login for '$Account' (exit code $LASTEXITCODE). The installing user needs the securityadmin (or sysadmin) server role."
             }
         }
-        if ($PSCmdlet.ShouldProcess("$SqlServerInstance / $DatabaseName", "Run 41_BlueTrack_GrantAppServiceAccountAccess.sql for '$Account'")) {
+        if ($PSCmdlet.ShouldProcess("$SqlServerInstance / $DatabaseName", "Run 02_BlueTrack_GrantAppServiceAccountAccess.sql for '$Account'")) {
             # Script 41 starts with :on error exit (D-167), so its first
             # failure stops it and sets a nonzero exit code.
             & sqlcmd -S $SqlServerInstance -C -d $DatabaseName -i $tempScript | Out-Host

@@ -78,7 +78,7 @@ public sealed class GroupRoleMappingsController(
 
     /// <summary>
     /// D-107/Archive_Planning_Outstanding-Work-Survey-2026-09-16.md: generates a filled-in copy of
-    /// Database/38_BlueTrack_GrantBackupStatusReaderRole.sql, targeting
+    /// Database/Manual/03_BlueTrack_GrantBackupStatusReaderRole.sql, targeting
     /// whichever group the admin just resolved, for a DBA to run manually
     /// via sqlcmd (Option B -- never through App/Migrator, see that
     /// script's own header). Same "resolve, then act" shape as

@@ -1,12 +1,12 @@
 /* ============================================================================
-   14_BlueTrack_ScheduleImportLoadJob.sql
+   04_BlueTrack_ScheduleImportLoadJob.sql
 
-   Split 2026-09-05: renumbered from 09_BlueTrack_ScheduleImportLoadJob.sql
-   as part of the broader script restructure (see Database/README.md), and
-   moved to run last in the sequence (after every schema/seed script) since
-   it's purely operational scheduling with no schema of its own -- the same
-   reasoning that already placed 07_BlueTrack_SourceImport.sql after the
-   schema/ETL files. While reviewing this file against the D-89 lesson
+   D-195: this folder (Database/Manual) holds the scripts App/Migrator never
+   runs -- it reads only the top level of Database/. Each is run by hand
+   (sqlcmd or SSMS) or by Deploy/Install-BlueTrack.ps1.
+
+   Purely operational scheduling, with no schema of its own. While
+   reviewing this file against the D-89 lesson
    (never hardcode a target database name -- a prior real incident where a
    hardcoded name caused the real BlueTrack database to be dropped/recreated
    instead of the intended BlueTrackTest), found and fixed one: both
@@ -30,12 +30,12 @@
    App/Migrator -- changed to sqlcmd's `$(DatabaseName)` scripting-variable
    syntax once that assumption turned out to be wrong; see below.)
 
-   RUN THIS AFTER 01-13, once Import and Load have both been run manually
-   at least once and confirmed working (see Import_Load_Process_Guide.docx).
+   RUN THIS once the database is built and Import and Load have both been
+   run manually at least once and confirmed working (see
+   Import_Load_Process_Guide.docx). Deploy/Install-BlueTrack.ps1's nightly
+   job option runs a filled-in copy of it for you.
 
-   NEVER run this through App/Migrator -- it always excludes this exact
-   filename defensively, for every environment (see Program.cs's own
-   comment). Confirmed 2026-09-05 against the real BlueTrack database:
+   Not a Migrator script. Confirmed 2026-09-05 against the real BlueTrack database:
    this script's own `USE msdb;` succeeds and creates the job correctly,
    but DbUp then tries to write ITS OWN journal entry for this script
    against whatever database the connection is now on -- msdb, since this
@@ -47,7 +47,7 @@
    syntax is `$(DatabaseName)`, not `$DatabaseName$`, since sqlcmd doesn't
    understand DbUp's own token format:
 
-       sqlcmd -S <server> -C -v DatabaseName="BlueTrack" -i 14_BlueTrack_ScheduleImportLoadJob.sql
+       sqlcmd -S <server> -C -v DatabaseName="BlueTrack" -i 04_BlueTrack_ScheduleImportLoadJob.sql
 
    In SSMS, enable SQLCMD Mode first (Query menu), or use `:setvar DatabaseName "BlueTrack"`
    as the file's first line before running it.
@@ -91,7 +91,7 @@
    -- even though usp_Import_All has always required it. Fixed in the guide
    at the same time as this script was added.
 
-   SOURCE SELECTION (D-176, needs 42_BlueTrack_ImportSourceSelection.sql):
+   SOURCE SELECTION (D-176):
    the Import step passes @ImportPrivilegeCloud and @ImportSelfHosted to
    usp_Import_All. Both are 1 below (import both sources). For a
    Privilege-Cloud-only implementation set @ImportSelfHosted = 0; for a

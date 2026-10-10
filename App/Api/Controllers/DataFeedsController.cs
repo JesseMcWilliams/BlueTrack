@@ -27,7 +27,7 @@ public sealed class DataFeedsController(
     CurrentUserResolver currentUserResolver,
     AuditLogger auditLogger) : ControllerBase
 {
-    /// <summary>The CHECK constraint's values in 43_BlueTrack_DataFeeds.sql, with the labels the page shows.</summary>
+    /// <summary>The CHECK constraint's values in 04_BlueTrack_Baseline_WebSchema.sql, with the labels the page shows.</summary>
     public static readonly IReadOnlyDictionary<string, string> FeedTypes = new Dictionary<string, string>
     {
         ["TargetInventory"] = "Target inventory",

@@ -105,11 +105,11 @@ public sealed class DiscoveredAccountRepository(IDbConnectionFactory connectionF
     /// usp_Load_FactAccountProgress's own shape -- AccountTypeKey/SORKey
     /// left NULL, same as any account with no PlatformKey yet) rather than
     /// waiting for the next nightly Load, so it shows up in the Account
-    /// Progress list immediately. Requires
-    /// Database/36_BlueTrack_FixAutoAdvanceForDiscoveredAccounts.sql to
-    /// already be applied -- without it, the next nightly Load would wrongly
-    /// auto-promote this account straight to "Onboarded to Vault" (see that
-    /// script's own header for the full explanation).
+    /// Progress list immediately. Relies on usp_Load_AccountProgressAutoAdvance
+    /// (Database/02_BlueTrack_Baseline_EtlLoads.sql) skipping DISCOVERY-sourced
+    /// accounts -- otherwise the next nightly Load would wrongly auto-promote
+    /// this account straight to "Onboarded to Vault" (see the comment above
+    /// that procedure).
     /// </summary>
     public async Task<long> AcceptAsync(int discoveredAccountKey, int reviewedByUserKey)
     {

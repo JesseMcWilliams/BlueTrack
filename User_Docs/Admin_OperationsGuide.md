@@ -42,15 +42,15 @@ There are still no down-scripts for the numbered `Database/*.sql` files — full
 
 ## Granting `db_backupstatus_reader`
 
-The Deployment admin page's SQL Server backup-status check reads `msdb.dbo.backupset` (and related tables) — something BlueTrack's own least-privileged SQL account cannot do by default, and something the application can never grant to itself (a connection can't widen its own permissions from inside itself). `Database/38_BlueTrack_GrantBackupStatusReaderRole.sql` creates a dedicated `db_backupstatus_reader` role with exactly the `SELECT` grants needed, and adds a specific account or group to it.
+The Deployment admin page's SQL Server backup-status check reads `msdb.dbo.backupset` (and related tables) — something BlueTrack's own least-privileged SQL account cannot do by default, and something the application can never grant to itself (a connection can't widen its own permissions from inside itself). `Database/Manual/03_BlueTrack_GrantBackupStatusReaderRole.sql` creates a dedicated `db_backupstatus_reader` role with exactly the `SELECT` grants needed, and adds a specific account or group to it.
 
-**Never run this through `App/Migrator`** — like `14_BlueTrack_ScheduleImportLoadJob.sql`, it targets `msdb`, not the BlueTrack database, and Migrator always excludes it for that structural reason (see the script's own header and `Database/README.md`).
+**Never run this through `App/Migrator`** — like `04_BlueTrack_ScheduleImportLoadJob.sql`, it targets `msdb`, not the BlueTrack database, and Migrator always excludes it for that structural reason (see the script's own header and `Database/README.md`).
 
 ### Getting a filled-in copy
 
 The easiest path: on the **Group / Role Mapping** admin page, resolve the AD group that should be able to read backup status, then click **Generate db_backupstatus_reader Script** (see `User_Guide.md` for the exact UI steps) — this downloads a copy of the script with that group already substituted in.
 
-Alternatively, edit `Database/38_BlueTrack_GrantBackupStatusReaderRole.sql` directly, replacing its `__TARGET_ACCOUNT__` placeholder by hand with the login/account that should be able to read backup status (e.g. `DOMAIN\BlueTrackAppPoolAccount`, or a resolved AD group's account name).
+Alternatively, edit `Database/Manual/03_BlueTrack_GrantBackupStatusReaderRole.sql` directly, replacing its `__TARGET_ACCOUNT__` placeholder by hand with the login/account that should be able to read backup status (e.g. `DOMAIN\BlueTrackAppPoolAccount`, or a resolved AD group's account name).
 
 ### Running it
 
@@ -66,12 +66,12 @@ sqlcmd -S <server> -C -i Grant-db_backupstatus_reader-<account>.sql
 
 ## Granting the app's own SQL Server access
 
-D-30's own design principle ("Windows Integrated Authentication to SQL Server — no SQL login, no standing secret") was never turned into an actual scripted grant until `Database/41_BlueTrack_GrantAppServiceAccountAccess.sql` (D-164). It grants `db_datareader` + `db_datawriter` + `EXECUTE` on `dbo`/`web` — least-privilege, not `db_owner` — to whichever account the app connects as.
+D-30's own design principle ("Windows Integrated Authentication to SQL Server — no SQL login, no standing secret") was never turned into an actual scripted grant until `Database/Manual/02_BlueTrack_GrantAppServiceAccountAccess.sql` (D-164). It grants `db_datareader` + `db_datawriter` + `EXECUTE` on `dbo`/`web` — least-privilege, not `db_owner` — to whichever account the app connects as.
 
 **Never run this through `App/Migrator`** — same reasoning as `db_backupstatus_reader` above: granting a real account real permissions is a deliberate, DBA-run action, and its `__TARGET_ACCOUNT__` placeholder would hard-fail if ever run unedited.
 
 ```
-sqlcmd -S <server> -C -d BlueTrack -i 41_BlueTrack_GrantAppServiceAccountAccess.sql
+sqlcmd -S <server> -C -d BlueTrack -i 02_BlueTrack_GrantAppServiceAccountAccess.sql
 ```
 
 **Which account to grant it to (D-171)**: for an IIS App Pool using the default `ApplicationPoolIdentity`, it depends on where SQL Server runs. On the **same machine** as IIS (BlueTrack's normal single-server layout), grant `IIS APPPOOL\<pool>` (e.g. `IIS APPPOOL\BlueTrack-AppPool`) — confirmed on two hosts. On **another machine**, grant the computer account, `DOMAIN\HOSTNAME$` (standard Windows behavior, not yet tested on a BlueTrack host). A gMSA or service account App Pool is always that account. `.\Install-BlueTrack.ps1 -Step Db.AppPoolAccess -GrantAppPoolSqlAccess $true` works this out and does the grant. The same two prerequisites as `db_backupstatus_reader` above apply (a real SQL Server login, then a database user for it — this script's own guarded `CREATE USER` step handles the second one for you).
@@ -84,11 +84,11 @@ Unlike the two features above, `EnforceRiskExceptionSegregationOfDuties` (Global
 
 ## The Nightly Import + Load Job
 
-The Import+Load SQL Agent job (`Database/14_BlueTrack_ScheduleImportLoadJob.sql`, created once per environment per `Admin_DeploymentRunbook.md` step 5) runs at 2:00 AM, two steps — Import (refreshes staging from the Privilege Cloud/Self-Hosted exports), then Load (`usp_RunFullLoad`, which also drives the risk-scoring recalculation and the AD Account Discovery nightly pass). It lives entirely in `msdb`, like `db_backupstatus_reader` above — there's no in-app UI showing whether last night's run succeeded.
+The Import+Load SQL Agent job (`Database/Manual/04_BlueTrack_ScheduleImportLoadJob.sql`, created once per environment per `Admin_DeploymentRunbook.md` step 5) runs at 2:00 AM, two steps — Import (refreshes staging from the Privilege Cloud/Self-Hosted exports), then Load (`usp_RunFullLoad`, which also drives the risk-scoring recalculation and the AD Account Discovery nightly pass). It lives entirely in `msdb`, like `db_backupstatus_reader` above — there's no in-app UI showing whether last night's run succeeded.
 
 **Deleted accounts (D-184):** an account the CyberArk export marks as deleted is never added to BlueTrack. If BlueTrack already has it, it's kept and flagged as deleted, so its progress, exceptions and history remain; an account that disappears from the export is flagged the same way. Privilege Cloud uses the export's `Deleted` column. Self-Hosted uses the file's deletion date (`CAFDeletionDate`), counted only when it's a real date: some versions write the epoch (1970-01-01) as a placeholder, so a date before 1970-01-02, or one earlier than the account's creation date, is ignored.
 
-**Ignored safes (D-186):** accounts in a safe matching the *ignored safe pattern* (Global Application Configuration) aren't imported, and ones already imported are flagged deleted. Regex patterns need SQL Server 2025; after upgrading SQL Server (and the database's compatibility level to 170), re-run `Database/48_BlueTrack_DecommissionPatterns.sql` once to turn Regex on.
+**Ignored safes (D-186):** accounts in a safe matching the *ignored safe pattern* (Global Application Configuration) aren't imported, and ones already imported are flagged deleted. Regex patterns need SQL Server 2025; after upgrading SQL Server (and the database's compatibility level to 170), re-run `Database/02_BlueTrack_Baseline_EtlLoads.sql` once to turn Regex on.
 
 **Checking whether it ran, and how it went:**
 ```sql
@@ -106,12 +106,12 @@ ORDER BY h.instance_id DESC;
 
 ## The Audit Log Purge Job
 
-`RetentionDays` (Global Application Configuration) is backed by a real nightly purge as of 2026-09-21 — `Database/39_BlueTrack_AuditLogPurgeProcedure.sql` (`usp_PurgeAuditLog`, built to `Claude_Docs/Design_Audit-Logging.md`'s original D-62 design) and `Database/40_BlueTrack_ScheduleAuditLogPurgeJob.sql` (the SQL Agent job scheduling it). Same `msdb`-only, never-through-`App/Migrator` pattern as the Import+Load job above and `db_backupstatus_reader` — `39` is a normal DbUp-managed script, only `40` needs manual/`sqlcmd` installation.
+`RetentionDays` (Global Application Configuration) is backed by a real nightly purge as of 2026-09-21 — `Database/06_BlueTrack_Baseline_WebLogic.sql` (`usp_PurgeAuditLog`, built to `Claude_Docs/Design_Audit-Logging.md`'s original D-62 design) and `Database/Manual/05_BlueTrack_ScheduleAuditLogPurgeJob.sql` (the SQL Agent job scheduling it). Same `msdb`-only, never-through-`App/Migrator` pattern as the Import+Load job above and `db_backupstatus_reader` — `39` is a normal DbUp-managed script, only `40` needs manual/`sqlcmd` installation.
 
 Runs nightly at **3:00 AM**, one hour after Import+Load, so a long ETL run never overlaps the purge. Each run deletes `web.audit_field_change` rows before their parent `web.audit_event` rows (FK dependency) older than `RetentionDays` days, and records exactly one row in `web.audit_purge_log` either way:
 
 - **`Status = 'Succeeded'`**, with `RowsPurged` = how many `audit_event` rows were deleted (`0` is a valid, real outcome — nothing was old enough yet).
-- **`Status = 'Skipped'`**, `RowsPurged = NULL`, `ErrorMessage` explaining why — this is what happens every night until an admin sets a real `RetentionDays` value on Global Application Configuration. **Installing the job does not, by itself, start deleting anything** — `RetentionDays` is `NULL` by design on a fresh install (no default was ever decided; see `08_BlueTrack_WebSchema.sql`'s own seed comment), so nothing purges until a human picks a real number.
+- **`Status = 'Skipped'`**, `RowsPurged = NULL`, `ErrorMessage` explaining why — this is what happens every night until an admin sets a real `RetentionDays` value on Global Application Configuration. **Installing the job does not, by itself, start deleting anything** — `RetentionDays` is `NULL` by design on a fresh install (no default was ever decided; see `04_BlueTrack_Baseline_WebSchema.sql`'s own seed comment), so nothing purges until a human picks a real number.
 - **`Status = 'Failed'`**, with `ErrorMessage` set — the transaction rolled back (nothing partially deleted); check the message, fix the underlying issue, and either wait for the next nightly run or re-run manually (below).
 
 **Checking the purge history:**
@@ -132,7 +132,7 @@ ORDER BY StartedAt DESC;
 
 ## Replacing the Bootstrap Admin Group
 
-Every fresh install maps `BUILTIN\Administrators` (SID `S-1-5-32-544`) to the Admin role, deliberately, so the environment is usable immediately (`09_BlueTrack_WebSeed.sql`) — `Admin_DeploymentRunbook.md` already flags leaving this in place permanently as something a real production environment shouldn't do. Doing the replacement safely, without locking yourself out mid-change:
+Every fresh install maps `BUILTIN\Administrators` (SID `S-1-5-32-544`) to the Admin role, deliberately, so the environment is usable immediately (`05_BlueTrack_Baseline_WebSeed.sql`) — `Admin_DeploymentRunbook.md` already flags leaving this in place permanently as something a real production environment shouldn't do. Doing the replacement safely, without locking yourself out mid-change:
 
 1. On the **Group / Role Mapping** admin page, resolve and add the *real* AD/Entra group that should hold Admin — **before** touching the `BUILTIN\Administrators` mapping. Confirm at least one real person is actually a member of that group and can sign in and reach the Admin hub.
 2. Only then delete the `BUILTIN\Administrators` → Admin mapping (same page).

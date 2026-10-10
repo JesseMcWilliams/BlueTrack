@@ -1,69 +1,23 @@
 /* ============================================================================
-   01_BlueTrack_CoreSchema.sql
+   01_BlueTrack_Baseline_CoreSchema.sql
 
-   RUN THIS FILE FIRST (after 00_BlueTrack_CreateDatabase.sql has ensured the
-   target database exists -- this file only USEs it, never creates it).
+   BASELINE (D-195, 2026-10-09). One of the six scripts that replaced the
+   numbered scripts 01-51 before the first release. It builds the schema those
+   scripts left behind, in final form: later columns and constraints are part
+   of each CREATE TABLE, and each procedure, view and function appears once,
+   as its last version. The history of every change is in git and in
+   Claude_Docs/Design_Decision-Register.md.
 
-   Blueprint Progress Tracking Database -- Core (dbo) Table Creation
-   Target: SQL Server / Azure SQL
+   Runs only against an EMPTY database (App/Migrator gives it one). A database
+   built from the old scripts has these baseline scripts marked as applied by
+   App/Migrator instead of running them (see its header).
 
-   RENAMED 2026-09-05 (database restructure): was
-   01_BlueTrack_CreateDatabase_Schema.sql. Renamed since database creation
-   itself moved to a genuinely standalone, run-once script
-   (00_BlueTrack_CreateDatabase.sql) -- this file was never really "create
-   database" even before the rename (that step already lived in
-   App/Migrator's own bootstrap code, not here), so the old name was
-   misleading about what the file actually does: create every dbo (CyberArk
-   warehouse/ETL) table and seed its fixed-vocabulary reference data.
-
-   Also folded in during the same restructure: `dim_account_type`'s actual
-   seed values (previously only a code comment here, with the real INSERT
-   living in a separate incremental script, 17_BlueTrack_AccountTypeSeed.sql
-   -- since this project is still in its initial development phase and the
-   database can be freely rebuilt, that gap-fill script's content is now
-   folded directly into this table's own creation below, so a fresh install
-   never has a genuinely empty dim_account_type to begin with).
-
-   What this file does, in order:
-     1. Switches context into the target database (USE $DatabaseName$) --
-        the database itself must already exist by this point (see
-        00_BlueTrack_CreateDatabase.sql)
-     2. Creates every table the project needs -- staging (per source export),
-        reference/dimension, fact, and tracking tables -- each guarded with
-        an existence check + DROP before CREATE, so this file can be re-run
-        from the top at any time
-     3. Loads seed/reference data for the fixed-vocabulary tables (source
-        systems, the vault's own text-code decode table, account types,
-        permissions, permission aliases, Blueprint stages, and progress
-        statuses)
-
-   This file intentionally covers everything that would normally come from
-   CyberArk's own EVD CreateDB.sql script -- the Self-Hosted staging tables
-   below (stg_sh_*) mirror that script's table shapes so exported/copied
-   data can be loaded here. This is NOT the live EVD replication database
-   itself, and does not stand one up -- keep this project database and the
-   actual production EVD target database separate. These stg_sh_* tables
-   only ever receive data that's been exported or copied out of that real
-   EVD database; they are not a substitute for it.
-
-   *** BATCHING NOTE ***
-   USE is given its own batch (GO). Everything from that point on is plain
-   CREATE TABLE / INSERT, which do not need to be isolated in their own
-   batch, so the rest of this file runs as normal sequential statements.
-
-   *** ORDERING NOTE (important if you ever run sections out of order) ***
-   Tables below are created in dependency order (a table's foreign-key
-   parents are always created first). The per-table DROP-then-CREATE guard
-   is safe here specifically because this file is only ever run against a
-   freshly-created, empty target database -- 00_BlueTrack_CreateDatabase.sql
-   (or App/Migrator's own equivalent bootstrap logic) ensures the database
-   exists (create-if-missing) before this script runs, and never drops it;
-   a caller that wants a genuinely empty database (CI's disposable
-   BlueTrackTest) drops it explicitly beforehand, as its own visible step.
-   If you ever run only part of this file against an already-populated
-   database, dropping a parent table out of order will fail with a
-   foreign-key error from whichever child table still references it; you'd
-   need to drop child tables first, in the reverse of the order below.
+   The dbo schema: every dimension, staging, fact and bridge table for the
+   CyberArk-mirroring/ETL side, plus their seeded reference rows. The
+   per-table DROP-before-CREATE guards are harmless on an empty database.
+   Two dbo columns that point into the web schema (dim_safe.ApplicationKey,
+   fact_account_progress.ExceptionKey) are added by
+   04_BlueTrack_Baseline_WebSchema.sql, once the tables they reference exist.
    ============================================================================ */
 
 USE $DatabaseName$;
@@ -952,6 +906,9 @@ CREATE TABLE fact_account (
     CreatedDate              DATE            NULL,
     PlatformLogonDomain      NVARCHAR(200)   NULL,
     LastLoadBatchId          UNIQUEIDENTIFIER NULL,
+    -- D-185: what CyberArk says; IsDeleted is "deleted in CyberArk OR in
+    -- BlueTrack" (web.account_deletion), set by usp_Load_FactAccount.
+    IsDeletedInSource        BIT             NOT NULL CONSTRAINT DF_fact_account_IsDeletedInSource DEFAULT 0,
     CONSTRAINT UQ_fact_account UNIQUE (SourceSystemKey, SourceAccountId)
 );
 
@@ -1079,5 +1036,7 @@ CREATE TABLE account_reconciliation (
 
 CREATE INDEX IX_account_reconciliation_legacy  ON account_reconciliation(LegacyAccountKey);
 CREATE INDEX IX_account_reconciliation_current ON account_reconciliation(CurrentAccountKey);
+GO
 
-PRINT 'BlueTrack database and schema created successfully.';
+PRINT '01_BlueTrack_Baseline_CoreSchema.sql complete.';
+GO

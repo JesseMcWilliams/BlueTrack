@@ -1,12 +1,12 @@
 /* ============================================================================
-   00_BlueTrack_CreateDatabase.sql
+   01_BlueTrack_CreateDatabase.sql
 
-   RUN THIS ONCE, BY HAND, BEFORE EVER POINTING App/Migrator AT A BRAND-NEW
-   ENVIRONMENT. It is deliberately NOT part of the numbered DbUp-managed
-   sequence (01 onward) -- App/Migrator always excludes any file matching
-   `00_*.sql` from what it hands to DbUp, regardless of any skip-list
-   argument, as a defensive backstop (see App/Migrator/Program.cs's own
-   comment). This is a structural requirement, not a convenience: DbUp opens
+   D-195: this folder (Database/Manual) holds the scripts App/Migrator never
+   runs -- it reads only the top level of Database/. Each is run by hand
+   (sqlcmd or SSMS) or by Deploy/Install-BlueTrack.ps1.
+
+   Optional: creates the database by hand, before App/Migrator is pointed at
+   a brand-new environment. It can't be a Migrator script: DbUp opens
    one connection scoped to a single target database for its entire run and
    writes its own journal (dbo.SchemaVersions) inside that same database --
    a script that switches context to `master` to create a database would

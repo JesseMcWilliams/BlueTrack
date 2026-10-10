@@ -137,7 +137,7 @@ public class ReportsRepositoryTests
         // affecting TotalAccounts. No real web.risk_exception row is
         // created here since the aggregate query only reads
         // CurrentStatusKey (D-143) -- the FK link is an app-layer
-        // invariant (08_BlueTrack_WebSchema.sql), not a DB constraint.
+        // invariant (04_BlueTrack_Baseline_WebSchema.sql), not a DB constraint.
         var accountKey = await TestAccounts.GetAccountKeyAsync("TestAccount04");
         var repository = new ReportsRepository(new TestDbConnectionFactory());
         var before = await repository.GetKpiSummaryAsync();

@@ -15,7 +15,7 @@ function Backup-BlueTrackForRollback {
         recording what was backed up and which commit it preceded.
     .DESCRIPTION
         -IncludeMsdb is opt-in, not automatic: SQL Server Agent job definitions
-        (e.g. the nightly Import+Load job, Database/14_BlueTrack_ScheduleImportLoadJob.sql)
+        (e.g. the nightly Import+Load job, Database/Manual/04_BlueTrack_ScheduleImportLoadJob.sql)
         live in msdb, which is shared by every database on the SQL Server
         instance -- restoring it later is an instance-wide action, not scoped
         to just this one BlueTrack database. Only ask for it when you actually

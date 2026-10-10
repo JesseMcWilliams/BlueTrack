@@ -1,6 +1,10 @@
 :on error exit
 /* ============================================================================
-   41_BlueTrack_GrantAppServiceAccountAccess.sql
+   02_BlueTrack_GrantAppServiceAccountAccess.sql
+
+   D-195: this folder (Database/Manual) holds the scripts App/Migrator never
+   runs -- it reads only the top level of Database/. Each is run by hand
+   (sqlcmd or SSMS) or by Deploy/Install-BlueTrack.ps1.
 
    D-167: the `:on error exit` line above is load-bearing, not decoration --
    sqlcmd's own default behavior is to print an error and keep running the
@@ -11,11 +15,10 @@
    exact failure, making it easy to miss the real (first, actionable) error
    under the noise and wrongly assume the run succeeded.
 
-   NEVER run this through App/Migrator, for any environment -- always
-   excluded (see App/Migrator/Program.cs). Unlike 00/14/38/40, this isn't a
-   structural DbUp limitation (this script never leaves the target
+   Not a Migrator script, for any environment. Unlike the msdb scripts
+   beside it, this isn't a structural DbUp limitation (this script never leaves the target
    database, so DbUp's own post-script journal write would succeed fine).
-   It's excluded for the same reason 38 (D-107) is treated as a manual,
+   It's manual for the same reason the backup-status grant (D-107) is treated as a manual,
    DBA-run action despite having no technical need to be: granting a real
    service account real database permissions is a deliberate action a DBA
    should consciously run and review, not something that silently happens
@@ -23,7 +26,7 @@
    the __TARGET_ACCOUNT__ placeholder below would hard-fail CREATE USER
    outright (no login literally named "__TARGET_ACCOUNT__" exists) if this
    ever did run unedited through an automated sequence, unlike
-   11_BlueTrack_DevFakeAuthSeed.sql's own placeholder, which is a harmless
+   06_BlueTrack_DevFakeAuthUserMapping.sql's own placeholder, which is a harmless
    no-op string value, not an object name a statement tries to resolve.
 
    Confirmed a real, previously-undocumented gap (2026-09-24, D-30's own
@@ -55,7 +58,7 @@
       (needs `DOMAIN\AccountName` form, not a UPN -- resolve first if
       that's all you have.)
    2. Run this script against the target database itself (not msdb):
-        sqlcmd -S <server> -C -d BlueTrack -i 41_BlueTrack_GrantAppServiceAccountAccess.sql
+        sqlcmd -S <server> -C -d BlueTrack -i 02_BlueTrack_GrantAppServiceAccountAccess.sql
 
    Least-privilege, not db_owner (D-30's own stated principle, finally
    turned into an actual grant list): `db_datareader` + `db_datawriter`
@@ -102,4 +105,4 @@ GRANT EXECUTE ON SCHEMA::dbo TO [__TARGET_ACCOUNT__];
 GRANT EXECUTE ON SCHEMA::web TO [__TARGET_ACCOUNT__];
 GO
 
-PRINT '41_BlueTrack_GrantAppServiceAccountAccess.sql complete.';
+PRINT '02_BlueTrack_GrantAppServiceAccountAccess.sql complete.';

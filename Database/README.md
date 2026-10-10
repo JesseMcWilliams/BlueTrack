@@ -1,171 +1,116 @@
 # Database
 
-Every script below is run through DbUp by `App/Migrator` (see its own
-top-of-file comment) **except** `00_BlueTrack_CreateDatabase.sql`,
-`14_BlueTrack_ScheduleImportLoadJob.sql`,
-`38_BlueTrack_GrantBackupStatusReaderRole.sql`,
-`40_BlueTrack_ScheduleAuditLogPurgeJob.sql`, and
-`41_BlueTrack_GrantAppServiceAccountAccess.sql`, which Migrator always
-excludes regardless of any skip-list argument. `00`, `14`, `38`, and `40`
-are excluded for structural reasons (00 must `USE master`, DbUp cannot;
-14, 38, and 40 must `USE msdb`, and DbUp's own post-script journal write
-then fails against the wrong database -- see each script's own header
-and `App/Migrator/Program.cs`). `39` (the purge procedure itself) is a
-normal DbUp-managed script -- only `40` (the job that schedules it) needs
-the manual/sqlcmd treatment. `41` is excluded for a different reason --
-not structural, but because granting a real service account real database
-permissions is a deliberate, DBA-run-and-reviewed action (same treatment
-as `38`'s msdb grant, D-107), and its account-name placeholder would
-hard-fail if ever run unedited through an automated sequence.
-Every DbUp-managed script uses DbUp's `$DatabaseName$` substitution token
-for the target database name (never a hardcoded literal, per D-89) -- the
-name comes from whatever `Initial Catalog` the caller's connection string
-specifies. `14` is the one exception: since it never runs through DbUp,
-it uses sqlcmd's own `$(DatabaseName)` scripting-variable syntax instead
-(same idea, different tool, see its header for the exact command).
+`App/Migrator` runs the scripts at the top level of this folder through
+DbUp, in file-name order, recording each one in `dbo.SchemaVersions`. It
+never reads the subfolders: `Manual/` holds scripts run by hand, and `Test/`
+holds test-only seeds that CI applies to `BlueTrackTest` in a second run.
 
-This layout is the result of a 2026-09-05 restructure: the original
-`01`-`25` sequence had accumulated a long tail of small, hand-written
-gap-fill scripts (each one only safe to write because D-58 forbids
-editing an already-applied schema file directly once real data exists).
-The user explicitly authorized abandoning that caution for this pass --
-the database was still initial development and fully rebuildable -- so
-every gap-fill script that only ever existed because of D-58 has been
-folded back into its natural home below. **D-58 itself still applies
-going forward**: once an environment holds real tracked data again,
-further schema changes go back to being small guarded scripts appended
-after `14`, never edits to an existing file in this list.
+Every Migrator script uses DbUp's `$DatabaseName$` token for the target
+database name, never a literal (D-89): the name comes from the
+`Initial Catalog` of the connection string the Migrator is given. The
+manual scripts that run through `sqlcmd` use its `$(DatabaseName)` variable
+instead.
 
 ## Build order
 
 | # | File | Purpose |
 |---|---|---|
-| 00 | `00_BlueTrack_CreateDatabase.sql` | Standalone, run once by hand, before pointing Migrator at a brand-new environment. Creates the target database if missing. Never runs through DbUp -- see its own header for why (DbUp's single-connection, single-database journal model is structurally incompatible with a script that switches to `master`). Migrator's own C# bootstrap already does the equivalent create-if-missing check before every run, so this script exists for visibility/manual use, not because the tooling needs it. |
-| 01 | `01_BlueTrack_CoreSchema.sql` | The `dbo` schema: every dimension, staging, fact, and bridge table for the CyberArk-mirroring/ETL side of the project. Drops and recreates every table it defines -- safe only because it always starts from an empty database. |
-| 02 | `02_BlueTrack_ETL_DimensionLoads.sql` | Dimension-table load procedures (`usp_Load_Dim*`) plus `usp_Load_GroupMembership` and the `ufn_YNToBit` helper. Split out of the original `02_BlueTrack_ETL_LoadProcedures.sql`. |
-| 03 | `03_BlueTrack_ETL_FactLoads.sql` | Fact-table load procedures (`usp_Load_FactAccount`, `usp_Load_FactAccountProgress`, `usp_Load_AccountProgressAutoAdvance`, `usp_Load_FactSafeEntitlement`). Split out of the same original file. |
-| 04 | `04_BlueTrack_ETL_ReportingViews.sql` | Reporting views (`vw_effective_safe_access`, `vw_export_account_progress`, `vw_review_platform_sor_accounttype`). Split out of the same original file. |
-| 05 | `05_BlueTrack_AccountReconciliation.sql` | Cross-source (Self-Hosted <-> Privilege Cloud) account reconciliation: `usp_Load_AccountReconciliation` and its review views. |
-| 06 | `06_BlueTrack_PowerBI_Support.sql` | `dim_date` population, Power BI-facing views, `usp_Load_FactAccountProgressHistory`, and **`usp_RunFullLoad`** -- the orchestrator that calls every load procedure above in dependency order. Defined here because this is the first point in the sequence where every procedure it calls already exists. |
-| 07 | `07_BlueTrack_SourceImport.sql` | OPERATIONAL, not one-time: the `usp_Import_PC_*`/`usp_Import_SelfHosted_EVD` procedures that populate the `stg_*` staging tables from real exports, plus `usp_Import_All`. Re-run every time a fresh set of source exports needs loading, followed by `EXEC usp_RunFullLoad;`. |
-| 08 | `08_BlueTrack_WebSchema.sql` | The `web` schema: every table backing the web interface (authentication, authorization, risk exceptions, audit logging, application structure, interface extensibility, secrets store, session cache, user preferences) plus `web.vw_account_application_exception`. Re-runnable in Dev via its own drop-then-recreate cleanup pass -- see its header. |
-| 09 | `09_BlueTrack_WebSeed.sql` | Minimum-viable seed: one enabled WindowsIntegrated identity provider, a bootstrap Admin role bundling every confirmed permission, and a mapping from `BUILTIN\Administrators` (SID `S-1-5-32-544`) to that role. |
-| 10 | `10_BlueTrack_DefaultRoleSeed.sql` | Confirmed default roles: Viewer, Analyst, Approver, Auditor, with their permission bundles. |
-| 11 | `11_BlueTrack_DevFakeAuthSeed.sql` | DevFakeAuth identity provider (disabled by default) for exercising every authorization path against a local, non-domain Windows account in Development. Requires a manual edit (`@DevFakeAuthUsername`) to actually map a user. |
-| 12 | `12_BlueTrack_OidcSamlProviderSeed.sql` | Disabled OIDC and SAML placeholder identity provider rows, documenting the expected `ConfigurationValues` shape ahead of real IdP metadata. |
-| 13 | `13_BlueTrack_AccountProgressFieldMetadataSeed.sql` | Seeds `web.account_progress_field_metadata` with one row per editable `fact_account_progress` column, so the Account Progress edit form has field definitions to render. |
-| 14 | `14_BlueTrack_ScheduleImportLoadJob.sql` | Creates the nightly SQL Server Agent job (Import then Load, 2:00 AM) once Import and Load have both been confirmed working manually. Runs against `msdb`, not the target database. **Never run through `App/Migrator`, for any environment** -- always excluded (see above); run it manually via `sqlcmd -S <server> -C -v DatabaseName="BlueTrack" -i 14_BlueTrack_ScheduleImportLoadJob.sql`. Both the job name and schedule name embed the substituted database name so `BlueTrack` and `BlueTrackTest` (if ever scheduled on the same SQL Server instance) get distinctly-named jobs rather than colliding. |
-| 15 | `15_BlueTrack_UnresolvedEntitlementMembersView.sql` | First post-restructure incremental script (D-58 resumed, per D-107). Adds `vw_unresolved_entitlement_members`, surfacing `fact_safe_entitlement` rows whose member is a CyberArk Identity/Entra-federated user or built-in cloud role rather than a classic Vault-native user/group (D-107's `UnresolvedMemberId` column) -- backs the Reports > Unresolved Entitlement Members page. |
-| 16 | `16_BlueTrack_NotificationSchema.sql` | The general, reusable notification framework (`Design_Notifications.md`): admin-managed recipients, per-notification-type target roles, SMTP config. |
-| 17 | `17_BlueTrack_CredentialsLdapBackupSchema.sql` | `web.credential` (a generic named-credential store, DPAPI or any registered `IVaultSecretProvider`, distinct from `web.secrets_store`'s single active privileged-account backend) plus LDAP trusted-connection/backup-status support (`Design_Credentials-Management.md`). |
-| 18 | `18_BlueTrack_SmtpTlsOverridesSchema.sql` | Two admin-editable SMTP TLS override checkboxes (ignore CRL/OCSP revocation checks; ignore all SSL errors), both default off -- found necessary testing against a real relay whose CRL/OCSP endpoint was unreachable from this network. |
-| 19 | `19_BlueTrack_LdapTrustedConnectionSchema.sql` | `UseTrustedConnection` on the LDAP config -- binds as the app pool's own Windows identity instead of always requiring an explicit bind-account credential, default off (unchanged behavior). |
-| 20 | `20_BlueTrack_RiskScoringSchema.sql` | Risk Scoring Phase A (D-119): the core inventory schema -- `dim_target`/`target_identifier`, `dim_access_group`, the access-mapping tables, `web.account_risk_score` (computed/override/effective score), and the `ManageTargets`/`ManageAccessGroups`/`ViewRiskReport` permissions. |
-| 21 | `21_BlueTrack_RiskScoringImportSchema.sql` | Risk Scoring Phase B (D-119): `web.target_match_review` (the weak-match queue) and the configurable import field-mapping layer (`import_mapping_profile`/`import_mapping_field`) backing the five CSV import feeds. |
-| 22 | `22_BlueTrack_RiskScoringPendingSafeDerivation.sql` | Risk Scoring Phase C (D-119): `usp_DeriveAccountTargetMap_FromPendingSafes`, the direct Account->Target link derived automatically from CyberArk's own `*_Pending` safe convention, called from `usp_RunFullLoad`. |
-| 23 | `23_BlueTrack_RiskScoringCalculation.sql` | Risk Scoring Phase D (D-119): `web.ufn_ReachableRiskValues`, both candidate scoring algorithms (`usp_CalculateRiskScore_DominantPlusTail`/`_CombinedExposure`), the `usp_CalculateRiskScore` dispatcher, and `usp_RecalculateRiskScores` (the bulk, stale-only recalculation called from `usp_RunFullLoad`). |
-| 24 | `24_BlueTrack_RiskScoringReportDrilldown.sql` | Risk Scoring Phase E (D-119): redefines `web.ufn_ReachableRiskValues` (23) to also return `EntityType`/`EntityKey`/`EntityName`, backing the Risk Score report's per-account drill-down without duplicating its reachability logic in a second function. |
-| 25 | `25_BlueTrack_RiskScoreBands.sql` | D-120: `web.dim_risk_score_band`, an admin-configurable named-band lookup over `EffectiveRiskScore` (Low/Medium/High/Critical by default) -- deliberately separate from `dbo.dim_risk_level`, which stays exactly as it was. |
-| 26 | `26_BlueTrack_AccessGroupSorAndAnalystAccess.sql` | D-121: SOR Type (new `web.dim_sor_type` lookup) and SOR Address (free text) added to Access Groups, plus Analyst granted full `ManageTargets`/`ManageAccessGroups` parity with Admin ahead of promoting Targets/Access Groups to top-level nav. |
-| *27, 28* | *(unused)* | Used by two branches (`fix/access-group-duplicate-sid`, `feature/target-generation-from-cyberark`) that never merged; their scripts were applied by hand to the dev host's database only. Rebuilt on 2026-10-09 as scripts 50 and 51, which do nothing where the old ones already ran. |
-| 29 | `29_BlueTrack_TargetTypeDimension.sql` | D-124 Phase 2: `web.dim_target_type`, replacing `dim_target.TargetType`'s old free-text/hardcoded-frontend-array column with a real governed lookup (code + DisplayName) -- also splits out a distinct "Active Directory" sibling from the old generic "LdapDirectory" value. |
-| 30 | `30_BlueTrack_RecalculateSingleAccountRiskScore.sql` | D-131: `usp_RecalculateRiskScoreForAccount`, a single-account variant of `usp_RecalculateRiskScores` (23) that ignores the stale flag -- backs the Account Progress edit screen's own per-account "Recalculate" button. |
-| 31 | `31_BlueTrack_MultiDomainLdapConfig.sql` | AD Account Discovery Phase A (D-137): `web.ldap_config` goes from a true singleton to a real per-domain table (`DomainName` added, unique) -- the existing row becomes `DomainName='Default'`, unchanged otherwise. |
-| 32 | `32_BlueTrack_RiskScoringForAccessGroupSet.sql` | AD Account Discovery Phase B (D-137): a parallel risk-scoring path (`web.AccessGroupKeyList` TVP, `web.ufn_ReachableRiskValues_ForAccessGroupSet`, `usp_CalculateRiskScoreForAccessGroupSet`) for scoring a set of Access Groups directly -- for a candidate account that isn't in `dbo.fact_account` yet, so it can't go through the existing account-scoped scoring path (23). |
-| 33 | `33_BlueTrack_DiscoveredAccountSchema.sql` | AD Account Discovery Phase C (D-137): `web.discovered_account`/`web.discovered_account_access_group_map` -- real AD accounts not yet onboarded into CyberArk, found by matching AD group membership against the Access Group inventory. |
-| 34 | `34_BlueTrack_DiscoveredAccountsPermission.sql` | AD Account Discovery Phase D (D-137): `ViewDiscoveredAccounts` permission for the new read-only Discovered Accounts report, granted to Admin. |
-| 35 | `35_BlueTrack_DiscoveredAccountWorkflow.sql` | D-138: `web.discovered_account` gains `Status`/`ResolvedAccountKey`/`ReviewedBy`/`ReviewedDate` (the Accept/Dismiss workflow), plus a new `ManageDiscoveredAccounts` permission, granted to Admin. |
-| 36 | `36_BlueTrack_FixAutoAdvanceForDiscoveredAccounts.sql` | D-138: fixes a real pre-existing gap in `usp_Load_AccountProgressAutoAdvance` (Database/03) -- it had no `SourceSystemKey` filter, so a newly-accepted `DISCOVERY`-sourced account (no Safe at all) would have been wrongly auto-promoted straight to "Onboarded to Vault" on the next nightly Load. |
-| 37 | `37_BlueTrack_RiskExceptionSegregationOfDuties.sql` | `web.app_config.EnforceRiskExceptionSegregationOfDuties` (admin toggle, off by default), plus the `ViewRiskExceptionSodReport` permission backing the Risk Exception SoD detective report. Numbered 37, not 31 -- written on a branch that diverged before 31-36 above were claimed on main; renumbered when merging. |
-| 38 | `38_BlueTrack_GrantBackupStatusReaderRole.sql` | D-107's `db_backupstatus_reader` msdb role/grants, finally turned into a runnable file. Runs against `msdb`, not the target database. **Never run through `App/Migrator`, for any environment** -- always excluded (see above); run it manually via `sqlcmd`, or generate a filled-in copy from the Group / Role Mapping admin page's "Generate db_backupstatus_reader Script" button. Numbered 38, not 32, for the same reason as 37 above. |
-| 39 | `39_BlueTrack_AuditLogPurgeProcedure.sql` | D-62's `usp_PurgeAuditLog`, designed 2026-08-27 alongside `web.audit_purge_log` (`08`) but never actually written until now -- deletes `audit_field_change`/`audit_event` rows older than `web.audit_config.RetentionDays`, no-ops with a logged `'Skipped'` row if `RetentionDays` is still `NULL`. A normal DbUp-managed script (plain stored procedure in the target database). |
-| 40 | `40_BlueTrack_ScheduleAuditLogPurgeJob.sql` | Creates the nightly Audit Log Purge SQL Agent job (3:00 AM, one hour after the Import+Load job) calling `usp_PurgeAuditLog`. Runs against `msdb`, not the target database. **Never run through `App/Migrator`, for any environment** -- always excluded (see above); run it manually via `sqlcmd -S <server> -C -v DatabaseName="BlueTrack" -i 40_BlueTrack_ScheduleAuditLogPurgeJob.sql`. Installing this job doesn't itself enable purging -- `RetentionDays` still needs a real value set on Global Application Configuration first. |
-| 41 | `41_BlueTrack_GrantAppServiceAccountAccess.sql` | D-30's "least privilege, not `db_owner`" principle, finally turned into an actual grant: `db_datareader` + `db_datawriter` + `EXECUTE` on `dbo`/`web` for the app's own SQL Server service account (confirmed live, D-164: an IIS App Pool's `ApplicationPoolIdentity` authenticates to SQL Server over the network as the computer account, `DOMAIN\HOSTNAME$`, not as the App Pool identity itself). Runs against the target database itself, not `msdb` -- **still never run through `App/Migrator`**, since granting a real account real permissions is a deliberate, DBA-run-and-reviewed action (same treatment as `38`), and its `__TARGET_ACCOUNT__` placeholder would hard-fail if ever run unedited; run it manually via `sqlcmd -S <server> -C -d BlueTrack -i 41_BlueTrack_GrantAppServiceAccountAccess.sql` after substituting the real account. |
-| 42 | `42_BlueTrack_ImportSourceSelection.sql` | D-176: redefines `usp_Import_All` with `@ImportPrivilegeCloud`/`@ImportSelfHosted` flags (both default 1, so existing calls are unchanged) for implementations with only one CyberArk source; a source that's off is skipped and its staging tables are emptied, and a source that's on fails clearly if its export is missing. Adds `usp_Clear_Staging_PrivilegeCloud`/`usp_Clear_Staging_SelfHosted`. Safe to re-run (`CREATE OR ALTER`). |
-| 43 | `43_BlueTrack_DataFeeds.sql` | D-181 (Data Sources phase 2): `web.data_feed` and `web.data_feed_run`; five `web.app_config` settings (`DataFeedRunTime` 04:00, `DataFeedRunRetentionDays` 15, `BusinessHoursStart`/`End` 07:00-18:00, `BusinessDays` Mon-Fri); the `ManageDataSources` permission for Admin; the 'BlueTrack Data Feeds (system)' user (`S-1-0-0`) that scheduled runs are attributed to. Guarded, safe to re-run. |
-| 44 | `44_BlueTrack_AccountProgressBulkEdit.sql` | D-182: `web.app_config.BulkEditMaxAccounts` (default 500) and the `BulkEdit` audit event type, for Account Progress bulk edit. Guarded, safe to re-run. |
-| 45 | `45_BlueTrack_RiskExceptionImport.sql` | D-183: `web.risk_exception.ApprovedBy` becomes nullable; adds `ApprovedByName`, `SourceTool`, `SourceExceptionId`, `SourceUrl`, `ImportedBy`, `ImportedDate`, the `CK_risk_exception_Approver` check, the filtered unique index `UX_risk_exception_Source`, and the `ExceptionImported` audit event type. Guarded, safe to re-run. |
-| 46 | `46_BlueTrack_ImportSkipDeletedAccounts.sql` | D-184: redefines `usp_Load_FactAccount` so an account the export marks as deleted is never imported and an existing one is flagged; Self-Hosted `CAFDeletionDate` is now honored (placeholder dates before 1970-01-02, or before creation, are ignored). Safe to re-run (`CREATE OR ALTER`). |
-| 47 | `47_BlueTrack_AccountDeletion.sql` | D-185: `fact_account.IsDeletedInSource` (backfilled), `web.account_deletion` and `web.account_deletion_history`, the `DeleteAccounts` permission (Admin), the `AccountDeleted`/`AccountUndeleted` audit event types; redefines `usp_Load_FactAccount` (46) to set `IsDeleted` from CyberArk or BlueTrack. Guarded, safe to re-run. |
-| 48 | `48_BlueTrack_DecommissionPatterns.sql` | D-186: the three name patterns on `web.app_config`; `dbo.fn_MatchesNamePattern` and `dbo.fn_RegexSupported` (built with `REGEXP_LIKE` only on SQL Server 2025 at compatibility level 170, via dynamic SQL so the script runs on 2019/2022; re-run it after an upgrade to enable Regex); views `web.vw_decom_safe` and `web.vw_decom_account`; redefines `usp_Load_FactAccount` (47) to skip ignored safes. Safe to re-run. |
-| 49 | `49_BlueTrack_ProviderSettingsDedupe.sql` | Rewrites each OIDC/SAML provider's settings JSON with one camelCase entry per setting, keeping a filled-in value over an empty duplicate: script 12's PascalCase seed names plus the admin page's camelCase ones left two copies, and the empty one hid the real value (2026-10-09). Safe to re-run. |
-| 50 | `50_BlueTrack_AccessGroupUniquenessFix.sql` | D-122: Access Group uniqueness becomes (`GroupName`, `GroupIdentifier`, `FoundOnTargetKey`) via a NULL-safe computed column, plus `InternalGuid`; drops `UQ_dim_access_group` (GroupIdentifier alone). Guarded: a no-op where the old script 27 already ran. |
-| 51 | `51_BlueTrack_TargetsFromCyberArkAddress.sql` | D-123: `usp_DeriveTargetsFromAccountAddress` (one Target per unmatched active-account Address, type 'Other', RiskScore 0) and `usp_RunFullLoad` redefined to call it before Phase C; D-193: `usp_DeriveAccountTargetMap_FromAddress` (run after Phase C) links each active account to every Target whose identifier equals its Address (`SourceMethod = 'AddressDerived'`, kept in step each run), and the `account_target_map` `SourceMethod` CHECK allows it. Replaces the old script 28's procedure, broken since script 29. `CREATE OR ALTER`, safe to re-run. |
+| 01 | `01_BlueTrack_Baseline_CoreSchema.sql` | The `dbo` schema: every dimension, staging, fact and bridge table for the CyberArk-mirroring/ETL side, with its reference rows. |
+| 02 | `02_BlueTrack_Baseline_EtlLoads.sql` | The dbo load procedures (`usp_Load_*`), the name-pattern functions (`fn_MatchesNamePattern`, `fn_RegexSupported`, D-186), account reconciliation, `dim_date`, and the reporting and Power BI views. |
+| 03 | `03_BlueTrack_Baseline_SourceImport.sql` | Operational: the `usp_Import_*` procedures that fill the `stg_*` tables from real exports, and `usp_Import_All` (source selection, D-176). |
+| 04 | `04_BlueTrack_Baseline_WebSchema.sql` | The `web` schema (D-64): authentication, authorization, risk exceptions, audit, settings, secrets store, session cache, preferences, credentials/LDAP, notifications, risk scoring, AD account discovery, data feeds and account deletion, with confirmed reference rows; plus the two dbo columns that point into it. |
+| 05 | `05_BlueTrack_Baseline_WebSeed.sql` | Starting data: identity providers (WindowsIntegrated on; DevFakeAuth, OIDC and SAML off), the bootstrap Admin role with every permission mapped to `BUILTIN\Administrators` (S-1-5-32-544), the default roles, Account Progress field metadata, and the data feeds' system user. |
+| 06 | `06_BlueTrack_Baseline_WebLogic.sql` | Risk scoring procedures and functions, the audit-log purge procedure, the decommissioning views, Targets and links from account addresses (D-123, D-193), and **`usp_RunFullLoad`**, the nightly orchestrator. |
 
-`Test/` holds test-only fixtures (`01_BlueTrack_Test_DevFakeAuthMatrixSeed.sql`,
-`02_BlueTrack_Test_SyntheticAccountData.sql`) -- never run against a real
-environment, only against a disposable `BlueTrackTest`. Migrator is invoked
-a second time, separately, against the `Database/Test` folder (DbUp tracks
-one folder per run).
+Scripts after the baseline start at `07`. None yet.
 
-## Building a brand-new environment from scratch
+## The baseline (D-195)
 
-1. Run `00_BlueTrack_CreateDatabase.sql` by hand against `master` (or just
-   let `App/Migrator` create the database for you -- it does the same
-   check-then-create automatically before every run).
-2. `dotnet run --project App/Migrator -- "<connection string>" "Database"`
-   -- runs `01` through `13`, then `15` onward, in order (`14` is always
-   excluded -- see above).
-3. For a test database only: `dotnet run --project App/Migrator -- "<connection string>" "Database/Test"`.
-4. Load real data: run `07_BlueTrack_SourceImport.sql`'s procedures (or
-   `usp_Import_All`), then `EXEC usp_RunFullLoad;`.
-5. For a real (non-disposable) environment only, once Import and Load have
-   both been confirmed working manually at least once: run `14` by hand
-   via sqlcmd (see its row above).
-6. For a real environment, once the Deployment page's backup-status check
-   needs to work: run `38` by hand via sqlcmd, or generate a filled-in
-   copy from the Group / Role Mapping admin page (see its row above).
-7. For a real environment, once an admin has set a real `RetentionDays`
-   value on Global Application Configuration: run `40` by hand via
-   sqlcmd (see its row above) to actually start purging aged-out audit
-   data on a schedule. `39` (the procedure itself) already ran as part
-   of step 2 -- this step only installs the job that calls it nightly.
+Before the first release, the numbered scripts `01`–`51` were consolidated
+into the six baseline scripts above. They build exactly what the old
+scripts built, schema and seed data alike, but in final form: later
+columns and constraints are part of each `CREATE TABLE`, each procedure,
+view and function appears once (its last version), and data fixes that did
+nothing on a new database are gone. Proof: a database built from each set
+compared with `Deploy/Compare-BlueTrackSchema.ps1 -IncludeData` shows no
+differences. The old scripts are in git history, at the tag
+`pre-sql-baseline`.
 
-## Folded-in history
+The baseline scripts run only against an empty database. DbUp records
+scripts by file name only, so on a database built from the old scripts it
+would treat the baseline as new and run it, wiping the data. `App/Migrator`
+prevents that: if the journal shows the old scripts up to
+`51_BlueTrack_TargetsFromCyberArkAddress.sql`, it records the six baseline
+scripts as applied without running them. A database built from the old
+scripts but not up to `51` is refused; upgrade it first from the
+`pre-sql-baseline` tag, then again from the current code.
 
-These scripts existed only because D-58 forbade editing an
-already-applied schema file once real data existed. Each is now folded
-directly into the file listed -- consult git history for the original
-standalone version if you need the exact incremental diff.
+## Adding a script
 
-| Retired script | Folded into |
+1. Name it `NN_BlueTrack_<Topic>.sql`, with `NN` the next number (`07` is next).
+2. Start with a header comment: the file name, `RUN THIS AFTER 01-NN.`, what
+   it changes and why (with the `D-n` decision), and whether it's safe to
+   re-run.
+3. Make it safe to re-run, because it will run against databases holding
+   real data: guard every schema change (`IF COL_LENGTH(...) IS NULL`,
+   `IF OBJECT_ID(...) IS NULL`, `IF NOT EXISTS (SELECT 1 FROM sys...)`), use
+   `CREATE OR ALTER` for procedures, views and functions, and guard seed
+   rows with `NOT EXISTS`. Never drop and recreate a table that holds data.
+4. Begin with `USE $DatabaseName$;` and `GO`.
+5. Never edit a script that has already run anywhere, including the
+   baseline: change things with a new script.
+6. A new permission needs its own grant to the Admin role, since 05's
+   "every permission" grant ran only once.
+7. To apply it by hand instead of through the Migrator, use `sqlcmd -I`
+   (QUOTED_IDENTIFIER on); see `Claude_Docs/Reference_Lessons-Learned.md`.
+
+## Building a new environment
+
+1. Optional: run `Manual/01_BlueTrack_CreateDatabase.sql` against `master`. The
+   Migrator also creates the database if it's missing.
+2. `dotnet run --project App/Migrator -- "<connection string>" "Database"`.
+3. Test database only: `dotnet run --project App/Migrator -- "<connection string>" "Database/Test"`.
+4. Load real data: `EXEC usp_Import_All ...;` then `EXEC usp_RunFullLoad;`.
+5. Run the manual scripts that apply (below). `Deploy/Install-BlueTrack.ps1`
+   runs step 2 and can also install the nightly job and the App Pool's grants.
+
+## Manual scripts (`Manual/`)
+
+Numbered in the order they're run; run only the ones that apply.
+
+| File | When and how |
 |---|---|
-| `08_BlueTrack_FixMovePermissionAlias.sql` | `01_BlueTrack_CoreSchema.sql` |
-| `17_BlueTrack_AccountTypeSeed.sql` | `01_BlueTrack_CoreSchema.sql` |
-| `11_BlueTrack_FixWindowsGroupSidFormat.sql` | `09_BlueTrack_WebSeed.sql` (the SID fix was already applied there directly) |
-| `12_BlueTrack_ExceptionIdNumbering.sql` | `08_BlueTrack_WebSchema.sql` |
-| `13_BlueTrack_AuditEventTypes.sql` | `08_BlueTrack_WebSchema.sql` |
-| `14_BlueTrack_SecretsStoreSchema.sql` | `08_BlueTrack_WebSchema.sql` |
-| `15_BlueTrack_LockTimeoutConfig.sql` | `08_BlueTrack_WebSchema.sql` |
-| `19_BlueTrack_ApplicationExceptionView.sql` | `08_BlueTrack_WebSchema.sql` |
-| `20_BlueTrack_SessionCacheSchema.sql` | `08_BlueTrack_WebSchema.sql` |
-| `21_BlueTrack_ReadEventType.sql` | `08_BlueTrack_WebSchema.sql` |
-| `23_BlueTrack_UserPreferenceSchema.sql` | `08_BlueTrack_WebSchema.sql` |
-| `10_BlueTrack_SeedDbUpJournal.sql` | Retired outright, not folded -- it backfilled DbUp's journal for an environment where scripts had already been applied by hand outside DbUp tracking. Not relevant once every environment is rebuilt fresh through this sequence. |
-| `25_BlueTrack_DeploymentInfoPermissionSeed.sql` | Retired outright, not folded -- fully redundant for a fresh install: `ViewDeploymentInfo` is already in `08`'s seed and already covered by `09`'s blanket "every existing permission" Admin bootstrap grant. |
+| `01_BlueTrack_CreateDatabase.sql` | Optional, before the first Migrator run. Connects to `master`, which DbUp can't. Replace `$DatabaseName$` by hand first. |
+| `02_BlueTrack_GrantAppServiceAccountAccess.sql` | Gives the App Pool's Windows account its database permissions (D-30, D-171). The installer's `Db.AppPoolAccess` step runs a filled-in copy; by hand, replace `__TARGET_ACCOUNT__` first. |
+| `03_BlueTrack_GrantBackupStatusReaderRole.sql` | When the Deployment page's backup-status check should work: lets the app's account read `msdb` backup history (D-107). Replace `__TARGET_ACCOUNT__`, or download a filled-in copy from the Group / Role Mapping page. |
+| `04_BlueTrack_ScheduleImportLoadJob.sql` | Real environments, once Import and Load have each been run by hand and work: creates the nightly 2:00 AM Import + Load SQL Agent job in `msdb`. `sqlcmd -S <server> -C -v DatabaseName="BlueTrack" -i Database/Manual/04_BlueTrack_ScheduleImportLoadJob.sql`. The installer's nightly-job option runs a filled-in copy. |
+| `05_BlueTrack_ScheduleAuditLogPurgeJob.sql` | Real environments, once `RetentionDays` is set on Global Application Configuration: the 3:00 AM job calling `usp_PurgeAuditLog`. Same `sqlcmd` form. |
+| `06_BlueTrack_DevFakeAuthUserMapping.sql` | Development only: maps your Windows username to Admin through DevFakeAuth. Replace `@DevFakeAuthUsername` first. |
 
-Renumbered without any content change beyond the header: `01` (was
-`01_BlueTrack_CreateDatabase_Schema.sql`), `05` (was
-`03_BlueTrack_AccountReconciliation.sql`), `06` (was
-`04_BlueTrack_PowerBI_Support.sql`), `07` (was `05_BlueTrack_SourceImport.sql`),
-`08` (was `06_BlueTrack_WebInterface_Schema.sql`, content also
-consolidated -- see table above), `09` (was `07_BlueTrack_WebInterface_Seed.sql`),
-`10` (was `24_BlueTrack_DefaultRoleSeed.sql`), `11` (was
-`18_BlueTrack_DevFakeAuthSeed.sql`), `12` (was `22_BlueTrack_OidcSamlProviderSeed.sql`),
-`13` (was `16_BlueTrack_AccountProgressFieldMetadataSeed.sql`), `14` (was
-`09_BlueTrack_ScheduleImportLoadJob.sql`; also fixed two hardcoded-name
-bugs found while renumbering it -- see its own header).
+The SQL Agent and backup-status scripts can't run through DbUp: they
+`USE msdb;` and never switch back, so DbUp's journal write after them
+would fail against `msdb`.
+
+## Drift check
+
+To find what a live database has that the scripts don't (or the reverse),
+build a reference database from this folder on the same SQL Server and
+compare:
+
+```powershell
+dotnet run --project App/Migrator -- "Server=<server>;Database=BlueTrackReference;Integrated Security=true;TrustServerCertificate=true" "Database"
+.\Deploy\Compare-BlueTrackSchema.ps1 -SqlServerInstance <server> -ReferenceDatabase BlueTrackReference -DifferenceDatabase BlueTrack -IgnoreComments
+```
+
+Drop `BlueTrackReference` afterwards. `-IgnoreComments` hides comment-only
+differences in procedures and views (a script's comment edited after the
+database was built). Without `-IncludeData`, data is not compared.
 
 ## See also
 
-- `User_Docs/Admin_DeploymentRunbook.md` -- full step-by-step
-  procedure for standing up or rebuilding an environment, plus the
-  environment-specific items a redeployment must not skip.
-- `Import_Load_Process_Guide.docx` -- operational runbook for the Import/Load
-  cadence and the nightly Agent job.
-- `Claude_Docs/Design_Decision-Register.md` -- the full record of every
-  numbered decision (`D-nn`) referenced throughout these scripts' comments.
-- `Claude_Docs/Reference_Lessons-Learned.md` -- real incidents/gotchas found while building this,
-  several of which are directly encoded in these scripts (the BULK INSERT
-  `ROWTERMINATOR` fix in `07`, the `$DatabaseName$`/`$(DatabaseName)`-only
-  rule everywhere, CRLF line endings expected by SSMS).
+- `User_Docs/Admin_DeploymentRunbook.md`: standing up or rebuilding an environment.
+- `Import_Load_Process_Guide.docx`: the Import/Load cadence and the nightly job.
+- `Claude_Docs/Design_Decision-Register.md`: every `D-n` referenced in the scripts.
+- `Claude_Docs/Reference_Lessons-Learned.md`: incidents encoded in these
+  scripts (the BULK INSERT `ROWTERMINATOR` fix, the `$DatabaseName$` rule,
+  `sqlcmd -I`).

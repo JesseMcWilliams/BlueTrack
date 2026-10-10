@@ -30,7 +30,7 @@ public class AuditLogPurgeTests
         {
             await SetRetentionDaysAsync(connection, 30);
 
-            await connection.ExecuteAsync("EXEC dbo.usp_PurgeAuditLog");
+            var purge = await RunPurgeAsync(connection);
 
             var oldStillExists = await connection.QuerySingleAsync<int>(
                 "SELECT COUNT(*) FROM web.audit_event WHERE AuditEventKey = @Key", new { Key = oldEventKey });
@@ -43,10 +43,8 @@ public class AuditLogPurgeTests
             Assert.Equal(0, oldFieldChangeStillExists);
             Assert.Equal(1, newStillExists);
 
-            var lastPurge = await connection.QuerySingleAsync<(string Status, int? RowsPurged)>(
-                "SELECT TOP 1 Status, RowsPurged FROM web.audit_purge_log ORDER BY StartedAt DESC");
-            Assert.Equal("Succeeded", lastPurge.Status);
-            Assert.True(lastPurge.RowsPurged >= 1);
+            Assert.Equal("Succeeded", purge.Status);
+            Assert.True(purge.RowsPurged >= 1);
         }
         finally
         {
@@ -71,22 +69,34 @@ public class AuditLogPurgeTests
         {
             await SetRetentionDaysAsync(connection, null);
 
-            await connection.ExecuteAsync("EXEC dbo.usp_PurgeAuditLog");
+            var purge = await RunPurgeAsync(connection);
 
             var stillExists = await connection.QuerySingleAsync<int>(
                 "SELECT COUNT(*) FROM web.audit_event WHERE AuditEventKey = @Key", new { Key = veryOldEventKey });
             Assert.Equal(1, stillExists);
 
-            var lastPurge = await connection.QuerySingleAsync<(string Status, string? ErrorMessage)>(
-                "SELECT TOP 1 Status, ErrorMessage FROM web.audit_purge_log ORDER BY StartedAt DESC");
-            Assert.Equal("Skipped", lastPurge.Status);
-            Assert.NotNull(lastPurge.ErrorMessage);
+            Assert.Equal("Skipped", purge.Status);
+            Assert.NotNull(purge.ErrorMessage);
         }
         finally
         {
             await connection.ExecuteAsync("DELETE FROM web.audit_event WHERE AuditEventKey = @Key", new { Key = veryOldEventKey });
             await RestoreRetentionDaysAsync(connection, originalRetentionDays);
         }
+    }
+
+    // Runs the purge and returns the log row it wrote -- found as the one row
+    // that wasn't there before, not as the newest StartedAt: two purges run
+    // back to back can share a StartedAt tick, so "newest" could be the
+    // previous test's row.
+    private static async Task<(string Status, int? RowsPurged, string? ErrorMessage)> RunPurgeAsync(SqlConnection connection)
+    {
+        var earlier = (await connection.QueryAsync<Guid>("SELECT PurgeBatchId FROM web.audit_purge_log")).ToHashSet();
+        await connection.ExecuteAsync("EXEC dbo.usp_PurgeAuditLog");
+        var rows = await connection.QueryAsync<(Guid PurgeBatchId, string Status, int? RowsPurged, string? ErrorMessage)>(
+            "SELECT PurgeBatchId, Status, RowsPurged, ErrorMessage FROM web.audit_purge_log");
+        var mine = Assert.Single(rows, r => !earlier.Contains(r.PurgeBatchId));
+        return (mine.Status, mine.RowsPurged, mine.ErrorMessage);
     }
 
     private static async Task<int?> GetRetentionDaysAsync(SqlConnection connection) =>

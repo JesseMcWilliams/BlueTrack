@@ -1,92 +1,26 @@
 /* ============================================================================
-   07_BlueTrack_SourceImport.sql
+   03_BlueTrack_Baseline_SourceImport.sql
 
-   Split 2026-09-05: renumbered from 05_BlueTrack_SourceImport.sql as part
-   of the broader script restructure (see Database/README.md). Content
-   unchanged from the original file -- only the number/name changed to
-   reflect its place after the ETL split (02-04) and the renumbered
-   05_BlueTrack_AccountReconciliation.sql / 06_BlueTrack_PowerBI_Support.sql.
+   BASELINE (D-195, 2026-10-09). One of the six scripts that replaced the
+   numbered scripts 01-51 before the first release. It builds the schema those
+   scripts left behind, in final form: later columns and constraints are part
+   of each CREATE TABLE, and each procedure, view and function appears once,
+   as its last version. The history of every change is in git and in
+   Claude_Docs/Design_Decision-Register.md.
 
-   RUN THIS FILE AFTER 01-06 have all been run once to build the
-   database, tables, and procedures. Unlike files 01-06 (one-time/idempotent
-   setup), this file is OPERATIONAL -- run it every time you have a fresh
-   set of source exports to load, followed by EXEC usp_RunFullLoad; (from
-   file 06) to transform the freshly-loaded staging data into the
-   dimension/fact/tracking tables.
+   Runs only against an EMPTY database (App/Migrator gives it one). A database
+   built from the old scripts has these baseline scripts marked as applied by
+   App/Migrator instead of running them (see its header).
 
-   Answers "where does data actually get INTO the stg_pc_* / stg_sh_* staging
-   tables in the first place?" -- files 02-06 all assume staging is already
-   populated; this file is what populates it.
-
-   Includes a USE $DatabaseName$; statement below, so you don't need to
-   set the database context manually before running this.
-
-   Contents:
-     1. usp_Import_PC_Platforms, usp_Import_PC_Users, usp_Import_PC_Groups,
-        usp_Import_PC_Safes, usp_Import_PC_Accounts, usp_Import_PC_Entitlements
-        -- one per Privilege Cloud CSV export, via BULK INSERT
-     2. usp_Import_SelfHosted_EVD -- same-instance cross-database copy from
-        the live EVD database's tables into the stg_sh_* staging tables
-     3. usp_Import_PrivilegeCloud_All, usp_Import_All -- orchestrators
-
-   *** ENVIRONMENT ASSUMPTIONS BAKED INTO THIS FILE -- based on what you
-   confirmed (EVD on the same instance; CSVs land in a folder the SQL
-   Server engine itself can read). If either of those changes, the
-   corresponding piece below needs to change with it: ***
-     - usp_Import_SelfHosted_EVD uses a same-instance cross-database query
-       (dynamic SQL with QUOTENAME(@EVDDatabaseName)). If EVD ever moves to
-       a different server, this would need to become a Linked Server query
-       instead -- a different setup (sp_addlinkedserver, four-part names)
-       not covered here.
-     - usp_Import_PC_* procs use BULK INSERT, which requires the SQL Server
-       *service account* (not your own login) to have read access to the
-       file path given -- typically a UNC path or a local path on the
-       server itself. If CSVs instead need to be picked up from wherever a
-       client/user is sitting, BULK INSERT is the wrong tool and you'd want
-       a client-side loader (PowerShell/Python/SSIS) instead -- not covered
-       here.
-     - The CSV BULK INSERT options (FORMAT = 'CSV', FIELDQUOTE) require SQL
-       Server 2017+ or Azure SQL Database. Confirm your instance version
-       before relying on this.
-     - ROWTERMINATOR is '0x0d0a' (CRLF) below, matching every real Privilege
-       Cloud export file checked (all of them, byte-for-byte). Originally
-       written as '0x0a' (LF-only) here -- that mismatch, specifically
-       under FORMAT = 'CSV', doesn't degrade gracefully into a data-quality
-       issue the way it would under classic BULK INSERT; it fails outright
-       with "Cannot obtain the required interface (IID_IColumnsInfo) from
-       OLE DB provider BULK" on every affected proc, confirmed directly
-       (2026-09-04) by isolating FORMAT = 'CSV' + the wrong terminator as
-       the exact trigger, independent of file permissions/access (a plain
-       BULK INSERT with no FORMAT option read the same file fine). If your
-       actual exports ever use bare LF instead, change this back --
-       PowerShell's own CSV export (Export-Csv) writes CRLF by default on
-       Windows, which is where '0x0d0a' comes from.
-     - Date parsing in the CSV-to-staging conversion uses TRY_CONVERT(DATE, ...)
-       against whatever string is in each cell. I don't know what locale/
-       format your actual exports use (e.g. MM/DD/YYYY vs YYYY-MM-DD) --
-       TRY_CONVERT returns NULL rather than erroring on an unparseable
-       value, so a systematic format mismatch will silently null out an
-       entire date column rather than fail loudly. Check row counts and
-       spot-check a few date values after the first real run.
-
-   *** BATCHING NOTE ***
-   Every CREATE OR ALTER PROCEDURE below must be the only statement in its
-   batch -- each is followed by GO.
-
-   *** FAIL-FAST BEHAVIOR ***
-   Each individual import proc wraps its own work in TRY/CATCH, logs to
-   import_log either way, and re-throws (THROW) on failure. The
-   orchestrators below do not swallow that -- if one file fails, the
-   orchestrator stops there rather than silently continuing to the next
-   file. Whatever ran before the failure is already committed (each proc
-   does its own TRUNCATE + INSERT as its own unit of work, not wrapped in a
-   shared explicit transaction with the others) and logged in import_log,
-   so a failure partway through does not roll back earlier successful
-   imports in the same run.
+   OPERATIONAL, not one-time: the usp_Import_PC_* / usp_Import_SelfHosted_EVD
+   procedures that fill the stg_* tables from real exports, and usp_Import_All,
+   which runs the selected sources (D-176) and empties a skipped source's
+   staging tables. Run usp_Import_All, then usp_RunFullLoad.
    ============================================================================ */
 
 USE $DatabaseName$;
 GO
+
 
 CREATE OR ALTER PROCEDURE usp_Import_PC_Platforms (@FilePath NVARCHAR(500))
 AS
@@ -152,6 +86,7 @@ BEGIN
     END CATCH
 END
 GO
+
 
 
 CREATE OR ALTER PROCEDURE usp_Import_PC_Users (@FilePath NVARCHAR(500))
@@ -226,6 +161,7 @@ END
 GO
 
 
+
 CREATE OR ALTER PROCEDURE usp_Import_PC_Groups (@FilePath NVARCHAR(500))
 AS
 BEGIN
@@ -292,6 +228,7 @@ BEGIN
     END CATCH
 END
 GO
+
 
 
 CREATE OR ALTER PROCEDURE usp_Import_PC_Safes (@FilePath NVARCHAR(500))
@@ -378,6 +315,7 @@ BEGIN
     END CATCH
 END
 GO
+
 
 
 CREATE OR ALTER PROCEDURE usp_Import_PC_Accounts (@FilePath NVARCHAR(500))
@@ -472,6 +410,7 @@ BEGIN
     END CATCH
 END
 GO
+
 
 
 CREATE OR ALTER PROCEDURE usp_Import_PC_Entitlements (@FilePath NVARCHAR(500), @ExportDate DATE)
@@ -591,6 +530,7 @@ BEGIN
 END
 GO
 
+
 CREATE OR ALTER PROCEDURE usp_Import_PC_GroupMembers (@FilePath NVARCHAR(500))
 AS
 BEGIN
@@ -657,6 +597,7 @@ BEGIN
     END CATCH
 END
 GO
+
 
 
 /* ============================================================================
@@ -795,6 +736,7 @@ BEGIN
 END
 GO
 
+
 /* ============================================================================
    Orchestrators
    ============================================================================ */
@@ -824,45 +766,110 @@ END
 GO
 
 
+CREATE OR ALTER PROCEDURE usp_Clear_Staging_PrivilegeCloud
+AS
+BEGIN
+    SET NOCOUNT ON;
+    TRUNCATE TABLE stg_pc_platforms;
+    TRUNCATE TABLE stg_pc_users;
+    TRUNCATE TABLE stg_pc_groups;
+    TRUNCATE TABLE stg_pc_groupmembers;
+    TRUNCATE TABLE stg_pc_safes;
+    TRUNCATE TABLE stg_pc_accounts;
+    TRUNCATE TABLE stg_pc_entitlements;
+END
+GO
+
+
+CREATE OR ALTER PROCEDURE usp_Clear_Staging_SelfHosted
+AS
+BEGIN
+    SET NOCOUNT ON;
+    TRUNCATE TABLE stg_sh_users;
+    TRUNCATE TABLE stg_sh_groups;
+    TRUNCATE TABLE stg_sh_groupmembers;
+    TRUNCATE TABLE stg_sh_safes;
+    TRUNCATE TABLE stg_sh_owners;
+    TRUNCATE TABLE stg_sh_files;
+    TRUNCATE TABLE stg_sh_objectproperties;
+    TRUNCATE TABLE stg_sh_requests;
+    TRUNCATE TABLE stg_sh_confirmations;
+END
+GO
+
+
 /* ============================================================================
-   Single entry point: imports both sources' staging data. Does NOT call
-   usp_RunFullLoad -- that's a deliberate separation (import vs. transform
-   stay as two explicit steps you run in sequence), matching how the rest
-   of this project's files are documented. After this succeeds, run:
-       EXEC usp_RunFullLoad;
+   Single entry point: imports the configured sources' staging data and
+   empties the other's. Still does NOT call usp_RunFullLoad -- import and
+   load stay two explicit steps (see 07_BlueTrack_SourceImport.sql).
    ============================================================================ */
 CREATE OR ALTER PROCEDURE usp_Import_All (
-    @EVDDatabaseName   NVARCHAR(128),
-    @PlatformsFile     NVARCHAR(500),
-    @UsersFile         NVARCHAR(500),
-    @GroupsFile        NVARCHAR(500),
-    @GroupMembersFile  NVARCHAR(500),
-    @SafesFile         NVARCHAR(500),
-    @AccountsFile      NVARCHAR(500),
-    @EntitlementsFile  NVARCHAR(500),
-    @EntitlementsExportDate DATE
+    @EVDDatabaseName   NVARCHAR(128) = NULL,
+    @PlatformsFile     NVARCHAR(500) = NULL,
+    @UsersFile         NVARCHAR(500) = NULL,
+    @GroupsFile        NVARCHAR(500) = NULL,
+    @GroupMembersFile  NVARCHAR(500) = NULL,
+    @SafesFile         NVARCHAR(500) = NULL,
+    @AccountsFile      NVARCHAR(500) = NULL,
+    @EntitlementsFile  NVARCHAR(500) = NULL,
+    @EntitlementsExportDate DATE = NULL,
+    @ImportPrivilegeCloud BIT = 1,
+    @ImportSelfHosted     BIT = 1
 )
 AS
 BEGIN
     SET NOCOUNT ON;
-    EXEC usp_Import_SelfHosted_EVD @EVDDatabaseName = @EVDDatabaseName;
-    EXEC usp_Import_PrivilegeCloud_All
-        @PlatformsFile = @PlatformsFile, @UsersFile = @UsersFile, @GroupsFile = @GroupsFile,
-        @GroupMembersFile = @GroupMembersFile, @SafesFile = @SafesFile, @AccountsFile = @AccountsFile,
-        @EntitlementsFile = @EntitlementsFile, @EntitlementsExportDate = @EntitlementsExportDate;
+
+    IF ISNULL(@ImportPrivilegeCloud, 0) = 0 AND ISNULL(@ImportSelfHosted, 0) = 0
+        THROW 50000, 'usp_Import_All: both @ImportPrivilegeCloud and @ImportSelfHosted are off -- at least one source must be imported.', 1;
+
+    -- Validate everything before importing anything, so a misconfigured
+    -- run fails before it has emptied or half-filled any staging table.
+    IF @ImportSelfHosted = 1
+    BEGIN
+        IF @EVDDatabaseName IS NULL OR LTRIM(RTRIM(@EVDDatabaseName)) = N''
+            THROW 50000, 'usp_Import_All: @ImportSelfHosted = 1 but @EVDDatabaseName is not set.', 1;
+        IF DB_ID(@EVDDatabaseName) IS NULL
+        BEGIN
+            DECLARE @NoEvdMessage NVARCHAR(400) = N'usp_Import_All: Self-Hosted EVD database ''' + @EVDDatabaseName
+                + N''' was not found on this SQL Server instance. If this implementation has no Self-Hosted vault, import with @ImportSelfHosted = 0.';
+            THROW 50000, @NoEvdMessage, 1;
+        END
+    END
+
+    IF @ImportPrivilegeCloud = 1
+    BEGIN
+        DECLARE @MissingPc NVARCHAR(400) = STUFF(
+              CASE WHEN @PlatformsFile IS NULL THEN N', @PlatformsFile' ELSE N'' END
+            + CASE WHEN @UsersFile IS NULL THEN N', @UsersFile' ELSE N'' END
+            + CASE WHEN @GroupsFile IS NULL THEN N', @GroupsFile' ELSE N'' END
+            + CASE WHEN @GroupMembersFile IS NULL THEN N', @GroupMembersFile' ELSE N'' END
+            + CASE WHEN @SafesFile IS NULL THEN N', @SafesFile' ELSE N'' END
+            + CASE WHEN @AccountsFile IS NULL THEN N', @AccountsFile' ELSE N'' END
+            + CASE WHEN @EntitlementsFile IS NULL THEN N', @EntitlementsFile' ELSE N'' END
+            + CASE WHEN @EntitlementsExportDate IS NULL THEN N', @EntitlementsExportDate' ELSE N'' END, 1, 2, N'');
+        IF @MissingPc IS NOT NULL
+        BEGIN
+            DECLARE @MissingPcMessage NVARCHAR(500) = N'usp_Import_All: @ImportPrivilegeCloud = 1 but these are not set: ' + @MissingPc
+                + N'. If this implementation has no Privilege Cloud tenant, import with @ImportPrivilegeCloud = 0.';
+            THROW 50000, @MissingPcMessage, 1;
+        END
+    END
+
+    IF @ImportSelfHosted = 1
+        EXEC usp_Import_SelfHosted_EVD @EVDDatabaseName = @EVDDatabaseName;
+    ELSE
+        EXEC usp_Clear_Staging_SelfHosted;
+
+    IF @ImportPrivilegeCloud = 1
+        EXEC usp_Import_PrivilegeCloud_All
+            @PlatformsFile = @PlatformsFile, @UsersFile = @UsersFile, @GroupsFile = @GroupsFile,
+            @GroupMembersFile = @GroupMembersFile, @SafesFile = @SafesFile, @AccountsFile = @AccountsFile,
+            @EntitlementsFile = @EntitlementsFile, @EntitlementsExportDate = @EntitlementsExportDate;
+    ELSE
+        EXEC usp_Clear_Staging_PrivilegeCloud;
 END
 GO
 
-PRINT 'Source import procedures created successfully.';
-PRINT 'Example usage:';
-PRINT '  EXEC usp_Import_All';
-PRINT '    @EVDDatabaseName = ''YourEVDDatabaseName'',';
-PRINT '    @PlatformsFile = ''\\server\share\Export_PlatformsList.csv'',';
-PRINT '    @UsersFile = ''\\server\share\Export_UsersList.csv'',';
-PRINT '    @GroupsFile = ''\\server\share\Export_GroupsList.csv'',';
-PRINT '    @GroupMembersFile = ''\\server\share\Export_Local_Group_Members_2026-08-27.csv'',';
-PRINT '    @SafesFile = ''\\server\share\Export_SafesList.csv'',';
-PRINT '    @AccountsFile = ''\\server\share\Export_AccountsList.csv'',';
-PRINT '    @EntitlementsFile = ''\\server\share\Export_Entitlements_2026-08-25.csv'',';
-PRINT '    @EntitlementsExportDate = ''2026-08-25'';';
-PRINT '  EXEC usp_RunFullLoad;';
+PRINT '03_BlueTrack_Baseline_SourceImport.sql complete.';
+GO

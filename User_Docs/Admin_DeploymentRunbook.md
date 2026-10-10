@@ -13,12 +13,12 @@ This document exists because those two answer "what does each piece do," not "in
 
 ## Step-by-Step: New or Fully Rebuilt Environment
 
-1. **Create the database.** Either run `Database/00_BlueTrack_CreateDatabase.sql` by hand against `master` (edit the `$DatabaseName$` placeholder first -- it's never substituted, since this file never runs through DbUp), or just proceed to step 2: `App/Migrator`'s own bootstrap creates the database automatically if it doesn't exist.
+1. **Create the database.** Either run `Database/Manual/01_BlueTrack_CreateDatabase.sql` by hand against `master` (edit the `$DatabaseName$` placeholder first -- it's never substituted, since this file never runs through DbUp), or just proceed to step 2: `App/Migrator`'s own bootstrap creates the database automatically if it doesn't exist.
 2. **Run the schema/seed sequence.**
    ```
    dotnet run --project App/Migrator -- "<connection string>" "Database"
    ```
-   Runs `01` through `13` in dependency order. `14_BlueTrack_ScheduleImportLoadJob.sql` is **always** excluded by `App/Migrator` itself, for every environment -- see step 5 and `Database/README.md`'s own note on why (a structural DbUp incompatibility, not a disposable-vs-real distinction).
+   Runs the scripts at the top level of `Database/` in order (the `01`-`06` baseline, then any later numbered scripts). The scripts in `Database/Manual/` never run this way -- see step 5 and `Database/README.md`.
 3. **Test environments only:**
    ```
    dotnet run --project App/Migrator -- "<connection string>" "Database/Test"
@@ -27,7 +27,7 @@ This document exists because those two answer "what does each piece do," not "in
 4. **Load real data** -- see "First Data Load" below.
 5. **Real (non-disposable) environments only, once step 4 has been confirmed working manually at least once:**
    ```
-   sqlcmd -S <server> -C -v DatabaseName="BlueTrack" -i Database/14_BlueTrack_ScheduleImportLoadJob.sql
+   sqlcmd -S <server> -C -v DatabaseName="BlueTrack" -i Database/Manual/04_BlueTrack_ScheduleImportLoadJob.sql
    ```
    Creates the nightly Import+Load SQL Agent job. Must be run manually, via sqlcmd, never through `App/Migrator` -- confirmed 2026-09-05 that running it through Migrator breaks DbUp's own journal write for that script (see the script's own header and `App/Migrator/Program.cs`).
 
@@ -56,9 +56,9 @@ Use the actual date stamp on the two date-stamped export files on disk (`Export 
 
 None of these are inferred from the connection string the way `$DatabaseName$`/`$(DatabaseName)` is -- a human has to set each one deliberately for a *new* environment:
 
-- **`11_BlueTrack_DevFakeAuthSeed.sql`'s `@DevFakeAuthUsername` placeholder** (Development only) -- ships as `'REPLACE_WITH_YOUR_WINDOWS_USERNAME'` and is a no-op until a developer edits it to their own Windows username and re-runs the file.
+- **`06_BlueTrack_DevFakeAuthUserMapping.sql`'s `@DevFakeAuthUsername` placeholder** (Development only) -- ships as `'REPLACE_WITH_YOUR_WINDOWS_USERNAME'` and is a no-op until a developer edits it to their own Windows username and re-runs the file.
 - **`14`'s hardcoded EVD database name (`CyberArkSH`) and export folder (`C:\Code\BlueTrack\Reference\PrivilegedCloud`)** -- real, confirmed values for *this* host, not placeholders in the committed file. A redeploy to a different server needs both edited in `14` before it's run.
-- **`09_BlueTrack_WebSeed.sql`'s bootstrap admin group** (`BUILTIN\Administrators`, SID `S-1-5-32-544`) -- a deliberate bootstrap default so a fresh install is usable immediately. Map a real AD/Entra group to the Admin role via the Group/Role Mapping admin screen once one exists; don't leave every local admin as a permanent BlueTrack Admin in a real production environment.
+- **`05_BlueTrack_Baseline_WebSeed.sql`'s bootstrap admin group** (`BUILTIN\Administrators`, SID `S-1-5-32-544`) -- a deliberate bootstrap default so a fresh install is usable immediately. Map a real AD/Entra group to the Admin role via the Group/Role Mapping admin screen once one exists; don't leave every local admin as a permanent BlueTrack Admin in a real production environment.
 - **OIDC/SAML identity providers** (`12`) -- seeded disabled, with placeholder `ConfigurationValues` documenting the expected shape only. Need real IdP tenant/metadata entered via the Identity Providers admin page, then enabling, before either is usable.
 - **Secrets Store backend** (`08`'s `web.secrets_store` seed) -- `WindowsDpapi` is active by default (D-36's first-built backend). A production cutover to CyberArk CP/CCP/Conjur, Azure Key Vault, or AWS Secrets Manager happens through the Secrets Store Configuration admin page, not by editing the seed script.
 - **D-58 resumes immediately once real data exists.** This restructure's "fold everything back into its parent file" approach (D-144) was a one-time reset explicitly authorized because the database had nothing worth protecting yet. The moment a real environment holds real tracked data again, further schema changes go back to being small, guarded, numbered scripts appended after `14` -- never edits to `01`-`14` themselves.

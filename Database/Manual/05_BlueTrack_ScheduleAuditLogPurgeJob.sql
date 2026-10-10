@@ -1,23 +1,25 @@
 /* ============================================================================
-   40_BlueTrack_ScheduleAuditLogPurgeJob.sql
+   05_BlueTrack_ScheduleAuditLogPurgeJob.sql
 
-   NEVER run this through App/Migrator -- like 14/38 before it, it targets
-   msdb, not the target database, and DbUp's own post-script journal write
-   would fail against msdb the same way documented in
-   14_BlueTrack_ScheduleImportLoadJob.sql's own header. Run manually via
-   sqlcmd:
+   D-195: this folder (Database/Manual) holds the scripts App/Migrator never
+   runs -- it reads only the top level of Database/. Each is run by hand
+   (sqlcmd or SSMS) or by Deploy/Install-BlueTrack.ps1.
 
-       sqlcmd -S <server> -C -v DatabaseName="BlueTrack" -i 40_BlueTrack_ScheduleAuditLogPurgeJob.sql
+   Targets msdb, not the BlueTrack database (DbUp writes its journal on the
+   same connection, which would then be in msdb -- see
+   04_BlueTrack_ScheduleImportLoadJob.sql). Run it with sqlcmd:
+
+       sqlcmd -S <server> -C -v DatabaseName="BlueTrack" -i 05_BlueTrack_ScheduleAuditLogPurgeJob.sql
 
    Creates a SQL Server Agent job, "BlueTrack ($(DatabaseName)) - Audit Log
-   Purge", one step calling dbo.usp_PurgeAuditLog (39_BlueTrack_AuditLogPurgeProcedure.sql,
+   Purge", one step calling dbo.usp_PurgeAuditLog (06_BlueTrack_Baseline_WebLogic.sql,
    which must already exist -- run through App/Migrator normally, it's a
    plain stored procedure in the target database, not msdb). Runs nightly
    at 3:00 AM -- one hour after the existing Import+Load job (2:00 AM,
-   script 14), so a long Import+Load run never overlaps the purge.
+   04_BlueTrack_ScheduleImportLoadJob.sql), so a long Import+Load run never overlaps the purge.
 
    The job/schedule names embed the substituted database name, same
-   reasoning as script 14's own header: msdb.dbo.sysjobs/sysschedules are
+   reasoning as 04_BlueTrack_ScheduleImportLoadJob.sql's header: msdb.dbo.sysjobs/sysschedules are
    instance-global, not scoped per target database, so BlueTrack and
    BlueTrackTest (or any other environment sharing this SQL Server
    instance) get distinctly-named jobs rather than colliding.

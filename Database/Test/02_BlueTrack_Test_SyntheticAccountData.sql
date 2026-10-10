@@ -6,9 +6,7 @@
    BlueTrack (or any real environment); it only belongs in a disposable
    database like BlueTrackTest.
 
-   RUN THIS AFTER Database/01 through Database/13 (Database/14 is SQL
-   Agent job scheduling, skipped for a disposable database; Database/00
-   never runs through Migrator at all) and
+   RUN THIS AFTER the scripts at the top level of Database/ and
    Database/Test/01_BlueTrack_Test_DevFakeAuthMatrixSeed.sql.
 
    WHAT THIS DOES: seeds a small, entirely synthetic set of safes,

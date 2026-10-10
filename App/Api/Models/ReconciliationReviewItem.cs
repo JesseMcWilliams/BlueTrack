@@ -2,7 +2,7 @@ namespace BlueTrack.Api.Models;
 
 /// <summary>
 /// One row from dbo.vw_reconciliation_review_queue
-/// (Database/05_BlueTrack_AccountReconciliation.sql) -- an unconfirmed
+/// (Database/02_BlueTrack_Baseline_EtlLoads.sql) -- an unconfirmed
 /// cross-source account match awaiting human review (D-56). Read-only here;
 /// the confirm/reject actions the view's header comment describes aren't
 /// wired up in this scaffold yet.

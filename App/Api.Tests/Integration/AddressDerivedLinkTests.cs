@@ -5,7 +5,7 @@ using Xunit;
 namespace BlueTrack.Api.Tests.Integration;
 
 /// <summary>
-/// D-193 (51_BlueTrack_TargetsFromCyberArkAddress.sql):
+/// D-193 (06_BlueTrack_Baseline_WebLogic.sql):
 /// usp_DeriveAccountTargetMap_FromAddress links each active account to every
 /// Target whose identifier equals its Address (SourceMethod 'AddressDerived'),
 /// keeps those links in step with the data, never touches links made any other

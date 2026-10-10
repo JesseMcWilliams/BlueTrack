@@ -18,7 +18,7 @@ public sealed class RiskScoreReportRow
 /// <summary>
 /// One contributing Target or Access Group behind an Account's score --
 /// the report's drill-down, backed by web.ufn_ReachableRiskValues'
-/// EntityType/EntityKey/EntityName columns (24_BlueTrack_RiskScoringReportDrilldown.sql).
+/// EntityType/EntityKey/EntityName columns (06_BlueTrack_Baseline_WebLogic.sql).
 /// </summary>
 public sealed class RiskScoreContributor
 {

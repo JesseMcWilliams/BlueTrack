@@ -28,7 +28,7 @@ public class AuthControllerTests : IClassFixture<BlueTrackWebApplicationFactory>
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var body = await response.Content.ReadFromJsonAsync<ProvidersResponse>();
         Assert.NotNull(body);
-        // WindowsIntegrated (09_BlueTrack_WebSeed.sql) and
+        // WindowsIntegrated (05_BlueTrack_Baseline_WebSeed.sql) and
         // DevFakeAuth (Database/Test/01_BlueTrack_Test_DevFakeAuthMatrixSeed.sql)
         // are both enabled in BlueTrackTest.
         Assert.Contains(body!.Providers, p => p.ProviderType == "WindowsIntegrated");

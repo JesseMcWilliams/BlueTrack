@@ -1,19 +1,18 @@
 /* ============================================================================
-   38_BlueTrack_GrantBackupStatusReaderRole.sql
+   03_BlueTrack_GrantBackupStatusReaderRole.sql
 
-   Numbered 38, not 32 -- originally written on a branch that diverged
-   before AD Account Discovery (D-137/D-138) claimed 31-36 on main;
-   renumbered to the next free slot when merging.
+   D-195: this folder (Database/Manual) holds the scripts App/Migrator never
+   runs -- it reads only the top level of Database/. Each is run by hand
+   (sqlcmd or SSMS) or by Deploy/Install-BlueTrack.ps1.
 
-   NEVER run this through App/Migrator -- it targets msdb, not the BlueTrack
-   database, and (per 14_BlueTrack_ScheduleImportLoadJob.sql's own confirmed
-   precedent) DbUp's journal write after the script runs would fail against
-   msdb regardless of whether the script itself succeeded. Run manually via
+   Targets msdb, not the BlueTrack database (see
+   04_BlueTrack_ScheduleImportLoadJob.sql for why that can't run through
+   DbUp), and is a DBA-owned permission grant anyway. Run manually via
    sqlcmd, or generate a filled-in copy from the Group / Role Mapping admin
    page's "Generate db_backupstatus_reader Script" button (targets a
    resolved AD group's account name automatically):
 
-       sqlcmd -S <server> -C -i 38_BlueTrack_GrantBackupStatusReaderRole.sql
+       sqlcmd -S <server> -C -i 03_BlueTrack_GrantBackupStatusReaderRole.sql
 
    D-107 (Design_Admin-Deployment-Management.md, Part 3.3) designed this
    role/grant set but never turned it into a runnable file -- this is that
@@ -57,4 +56,4 @@ GO
 ALTER ROLE db_backupstatus_reader ADD MEMBER [__TARGET_ACCOUNT__];
 GO
 
-PRINT '38_BlueTrack_GrantBackupStatusReaderRole.sql complete.';
+PRINT '03_BlueTrack_GrantBackupStatusReaderRole.sql complete.';

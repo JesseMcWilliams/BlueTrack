@@ -2,7 +2,7 @@ namespace BlueTrack.Api.Models;
 
 /// <summary>
 /// One row from dbo.vw_unresolved_entitlement_members
-/// (Database/15_BlueTrack_UnresolvedEntitlementMembersView.sql) -- a Safe
+/// (Database/02_BlueTrack_Baseline_EtlLoads.sql) -- a Safe
 /// entitlement granted directly to a CyberArk Identity/Entra-federated
 /// user or built-in cloud role, referenced by a GUID or role name that
 /// never appears in stg_pc_users/stg_pc_groups (D-107). UnresolvedMemberId
