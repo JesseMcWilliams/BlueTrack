@@ -91,6 +91,7 @@ param(
     # --- IIS ---
     [string]$SiteName = 'BlueTrack',
     [string]$ApiInstallPath,
+    [string]$WebInstallPath,
     [string]$Hostname,
     [int]$HttpPort = 80,
     [int]$HttpsPort = 443,
@@ -130,7 +131,6 @@ if ($WhatIfPreference) { $PSDefaultParameterValues['*-BlueTrack*:WhatIf'] = $tru
 
 $RepoRoot = Split-Path -Parent $PSScriptRoot
 $DeployRoot = $PSScriptRoot
-$SpaDist = Join-Path $RepoRoot 'App\Web\dist'
 $ConnectionString = $null
 $IisModuleImported = $false
 $transcriptPath = $null
@@ -157,7 +157,7 @@ $Steps = @(
     @{ Name = 'Prereq.UrlRewrite'; PrereqKey = 'UrlRewrite'; Description = 'IIS URL Rewrite Module' }
     @{ Name = 'Prereq.CyberArkSdk'; PrereqKey = 'CyberArkSdk'; Description = 'CyberArk Application Password SDK (check only)' }
     @{ Name = 'Build.Api'; Needs = @('ApiInstallPath'); Description = 'dotnet publish App/Api to the API install path' }
-    @{ Name = 'Build.Web'; Description = 'npm ci + npm run build in App/Web' }
+    @{ Name = 'Build.Web'; Needs = @('WebInstallPath'); Description = 'npm ci + npm run build in App/Web, then copy it to the site folder' }
     @{ Name = 'Db.Backup'; Needs = @('Database'); Description = 'Pre-deployment backup, if the database already has a schema'
         Condition = { -not $SkipPreDeployBackup }; SkipReason = '-SkipPreDeployBackup' }
     @{ Name = 'Db.Migrate'; Needs = @('Database'); Description = 'Run App/Migrator against Database/' }
@@ -170,10 +170,11 @@ $Steps = @(
     @{ Name = 'Db.AppPoolAccess'; Needs = @('Database', 'GrantAppPoolSqlAccess'); Description = 'Give the app pool''s account a SQL login + Database/41 grants'
         Condition = { $UseWindowsAuth -and $GrantAppPoolSqlAccess }; SkipReason = 'GrantAppPoolSqlAccess is off, or the API uses SQL authentication' }
     @{ Name = 'Iis.Certificate'; Needs = @('Certificate'); Description = 'Resolve or generate the HTTPS certificate' }
-    @{ Name = 'Iis.Site'; Needs = @('Certificate', 'ApiInstallPath'); Description = 'Create the site, /BlueTrack Application and bindings' }
+    @{ Name = 'Iis.Site'; Needs = @('Certificate', 'ApiInstallPath', 'WebInstallPath'); Description = 'Create the site, /BlueTrack Application and bindings' }
     @{ Name = 'Iis.WebConfig'; Description = 'Write the site-root web.config and recycle the app pool' }
     @{ Name = 'Iis.Reset'; Needs = @('ResetIis'); Description = 'iisreset so every IIS change takes effect (stops all sites briefly)'
         Condition = { $ResetIis }; SkipReason = 'ResetIis is off' }
+    @{ Name = 'Iis.SiteRestart'; Description = 'Stop and start the BlueTrack site, so IIS re-applies its sign-in settings (stops only this site, briefly)' }
     @{ Name = 'Smoke'; Needs = @('Hostname'); Description = 'Call the Deployment Info health check'
         Condition = { -not $SkipSmokeTest }; SkipReason = '-SkipSmokeTest' }
 )
@@ -308,6 +309,15 @@ function Resolve-InstallAnswer {
                 Register-InstallAnswer ApiInstallPath (Join-Path $env:SystemDrive "inetpub\BlueTrack\$($script:Environment)\api")
             }
         }
+        'WebInstallPath' {
+            # D-187: the site's pages get their own folder next to the API's,
+            # not the repo's App/Web/dist, so a local build never changes
+            # what the site serves.
+            if (-not $script:WebInstallPath) {
+                Resolve-InstallAnswer Environment
+                Register-InstallAnswer WebInstallPath (Join-Path $env:SystemDrive "inetpub\BlueTrack\$($script:Environment)\web")
+            }
+        }
         'ResetIis' {
             if (-not $script:Answered.Contains('ResetIis')) {
                 $reset = (Read-Host 'Restart IIS (iisreset) after the IIS steps, so every change takes effect? This briefly stops EVERY site on this server. Recommended for the first install and after IIS changes. (y/N)') -match '^[Yy]'
@@ -400,7 +410,8 @@ $StepActions = @{
         Publish-BlueTrackApi -RepoRoot $RepoRoot -OutputDirectory $ApiInstallPath | Out-Null
     }
     'Build.Web'       = {
-        Invoke-BlueTrackWebBuild -RepoRoot $RepoRoot | Out-Null
+        $built = Invoke-BlueTrackWebBuild -RepoRoot $RepoRoot
+        Publish-BlueTrackWeb -SourceDirectory $built -OutputDirectory $WebInstallPath | Out-Null
     }
     'Db.Backup'       = {
         # Rollback mechanism (Design_Deployment-Methodology.md, Option B):
@@ -470,18 +481,25 @@ $StepActions = @{
         } else {
             throw 'No certificate thumbprint yet -- run the Iis.Certificate step first (-StartAt Iis.Certificate).'
         }
-        New-BlueTrackSite -SiteName $SiteName -AppPoolName "$SiteName-AppPool" -SpaPhysicalPath $SpaDist -ApiPhysicalPath $ApiInstallPath `
+        New-BlueTrackSite -SiteName $SiteName -AppPoolName "$SiteName-AppPool" -SpaPhysicalPath $WebInstallPath -ApiPhysicalPath $ApiInstallPath `
             -Hostname $Hostname -HttpPort $HttpPort -HttpsPort $HttpsPort -CertificateThumbprint $thumbprint -Force:$Force
     }
     'Iis.WebConfig'   = {
         Import-IisModule
-        Set-BlueTrackSiteWebConfig -RepoRoot $RepoRoot -SpaPhysicalPath $SpaDist
+        Resolve-InstallAnswer WebInstallPath
+        Set-BlueTrackSiteWebConfig -RepoRoot $RepoRoot -SpaPhysicalPath $WebInstallPath
         Restart-BlueTrackAppPool -Name "$SiteName-AppPool"
     }
     'Iis.Reset'       = {
         Import-IisModule
         Restart-BlueTrackIisService
         Start-Sleep -Seconds 5 # let W3SVC and the app pools come back before the smoke test
+    }
+    'Iis.SiteRestart' = {
+        # D-188: always, after the IIS steps -- a site configuration change
+        # cleared the /api/... login loop where iisreset didn't.
+        Import-IisModule
+        Restart-BlueTrackSite -SiteName $SiteName
     }
     'Smoke'           = {
         Start-Sleep -Seconds 5 # give the app pool a moment to warm up after recycling

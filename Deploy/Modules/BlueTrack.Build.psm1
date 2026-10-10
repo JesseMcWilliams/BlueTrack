@@ -104,4 +104,38 @@ function Invoke-BlueTrackWebBuild {
     return (Join-Path $webProject 'dist')
 }
 
-Export-ModuleMember -Function Publish-BlueTrackApi, Invoke-BlueTrackWebBuild
+function Publish-BlueTrackWeb {
+    <#
+    .SYNOPSIS
+        Copies the built SPA (App/Web/dist) to the site's own folder.
+    .DESCRIPTION
+        D-187: the site root used to be App/Web/dist itself, so any local
+        `npm run build` in the repo replaced the deployed pages. The site now
+        has its own folder, as the API does. Everything in it is replaced
+        except web.config, which the Iis.WebConfig step writes there.
+    .OUTPUTS
+        The install folder path.
+    #>
+    [CmdletBinding(SupportsShouldProcess)]
+    [OutputType([string])]
+    param(
+        [Parameter(Mandatory)] [string]$SourceDirectory,
+        [Parameter(Mandatory)] [string]$OutputDirectory
+    )
+
+    if (-not (Test-Path (Join-Path $SourceDirectory 'index.html'))) {
+        throw "No built SPA at '$SourceDirectory' (index.html missing) -- run the Build.Web step first."
+    }
+    if ($PSCmdlet.ShouldProcess($OutputDirectory, "Replace the site's pages with $SourceDirectory")) {
+        if (-not (Test-Path $OutputDirectory)) {
+            New-Item -ItemType Directory -Path $OutputDirectory -Force | Out-Null
+        }
+        Get-ChildItem -Path $OutputDirectory -Force | Where-Object { $_.Name -ne 'web.config' } | Remove-Item -Recurse -Force
+        Get-ChildItem -Path $SourceDirectory -Force | Where-Object { $_.Name -ne 'web.config' } |
+            Copy-Item -Destination $OutputDirectory -Recurse -Force
+        Write-Host "Site pages published to $OutputDirectory."
+    }
+    return $OutputDirectory
+}
+
+Export-ModuleMember -Function Publish-BlueTrackApi, Invoke-BlueTrackWebBuild, Publish-BlueTrackWeb
