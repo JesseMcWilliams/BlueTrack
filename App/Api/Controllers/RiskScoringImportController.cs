@@ -43,6 +43,7 @@ public sealed class RiskScoringImportController(
 
     [HttpPost("target-inventory")]
     [Authorize(Policy = Permissions.ManageTargets)]
+    [RequestSizeLimit(30_000_000)]   // D-198: also outside IIS, whose default is ~30 MB
     public async Task<IActionResult> ImportTargetInventory(IFormFile file, [FromForm] int? mappingProfileKey)
     {
         var user = await currentUserResolver.ResolveAsync(User);
@@ -59,6 +60,7 @@ public sealed class RiskScoringImportController(
 
     [HttpPost("access-group-inventory")]
     [Authorize(Policy = Permissions.ManageAccessGroups)]
+    [RequestSizeLimit(30_000_000)]   // D-198: also outside IIS, whose default is ~30 MB
     public async Task<IActionResult> ImportAccessGroupInventory(IFormFile file, [FromForm] int? mappingProfileKey)
     {
         var rows = await CsvFileReader.ReadRowsAsync(file.OpenReadStream());
@@ -72,6 +74,7 @@ public sealed class RiskScoringImportController(
 
     [HttpPost("access-group-target-map")]
     [Authorize(Policy = Permissions.ManageAccessGroups)]
+    [RequestSizeLimit(30_000_000)]   // D-198: also outside IIS, whose default is ~30 MB
     public async Task<IActionResult> ImportAccessGroupTargetMap(IFormFile file, [FromForm] int? mappingProfileKey)
     {
         var rows = await CsvFileReader.ReadRowsAsync(file.OpenReadStream());
@@ -85,6 +88,7 @@ public sealed class RiskScoringImportController(
 
     [HttpPost("account-access-group-membership")]
     [Authorize(Policy = Permissions.ManageAccessGroups)]
+    [RequestSizeLimit(30_000_000)]   // D-198: also outside IIS, whose default is ~30 MB
     public async Task<IActionResult> ImportAccountAccessGroupMembership(IFormFile file, [FromForm] int? mappingProfileKey)
     {
         var rows = await CsvFileReader.ReadRowsAsync(file.OpenReadStream());
@@ -98,6 +102,7 @@ public sealed class RiskScoringImportController(
 
     [HttpPost("account-target-map")]
     [Authorize(Policy = Permissions.ManageTargets)]
+    [RequestSizeLimit(30_000_000)]   // D-198: also outside IIS, whose default is ~30 MB
     public async Task<IActionResult> ImportAccountTargetMap(IFormFile file, [FromForm] int? mappingProfileKey)
     {
         var rows = await CsvFileReader.ReadRowsAsync(file.OpenReadStream());

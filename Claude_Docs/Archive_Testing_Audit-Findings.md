@@ -118,3 +118,18 @@ Open items from the same review stay in `Testing_Audit-Findings.md`.
 - [x] **Medium -- deploy:** a SQL-auth password in `appsettings.<Env>.json` now gets an Administrators/SYSTEM/IIS_IUSRS-only ACL (with a warning); `Update-BlueTrack.ps1` re-owns and locks its download folder to Administrators/SYSTEM and needs elevation; `TrustServerCertificate` is now an answer, defaulting to trust only for a SQL Server on this machine.
 - [x] **Low -- SQL error text in import/bulk row errors** (reached the Analyst role): shown as classified or generic text, logged in full (`RowErrorText`).
 - [x] **Low -- nightly-job values pasted into T-SQL unescaped:** the export folder may not contain `'`; the EVD database name must be letters, digits and underscores.
+
+## Security review 2026-10-10, second group (fixed, D-198)
+
+- [x] **Medium -- SMTP settings could send a stored credential to any host.** Basic auth needs STARTTLS (save and send); pointing a stored credential at a changed destination needs `ManageCredentials`. Test: `SecurityHardening2Tests.SmtpSettings_GuardTheStoredCredential`.
+- [x] **Low -- the app's database account could rewrite the audit log.** `Manual/02` denies UPDATE/DELETE on the audit tables and EXECUTE on `usp_PurgeAuditLog`. Verified on the dev host by impersonating the account: INSERT allowed; UPDATE, DELETE and the purge refused.
+- [x] **Low -- settings that did nothing:** field `RequiredPermission` is enforced (test: `FieldRequiredPermission_IsEnforced`); LDAP `UseSsl` binds over LDAPS (live LDAPS check still open).
+- [x] **Low -- credential, LDAP and SMTP changes weren't audit-logged.** They are, without secrets.
+- [x] **Low -- no upload limits.** 250,000 rows per CSV (browser and feeds), 30 MB per upload.
+- [x] **Low -- the OIDC/DevFakeAuth cookie wasn't HTTPS-only.** `SecurePolicy = Always`.
+- [x] **Low -- risk-score recalculation was gated by a view permission.** Needs `ManageTargets`; the button shows only to holders.
+- [x] **Needs checking -- SAML audience and replay.** Checked against ITfoxtec 4.20.1: the audience list was empty and replay detection off. Both now set; the IdP chain is validated with online revocation (library default).
+- [x] **Needs checking -- the app account's SQL rights.** `db_datareader` + `db_datawriter` only (no wider grant); see the open backup item.
+- [x] **Low -- prerequisite installers weren't pinned to a signer.** Each must be signed by its vendor's organisation.
+- [x] **Found while fixing -- `sqlcmd -C` splatting (D-197) broke `Db.AppPoolAccess` and `Db.NightlyJob`.** Fixed; see `Reference_Lessons-Learned.md`.
+- [x] **Found while checking -- the Deployment page's "Backup App" couldn't work under the least-privilege grant** (no `BACKUP DATABASE`). Chosen: `Manual/02` adds `db_backupoperator`; verified on the dev host (BACKUP DATABASE allowed, audit DELETE still refused).

@@ -29,6 +29,7 @@ public sealed class ApplicationMappingImportController(
         File(Encoding.UTF8.GetBytes("SafeName,Application,Source\r\n"), "text/csv", "safe-assignments-template.csv");
 
     [HttpPost("applications")]
+    [RequestSizeLimit(30_000_000)]   // D-198: also outside IIS, whose default is ~30 MB
     public async Task<IActionResult> ImportApplications(IFormFile file)
     {
         var user = await currentUserResolver.ResolveAsync(User);
@@ -39,6 +40,7 @@ public sealed class ApplicationMappingImportController(
     }
 
     [HttpPost("safe-assignments")]
+    [RequestSizeLimit(30_000_000)]   // D-198: also outside IIS, whose default is ~30 MB
     public async Task<IActionResult> ImportSafeAssignments(IFormFile file)
     {
         var user = await currentUserResolver.ResolveAsync(User);

@@ -18,7 +18,7 @@ namespace BlueTrack.Api.Auth;
 /// MeController treats a missing WindowsIntegrated row: a clear
 /// "not configured" response, not a crash.
 /// </summary>
-public sealed class Saml2ConfigurationFactory(IdentityProviderRepository identityProviderRepository)
+public sealed class Saml2ConfigurationFactory(IdentityProviderRepository identityProviderRepository, SamlTokenReplayCache replayCache)
 {
     public async Task<Saml2Configuration?> BuildAsync()
     {
@@ -51,7 +51,12 @@ public sealed class Saml2ConfigurationFactory(IdentityProviderRepository identit
             AllowedIssuer = settings.IdpEntityId,
             // D-26: enforced explicitly rather than left at library defaults.
             AudienceRestricted = true,
+            // D-198: a response is accepted once only (off by default in ITfoxtec).
+            DetectReplayedTokens = true,
+            TokenReplayCache = replayCache,
         };
+        // D-198: the audience this SP accepts -- the restriction above had an empty list.
+        config.AllowedAudienceUris.Add(settings.SpEntityId);
         config.SignatureValidationCertificates.Add(idpCertificate);
 
         if (!string.IsNullOrWhiteSpace(settings.IdpSingleLogoutDestination))

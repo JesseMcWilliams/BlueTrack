@@ -179,6 +179,8 @@ public static class AuthenticationExtensions
         {
             options.Cookie.Name = OidcAuthCookieName;
             options.Cookie.SameSite = SameSiteMode.Lax;
+            // D-198: never sent over plain HTTP (the default follows the request's scheme).
+            options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
             options.ExpireTimeSpan = TimeSpan.FromHours(8);
         });
 

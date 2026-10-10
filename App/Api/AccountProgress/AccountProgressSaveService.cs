@@ -17,7 +17,9 @@ public sealed class AccountProgressSaveService(
     AccountProgressRepository repository,
     RiskExceptionRepository riskExceptionRepository,
     AppConfigRepository appConfigRepository,
-    AuditLogger auditLogger)
+    AuditLogger auditLogger,
+    FieldMetadataRepository fieldMetadataRepository,
+    IHttpContextAccessor httpContextAccessor)
 {
     public sealed record SaveResult(bool Saved, bool Changed, string? Error)
     {
@@ -116,6 +118,26 @@ public sealed class AccountProgressSaveService(
         AddIfChanged("ActualCompletionDate", before.ActualCompletionDate?.ToString("yyyy-MM-dd"), request.ActualCompletionDate?.ToString("yyyy-MM-dd"));
         AddIfChanged("Notes", before.Notes, request.Notes);
         AddIfChanged("ExceptionKey", before.ExceptionKey, resolvedExceptionKey);
+
+        // D-198: a field whose metadata names a RequiredPermission can only be
+        // changed by someone holding it (the setting was saved but never
+        // enforced). Covers the edit page, bulk edit and the exception import;
+        // with no signed-in user (no request), a restricted field is refused.
+        if (changes.Count > 0)
+        {
+            var restricted = (await fieldMetadataRepository.GetAllAsync())
+                .Where(f => !string.IsNullOrEmpty(f.RequiredPermissionName))
+                .ToDictionary(f => f.FieldName, f => f.RequiredPermissionName!, StringComparer.OrdinalIgnoreCase);
+            var principal = httpContextAccessor.HttpContext?.User;
+            foreach (var change in changes)
+            {
+                if (restricted.TryGetValue(change.FieldName, out var permission)
+                    && principal?.HasClaim(Auth.PermissionClaimsTransformation.PermissionClaimType, permission) != true)
+                {
+                    return SaveResult.Invalid($"Changing {change.FieldName} needs the {permission} permission.");
+                }
+            }
+        }
 
         await repository.UpdateAsync(accountKey, request, resolvedExceptionKey);
 

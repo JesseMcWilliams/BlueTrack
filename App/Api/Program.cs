@@ -168,6 +168,7 @@ builder.Services.Configure<Microsoft.AspNetCore.Authentication.AuthenticationOpt
 });
 
 builder.Services.AddScoped<Saml2ConfigurationFactory>();
+builder.Services.AddSingleton<SamlTokenReplayCache>();   // D-198
 
 // Notifications (Design_Notifications.md, D-115): a general, reusable
 // "send this alert to the admins" capability. INotificationSender is

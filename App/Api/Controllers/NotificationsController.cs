@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using BlueTrack.Api.Audit;
 using BlueTrack.Api.Auth;
 using BlueTrack.Api.Data;
 using BlueTrack.Api.Models;
@@ -17,7 +18,8 @@ namespace BlueTrack.Api.Controllers;
 public sealed class NotificationsController(
     NotificationRepository repository,
     INotificationSender sender,
-    CurrentUserResolver currentUserResolver) : ControllerBase
+    CurrentUserResolver currentUserResolver,
+    AuditLogger auditLogger) : ControllerBase
 {
     [HttpGet("config")]
     public async Task<IActionResult> GetConfig() => Ok(await repository.GetConfigAsync());
@@ -28,7 +30,54 @@ public sealed class NotificationsController(
         var user = await currentUserResolver.ResolveAsync(User);
         if (user is null) return Unauthorized();
 
+        // D-198: a stored credential's password is only ever sent over TLS.
+        var sendsCredential = request.AuthMethod == "Basic" && request.SmtpCredentialKey is not null;
+        if (sendsCredential && !request.EnableStartTls)
+        {
+            return Problem(title: "STARTTLS required", statusCode: StatusCodes.Status400BadRequest,
+                detail: "Basic authentication sends the credential's password to the SMTP server, so STARTTLS must be on.");
+        }
+
+        // D-198: pointing a stored credential at a new destination is a
+        // credential decision, not just a notification setting -- otherwise
+        // ManageNotifications alone could send any stored password (the LDAP
+        // bind account's, say) to a server of the user's choosing.
+        var before = await repository.GetConfigAsync();
+        var destinationChanged = before is null
+            || !string.Equals(before.SmtpHost, request.SmtpHost, StringComparison.OrdinalIgnoreCase)
+            || before.SmtpPort != request.SmtpPort
+            || before.EnableStartTls != request.EnableStartTls
+            || before.IgnoreSslErrors != request.IgnoreSslErrors
+            || before.AuthMethod != request.AuthMethod
+            || before.SmtpCredentialKey != request.SmtpCredentialKey;
+        if (sendsCredential && destinationChanged
+            && !User.HasClaim(PermissionClaimsTransformation.PermissionClaimType, Permissions.ManageCredentials))
+        {
+            return Problem(title: "Credential permission needed", statusCode: StatusCodes.Status403Forbidden,
+                detail: "Sending a stored credential to this SMTP server also needs the ManageCredentials permission.");
+        }
+
         await repository.SaveConfigAsync(request, user.UserKey);
+
+        List<FieldChange> changes = [];
+        void Track(string field, object? oldValue, object? newValue)
+        {
+            if (!Equals(oldValue, newValue)) changes.Add(new FieldChange(field, oldValue?.ToString(), newValue?.ToString()));
+        }
+        Track("SmtpHost", before?.SmtpHost, request.SmtpHost);
+        Track("SmtpPort", before?.SmtpPort, request.SmtpPort);
+        Track("EnableStartTls", before?.EnableStartTls, request.EnableStartTls);
+        Track("AuthMethod", before?.AuthMethod, request.AuthMethod);
+        Track("SmtpCredentialKey", before?.SmtpCredentialKey, request.SmtpCredentialKey);
+        Track("FromAddress", before?.FromAddress, request.FromAddress);
+        Track("FromDisplayName", before?.FromDisplayName, request.FromDisplayName);
+        Track("IgnoreCrlErrors", before?.IgnoreCrlErrors, request.IgnoreCrlErrors);
+        Track("IgnoreSslErrors", before?.IgnoreSslErrors, request.IgnoreSslErrors);
+        if (changes.Count > 0)
+        {
+            await auditLogger.LogAsync("FieldEdit", user.UserKey, "notification_config", before?.NotificationConfigKey.ToString(),
+                detail: "SMTP settings changed", fieldChanges: changes);
+        }
         return NoContent();
     }
 
@@ -38,21 +87,30 @@ public sealed class NotificationsController(
     [HttpPost("recipients")]
     public async Task<IActionResult> CreateRecipient([FromBody] SaveNotificationRecipientRequest request)
     {
+        var user = await currentUserResolver.ResolveAsync(User);
+        if (user is null) return Unauthorized();
         var key = await repository.CreateRecipientAsync(request);
+        await auditLogger.LogAsync("FieldEdit", user.UserKey, "notification_recipient", key.ToString(), detail: $"Recipient '{request.Email}' added");   // D-198
         return CreatedAtAction(nameof(GetRecipients), new { }, new { recipientKey = key });
     }
 
     [HttpPut("recipients/{recipientKey:int}")]
     public async Task<IActionResult> UpdateRecipient(int recipientKey, [FromBody] SaveNotificationRecipientRequest request)
     {
+        var user = await currentUserResolver.ResolveAsync(User);
+        if (user is null) return Unauthorized();
         await repository.UpdateRecipientAsync(recipientKey, request);
+        await auditLogger.LogAsync("FieldEdit", user.UserKey, "notification_recipient", recipientKey.ToString(), detail: $"Recipient '{request.Email}' updated");   // D-198
         return NoContent();
     }
 
     [HttpDelete("recipients/{recipientKey:int}")]
     public async Task<IActionResult> DeleteRecipient(int recipientKey)
     {
+        var user = await currentUserResolver.ResolveAsync(User);
+        if (user is null) return Unauthorized();
         await repository.DeleteRecipientAsync(recipientKey);
+        await auditLogger.LogAsync("FieldEdit", user.UserKey, "notification_recipient", recipientKey.ToString(), detail: "Recipient deleted");   // D-198
         return NoContent();
     }
 
@@ -63,7 +121,11 @@ public sealed class NotificationsController(
     [HttpPut("types/{notificationTypeKey:int}/target-role")]
     public async Task<IActionResult> SetNotificationTypeTargetRole(int notificationTypeKey, [FromBody] SetNotificationTypeTargetRoleRequest request)
     {
+        var user = await currentUserResolver.ResolveAsync(User);
+        if (user is null) return Unauthorized();
         await repository.SetNotificationTypeTargetRoleAsync(notificationTypeKey, request.TargetRoleKey);
+        await auditLogger.LogAsync("FieldEdit", user.UserKey, "dim_notification_type", notificationTypeKey.ToString(),
+            detail: $"Target role set to {request.TargetRoleKey?.ToString() ?? "none"}");   // D-198
         return NoContent();
     }
 
