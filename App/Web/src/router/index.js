@@ -119,6 +119,19 @@ const routes = [
         meta: { breadcrumb: 'Reconciliation Review', breadcrumbParent: 'reports' },
         component: () => import('../views/reports/ReconciliationReviewQueue.vue')
       },
+      // D-186: safes and accounts flagged for deletion by the name patterns.
+      {
+        path: 'decom-safes',
+        name: 'reports-decom-safes',
+        meta: { breadcrumb: 'Safes Flagged for Deletion', breadcrumbParent: 'reports' },
+        component: () => import('../views/reports/DecomSafes.vue')
+      },
+      {
+        path: 'decom-accounts',
+        name: 'reports-decom-accounts',
+        meta: { breadcrumb: 'Accounts Flagged for Deletion', breadcrumbParent: 'reports' },
+        component: () => import('../views/reports/DecomAccounts.vue')
+      },
       {
         path: 'unresolved-entitlement-members',
         name: 'reports-unresolved-entitlement-members',

@@ -117,7 +117,7 @@ test.describe('Account Progress bulk edit (D-182)', () => {
     await page.getByPlaceholder('username or address...').fill('TestAccount0')
     await expect(page.locator('tbody tr')).toHaveCount(4)
 
-    await page.getByLabel('Select accounts for bulk edit').check()
+    await page.getByLabel('Select accounts for bulk actions').check()
     const bar = page.locator('.selection-bar')
     await bar.getByRole('button', { name: 'Select all on page' }).click()
     await expect(bar).toContainText('4 selected')
@@ -165,7 +165,7 @@ test.describe('Account Progress bulk edit (D-182)', () => {
     await signInAs(page, 'TestUser.Viewer')
     await page.goto('/accounts')
     await expect(page.locator('th', { hasText: 'Risk Band' })).toBeVisible()
-    await expect(page.getByLabel('Select accounts for bulk edit')).toHaveCount(0)
+    await expect(page.getByLabel('Select accounts for bulk actions')).toHaveCount(0)
   })
 })
 
@@ -260,7 +260,7 @@ test.describe('Account delete and undelete (D-185)', () => {
       const deletedRow = page.locator('tbody tr', { hasText: 'TestAccount01' })
       await expect(deletedRow.locator('.deleted-badge')).toBeVisible()
 
-      await page.getByLabel('Select accounts for bulk edit').check()
+      await page.getByLabel('Select accounts for bulk actions').check()
       await deletedRow.getByRole('checkbox').check()
       await page.getByRole('button', { name: 'Undelete…' }).click()
       await page.getByLabel(/Reason to undelete 1 account/).fill('E2E: deleted by mistake')
@@ -274,7 +274,7 @@ test.describe('Account delete and undelete (D-185)', () => {
   test('Analyst (no DeleteAccounts) has no delete buttons', async ({ page }) => {
     await signInAs(page, 'TestUser.Analyst')
     await page.goto('/accounts')
-    await page.getByLabel('Select accounts for bulk edit').check()
+    await page.getByLabel('Select accounts for bulk actions').check()
     await expect(page.getByRole('button', { name: 'Bulk edit…' })).toBeVisible()
     await expect(page.getByRole('button', { name: 'Delete…' })).toHaveCount(0)
   })

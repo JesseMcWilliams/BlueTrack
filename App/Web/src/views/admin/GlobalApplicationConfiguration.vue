@@ -11,6 +11,41 @@ import { ref, computed, onMounted } from 'vue'
 // "Mon,Tue,..."; the page edits it as one checkbox per day.
 const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 
+// D-186: decommission / ignored-safe name patterns, with one helper that
+// shows which sample names each (unsaved) pattern matches, evaluated by
+// the API with the same SQL function the reports and the import use.
+const patterns = [
+  { key: 'safeDecom', label: 'Safe decommission pattern', hint: 'Safes being retired (e.g. a DEL_ prefix or _DECOM suffix): listed on the "flagged for deletion" reports; their accounts are marked.' },
+  { key: 'accountDecom', label: 'Account decommission pattern', hint: 'Accounts whose own name marks them for deletion.' },
+  { key: 'safeIgnore', label: 'Ignored safe pattern', hint: 'Safes left out of the nightly import (e.g. a ZZ_ prefix); accounts already imported from them are flagged deleted.' }
+]
+const sampleNames = ref('DEL_Finance\nFinance_DECOM\nZZ_Archive\nFinance')
+const patternTest = ref(null)
+const patternTesting = ref(false)
+
+function patternOf(key) {
+  return { mode: config.value[`${key}Mode`], value: config.value[`${key}Value`] }
+}
+
+async function testPatterns() {
+  patternTesting.value = true
+  try {
+    const response = await fetch('/api/admin/configuration/test-patterns', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        names: sampleNames.value.split('\n'),
+        safeDecom: patternOf('safeDecom'),
+        accountDecom: patternOf('accountDecom'),
+        safeIgnore: patternOf('safeIgnore')
+      })
+    })
+    patternTest.value = response.ok ? await response.json() : { error: `Test failed: ${response.status}` }
+  } finally {
+    patternTesting.value = false
+  }
+}
+
 const config = ref(null)
 const error = ref(null)
 const loading = ref(true)
@@ -106,6 +141,50 @@ async function save() {
         <label class="field-label"><span class="field-label-text">Bulk edit limit (accounts):</span> <input v-model.number="config.bulkEditMaxAccounts" type="number" min="1" max="10000" required /></label>
         <small>The most accounts one Account Progress bulk edit may change (D-182).</small>
       </p>
+      <fieldset class="patterns">
+        <legend>Decommissioned and ignored safes</legend>
+        <div class="pattern-helper">
+          <p>
+            <strong>Try your patterns</strong> on sample names (one per line). <em>Prefix</em> matches the start of the name,
+            <em>Suffix</em> the end; both ignore case.
+            <template v-if="config.regexSupported">
+              <em>Regex</em> is a regular expression, also ignoring case. Example: <code>^(DEL|ZZ)_|_DECOM$</code> matches
+              <code>DEL_Finance</code>, <code>zz_Archive</code> and <code>Finance_Decom</code>, but not <code>Finance</code> or <code>MODEL_X</code>.
+            </template>
+            <template v-else>
+              <em>Regex</em> needs SQL Server 2025, so it isn't available on this server.
+            </template>
+          </p>
+          <textarea v-model="sampleNames" rows="4" cols="40" aria-label="Sample names"></textarea>
+          <p><button type="button" :disabled="patternTesting" @click="testPatterns">Test patterns</button></p>
+          <p v-if="patternTest?.error" role="alert">{{ patternTest.error }}</p>
+          <template v-else-if="patternTest">
+            <p v-for="(message, key) in patternTest.errors" :key="key" role="alert">{{ patterns.find(x => x.key === key.charAt(0).toLowerCase() + key.slice(1))?.label }}: {{ message }}</p>
+            <table class="pattern-results">
+              <thead><tr><th>Name</th><th v-for="x in patterns" :key="x.key">{{ x.label }}</th></tr></thead>
+              <tbody>
+                <tr v-for="row in patternTest.rows" :key="row.name">
+                  <td>{{ row.name }}</td>
+                  <td v-for="x in patterns" :key="x.key">{{ row[x.key] ? 'Matches' : '—' }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </template>
+        </div>
+        <p v-for="x in patterns" :key="x.key">
+          <label class="field-label">
+            <span class="field-label-text">{{ x.label }}:</span>
+            <select v-model="config[`${x.key}Mode`]" :aria-label="`${x.label} type`">
+              <option value="Off">Off</option>
+              <option value="Prefix">Prefix</option>
+              <option value="Suffix">Suffix</option>
+              <option value="Regex" :disabled="!config.regexSupported">Regex{{ config.regexSupported ? '' : ' (needs SQL Server 2025)' }}</option>
+            </select>
+          </label>
+          <input v-model="config[`${x.key}Value`]" :disabled="config[`${x.key}Mode`] === 'Off'" maxlength="200" :aria-label="`${x.label} value`" />
+          <br /><small>{{ x.hint }}</small>
+        </p>
+      </fieldset>
       <fieldset>
         <legend>Data feeds (Admin → Data Sources)</legend>
         <p>

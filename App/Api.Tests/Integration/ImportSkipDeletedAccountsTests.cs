@@ -67,6 +67,27 @@ public class ImportSkipDeletedAccountsTests
             Assert.Equal(true, await DeletedFlag($"{safeId}_1"));
             Assert.Equal(false, await DeletedFlag($"{safeId}_2"));
 
+            // D-186: an account in a safe matching the ignored-safe pattern is
+            // not imported, and one already imported is flagged deleted.
+            var (ignoreMode, ignoreValue) = await connection.QuerySingleAsync<(string, string?)>("SELECT SafeIgnoreMode, SafeIgnoreValue FROM web.app_config");
+            try
+            {
+                await connection.ExecuteAsync("""
+                    UPDATE web.app_config SET SafeIgnoreMode = 'Prefix', SafeIgnoreValue = @prefix;
+                    INSERT INTO stg_pc_accounts (ImportBatchId, SourceFileName, AccountID, AccountName, SafeName, Deleted)
+                    VALUES (@batch, 'test', @ignored, @ignored, @safe, 0);
+                    UPDATE stg_sh_files SET CAFSafeName = @safe WHERE ImportBatchId = @batch AND CAFFileID = 4;
+                    EXEC usp_Load_FactAccount;
+                    """, new { batch, prefix = $"IGN{tag}_", ignored = $"T{tag}_ignored", safe = $"ign{tag}_Archive" });
+                Assert.Null(await DeletedFlag($"T{tag}_ignored"));
+                Assert.Equal(true, await DeletedFlag($"{safeId}_4"));
+            }
+            finally
+            {
+                await connection.ExecuteAsync("UPDATE web.app_config SET SafeIgnoreMode = @ignoreMode, SafeIgnoreValue = @ignoreValue", new { ignoreMode, ignoreValue });
+                await connection.ExecuteAsync("UPDATE stg_sh_files SET CAFSafeName = NULL WHERE ImportBatchId = @batch AND CAFFileID = 4; EXEC usp_Load_FactAccount;", new { batch });
+            }
+
             // D-185: a BlueTrack delete survives the load; undoing it returns
             // the account to what CyberArk says.
             var userKey = await TestUsers.GetUserKeyAsync("IntegrationTestUser1");

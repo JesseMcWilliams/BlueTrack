@@ -56,9 +56,11 @@ public sealed class AccountDeletionService(
             if (delete && state.DeletedInBlueTrack) { skipped.Add(Skip("Already deleted in BlueTrack.")); continue; }
             if (!delete && !state.DeletedInBlueTrack)
             {
-                skipped.Add(Skip(state.IsDeletedInSource
-                    ? "Deleted in CyberArk, not in BlueTrack; only a BlueTrack delete can be undone."
-                    : "Not deleted."));
+                skipped.Add(Skip(state.IsInIgnoredSafe && state.IsDeletedInSource
+                    ? "Not imported: its safe matches the ignored safe pattern (Global Application Configuration)."
+                    : state.IsDeletedInSource
+                        ? "Deleted in CyberArk, not in BlueTrack; only a BlueTrack delete can be undone."
+                        : "Not deleted."));
                 continue;
             }
 

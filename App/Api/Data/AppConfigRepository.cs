@@ -20,7 +20,9 @@ public sealed class AppConfigRepository(IDbConnectionFactory connectionFactory)
                    CONVERT(varchar(5), ac.DataFeedRunTime, 108) AS DataFeedRunTime, ac.DataFeedRunRetentionDays,
                    CONVERT(varchar(5), ac.BusinessHoursStart, 108) AS BusinessHoursStart,
                    CONVERT(varchar(5), ac.BusinessHoursEnd, 108) AS BusinessHoursEnd, ac.BusinessDays,
-                   ac.BulkEditMaxAccounts
+                   ac.BulkEditMaxAccounts,
+                   ac.SafeDecomMode, ac.SafeDecomValue, ac.AccountDecomMode, ac.AccountDecomValue,
+                   ac.SafeIgnoreMode, ac.SafeIgnoreValue, dbo.fn_RegexSupported() AS RegexSupported
             FROM web.app_config ac
             CROSS JOIN web.audit_config auc
             """;
@@ -52,7 +54,14 @@ public sealed class AppConfigRepository(IDbConnectionFactory connectionFactory)
                 BusinessHoursStart = COALESCE(CAST(@BusinessHoursStart AS time(0)), BusinessHoursStart),
                 BusinessHoursEnd = COALESCE(CAST(@BusinessHoursEnd AS time(0)), BusinessHoursEnd),
                 BusinessDays = COALESCE(@BusinessDays, BusinessDays),
-                BulkEditMaxAccounts = COALESCE(@BulkEditMaxAccounts, BulkEditMaxAccounts)
+                BulkEditMaxAccounts = COALESCE(@BulkEditMaxAccounts, BulkEditMaxAccounts),
+                -- D-186: a pattern's value changes only when its mode is sent; Off clears it.
+                SafeDecomValue = CASE WHEN @SafeDecomMode IS NULL THEN SafeDecomValue WHEN @SafeDecomMode = 'Off' THEN NULL ELSE @SafeDecomValue END,
+                SafeDecomMode = COALESCE(@SafeDecomMode, SafeDecomMode),
+                AccountDecomValue = CASE WHEN @AccountDecomMode IS NULL THEN AccountDecomValue WHEN @AccountDecomMode = 'Off' THEN NULL ELSE @AccountDecomValue END,
+                AccountDecomMode = COALESCE(@AccountDecomMode, AccountDecomMode),
+                SafeIgnoreValue = CASE WHEN @SafeIgnoreMode IS NULL THEN SafeIgnoreValue WHEN @SafeIgnoreMode = 'Off' THEN NULL ELSE @SafeIgnoreValue END,
+                SafeIgnoreMode = COALESCE(@SafeIgnoreMode, SafeIgnoreMode)
             """, new
         {
             request.IdleTimeoutMinutes,
@@ -67,7 +76,13 @@ public sealed class AppConfigRepository(IDbConnectionFactory connectionFactory)
             request.BusinessHoursStart,
             request.BusinessHoursEnd,
             request.BusinessDays,
-            request.BulkEditMaxAccounts
+            request.BulkEditMaxAccounts,
+            request.SafeDecomMode,
+            request.SafeDecomValue,
+            request.AccountDecomMode,
+            request.AccountDecomValue,
+            request.SafeIgnoreMode,
+            request.SafeIgnoreValue
         }, transaction);
 
         await connection.ExecuteAsync("""

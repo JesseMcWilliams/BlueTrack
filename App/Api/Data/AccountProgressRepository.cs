@@ -80,24 +80,41 @@ public sealed class AccountProgressRepository(IDbConnectionFactory connectionFac
         using var connection = connectionFactory.Create();
         var (normalizedPage, normalizedPageSize) = PagingParams.Normalize(page, pageSize);
 
+        // D-186: the decommission flag (web.vw_decom_account) is looked up
+        // for the page's rows only, after paging, so it never slows the
+        // filter or the counts.
+        var orderBy = BuildOrderByClause(sortBy);
         var sql = $"""
-            SELECT
-                fa.AccountKey,
-                fa.AccountName,
-                fa.UserName,
-                fa.Address,
-                stg.StageName,
-                sts.StatusName,
-                rl.RiskLevelName,
-                fap.OwnerName,
-                fap.TargetRemediationDate,
-                fap.ActualCompletionDate,
-                ars.EffectiveRiskScore,
-                band.BandName AS RiskScoreBandName,
-                fa.IsDeleted, fa.IsDeletedInSource, adu.DisplayName AS DeletedByName, ad.DeletedAt, ad.Reason AS DeletionReason
-            {FilterFromSql}
-            ORDER BY {BuildOrderByClause(sortBy)}
-            OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY
+            SELECT page.*,
+                   dca.InFlaggedSafe AS DecomInFlaggedSafe, dca.NameFlagged AS DecomNameFlagged,
+                   dca.SafeName AS DecomSafeName, dca.OtherSafes AS DecomOtherSafes,
+                   CAST(dbo.fn_MatchesNamePattern(isf.SafeName, iac.SafeIgnoreMode, iac.SafeIgnoreValue) AS BIT) AS IsInIgnoredSafe
+            FROM (
+                SELECT
+                    fa.AccountKey,
+                    fa.AccountName,
+                    fa.UserName,
+                    fa.Address,
+                    stg.StageName,
+                    sts.StatusName,
+                    rl.RiskLevelName,
+                    fap.OwnerName,
+                    fap.TargetRemediationDate,
+                    fap.ActualCompletionDate,
+                    ars.EffectiveRiskScore,
+                    band.BandName AS RiskScoreBandName,
+                    fa.IsDeleted, fa.IsDeletedInSource, adu.DisplayName AS DeletedByName, ad.DeletedAt, ad.Reason AS DeletionReason,
+                    ROW_NUMBER() OVER (ORDER BY {orderBy}) AS RowNo
+                {FilterFromSql}
+                ORDER BY {orderBy}
+                OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY
+            ) page
+            OUTER APPLY (SELECT TOP 1 v.InFlaggedSafe, v.NameFlagged, v.SafeName, v.OtherSafes
+                         FROM web.vw_decom_account v WHERE v.AccountKey = page.AccountKey) dca
+            JOIN dbo.fact_account ifa ON ifa.AccountKey = page.AccountKey
+            LEFT JOIN dbo.dim_safe isf ON isf.SafeKey = ifa.SafeKey
+            CROSS JOIN web.app_config iac
+            ORDER BY page.RowNo
             """;
 
         var rows = await connection.QueryAsync<AccountProgressSummary>(sql, new
@@ -201,13 +218,21 @@ public sealed class AccountProgressRepository(IDbConnectionFactory connectionFac
                 fap.OwnerName, fap.BusinessUnit, fap.TargetRemediationDate, fap.ActualCompletionDate, fap.Notes,
                 fap.LastUpdated, fap.ExceptionKey,
                 ars.ComputedRiskScore, ars.OverrideRiskScore, ars.EffectiveRiskScore, band.BandName AS RiskScoreBandName,
-                fa.IsDeleted, fa.IsDeletedInSource, adu.DisplayName AS DeletedByName, ad.DeletedAt, ad.Reason AS DeletionReason
+                fa.IsDeleted, fa.IsDeletedInSource, adu.DisplayName AS DeletedByName, ad.DeletedAt, ad.Reason AS DeletionReason,
+                dca.InFlaggedSafe AS DecomInFlaggedSafe, dca.NameFlagged AS DecomNameFlagged,
+                dca.SafeName AS DecomSafeName, dca.OtherSafes AS DecomOtherSafes,
+                CAST(dbo.fn_MatchesNamePattern(isf.SafeName, iac.SafeIgnoreMode, iac.SafeIgnoreValue) AS BIT) AS IsInIgnoredSafe
             FROM dbo.fact_account_progress fap
             JOIN dbo.fact_account fa ON fa.AccountKey = fap.AccountKey
             LEFT JOIN web.account_deletion ad ON ad.AccountKey = fa.AccountKey
             LEFT JOIN web.app_user adu ON adu.UserKey = ad.DeletedBy
             LEFT JOIN web.account_risk_score ars   ON ars.AccountKey = fa.AccountKey
             LEFT JOIN web.dim_risk_score_band band ON ars.EffectiveRiskScore BETWEEN band.MinScore AND band.MaxScore
+            -- D-186: flagged for deletion (safe or account name pattern).
+            OUTER APPLY (SELECT TOP 1 v.InFlaggedSafe, v.NameFlagged, v.SafeName, v.OtherSafes
+                         FROM web.vw_decom_account v WHERE v.AccountKey = fa.AccountKey) dca
+            LEFT JOIN dbo.dim_safe isf ON isf.SafeKey = fa.SafeKey
+            CROSS JOIN web.app_config iac
             WHERE fap.AccountKey = @AccountKey
             """;
         return await connection.QuerySingleOrDefaultAsync<AccountProgressDetail>(sql, new { AccountKey = accountKey });
@@ -256,7 +281,6 @@ public sealed class AccountProgressRepository(IDbConnectionFactory connectionFac
             "SELECT StatusName FROM dbo.dim_progress_status WHERE StatusKey = @StatusKey", new { StatusKey = statusKey });
     }
 
-    /// <summary>D-51 rule 2: a stage regression (lower StageOrder) requires a Reason.</summary>
     /// <summary>D-183: a status's key by its name (the Risk Exceptions import links with "Risk Accepted / Excluded").</summary>
     public async Task<int?> GetStatusKeyAsync(string statusName)
     {
@@ -265,6 +289,7 @@ public sealed class AccountProgressRepository(IDbConnectionFactory connectionFac
             "SELECT StatusKey FROM dbo.dim_progress_status WHERE StatusName = @statusName", new { statusName });
     }
 
+    /// <summary>D-51 rule 2: a stage regression (lower StageOrder) requires a Reason.</summary>
     public async Task<int?> GetStageOrderAsync(int stageKey)
     {
         using var connection = connectionFactory.Create();

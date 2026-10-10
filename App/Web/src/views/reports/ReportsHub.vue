@@ -32,6 +32,8 @@ const rights = useRightsStore()
       <router-link v-if="rights.hasPermission('ViewDiscoveredAccounts')" :to="{ name: 'reports-discovered-accounts' }">
         Discovered Accounts
       </router-link>
+      <router-link :to="{ name: 'reports-decom-safes' }">Safes Flagged for Deletion</router-link>
+      <router-link :to="{ name: 'reports-decom-accounts' }">Accounts Flagged for Deletion</router-link>
       <router-link :to="{ name: 'reports-kpi-summary' }">
         KPI Summary
       </router-link>

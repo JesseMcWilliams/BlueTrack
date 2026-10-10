@@ -59,6 +59,10 @@ public class AccountProgressBulkEditTests : IClassFixture<BlueTrackWebApplicatio
     public async Task BulkEdit_ChangesOnlyTheChosenFields_AppendsNotes_AndLogsASummary()
     {
         var keys = new[] { await TestAccounts.GetAccountKeyAsync("TestAccount01"), await TestAccounts.GetAccountKeyAsync("TestAccount02") };
+        // An earlier E2E run can leave an edit lock behind (a page left by
+        // navigation never releases it), which bulk edit rightly skips.
+        var lockRepository = new AccountProgressLockRepository(new TestDbConnectionFactory());
+        foreach (var key in keys) await lockRepository.ForceReleaseAsync(key);
         var before = new List<AccountProgressDetail>();
         foreach (var key in keys) before.Add((await Repository().GetDetailAsync(key))!);
         var bulkEventsBefore = await CountBulkEditEventsAsync();

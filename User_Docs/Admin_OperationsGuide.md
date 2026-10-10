@@ -88,6 +88,8 @@ The Import+Load SQL Agent job (`Database/14_BlueTrack_ScheduleImportLoadJob.sql`
 
 **Deleted accounts (D-184):** an account the CyberArk export marks as deleted is never added to BlueTrack. If BlueTrack already has it, it's kept and flagged as deleted, so its progress, exceptions and history remain; an account that disappears from the export is flagged the same way. Privilege Cloud uses the export's `Deleted` column. Self-Hosted uses the file's deletion date (`CAFDeletionDate`), counted only when it's a real date: some versions write the epoch (1970-01-01) as a placeholder, so a date before 1970-01-02, or one earlier than the account's creation date, is ignored.
 
+**Ignored safes (D-186):** accounts in a safe matching the *ignored safe pattern* (Global Application Configuration) aren't imported, and ones already imported are flagged deleted. Regex patterns need SQL Server 2025; after upgrading SQL Server (and the database's compatibility level to 170), re-run `Database/48_BlueTrack_DecommissionPatterns.sql` once to turn Regex on.
+
 **Checking whether it ran, and how it went:**
 ```sql
 SELECT TOP 10 j.name, h.step_name, h.run_date, h.run_time, h.run_status, h.message

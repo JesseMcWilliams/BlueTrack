@@ -177,4 +177,11 @@ describe('AccountProgressList.vue', () => {
     const calls = globalThis.fetch.mock.calls.map(c => c[0]).filter(u => u.startsWith('/api/account-progress?'))
     expect(calls.at(-1)).toContain('deleted=Only')
   })
+  it('labels an account dropped by the ignored-safe pattern as not imported', async () => {
+    mockInitialLoad({ accounts: [{ ...sampleAccount, isDeleted: true, isDeletedInSource: true, isInIgnoredSafe: true }] })
+    const wrapper = mount(AccountProgressList, { global: { plugins: [makeRouter()] } })
+    await flushPromises()
+
+    expect(wrapper.find('.deleted-badge').attributes('title')).toBe('Not imported (ignored safe)')
+  })
 })

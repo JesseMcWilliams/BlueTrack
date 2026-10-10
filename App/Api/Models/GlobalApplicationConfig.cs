@@ -41,6 +41,17 @@ public sealed class GlobalApplicationConfig
 
     /// <summary>D-182: the most accounts one Account Progress bulk edit may change.</summary>
     public int BulkEditMaxAccounts { get; init; }
+
+    // D-186: decommission and ignored-safe name patterns (Mode: Off / Prefix
+    // / Suffix / Regex). RegexSupported is read-only: whether this SQL
+    // Server can run Regex patterns (2025, compatibility level 170).
+    public required string SafeDecomMode { get; init; }
+    public string? SafeDecomValue { get; init; }
+    public required string AccountDecomMode { get; init; }
+    public string? AccountDecomValue { get; init; }
+    public required string SafeIgnoreMode { get; init; }
+    public string? SafeIgnoreValue { get; init; }
+    public bool RegexSupported { get; init; }
 }
 
 public sealed class SaveGlobalApplicationConfigRequest
@@ -65,4 +76,12 @@ public sealed class SaveGlobalApplicationConfigRequest
 
     /// <summary>D-182: null = unchanged.</summary>
     public int? BulkEditMaxAccounts { get; init; }
+
+    /// <summary>D-186: each pattern's Mode and Value; a null Mode leaves that pattern unchanged.</summary>
+    public string? SafeDecomMode { get; init; }
+    public string? SafeDecomValue { get; init; }
+    public string? AccountDecomMode { get; init; }
+    public string? AccountDecomValue { get; init; }
+    public string? SafeIgnoreMode { get; init; }
+    public string? SafeIgnoreValue { get; init; }
 }

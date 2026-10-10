@@ -13,8 +13,35 @@ namespace BlueTrack.Api.Controllers;
 public sealed class GlobalApplicationConfigController(
     AppConfigRepository repository,
     CurrentUserResolver currentUserResolver,
-    AuditLogger auditLogger) : ControllerBase
+    AuditLogger auditLogger,
+    DecommissionRepository decommissionRepository) : ControllerBase
 {
+    /// <summary>
+    /// D-186: the settings page's pattern helper -- which sample names each
+    /// (unsaved) pattern matches, using the same SQL function as the
+    /// reports and the nightly import. A pattern that can't be used reports
+    /// why and matches nothing.
+    /// </summary>
+    [HttpPost("test-patterns")]
+    public async Task<IActionResult> TestPatterns([FromBody] PatternTestRequest request)
+    {
+        if (request.Names.Count > 200) return BadRequest(new { error = "Test at most 200 names at once." });
+        var regexSupported = await decommissionRepository.IsRegexSupportedAsync();
+        var errors = new Dictionary<string, string>();
+        async Task<NamePattern> Checked(string key, NamePattern pattern)
+        {
+            if (await decommissionRepository.ValidateAsync(pattern, regexSupported) is not { } error) return pattern;
+            errors[key] = error;
+            return new NamePattern { Mode = "Off" };
+        }
+        var safeDecom = await Checked("SafeDecom", request.SafeDecom);
+        var accountDecom = await Checked("AccountDecom", request.AccountDecom);
+        var safeIgnore = await Checked("SafeIgnore", request.SafeIgnore);
+        var names = request.Names.Select(n => n.Trim()).Where(n => n.Length > 0).ToList();
+        var rows = await decommissionRepository.TestAsync(names, safeDecom, accountDecom, safeIgnore);
+        return Ok(new PatternTestResult { Rows = rows, Errors = errors });
+    }
+
     [HttpGet]
     public async Task<IActionResult> Get() => Ok(await repository.GetAsync());
 
@@ -28,6 +55,22 @@ public sealed class GlobalApplicationConfigController(
         // fail as a SQL CAST error.
         var scheduleErrors = DataFeeds.FeedSchedule.Validate(request.DataFeedRunTime, request.DataFeedRunRetentionDays,
             request.BusinessHoursStart, request.BusinessHoursEnd, request.BusinessDays);
+        // D-186: each pattern sent must be usable (a bad regex would break the
+        // reports and the nightly import, which use it).
+        var regexSupported = await decommissionRepository.IsRegexSupportedAsync();
+        foreach (var (label, mode, value) in new[]
+        {
+            ("Safe decommission pattern", request.SafeDecomMode, request.SafeDecomValue),
+            ("Account decommission pattern", request.AccountDecomMode, request.AccountDecomValue),
+            ("Ignored safe pattern", request.SafeIgnoreMode, request.SafeIgnoreValue)
+        })
+        {
+            if (mode is null) continue;
+            if (await decommissionRepository.ValidateAsync(new NamePattern { Mode = mode, Value = value }, regexSupported) is { } patternError)
+            {
+                return Problem(title: "Invalid name pattern", detail: $"{label}: {patternError}", statusCode: StatusCodes.Status400BadRequest);
+            }
+        }
         if (request.BulkEditMaxAccounts is < 1 or > 10000)
         {
             return Problem(title: "Invalid bulk edit limit", detail: "BulkEditMaxAccounts must be between 1 and 10000.", statusCode: StatusCodes.Status400BadRequest);
@@ -70,6 +113,10 @@ public sealed class GlobalApplicationConfigController(
         TrackIfSent("BusinessHoursEnd", before.BusinessHoursEnd, request.BusinessHoursEnd);
         TrackIfSent("BusinessDays", before.BusinessDays, request.BusinessDays);
         TrackIfSent("BulkEditMaxAccounts", before.BulkEditMaxAccounts.ToString(), request.BulkEditMaxAccounts?.ToString());
+        static string? Pattern(string? mode, string? value) => mode is null ? null : mode == "Off" ? "Off" : $"{mode}: {value}";
+        TrackIfSent("SafeDecomPattern", Pattern(before.SafeDecomMode, before.SafeDecomValue), Pattern(request.SafeDecomMode, request.SafeDecomValue));
+        TrackIfSent("AccountDecomPattern", Pattern(before.AccountDecomMode, before.AccountDecomValue), Pattern(request.AccountDecomMode, request.AccountDecomValue));
+        TrackIfSent("SafeIgnorePattern", Pattern(before.SafeIgnoreMode, before.SafeIgnoreValue), Pattern(request.SafeIgnoreMode, request.SafeIgnoreValue));
 
         if (changes.Count > 0)
         {

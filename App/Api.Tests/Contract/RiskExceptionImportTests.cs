@@ -114,7 +114,7 @@ public class RiskExceptionImportTests : IClassFixture<BlueTrackWebApplicationFac
             Assert.Equal(tool, row["sourceTool"]!.GetValue<string>());
             Assert.Equal("https://grc.example.com/A-1", row["sourceUrl"]!.GetValue<string>());
             Assert.Equal("Active", row["statusName"]!.GetValue<string>());
-            var second = list.Single(e => e!["exceptionID"]!.GetValue<string>() == result.Created.Single(c => c.SourceExceptionId == "A-2").ExceptionId)!;
+            var second = list!.Single(e => e!["exceptionID"]!.GetValue<string>() == result.Created.Single(c => c.SourceExceptionId == "A-2").ExceptionId)!;
             Assert.Equal("Expired", second["statusName"]!.GetValue<string>());
 
             var detail = await client.GetFromJsonAsync<JsonObject>($"/api/risk-exceptions/{row["exceptionKey"]!.GetValue<int>()}");
