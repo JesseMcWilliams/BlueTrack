@@ -92,7 +92,13 @@ function New-BlueTrackSite {
     $existingSite = Get-Website -Name $SiteName -ErrorAction SilentlyContinue
     if ($existingSite) {
         if (-not $Force) {
-            Write-Host "Site '$SiteName' already exists -- leaving it alone (pass -Force to recreate). Only the nested /BlueTrack Application and web.config will be (re)checked."
+            Write-Host "Site '$SiteName' already exists -- leaving it alone (pass -Force to recreate). Only its folder, the nested /BlueTrack Application and web.config will be (re)checked."
+            # D-187: a site created before the pages had their own folder
+            # points at the repo's App/Web/dist; move it.
+            if ($existingSite.PhysicalPath -ne $SpaPhysicalPath -and $PSCmdlet.ShouldProcess($SiteName, "Point the site at $SpaPhysicalPath (was $($existingSite.PhysicalPath))")) {
+                Set-ItemProperty -Path "IIS:\Sites\$SiteName" -Name physicalPath -Value $SpaPhysicalPath
+                Write-Host "Site '$SiteName' now serves $SpaPhysicalPath (was $($existingSite.PhysicalPath))."
+            }
         } else {
             if ($PSCmdlet.ShouldProcess($SiteName, 'Remove existing site')) {
                 Remove-Website -Name $SiteName
@@ -330,4 +336,39 @@ function Restart-BlueTrackIisService {
     }
 }
 
-Export-ModuleMember -Function New-BlueTrackAppPool, New-BlueTrackCertificateBinding, New-BlueTrackSite, Set-BlueTrackSiteWebConfig, Restart-BlueTrackAppPool, Get-BlueTrackAppPoolSqlLogin, Test-BlueTrackSqlServerIsLocal, Restart-BlueTrackIisService
+function Restart-BlueTrackSite {
+    <#
+    .SYNOPSIS
+        Stops and starts the BlueTrack site, so IIS registers its URLs and
+        their Windows sign-in settings with HTTP.sys again (D-188).
+    .DESCRIPTION
+        2026-10-09 on the dev host: after a redeploy, sign-in through the
+        rewritten /api/... path looped (401.1, Win32 85) and a full iisreset
+        did NOT clear it, but a change to the site's configuration did
+        (enabling Failed Request Tracing). iisreset restarts W3SVC and WAS but
+        not HTTP.sys, which holds the kernel-mode authentication settings;
+        stopping a site removes its URLs from HTTP.sys and starting it adds
+        them back with the current settings. Only this site stops, for a
+        moment. The likely cause, not a confirmed one.
+    #>
+    [CmdletBinding(SupportsShouldProcess)]
+    param(
+        [Parameter(Mandatory)] [string]$SiteName
+    )
+
+    if (-not (Get-Website -Name $SiteName -ErrorAction SilentlyContinue)) {
+        throw "Site '$SiteName' doesn't exist -- run the Iis.Site step first."
+    }
+    if ($PSCmdlet.ShouldProcess($SiteName, 'Stop and start the site (re-registers its URLs and sign-in settings)')) {
+        Stop-Website -Name $SiteName
+        Start-Sleep -Seconds 2
+        Start-Website -Name $SiteName
+        $state = (Get-Website -Name $SiteName).State
+        if ($state -ne 'Started') {
+            throw "Site '$SiteName' didn't start again (state: $state)."
+        }
+        Write-Host "Site '$SiteName' restarted."
+    }
+}
+
+Export-ModuleMember -Function Restart-BlueTrackSite, New-BlueTrackAppPool, New-BlueTrackCertificateBinding, New-BlueTrackSite, Set-BlueTrackSiteWebConfig, Restart-BlueTrackAppPool, Get-BlueTrackAppPoolSqlLogin, Test-BlueTrackSqlServerIsLocal, Restart-BlueTrackIisService

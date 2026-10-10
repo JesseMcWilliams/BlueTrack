@@ -20,7 +20,7 @@ $script:AnswerNames = @(
     'Environment', 'SqlServerInstance', 'DatabaseName', 'UseWindowsAuth', 'SeedTestData',
     'InstallNightlyJob', 'ImportSources', 'ExportFolderPath', 'EvdDatabaseName', 'BackupFolder',
     'GrantAppPoolSqlAccess', 'AppPoolSqlLogin', 'ResetIis',
-    'SiteName', 'ApiInstallPath', 'Hostname', 'HttpPort', 'HttpsPort',
+    'SiteName', 'ApiInstallPath', 'WebInstallPath', 'Hostname', 'HttpPort', 'HttpsPort',
     'CertificateThumbprint', 'GenerateSelfSignedCert',
     'PrerequisiteSource', 'InstallerSourcePath'
 )
