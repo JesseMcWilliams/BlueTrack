@@ -57,9 +57,9 @@ Managed on this same Credentials & LDAP admin page (one permission, `ManageCrede
 ## New Permissions
 
 - `ManageCredentials` -- the Credentials & LDAP admin page (CRUD + LDAP config).
-- `TriggerBackup` -- unrelated to credentials directly, but added in the same schema script (`17_BlueTrack_CredentialsLdapBackupSchema.sql`) for the Deployment page's new Backup App button; see `Design_Admin-Deployment-Management.md` §3.4.
+- `TriggerBackup` -- unrelated to credentials directly, but added in the same schema script (`04_BlueTrack_Baseline_WebSchema.sql`) for the Deployment page's new Backup App button; see `Design_Admin-Deployment-Management.md` §3.4.
 
-Both explicitly granted to the bootstrap Admin role, matching the established D-98/D-115 pattern for any permission added after `09_BlueTrack_WebSeed.sql`'s own one-time bootstrap grant already ran.
+Both explicitly granted to the bootstrap Admin role, matching the established D-98/D-115 pattern for any permission added after `05_BlueTrack_Baseline_WebSeed.sql`'s own one-time bootstrap grant already ran.
 
 ## D-118 (2026-09-08 follow-up): WindowsDpapi as a real Secrets Store backend, and LDAP trusted connections
 
@@ -89,8 +89,8 @@ New Playwright coverage for the Credentials & LDAP and Notifications admin pages
 
 ## Implementation Status
 
-**Implemented and verified live, D-116 (2026-09-08).** `Database/17_BlueTrack_CredentialsLdapBackupSchema.sql`; `CredentialRepository`/`LdapConfigRepository`/`CredentialsController`; `App/Api/Ldap/LdapGroupMemberResolver.cs` (this app's first use of `System.DirectoryServices`); a new `Credentials.vue` admin page.
+**Implemented and verified live, D-116 (2026-09-08).** `Database/04_BlueTrack_Baseline_WebSchema.sql`; `CredentialRepository`/`LdapConfigRepository`/`CredentialsController`; `App/Api/Ldap/LdapGroupMemberResolver.cs` (this app's first use of `System.DirectoryServices`); a new `Credentials.vue` admin page.
 
-**D-118 (same day, follow-up).** `Database/19_BlueTrack_LdapTrustedConnectionSchema.sql` (`UseTrustedConnection`); `App/Api/Secrets/DpapiCredentialResolver.cs` (extracted to avoid a circular DI dependency) and `WindowsDpapiVaultSecretsProvider.cs`, registered as a real `IVaultSecretProvider`; `LdapGroupMemberResolver` updated to bind without credentials when trusted-connection mode is on. Automated coverage added the same day across all of D-115 through D-118 (Contract, Integration, and Playwright layers) -- see that section above for the full rundown. `dotnet test` 292/292, Vitest 18/18.
+**D-118 (same day, follow-up).** `Database/04_BlueTrack_Baseline_WebSchema.sql` (`UseTrustedConnection`); `App/Api/Secrets/DpapiCredentialResolver.cs` (extracted to avoid a circular DI dependency) and `WindowsDpapiVaultSecretsProvider.cs`, registered as a real `IVaultSecretProvider`; `LdapGroupMemberResolver` updated to bind without credentials when trusted-connection mode is on. Automated coverage added the same day across all of D-115 through D-118 (Contract, Integration, and Playwright layers) -- see that section above for the full rundown. `dotnet test` 292/292, Vitest 18/18.
 
 Not built: a UI affordance for choosing/entering vault-backend fields (Safe/Folder/Object) has basic form support in `Credentials.vue`, but only the `WindowsDpapi` path was exercised live (the SMTP/LDAP credentials, and now the Secrets Store "Test Connection" path too, all used it) -- a vault-backed credential (CyberArk CP/CCP/Conjur/Azure/AWS) is implemented via the same `VaultSecretProviderResolver.ResolveByBackendType` used elsewhere but not separately re-verified here, since those backends' own live/placeholder status is already tracked in `Design_Secrets-Storage.md`. The new Playwright specs for Credentials/Notifications are written but unconfirmed passing in this environment -- see D-118's own note on the (pre-existing, unrelated) flakiness that blocked confirming them.

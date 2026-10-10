@@ -84,7 +84,7 @@ public sealed class RiskScoreReportRepository(IDbConnectionFactory connectionFac
     /// <summary>
     /// The drill-down behind a report row -- every real Target/Access Group
     /// currently contributing to this Account's reachable-value set, per
-    /// web.ufn_ReachableRiskValues (24_BlueTrack_RiskScoringReportDrilldown.sql
+    /// web.ufn_ReachableRiskValues (06_BlueTrack_Baseline_WebLogic.sql
     /// added the EntityType/EntityKey/EntityName columns this needs).
     /// </summary>
     public async Task<IReadOnlyList<RiskScoreContributor>> GetContributorsAsync(long accountKey)

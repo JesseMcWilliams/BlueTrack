@@ -33,7 +33,7 @@ Superseded by the approach change: per-system staging tables and import procedur
 
 - **CSV import pipelines** (Bulk Actions pages), each validating row by row and returning counts plus per-row errors: target inventory (servers), access group inventory (groups), access group → target, account → access group membership, account → target links (D-119; each can use a **D-105 mapping profile** to map a system's own column names), applications and safe → application assignments (D-180).
 - **In-app scheduling:** `NotificationCheckBackgroundService` and `AdAccountDiscoveryBackgroundService` already run inside the API on a timer, each with its own DI scope per run.
-- **Source tracking for accounts:** `fact_account.SourceSystemKey` → `dim_source_system` (`PRIVCLOUD`, `SELFHOSTED`, `DISCOVERY`), and Account Progress has a **Discovered** stage. The nightly CyberArk load only soft-deletes missing accounts **within its own source** (`03_BlueTrack_ETL_FactLoads.sql`), so accounts under another source are left alone.
+- **Source tracking for accounts:** `fact_account.SourceSystemKey` → `dim_source_system` (`PRIVCLOUD`, `SELFHOSTED`, `DISCOVERY`), and Account Progress has a **Discovered** stage. The nightly CyberArk load only soft-deletes missing accounts **within its own source** (`02_BlueTrack_Baseline_EtlLoads.sql`), so accounts under another source are left alone.
 
 ## Proposed design
 
@@ -78,7 +78,7 @@ The import logic moves out of `RiskScoringImportController` and `ApplicationMapp
   - Only an **exact** match links (username and address equal, ignoring case and surrounding spaces).
   - **Display** (decided 2026-10-09): once linked, the feed account is hidden from Account Progress and the reports, so only the CyberArk account shows and the account is counted once. A filter ("Show linked feed accounts") brings the hidden rows back into view.
 - **Possible-match remediation report** (decided 2026-10-09): a new report lists feed accounts that may be the same as a CyberArk account but weren't linked, because the match wasn't exact. Candidates come from a looser comparison: the same username with addresses that agree once normalized (short name versus FQDN, case), or that resolve to the same host by **DNS forward lookup** (name to IP) or **reverse lookup** (IP to name). Each row shows both accounts and why they were paired. Acting on a row, to link the pair or dismiss it, is recorded through `account_reconciliation`'s `IsConfirmed`/`RejectedFlag`. DNS lookups run on the app server as the app pool's account, during each feed run, with results cached for the run so one address isn't resolved repeatedly.
-- Must stay excluded from the CyberArk auto-advance rules, as `DISCOVERY` accounts are (`36_BlueTrack_FixAutoAdvanceForDiscoveredAccounts.sql`); the link above is the only thing that advances them.
+- Must stay excluded from the CyberArk auto-advance rules, as `DISCOVERY` accounts are (`02_BlueTrack_Baseline_EtlLoads.sql`); the link above is the only thing that advances them.
 
 ### 6. The CyberArk sources
 

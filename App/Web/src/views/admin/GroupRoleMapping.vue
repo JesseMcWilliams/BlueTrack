@@ -55,7 +55,7 @@ async function lookup() {
 }
 
 // D-107/Archive_Planning_Outstanding-Work-Survey-2026-09-16.md: generates a filled-in copy of
-// Database/38_BlueTrack_GrantBackupStatusReaderRole.sql targeting the
+// Database/Manual/03_BlueTrack_GrantBackupStatusReaderRole.sql targeting the
 // group just resolved above, for a DBA to run manually via sqlcmd --
 // this app never runs it itself (it's an msdb permission grant, outside
 // what this app's own least-privileged connection can do to itself).
@@ -145,7 +145,7 @@ async function remove(mapping) {
           <button type="button" @click="generateBackupStatusReaderScript">Generate db_backupstatus_reader Script</button>
         </p>
         <p>
-          Downloads a copy of <code>Database/38_BlueTrack_GrantBackupStatusReaderRole.sql</code> targeting this
+          Downloads a copy of <code>Database/Manual/03_BlueTrack_GrantBackupStatusReaderRole.sql</code> targeting this
           resolved account -- a DBA still has to run it manually via <code>sqlcmd</code> against <code>msdb</code>,
           never through the app itself.
         </p>

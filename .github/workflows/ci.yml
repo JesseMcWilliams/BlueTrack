@@ -46,14 +46,10 @@ jobs:
         shell: powershell
         run: dotnet build App/Migrator --configuration Release
 
-      # 14 (SQL Agent job scheduling) and 00 (standalone database creation)
-      # are never passed to DbUp -- App/Migrator always excludes both,
-      # regardless of any skip-list argument, so no argument is needed here.
-      # 00 is unneeded anyway: Migrator's own master-connection bootstrap
-      # already creates BlueTrackTest since the step above just dropped it.
-      # 14 is excluded because its own `USE msdb;` breaks DbUp's per-database
-      # journal write for that same script (see Program.cs's own comment) --
-      # true for any environment, not just a disposable one.
+      # App/Migrator reads only the top level of Database/ (the D-195
+      # baseline and any later numbered scripts); Database/Manual/ (SQL Agent
+      # jobs, grants) never runs here. Migrator's own master-connection
+      # bootstrap creates BlueTrackTest, since the step above just dropped it.
       - name: Build BlueTrackTest schema (Database/)
         shell: powershell
         run: >

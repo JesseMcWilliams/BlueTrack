@@ -4,7 +4,7 @@ using BlueTrack.Api.Models;
 namespace BlueTrack.Api.Data;
 
 /// <summary>
-/// D-185: delete and undelete accounts in BlueTrack (47_BlueTrack_AccountDeletion.sql).
+/// D-185: delete and undelete accounts in BlueTrack (04_BlueTrack_Baseline_WebSchema.sql).
 /// A BlueTrack delete is a web.account_deletion row; fact_account.IsDeleted
 /// (what every list and report filters on) is set alongside it, and the
 /// nightly load keeps it set. Every delete and undelete is appended to

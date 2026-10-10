@@ -7,7 +7,7 @@ namespace BlueTrack.Api.Data;
 
 /// <summary>
 /// D-186: the decommission / ignored-safe name patterns
-/// (48_BlueTrack_DecommissionPatterns.sql). All matching runs in SQL
+/// (02_BlueTrack_Baseline_EtlLoads.sql). All matching runs in SQL
 /// (dbo.fn_MatchesNamePattern), so the settings helper, the reports and the
 /// nightly import agree exactly.
 /// </summary>

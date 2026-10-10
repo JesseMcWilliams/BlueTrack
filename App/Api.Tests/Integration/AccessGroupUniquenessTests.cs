@@ -8,7 +8,7 @@ using Xunit;
 namespace BlueTrack.Api.Tests.Integration;
 
 /// <summary>
-/// D-122 (50_BlueTrack_AccessGroupUniquenessFix.sql): an access group is
+/// D-122 (04_BlueTrack_Baseline_WebSchema.sql): an access group is
 /// unique per (GroupName, GroupIdentifier, FoundOnTargetKey), not per
 /// GroupIdentifier alone, so a well-known Local group's SID can repeat once
 /// per server. Rebuilt 2026-10-09 from the never-merged branch

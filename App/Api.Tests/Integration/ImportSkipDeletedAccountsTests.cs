@@ -5,7 +5,7 @@ using Xunit;
 namespace BlueTrack.Api.Tests.Integration;
 
 /// <summary>
-/// D-184 (46_BlueTrack_ImportSkipDeletedAccounts.sql): usp_Load_FactAccount
+/// D-184 (02_BlueTrack_Baseline_EtlLoads.sql): usp_Load_FactAccount
 /// never adds an account the CyberArk export marks as deleted, keeps and
 /// flags one BlueTrack already has, and reads Self-Hosted CAFDeletionDate
 /// only when it's a real date (not an epoch placeholder, not before

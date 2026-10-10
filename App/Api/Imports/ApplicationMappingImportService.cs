@@ -27,7 +27,7 @@ public sealed class ApplicationMappingImportService(
     public static readonly string[] ApplicationColumns =
         ["ApplicationCode", "ApplicationName", "Description", "OwnerName", "OwnerEmail", "TechnicalName", "TechnicalEmail", "Notes"];
 
-    // web.dim_application column sizes (08_BlueTrack_WebSchema.sql), checked
+    // web.dim_application column sizes (04_BlueTrack_Baseline_WebSchema.sql), checked
     // per row so an over-long value is a clear row error, not a truncation exception.
     private static readonly Dictionary<string, int> MaxLengths = new(StringComparer.OrdinalIgnoreCase)
     {

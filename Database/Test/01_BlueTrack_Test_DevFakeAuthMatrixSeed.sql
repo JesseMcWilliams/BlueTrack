@@ -7,16 +7,13 @@
    environment); it only belongs in a
    disposable database like BlueTrackTest.
 
-   RUN THIS AFTER Database/01 through Database/13 (Database/14_BlueTrack_
-   ScheduleImportLoadJob.sql is SQL Agent job scheduling and doesn't belong
-   in a disposable database -- see App/Migrator/Program.cs's
-   skipScriptNames argument; Database/00 never runs through Migrator at
-   all -- see its own header).
+   RUN THIS AFTER the scripts at the top level of Database/ (App/Migrator
+   runs this folder separately, after them).
 
    WHAT THIS DOES: seeds the role/permission matrix that layers 3
    (API/contract tests) and 4 (Playwright E2E) need to exercise every
    permission boundary -- Design_Testing-Strategy.md's own call-out that
-   the real 11_BlueTrack_DevFakeAuthSeed.sql "only seeds one disabled
+   the real DevFakeAuth seed (05_BlueTrack_Baseline_WebSeed.sql) "only seeds one disabled
    placeholder row, not the role/permission matrix (Viewer/Analyst/
    Approver/Admin, at minimum) this layer needs."
 
@@ -105,11 +102,8 @@ WHERE p.PermissionName IN ('ViewDashboard', 'ViewAuditLog')
 
 -- D-121: ManageTargets/ManageAccessGroups added to this bundle so
 -- TestUser.Analyst actually exercises the new "Analyst has full parity
--- with Admin on Targets/Access Groups" grant -- this script runs (via
--- Database/Test) after the numbered 26_BlueTrack_AccessGroupSorAndAnalyst
--- Access.sql script's own Analyst-role grant, which no-ops against a fresh
--- BlueTrackTest since this role doesn't exist yet at that point in the
--- build order.
+-- with Admin on Targets/Access Groups" grant (05_BlueTrack_Baseline_WebSeed.sql
+-- gives the real Analyst role the same two).
 INSERT INTO web.role_permission (RoleKey, PermissionKey)
 SELECT @AnalystRoleKey, p.PermissionKey
 FROM web.app_permission p

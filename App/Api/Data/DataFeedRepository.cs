@@ -3,7 +3,7 @@ using BlueTrack.Api.Models;
 
 namespace BlueTrack.Api.Data;
 
-/// <summary>D-181: web.data_feed and web.data_feed_run (43_BlueTrack_DataFeeds.sql), for the Data Sources page and the feed runner.</summary>
+/// <summary>D-181: web.data_feed and web.data_feed_run (04_BlueTrack_Baseline_WebSchema.sql), for the Data Sources page and the feed runner.</summary>
 public sealed class DataFeedRepository(IDbConnectionFactory connectionFactory)
 {
     // Scheduled runs are attributed to this user (D-181): Windows' NULL SID,

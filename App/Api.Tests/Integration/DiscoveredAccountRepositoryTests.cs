@@ -285,8 +285,9 @@ public class DiscoveredAccountRepositoryTests
     }
 
     /// <summary>
-    /// The specific regression Database/36_BlueTrack_FixAutoAdvanceForDiscoveredAccounts.sql
-    /// exists to prevent: without that fix, a just-accepted DISCOVERY-sourced
+    /// The specific regression usp_Load_AccountProgressAutoAdvance's
+    /// DISCOVERY exclusion (Database/02_BlueTrack_Baseline_EtlLoads.sql)
+    /// exists to prevent: without it, a just-accepted DISCOVERY-sourced
     /// account (no Safe at all, since it isn't actually vaulted) would get
     /// wrongly auto-promoted straight to "Onboarded to Vault" on the very
     /// next Load run. A second, real PRIVCLOUD account with no Safe is also

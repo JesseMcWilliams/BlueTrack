@@ -12,7 +12,7 @@ namespace BlueTrack.Api.Tests.Contract;
 /// reconciliation-review-queue, found during frontend work) -- so a gate
 /// check per admin endpoint is worth having even without deep functional
 /// coverage of each one. TestUser.Admin holds every confirmed permission
-/// (09_BlueTrack_WebSeed.sql's bootstrap Admin role); none of
+/// (05_BlueTrack_Baseline_WebSeed.sql's bootstrap Admin role); none of
 /// Viewer/Analyst/Approver hold any of these admin-only permissions, so
 /// any of them is a valid "should be forbidden" caller.
 /// </summary>

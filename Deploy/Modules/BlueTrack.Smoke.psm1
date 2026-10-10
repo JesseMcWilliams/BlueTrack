@@ -127,7 +127,7 @@ function Write-BlueTrackSmokeDiagnosis {
             Write-Warning 'Seen live as 401.1 / 0x8009030e and cleared by "klist purge" (a stale Kerberos ticket is the likely, unconfirmed cause): run klist purge, then -Step Smoke. If it persists, check the app pool identity, SPNs and useAppPoolCredentials -- Deploy/README.md, "Smoke test failures".'
         }
         403 {
-            Write-Warning 'HTTP 403: you are signed in, but your account lacks ViewDeploymentInfo. The bootstrap Admin role has it, mapped to BUILTIN\Administrators (S-1-5-32-544) by Database/09_BlueTrack_WebSeed.sql -- run this script elevated as a local administrator, or map your group to Admin.'
+            Write-Warning 'HTTP 403: you are signed in, but your account lacks ViewDeploymentInfo. The bootstrap Admin role has it, mapped to BUILTIN\Administrators (S-1-5-32-544) by Database/05_BlueTrack_Baseline_WebSeed.sql -- run this script elevated as a local administrator, or map your group to Admin.'
         }
         { $_ -ge 500 } {
             Write-Warning "HTTP $($status): the request reached BlueTrack.Api and it failed. The exception is in the Application event log (source '.NET Runtime', event 1000)."

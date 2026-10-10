@@ -5,7 +5,7 @@ CyberArk PAM Blueprint progress tracking: a SQL Server warehouse (ETL from Cyber
 ## Folder map
 - `App/Api/`: the Web API. `App/Api.Tests/`: xUnit Unit/Integration/Contract, one project. `App/Web/`: Vue SPA + Vitest. `App/E2E/`: Playwright. `App/Migrator/`: DbUp console app that applies `Database/*.sql` in filename order.
 - `Database/`: numbered SQL scripts; `Database/Test/` holds test-only seeds (never run against a real environment). Script order and purpose: `Database/README.md`.
-- `Database/01_BlueTrack_CoreSchema.sql` is over 1,000 lines: grep for the object and read a line range; don't read the whole file.
+- `Database/01_BlueTrack_Baseline_CoreSchema.sql` is over 1,000 lines: grep for the object and read a line range; don't read the whole file.
 - `Deploy/`: `Install-`/`Backup-`/`Restore-BlueTrack.ps1` plus `Modules/`. Details: `Deploy/README.md`.
 - Don't read gitignored runtime output: `Logs/`, `Deploy/Logs/`, `App/**/bin|obj/`, `node_modules/`, `App/Web/dist/`, `App/E2E/test-results|playwright-report|blob-report/`. `Reference/` is gitignored sample CyberArk exports; read only a named file.
 - External references are in `C:\Code\References\`. Check there before guessing at API behavior.
@@ -21,7 +21,7 @@ CyberArk PAM Blueprint progress tracking: a SQL Server warehouse (ETL from Cyber
 
 ## Code rules (details in the linked sections, not repeated here)
 - Check `Claude_Docs/Design_Decision-Register.md` before designing anything; it's the append-only `D-n` log. New decisions get the next number.
-- New SQL goes in the next numbered `Database/NN_BlueTrack_*.sql`; follow the header and re-run conventions in `Database/README.md` ("Build order"). Scripts `14_` and `40_` (Agent jobs) are run by hand, never by the Migrator.
+- New SQL goes in the next numbered `Database/NN_BlueTrack_*.sql` (after the `01`-`06` baseline, D-195); follow `Database/README.md` ("Adding a script"). Never edit a script that has already run. `Database/Manual/` (Agent jobs, grants) is run by hand, never by the Migrator.
 - After touching `App/Api/Auth/AuthenticationExtensions.cs`, regression-test Windows Integrated auth: `Claude_Docs/Design_Authentication-Architecture.md`.
 - List/grid, breadcrumb and delete-confirm UI patterns: `Claude_Docs/Design_Application-Structure.md` ("Cross-Cutting UI Conventions").
 - PowerShell in `Deploy/` must pass `Deploy/PSScriptAnalyzerSettings.psd1`.

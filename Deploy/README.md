@@ -12,7 +12,7 @@ The install runs as named steps, grouped into the five phases below. `-ListSteps
 2. **Build** — `dotnet publish` (API) and `npm run build` (SPA) from source; the built SPA is copied to `-WebInstallPath` (default `C:\inetpub\BlueTrack\<Environment>\web`), so a later local build in the repo never changes the live site (D-187). When the API is already deployed and running, `Build.Api` first drops an `app_offline.htm` into its folder, so the ASP.NET Core Module stops just that app and releases its files, then removes it after publishing (D-175). Before this, a redeploy failed with `MSB3021 ... being used by another process` and needed an `iisreset`. The API publishes to `C:\inetpub\BlueTrack\<Environment>\api` by default (override with `-ApiInstallPath`) — deliberately not a temp folder, since IIS's Application Pool identity needs durable read access to whatever directory it's pointed at, and `%TEMP%` is both ephemeral and scoped to the account that ran this script.
 3. **Database** — confirms SQL Server is reachable; if the target database already exists with a schema (an upgrade, not a fresh install), takes a pre-deployment backup first (see "Rollback" below); runs `App/Migrator` against `Database` (and optionally `Database/Test`); writes an environment-specific `appsettings.{Environment}.json` next to the published API; and optionally installs the nightly Import+Load SQL Agent job.
 4. **IIS** — creates the Application Pool, the site (physical root = `-WebInstallPath`; an existing site still pointing at the repo's `App/Web/dist` is moved there), the nested `/BlueTrack` Application (physical root = the published API), the HTTPS binding/certificate, and the site-root `web.config` (the SPA client-side-routing fallback rule). The nested Application is named `BlueTrack`, not `api` — the controllers' own routes already start with a literal `api/` segment, and naming the Application `/api` too would double it up externally (D-163); the real API root ends up at `/BlueTrack/api/...`. Also enables IIS's own Windows Authentication (alongside Anonymous) on that Application — BlueTrack.Api defers Windows Integrated Auth to IIS's native handshake when IIS-hosted rather than running its own Negotiate handler, which cannot coexist with IIS/ANCM at all (D-162). Windows Authentication is also enabled at the **site root**, alongside Anonymous (D-172), and stored in `applicationHost.config` since the root `web.config` is regenerated. D-172 took this for the fix for a browser sign-in loop on the rewritten `/api/...` path; D-175 found the actual fix was a full IIS restart, and the setting is kept as harmless. Then, with your consent (`-ResetIis`), the `Iis.Reset` step runs `iisreset` so every IIS change takes effect. It briefly stops **every** site on the server. Finally `Iis.SiteRestart` (always) stops and starts just the BlueTrack site, so IIS re-applies its sign-in settings: on the dev host that, not `iisreset`, is what cleared the `/api/...` login loop (D-188).
-   Then, with your consent (`-GrantAppPoolSqlAccess`), the `Db.AppPoolAccess` step gives the App Pool's Windows account SQL Server access: `CREATE LOGIN` if it's missing, then `Database/41_BlueTrack_GrantAppServiceAccountAccess.sql` (read/write/execute, not `db_owner`). See "App pool SQL access" below.
+   Then, with your consent (`-GrantAppPoolSqlAccess`), the `Db.AppPoolAccess` step gives the App Pool's Windows account SQL Server access: `CREATE LOGIN` if it's missing, then `Database/Manual/02_BlueTrack_GrantAppServiceAccountAccess.sql` (read/write/execute, not `db_owner`). See "App pool SQL access" below.
 5. **Smoke test** — calls the Deployment Info health-check endpoint and reports the result. A failure is explained by HTTP status; see "Smoke test failures" below.
 
 ## Rollback
@@ -73,7 +73,7 @@ Preview without changing anything:
 | `-SqlCredential` | SQL login (only used when `-UseWindowsAuth $false`) | prompted via `Get-Credential` |
 | `-SeedTestData` | Also run `Database/Test` (DevFakeAuth/synthetic accounts) — never for Production | prompted |
 | `-InstallNightlyJob` | Install the nightly Import+Load SQL Agent job | prompted |
-| `-GrantAppPoolSqlAccess` | Give the App Pool's account a SQL login and the script 41 grants (`Db.AppPoolAccess` step). Only asked with Windows Integrated Security | prompted |
+| `-GrantAppPoolSqlAccess` | Give the App Pool's account a SQL login and the grants in `Database/Manual/02_BlueTrack_GrantAppServiceAccountAccess.sql` (`Db.AppPoolAccess` step). Only asked with Windows Integrated Security | prompted |
 | `-AppPoolSqlLogin` | Account to grant, overriding the one worked out from the App Pool (e.g. on a server that isn't domain-joined) | worked out |
 | `-ResetIis` | Run `iisreset` after the IIS steps (`Iis.Reset`), before the smoke test. Briefly stops **every** site on the server | prompted |
 | `-ImportSources` | Which CyberArk sources the nightly job imports: `Both`, `PrivilegeCloud` or `SelfHosted` (D-176) | prompted, if `-InstallNightlyJob` |
@@ -147,7 +147,7 @@ With Windows Integrated Security, the API connects to SQL Server as the App Pool
 
 **Trap:** with SQL Server on the same machine, SQL Server's `Login failed for user '...'` message names the *computer account* even though the connection arrives as `IIS APPPOOL\<pool>`. A login for the computer account is never matched, so the error persists after granting it (this is what D-164 and D-170 both hit). The account that needs the login is the one in the event's SID: `Get-WinEvent -FilterHashtable @{LogName='Application'; Id=18456} -MaxEvents 1 | ForEach-Object { $_.UserId.Translate([System.Security.Principal.NTAccount]).Value }`.
 
-`Db.AppPoolAccess` works this out from the App Pool's identity and whether `-SqlServerInstance` is this machine, creates the login if it's missing and runs script 41 for it. `-AppPoolSqlLogin` overrides the account. The installing user needs `securityadmin` (or `sysadmin`). For least privilege, a dedicated gMSA is still preferred: a computer-account grant (remote SQL Server) also covers everything else on the server running as `NETWORK SERVICE`, `SYSTEM` or an App Pool (`User_Docs/Admin_Installation.md`, section 3).
+`Db.AppPoolAccess` works this out from the App Pool's identity and whether `-SqlServerInstance` is this machine, creates the login if it's missing and runs a filled-in copy of `Database/Manual/02_BlueTrack_GrantAppServiceAccountAccess.sql` for it. `-AppPoolSqlLogin` overrides the account. The installing user needs `securityadmin` (or `sysadmin`). For least privilege, a dedicated gMSA is still preferred: a computer-account grant (remote SQL Server) also covers everything else on the server running as `NETWORK SERVICE`, `SYSTEM` or an App Pool (`User_Docs/Admin_Installation.md`, section 3).
 
 ### Data feed folders
 
@@ -182,9 +182,28 @@ Whenever a smoke check fails, the output ends with the two URLs it calls, so you
 - **Afterwards**, use the new copy's `Deploy` folder for further runs (`-Step`, `-Resume`, the next update): its `State` folder now holds this site's answers and progress.
 - A copy downloaded from a version older than this script (before D-192) warns that `UpdateDownloadFolder` is an unknown setting when the installer reads the answers; that's harmless.
 
+### Schema baseline and drift check (`Compare-BlueTrackSchema.ps1`)
+
+The database scripts were consolidated into a six-script baseline before the first release (D-195, `Database/README.md`). Upgrading a site built from the older scripts needs nothing special: `Db.Migrate` (App/Migrator) sees the old scripts in the database's journal and records the baseline as applied instead of running it. A database that isn't up to date with the old scripts (through `51_BlueTrack_TargetsFromCyberArkAddress.sql`) is refused; update it from the `pre-sql-baseline` tag first.
+
+`Compare-BlueTrackSchema.ps1` lists every difference between two databases on one SQL Server: tables, columns, defaults, constraints, indexes, procedures/views/functions, types, sequences, synonyms, and database roles with their permissions (not users or logins, which differ by environment). Exit code 1 when anything differs.
+
+```powershell
+# Drift check: build a reference from this repo's scripts, compare the live database with it, then drop the reference.
+dotnet run --project ..\App\Migrator -- "Server=localhost;Database=BlueTrackReference;Integrated Security=true;TrustServerCertificate=true" ..\Database
+.\Compare-BlueTrackSchema.ps1 -SqlServerInstance localhost -ReferenceDatabase BlueTrackReference -DifferenceDatabase BlueTrack -IgnoreComments
+```
+
+| Parameter | Meaning |
+|---|---|
+| `-ReferenceDatabase` / `-DifferenceDatabase` | The two databases (same instance). |
+| `-IgnoreComments` | Compare procedure/view/function definitions without their comments. Use for drift checks. |
+| `-IncludeData` | Also compare each table's row count and a checksum of its values (except dates, GUIDs and binary data). Only meaningful between freshly built databases. |
+| `-UseWindowsAuth` / `-SqlCredential` | As for the installer. |
+
 ### A note on the nightly Import+Load job
 
-`Database/14_BlueTrack_ScheduleImportLoadJob.sql` has its export-folder path and Self-Hosted EVD database name hardcoded as literal T-SQL — they aren't `sqlcmd` variables the way the target database name is. `Install-BlueTrackNightlyJob` (in `Modules/BlueTrack.Database.psm1`) generates a **temporary copy** of that script with your `-ExportFolderPath`/`-EvdDatabaseName` substituted in before running it via `sqlcmd` — the tracked file in `Database/` is never modified. It also sets the job's `@ImportPrivilegeCloud`/`@ImportSelfHosted` flags from `-ImportSources` (D-176). For a Privilege-Cloud-only or Self-Hosted-only implementation, the job imports just that source and empties the other's staging tables each night. A missing export for a source that's switched on still fails the job, with a message naming the file or database.
+`Database/Manual/04_BlueTrack_ScheduleImportLoadJob.sql` has its export-folder path and Self-Hosted EVD database name hardcoded as literal T-SQL — they aren't `sqlcmd` variables the way the target database name is. `Install-BlueTrackNightlyJob` (in `Modules/BlueTrack.Database.psm1`) generates a **temporary copy** of that script with your `-ExportFolderPath`/`-EvdDatabaseName` substituted in before running it via `sqlcmd` — the tracked file in `Database/` is never modified. It also sets the job's `@ImportPrivilegeCloud`/`@ImportSelfHosted` flags from `-ImportSources` (D-176). For a Privilege-Cloud-only or Self-Hosted-only implementation, the job imports just that source and empties the other's staging tables each night. A missing export for a source that's switched on still fails the job, with a message naming the file or database.
 
 ## Structure
 
@@ -203,6 +222,7 @@ Deploy/
     BlueTrack.Smoke.psm1          # post-install health-check call
   Backup-BlueTrack.ps1            # standalone backup, outside a full install run
   Restore-BlueTrack.ps1           # standalone emergency restore
+  Compare-BlueTrackSchema.ps1     # list schema (and optionally data) differences between two databases; the drift check
   Templates/
     site-web.config.template      # SPA URL Rewrite fallback rule
   Logs/                           # transcript logs from each run (git-ignored)

@@ -1,7 +1,7 @@
 // Identity Providers edit page: merge a provider's stored settings JSON into
 // the page's own (camelCase) fields.
 //
-// Found 2026-10-09: Database/12_BlueTrack_OidcSamlProviderSeed.sql stores the
+// Found 2026-10-09: Database/05_BlueTrack_Baseline_WebSeed.sql stores the
 // placeholder settings with PascalCase names ("SpEntityId"), while this page
 // uses camelCase ("spEntityId"). A plain object spread kept both, so the
 // first save wrote every setting twice, and the API -- which reads names

@@ -6,7 +6,7 @@ namespace BlueTrack.Api.Data;
 /// <summary>
 /// Pessimistic locking for the Account Progress edit form (D-50). The
 /// abandoned-lock timeout comes from web.app_config.LockTimeoutMinutes
-/// (admin-configurable, added by 08_BlueTrack_WebSchema.sql).
+/// (admin-configurable, added by 04_BlueTrack_Baseline_WebSchema.sql).
 /// </summary>
 public sealed class AccountProgressLockRepository(IDbConnectionFactory connectionFactory)
 {

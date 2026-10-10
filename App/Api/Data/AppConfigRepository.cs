@@ -5,7 +5,7 @@ namespace BlueTrack.Api.Data;
 
 /// <summary>
 /// web.app_config and web.audit_config are both singletons (exactly one
-/// row each, seeded in 08_BlueTrack_WebSchema.sql) -- merged into
+/// row each, seeded in 04_BlueTrack_Baseline_WebSchema.sql) -- merged into
 /// one shape for the Global Application Configuration admin page.
 /// </summary>
 public sealed class AppConfigRepository(IDbConnectionFactory connectionFactory)

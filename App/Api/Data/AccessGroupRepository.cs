@@ -244,7 +244,7 @@ public sealed class AccessGroupRepository(IDbConnectionFactory connectionFactory
     /// SQL, so a naive equality check would let a Domain group duplicate
     /// silently -- the OR clause below treats two NULLs as equal for this
     /// comparison, matching the NULL-safe DB constraint
-    /// (FoundOnTargetKeyForUniqueness, 50_BlueTrack_AccessGroupUniquenessFix.sql).
+    /// (FoundOnTargetKeyForUniqueness, 04_BlueTrack_Baseline_WebSchema.sql).
     /// </summary>
     private static async Task EnsureNoDuplicateAsync(IDbConnection connection, SaveAccessGroupRequest request, int? excludingAccessGroupKey, IDbTransaction? transaction = null)
     {

@@ -4,7 +4,7 @@ using Xunit;
 
 namespace BlueTrack.Api.Tests.Integration;
 
-/// <summary>D-181: web.data_feed / web.data_feed_run (43_BlueTrack_DataFeeds.sql).</summary>
+/// <summary>D-181: web.data_feed / web.data_feed_run (04_BlueTrack_Baseline_WebSchema.sql).</summary>
 public class DataFeedRepositoryTests
 {
     private static DataFeedRepository CreateRepository() => new(new TestDbConnectionFactory());

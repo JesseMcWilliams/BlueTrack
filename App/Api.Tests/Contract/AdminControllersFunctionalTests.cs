@@ -124,7 +124,7 @@ public class AdminControllersFunctionalTests : IClassFixture<BlueTrackWebApplica
 
     /// <summary>
     /// D-107/Archive_Planning_Outstanding-Work-Survey-2026-09-16.md: the generated script substitutes
-    /// the resolved account name into Database/38_BlueTrack_GrantBackupStatusReaderRole.sql's
+    /// the resolved account name into Database/Manual/03_BlueTrack_GrantBackupStatusReaderRole.sql's
     /// __TARGET_ACCOUNT__ placeholder -- confirms the substitution actually
     /// happened (not just that a file came back) and that no placeholder
     /// text survives into the download.
@@ -185,7 +185,7 @@ public class AdminControllersFunctionalTests : IClassFixture<BlueTrackWebApplica
 
         var mappings = await client.GetFromJsonAsync<List<GroupRoleMappingListItem>>("/api/admin/group-role-mappings");
 
-        // Seeded by 09_BlueTrack_WebSeed.sql: BUILTIN\Administrators -> Admin.
+        // Seeded by 05_BlueTrack_Baseline_WebSeed.sql: BUILTIN\Administrators -> Admin.
         var bootstrap = Assert.Single(mappings!, m => m.ProviderType == "WindowsIntegrated" && m.IdentityGroupName == "S-1-5-32-544");
         Assert.Equal(@"BUILTIN\Administrators", bootstrap.GroupDisplayName);
     }
