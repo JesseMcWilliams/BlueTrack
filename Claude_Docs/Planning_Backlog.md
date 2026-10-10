@@ -9,6 +9,8 @@
 - **Azure Key Vault, AWS Secrets Manager, CyberArk Conjur** secrets backends: tested only against unreachable placeholder endpoints (error handling, not a real secret round-trip). CyberArk CP, CCP and Windows DPAPI are verified live.
 - **SAML and OIDC**: working code, pointed only at placeholder IdP config. SAML Single Logout isn't built.
 - **Break-glass**: exists only as a decision (credential in CyberArk, logon triggers an alert). No distinct code path exists.
+- **Installer on a fresh server**: `Db.AppPoolAccess` (D-171) and `Iis.Reset` (D-175) have only run by hand or with `-WhatIf`; the new `Iis.SiteRestart` (D-188) ran on the dev host only. DCACYBSQL01's app pool SQL login was granted by hand. Check all three on the next real install.
+- **The `/api/...` login loop** (D-172, D-175, D-188): `Iis.SiteRestart` is the current best fix, not yet seen to prevent a recurrence. If it comes back, capture Failed Request Tracing for `401` before changing anything (see `Reference_Lessons-Learned.md`).
 - **AD Account Discovery multi-domain**: code loops over every enabled domain, but only one real domain exists to test against.
 
 ## Deliberately deferred (confirmed choices, not gaps)
@@ -21,10 +23,7 @@
 - `dbo.stg_discovered_accounts`: a content-free stub, effectively superseded by `web.discovered_account`. Candidate for removal.
 
 ## Process and tooling
-- CI (`ci.yml`) isn't a required check, so a merge isn't blocked by failing tests.
-- `runs-on: [self-hosted, Windows, X64]` labels in `ci.yml` never confirmed against the registered runner *(verify)*.
+- **Turn on CI as a required check** (decided 2026-10-09): `main`'s branch protection should require the `ci.yml` `test` job, including for admins. Not set yet: it needs repository-admin access in GitHub.
 - Playwright E2E has a known recurring flaky-proxy issue, accepted as a limitation (see `Reference_Lessons-Learned.md`).
 - No automated versioning: the API's `<Version>` is bumped by hand.
-- This dev host's lab IIS site (`bluetrack.company.com`) serves straight from `App\Web\dist`, which every SPA build empties, so it currently has no site-root `web.config` (no D-166 rewrite or SPA fallback). Re-run `Iis.WebConfig` there, and consider pointing the site at a separate folder. Deferred 2026-10-07.
-- `Iis.Site` turns on Windows auth for `/BlueTrack` through `IIS:\Sites\<site>\BlueTrack`, which likely writes to the published API's own `web.config`; re-running `Build.Api` alone may then overwrite it and silently turn Windows sign-in off *(verify)*. If confirmed, write it to `applicationHost.config` like the site-root setting (D-172).
 - Target Match Review's "Merged" resolution and the CSV import-mapping UX are plain manual forms, with no typeahead or header auto-detect.
