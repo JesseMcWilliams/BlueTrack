@@ -25,6 +25,7 @@ public sealed class RiskExceptionsController(
     /// <summary>D-183: imports exceptions approved in another tool; see RiskExceptionImportService. Gated like creating an exception.</summary>
     [HttpPost("import")]
     [Authorize(Policy = Permissions.ApproveExceptions)]
+    [RequestSizeLimit(30_000_000)]   // D-198: also outside IIS, whose default is ~30 MB
     public async Task<IActionResult> Import(IFormFile file, [FromServices] Imports.RiskExceptionImportService importService)
     {
         var user = await currentUserResolver.ResolveAsync(User);

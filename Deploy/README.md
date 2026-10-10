@@ -116,6 +116,8 @@ Answers and step outcomes are saved under `Deploy/State/` (git-ignored), one pai
 
 ### Prerequisite installers
 
+Every installer's Authenticode signature must be valid **and** from the vendor's organisation (D-198): Microsoft Corporation for the .NET SDK, Hosting Bundle and URL Rewrite, OpenJS Foundation for Node.js (`$script:InstallerCatalog` in `BlueTrack.Prereqs.psm1`). A file signed by anyone else is refused.
+
 `-PrerequisiteSource Auto` (the default) uses the first that applies:
 
 1. **Offline** — when `-InstallerSourcePath` is given. For servers without internet access: download the installers on another machine and copy them into one folder.
@@ -138,6 +140,8 @@ File names the offline lookup matches in `-InstallerSourcePath` (the newest vers
 To have the hash checked as well, put a sidecar file next to the installer, `<installer>.sha512` or `<installer>.sha256`, holding the hash (a bare hash or `sha256sum`-style `<hash>  <file>` line). The IIS role and its Windows Authentication role service are Windows features (`Install-WindowsFeature`) and need no installer file.
 
 ### App pool SQL access
+
+`Database/Manual/02_BlueTrack_GrantAppServiceAccountAccess.sql` makes the audit log append-only for the app's account (D-198): it may add audit rows but not change or delete them, or run the retention purge (that runs from its own SQL Agent job). On an existing install, re-run `-Step Db.AppPoolAccess` to apply it.
 
 With Windows Integrated Security, the API connects to SQL Server as the App Pool's Windows account, and nothing works until that account has a login (D-164, D-171). The account is:
 

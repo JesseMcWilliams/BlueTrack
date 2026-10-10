@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using BlueTrack.Api.Audit;
 using BlueTrack.Api.Auth;
 using BlueTrack.Api.Data;
 using BlueTrack.Api.Models;
@@ -20,8 +21,19 @@ namespace BlueTrack.Api.Controllers;
 public sealed class CredentialsController(
     CredentialRepository repository,
     LdapConfigRepository ldapConfigRepository,
-    CurrentUserResolver currentUserResolver) : ControllerBase
+    CurrentUserResolver currentUserResolver,
+    AuditLogger auditLogger) : ControllerBase
 {
+    // D-198: every credential and LDAP change is audit-logged -- what changed,
+    // never a password (only whether a new one was set).
+    private static string Describe(SaveCredentialRequest request) =>
+        $"'{request.CredentialName}' ({request.BackendType})"
+        + (string.IsNullOrEmpty(request.PlaintextPassword) ? "" : ", new password set");
+
+    private static string Describe(SaveLdapConfigRequest request) =>
+        $"domain '{request.DomainName}', enabled={request.IsEnabled}, DC '{request.DomainController}', "
+        + $"SSL={request.UseSsl}, trusted connection={request.UseTrustedConnection}, credential key {request.CredentialKey?.ToString() ?? "none"}";
+
     [HttpGet]
     public async Task<IActionResult> GetAll() => Ok(await repository.GetAllAsync());
 
@@ -32,6 +44,7 @@ public sealed class CredentialsController(
         if (user is null) return Unauthorized();
 
         var key = await repository.CreateAsync(request, user.UserKey);
+        await auditLogger.LogAsync("FieldEdit", user.UserKey, "credential", key.ToString(), detail: $"Credential {Describe(request)} created");
         return CreatedAtAction(nameof(GetAll), new { }, new { credentialKey = key });
     }
 
@@ -42,13 +55,17 @@ public sealed class CredentialsController(
         if (user is null) return Unauthorized();
 
         await repository.UpdateAsync(credentialKey, request, user.UserKey);
+        await auditLogger.LogAsync("FieldEdit", user.UserKey, "credential", credentialKey.ToString(), detail: $"Credential {Describe(request)} updated");
         return NoContent();
     }
 
     [HttpDelete("{credentialKey:int}")]
     public async Task<IActionResult> Delete(int credentialKey)
     {
+        var user = await currentUserResolver.ResolveAsync(User);
+        if (user is null) return Unauthorized();
         await repository.DeleteAsync(credentialKey);
+        await auditLogger.LogAsync("FieldEdit", user.UserKey, "credential", credentialKey.ToString(), detail: "Credential deleted");
         return NoContent();
     }
 
@@ -77,6 +94,7 @@ public sealed class CredentialsController(
         if (user is null) return Unauthorized();
 
         var key = await ldapConfigRepository.CreateAsync(request, user.UserKey);
+        await auditLogger.LogAsync("FieldEdit", user.UserKey, "ldap_config", key.ToString(), detail: $"LDAP config created: {Describe(request)}");
         return CreatedAtAction(nameof(GetAllLdapConfigs), new { }, new { ldapConfigKey = key });
     }
 
@@ -87,13 +105,17 @@ public sealed class CredentialsController(
         if (user is null) return Unauthorized();
 
         await ldapConfigRepository.UpdateAsync(ldapConfigKey, request, user.UserKey);
+        await auditLogger.LogAsync("FieldEdit", user.UserKey, "ldap_config", ldapConfigKey.ToString(), detail: $"LDAP config updated: {Describe(request)}");
         return NoContent();
     }
 
     [HttpDelete("ldap-config/{ldapConfigKey:int}")]
     public async Task<IActionResult> DeleteLdapConfig(int ldapConfigKey)
     {
+        var user = await currentUserResolver.ResolveAsync(User);
+        if (user is null) return Unauthorized();
         await ldapConfigRepository.DeleteAsync(ldapConfigKey);
+        await auditLogger.LogAsync("FieldEdit", user.UserKey, "ldap_config", ldapConfigKey.ToString(), detail: "LDAP config deleted");
         return NoContent();
     }
 }

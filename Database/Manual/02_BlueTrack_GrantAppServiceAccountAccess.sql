@@ -66,10 +66,19 @@
    repositories do directly against `dbo`/`web` tables; EXECUTE on both
    schemas covers the stored procedures the nightly Import+Load job and
    AD Account Discovery/notification background services call
-   (`usp_Import_*`, `usp_RunFullLoad`, `usp_PurgeAuditLog`, etc.) that
-   plain db_datareader/db_datawriter membership does not itself grant.
+   (`usp_Import_*`, `usp_RunFullLoad`, etc.) that plain
+   db_datareader/db_datawriter membership does not itself grant.
    No DDL, no permission-granting, no cross-database, no server-level
    rights beyond the login itself.
+
+   D-198: the audit log is append-only for this account. It may INSERT
+   audit rows (every tracked change writes one) but not UPDATE or DELETE
+   them, and may not run usp_PurgeAuditLog -- the retention purge runs from
+   its own SQL Agent job (05_BlueTrack_ScheduleAuditLogPurgeJob.sql) under
+   the Agent's account. The DENY on the procedure matters: a dbo-owned
+   procedure's own DELETE would otherwise get past the table DENY through
+   ownership chaining. Safe to re-run; re-run it on an existing install
+   (installer step Db.AppPoolAccess) to apply this.
 
    __TARGET_ACCOUNT__ below is a placeholder -- replace it by hand with
    the real login/account (e.g. `DOMAIN\BlueTrackAppPoolAccount`, or, for
@@ -103,6 +112,13 @@ GO
 
 GRANT EXECUTE ON SCHEMA::dbo TO [__TARGET_ACCOUNT__];
 GRANT EXECUTE ON SCHEMA::web TO [__TARGET_ACCOUNT__];
+GO
+
+-- D-198: append-only audit log (see the header).
+DENY UPDATE, DELETE ON web.audit_event TO [__TARGET_ACCOUNT__];
+DENY UPDATE, DELETE ON web.audit_field_change TO [__TARGET_ACCOUNT__];
+DENY UPDATE, DELETE ON web.audit_purge_log TO [__TARGET_ACCOUNT__];
+DENY EXECUTE ON dbo.usp_PurgeAuditLog TO [__TARGET_ACCOUNT__];
 GO
 
 PRINT '02_BlueTrack_GrantAppServiceAccountAccess.sql complete.';

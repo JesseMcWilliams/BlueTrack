@@ -269,7 +269,7 @@ function Install-BlueTrackNightlyJob {
     try {
         Write-Host "Generated a temp copy of the nightly job script with:`n  Sources:       $ImportSources`n  Export folder: $normalizedFolder`n  EVD database:  $evdShown`n(the tracked repo file was not modified)"
         if ($PSCmdlet.ShouldProcess("$SqlServerInstance / $DatabaseName", 'Install nightly Import+Load SQL Agent job via sqlcmd')) {
-            $trustArgs = if ($TrustServerCertificate) { @('-C') } else { @() }
+            [string[]]$trustArgs = if ($TrustServerCertificate) { @("-C") } else { @() }
             & sqlcmd -S $SqlServerInstance @trustArgs -v DatabaseName="$DatabaseName" -i $tempScript | Out-Host
             if ($LASTEXITCODE -ne 0) {
                 throw "sqlcmd failed installing the nightly job (exit code $LASTEXITCODE)."
@@ -302,7 +302,7 @@ function Grant-BlueTrackAppPoolSqlAccess {
         [Parameter(Mandatory)] [string]$Account,
         [bool]$TrustServerCertificate = $true
     )
-    $trustArgs = if ($TrustServerCertificate) { @('-C') } else { @() }   # D-197
+    [string[]]$trustArgs = if ($TrustServerCertificate) { @("-C") } else { @() }   # D-197
 
     # The account goes into both N'...' literals and [...] identifiers below
     # by plain text substitution, so refuse anything that could break out of

@@ -13,6 +13,13 @@ namespace BlueTrack.Api.RiskScoring;
 /// </summary>
 public static class CsvFileReader
 {
+    /// <summary>
+    /// D-198: the most data rows one file may have. Every row is held in
+    /// memory while it's imported, so an unbounded file (a browser upload or
+    /// a feed) could exhaust the API's memory. Split a bigger file.
+    /// </summary>
+    public const int MaxRows = 250_000;
+
     public static async Task<IReadOnlyList<IReadOnlyDictionary<string, string>>> ReadRowsAsync(Stream fileStream)
     {
         var config = new CsvConfiguration(CultureInfo.InvariantCulture)
@@ -37,6 +44,11 @@ public static class CsvFileReader
                 row[header] = csv.GetField(header) ?? "";
             }
             rows.Add(row);
+            if (rows.Count > MaxRows)
+            {
+                throw Errors.ApiProblemException.BadRequest(
+                    $"The file has more than {MaxRows:N0} rows. Split it into smaller files and import each one.");
+            }
         }
 
         return rows;

@@ -9,6 +9,7 @@ import { ref, computed, onMounted } from 'vue'
 import { formatDate } from '../../utils/formatDate'
 import { useTotalCount } from '../../composables/useTotalCount'
 import { usePageSizeStore } from '../../stores/pageSize'
+import { useRightsStore } from '../../stores/rights'
 import FilterCountSummary from '../../components/FilterCountSummary.vue'
 import Pager from '../../components/Pager.vue'
 
@@ -35,6 +36,8 @@ const error = ref(null)
 const loading = ref(true)
 const recalculating = ref(false)
 const recalculateError = ref(null)
+// D-198: recalculating changes stored scores, so it needs ManageTargets, not just ViewRiskReport.
+const rights = useRightsStore()
 const recalculated = ref(false)
 
 const expandedAccountKey = ref(null)
@@ -162,7 +165,7 @@ onMounted(load)
       EffectiveRiskScore is the Override (if set) or otherwise the Computed score. Click a row's Account
       name to see the real Targets/Access Groups behind its score.
     </p>
-    <p>
+    <p v-if="rights.hasPermission('ManageTargets')">
       <button type="button" @click="recalculateNow" :disabled="recalculating">
         {{ recalculating ? 'Recalculating...' : 'Recalculate Now' }}
       </button>

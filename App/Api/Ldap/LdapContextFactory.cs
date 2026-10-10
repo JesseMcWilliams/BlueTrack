@@ -29,12 +29,20 @@ public sealed class LdapContextFactory(CredentialRepository credentialRepository
         // domain that the 3-arg (no-credentials) overload is what actually
         // binds as the ambient process identity; passing explicit nulls into
         // the 5-arg overload was never verified to behave the same way.
+        // D-198: UseSsl was saved but never applied, so ticking it changed
+        // nothing. When set, bind over LDAPS (SecureSocketLayer, with Negotiate
+        // for the credentials); when not, the original overloads are used
+        // unchanged. Not yet verified against a live LDAPS domain controller.
         if (config.UseTrustedConnection)
         {
-            return new PrincipalContext(ContextType.Domain, domainController, searchBase);
+            return config.UseSsl
+                ? new PrincipalContext(ContextType.Domain, domainController, searchBase, ContextOptions.SecureSocketLayer | ContextOptions.Negotiate)
+                : new PrincipalContext(ContextType.Domain, domainController, searchBase);
         }
 
         var (username, password) = await credentialRepository.ResolveForUseAsync(config.CredentialKey!.Value);
-        return new PrincipalContext(ContextType.Domain, domainController, searchBase, username, password);
+        return config.UseSsl
+            ? new PrincipalContext(ContextType.Domain, domainController, searchBase, ContextOptions.SecureSocketLayer | ContextOptions.Negotiate, username, password)
+            : new PrincipalContext(ContextType.Domain, domainController, searchBase, username, password);
     }
 }

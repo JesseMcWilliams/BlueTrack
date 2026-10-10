@@ -100,7 +100,7 @@ public sealed class ReportsController(
 
     /// <summary>Manual trigger for usp_RecalculateRiskScores -- it also runs automatically inside usp_RunFullLoad, this is just an immediate refresh.</summary>
     [HttpPost("risk-score/recalculate")]
-    [Authorize(Policy = Permissions.ViewRiskReport)]
+    [Authorize(Policy = Permissions.ManageTargets)]   // D-198: it changes stored scores; a view permission isn't enough
     public async Task<IActionResult> RecalculateRiskScores()
     {
         await riskScoreReportRepository.RecalculateAllAsync();

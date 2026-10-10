@@ -32,10 +32,13 @@ Set-StrictMode -Version Latest
 # Test-BlueTrackPrerequisite reports, which is also the Install-BlueTrack.ps1
 # step name suffix (Prereq.<Key>).
 $script:InstallerCatalog = @{
-    DotNetSdk     = @{ OfflinePattern = 'dotnet-sdk-10.*-win-x64.exe'; WingetId = 'Microsoft.DotNet.SDK.10'; Kind = 'Exe' }
-    NodeJs        = @{ OfflinePattern = 'node-v*-x64.msi'; WingetId = 'OpenJS.NodeJS.LTS'; Kind = 'Msi' }
-    HostingBundle = @{ OfflinePattern = 'dotnet-hosting-10.*-win.exe'; WingetId = $null; Kind = 'Exe' }
-    UrlRewrite    = @{ OfflinePattern = 'rewrite_amd64*.msi'; WingetId = $null; Kind = 'Msi' }
+    # Signer (D-198): the O= of the Authenticode certificate an installer must
+    # be signed with -- a valid signature from anyone else is refused. Taken
+    # from the installed products' own signatures (2026-10-10).
+    DotNetSdk     = @{ OfflinePattern = 'dotnet-sdk-10.*-win-x64.exe'; WingetId = 'Microsoft.DotNet.SDK.10'; Kind = 'Exe'; Signer = 'Microsoft Corporation' }
+    NodeJs        = @{ OfflinePattern = 'node-v*-x64.msi'; WingetId = 'OpenJS.NodeJS.LTS'; Kind = 'Msi'; Signer = 'OpenJS Foundation' }
+    HostingBundle = @{ OfflinePattern = 'dotnet-hosting-10.*-win.exe'; WingetId = $null; Kind = 'Exe'; Signer = 'Microsoft Corporation' }
+    UrlRewrite    = @{ OfflinePattern = 'rewrite_amd64*.msi'; WingetId = $null; Kind = 'Msi'; Signer = 'Microsoft Corporation' }
 }
 
 function Test-BlueTrackPrerequisite {
@@ -299,7 +302,8 @@ function Invoke-BlueTrackInstaller {
         [Parameter(Mandatory)] [string]$Path,
         [Parameter(Mandatory)] [ValidateSet('Exe', 'Msi')] [string]$Kind,
         [string]$HashAlgorithm,
-        [string]$Hash
+        [string]$Hash,
+        [Parameter(Mandatory)] [string]$ExpectedSigner
     )
 
     if ($Hash) {
@@ -315,6 +319,11 @@ function Invoke-BlueTrackInstaller {
     $signature = Get-AuthenticodeSignature -FilePath $Path
     if ($signature.Status -ne 'Valid') {
         throw "'$Path' does not carry a valid Authenticode signature (status: $($signature.Status)). Refusing to run it."
+    }
+    # D-198: any validly signed file isn't enough -- it must be the vendor's.
+    $organization = [regex]::Match($signature.SignerCertificate.Subject, '(?:^|,\s*)O=("[^"]*"|[^,]*)').Groups[1].Value.Trim('"')
+    if ($organization -ne $ExpectedSigner) {
+        throw "'$Path' is signed by '$($signature.SignerCertificate.Subject)', not by $ExpectedSigner. Refusing to run it."
     }
     Write-Host "  Signed by: $($signature.SignerCertificate.Subject)"
 
@@ -390,7 +399,7 @@ function Install-BlueTrackPrerequisite {
                 throw "No installer matching '$($catalog.OfflinePattern)' found in '$InstallerSourcePath'. Download it on a machine with internet access (see Deploy/README.md, 'Offline prerequisites'), copy it there and re-run."
             }
             Write-Host "  Using $($offline.Path)"
-            Invoke-BlueTrackInstaller -Path $offline.Path -Kind $catalog.Kind -HashAlgorithm $offline.HashAlgorithm -Hash $offline.Hash
+            Invoke-BlueTrackInstaller -Path $offline.Path -Kind $catalog.Kind -HashAlgorithm $offline.HashAlgorithm -Hash $offline.Hash -ExpectedSigner $catalog.Signer
         }
         'Winget' {
             if (-not $catalog.WingetId) { throw "$Key has no winget package; use -PrerequisiteSource Download or Offline." }
@@ -411,7 +420,7 @@ function Install-BlueTrackPrerequisite {
             Write-Host "  Downloading $($download.Url)"
             Invoke-WebRequest -Uri $download.Url -OutFile $installerPath -UseBasicParsing
             try {
-                Invoke-BlueTrackInstaller -Path $installerPath -Kind $catalog.Kind -HashAlgorithm $download.HashAlgorithm -Hash $download.Hash
+                Invoke-BlueTrackInstaller -Path $installerPath -Kind $catalog.Kind -HashAlgorithm $download.HashAlgorithm -Hash $download.Hash -ExpectedSigner $catalog.Signer
             } finally {
                 Remove-Item $installerPath -ErrorAction SilentlyContinue -WhatIf:$false
             }

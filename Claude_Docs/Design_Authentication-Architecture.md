@@ -130,6 +130,8 @@ Guidance adopted 2026-08-27 for the ITfoxtec.Identity.Saml2 integration (D-23). 
 - Reject unsigned assertions and unsigned responses wherever the IdP is expected to sign either. (D-26)
 - Log and alert on any rejected assertion (bad signature, wrong issuer, expired) — this is the canary for a probing attacker, not just a debug log line. (D-26, ties into the general audit/alerting work in `Design_Audit-Logging.md`; the alert-delivery mechanism itself is `Archive_Design_Notification-Framework.md`, D-109)
 
+- **D-198 (2026-10-10):** the SP's entity ID is set as the allowed audience (the audience check was on with an empty list), and replayed responses are rejected (`DetectReplayedTokens` with `SamlTokenReplayCache`, in memory -- one API process on one server). ITfoxtec's defaults validate the IdP certificate chain with online revocation checking. The OIDC/DevFakeAuth sign-in cookie is HTTPS-only.
+
 ### Operational
 
 - Since this is a single IdP, put a manual calendar reminder (or an automated check) on the IdP's certificate expiration date. A SAML outage from an expired certificate nobody rotated is a far more likely failure mode than an actual attack. (D-27)

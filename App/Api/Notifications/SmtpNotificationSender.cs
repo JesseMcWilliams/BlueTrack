@@ -62,6 +62,12 @@ public sealed class SmtpNotificationSender(NotificationRepository repository, Cr
 
         if (config.AuthMethod == "Basic" && config.SmtpCredentialKey is not null)
         {
+            // D-198: never send a stored password over an unencrypted connection,
+            // whatever was saved before STARTTLS became required for Basic auth.
+            if (!client.IsSecure)
+            {
+                throw new InvalidOperationException("Basic authentication needs STARTTLS: the SMTP connection isn't encrypted, so the credential was not sent. Turn STARTTLS on in the SMTP settings.");
+            }
             var (username, password) = await credentialRepository.ResolveForUseAsync(config.SmtpCredentialKey.Value);
             if (!string.IsNullOrWhiteSpace(username))
             {

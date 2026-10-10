@@ -38,7 +38,7 @@ Both sides are now built. The admin side: Field Metadata Management (CRUD agains
 
 Seeded with one row per editable `fact_account_progress` column (`05_BlueTrack_Baseline_WebSeed.sql`) — everything except `ExceptionKey`, which the Risk Exception workflow sets, not this form.
 
-`RequiredPermission` stays unused (null on every seeded row) per D-20's deferral of per-field permission granularity — every field is currently gated only by the form-level `EditAccountProgress` permission.
+`RequiredPermission` is null on every seeded row (D-20 deferred per-field granularity), so by default every field is gated only by the form-level `EditAccountProgress` permission. When an admin sets one, it is enforced (D-198): `AccountProgressSaveService` refuses a change to that field from anyone without the permission -- on the edit page, in bulk edit (the account is skipped with the reason) and in the Risk Exception import.
 
 ## Open Questions
 
