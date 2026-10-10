@@ -77,7 +77,8 @@ async function save() {
   const response = await fetch('/api/admin/configuration', {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(config.value)
+    // D-200: a blank backup time means "off" (''); null would mean "unchanged".
+    body: JSON.stringify({ ...config.value, scheduledBackupTime: config.value.scheduledBackupTime || '' })
   })
   if (!response.ok) {
     const problem = response.status === 400 ? await response.json().catch(() => null) : null
@@ -121,7 +122,15 @@ async function save() {
       </p>
       <p>
         <label class="field-label"><span class="field-label-text">Backup Folder:</span> <input v-model="config.backupFolder" placeholder="D:\Backups\BlueTrack" /></label>
-        <small>Where the Deployment page's "Backup App" button writes the database backup file.</small>
+        <small>Where the Deployment page's "Backup App" button and scheduled backups write the database backup file.</small>
+      </p>
+      <p>
+        <label class="field-label"><span class="field-label-text">Scheduled backup time:</span> <input v-model="config.scheduledBackupTime" type="time" /></label>
+        <small>A daily backup of the BlueTrack database into the Backup Folder, at this server-local time. Leave blank for none.</small>
+      </p>
+      <p>
+        <label class="field-label"><span class="field-label-text">Keep scheduled backups (days):</span> <input v-model.number="config.scheduledBackupRetentionDays" type="number" min="1" max="3650" required /></label>
+        <small>After each scheduled backup, older scheduled backup files are deleted. Backups made with "Backup App" are never deleted.</small>
       </p>
       <p>
         <label class="field-label">

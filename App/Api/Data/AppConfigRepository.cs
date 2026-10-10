@@ -18,6 +18,7 @@ public sealed class AppConfigRepository(IDbConnectionFactory connectionFactory)
                    ac.BackupFolder, ac.ActiveRiskAlgorithm, ac.EnforceRiskExceptionSegregationOfDuties,
                    auc.RetentionDays, auc.LogReadEvents,
                    CONVERT(varchar(5), ac.DataFeedRunTime, 108) AS DataFeedRunTime, ac.DataFeedRunRetentionDays,
+                   CONVERT(varchar(5), ac.ScheduledBackupTime, 108) AS ScheduledBackupTime, ac.ScheduledBackupRetentionDays,
                    CONVERT(varchar(5), ac.BusinessHoursStart, 108) AS BusinessHoursStart,
                    CONVERT(varchar(5), ac.BusinessHoursEnd, 108) AS BusinessHoursEnd, ac.BusinessDays,
                    ac.BulkEditMaxAccounts,
@@ -51,6 +52,11 @@ public sealed class AppConfigRepository(IDbConnectionFactory connectionFactory)
                 -- D-181: null = leave unchanged (older callers don't send these).
                 DataFeedRunTime = COALESCE(CAST(@DataFeedRunTime AS time(0)), DataFeedRunTime),
                 DataFeedRunRetentionDays = COALESCE(@DataFeedRunRetentionDays, DataFeedRunRetentionDays),
+                -- D-200: null = unchanged, '' = off.
+                ScheduledBackupTime = CASE WHEN @ScheduledBackupTime IS NULL THEN ScheduledBackupTime
+                                           WHEN @ScheduledBackupTime = '' THEN NULL
+                                           ELSE CAST(@ScheduledBackupTime AS time(0)) END,
+                ScheduledBackupRetentionDays = COALESCE(@ScheduledBackupRetentionDays, ScheduledBackupRetentionDays),
                 BusinessHoursStart = COALESCE(CAST(@BusinessHoursStart AS time(0)), BusinessHoursStart),
                 BusinessHoursEnd = COALESCE(CAST(@BusinessHoursEnd AS time(0)), BusinessHoursEnd),
                 BusinessDays = COALESCE(@BusinessDays, BusinessDays),
@@ -73,6 +79,8 @@ public sealed class AppConfigRepository(IDbConnectionFactory connectionFactory)
             request.EnforceRiskExceptionSegregationOfDuties,
             request.DataFeedRunTime,
             request.DataFeedRunRetentionDays,
+            request.ScheduledBackupTime,
+            request.ScheduledBackupRetentionDays,
             request.BusinessHoursStart,
             request.BusinessHoursEnd,
             request.BusinessDays,

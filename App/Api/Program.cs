@@ -197,6 +197,9 @@ builder.Services.TryAddSingleton(TimeProvider.System);
 builder.Services.AddScoped<DataFeedRepository>();
 builder.Services.AddSingleton<BlueTrack.Api.DataFeeds.DataFeedRunner>();
 builder.Services.AddHostedService<BlueTrack.Api.DataFeeds.DataFeedBackgroundService>();
+// D-200: scheduled database backups.
+builder.Services.AddScoped<BackupRunRepository>();
+builder.Services.AddHostedService<BlueTrack.Api.Backups.ScheduledBackupService>();
 
 // D-96 Part 3.2: real, custom IHealthCheck implementations (this app's own
 // checks, not third-party health-check packages) -- consumed via

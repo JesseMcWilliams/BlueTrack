@@ -58,13 +58,18 @@ public sealed class DeploymentRepository(IDbConnectionFactory connectionFactory)
     /// SQL Server edition supports it, and this app doesn't know which
     /// edition it's running against.
     /// </summary>
-    public async Task<string> TriggerBackupAsync(string backupFolder)
+    /// <param name="scheduled">D-200: a scheduled backup is named
+    /// &lt;database&gt;_scheduled_yyyyMMdd_HHmmss.bak, so its clean-up
+    /// (BackupRetention) can never touch a manual backup.</param>
+    public async Task<string> TriggerBackupAsync(string backupFolder, bool scheduled = false)
     {
         using var connection = connectionFactory.Create();
         connection.Open();
 
         var databaseName = await connection.QuerySingleAsync<string>("SELECT DB_NAME()");
-        var fileName = $"{databaseName}_{DateTime.UtcNow:yyyyMMdd_HHmmss}.bak";
+        var fileName = scheduled
+            ? Backups.BackupRetention.ScheduledFileName(databaseName, DateTime.UtcNow)
+            : $"{databaseName}_{DateTime.UtcNow:yyyyMMdd_HHmmss}.bak";
         var fullPath = Path.Combine(backupFolder, fileName);
         var quotedDatabaseName = "[" + databaseName.Replace("]", "]]") + "]";
 
@@ -74,5 +79,11 @@ public sealed class DeploymentRepository(IDbConnectionFactory connectionFactory)
             commandTimeout: 600);
 
         return fullPath;
+    }
+
+    public async Task<string> GetDatabaseNameAsync()
+    {
+        using var connection = connectionFactory.Create();
+        return await connection.QuerySingleAsync<string>("SELECT DB_NAME()");
     }
 }

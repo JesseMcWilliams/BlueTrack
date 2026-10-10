@@ -155,6 +155,14 @@ With Windows Integrated Security, the API connects to SQL Server as the App Pool
 
 `Db.AppPoolAccess` works this out from the App Pool's identity and whether `-SqlServerInstance` is this machine, creates the login if it's missing and runs a filled-in copy of `Database/Manual/02_BlueTrack_GrantAppServiceAccountAccess.sql` for it. `-AppPoolSqlLogin` overrides the account. The installing user needs `securityadmin` (or `sysadmin`). For least privilege, a dedicated gMSA is still preferred: a computer-account grant (remote SQL Server) also covers everything else on the server running as `NETWORK SERVICE`, `SYSTEM` or an App Pool (`User_Docs/Admin_Installation.md`, section 3).
 
+### Scheduled backups (D-200)
+
+Set a time (and how many days of scheduled backups to keep) on **Global Application Configuration**; blank means none, the default. The API backs up the BlueTrack database into the Backup Folder at that time each day, then deletes its own scheduled backups older than the setting (files named `<database>_scheduled_<UTC time>.bak`; "Backup App" files are never deleted). The Deployment page lists recent backups and any failure.
+
+- SQL Server writes the file as its service account, so that account needs write access to the folder; the App Pool's account needs **Modify** on it for the clean-up. Without it the backup still succeeds and the run's note says the clean-up failed.
+- The folder must be local, or inside `-AllowedFileRoots` (D-197). With SQL Server on another machine the path is on that machine; the backup works but the clean-up is skipped.
+- The app's SQL account needs `db_backupoperator` (`Database/Manual/02`, D-198; re-run `-Step Db.AppPoolAccess` on an existing install).
+
 ### Data feed folders
 
 Feed folders (and the Deployment page's backup folder) must be inside a folder listed in `-AllowedFileRoots`, which the installer writes to `FileAccess:AllowedRoots`; with none listed, any local folder is allowed and network (UNC) shares are refused (D-197). The web pages can't change this list, since the server acts on these paths as itself. The Data Sources page's feeds (D-181) are read by the API itself, so the **App Pool's account** (the table above: `IIS APPPOOL\<pool>` for a local folder, the computer account `DOMAIN\HOSTNAME$` for a share on another machine, or the gMSA) needs read access to each feed folder. The page's **Test** button checks this as that account. The installer doesn't grant folder access. After an upgrade adds `ManageDataSources`, an Admin who was already signed in sees Data Sources after **Reload My Rights** (or once their cached rights expire).
@@ -177,11 +185,20 @@ Whenever a smoke check fails, the output ends with the two URLs it checks, so yo
 `Update-BlueTrack.ps1` fetches a BlueTrack version from GitHub and offers to redeploy this site from it (D-192). It needs only PowerShell and HTTPS to `github.com` (the repository's source zip through GitHub's public API); git isn't needed on the server.
 
 ```powershell
-.\Update-BlueTrack.ps1                    # the latest release; with none yet, choose main or a branch
-.\Update-BlueTrack.ps1 -Branch main       # a branch directly
-.\Update-BlueTrack.ps1 -ListBranches      # list the branches and pick one
-.\Update-BlueTrack.ps1 -Release v1.2.0    # a specific release
+.\Update-BlueTrack.ps1                                   # the latest release (must be a signed tag)
+.\Update-BlueTrack.ps1 -Release v1.2.0                   # a specific release
+.\Update-BlueTrack.ps1 -Branch main -AllowUnsignedBranch # a branch, for testing
+.\Update-BlueTrack.ps1 -ListBranches -AllowUnsignedBranch
 ```
+
+- **Signed releases only (D-199):** a release's tag must be an annotated tag signed with a key GitHub verifies; otherwise the script refuses it. It then downloads the exact commit the tag points to. A branch isn't a signed release, so it needs `-AllowUnsignedBranch` (with a warning), including the choice offered when there's no release yet.
+- **Making a signed release:** register a signing key on GitHub (your account's SSH and GPG keys settings; for an SSH key choose the *Signing Key* type), tell git to use it (`git config --global gpg.format ssh` and `git config --global user.signingkey <path to the .pub>` for SSH, or `user.signingkey <GPG key id>` for GPG), then:
+  ```powershell
+  git tag -s v1.0.0 -m "BlueTrack v1.0.0"
+  git push origin v1.0.0
+  gh release create v1.0.0 --verify-tag --notes "..."
+  ```
+  `gh api repos/<owner>/<repo>/git/tags/<tag object sha>` shows `verification.verified`; it must be `true`. Confirm the GitHub settings wording when you first do this.
 
 - **Where:** each download is extracted to its own folder in the **download folder**, e.g. `BlueTrack-v1.2.0` or `BlueTrack-main-20261009-2030`, with a `download.json` recording the branch or tag and commit. Earlier versions stay for rollback; delete old ones yourself.
 - **Run it elevated.** Its downloads are later run as an administrator, so on every run the script makes Administrators the download folder's owner and limits access to Administrators and SYSTEM, contents included (D-197); a folder made under `C:\` otherwise lets any signed-in user change it.

@@ -29,8 +29,14 @@ public sealed class DeploymentController(
     HealthCheckService healthCheckService,
     DeploymentRepository repository,
     AppConfigRepository appConfigRepository,
-    Security.AllowedFileRoots allowedFileRoots) : ControllerBase
+    Security.AllowedFileRoots allowedFileRoots,
+    BackupRunRepository backupRunRepository,
+    CurrentUserResolver currentUserResolver) : ControllerBase
 {
+    /// <summary>D-200: the latest backups, scheduled and manual, newest first.</summary>
+    [HttpGet("backups")]
+    public async Task<IActionResult> GetRecentBackups() => Ok(await backupRunRepository.GetRecentAsync(10));
+
     [HttpGet]
     public async Task<IActionResult> Get()
     {
@@ -95,6 +101,9 @@ public sealed class DeploymentController(
             return Problem(title: "Backup folder not allowed", detail: folderError, statusCode: StatusCodes.Status400BadRequest);
         }
 
+        // D-200: manual backups are recorded alongside scheduled ones.
+        var user = await currentUserResolver.ResolveAsync(User);
+        var startedAt = DateTime.UtcNow;
         string backupFilePath;
         try
         {
@@ -102,8 +111,18 @@ public sealed class DeploymentController(
         }
         catch (Exception ex)
         {
+            await backupRunRepository.RecordAsync(new BackupRunRepository.BackupRun
+            {
+                TriggerType = "Manual", TriggeredBy = user?.UserKey, StartedAt = startedAt, FinishedAt = DateTime.UtcNow,
+                Outcome = "Failed", ErrorMessage = ex.Message.Length <= 2000 ? ex.Message : ex.Message[..2000],
+            });
             return Problem(title: "Database backup failed", detail: ex.Message, statusCode: StatusCodes.Status500InternalServerError);
         }
+        await backupRunRepository.RecordAsync(new BackupRunRepository.BackupRun
+        {
+            TriggerType = "Manual", TriggeredBy = user?.UserKey, StartedAt = startedAt, FinishedAt = DateTime.UtcNow,
+            Outcome = "Succeeded", FilePath = backupFilePath,
+        });
 
         using var zipStream = new MemoryStream();
         using (var archive = new ZipArchive(zipStream, ZipArchiveMode.Create, leaveOpen: true))

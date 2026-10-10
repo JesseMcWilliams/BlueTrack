@@ -13,6 +13,14 @@
     cancel. -Branch and -ListBranches choose a branch directly; -Release a
     specific release tag.
 
+    D-199: what it installs must be trustworthy, since the installer runs
+    elevated. A release must be a signed, annotated tag whose signature
+    GitHub verifies (sign it with `git tag -s`, with the key registered on
+    GitHub as a signing key); the exact commit the tag points to is then
+    downloaded, so moving the tag afterwards changes nothing. A branch is
+    never signed as a release, so it is downloaded only with
+    -AllowUnsignedBranch, for testing.
+
     Each download is extracted to its own folder under the download folder,
     e.g. BlueTrack-v1.2.0 or BlueTrack-main-20261009-2030, so earlier
     versions stay available for rollback (delete old ones yourself). The
@@ -36,6 +44,9 @@
     A branch to download (e.g. main) instead of a release.
 .PARAMETER ListBranches
     List the repository's branches and choose one.
+.PARAMETER AllowUnsignedBranch
+    Allow downloading a branch (-Branch, -ListBranches, or the choice offered
+    when there's no release). For testing: a branch isn't a signed release.
 .PARAMETER DownloadFolder
     Where to put downloads; saved as UpdateDownloadFolder for next time.
 .PARAMETER RunInstaller
@@ -47,9 +58,9 @@
     .\Update-BlueTrack.ps1
     Latest release (or, with none, a choice of main or a branch).
 .EXAMPLE
-    .\Update-BlueTrack.ps1 -Branch main
+    .\Update-BlueTrack.ps1 -Branch main -AllowUnsignedBranch
 .EXAMPLE
-    .\Update-BlueTrack.ps1 -ListBranches
+    .\Update-BlueTrack.ps1 -ListBranches -AllowUnsignedBranch
 .EXAMPLE
     .\Update-BlueTrack.ps1 -Release v1.2.0 -RunInstaller
 #>
@@ -59,6 +70,7 @@ param(
     [Parameter(ParameterSetName = 'Release')] [string]$Release,
     [Parameter(Mandatory, ParameterSetName = 'Branch')] [string]$Branch,
     [Parameter(Mandatory, ParameterSetName = 'ListBranches')] [switch]$ListBranches,
+    [switch]$AllowUnsignedBranch,
     [string]$DownloadFolder,
     [switch]$RunInstaller,
     [string]$Repository = 'JesseMcWilliams/BlueTrack'
@@ -128,9 +140,19 @@ function Select-BlueTrackBranch {
 
 $ref = $null        # what to download: a tag or a branch name
 $label = $null      # how the folder is named
+$isRelease = $false # D-199: a release tag, which must carry a verified signature
+
+# D-199: branches only with the override.
+function Assert-BranchAllowed {
+    param([bool]$Allowed)
+    if (-not $Allowed) {
+        throw 'A branch is not a signed release. To download one for testing, run this again with -AllowUnsignedBranch.'
+    }
+    Write-Warning 'Downloading a branch: it is not a signed release, so nothing verifies who wrote it. Use this for testing only.'
+}
 switch ($PSCmdlet.ParameterSetName) {
-    'Branch' { $ref = $Branch }
-    'ListBranches' { if ($ListBranches) { $ref = Select-BlueTrackBranch } }
+    'Branch' { Assert-BranchAllowed -Allowed $AllowUnsignedBranch; $ref = $Branch }
+    'ListBranches' { if ($ListBranches) { Assert-BranchAllowed -Allowed $AllowUnsignedBranch; $ref = Select-BlueTrackBranch } }
     default {
         $releaseInfo = $null
         try {
@@ -143,12 +165,14 @@ switch ($PSCmdlet.ParameterSetName) {
         if ($releaseInfo) {
             $ref = $releaseInfo.tag_name
             $label = $releaseInfo.tag_name
+            $isRelease = $true
             Write-Host "Release $($releaseInfo.tag_name) ($($releaseInfo.name)), published $($releaseInfo.published_at)."
         } elseif ($Release) {
             throw "There's no release '$Release' in $Repository."
         } else {
             $defaultBranch = (Get-GitHubJson $ApiRoot).default_branch
             Write-Host "$Repository has no releases yet."
+            Assert-BranchAllowed -Allowed $AllowUnsignedBranch
             Write-Host "  1. Download $defaultBranch (the default branch)"
             Write-Host '  2. Choose a branch from the list'
             Write-Host '  3. Cancel'
@@ -165,6 +189,27 @@ if (-not $ref) {
     return
 }
 if (-not $label) { $label = "$($ref -replace '[^A-Za-z0-9._-]', '-')-$(Get-Date -Format 'yyyyMMdd-HHmm')" }
+
+# D-199: pin what's downloaded to one commit. For a release, the tag must be
+# an annotated tag whose signature GitHub verifies; a lightweight tag can't
+# be signed. Downloading by commit means a tag moved after this check
+# changes nothing.
+$escapedRef = [uri]::EscapeDataString($ref)
+if ($isRelease) {
+    $tagRef = Get-GitHubJson "$ApiRoot/git/ref/tags/$escapedRef"
+    if ($tagRef.object.type -ne 'tag') {
+        throw "Release tag '$ref' is a lightweight tag, so it can't be signed. Recreate it as a signed tag (git tag -s $ref) and push it."
+    }
+    $tag = Get-GitHubJson "$ApiRoot/git/tags/$($tagRef.object.sha)"
+    if (-not $tag.verification.verified) {
+        throw "Release tag '$ref' isn't signed with a key GitHub verifies (reason: $($tag.verification.reason)). Refusing to download it."
+    }
+    $commitSha = $tag.object.sha
+    Write-Host "Release tag $ref is signed and verified by GitHub; downloading commit $commitSha."
+} else {
+    $commitSha = (Get-GitHubJson "$ApiRoot/commits/$escapedRef").sha
+    Write-Host "Branch $ref is at commit $commitSha."
+}
 #endregion
 
 #region Download and extract
@@ -192,17 +237,17 @@ $staging = Join-Path $DownloadFolder "BlueTrack-$label.extracting"
 Remove-Item -Path $zip, $staging -Recurse -Force -ErrorAction SilentlyContinue   # D-197: nothing left over is reused
 try {
     Write-Host "Downloading $Repository at '$ref'..."
-    Invoke-WebRequest -Uri "$ApiRoot/zipball/$([uri]::EscapeDataString($ref))" -Headers $Headers -OutFile $zip -UseBasicParsing
+    Invoke-WebRequest -Uri "$ApiRoot/zipball/$commitSha" -Headers $Headers -OutFile $zip -UseBasicParsing
     Expand-Archive -Path $zip -DestinationPath $staging -Force
     # GitHub's zip holds one top folder, <owner>-<repo>-<short commit>.
     $inner = @(Get-ChildItem -Path $staging -Directory)
     if ($inner.Count -ne 1) { throw "Unexpected zip layout: expected one top-level folder, found $($inner.Count)." }
-    $commit = ($inner[0].Name -split '-')[-1]
     Move-Item -Path $inner[0].FullName -Destination $target
     [pscustomobject]@{
         Repository   = $Repository
         Ref          = $ref
-        Commit       = $commit
+        Commit       = $commitSha
+        SignedRelease = $isRelease
         DownloadedAt = (Get-Date).ToString('o')
         DownloadedBy = "$env:USERDOMAIN\$env:USERNAME"
     } | ConvertTo-Json | Set-Content -Path (Join-Path $target 'download.json') -Encoding UTF8
@@ -212,7 +257,7 @@ try {
 if (-not (Test-Path (Join-Path $target 'Deploy\Install-BlueTrack.ps1'))) {
     throw "$target doesn't contain Deploy\Install-BlueTrack.ps1 -- is '$ref' a BlueTrack version?"
 }
-Write-Host "Downloaded '$ref' (commit $commit) to $target." -ForegroundColor Green
+Write-Host "Downloaded '$ref' (commit $commitSha) to $target." -ForegroundColor Green
 #endregion
 
 #region Offer to redeploy from it

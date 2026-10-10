@@ -76,6 +76,21 @@ public sealed class GlobalApplicationConfigController(
         {
             return Problem(title: "Invalid bulk edit limit", detail: "BulkEditMaxAccounts must be between 1 and 10000.", statusCode: StatusCodes.Status400BadRequest);
         }
+        // D-200: scheduled backups -- a valid time (or "" for off) and 1..3650 days.
+        if (!string.IsNullOrEmpty(request.ScheduledBackupTime) && !DataFeeds.FeedSchedule.TryParseTime(request.ScheduledBackupTime, out _))
+        {
+            return Problem(title: "Invalid scheduled backup time", detail: "ScheduledBackupTime must be a time as HH:mm (24-hour), or empty for off.", statusCode: StatusCodes.Status400BadRequest);
+        }
+        if (request.ScheduledBackupRetentionDays is < 1 or > 3650)
+        {
+            return Problem(title: "Invalid backup retention", detail: "ScheduledBackupRetentionDays must be between 1 and 3650.", statusCode: StatusCodes.Status400BadRequest);
+        }
+        var backupFolderAfter = request.BackupFolder;
+        if (!string.IsNullOrEmpty(request.ScheduledBackupTime) && string.IsNullOrWhiteSpace(backupFolderAfter))
+        {
+            return Problem(title: "Backup folder needed", detail: "Set a Backup Folder before scheduling backups.", statusCode: StatusCodes.Status400BadRequest);
+        }
+
         // D-197: SQL Server writes a full database backup to this folder.
         if (!string.IsNullOrWhiteSpace(request.BackupFolder) && allowedFileRoots.Check(request.BackupFolder) is { } backupFolderError)
         {
@@ -115,6 +130,8 @@ public sealed class GlobalApplicationConfigController(
         }
         TrackIfSent("DataFeedRunTime", before.DataFeedRunTime, request.DataFeedRunTime);
         TrackIfSent("DataFeedRunRetentionDays", before.DataFeedRunRetentionDays.ToString(), request.DataFeedRunRetentionDays?.ToString());
+        TrackIfSent("ScheduledBackupTime", before.ScheduledBackupTime ?? "", request.ScheduledBackupTime);
+        TrackIfSent("ScheduledBackupRetentionDays", before.ScheduledBackupRetentionDays.ToString(), request.ScheduledBackupRetentionDays?.ToString());
         TrackIfSent("BusinessHoursStart", before.BusinessHoursStart, request.BusinessHoursStart);
         TrackIfSent("BusinessHoursEnd", before.BusinessHoursEnd, request.BusinessHoursEnd);
         TrackIfSent("BusinessDays", before.BusinessDays, request.BusinessDays);
