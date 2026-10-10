@@ -12,9 +12,9 @@ using Xunit;
 namespace BlueTrack.Api.Tests.Integration;
 
 /// <summary>
-/// D-200: a real scheduled backup of BlueTrackTest into a folder under SQL
-/// Server's default backup directory (which its service account can write),
-/// then the clean-up: old scheduled backups go, manual ones stay, and the run
+/// D-200: a real scheduled backup of BlueTrackTest into a folder the test
+/// creates and grants SQL Server's service account access to, then the
+/// clean-up: old scheduled backups go, manual ones stay, and the run
 /// is recorded in web.backup_run.
 /// </summary>
 public class ScheduledBackupTests
@@ -24,9 +24,28 @@ public class ScheduledBackupTests
     {
         await using var connection = new SqlConnection(TestDatabase.ConnectionString);
         await connection.OpenAsync();
-        var defaultBackupPath = await connection.QuerySingleAsync<string>("SELECT CAST(SERVERPROPERTY('InstanceDefaultBackupPath') AS nvarchar(300))");
-        var folder = Path.Combine(defaultBackupPath, $"IntegrationTest_{Guid.NewGuid():N}");
+        // A folder this test owns (under its own output directory, which the CI
+        // runner's non-admin account can write), opened up to SQL Server's
+        // service account, which writes the backup file.
+        var folder = Path.Combine(AppContext.BaseDirectory, $"IntegrationTest_backup_{Guid.NewGuid():N}");
         Directory.CreateDirectory(folder);
+        string? serviceAccount = null;
+        try
+        {
+            serviceAccount = await connection.QuerySingleOrDefaultAsync<string>(
+                "SELECT TOP 1 service_account FROM sys.dm_server_services WHERE filename LIKE '%sqlservr.exe%'");
+        }
+        catch (SqlException)
+        {
+            // Needs VIEW SERVER STATE; fall back to the default instance's service account.
+        }
+        serviceAccount ??= @"NT SERVICE\MSSQLSERVER";
+        using (var icacls = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("icacls", [folder, "/grant", $"{serviceAccount}:(OI)(CI)M"])
+               { RedirectStandardOutput = true, RedirectStandardError = true, UseShellExecute = false })!)
+        {
+            await icacls.WaitForExitAsync();
+            Assert.True(icacls.ExitCode == 0, $"Could not grant {serviceAccount} access to the test folder: {await icacls.StandardError.ReadToEndAsync()}");
+        }
         var databaseName = await connection.QuerySingleAsync<string>("SELECT DB_NAME()");
         var oldScheduled = Path.Combine(folder, $"{databaseName}_scheduled_20200101_010000.bak");
         var manual = Path.Combine(folder, $"{databaseName}_20200101_010000.bak");
