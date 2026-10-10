@@ -4,6 +4,7 @@
 
 | Date | Change | User doc / section it affects |
 |---|---|---|
+| 2026-10-09 | New `Deploy/Update-BlueTrack.ps1`: download the latest release (or main / a chosen branch) from GitHub into the saved download folder and optionally redeploy from it (D-192). | `Admin_OperationsGuide.md` (upgrading); `Admin_DeploymentRunbook.md`; Installation `.docx` at next release |
 | 2026-10-09 | Account Progress: an account without a username is listed (and linked) by its account name, marked *(no username)*; Search also matches the account name (D-191). | `User_Guide.md` (Account Progress list) already updated |
 | 2026-10-09 | Bulk actions on Targets, Access Groups (bulk edit, bulk delete with a reason) and Risk Exceptions (bulk extend review, bulk revoke); revoking any exception now requires a reason (D-190). | `User_Guide.md` (Targets, Access Groups, Risk Exceptions) already updated; role guides (`User_Analyst.md`, `User_Approver.md`) |
 | 2026-10-09 | Installer: the site's pages are copied to their own folder, `-WebInstallPath` (default `C:\inetpub\BlueTrack\<Environment>\web`), instead of being served from the repo's `App/Web/dist`; re-running `Build.Web`, `Iis.WebConfig` and `Iis.Site` moves an existing site (D-187). | `Admin_Installation.md`; Installation `.docx` at next release |

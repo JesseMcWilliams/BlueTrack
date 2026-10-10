@@ -165,6 +165,23 @@ Whenever a smoke check fails, the output ends with the two URLs it calls, so you
 | `500` | BlueTrack.Api failed; the exception is in the Application event log (`.NET Runtime`, event 1000). | The usual cause is a missing SQL login for the App Pool's account. The smoke test prints SQL Server's matching `Login failed` event if there is one, including the account the connection really arrived as when the message names a different one (see the trap above); run `-Step Db.AppPoolAccess -GrantAppPoolSqlAccess $true`. |
 | No response | DNS, binding or certificate. | Check the hostname resolves here, the HTTPS binding exists, and this machine trusts the certificate. |
 
+### Updating to a new version (`Update-BlueTrack.ps1`)
+
+`Update-BlueTrack.ps1` fetches a BlueTrack version from GitHub and offers to redeploy this site from it (D-192). It needs only PowerShell and HTTPS to `github.com` (the repository's source zip through GitHub's public API); git isn't needed on the server.
+
+```powershell
+.\Update-BlueTrack.ps1                    # the latest release; with none yet, choose main or a branch
+.\Update-BlueTrack.ps1 -Branch main       # a branch directly
+.\Update-BlueTrack.ps1 -ListBranches      # list the branches and pick one
+.\Update-BlueTrack.ps1 -Release v1.2.0    # a specific release
+```
+
+- **Where:** each download is extracted to its own folder in the **download folder**, e.g. `BlueTrack-v1.2.0` or `BlueTrack-main-20261009-2030`, with a `download.json` recording the branch or tag and commit. Earlier versions stay for rollback; delete old ones yourself.
+- **Download folder:** the `UpdateDownloadFolder` setting in this site's saved answers (`Deploy\State\answers.<SiteName>.json`). If it isn't set, pass `-DownloadFolder` or answer the prompt once; it's saved either way.
+- **Redeploy:** the script copies the saved answers into the new copy's `Deploy\State` and asks whether to run that copy's `Install-BlueTrack.ps1 -ConfigFile <those answers>`, a full install run, including the pre-deployment backup. `-RunInstaller` skips the question; otherwise it prints the command to run later.
+- **Afterwards**, use the new copy's `Deploy` folder for further runs (`-Step`, `-Resume`, the next update): its `State` folder now holds this site's answers and progress.
+- A copy downloaded from a version older than this script (before D-192) warns that `UpdateDownloadFolder` is an unknown setting when the installer reads the answers; that's harmless.
+
 ### A note on the nightly Import+Load job
 
 `Database/14_BlueTrack_ScheduleImportLoadJob.sql` has its export-folder path and Self-Hosted EVD database name hardcoded as literal T-SQL — they aren't `sqlcmd` variables the way the target database name is. `Install-BlueTrackNightlyJob` (in `Modules/BlueTrack.Database.psm1`) generates a **temporary copy** of that script with your `-ExportFolderPath`/`-EvdDatabaseName` substituted in before running it via `sqlcmd` — the tracked file in `Database/` is never modified. It also sets the job's `@ImportPrivilegeCloud`/`@ImportSelfHosted` flags from `-ImportSources` (D-176). For a Privilege-Cloud-only or Self-Hosted-only implementation, the job imports just that source and empties the other's staging tables each night. A missing export for a source that's switched on still fails the job, with a message naming the file or database.
@@ -174,6 +191,7 @@ Whenever a smoke check fails, the output ends with the two URLs it calls, so you
 ```
 Deploy/
   Install-BlueTrack.ps1           # entry point
+  Update-BlueTrack.ps1            # download a release or branch from GitHub, then offer to redeploy from it
   answers.sample.json             # starting point for a -ConfigFile answer file
   Modules/
     BlueTrack.Prereqs.psm1        # prerequisite verification/auto-install (offline/winget/download)
