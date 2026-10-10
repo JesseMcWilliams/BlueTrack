@@ -4,6 +4,10 @@ import './assets/themes.css'
 import App from './App.vue'
 import router from './router'
 import { useThemeStore } from './stores/theme'
+import { installApiFetch } from './utils/apiBase'
+
+// D-196: in production every fetch('/api/...') goes to /BlueTrack/api/...
+installApiFetch()
 
 const pinia = createPinia()
 

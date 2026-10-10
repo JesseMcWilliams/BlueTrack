@@ -167,7 +167,7 @@ $Steps = @(
     @{ Name = 'Db.NightlyJob'; Needs = @('Database', 'InstallNightlyJob'); Description = 'Install the nightly Import+Load SQL Agent job'
         Condition = { $InstallNightlyJob }; SkipReason = 'InstallNightlyJob is off' }
     @{ Name = 'Iis.AppPool'; Description = 'Create the Application Pool' }
-    @{ Name = 'Db.AppPoolAccess'; Needs = @('Database', 'GrantAppPoolSqlAccess'); Description = 'Give the app pool''s account a SQL login + Database/41 grants'
+    @{ Name = 'Db.AppPoolAccess'; Needs = @('Database', 'GrantAppPoolSqlAccess'); Description = 'Give the app pool''s account a SQL login + Database/Manual/02 grants'
         Condition = { $UseWindowsAuth -and $GrantAppPoolSqlAccess }; SkipReason = 'GrantAppPoolSqlAccess is off, or the API uses SQL authentication' }
     @{ Name = 'Iis.Certificate'; Needs = @('Certificate'); Description = 'Resolve or generate the HTTPS certificate' }
     @{ Name = 'Iis.Site'; Needs = @('Certificate', 'ApiInstallPath', 'WebInstallPath'); Description = 'Create the site, /BlueTrack Application and bindings' }
@@ -328,7 +328,7 @@ function Resolve-InstallAnswer {
             # Only meaningful with Windows Integrated Security: with a SQL
             # login, the API connects as that login, not the app pool.
             if ($script:UseWindowsAuth -and -not $script:Answered.Contains('GrantAppPoolSqlAccess')) {
-                $grant = (Read-Host "Give the IIS app pool's Windows account a SQL Server login and read/write/execute rights on '$($script:DatabaseName)' (Database/41, not db_owner)? The site can't reach the database without it. (y/N)") -match '^[Yy]'
+                $grant = (Read-Host "Give the IIS app pool's Windows account a SQL Server login and read/write/execute rights on '$($script:DatabaseName)' (Database/Manual/02, not db_owner)? The site can't reach the database without it. (y/N)") -match '^[Yy]'
                 Register-InstallAnswer GrantAppPoolSqlAccess $grant
             }
         }

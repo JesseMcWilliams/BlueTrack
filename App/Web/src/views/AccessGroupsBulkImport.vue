@@ -1,4 +1,5 @@
 <script setup>
+import { apiUrl } from '../utils/apiBase'
 // D-124 Phase 5: relocated wholesale off AccessGroups.vue's own
 // always-visible inline sections onto this dedicated routed page
 // (access-groups-bulk-import), reached via the "Bulk Actions" link in
@@ -43,7 +44,7 @@ async function importFile(key, url) {
     <h1>Access Groups: Bulk Actions</h1>
 
     <h3>Bulk Import: Access Group Inventory</h3>
-    <p><a href="/api/admin/risk-scoring/import/access-group-inventory/template">Download template</a> -- upserts by GroupIdentifier (a matching row updates the existing group instead of creating a duplicate).</p>
+    <p><a :href="apiUrl('/api/admin/risk-scoring/import/access-group-inventory/template')">Download template</a> -- upserts by GroupIdentifier (a matching row updates the existing group instead of creating a duplicate).</p>
     <p class="filter-row">
       <input type="file" accept=".csv" @change="onFileChange('inventory', $event)" />
       <button :disabled="!importState.inventory.file || importState.inventory.importing" @click="importFile('inventory', '/api/admin/risk-scoring/import/access-group-inventory')">{{ importState.inventory.importing ? 'Importing...' : 'Import' }}</button>
@@ -54,7 +55,7 @@ async function importFile(key, url) {
     </p>
 
     <h3>Bulk Import: Access Group -&gt; Target Map</h3>
-    <p><a href="/api/admin/risk-scoring/import/access-group-target-map/template">Download template</a> -- which Targets each group grants access to (both the group and the target must already exist).</p>
+    <p><a :href="apiUrl('/api/admin/risk-scoring/import/access-group-target-map/template')">Download template</a> -- which Targets each group grants access to (both the group and the target must already exist).</p>
     <p class="filter-row">
       <input type="file" accept=".csv" @change="onFileChange('targetMap', $event)" />
       <button :disabled="!importState.targetMap.file || importState.targetMap.importing" @click="importFile('targetMap', '/api/admin/risk-scoring/import/access-group-target-map')">{{ importState.targetMap.importing ? 'Importing...' : 'Import' }}</button>
@@ -65,7 +66,7 @@ async function importFile(key, url) {
     </p>
 
     <h3>Bulk Import: Account -&gt; Access Group Membership</h3>
-    <p><a href="/api/admin/risk-scoring/import/account-access-group-membership/template">Download template</a> -- which Accounts belong to each group.</p>
+    <p><a :href="apiUrl('/api/admin/risk-scoring/import/account-access-group-membership/template')">Download template</a> -- which Accounts belong to each group.</p>
     <p class="filter-row">
       <input type="file" accept=".csv" @change="onFileChange('membership', $event)" />
       <button :disabled="!importState.membership.file || importState.membership.importing" @click="importFile('membership', '/api/admin/risk-scoring/import/account-access-group-membership')">{{ importState.membership.importing ? 'Importing...' : 'Import' }}</button>

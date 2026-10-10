@@ -1,4 +1,5 @@
 <script setup>
+import { apiUrl } from '../utils/apiBase'
 // D-183: import risk exceptions approved in another tool, reached via the
 // Risk Exceptions list's "Bulk Actions" button -- the same upload / Import
 // / result-summary pattern as ApplicationSafeMappingBulkImport.vue. Each
@@ -29,7 +30,7 @@ async function importFile() {
     <h1>Risk Exceptions: Bulk Actions</h1>
 
     <h3>Bulk Import: Exceptions from another tool</h3>
-    <p><a href="/api/risk-exceptions/import/template">Download template</a> -- one row per exception. Each gets a new BlueTrack Exception ID.</p>
+    <p><a :href="apiUrl('/api/risk-exceptions/import/template')">Download template</a> -- one row per exception. Each gets a new BlueTrack Exception ID.</p>
     <ul>
       <li><strong>SourceTool</strong>, <strong>SourceExceptionId</strong> (required): where it came from. The same tool and ID already imported is an error.</li>
       <li><strong>SourceUrl</strong>: a link to it in that tool (http:// or https://).</li>
