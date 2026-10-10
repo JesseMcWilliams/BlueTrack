@@ -48,12 +48,23 @@ const devApiProxy = {
 // client-side Agent doesn't detect until a request hangs on it) rather
 // than genuine backend contention. A normal pooled agent can simply open a
 // fresh connection instead of being stuck reusing a potentially-dead one.
+const e2eAgent = new https.Agent({ keepAlive: true })
 const e2eApiProxy = {
+  // D-196: the production build (which E2E previews) calls /BlueTrack/api/...,
+  // as on IIS; the locally run API has no /BlueTrack base, so strip it.
+  '/BlueTrack/api': {
+    target: 'https://localhost:7033',
+    changeOrigin: true,
+    secure: false,
+    agent: e2eAgent,
+    rewrite: path => path.replace(/^\/BlueTrack/, '')
+  },
+  // The tests' own API calls (page.request) still use /api/...
   '/api': {
     target: 'https://localhost:7033',
     changeOrigin: true,
     secure: false,
-    agent: new https.Agent({ keepAlive: true })
+    agent: e2eAgent
   }
 }
 

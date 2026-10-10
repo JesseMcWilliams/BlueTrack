@@ -1,4 +1,5 @@
 <script setup>
+import { apiUrl } from '../../utils/apiBase'
 // D-180: CSV imports for the Application ↔ Safe Mapping page, reached via
 // its "Bulk Actions" button -- the same upload / Import / result-summary
 // pattern as TargetsBulkImport.vue (D-124 Phase 5). Two separate imports:
@@ -47,7 +48,7 @@ async function importAssignments() {
 
     <h3>Bulk Import: Applications</h3>
     <p>
-      <a href="/api/admin/application-mapping/import/applications/template">Download template</a> --
+      <a :href="apiUrl('/api/admin/application-mapping/import/applications/template')">Download template</a> --
       one row per application, matched by ApplicationCode. A new code creates the application; an existing code updates it,
       and a blank cell leaves that field as it is.
     </p>
@@ -66,7 +67,7 @@ async function importAssignments() {
 
     <h3>Bulk Import: Safe → Application Assignments</h3>
     <p>
-      <a href="/api/admin/application-mapping/import/safe-assignments/template">Download template</a> --
+      <a :href="apiUrl('/api/admin/application-mapping/import/safe-assignments/template')">Download template</a> --
       one row per safe: SafeName, Application (its code or name; it must already exist), and an optional Source
       (PrivilegeCloud or SelfHosted). Without a Source, every safe with that name is assigned. An existing assignment is
       replaced; safes not in the file are left alone.

@@ -9,9 +9,9 @@ function Test-BlueTrackDeployment {
     <#
     .SYNOPSIS
         Calls GET /BlueTrack/api/admin/deployment under the caller's own
-        Windows identity (Negotiate) and reports each returned health check,
-        then the same endpoint through the site root (/api/...), which is the
-        path the browser uses (D-175).
+        Windows identity (Negotiate) -- the same path the SPA uses (D-196) --
+        and reports each returned health check, then checks that the site
+        root serves the SPA.
     .DESCRIPTION
         This endpoint is gated by the ViewDeploymentInfo permission, not
         anonymous (confirmed in App/Api/Controllers/DeploymentController.cs) --
@@ -22,7 +22,7 @@ function Test-BlueTrackDeployment {
         confirm it (e.g. a cert trust issue, or the caller isn't a BlueTrack admin).
     .OUTPUTS
         [bool] whether every reported health check came back healthy and the
-        browser path signed in too.
+        site root served the SPA.
     #>
     [CmdletBinding()]
     [OutputType([bool])]
@@ -32,7 +32,7 @@ function Test-BlueTrackDeployment {
     )
 
     $endpoint = "$($SiteUrl.TrimEnd('/'))/BlueTrack/api/admin/deployment"
-    $rootEndpoint = "$($SiteUrl.TrimEnd('/'))/api/admin/deployment"
+    $siteRoot = "$($SiteUrl.TrimEnd('/'))/"
     Write-Host "Smoke test: GET $endpoint (Windows-integrated auth, current identity)..."
 
     try {
@@ -40,7 +40,7 @@ function Test-BlueTrackDeployment {
     } catch {
         Write-Warning "Smoke test failed calling '$endpoint': $($_.Exception.Message)"
         Write-BlueTrackSmokeDiagnosis -ErrorRecord $_
-        Write-BlueTrackSmokeTestUrl -AppEndpoint $endpoint -BrowserEndpoint $rootEndpoint
+        Write-BlueTrackSmokeTestUrl -AppEndpoint $endpoint -SiteRoot $siteRoot
         return $false
     }
 
@@ -58,24 +58,21 @@ function Test-BlueTrackDeployment {
         Write-Warning 'Smoke test: at least one health check is not healthy -- review the Deployment Info admin page.'
     }
 
-    # D-175: the browser never calls /BlueTrack/... -- the SPA calls /api/...
-    # at the site root, which D-166's rewrite rule hands to /BlueTrack. That
-    # path failed sign-in on its own on DCACYBSQL01 (looping 401.1 until a
-    # full iisreset) while the call above passed, so check it too.
-    Write-Host "Smoke test: GET $rootEndpoint (the browser's path, through the site-root rewrite)..."
+    # D-196: the SPA calls /BlueTrack/api/... itself (checked above); the site
+    # root only has to serve the SPA's index.html.
+    Write-Host "Smoke test: GET $siteRoot (the SPA)..."
     try {
-        Invoke-RestMethod -Uri $rootEndpoint -UseDefaultCredentials -TimeoutSec $TimeoutSeconds | Out-Null
-        Write-Host 'Smoke test: the browser path signs in too.' -ForegroundColor Green
-    } catch {
-        Write-Warning "Smoke test failed calling '$rootEndpoint': $($_.Exception.Message)"
-        $status = $null
-        if ($_.Exception.PSObject.Properties['Response'] -and $_.Exception.Response) { $status = [int]$_.Exception.Response.StatusCode }
-        if ($status -eq 401) {
-            Write-Warning '/BlueTrack/... signs in but the browser path (/api/...) does not. Seen live after IIS changes, and fixed by a full IIS restart: run iisreset (it briefly stops every site), or .\Install-BlueTrack.ps1 -Step Iis.Reset -ResetIis $true, then -Step Smoke. See Deploy/README.md, "Smoke test failures".'
-        } else {
-            Write-BlueTrackSmokeDiagnosis -ErrorRecord $_
+        $page = Invoke-WebRequest -Uri $siteRoot -UseDefaultCredentials -UseBasicParsing -TimeoutSec $TimeoutSeconds
+        if ($page.Content -notmatch '<div id="app">') {
+            Write-Warning "Smoke test: '$siteRoot' answered, but not with the BlueTrack SPA's index.html -- check the site's physical path (-WebInstallPath) and the Build.Web step."
+            Write-BlueTrackSmokeTestUrl -AppEndpoint $endpoint -SiteRoot $siteRoot
+            return $false
         }
-        Write-BlueTrackSmokeTestUrl -AppEndpoint $endpoint -BrowserEndpoint $rootEndpoint
+        Write-Host 'Smoke test: the site root serves the SPA.' -ForegroundColor Green
+    } catch {
+        Write-Warning "Smoke test failed calling '$siteRoot': $($_.Exception.Message)"
+        Write-BlueTrackSmokeDiagnosis -ErrorRecord $_
+        Write-BlueTrackSmokeTestUrl -AppEndpoint $endpoint -SiteRoot $siteRoot
         return $false
     }
 
@@ -92,15 +89,13 @@ function Write-BlueTrackSmokeTestUrl {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)] [string]$AppEndpoint,
-        [Parameter(Mandatory)] [string]$BrowserEndpoint
+        [Parameter(Mandatory)] [string]$SiteRoot
     )
 
-    Write-Warning 'To test by hand, open these in a browser on this server, or run the PowerShell lines. Each should return JSON, not a sign-in prompt or an error:'
-    Write-Warning "  1. The application directly:  $AppEndpoint"
-    Write-Warning "  2. The browser's path (site-root rewrite to /BlueTrack):  $BrowserEndpoint"
+    Write-Warning 'To test by hand, open these in a browser on this server, or run the PowerShell line:'
+    Write-Warning "  1. The API (the SPA calls it at this path, D-196), should return JSON:  $AppEndpoint"
     Write-Warning "     Invoke-RestMethod -Uri '$AppEndpoint' -UseDefaultCredentials"
-    Write-Warning "     Invoke-RestMethod -Uri '$BrowserEndpoint' -UseDefaultCredentials"
-    Write-Warning 'If 1 works but 2 keeps asking you to sign in, that is the login loop: run iisreset (or -Step Iis.Reset -ResetIis $true), then -Step Smoke.'
+    Write-Warning "  2. The site, should show the BlueTrack sign-in or dashboard:  $SiteRoot"
 }
 
 function Write-BlueTrackSmokeDiagnosis {

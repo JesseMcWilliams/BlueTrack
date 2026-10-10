@@ -1,4 +1,5 @@
 <script setup>
+import { apiUrl } from '../utils/apiBase'
 // D-100: real provider redirect logic, unblocked now that the Identity
 // Providers admin screen exists and GET /api/auth/providers is real.
 // D-41's "default provider" policy resolved 2026-09-05: lowest DisplayOrder
@@ -39,8 +40,8 @@ function returnUrl() {
 
 function externalRedirectUrl(provider) {
   const encoded = encodeURIComponent(returnUrl())
-  if (provider.providerType === 'OIDC') return `/api/auth/login/oidc?returnUrl=${encoded}`
-  if (provider.providerType === 'SAML') return `/api/auth/saml/login?returnUrl=${encoded}`
+  if (provider.providerType === 'OIDC') return apiUrl(`/api/auth/login/oidc?returnUrl=${encoded}`)
+  if (provider.providerType === 'SAML') return apiUrl(`/api/auth/saml/login?returnUrl=${encoded}`)
   return null
 }
 

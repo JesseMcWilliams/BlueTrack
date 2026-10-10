@@ -1,4 +1,5 @@
 <script setup>
+import { apiUrl } from '../utils/apiBase'
 // D-124 Phase 5: relocated wholesale off Targets.vue's own always-visible
 // inline sections onto this dedicated routed page (targets-bulk-import),
 // reached via the "Bulk Actions" link in Targets.vue's header -- consistent
@@ -58,7 +59,7 @@ async function importAccountTargetMap() {
 
     <h3>Bulk Import: Target Inventory</h3>
     <p>
-      <a href="/api/admin/risk-scoring/import/target-inventory/template">Download template</a> --
+      <a :href="apiUrl('/api/admin/risk-scoring/import/target-inventory/template')">Download template</a> --
       each row is matched against existing Targets by identifier (auto-merges on a strong match, e.g. ADGuid; a weak IP-only match is queued for review instead of auto-merging).
     </p>
     <p class="filter-row">
@@ -71,7 +72,7 @@ async function importAccountTargetMap() {
     </p>
 
     <h3>Bulk Import: Direct Account -&gt; Target Links</h3>
-    <p><a href="/api/admin/risk-scoring/import/account-target-map/template">Download template</a> -- rows this app cannot yet match to an existing Target/Account are reported as row errors, not silently skipped.</p>
+    <p><a :href="apiUrl('/api/admin/risk-scoring/import/account-target-map/template')">Download template</a> -- rows this app cannot yet match to an existing Target/Account are reported as row errors, not silently skipped.</p>
     <p class="filter-row">
       <input type="file" accept=".csv" @change="onAccountTargetFileChange" />
       <button :disabled="!accountTargetFile || accountTargetImporting" @click="importAccountTargetMap">{{ accountTargetImporting ? 'Importing...' : 'Import' }}</button>
