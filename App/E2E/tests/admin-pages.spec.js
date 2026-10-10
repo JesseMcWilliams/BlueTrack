@@ -667,6 +667,36 @@ test.describe('Data Sources admin page (D-181)', () => {
   })
 })
 
+test.describe('Decommissioned and ignored safe patterns (D-186)', () => {
+  test('Admin tries patterns in the helper without saving them', async ({ page }) => {
+    await signInAs(page, 'TestUser.Admin')
+    await page.goto('/admin/configuration')
+    await page.getByLabel('Safe decommission pattern type').selectOption('Prefix')
+    await page.getByLabel('Safe decommission pattern value').fill('del_')
+    await page.getByLabel('Ignored safe pattern type').selectOption('Suffix')
+    await page.getByLabel('Ignored safe pattern value').fill('_archive')
+    await page.getByLabel('Sample names').fill('DEL_Finance\nZZ_Archive\nFinance')
+    await page.getByRole('button', { name: 'Test patterns' }).click()
+
+    const results = page.locator('table.pattern-results tbody tr')
+    await expect(results).toHaveCount(3)
+    await expect(results.nth(0).locator('td').nth(1)).toHaveText('Matches')
+    await expect(results.nth(1).locator('td').nth(3)).toHaveText('Matches')
+    await expect(results.nth(2)).not.toContainText('Matches')
+  })
+
+  test('Viewer can open both flagged-for-deletion reports', async ({ page }) => {
+    await signInAs(page, 'TestUser.Viewer')
+    await page.goto('/reports')
+    await page.getByRole('link', { name: 'Safes Flagged for Deletion' }).click()
+    await expect(page.getByRole('heading', { name: 'Safes Flagged for Deletion' })).toBeVisible()
+    await expect(page.getByText(/Could not load/)).toHaveCount(0)
+    await page.locator('nav.reports-subnav').getByRole('link', { name: 'Accounts Flagged for Deletion' }).click()
+    await expect(page.getByRole('heading', { name: 'Accounts Flagged for Deletion' })).toBeVisible()
+    await expect(page.getByText(/Could not load/)).toHaveCount(0)
+  })
+})
+
 test.describe('Global Application Configuration admin page', () => {
   test('Admin can update a setting, save, then restore the original value', async ({ page }) => {
     await signInAs(page, 'TestUser.Admin')

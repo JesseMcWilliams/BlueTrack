@@ -4,6 +4,7 @@
 
 | Date | Change | User doc / section it affects |
 |---|---|---|
+| 2026-10-09 | Decommissioned/ignored safe name patterns on Global Application Configuration with a Test helper; reports *Safes Flagged for Deletion* and *Accounts Flagged for Deletion*; ⚠ marker on flagged accounts; ignored safes skipped by the import (D-186). | `User_Guide.md` (Reports, Account Progress, Global Application Configuration), `Admin_Configuration.md` section 4, `Admin_OperationsGuide.md` already updated |
 | 2026-10-09 | Account Progress: accounts can be deleted and undeleted in BlueTrack (`DeleteAccounts`), one at a time or in bulk, always with a reason, with a per-account history; a **Deleted accounts** filter shows them (D-185). Also: the bulk edit limit (Global Application Configuration) applies to bulk delete. | `User_Guide.md` (Account Progress) already updated, including search and bulk edit; `Admin_Configuration.md` section 4 (bulk limit) |
 | 2026-10-09 | The nightly import no longer adds accounts CyberArk marks as deleted; existing ones are flagged. Self-Hosted deletion dates are now honored, ignoring epoch placeholders (D-184). | `Admin_OperationsGuide.md` ("The Nightly Import + Load Job") already updated |
 | 2026-10-09 | Risk Exceptions has a **Bulk Actions** page (`ApproveExceptions`) to import exceptions approved in another tool: new BlueTrack IDs, source tool/ID/link kept and shown (new **Source** column; Approved By and source on the exception page), optional Status and Link to Account Progress columns (D-183). | `User_Guide.md` (Risk Exceptions) |

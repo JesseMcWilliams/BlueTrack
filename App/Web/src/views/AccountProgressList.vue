@@ -12,6 +12,7 @@ import Pager from '../components/Pager.vue'
 import { useRouter } from 'vue-router'
 import { useRightsStore } from '../stores/rights'
 import { useAccountSelectionStore } from '../stores/accountSelection'
+import { decomNote } from '../utils/decomNote'
 
 // D-182: bulk edit. "Select accounts" turns on a checkbox column; the
 // selection (a store) survives paging, sorting and filtering. Select all
@@ -314,6 +315,7 @@ watch([stageFilter, statusFilter, riskLevelFilter, ownerFilter, searchFilter, de
             </td>
             <td>
               <router-link :to="{ name: 'account-progress-detail', params: { accountKey: account.accountKey } }">{{ account.userName }}</router-link>
+              <span v-if="decomNote(account)" class="decom-marker" :title="decomNote(account)"><span aria-hidden="true">⚠</span><span class="visually-hidden">Flagged for deletion: {{ decomNote(account) }}</span></span>
               <span v-if="account.isDeleted" class="deleted-badge" :title="deletedNote(account)">Deleted<span class="visually-hidden">: {{ deletedNote(account) }}</span></span>
             </td>
             <td>{{ account.address }}</td>
@@ -334,6 +336,10 @@ watch([stageFilter, statusFilter, riskLevelFilter, ownerFilter, searchFilter, de
 </template>
 
 <style scoped>
+.decom-marker {
+  margin-left: 0.4rem;
+  cursor: help;
+}
 .deleted-badge {
   margin-left: 0.5rem;
   padding: 0 0.3rem;

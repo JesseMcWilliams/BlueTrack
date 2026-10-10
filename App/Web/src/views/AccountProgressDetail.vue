@@ -6,6 +6,7 @@ import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { useRightsStore } from '../stores/rights'
 import { formatDate } from '../utils/formatDate'
+import { decomNote } from '../utils/decomNote'
 
 const props = defineProps({ accountKey: { type: [String, Number], required: true } })
 const router = useRouter()
@@ -483,6 +484,10 @@ onUnmounted(releaseLock)
     <p v-else-if="error" role="alert">{{ error }}</p>
 
     <template v-else>
+      <div v-if="decomNote(detail)" class="decom-notice" role="note">
+        <strong>⚠ Flagged for deletion.</strong> {{ decomNote(detail) }}
+        <template v-if="!detail.isDeleted"> The account itself hasn't been deleted yet.</template>
+      </div>
       <div v-if="detail.isDeleted" class="deleted-notice" role="note">
         <strong>This account is deleted.</strong>
         <template v-if="detail.deletedByName"> Deleted in BlueTrack by {{ detail.deletedByName }} on {{ formatDate(detail.deletedAt) }}: {{ detail.deletionReason }}</template>
@@ -655,7 +660,7 @@ onUnmounted(releaseLock)
 </template>
 
 <style scoped>
-.deleted-notice {
+.deleted-notice, .decom-notice {
   border: 2px solid currentColor;
   padding: 0.5rem 0.75rem;
   margin: 0.5rem 0;

@@ -30,6 +30,8 @@ Four at-a-glance summary cards, each linking into the full report/worklist behin
 
 **Search** finds accounts whose username or address contains what you type. Filter by Stage, Status, Risk Level, or Owner (a "contains" text match) — filters stack together. Click any column header to sort by it; shift-click another header to add it as a secondary sort key (a small numbered arrow shows the resulting priority). Click an account's **Username** to open it.
 
+A **⚠** next to a username means the account is flagged for deletion: it's in a safe matching the safe decommission pattern, or its name matches the account pattern. Point at it (or use a screen reader) for the safe's name and any other safe the account is also in; the account's page shows the same as a notice.
+
 **Deleted accounts** are hidden. The **Deleted accounts** filter shows them alongside the others (**Show**) or on their own (**Only deleted**). A deleted account is marked **Deleted**; point at the mark to see who deleted it and why, or whether CyberArk deleted it.
 
 ### Selecting accounts for bulk actions
@@ -95,6 +97,8 @@ While an exception is Active, its edit page offers:
 - **Risk Score** (requires `ViewRiskReport`) — every account's Computed/Override/Effective risk score and Risk Band, sortable, with a **Recalculate Now** button and a per-account click-to-expand drill-down showing the real Targets/Access Groups behind that score.
 - **Discovered Accounts** (requires `ViewDiscoveredAccounts`) — real AD accounts not yet onboarded into CyberArk, found nightly and risk-scored the same way as tracked accounts. If you hold `ManageDiscoveredAccounts`, **Accept**/**Dismiss** buttons let you move a candidate into real Blueprint tracking or resolve it as a false positive.
 - **Risk Exception SoD** (requires `ViewRiskExceptionSodReport`) — see "Reviewing past cases" below.
+- **Safes Flagged for Deletion** (no permission required) — safes whose name matches the *safe decommission pattern* (Global Application Configuration), with how many of their accounts aren't deleted yet. Ignored safes aren't listed.
+- **Accounts Flagged for Deletion** (no permission required) — accounts in those safes, or whose own name matches the *account decommission pattern*. Accounts still active are marked **Not deleted yet**; **Also in** names any other safe holding an account with the same username and address, which usually means it has moved there. Tick *Only accounts not yet deleted* to hide the rest.
 - **KPI Summary** (added 2026-09-22, no permission required) — the four progress ratios (In Scope vs. All Accounts, Onboarded vs. In Scope, Managed vs. Onboarded, Compliant vs. Managed) as counts and percentages. "In scope" means not currently excluded via an active Risk Accepted / Excluded exception. The same four ratios, plus a summary pie chart, also appear on the Dashboard's Key Progress Indicators card.
 
 ## My Profile
@@ -170,6 +174,15 @@ Read-only — no add/edit/delete. Filter by Event Type, Entity, and a From/To da
 ### Global Application Configuration
 
 Every admin-wide setting on one form, saved together with a single **Save** button: Idle Timeout (minutes), Breadcrumb Position (Top Left/Top Right), Exception ID Pattern, Account Progress Lock Timeout (minutes), Audit Retention in days (blank = keep forever), a "Log read/view events" checkbox, Backup Folder (where the Deployment page's Backup App button writes to), and the Risk Score Algorithm (Dominant Plus Tail / Combined Exposure — see `Design_Risk-Scoring.md`).
+
+#### Decommissioned and ignored safes
+
+Three name patterns, each with a type (**Off**, **Prefix**, **Suffix** or **Regex**) and a value; all ignore case:
+- **Safe decommission pattern** — safes being retired, e.g. a `DEL_` prefix or `_DECOM` suffix. Shown on *Safes Flagged for Deletion*; their accounts are marked and listed on *Accounts Flagged for Deletion*.
+- **Account decommission pattern** — accounts whose own name marks them for deletion.
+- **Ignored safe pattern** — safes left out of the nightly import, e.g. a `ZZ_` prefix. Accounts already imported from such a safe are flagged deleted (their history stays).
+
+Use **Test patterns** at the top of the section to see which sample names (one per line) each pattern matches before you save; it uses exactly the same matching as the reports and the import. **Regex** works only when BlueTrack's database is on SQL Server 2025; on earlier versions the option is disabled. Example: `^(DEL|ZZ)_|_DECOM$` matches `DEL_Finance`, `zz_Archive` and `Finance_Decom`.
 
 #### Enforcing Segregation of Duties on Risk Exception Approval
 

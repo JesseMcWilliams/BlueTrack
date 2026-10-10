@@ -24,7 +24,7 @@ Review the built-in roles under **Admin > Roles & Permissions** and adjust their
 
 ## 4. Global Application Configuration
 
-One form, one Save button, covering idle timeout, breadcrumb position, the Exception ID pattern, the Account Progress lock timeout, audit retention, the backup folder, the risk score algorithm, the segregation-of-duties checkbox for Risk Exception approval, the **bulk edit limit** (the most accounts one bulk edit, delete or undelete may change; default 500), and the data feed schedule. Review every field here at least once — see `User_Guide.md`'s Global Application Configuration section for what each one does.
+One form, one Save button, covering idle timeout, breadcrumb position, the Exception ID pattern, the Account Progress lock timeout, audit retention, the backup folder, the risk score algorithm, the segregation-of-duties checkbox for Risk Exception approval, the **bulk edit limit** (the most accounts one bulk edit, delete or undelete may change; default 500), the data feed schedule, and the **decommissioned and ignored safe** name patterns (agree your organization's naming convention, such as `DEL_`, `_DECOM` or `ZZ_`, and try it with **Test patterns** before saving). Review every field here at least once — see `User_Guide.md`'s Global Application Configuration section for what each one does.
 
 ## 5. Notifications
 

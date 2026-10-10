@@ -69,6 +69,7 @@ builder.Services.AddScoped<BlueTrack.Api.Imports.ApplicationMappingImportService
 builder.Services.AddScoped<BlueTrack.Api.AccountProgress.AccountProgressSaveService>();
 builder.Services.AddScoped<BlueTrack.Api.AccountProgress.AccountProgressBulkEditService>();
 builder.Services.AddScoped<AccountDeletionRepository>();
+builder.Services.AddScoped<DecommissionRepository>();
 builder.Services.AddScoped<BlueTrack.Api.AccountProgress.AccountDeletionService>();
 builder.Services.AddScoped<BlueTrack.Api.Imports.RiskExceptionImportService>();
 

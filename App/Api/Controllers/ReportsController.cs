@@ -13,8 +13,17 @@ public sealed class ReportsController(
     RiskScoreReportRepository riskScoreReportRepository,
     RiskExceptionRepository riskExceptionRepository,
     DiscoveredAccountRepository discoveredAccountRepository,
-    CurrentUserResolver currentUserResolver) : ControllerBase
+    CurrentUserResolver currentUserResolver,
+    DecommissionRepository decommissionRepository) : ControllerBase
 {
+    /// <summary>D-186: safes whose name matches the safe decommission pattern (not ignored safes). Same access as the other general reports.</summary>
+    [HttpGet("decom-safes")]
+    public async Task<IActionResult> GetDecomSafes() => Ok(await decommissionRepository.GetSafesAsync());
+
+    /// <summary>D-186: accounts in those safes, or whose name matches the account pattern, with any other safe holding the same account.</summary>
+    [HttpGet("decom-accounts")]
+    public async Task<IActionResult> GetDecomAccounts() => Ok(await decommissionRepository.GetAccountsAsync());
+
     [HttpGet("overdue-at-risk")]
     public async Task<IActionResult> GetOverdueAtRisk()
     {

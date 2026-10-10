@@ -47,6 +47,14 @@ public sealed class AccountProgressDetail
     public string? DeletedByName { get; init; }
     public DateTime? DeletedAt { get; init; }
     public string? DeletionReason { get; init; }
+
+    // D-186: flagged for deletion -- in a safe matching the safe pattern
+    // (DecomSafeName), or its own name matches the account pattern.
+    // DecomOtherSafes: other safes holding the same account (username + address).
+    public bool? DecomInFlaggedSafe { get; init; }
+    public bool? DecomNameFlagged { get; init; }
+    public string? DecomSafeName { get; init; }
+    public string? DecomOtherSafes { get; init; }
 }
 
 /// <summary>
