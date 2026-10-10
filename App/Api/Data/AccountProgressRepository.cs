@@ -49,11 +49,12 @@ public sealed class AccountProgressRepository(IDbConnectionFactory connectionFac
           AND (@StatusName IS NULL OR sts.StatusName = @StatusName)
           AND (@RiskLevelName IS NULL OR rl.RiskLevelName = @RiskLevelName)
           AND (@OwnerContains IS NULL OR fap.OwnerName LIKE '%' + @OwnerContains + '%')
-          AND (@SearchPattern IS NULL OR fa.UserName LIKE @SearchPattern OR fa.Address LIKE @SearchPattern)
+          AND (@SearchPattern IS NULL OR fa.UserName LIKE @SearchPattern OR fa.Address LIKE @SearchPattern OR fa.AccountName LIKE @SearchPattern)
         """;
 
     /// <summary>
-    /// D-178: the list's search box matches Username or Address, "contains".
+    /// D-178: the list's search box matches Username or Address, "contains";
+    /// D-191 adds AccountName, so an account with neither can still be found.
     /// Account names often contain '_' (and an address can contain '['),
     /// which LIKE would otherwise read as wildcards, so the text is matched
     /// literally: each of [ % _ is wrapped in brackets.
