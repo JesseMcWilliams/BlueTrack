@@ -54,6 +54,8 @@ GO
    AccountKeys on a SourceAccountId match -- don't collapse them into one
    fact_account row, or you lose the ability to see which source is current.
    ============================================================================ */
+-- Redefined by 46_BlueTrack_ImportSkipDeletedAccounts.sql (D-184): deleted accounts are
+-- no longer imported, and Self-Hosted CAFDeletionDate is honored.
 CREATE OR ALTER PROCEDURE usp_Load_FactAccount
 AS
 BEGIN
