@@ -148,6 +148,14 @@ While tracking down a batch of E2E failures that looked like the already-documen
 
 **Lesson:** integration tests use the seeded users `IntegrationTestUser1`/`IntegrationTestUser2` (`Database/Test/02_...`), never `TestUser.*`. And check `gh pr checks` before merging a PR: a local pass doesn't prove a pass on a fresh database.
 
+## 2026-10-09 — "Okta (SAML) is missing required fields" with every field filled in
+
+**What happened:** the Deployment page's health check said the SAML provider was missing required fields, but they were all filled in. The settings JSON held every setting twice: camelCase (`spEntityId`, entered on the Identity Providers page) and PascalCase (`SpEntityId`, empty, from `12_BlueTrack_OidcSamlProviderSeed.sql`). The page merged the stored JSON into its fields with a plain object spread, so the first save kept both; the API reads names regardless of case with the last copy winning, so it read the empty seed copies. SAML sign-in reads the settings the same way.
+
+**Fixed:** the page now matches stored names regardless of case, preferring a filled-in value (`App/Web/src/utils/providerSettings.js`); script 12 seeds camelCase; script 49 cleans existing rows.
+
+**Lesson:** when JSON is read case-insensitively, every writer must use one spelling. Check stored settings for duplicate names (`SELECT [key] FROM OPENJSON(...)`) before assuming a value is really missing.
+
 ## Process notes
 
 - **Check the Decision Register first.** `Claude_Docs/Design_Decision-Register.md` is the index of every design decision made so far, resolved and open. Don't re-derive or re-litigate something it already answers.
