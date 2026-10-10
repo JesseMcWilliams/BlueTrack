@@ -189,7 +189,11 @@ public class RiskExceptionsWorkflowTests : IClassFixture<BlueTrackWebApplication
         var client = CreateClientAs("TestUser.Approver");
         var created = await CreateExceptionAsync(client, accountKey);
 
-        var revokeResponse = await client.PutAsync($"/api/risk-exceptions/{created}/revoke", null);
+        // D-190: a reason is required.
+        var noReason = await client.PutAsJsonAsync($"/api/risk-exceptions/{created}/revoke", new { reason = " " });
+        Assert.Equal(HttpStatusCode.BadRequest, noReason.StatusCode);
+
+        var revokeResponse = await client.PutAsJsonAsync($"/api/risk-exceptions/{created}/revoke", new { reason = "Contract test revoke" });
         Assert.Equal(HttpStatusCode.NoContent, revokeResponse.StatusCode);
 
         var detail = await client.GetFromJsonAsync<RiskExceptionDetailResponse>($"/api/risk-exceptions/{created}");
@@ -204,7 +208,7 @@ public class RiskExceptionsWorkflowTests : IClassFixture<BlueTrackWebApplication
         var created = await CreateExceptionAsync(approverClient, accountKey);
         var analystClient = CreateClientAs("TestUser.Analyst");
 
-        var response = await analystClient.PutAsync($"/api/risk-exceptions/{created}/revoke", null);
+        var response = await analystClient.PutAsJsonAsync($"/api/risk-exceptions/{created}/revoke", new { reason = "Not allowed" });
 
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
     }

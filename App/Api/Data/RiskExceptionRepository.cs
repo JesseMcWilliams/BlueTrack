@@ -339,4 +339,12 @@ public sealed class RiskExceptionRepository(IDbConnectionFactory connectionFacto
           AND (@AccountKey IS NULL OR re.AccountKey = @AccountKey)
         ORDER BY re.ReviewDate
         """;
+
+    /// <summary>D-190: "Select all matching" -- the keys of exceptions matching the list's filters, at most <paramref name="limit"/>.</summary>
+    public async Task<IReadOnlyList<int>> GetFilteredKeysAsync(string? statusName, string? scopeType, int limit)
+    {
+        using var connection = connectionFactory.Create();
+        var sql = "SELECT TOP (@Limit) re.ExceptionKey\n" + FromJoinSql + ListFilterConditionsSql + "\nORDER BY re.ExceptionID";
+        return (await connection.QueryAsync<int>(sql, new { StatusName = statusName, AccountKey = (long?)null, ScopeType = scopeType, Limit = limit })).AsList();
+    }
 }

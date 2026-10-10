@@ -13,15 +13,14 @@ import { useRouter } from 'vue-router'
 import { useRightsStore } from '../stores/rights'
 import { useAccountSelectionStore } from '../stores/accountSelection'
 import { decomNote } from '../utils/decomNote'
+import SelectionBar from '../components/SelectionBar.vue'
 
 // D-182: bulk edit. "Select accounts" turns on a checkbox column; the
-// selection (a store) survives paging, sorting and filtering. Select all
-// on page / Invert apply to the current page; Select all matching asks the
-// API for every account matching the filters, up to the bulk-edit limit.
+// selection (a store) survives paging, sorting and filtering. The bar
+// itself is the shared SelectionBar (D-190).
 const router = useRouter()
 const rights = useRightsStore()
 const selection = useAccountSelectionStore()
-const selectAllMessage = ref(null)
 const canEdit = computed(() => rights.hasPermission('EditAccountProgress'))
 const canDelete = computed(() => rights.hasPermission('DeleteAccounts'))
 
@@ -73,7 +72,8 @@ function deletedNote(account) {
   return parts.join('. ')
 }
 const pageKeys = computed(() => accounts.value.map(a => a.accountKey))
-const selectedOnPage = computed(() => pageKeys.value.filter(k => selection.isSelected(k)).length)
+
+const keysUrl = computed(() => `/api/account-progress/keys?${currentFilterParams().toString()}`)
 
 function currentFilterParams() {
   const params = new URLSearchParams()
@@ -86,20 +86,6 @@ function currentFilterParams() {
   return params
 }
 
-async function selectAllMatching() {
-  selectAllMessage.value = null
-  const response = await fetch(`/api/account-progress/keys?${currentFilterParams().toString()}`)
-  if (!response.ok) {
-    selectAllMessage.value = `Could not select: ${response.status}`
-    return
-  }
-  const result = await response.json()
-  if (result.matchingCount > result.maxAccounts) {
-    selectAllMessage.value = `${result.matchingCount} accounts match, more than the bulk edit limit of ${result.maxAccounts}. Narrow the filters first.`
-    return
-  }
-  selection.add(result.accountKeys)
-}
 
 const { totalCount, filteredCount, readTotalCount } = useTotalCount()
 const pageSizeStore = usePageSizeStore()
@@ -263,19 +249,12 @@ watch([stageFilter, statusFilter, riskLevelFilter, ownerFilter, searchFilter, de
         </select>
       </label>
     </p>
-    <div v-if="canEdit || canDelete" class="selection-bar">
-      <label><input type="checkbox" :checked="selection.enabled" @change="selection.setEnabled($event.target.checked)" /> Select accounts for bulk actions</label>
-      <template v-if="selection.enabled">
-        <strong role="status">{{ selection.count }} selected</strong><span v-if="selection.count"> ({{ selectedOnPage }} on this page)</span>
-        <button type="button" @click="selection.add(pageKeys)">Select all on page</button>
-        <button type="button" @click="selectAllMatching">Select all matching ({{ filteredCount ?? 0 }})</button>
-        <button type="button" @click="selection.invert(pageKeys)">Invert selection on page</button>
-        <button type="button" :disabled="selection.count === 0" @click="selection.clear()">Clear</button>
-        <button v-if="canEdit" type="button" class="btn-primary" :disabled="selection.count === 0" @click="router.push({ name: 'account-progress-bulk-edit' })">Bulk edit…</button>
-        <button v-if="canDelete" type="button" :disabled="selection.count === 0" @click="startDeletion('delete')">Delete…</button>
-        <button v-if="canDelete" type="button" :disabled="selection.count === 0" @click="startDeletion('undelete')">Undelete…</button>
-      </template>
-    </div>
+    <SelectionBar v-if="canEdit || canDelete" :selection="selection" :page-keys="pageKeys" :filtered-count="filteredCount"
+                  :keys-url="keysUrl" toggle-label="Select accounts for bulk actions">
+      <button v-if="canEdit" type="button" class="btn-primary" :disabled="selection.count === 0" @click="router.push({ name: 'account-progress-bulk-edit' })">Bulk edit…</button>
+      <button v-if="canDelete" type="button" :disabled="selection.count === 0" @click="startDeletion('delete')">Delete…</button>
+      <button v-if="canDelete" type="button" :disabled="selection.count === 0" @click="startDeletion('undelete')">Undelete…</button>
+    </SelectionBar>
     <form v-if="deletion" class="deletion-form" @submit.prevent="applyDeletion">
       <label class="field-label">
         <span class="field-label-text">Reason to {{ deletion.action }} {{ selection.count }} account{{ selection.count === 1 ? '' : 's' }}:</span>
@@ -291,7 +270,6 @@ watch([stageFilter, statusFilter, riskLevelFilter, ownerFilter, searchFilter, de
         <li v-for="s in deletionResult.skipped" :key="s.accountKey">{{ s.accountName ?? s.accountKey }}: {{ s.reason }}</li>
       </ul>
     </div>
-    <p v-if="selectAllMessage" role="alert">{{ selectAllMessage }}</p>
     <FilterCountSummary :shown="accounts.length" :filtered-count="filteredCount" :total="totalCount" :page="page" :page-size="pageSizeStore.current" />
     <Pager :page="page" :page-count="pageCount" @update:page="onPageChange" @page-size-change="onPageSizeChange" />
     <p v-if="loading" role="status">Loading...</p>
@@ -348,13 +326,6 @@ watch([stageFilter, statusFilter, riskLevelFilter, ownerFilter, searchFilter, de
   font-size: 0.85em;
 }
 .deletion-form {
-  margin: 0.5rem 0;
-}
-.selection-bar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.5rem 1rem;
   margin: 0.5rem 0;
 }
 </style>

@@ -222,4 +222,12 @@ public sealed class AccessGroupRepository(IDbConnectionFactory connectionFactory
         using var connection = connectionFactory.Create();
         await connection.ExecuteAsync("DELETE FROM web.dim_access_group WHERE AccessGroupKey = @AccessGroupKey", new { AccessGroupKey = accessGroupKey });
     }
+
+    /// <summary>D-190: "Select all matching" -- the keys of access groups matching the list's filters, at most <paramref name="limit"/>.</summary>
+    public async Task<IReadOnlyList<int>> GetFilteredKeysAsync(string? groupScope, string? sorTypeName, int limit)
+    {
+        using var connection = connectionFactory.Create();
+        var sql = $"SELECT TOP (@Limit) g.AccessGroupKey FROM web.dim_access_group g\nLEFT JOIN web.dim_sor_type st ON st.SorTypeKey = g.SorTypeKey\n{FilterWhereSql}\nORDER BY g.GroupName, g.AccessGroupKey";
+        return (await connection.QueryAsync<int>(sql, new { GroupScope = groupScope, SorTypeName = sorTypeName, Limit = limit })).AsList();
+    }
 }

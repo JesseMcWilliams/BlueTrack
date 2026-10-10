@@ -32,6 +32,12 @@ import { confirmDelete } from '../composables/useConfirmDialog'
 import { usePageSizeStore } from '../stores/pageSize'
 import FilterCountSummary from '../components/FilterCountSummary.vue'
 import Pager from '../components/Pager.vue'
+import SelectionBar from '../components/SelectionBar.vue'
+import BulkFieldEditor from '../components/BulkFieldEditor.vue'
+import BulkReasonForm from '../components/BulkReasonForm.vue'
+import BulkResultSummary from '../components/BulkResultSummary.vue'
+import { useListSelectionStore } from '../stores/listSelection'
+import { useBulkAction } from '../composables/useBulkAction'
 
 const router = useRouter()
 const items = ref([])
@@ -144,6 +150,38 @@ watch([scopeFilter, sorTypeFilter, sortQueryParam], () => {
   load()
 })
 
+// D-190: bulk edit and bulk delete (reason required) through the shared
+// selection bar, as on Account Progress.
+const selection = useListSelectionStore('accessGroups')
+const { saving: bulkSaving, result: bulkResult, error: bulkError, run: runBulk } = useBulkAction(selection)
+const bulkPanel = ref(null) // 'edit' | 'delete'
+const pageKeys = computed(() => items.value.map(i => i.accessGroupKey))
+const keysUrl = computed(() => {
+  const params = new URLSearchParams()
+  if (scopeFilter.value) params.set('groupScope', scopeFilter.value)
+  if (sorTypeFilter.value) params.set('sorTypeName', sorTypeFilter.value)
+  return `/api/admin/access-groups/keys?${params.toString()}`
+})
+const bulkFields = [
+  { field: 'GroupScope', label: 'Scope', type: 'select', required: true, options: [{ value: 'Domain', label: 'Domain' }, { value: 'Local', label: 'Local' }] },
+  { field: 'BaseRiskScore', label: 'Base Risk Score', type: 'number' },
+  { field: 'Description', label: 'Description', type: 'text' }
+]
+
+async function bulkEdit(payload) {
+  if (await runBulk('/api/admin/access-groups/bulk-edit', payload, 'updated')) {
+    bulkPanel.value = null
+    await load()
+  }
+}
+
+async function bulkDelete(reason) {
+  if (await runBulk('/api/admin/access-groups/bulk-delete', { reason }, 'deleted')) {
+    bulkPanel.value = null
+    await load()
+  }
+}
+
 async function remove(item) {
   // D-129/D-131: a structured Name/Scope/Address/Source summary (rendered
   // indented, set off from the title/warning) -- Access Group's own
@@ -193,6 +231,14 @@ async function remove(item) {
         </select>
       </label>
     </p>
+    <SelectionBar :selection="selection" :page-keys="pageKeys" :filtered-count="filteredCount" :keys-url="keysUrl" toggle-label="Select access groups for bulk actions">
+      <button type="button" class="btn-primary" :disabled="selection.count === 0" @click="bulkPanel = 'edit'">Bulk edit…</button>
+      <button type="button" :disabled="selection.count === 0" @click="bulkPanel = 'delete'">Delete…</button>
+    </SelectionBar>
+    <BulkFieldEditor v-if="bulkPanel === 'edit'" :fields="bulkFields" :count="selection.count" :saving="bulkSaving" @apply="bulkEdit" @cancel="bulkPanel = null" />
+    <BulkReasonForm v-if="bulkPanel === 'delete'" :action="`delete ${selection.count} access group(s)`" button-label="Delete" :saving="bulkSaving" @submit="bulkDelete" @cancel="bulkPanel = null" />
+    <p v-if="bulkError" role="alert">{{ bulkError }}</p>
+    <BulkResultSummary v-if="bulkResult" :result="bulkResult" />
     <FilterCountSummary :shown="items.length" :filtered-count="filteredCount" :total="totalCount" :page="page" :page-size="pageSizeStore.current" />
     <Pager :page="page" :page-count="pageCount" @update:page="onPageChange" @page-size-change="onPageSizeChange" />
 
@@ -202,6 +248,7 @@ async function remove(item) {
       <table>
         <thead>
           <tr>
+            <th v-if="selection.enabled"><span class="visually-hidden">Selected</span></th>
             <th v-for="col in columns" :key="col.field" :aria-sort="ariaSortFor(col.field)">
               <button type="button" @click="toggleSort(col.field, $event)">
                 {{ col.label }} <span aria-hidden="true">{{ sortIndicator(col.field) }}</span>
@@ -214,6 +261,7 @@ async function remove(item) {
         </thead>
         <tbody>
           <tr v-for="item in items" :key="item.accessGroupKey">
+            <td v-if="selection.enabled"><input type="checkbox" :checked="selection.isSelected(item.accessGroupKey)" :aria-label="`Select ${item.groupName}`" @change="selection.toggle(item.accessGroupKey)" /></td>
             <td><router-link :to="{ name: 'access-group-edit', params: { accessGroupKey: item.accessGroupKey } }">{{ item.groupName }}</router-link></td>
             <td>{{ item.groupIdentifier }}</td>
             <td>{{ item.groupScope }}<span v-if="item.foundOnTargetName"> ({{ item.foundOnTargetName }})</span></td>

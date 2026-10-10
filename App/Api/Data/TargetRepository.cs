@@ -263,4 +263,12 @@ public sealed class TargetRepository(IDbConnectionFactory connectionFactory)
             await connection.ExecuteAsync(sql, new { TargetKey = targetKey, identifier.IdentifierType, identifier.IdentifierValue }, transaction);
         }
     }
+
+    /// <summary>D-190: "Select all matching" -- the keys of targets matching the list's filters, at most <paramref name="limit"/>.</summary>
+    public async Task<IReadOnlyList<int>> GetFilteredKeysAsync(int? targetTypeKey, int? applicationKey, int limit)
+    {
+        using var connection = connectionFactory.Create();
+        var sql = $"SELECT TOP (@Limit) t.TargetKey FROM web.dim_target t\n{FilterWhereSql}\nORDER BY t.TargetName, t.TargetKey";
+        return (await connection.QueryAsync<int>(sql, new { TargetTypeKey = targetTypeKey, ApplicationKey = applicationKey, Limit = limit })).AsList();
+    }
 }

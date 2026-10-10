@@ -71,6 +71,8 @@ Saving (or Cancel) returns you to the Accounts list.
 
 Filter by Status (Active/Expired/Revoked) and Scope (Account/Application). If you hold `ApproveExceptions`, a **+ New Exception** button appears above the filters. Click an Exception ID to open it.
 
+With `ApproveExceptions`, tick **Select exceptions for bulk actions** for checkboxes and the selection bar (see Account Progress, "Selecting accounts for bulk actions"): **Extend review…** sets a new review date on every selected Active exception (a re-approval), and **Revoke…** revokes them after you give a reason. Exceptions that aren't Active are skipped and listed.
+
 ### Creating one
 
 Choose Account or Application scope. Account scope takes a raw Account Key (there's no search/picker yet — a known limitation, not an oversight); Application scope gets a real dropdown. Fill in Justification, Review Date, and an optional External Ticket Reference, then **Create Exception**.
@@ -79,7 +81,7 @@ Choose Account or Application scope. Account scope takes a raw Account Key (ther
 
 While an exception is Active, its edit page offers:
 - **Re-approve** — extend the Review Date without changing anything else.
-- **Revoke** — end the exception immediately.
+- **Revoke** — end the exception immediately. A reason is required; it's recorded in the Audit Log.
 
 ### Worklists
 
@@ -119,11 +121,15 @@ A **Target** is any final destination an account's access leads to — a server,
 
 Below the table, **Link a Single Account to a Target** creates a direct account-to-target link without going through a group — type an account name and pick a Target.
 
+**Select targets for bulk actions** adds checkboxes and the selection bar (as on Account Progress): **Bulk edit…** sets Type, Application, Risk Score or Description on every selected Target (tick *Change* for each field to set), and **Delete…** deletes them after you give a reason, recorded in the Audit Log. A Target still used by an access group or account is skipped, not deleted.
+
 **Bulk Actions** (its own page, reached via the button above the table) offers two CSV imports: **Target Inventory** and the **Account → Target Map**. Each accepts a file upload and reports success/errors per row rather than failing the whole batch on one bad row.
 
 ### Access Groups
 
 An **Access Group** is a privileged-access group in the *managed environment* (e.g. an AD "Server Admins" group) — not this app's own CyberArk Safe-permission groups, and not its own login/role mapping (`Design_Risk-Scoring.md` is explicit about keeping these three concepts separate). The list shows Name, Identifier, Scope (Domain/Local — a Local group also shows which Target it was found on), SOR Type, Base Risk Score (analyst-set) and Computed Risk Score (derived from Base plus every reachable Target, marked "(stale)" if it needs recalculating), SOR Address, and Discovery Source. Filter by Scope or SOR Type; sort the same way as Targets. Click a group's name to edit it; **+ New Access Group** for a blank form.
+
+**Select access groups for bulk actions** works the same way: **Bulk edit…** sets Scope, Base Risk Score or Description, and **Delete…** needs a reason. Switching a group to Local scope needs the target it was found on, so groups without one are skipped (set it on the group's own page).
 
 **Bulk Actions** here covers three CSV imports: the group inventory itself, which Targets each group reaches, and which Accounts belong to each group.
 

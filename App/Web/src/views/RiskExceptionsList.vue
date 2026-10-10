@@ -10,6 +10,12 @@ import { useTotalCount } from '../composables/useTotalCount'
 import { usePageSizeStore } from '../stores/pageSize'
 import FilterCountSummary from '../components/FilterCountSummary.vue'
 import Pager from '../components/Pager.vue'
+import SelectionBar from '../components/SelectionBar.vue'
+import BulkFieldEditor from '../components/BulkFieldEditor.vue'
+import BulkReasonForm from '../components/BulkReasonForm.vue'
+import BulkResultSummary from '../components/BulkResultSummary.vue'
+import { useListSelectionStore } from '../stores/listSelection'
+import { useBulkAction } from '../composables/useBulkAction'
 
 const router = useRouter()
 const rights = useRightsStore()
@@ -110,6 +116,35 @@ async function load() {
 }
 
 onMounted(load)
+
+// D-190: bulk re-approve (new review date) and bulk revoke (reason
+// required) through the shared selection bar, for ApproveExceptions.
+const canApprove = computed(() => rights.hasPermission('ApproveExceptions'))
+const selection = useListSelectionStore('riskExceptions')
+const { saving: bulkSaving, result: bulkResult, error: bulkError, run: runBulk } = useBulkAction(selection)
+const bulkPanel = ref(null) // 'extend' | 'revoke'
+const newReviewDate = ref('')
+const pageKeys = computed(() => exceptions.value.map(e => e.exceptionKey))
+const keysUrl = computed(() => {
+  const params = new URLSearchParams()
+  if (statusFilter.value) params.set('status', statusFilter.value)
+  if (scopeTypeFilter.value) params.set('scopeType', scopeTypeFilter.value)
+  return `/api/risk-exceptions/keys?${params.toString()}`
+})
+
+async function bulkExtend() {
+  if (await runBulk('/api/risk-exceptions/bulk-extend-review', { newReviewDate: newReviewDate.value }, 're-approved')) {
+    bulkPanel.value = null
+    await load()
+  }
+}
+
+async function bulkRevoke(reason) {
+  if (await runBulk('/api/risk-exceptions/bulk-revoke', { reason }, 'revoked')) {
+    bulkPanel.value = null
+    await load()
+  }
+}
 // D-124 Phase 3: a filter/sort change resets to page 1 -- see Targets.vue's
 // identical comment for why page-size/Prev/Next changes are handled separately.
 watch([statusFilter, scopeTypeFilter, sortQueryParam], () => {
@@ -142,6 +177,21 @@ watch([statusFilter, scopeTypeFilter, sortQueryParam], () => {
         </select>
       </label>
     </p>
+    <template v-if="canApprove">
+      <SelectionBar :selection="selection" :page-keys="pageKeys" :filtered-count="filteredCount" :keys-url="keysUrl" toggle-label="Select exceptions for bulk actions">
+        <button type="button" class="btn-primary" :disabled="selection.count === 0" @click="bulkPanel = 'extend'">Extend review…</button>
+        <button type="button" :disabled="selection.count === 0" @click="bulkPanel = 'revoke'">Revoke…</button>
+      </SelectionBar>
+      <form v-if="bulkPanel === 'extend'" class="bulk-panel" @submit.prevent="bulkExtend">
+        <label class="field-label"><span class="field-label-text">New review date for {{ selection.count }} exception(s):</span> <input v-model="newReviewDate" type="date" required /></label>
+        <button type="submit" class="btn-primary" :disabled="bulkSaving || !newReviewDate">Extend review</button>
+        <button type="button" @click="bulkPanel = null">Cancel</button>
+        <br /><small>Only Active exceptions are re-approved; others are skipped.</small>
+      </form>
+      <BulkReasonForm v-if="bulkPanel === 'revoke'" :action="`revoke ${selection.count} exception(s)`" button-label="Revoke" :saving="bulkSaving" @submit="bulkRevoke" @cancel="bulkPanel = null" />
+      <p v-if="bulkError" role="alert">{{ bulkError }}</p>
+      <BulkResultSummary v-if="bulkResult" :result="bulkResult" />
+    </template>
     <FilterCountSummary :shown="exceptions.length" :filtered-count="filteredCount" :total="totalCount" :page="page" :page-size="pageSizeStore.current" />
     <Pager :page="page" :page-count="pageCount" @update:page="onPageChange" @page-size-change="onPageSizeChange" />
     <p v-if="loading" role="status">Loading...</p>
@@ -150,6 +200,7 @@ watch([statusFilter, scopeTypeFilter, sortQueryParam], () => {
     <table v-else>
       <thead>
         <tr>
+          <th v-if="canApprove && selection.enabled"><span class="visually-hidden">Selected</span></th>
           <th v-for="col in columns" :key="col.field" :aria-sort="ariaSortFor(col.field)">
             <button type="button" @click="toggleSort(col.field, $event)">
               {{ col.label }} <span aria-hidden="true">{{ sortIndicator(col.field) }}</span>
@@ -161,6 +212,7 @@ watch([statusFilter, scopeTypeFilter, sortQueryParam], () => {
       </thead>
       <tbody>
         <tr v-for="exception in exceptions" :key="exception.exceptionKey">
+          <td v-if="canApprove && selection.enabled"><input type="checkbox" :checked="selection.isSelected(exception.exceptionKey)" :aria-label="`Select ${exception.exceptionID}`" @change="selection.toggle(exception.exceptionKey)" /></td>
           <td><router-link :to="{ name: 'risk-exception-edit', params: { exceptionKey: exception.exceptionKey } }">{{ exception.exceptionID }}</router-link></td>
           <td>{{ exception.scopeType }}: {{ exception.scopeName }}</td>
           <td>{{ exception.approvedByName }}</td>

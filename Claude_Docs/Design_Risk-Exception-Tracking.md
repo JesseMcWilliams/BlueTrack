@@ -85,6 +85,8 @@ Built end to end: the exception List, Approval Worklist, Overdue-Review Worklist
 
 **Built 2026-10-09 (D-183): bulk import from another tool.** Risk Exceptions > **Bulk Actions** (`ApproveExceptions`) imports a CSV (`RiskExceptionImportService`; template from `GET /api/risk-exceptions/import/template`). Each row gets a new ExceptionID from the configured pattern and keeps its source tool, ID and link; a tool + ID already imported is a row error, never an update. Scope is an account by username + address (exact, case-insensitive; both required, so an account without an address isn't matched) or an application by code. Status may be Active, Expired or Revoked. `LinkToAccountProgress = Yes` links an Active account exception to that account's progress (Risk Accepted / Excluded) through the edit page's save rules, skipping an account someone else is editing. Each import writes an `ExceptionImported` audit event. Dates are `yyyy-MM-dd` only, to avoid day/month ambiguity.
 
+**Built 2026-10-09 (D-190): bulk re-approve and revoke; revoke needs a reason.** With `ApproveExceptions`, the list's selection bar offers **Extend review…** (a new review date for every selected Active exception, audited as `ExceptionReviewExtended` per exception) and **Revoke…**. Revoking, single or bulk, now requires a reason, stored on the `ExceptionRevoked` audit event. Non-Active exceptions are skipped and reported.
+
 ## Open Questions
 
 None remaining as of 2026-08-27. Q-25 (how an Application relates to `dim_safe`/`fact_account`) was resolved this session — see `dim_application` above.

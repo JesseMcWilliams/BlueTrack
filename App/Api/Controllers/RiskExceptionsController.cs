@@ -152,11 +152,17 @@ public sealed class RiskExceptionsController(
         return NoContent();
     }
 
-    /// <summary>Revocation (workflow step 4).</summary>
+    /// <summary>Revocation (workflow step 4). D-190: a reason is required, recorded on the audit event.</summary>
     [HttpPut("{exceptionKey:int}/revoke")]
     [Authorize(Policy = Permissions.ApproveExceptions)]
-    public async Task<IActionResult> Revoke(int exceptionKey)
+    public async Task<IActionResult> Revoke(int exceptionKey, [FromBody] RevokeRiskExceptionRequest request)
     {
+        if (string.IsNullOrWhiteSpace(request.Reason) || request.Reason.Trim().Length > BulkActions.BulkActionRunner.MaxReasonLength)
+        {
+            return Problem(title: "Invalid revoke", detail: $"A reason is required ({BulkActions.BulkActionRunner.MaxReasonLength} characters or fewer).",
+                statusCode: StatusCodes.Status400BadRequest);
+        }
+
         var before = await repository.GetByKeyAsync(exceptionKey);
         if (before is null)
         {
@@ -169,15 +175,79 @@ public sealed class RiskExceptionsController(
             return Unauthorized();
         }
 
-        await repository.RevokeAsync(exceptionKey);
+        await RevokeOneAsync(before, request.Reason.Trim(), user.UserKey, bulk: false);
+        return NoContent();
+    }
 
+    private async Task RevokeOneAsync(RiskExceptionDetail before, string reason, int userKey, bool bulk)
+    {
+        await repository.RevokeAsync(before.ExceptionKey);
         await auditLogger.LogAsync(
             "ExceptionRevoked",
-            user.UserKey,
+            userKey,
             entityName: "risk_exception",
-            entityKey: exceptionKey.ToString(),
+            entityKey: before.ExceptionKey.ToString(),
+            detail: bulk ? "Bulk revoke" : null,
+            reason: reason,
             fieldChanges: [new FieldChange("StatusName", before.StatusName, "Revoked")]);
+    }
 
-        return NoContent();
+    /// <summary>D-190: "Select all matching" for the list's bulk actions -- no keys if more match than the bulk limit.</summary>
+    [HttpGet("keys")]
+    [Authorize(Policy = Permissions.ApproveExceptions)]
+    public async Task<IActionResult> GetMatchingKeys([FromQuery] string? status, [FromQuery] string? scopeType,
+        [FromServices] BulkActions.BulkActionRunner runner)
+    {
+        var max = await runner.GetMaxItemsAsync();
+        var matching = await repository.GetFilteredCountAsync(status, null, scopeType);
+        var keys = matching > max ? [] : await repository.GetFilteredKeysAsync(status, scopeType, max);
+        return Ok(new BulkKeysResult { MatchingCount = matching, MaxItems = max, Keys = keys });
+    }
+
+    /// <summary>D-190: a new review date for every selected Active exception (bulk re-approval), each audit-logged as a single extend is. No reason, as for a single extend.</summary>
+    [HttpPost("bulk-extend-review")]
+    [Authorize(Policy = Permissions.ApproveExceptions)]
+    public async Task<IActionResult> BulkExtendReview([FromBody] BulkExtendReviewRequest request, [FromServices] BulkActions.BulkActionRunner runner)
+    {
+        var user = await currentUserResolver.ResolveAsync(User);
+        if (user is null) return Unauthorized();
+        var error = await runner.ValidateAsync(request.Keys);
+        if (error is null && request.NewReviewDate == default) error = "Choose the new review date.";
+        if (error is not null) return Problem(title: "Invalid bulk extend", detail: error, statusCode: StatusCodes.Status400BadRequest);
+
+        var result = await BulkActions.BulkActionRunner.RunAsync(request.Keys, async key =>
+        {
+            var before = await repository.GetByKeyAsync(key) ?? throw new BulkActions.BulkActionRunner.SkipException("Exception not found.");
+            if (before.StatusName != "Active") throw new BulkActions.BulkActionRunner.SkipException($"It's {before.StatusName}; only Active exceptions can be re-approved.", before.ExceptionID);
+            await repository.ExtendReviewAsync(key, request.NewReviewDate);
+            await auditLogger.LogAsync("ExceptionReviewExtended", user.UserKey, entityName: "risk_exception", entityKey: key.ToString(),
+                detail: "Bulk extend review",
+                fieldChanges: [new FieldChange("ReviewDate", before.ReviewDate.ToString("yyyy-MM-dd"), request.NewReviewDate.ToString("yyyy-MM-dd"))]);
+            return before.ExceptionID;
+        });
+        return Ok(result);
+    }
+
+    /// <summary>D-190: revokes every selected Active exception; a reason is required and recorded on each one's audit event.</summary>
+    [HttpPost("bulk-revoke")]
+    [Authorize(Policy = Permissions.ApproveExceptions)]
+    public async Task<IActionResult> BulkRevoke([FromBody] BulkRevokeRequest request, [FromServices] BulkActions.BulkActionRunner runner)
+    {
+        var user = await currentUserResolver.ResolveAsync(User);
+        if (user is null) return Unauthorized();
+        if (await runner.ValidateAsync(request.Keys, reasonRequired: true, request.Reason) is { } error)
+        {
+            return Problem(title: "Invalid bulk revoke", detail: error, statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        var reason = request.Reason.Trim();
+        var result = await BulkActions.BulkActionRunner.RunAsync(request.Keys, async key =>
+        {
+            var before = await repository.GetByKeyAsync(key) ?? throw new BulkActions.BulkActionRunner.SkipException("Exception not found.");
+            if (before.StatusName != "Active") throw new BulkActions.BulkActionRunner.SkipException($"It's already {before.StatusName}.", before.ExceptionID);
+            await RevokeOneAsync(before, reason, user.UserKey, bulk: true);
+            return before.ExceptionID;
+        });
+        return Ok(result);
     }
 }
