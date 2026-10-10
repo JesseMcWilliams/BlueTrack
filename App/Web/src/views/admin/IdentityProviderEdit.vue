@@ -8,6 +8,7 @@
 // endpoint -- no API contract change for this page.
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { mergeProviderSettings } from '../../utils/providerSettings'
 
 const props = defineProps({ providerKey: { type: [String, Number], required: false, default: null } })
 const router = useRouter()
@@ -39,14 +40,11 @@ function defaultConfigFields(providerType) {
   return {}
 }
 
+// Stored names are matched regardless of case (the seed script uses
+// PascalCase), so saving writes one copy of each setting -- see
+// utils/providerSettings.js.
 function parseConfigFields(providerType, configurationValues) {
-  const defaults = defaultConfigFields(providerType)
-  if (!configurationValues) return defaults
-  try {
-    return { ...defaults, ...JSON.parse(configurationValues) }
-  } catch {
-    return defaults
-  }
+  return mergeProviderSettings(defaultConfigFields(providerType), configurationValues)
 }
 
 function onProviderTypeChange() {

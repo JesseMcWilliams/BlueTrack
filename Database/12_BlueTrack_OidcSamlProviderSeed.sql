@@ -19,6 +19,10 @@
    ConfigurationValues here documents the expected shape
    (OidcProviderSettings / SamlProviderSettings) rather than real values --
    an admin overwrites this via the admin page once real values exist.
+   Names are camelCase, as the Identity Providers page writes them
+   (2026-10-09): they were PascalCase, and the page's first save then kept
+   both spellings, the empty seed copy hiding the real value (see
+   49_BlueTrack_ProviderSettingsDedupe.sql for existing databases).
 
    Guarded -- safe to re-run.
    ============================================================================ */
@@ -34,7 +38,7 @@ BEGIN
         'Microsoft Entra ID',
         0,
         2,
-        N'{"Authority":"","ClientId":"","CallbackPath":"/signin-oidc","GroupsClaimType":"groups"}',
+        N'{"authority":"","clientId":"","callbackPath":"/signin-oidc","groupsClaimType":"groups"}',
         NULL
     );
 END
@@ -47,7 +51,7 @@ BEGIN
         'Okta',
         0,
         3,
-        N'{"SpEntityId":"","SpCertificateThumbprint":"","IdpEntityId":"","IdpSingleSignOnDestination":"","IdpSingleLogoutDestination":"","IdpCertificateThumbprint":"","GroupClaimType":"http://schemas.xmlsoap.org/claims/Group"}',
+        N'{"spEntityId":"","spCertificateThumbprint":"","idpEntityId":"","idpSingleSignOnDestination":"","idpSingleLogoutDestination":"","idpCertificateThumbprint":"","groupClaimType":"http://schemas.xmlsoap.org/claims/Group"}',
         NULL
     );
 END
