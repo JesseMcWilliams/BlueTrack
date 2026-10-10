@@ -86,6 +86,7 @@ after `14`, never edits to an existing file in this list.
 | 44 | `44_BlueTrack_AccountProgressBulkEdit.sql` | D-182: `web.app_config.BulkEditMaxAccounts` (default 500) and the `BulkEdit` audit event type, for Account Progress bulk edit. Guarded, safe to re-run. |
 | 45 | `45_BlueTrack_RiskExceptionImport.sql` | D-183: `web.risk_exception.ApprovedBy` becomes nullable; adds `ApprovedByName`, `SourceTool`, `SourceExceptionId`, `SourceUrl`, `ImportedBy`, `ImportedDate`, the `CK_risk_exception_Approver` check, the filtered unique index `UX_risk_exception_Source`, and the `ExceptionImported` audit event type. Guarded, safe to re-run. |
 | 46 | `46_BlueTrack_ImportSkipDeletedAccounts.sql` | D-184: redefines `usp_Load_FactAccount` so an account the export marks as deleted is never imported and an existing one is flagged; Self-Hosted `CAFDeletionDate` is now honored (placeholder dates before 1970-01-02, or before creation, are ignored). Safe to re-run (`CREATE OR ALTER`). |
+| 47 | `47_BlueTrack_AccountDeletion.sql` | D-185: `fact_account.IsDeletedInSource` (backfilled), `web.account_deletion` and `web.account_deletion_history`, the `DeleteAccounts` permission (Admin), the `AccountDeleted`/`AccountUndeleted` audit event types; redefines `usp_Load_FactAccount` (46) to set `IsDeleted` from CyberArk or BlueTrack. Guarded, safe to re-run. |
 
 `Test/` holds test-only fixtures (`01_BlueTrack_Test_DevFakeAuthMatrixSeed.sql`,
 `02_BlueTrack_Test_SyntheticAccountData.sql`) -- never run against a real

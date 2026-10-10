@@ -436,7 +436,43 @@ function stopHeartbeat() {
   }
 }
 
-onMounted(load)
+// D-185: delete / undelete this account in BlueTrack, always with a
+// reason, and its delete/undelete history.
+const deletionAction = ref(null) // 'delete' | 'undelete'
+const deletionReason = ref('')
+const deletionError = ref(null)
+const deletionHistory = ref([])
+
+async function loadDeletionHistory() {
+  const response = await fetch(`/api/account-progress/${props.accountKey}/deletion-history`)
+  if (response.ok) deletionHistory.value = await response.json()
+}
+
+async function applyDeletion() {
+  deletionError.value = null
+  const response = await fetch(`/api/account-progress/${deletionAction.value}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ accountKeys: [Number(props.accountKey)], reason: deletionReason.value })
+  })
+  const result = await response.json().catch(() => null)
+  if (!response.ok) {
+    deletionError.value = result?.detail ?? `Failed: ${response.status}`
+    return
+  }
+  if (result.skipped.length) {
+    deletionError.value = result.skipped[0].reason
+    return
+  }
+  deletionAction.value = null
+  deletionReason.value = ''
+  await Promise.all([refreshDetail(), loadDeletionHistory()])
+}
+
+onMounted(async () => {
+  await load()
+  await loadDeletionHistory()
+})
 onUnmounted(releaseLock)
 </script>
 
@@ -447,6 +483,29 @@ onUnmounted(releaseLock)
     <p v-else-if="error" role="alert">{{ error }}</p>
 
     <template v-else>
+      <div v-if="detail.isDeleted" class="deleted-notice" role="note">
+        <strong>This account is deleted.</strong>
+        <template v-if="detail.deletedByName"> Deleted in BlueTrack by {{ detail.deletedByName }} on {{ formatDate(detail.deletedAt) }}: {{ detail.deletionReason }}</template>
+        <template v-if="detail.isDeletedInSource"> Deleted in CyberArk.</template>
+      </div>
+      <div v-if="rights.hasPermission('DeleteAccounts')" class="deletion-controls">
+        <button v-if="!detail.deletedByName" type="button" @click="deletionAction = 'delete'">Delete account…</button>
+        <button v-else type="button" @click="deletionAction = 'undelete'">Undelete account…</button>
+        <form v-if="deletionAction" @submit.prevent="applyDeletion">
+          <label class="field-label"><span class="field-label-text">Reason to {{ deletionAction }}:</span> <input v-model="deletionReason" size="60" maxlength="1000" required /></label>
+          <button type="submit" class="btn-primary" :disabled="!deletionReason.trim()">{{ deletionAction === 'delete' ? 'Delete' : 'Undelete' }}</button>
+          <button type="button" @click="deletionAction = null">Cancel</button>
+          <p v-if="deletionError" role="alert">{{ deletionError }}</p>
+        </form>
+      </div>
+      <details v-if="deletionHistory.length" class="deletion-history">
+        <summary>Delete / undelete history ({{ deletionHistory.length }})</summary>
+        <ul>
+          <li v-for="h in deletionHistory" :key="`${h.performedAt}-${h.action}`">
+            {{ formatDate(h.performedAt) }}: {{ h.action === 'Delete' ? 'Deleted' : 'Undeleted' }} by {{ h.performedByName }} -- {{ h.reason }}
+          </li>
+        </ul>
+      </details>
       <div v-if="applicationExceptions.length > 0">
         <p v-for="ex in applicationExceptions" :key="ex.exceptionID">
           Covered by application-scoped exception <strong>{{ ex.exceptionID }}</strong> ({{ ex.applicationName }}), reviewed by {{ formatDate(ex.reviewDate) }}.
@@ -596,6 +655,14 @@ onUnmounted(releaseLock)
 </template>
 
 <style scoped>
+.deleted-notice {
+  border: 2px solid currentColor;
+  padding: 0.5rem 0.75rem;
+  margin: 0.5rem 0;
+}
+.deletion-controls, .deletion-history {
+  margin: 0.5rem 0;
+}
 .account-progress-identity {
   margin-bottom: var(--space-3);
 }

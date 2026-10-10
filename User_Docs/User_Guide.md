@@ -28,7 +28,27 @@ Four at-a-glance summary cards, each linking into the full report/worklist behin
 
 ### The list
 
-Filter by Stage, Status, Risk Level, or Owner (a "contains" text match) — filters stack together. Click any column header to sort by it; shift-click another header to add it as a secondary sort key (a small numbered arrow shows the resulting priority). Click an account's **Username** to open it.
+**Search** finds accounts whose username or address contains what you type. Filter by Stage, Status, Risk Level, or Owner (a "contains" text match) — filters stack together. Click any column header to sort by it; shift-click another header to add it as a secondary sort key (a small numbered arrow shows the resulting priority). Click an account's **Username** to open it.
+
+**Deleted accounts** are hidden. The **Deleted accounts** filter shows them alongside the others (**Show**) or on their own (**Only deleted**). A deleted account is marked **Deleted**; point at the mark to see who deleted it and why, or whether CyberArk deleted it.
+
+### Selecting accounts for bulk actions
+
+Tick **Select accounts for bulk edit** above the list (you need `EditAccountProgress` or `DeleteAccounts`) to add a checkbox to every row. The bar shows how many accounts are selected (and how many of those are on this page), with:
+- **Select all on page**, **Invert selection on page** and **Clear**.
+- **Select all matching**: every account matching the current search and filters, on every page. It refuses, with a message, if more match than the bulk limit (500 by default; Global Application Configuration).
+- **Bulk edit…** (`EditAccountProgress`): opens the Bulk Edit page. Tick **Change** next to each field to set (Stage, Status, Risk Level, Account Type, Source of Record, Owner, Business Unit, the two dates, and Notes, added to or replacing the existing notes); other fields stay as they are on each account. **Reason** is required if the new stage is earlier than an account's current one. Risk Exception can't be bulk edited; link it on each account.
+- **Delete…** / **Undelete…** (`DeleteAccounts`): asks for a reason, then deletes or undeletes every selected account.
+
+The selection stays as you page, sort and filter. After a bulk action, a summary lists any account that was skipped and why (for example, someone else is editing it); skipped accounts stay selected.
+
+### Deleting and undeleting accounts
+
+With `DeleteAccounts`, an account's page has **Delete account…** (or **Undelete account…** if it was deleted in BlueTrack), and the list has the bulk **Delete…** / **Undelete…** buttons above.
+- **A reason is always required**, for undelete as well as delete. Every delete and undelete is kept, with who, when and why: open **Delete / undelete history** on the account's page. Each is also in the Audit Log.
+- A deleted account keeps its progress, risk exceptions and history; it's just hidden from the list, the Dashboard and the reports. A delete made in BlueTrack stays in place through the nightly import.
+- **Undelete** reverses a BlueTrack delete only. An account CyberArk deleted is marked "Deleted in CyberArk" and comes back only if it reappears in CyberArk.
+- An account someone else is editing is skipped, not deleted.
 
 ### Editing an account
 

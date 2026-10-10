@@ -20,9 +20,11 @@ Windows DPAPI is active by default after install. If your organization uses Cybe
 
 Review the built-in roles under **Admin > Roles & Permissions** and adjust their permission bundles if needed, then map your real AD groups to them under **Admin > Group / Role Mapping** (you likely already did this once in installation for the Admin role — this is where you map groups for Analyst/Approver/Auditor/Viewer users too). See [User_Viewer.md](User_Viewer.md), [User_Analyst.md](User_Analyst.md), [User_Approver.md](User_Approver.md), and [User_Auditor.md](User_Auditor.md) for what each role can actually do, to help decide who goes where.
 
+`DeleteAccounts` (delete and undelete accounts in BlueTrack, always with a reason) is granted only to Admin by default. Grant it to another role only for people who should be able to remove accounts from tracking.
+
 ## 4. Global Application Configuration
 
-One form, one Save button, covering idle timeout, breadcrumb position, the Exception ID pattern, the Account Progress lock timeout, audit retention, the backup folder, the risk score algorithm, and the segregation-of-duties checkbox for Risk Exception approval. Review every field here at least once — see `User_Guide.md`'s Global Application Configuration section for what each one does.
+One form, one Save button, covering idle timeout, breadcrumb position, the Exception ID pattern, the Account Progress lock timeout, audit retention, the backup folder, the risk score algorithm, the segregation-of-duties checkbox for Risk Exception approval, the **bulk edit limit** (the most accounts one bulk edit, delete or undelete may change; default 500), and the data feed schedule. Review every field here at least once — see `User_Guide.md`'s Global Application Configuration section for what each one does.
 
 ## 5. Notifications
 

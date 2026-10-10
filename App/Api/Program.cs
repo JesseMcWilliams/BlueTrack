@@ -68,6 +68,8 @@ builder.Services.AddScoped<BlueTrack.Api.Imports.RiskScoringImportService>();
 builder.Services.AddScoped<BlueTrack.Api.Imports.ApplicationMappingImportService>();
 builder.Services.AddScoped<BlueTrack.Api.AccountProgress.AccountProgressSaveService>();
 builder.Services.AddScoped<BlueTrack.Api.AccountProgress.AccountProgressBulkEditService>();
+builder.Services.AddScoped<AccountDeletionRepository>();
+builder.Services.AddScoped<BlueTrack.Api.AccountProgress.AccountDeletionService>();
 builder.Services.AddScoped<BlueTrack.Api.Imports.RiskExceptionImportService>();
 
 // D-13/D-82: cached rights per identity, backed by
