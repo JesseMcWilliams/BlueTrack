@@ -15,6 +15,7 @@
     "ResetIis": true,
     "SiteName": "BlueTrack",
     "ApiInstallPath": "C:\\inetpub\\BlueTrack\\Production\\api",
+    "WebInstallPath": "C:\\inetpub\\BlueTrack\\Production\\web",
     "Hostname": "bluetrack.company.com",
     "HttpPort": 80,
     "HttpsPort": 443,

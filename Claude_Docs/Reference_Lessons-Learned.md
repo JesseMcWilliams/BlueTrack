@@ -148,6 +148,14 @@ While tracking down a batch of E2E failures that looked like the already-documen
 
 **Lesson:** integration tests use the seeded users `IntegrationTestUser1`/`IntegrationTestUser2` (`Database/Test/02_...`), never `TestUser.*`. And check `gh pr checks` before merging a PR: a local pass doesn't prove a pass on a fresh database.
 
+## 2026-10-09 — The /api/... login loop came back after a redeploy; iisreset didn't clear it, a site configuration change did
+
+**What happened:** after a redeploy on this dev host, the smoke test showed the D-172/D-175 pattern: `/BlueTrack/api/admin/deployment` signed in (200) but `/api/admin/deployment`, the browser's path through the site-root rewrite, ended in `401.1` with Win32 status `85`, also from remote machines. A full `iisreset` didn't clear it, nor did `klist purge`; the Security log had no failed logons (Windows accepted the credentials). Enabling Failed Request Tracing on the site made it work at once.
+
+**Likely explanation (not confirmed):** `iisreset` restarts W3SVC and WAS but not HTTP.sys, which holds the kernel-mode authentication settings for the site's URLs; a change to the site in `applicationHost.config` makes IIS push them again. That would also explain D-175's "one `iisreset` after the deploy fixed it" on DCACYBSQL01 being inconsistent.
+
+**Lesson:** for this loop, if `iisreset` doesn't fix it, a configuration change on the site (enabling and disabling Failed Request Tracing worked here) is the next thing to try, before deeper digging. Win32 `85` with `401.1` is the signature seen this time. The installer now stops and starts the site after every deploy (`Iis.SiteRestart`, D-188); by hand: `Stop-Website BlueTrack; Start-Website BlueTrack`.
+
 ## Process notes
 
 - **Check the Decision Register first.** `Claude_Docs/Design_Decision-Register.md` is the index of every design decision made so far, resolved and open. Don't re-derive or re-litigate something it already answers.
