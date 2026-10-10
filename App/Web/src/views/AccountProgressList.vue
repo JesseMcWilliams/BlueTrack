@@ -21,6 +21,56 @@ const router = useRouter()
 const rights = useRightsStore()
 const selection = useAccountSelectionStore()
 const selectAllMessage = ref(null)
+const canEdit = computed(() => rights.hasPermission('EditAccountProgress'))
+const canDelete = computed(() => rights.hasPermission('DeleteAccounts'))
+
+// D-185: delete / undelete the selected accounts, with a required reason
+// (an inline form in the selection bar, since the shared confirm dialog
+// has no text box).
+const deletion = ref(null) // { action: 'delete' | 'undelete', reason }
+const deletionResult = ref(null)
+const deletionError = ref(null)
+const deletionSaving = ref(false)
+
+function startDeletion(action) {
+  deletion.value = { action, reason: '' }
+  deletionResult.value = null
+  deletionError.value = null
+}
+
+async function applyDeletion() {
+  deletionError.value = null
+  deletionSaving.value = true
+  try {
+    const response = await fetch(`/api/account-progress/${deletion.value.action}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ accountKeys: selection.keys, reason: deletion.value.reason })
+    })
+    if (!response.ok) {
+      const problem = await response.json().catch(() => null)
+      deletionError.value = problem?.detail ?? `Failed: ${response.status}`
+      return
+    }
+    const result = await response.json()
+    deletionResult.value = { ...result, action: deletion.value.action }
+    deletion.value = null
+    // Keep only the skipped accounts selected, so they can be reviewed.
+    selection.clear()
+    selection.add(result.skipped.map(s => s.accountKey))
+    await load()
+  } finally {
+    deletionSaving.value = false
+  }
+}
+
+function deletedNote(account) {
+  if (!account.isDeleted) return ''
+  const parts = []
+  if (account.deletedByName) parts.push(`Deleted in BlueTrack by ${account.deletedByName}${account.deletionReason ? `: ${account.deletionReason}` : ''}`)
+  if (account.isDeletedInSource) parts.push('Deleted in CyberArk')
+  return parts.join('. ')
+}
 const pageKeys = computed(() => accounts.value.map(a => a.accountKey))
 const selectedOnPage = computed(() => pageKeys.value.filter(k => selection.isSelected(k)).length)
 
@@ -31,6 +81,7 @@ function currentFilterParams() {
   if (riskLevelFilter.value) params.set('riskLevel', riskLevelFilter.value)
   if (ownerFilter.value) params.set('owner', ownerFilter.value)
   if (searchFilter.value.trim()) params.set('search', searchFilter.value.trim())
+  if (deletedFilter.value !== 'Hide') params.set('deleted', deletedFilter.value)
   return params
 }
 
@@ -78,6 +129,8 @@ const riskLevelFilter = ref('')
 const ownerFilter = ref('')
 // D-178: one box matching Username or Address ("contains"), server-side.
 const searchFilter = ref('')
+// D-185: deleted accounts are hidden unless shown here.
+const deletedFilter = ref('Hide')
 
 // Each entry: { field, descending }. Order in this array IS sort priority.
 const sortColumns = ref([])
@@ -171,7 +224,7 @@ onMounted(async () => {
 
 // D-124 Phase 3: a filter/sort change resets to page 1 -- see Targets.vue's
 // identical comment for why page-size/Prev/Next changes are handled separately.
-watch([stageFilter, statusFilter, riskLevelFilter, ownerFilter, searchFilter, sortQueryParam], () => {
+watch([stageFilter, statusFilter, riskLevelFilter, ownerFilter, searchFilter, deletedFilter, sortQueryParam], () => {
   page.value = 1
   load()
 })
@@ -201,8 +254,15 @@ watch([stageFilter, statusFilter, riskLevelFilter, ownerFilter, searchFilter, so
         </select>
       </label>
       <label class="field-label"><span class="field-label-text">Owner:</span> <input v-model="ownerFilter" type="text" placeholder="contains..." /></label>
+      <label class="field-label"><span class="field-label-text">Deleted accounts:</span>
+        <select v-model="deletedFilter">
+          <option value="Hide">Hide</option>
+          <option value="Show">Show</option>
+          <option value="Only">Only deleted</option>
+        </select>
+      </label>
     </p>
-    <div v-if="rights.hasPermission('EditAccountProgress')" class="selection-bar">
+    <div v-if="canEdit || canDelete" class="selection-bar">
       <label><input type="checkbox" :checked="selection.enabled" @change="selection.setEnabled($event.target.checked)" /> Select accounts for bulk edit</label>
       <template v-if="selection.enabled">
         <strong role="status">{{ selection.count }} selected</strong><span v-if="selection.count"> ({{ selectedOnPage }} on this page)</span>
@@ -210,8 +270,25 @@ watch([stageFilter, statusFilter, riskLevelFilter, ownerFilter, searchFilter, so
         <button type="button" @click="selectAllMatching">Select all matching ({{ filteredCount ?? 0 }})</button>
         <button type="button" @click="selection.invert(pageKeys)">Invert selection on page</button>
         <button type="button" :disabled="selection.count === 0" @click="selection.clear()">Clear</button>
-        <button type="button" class="btn-primary" :disabled="selection.count === 0" @click="router.push({ name: 'account-progress-bulk-edit' })">Bulk edit…</button>
+        <button v-if="canEdit" type="button" class="btn-primary" :disabled="selection.count === 0" @click="router.push({ name: 'account-progress-bulk-edit' })">Bulk edit…</button>
+        <button v-if="canDelete" type="button" :disabled="selection.count === 0" @click="startDeletion('delete')">Delete…</button>
+        <button v-if="canDelete" type="button" :disabled="selection.count === 0" @click="startDeletion('undelete')">Undelete…</button>
       </template>
+    </div>
+    <form v-if="deletion" class="deletion-form" @submit.prevent="applyDeletion">
+      <label class="field-label">
+        <span class="field-label-text">Reason to {{ deletion.action }} {{ selection.count }} account{{ selection.count === 1 ? '' : 's' }}:</span>
+        <input v-model="deletion.reason" size="60" maxlength="1000" required />
+      </label>
+      <button type="submit" class="btn-primary" :disabled="deletionSaving || !deletion.reason.trim()">{{ deletion.action === 'delete' ? 'Delete' : 'Undelete' }}</button>
+      <button type="button" @click="deletion = null">Cancel</button>
+      <p v-if="deletionError" role="alert">{{ deletionError }}</p>
+    </form>
+    <div v-if="deletionResult" role="status">
+      <p>{{ deletionResult.changed }} {{ deletionResult.action === 'delete' ? 'deleted' : 'undeleted' }}, {{ deletionResult.skipped.length }} skipped<template v-if="deletionResult.skipped.length"> (still selected)</template>.</p>
+      <ul v-if="deletionResult.skipped.length">
+        <li v-for="s in deletionResult.skipped" :key="s.accountKey">{{ s.accountName ?? s.accountKey }}: {{ s.reason }}</li>
+      </ul>
     </div>
     <p v-if="selectAllMessage" role="alert">{{ selectAllMessage }}</p>
     <FilterCountSummary :shown="accounts.length" :filtered-count="filteredCount" :total="totalCount" :page="page" :page-size="pageSizeStore.current" />
@@ -235,7 +312,10 @@ watch([stageFilter, statusFilter, riskLevelFilter, ownerFilter, searchFilter, so
             <td v-if="selection.enabled">
               <input type="checkbox" :checked="selection.isSelected(account.accountKey)" :aria-label="`Select ${account.userName} on ${account.address}`" @change="selection.toggle(account.accountKey)" />
             </td>
-            <td><router-link :to="{ name: 'account-progress-detail', params: { accountKey: account.accountKey } }">{{ account.userName }}</router-link></td>
+            <td>
+              <router-link :to="{ name: 'account-progress-detail', params: { accountKey: account.accountKey } }">{{ account.userName }}</router-link>
+              <span v-if="account.isDeleted" class="deleted-badge" :title="deletedNote(account)">Deleted<span class="visually-hidden">: {{ deletedNote(account) }}</span></span>
+            </td>
             <td>{{ account.address }}</td>
             <td>{{ account.stageName }}</td>
             <td>{{ account.statusName }}</td>
@@ -254,6 +334,16 @@ watch([stageFilter, statusFilter, riskLevelFilter, ownerFilter, searchFilter, so
 </template>
 
 <style scoped>
+.deleted-badge {
+  margin-left: 0.5rem;
+  padding: 0 0.3rem;
+  border: 1px solid currentColor;
+  border-radius: 0.25rem;
+  font-size: 0.85em;
+}
+.deletion-form {
+  margin: 0.5rem 0;
+}
 .selection-bar {
   display: flex;
   flex-wrap: wrap;

@@ -49,6 +49,10 @@ Original 2026-08-27 entry:
 
 **Resolved 2026-08-27 (D-52):** deferred for the initial build. Single-record editing ships first, consistent with the same "simple first, refine later" pattern as D-20 (Interface Extensibility's per-field permissions). Bulk edit inside the app is distinct from the Excel intake template (which handles bulk *loading* of new source data via ETL, not editing existing progress records) — revisit if single-record editing proves too slow in practice. Bulk edit would need to interact with per-row locking (D-50), per-row validation results rather than all-or-nothing (D-51), and per-row field-level audit events (D-10) — real scope, not free, which is part of why it's deferred rather than built now.
 
+## Deleting and Undeleting Accounts (D-185)
+
+**Built 2026-10-09.** `fact_account.IsDeleted` still means "deleted" everywhere, but it is now derived: `IsDeletedInSource` (written by the nightly load from the CyberArk export, D-184) **or** a BlueTrack delete (`web.account_deletion`). `usp_Load_FactAccount` recomputes it at the end of every load, so a BlueTrack delete survives. `AccountDeletionService` deletes/undeletes one or many accounts (Account Progress page and list selection), always with a reason, skipping any account another user has locked; each change is an `AccountDeleted`/`AccountUndeleted` audit event plus a `web.account_deletion_history` row. Undelete removes only the BlueTrack delete and sets `IsDeleted` back to `IsDeletedInSource`. Guarded by `DeleteAccounts`.
+
 ## UI Edits vs. the Nightly Import (Q-20)
 
 **Resolved 2026-08-27 (D-53):** already handled by existing ETL design — confirmed by reading `03_BlueTrack_ETL_FactLoads.sql` (`usp_Load_FactAccountProgress`, split out of the original `02_BlueTrack_ETL_LoadProcedures.sql` in the 2026-09-05 restructure) and `05_BlueTrack_AccountReconciliation.sql` directly rather than assuming.

@@ -34,13 +34,15 @@ public sealed class AccountProgressController(
         [FromQuery] string? sort = null,
         [FromQuery] int? page = null,
         [FromQuery] int? pageSize = null,
-        [FromQuery] string? search = null)
+        [FromQuery] string? search = null,
+        [FromQuery] string? deleted = null)
     {
         // D-178: search matches Username or Address ("contains").
+        // D-185: deleted = Hide (default) / Show / Only.
         var sortBy = SortParser.Parse(sort);
-        var results = await repository.GetSummaryListAsync(stage, status, riskLevel, owner, sortBy, page, pageSize, search);
+        var results = await repository.GetSummaryListAsync(stage, status, riskLevel, owner, sortBy, page, pageSize, search, deleted);
         Response.Headers["X-Total-Count"] = (await repository.GetTotalCountAsync()).ToString();
-        Response.Headers["X-Filtered-Count"] = (await repository.GetFilteredCountAsync(stage, status, riskLevel, owner, search)).ToString();
+        Response.Headers["X-Filtered-Count"] = (await repository.GetFilteredCountAsync(stage, status, riskLevel, owner, search, deleted)).ToString();
         return Ok(results);
     }
 
@@ -48,20 +50,22 @@ public sealed class AccountProgressController(
     /// D-182: "Select all matching" for bulk edit -- the keys of every
     /// account matching the same filters as the list. Returns no keys when
     /// more accounts match than one bulk edit may change, so the page can
-    /// say so instead of selecting a partial set.
+    /// say so instead of selecting a partial set. Any signed-in user (it
+    /// reveals no more than the list does): it serves bulk edit and, since
+    /// D-185, bulk delete/undelete, which need different permissions.
     /// </summary>
     [HttpGet("keys")]
-    [Authorize(Policy = Permissions.EditAccountProgress)]
     public async Task<IActionResult> GetMatchingKeys(
         [FromQuery] string? stage = null,
         [FromQuery] string? status = null,
         [FromQuery] string? riskLevel = null,
         [FromQuery] string? owner = null,
-        [FromQuery] string? search = null)
+        [FromQuery] string? search = null,
+        [FromQuery] string? deleted = null)
     {
         var max = (await appConfigRepository.GetAsync()).BulkEditMaxAccounts;
-        var matching = await repository.GetFilteredCountAsync(stage, status, riskLevel, owner, search);
-        var keys = matching > max ? [] : await repository.GetFilteredKeysAsync(stage, status, riskLevel, owner, search, max);
+        var matching = await repository.GetFilteredCountAsync(stage, status, riskLevel, owner, search, deleted);
+        var keys = matching > max ? [] : await repository.GetFilteredKeysAsync(stage, status, riskLevel, owner, search, max, deleted);
         return Ok(new AccountProgressKeysResult { MatchingCount = matching, MaxAccounts = max, AccountKeys = keys });
     }
 
@@ -80,6 +84,36 @@ public sealed class AccountProgressController(
         }
         return Ok(await bulkEditService.ApplyAsync(request, user.UserKey));
     }
+
+    /// <summary>D-185: delete accounts in BlueTrack (one or many), with a required reason.</summary>
+    [HttpPost("delete")]
+    [Authorize(Policy = Permissions.DeleteAccounts)]
+    public Task<IActionResult> Delete([FromBody] AccountDeletionRequest request,
+        [FromServices] AccountProgress.AccountDeletionService deletionService) =>
+        ApplyDeletionAsync(request, deletionService, delete: true);
+
+    /// <summary>D-185: undo BlueTrack deletes (one or many), with a required reason.</summary>
+    [HttpPost("undelete")]
+    [Authorize(Policy = Permissions.DeleteAccounts)]
+    public Task<IActionResult> Undelete([FromBody] AccountDeletionRequest request,
+        [FromServices] AccountProgress.AccountDeletionService deletionService) =>
+        ApplyDeletionAsync(request, deletionService, delete: false);
+
+    private async Task<IActionResult> ApplyDeletionAsync(AccountDeletionRequest request, AccountProgress.AccountDeletionService deletionService, bool delete)
+    {
+        var user = await currentUserResolver.ResolveAsync(User);
+        if (user is null) return Unauthorized();
+        if (await deletionService.ValidateAsync(request) is { } error)
+        {
+            return Problem(title: delete ? "Invalid delete" : "Invalid undelete", detail: error, statusCode: StatusCodes.Status400BadRequest);
+        }
+        return Ok(delete ? await deletionService.DeleteAsync(request, user.UserKey) : await deletionService.UndeleteAsync(request, user.UserKey));
+    }
+
+    /// <summary>D-185: every delete and undelete of this account in BlueTrack, newest first, with reasons.</summary>
+    [HttpGet("{accountKey:long}/deletion-history")]
+    public async Task<IActionResult> GetDeletionHistory(long accountKey, [FromServices] AccountDeletionRepository deletionRepository) =>
+        Ok(await deletionRepository.GetHistoryAsync(accountKey));
 
     /// <summary>
     /// The field-metadata-driven form's own definition list

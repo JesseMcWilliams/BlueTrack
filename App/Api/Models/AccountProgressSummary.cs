@@ -30,4 +30,12 @@ public sealed class AccountProgressSummary
 
     /// <summary>web.dim_risk_score_band (D-120) -- null when EffectiveRiskScore is null, or falls outside every configured band's range.</summary>
     public string? RiskScoreBandName { get; init; }
+
+    // D-185: deleted in CyberArk (IsDeletedInSource) or in BlueTrack (who,
+    // when, why -- web.account_deletion). IsDeleted is either.
+    public bool IsDeleted { get; init; }
+    public bool IsDeletedInSource { get; init; }
+    public string? DeletedByName { get; init; }
+    public DateTime? DeletedAt { get; init; }
+    public string? DeletionReason { get; init; }
 }

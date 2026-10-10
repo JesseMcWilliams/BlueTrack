@@ -41,7 +41,10 @@ public sealed class AccountProgressRepository(IDbConnectionFactory connectionFac
         LEFT JOIN dbo.dim_risk_level rl         ON rl.RiskLevelKey = fap.RiskLevelKey
         LEFT JOIN web.account_risk_score ars    ON ars.AccountKey = fa.AccountKey
         LEFT JOIN web.dim_risk_score_band band  ON ars.EffectiveRiskScore BETWEEN band.MinScore AND band.MaxScore
-        WHERE fa.IsDeleted = 0
+        LEFT JOIN web.account_deletion ad       ON ad.AccountKey = fa.AccountKey
+        LEFT JOIN web.app_user adu              ON adu.UserKey = ad.DeletedBy
+        -- D-185: deleted accounts are hidden unless asked for ("Show" or "Only").
+        WHERE (CASE @DeletedFilter WHEN 'Show' THEN 1 WHEN 'Only' THEN fa.IsDeleted ELSE 1 - fa.IsDeleted END) = 1
           AND (@StageName IS NULL OR stg.StageName = @StageName)
           AND (@StatusName IS NULL OR sts.StatusName = @StatusName)
           AND (@RiskLevelName IS NULL OR rl.RiskLevelName = @RiskLevelName)
@@ -71,7 +74,8 @@ public sealed class AccountProgressRepository(IDbConnectionFactory connectionFac
         IReadOnlyList<(string Field, bool Descending)>? sortBy = null,
         int? page = null,
         int? pageSize = null,
-        string? search = null)
+        string? search = null,
+        string? deleted = null)
     {
         using var connection = connectionFactory.Create();
         var (normalizedPage, normalizedPageSize) = PagingParams.Normalize(page, pageSize);
@@ -89,7 +93,8 @@ public sealed class AccountProgressRepository(IDbConnectionFactory connectionFac
                 fap.TargetRemediationDate,
                 fap.ActualCompletionDate,
                 ars.EffectiveRiskScore,
-                band.BandName AS RiskScoreBandName
+                band.BandName AS RiskScoreBandName,
+                fa.IsDeleted, fa.IsDeletedInSource, adu.DisplayName AS DeletedByName, ad.DeletedAt, ad.Reason AS DeletionReason
             {FilterFromSql}
             ORDER BY {BuildOrderByClause(sortBy)}
             OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY
@@ -102,6 +107,7 @@ public sealed class AccountProgressRepository(IDbConnectionFactory connectionFac
             RiskLevelName = riskLevelName,
             OwnerContains = ownerContains,
             SearchPattern = ToContainsPattern(search),
+            DeletedFilter = NormalizeDeleted(deleted),
             Offset = PagingParams.Offset(normalizedPage, normalizedPageSize),
             PageSize = normalizedPageSize
         });
@@ -121,7 +127,8 @@ public sealed class AccountProgressRepository(IDbConnectionFactory connectionFac
         string? statusName = null,
         string? riskLevelName = null,
         string? ownerContains = null,
-        string? search = null)
+        string? search = null,
+        string? deleted = null)
     {
         using var connection = connectionFactory.Create();
         var sql = $"SELECT COUNT(*) {FilterFromSql}";
@@ -131,7 +138,8 @@ public sealed class AccountProgressRepository(IDbConnectionFactory connectionFac
             StatusName = statusName,
             RiskLevelName = riskLevelName,
             OwnerContains = ownerContains,
-            SearchPattern = ToContainsPattern(search)
+            SearchPattern = ToContainsPattern(search),
+            DeletedFilter = NormalizeDeleted(deleted)
         });
     }
 
@@ -141,7 +149,7 @@ public sealed class AccountProgressRepository(IDbConnectionFactory connectionFac
     /// the caller compares against GetFilteredCountAsync to know if there were more.
     /// </summary>
     public async Task<IReadOnlyList<long>> GetFilteredKeysAsync(
-        string? stageName, string? statusName, string? riskLevelName, string? ownerContains, string? search, int limit)
+        string? stageName, string? statusName, string? riskLevelName, string? ownerContains, string? search, int limit, string? deleted = null)
     {
         using var connection = connectionFactory.Create();
         var sql = $"SELECT TOP (@Limit) fa.AccountKey {FilterFromSql} ORDER BY fa.AccountName, fa.AccountKey";
@@ -152,9 +160,18 @@ public sealed class AccountProgressRepository(IDbConnectionFactory connectionFac
             RiskLevelName = riskLevelName,
             OwnerContains = ownerContains,
             SearchPattern = ToContainsPattern(search),
+            DeletedFilter = NormalizeDeleted(deleted),
             Limit = limit
         })).AsList();
     }
+
+    /// <summary>D-185: "Hide" (default), "Show" (deleted too) or "Only" (deleted only).</summary>
+    private static string NormalizeDeleted(string? deleted) => deleted?.ToLowerInvariant() switch
+    {
+        "show" => "Show",
+        "only" => "Only",
+        _ => "Hide"
+    };
 
     private static string BuildOrderByClause(IReadOnlyList<(string Field, bool Descending)>? sortBy)
     {
@@ -183,9 +200,12 @@ public sealed class AccountProgressRepository(IDbConnectionFactory connectionFac
                 fap.CurrentStageKey, fap.CurrentStatusKey, fap.RiskLevelKey, fap.AccountTypeKey, fap.SORKey,
                 fap.OwnerName, fap.BusinessUnit, fap.TargetRemediationDate, fap.ActualCompletionDate, fap.Notes,
                 fap.LastUpdated, fap.ExceptionKey,
-                ars.ComputedRiskScore, ars.OverrideRiskScore, ars.EffectiveRiskScore, band.BandName AS RiskScoreBandName
+                ars.ComputedRiskScore, ars.OverrideRiskScore, ars.EffectiveRiskScore, band.BandName AS RiskScoreBandName,
+                fa.IsDeleted, fa.IsDeletedInSource, adu.DisplayName AS DeletedByName, ad.DeletedAt, ad.Reason AS DeletionReason
             FROM dbo.fact_account_progress fap
             JOIN dbo.fact_account fa ON fa.AccountKey = fap.AccountKey
+            LEFT JOIN web.account_deletion ad ON ad.AccountKey = fa.AccountKey
+            LEFT JOIN web.app_user adu ON adu.UserKey = ad.DeletedBy
             LEFT JOIN web.account_risk_score ars   ON ars.AccountKey = fa.AccountKey
             LEFT JOIN web.dim_risk_score_band band ON ars.EffectiveRiskScore BETWEEN band.MinScore AND band.MaxScore
             WHERE fap.AccountKey = @AccountKey

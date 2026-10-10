@@ -234,3 +234,48 @@ test.describe('Risk Exceptions bulk import (D-183)', () => {
     await expect(page.getByRole('button', { name: 'Bulk Actions' })).toHaveCount(0)
   })
 })
+
+test.describe('Account delete and undelete (D-185)', () => {
+  test('Admin deletes an account with a reason, finds it under Only deleted, and undeletes it in bulk', async ({ page }) => {
+    await signInAs(page, 'TestUser.Admin')
+    await page.goto('/accounts')
+    await page.getByPlaceholder('username or address...').fill('TestAccount01')
+    const row = page.locator('tbody tr', { hasText: 'TestAccount01' })
+    const href = await row.getByRole('link').first().getAttribute('href')
+    const accountKey = Number(href.split('/').pop())
+
+    try {
+      await row.getByRole('link').first().click()
+      await page.getByRole('button', { name: 'Delete account…' }).click()
+      await page.getByLabel('Reason to delete:').fill('E2E: duplicate record')
+      await page.getByRole('button', { name: 'Delete', exact: true }).click()
+      await expect(page.getByRole('note')).toContainText('This account is deleted.')
+      await expect(page.getByRole('note')).toContainText('E2E: duplicate record')
+      await expect(page.getByText(/Delete \/ undelete history \(\d+\)/)).toBeVisible()
+
+      await page.goto('/accounts')
+      await page.getByPlaceholder('username or address...').fill('TestAccount01')
+      await expect(page.locator('tbody tr', { hasText: 'TestAccount01' })).toHaveCount(0)
+      await page.getByLabel('Deleted accounts:').selectOption('Only')
+      const deletedRow = page.locator('tbody tr', { hasText: 'TestAccount01' })
+      await expect(deletedRow.locator('.deleted-badge')).toBeVisible()
+
+      await page.getByLabel('Select accounts for bulk edit').check()
+      await deletedRow.getByRole('checkbox').check()
+      await page.getByRole('button', { name: 'Undelete…' }).click()
+      await page.getByLabel(/Reason to undelete 1 account/).fill('E2E: deleted by mistake')
+      await page.getByRole('button', { name: 'Undelete', exact: true }).click()
+      await expect(page.getByText('1 undeleted, 0 skipped.')).toBeVisible()
+    } finally {
+      await page.request.post('/api/account-progress/undelete', { data: { accountKeys: [accountKey], reason: 'E2E cleanup' } })
+    }
+  })
+
+  test('Analyst (no DeleteAccounts) has no delete buttons', async ({ page }) => {
+    await signInAs(page, 'TestUser.Analyst')
+    await page.goto('/accounts')
+    await page.getByLabel('Select accounts for bulk edit').check()
+    await expect(page.getByRole('button', { name: 'Bulk edit…' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Delete…' })).toHaveCount(0)
+  })
+})

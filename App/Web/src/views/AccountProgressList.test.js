@@ -158,4 +158,23 @@ describe('AccountProgressList.vue', () => {
     const calls = globalThis.fetch.mock.calls.map(c => c[0]).filter(u => u.startsWith('/api/account-progress?'))
     expect(calls.at(-1)).toContain('pageSize=100')
   })
+  // D-185: deleted accounts are hidden unless the Deleted filter shows them,
+  // and a deleted row is marked with who deleted it and why.
+  it('sends deleted=Only when "Only deleted" is chosen, and marks deleted rows', async () => {
+    mockInitialLoad({
+      accounts: [{ ...sampleAccount, isDeleted: true, isDeletedInSource: false, deletedByName: 'Pat Admin', deletionReason: 'Decommissioned server' }]
+    })
+    const wrapper = mount(AccountProgressList, { global: { plugins: [makeRouter()] } })
+    await flushPromises()
+
+    const badge = wrapper.find('.deleted-badge')
+    expect(badge.exists()).toBe(true)
+    expect(badge.attributes('title')).toBe('Deleted in BlueTrack by Pat Admin: Decommissioned server')
+
+    const deletedSelect = wrapper.findAll('select').find(sel => sel.findAll('option').some(o => o.text() === 'Only deleted'))
+    await deletedSelect.setValue('Only')
+    await flushPromises()
+    const calls = globalThis.fetch.mock.calls.map(c => c[0]).filter(u => u.startsWith('/api/account-progress?'))
+    expect(calls.at(-1)).toContain('deleted=Only')
+  })
 })

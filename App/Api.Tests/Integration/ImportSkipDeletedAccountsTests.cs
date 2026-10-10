@@ -24,8 +24,8 @@ public class ImportSkipDeletedAccountsTests
         var tag = Guid.NewGuid().ToString("N")[..8];
         var batch = Guid.NewGuid();
         await using var connection = Open();
-        var saved = (await connection.QueryAsync<(long AccountKey, bool IsDeleted)>("""
-            SELECT fa.AccountKey, fa.IsDeleted FROM dbo.fact_account fa
+        var saved = (await connection.QueryAsync<(long AccountKey, bool IsDeleted, bool IsDeletedInSource)>("""
+            SELECT fa.AccountKey, fa.IsDeleted, fa.IsDeletedInSource FROM dbo.fact_account fa
             JOIN dbo.dim_source_system s ON s.SourceSystemKey = fa.SourceSystemKey
             WHERE s.SourceSystemCode IN ('PRIVCLOUD', 'SELFHOSTED')
             """)).ToList();
@@ -66,17 +66,33 @@ public class ImportSkipDeletedAccountsTests
             Assert.Equal(true, await DeletedFlag($"T{tag}_live"));
             Assert.Equal(true, await DeletedFlag($"{safeId}_1"));
             Assert.Equal(false, await DeletedFlag($"{safeId}_2"));
+
+            // D-185: a BlueTrack delete survives the load; undoing it returns
+            // the account to what CyberArk says.
+            var userKey = await TestUsers.GetUserKeyAsync("IntegrationTestUser1");
+            var epochKey = await connection.QuerySingleAsync<long>("SELECT AccountKey FROM dbo.fact_account WHERE SourceAccountId = @id", new { id = $"{safeId}_2" });
+            var deletions = new BlueTrack.Api.Data.AccountDeletionRepository(new TestDbConnectionFactory());
+            await deletions.DeleteAsync(epochKey, "test", userKey, null);
+            await connection.ExecuteAsync("EXEC usp_Load_FactAccount;");
+            Assert.Equal(true, await DeletedFlag($"{safeId}_2"));
+            await deletions.UndeleteAsync(epochKey, "test", userKey, null);
+            Assert.Equal(false, await DeletedFlag($"{safeId}_2"));
         }
         finally
         {
             await connection.ExecuteAsync("""
                 DELETE FROM stg_pc_accounts WHERE ImportBatchId = @batch;
                 DELETE FROM stg_sh_files WHERE ImportBatchId = @batch;
+                DELETE d FROM web.account_deletion d JOIN dbo.fact_account fa ON fa.AccountKey = d.AccountKey
+                    WHERE fa.SourceAccountId LIKE @pcPattern OR fa.SourceAccountId LIKE @shPattern;
+                DELETE h FROM web.account_deletion_history h JOIN dbo.fact_account fa ON fa.AccountKey = h.AccountKey
+                    WHERE fa.SourceAccountId LIKE @pcPattern OR fa.SourceAccountId LIKE @shPattern;
                 DELETE FROM dbo.fact_account WHERE SourceAccountId LIKE @pcPattern OR SourceAccountId LIKE @shPattern;
                 """, new { batch, pcPattern = $"T{tag}[_]%", shPattern = $"{safeId}[_]%" });
-            foreach (var (accountKey, isDeleted) in saved)
+            foreach (var (accountKey, isDeleted, isDeletedInSource) in saved)
             {
-                await connection.ExecuteAsync("UPDATE dbo.fact_account SET IsDeleted = @isDeleted WHERE AccountKey = @accountKey", new { accountKey, isDeleted });
+                await connection.ExecuteAsync("UPDATE dbo.fact_account SET IsDeleted = @isDeleted, IsDeletedInSource = @isDeletedInSource WHERE AccountKey = @accountKey",
+                    new { accountKey, isDeleted, isDeletedInSource });
             }
         }
     }

@@ -39,6 +39,14 @@ public sealed class AccountProgressDetail
     public int? OverrideRiskScore { get; init; }
     public int? EffectiveRiskScore { get; init; }
     public string? RiskScoreBandName { get; init; }
+
+    // D-185: deleted in CyberArk (IsDeletedInSource) or in BlueTrack (who,
+    // when, why -- web.account_deletion). IsDeleted is either.
+    public bool IsDeleted { get; init; }
+    public bool IsDeletedInSource { get; init; }
+    public string? DeletedByName { get; init; }
+    public DateTime? DeletedAt { get; init; }
+    public string? DeletionReason { get; init; }
 }
 
 /// <summary>
@@ -63,4 +71,28 @@ public sealed class SaveAccountProgressRequest
     public string? Notes { get; init; }
     public string? Reason { get; init; }
     public int? ExceptionKey { get; init; }
+}
+
+/// <summary>D-185: delete or undelete accounts in BlueTrack; a reason is always required.</summary>
+public sealed class AccountDeletionRequest
+{
+    public required IReadOnlyList<long> AccountKeys { get; init; }
+    public required string Reason { get; init; }
+}
+
+public sealed class AccountDeletionResult
+{
+    public int Requested { get; init; }
+    public int Changed { get; init; }
+    public required IReadOnlyList<BulkEditSkippedAccount> Skipped { get; init; }
+}
+
+/// <summary>D-185: one row of an account's delete/undelete history.</summary>
+public sealed class AccountDeletionHistoryEntry
+{
+    public required string Action { get; init; }
+    public required string Reason { get; init; }
+    public string? PerformedByName { get; init; }
+    public DateTime PerformedAt { get; init; }
+    public string? BatchId { get; init; }
 }

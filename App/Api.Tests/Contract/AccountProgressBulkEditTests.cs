@@ -183,6 +183,6 @@ public class AccountProgressBulkEditTests : IClassFixture<BlueTrackWebApplicatio
     {
         var client = Client("TestUser.Viewer");
         Assert.Equal(HttpStatusCode.Forbidden, (await client.PostAsJsonAsync("/api/account-progress/bulk-edit", new { accountKeys = new[] { 1L }, fields = new[] { "OwnerName" } })).StatusCode);
-        Assert.Equal(HttpStatusCode.Forbidden, (await client.GetAsync("/api/account-progress/keys")).StatusCode);
+        // "Select all matching" (keys) is open to any signed-in user since D-185.
     }
 }
