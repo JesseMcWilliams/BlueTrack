@@ -87,7 +87,8 @@ public sealed class AccountProgressRepository(IDbConnectionFactory connectionFac
         var sql = $"""
             SELECT page.*,
                    dca.InFlaggedSafe AS DecomInFlaggedSafe, dca.NameFlagged AS DecomNameFlagged,
-                   dca.SafeName AS DecomSafeName, dca.OtherSafes AS DecomOtherSafes
+                   dca.SafeName AS DecomSafeName, dca.OtherSafes AS DecomOtherSafes,
+                   CAST(dbo.fn_MatchesNamePattern(isf.SafeName, iac.SafeIgnoreMode, iac.SafeIgnoreValue) AS BIT) AS IsInIgnoredSafe
             FROM (
                 SELECT
                     fa.AccountKey,
@@ -110,6 +111,9 @@ public sealed class AccountProgressRepository(IDbConnectionFactory connectionFac
             ) page
             OUTER APPLY (SELECT TOP 1 v.InFlaggedSafe, v.NameFlagged, v.SafeName, v.OtherSafes
                          FROM web.vw_decom_account v WHERE v.AccountKey = page.AccountKey) dca
+            JOIN dbo.fact_account ifa ON ifa.AccountKey = page.AccountKey
+            LEFT JOIN dbo.dim_safe isf ON isf.SafeKey = ifa.SafeKey
+            CROSS JOIN web.app_config iac
             ORDER BY page.RowNo
             """;
 
@@ -216,7 +220,8 @@ public sealed class AccountProgressRepository(IDbConnectionFactory connectionFac
                 ars.ComputedRiskScore, ars.OverrideRiskScore, ars.EffectiveRiskScore, band.BandName AS RiskScoreBandName,
                 fa.IsDeleted, fa.IsDeletedInSource, adu.DisplayName AS DeletedByName, ad.DeletedAt, ad.Reason AS DeletionReason,
                 dca.InFlaggedSafe AS DecomInFlaggedSafe, dca.NameFlagged AS DecomNameFlagged,
-                dca.SafeName AS DecomSafeName, dca.OtherSafes AS DecomOtherSafes
+                dca.SafeName AS DecomSafeName, dca.OtherSafes AS DecomOtherSafes,
+                CAST(dbo.fn_MatchesNamePattern(isf.SafeName, iac.SafeIgnoreMode, iac.SafeIgnoreValue) AS BIT) AS IsInIgnoredSafe
             FROM dbo.fact_account_progress fap
             JOIN dbo.fact_account fa ON fa.AccountKey = fap.AccountKey
             LEFT JOIN web.account_deletion ad ON ad.AccountKey = fa.AccountKey
@@ -226,6 +231,8 @@ public sealed class AccountProgressRepository(IDbConnectionFactory connectionFac
             -- D-186: flagged for deletion (safe or account name pattern).
             OUTER APPLY (SELECT TOP 1 v.InFlaggedSafe, v.NameFlagged, v.SafeName, v.OtherSafes
                          FROM web.vw_decom_account v WHERE v.AccountKey = fa.AccountKey) dca
+            LEFT JOIN dbo.dim_safe isf ON isf.SafeKey = fa.SafeKey
+            CROSS JOIN web.app_config iac
             WHERE fap.AccountKey = @AccountKey
             """;
         return await connection.QuerySingleOrDefaultAsync<AccountProgressDetail>(sql, new { AccountKey = accountKey });

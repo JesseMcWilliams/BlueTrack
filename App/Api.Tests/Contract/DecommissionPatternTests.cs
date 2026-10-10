@@ -67,6 +67,7 @@ public class DecommissionPatternTests : IClassFixture<BlueTrackWebApplicationFac
                    (@src, @tag + '-4', @tag + '-x_RET' + @tag, 'ret_' + @tag, NULL, @newKey, 0);
             INSERT INTO fact_account_progress (AccountKey, CurrentStageKey, CurrentStatusKey)
             SELECT AccountKey, @stage, @status FROM fact_account WHERE SourceAccountId LIKE @tag + '-%';
+            UPDATE fact_account SET IsDeletedInSource = 1 WHERE SourceAccountId = @tag + '-2';
             """, new { tag, old = $"DCM{tag}_Old", @new = $"NEW{tag}_Safe" });
 
         try
@@ -102,6 +103,18 @@ public class DecommissionPatternTests : IClassFixture<BlueTrackWebApplicationFac
             await PutPatternsAsync(admin, original, "Prefix", $"DCM{tag}_", "Off", null, "Suffix", "_old");
             Assert.DoesNotContain((await admin.GetFromJsonAsync<JsonArray>("/api/reports/decom-safes"))!,
                 s => s!["safeName"]!.GetValue<string>() == $"DCM{tag}_Old");
+
+            // ...and an account it drops is labelled as such, not "Deleted in CyberArk".
+            var gone = (await admin.GetFromJsonAsync<JsonArray>($"/api/account-progress?search=old_{tag}&deleted=Only&pageSize=50"))!
+                .Single(a => a!["accountName"]!.GetValue<string>() == $"{tag}-gone")!;
+            Assert.True(gone["isInIgnoredSafe"]!.GetValue<bool>());
+            var undelete = await (await admin.PostAsJsonAsync("/api/account-progress/undelete", new
+            {
+                accountKeys = new[] { gone["accountKey"]!.GetValue<long>() }, reason = "Try"
+            })).Content.ReadFromJsonAsync<JsonObject>();
+            Assert.Contains("ignored safe pattern", undelete!["skipped"]![0]!["reason"]!.GetValue<string>());
+            Assert.False((await admin.GetFromJsonAsync<JsonArray>($"/api/account-progress?search=svc_{tag}&pageSize=50"))!
+                .Single(a => a!["accountName"]!.GetValue<string>() == $"{tag}-moved")!["isInIgnoredSafe"]!.GetValue<bool>());
         }
         finally
         {

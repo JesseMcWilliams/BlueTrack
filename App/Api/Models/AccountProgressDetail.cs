@@ -55,6 +55,9 @@ public sealed class AccountProgressDetail
     public bool? DecomNameFlagged { get; init; }
     public string? DecomSafeName { get; init; }
     public string? DecomOtherSafes { get; init; }
+
+    /// <summary>D-186: its safe matches the ignored-safe pattern -- shown as "Not imported (ignored safe)" rather than "Deleted in CyberArk".</summary>
+    public bool IsInIgnoredSafe { get; init; }
 }
 
 /// <summary>

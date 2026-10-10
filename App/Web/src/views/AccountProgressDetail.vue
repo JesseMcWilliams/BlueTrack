@@ -491,7 +491,8 @@ onUnmounted(releaseLock)
       <div v-if="detail.isDeleted" class="deleted-notice" role="note">
         <strong>This account is deleted.</strong>
         <template v-if="detail.deletedByName"> Deleted in BlueTrack by {{ detail.deletedByName }} on {{ formatDate(detail.deletedAt) }}: {{ detail.deletionReason }}</template>
-        <template v-if="detail.isDeletedInSource"> Deleted in CyberArk.</template>
+        <template v-if="detail.isDeletedInSource && detail.isInIgnoredSafe"> Not imported (ignored safe): its safe matches the ignored safe pattern.</template>
+        <template v-else-if="detail.isDeletedInSource"> Deleted in CyberArk.</template>
       </div>
       <div v-if="rights.hasPermission('DeleteAccounts')" class="deletion-controls">
         <button v-if="!detail.deletedByName" type="button" @click="deletionAction = 'delete'">Delete account…</button>

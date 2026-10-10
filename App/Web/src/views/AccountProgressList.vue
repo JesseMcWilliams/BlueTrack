@@ -69,7 +69,7 @@ function deletedNote(account) {
   if (!account.isDeleted) return ''
   const parts = []
   if (account.deletedByName) parts.push(`Deleted in BlueTrack by ${account.deletedByName}${account.deletionReason ? `: ${account.deletionReason}` : ''}`)
-  if (account.isDeletedInSource) parts.push('Deleted in CyberArk')
+  if (account.isDeletedInSource) parts.push(account.isInIgnoredSafe ? 'Not imported (ignored safe)' : 'Deleted in CyberArk')
   return parts.join('. ')
 }
 const pageKeys = computed(() => accounts.value.map(a => a.accountKey))
@@ -264,7 +264,7 @@ watch([stageFilter, statusFilter, riskLevelFilter, ownerFilter, searchFilter, de
       </label>
     </p>
     <div v-if="canEdit || canDelete" class="selection-bar">
-      <label><input type="checkbox" :checked="selection.enabled" @change="selection.setEnabled($event.target.checked)" /> Select accounts for bulk edit</label>
+      <label><input type="checkbox" :checked="selection.enabled" @change="selection.setEnabled($event.target.checked)" /> Select accounts for bulk actions</label>
       <template v-if="selection.enabled">
         <strong role="status">{{ selection.count }} selected</strong><span v-if="selection.count"> ({{ selectedOnPage }} on this page)</span>
         <button type="button" @click="selection.add(pageKeys)">Select all on page</button>

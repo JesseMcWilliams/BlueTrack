@@ -12,7 +12,7 @@ namespace BlueTrack.Api.Data;
 /// </summary>
 public sealed class AccountDeletionRepository(IDbConnectionFactory connectionFactory)
 {
-    public sealed record DeletionState(long AccountKey, string AccountName, bool DeletedInBlueTrack, bool IsDeletedInSource);
+    public sealed record DeletionState(long AccountKey, string AccountName, bool DeletedInBlueTrack, bool IsDeletedInSource, bool IsInIgnoredSafe);
 
     public async Task<DeletionState?> GetStateAsync(long accountKey)
     {
@@ -20,9 +20,12 @@ public sealed class AccountDeletionRepository(IDbConnectionFactory connectionFac
         return await connection.QuerySingleOrDefaultAsync<DeletionState>("""
             SELECT fa.AccountKey, fa.AccountName,
                    CAST(CASE WHEN ad.AccountKey IS NULL THEN 0 ELSE 1 END AS BIT) AS DeletedInBlueTrack,
-                   fa.IsDeletedInSource
+                   fa.IsDeletedInSource,
+                   CAST(dbo.fn_MatchesNamePattern(ds.SafeName, ac.SafeIgnoreMode, ac.SafeIgnoreValue) AS BIT) AS IsInIgnoredSafe
             FROM dbo.fact_account fa
             LEFT JOIN web.account_deletion ad ON ad.AccountKey = fa.AccountKey
+            LEFT JOIN dbo.dim_safe ds ON ds.SafeKey = fa.SafeKey
+            CROSS JOIN web.app_config ac
             WHERE fa.AccountKey = @accountKey
             """, new { accountKey });
     }
