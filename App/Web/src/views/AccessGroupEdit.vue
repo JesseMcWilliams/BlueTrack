@@ -68,7 +68,10 @@ async function save() {
       body: JSON.stringify(editing.value)
     })
     if (!response.ok) {
-      saveError.value = `Save failed: ${response.status}`
+      // D-122: a duplicate (name, identifier, found-on target) comes back as
+      // a 400 with a message -- show it rather than a bare status code.
+      const problem = await response.json().catch(() => null)
+      saveError.value = problem?.message ?? `Save failed: ${response.status}`
       return
     }
     router.push({ name: 'access-groups' })

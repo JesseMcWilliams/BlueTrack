@@ -133,6 +133,10 @@ An **Access Group** is a privileged-access group in the *managed environment* (e
 
 **Bulk Actions** here covers three CSV imports: the group inventory itself, which Targets each group reaches, and which Accounts belong to each group.
 
+An Access Group is unique by name, identifier and the Target it was found on, so a local group such as `BUILTIN\Administrators` (the same SID on every server) can be added once per server; adding an exact duplicate shows a message saying it already exists.
+
+The nightly load also creates a Target for every CyberArk account address that no Target has yet: type *Other*, risk score 0 and source *CyberArk ETL*, waiting for an analyst to set a real score. It doesn't link the accounts to them.
+
 Deleting either a Target or an Access Group still referenced by a mapping fails with an explanation rather than silently breaking the mapping — every Delete asks for confirmation first, showing the row's key identifying details.
 
 ## Admin Hub

@@ -1,3 +1,4 @@
+using System.Data;
 using Dapper;
 using BlueTrack.Api.Models;
 using BlueTrack.Api.RiskScoring;
@@ -145,6 +146,7 @@ public sealed class AccessGroupRepository(IDbConnectionFactory connectionFactory
     public async Task<int> CreateAsync(SaveAccessGroupRequest request, int? modifiedByUserKey)
     {
         using var connection = connectionFactory.Create();
+        await EnsureNoDuplicateAsync(connection, request, excludingAccessGroupKey: null);
         const string sql = """
             INSERT INTO web.dim_access_group
                 (GroupName, GroupIdentifier, GroupScope, FoundOnTargetKey, DiscoverySource, SorTypeKey, SorAddress, BaseRiskScore, Description,
@@ -174,6 +176,8 @@ public sealed class AccessGroupRepository(IDbConnectionFactory connectionFactory
         using var connection = connectionFactory.Create();
         connection.Open();
         using var transaction = connection.BeginTransaction();
+
+        await EnsureNoDuplicateAsync(connection, request, excludingAccessGroupKey: accessGroupKey, transaction);
 
         var previous = await connection.QuerySingleAsync<(int BaseRiskScore, string GroupScope, int? FoundOnTargetKey)>(
             "SELECT BaseRiskScore, GroupScope, FoundOnTargetKey FROM web.dim_access_group WHERE AccessGroupKey = @AccessGroupKey",
@@ -229,5 +233,41 @@ public sealed class AccessGroupRepository(IDbConnectionFactory connectionFactory
         using var connection = connectionFactory.Create();
         var sql = $"SELECT TOP (@Limit) g.AccessGroupKey FROM web.dim_access_group g\nLEFT JOIN web.dim_sor_type st ON st.SorTypeKey = g.SorTypeKey\n{FilterWhereSql}\nORDER BY g.GroupName, g.AccessGroupKey";
         return (await connection.QueryAsync<int>(sql, new { GroupScope = groupScope, SorTypeName = sorTypeName, Limit = limit })).AsList();
+    }
+
+    /// <summary>
+    /// D-122: uniqueness is (GroupName, GroupIdentifier, FoundOnTargetKey),
+    /// NOT GroupIdentifier alone -- a Local group's SID (e.g. BUILTIN\
+    /// Administrators, S-1-5-32-544) is identical on every server, so the
+    /// same name+SID legitimately repeats once per distinct FoundOnTargetKey.
+    /// FoundOnTargetKey is NULL for Domain-scope groups, and NULL <> NULL in
+    /// SQL, so a naive equality check would let a Domain group duplicate
+    /// silently -- the OR clause below treats two NULLs as equal for this
+    /// comparison, matching the NULL-safe DB constraint
+    /// (FoundOnTargetKeyForUniqueness, 50_BlueTrack_AccessGroupUniquenessFix.sql).
+    /// </summary>
+    private static async Task EnsureNoDuplicateAsync(IDbConnection connection, SaveAccessGroupRequest request, int? excludingAccessGroupKey, IDbTransaction? transaction = null)
+    {
+        const string sql = """
+            SELECT 1 FROM web.dim_access_group
+            WHERE (@ExcludingAccessGroupKey IS NULL OR AccessGroupKey <> @ExcludingAccessGroupKey)
+              AND GroupName = @GroupName
+              AND GroupIdentifier = @GroupIdentifier
+              AND (FoundOnTargetKey = @FoundOnTargetKey OR (FoundOnTargetKey IS NULL AND @FoundOnTargetKey IS NULL))
+            """;
+        var duplicate = await connection.QuerySingleOrDefaultAsync<int?>(sql, new
+        {
+            request.GroupName,
+            request.GroupIdentifier,
+            request.FoundOnTargetKey,
+            ExcludingAccessGroupKey = excludingAccessGroupKey
+        }, transaction);
+
+        if (duplicate is not null)
+        {
+            var foundOnDescription = request.FoundOnTargetKey is null ? "no Target (Domain scope)" : $"Target #{request.FoundOnTargetKey}";
+            throw new DuplicateAccessGroupException(
+                $"An Access Group named '{request.GroupName}' with identifier '{request.GroupIdentifier}' already exists for {foundOnDescription}.");
+        }
     }
 }

@@ -459,6 +459,34 @@ public class TargetsAndAccessGroupsControllerTests : IClassFixture<BlueTrackWebA
         public string DisplayName { get; set; } = "";
     }
 
+    /// <summary>
+    /// D-122: an exact duplicate (same name and identifier, both Domain scope)
+    /// is a clean 400 with a message, not an unhandled 500.
+    /// </summary>
+    [Fact]
+    public async Task AccessGroup_Create_DuplicateNameIdentifierFoundOn_Returns400WithAMessage()
+    {
+        var client = AdminClient();
+        var identifier = $"CN=ContractTestDuplicateGroup_{Guid.NewGuid():N}";
+        var body = new { groupName = "Contract Test Duplicate Group", groupIdentifier = identifier, groupScope = "Domain", baseRiskScore = 300 };
+
+        var firstCreate = await client.PostAsJsonAsync("/api/admin/access-groups", body);
+        Assert.Equal(HttpStatusCode.Created, firstCreate.StatusCode);
+        var first = await firstCreate.Content.ReadFromJsonAsync<AccessGroupKeyResponse>();
+
+        try
+        {
+            var duplicate = await client.PostAsJsonAsync("/api/admin/access-groups", body);
+            Assert.Equal(HttpStatusCode.BadRequest, duplicate.StatusCode);
+            var problem = await duplicate.Content.ReadFromJsonAsync<System.Text.Json.Nodes.JsonObject>();
+            Assert.Contains("already exists", problem!["message"]!.GetValue<string>());
+        }
+        finally
+        {
+            await client.DeleteAsync($"/api/admin/access-groups/{first!.AccessGroupKey}");
+        }
+    }
+
     private sealed class AccessGroupKeyResponse
     {
         public int AccessGroupKey { get; set; }
