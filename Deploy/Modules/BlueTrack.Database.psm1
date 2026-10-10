@@ -47,6 +47,7 @@ function Test-BlueTrackSqlConnection {
         [bool]
     #>
     [CmdletBinding()]
+    [OutputType([bool])]
     param(
         [Parameter(Mandatory)] [string]$ConnectionString
     )

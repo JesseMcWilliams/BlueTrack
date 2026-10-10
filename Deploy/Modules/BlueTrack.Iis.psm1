@@ -11,6 +11,12 @@
 Set-StrictMode -Version Latest
 
 function New-BlueTrackAppPool {
+    <#
+    .SYNOPSIS
+        Creates the site's Application Pool (No Managed Code, AlwaysRunning) --
+        ASP.NET Core Module hosts its own runtime. Leaves an existing pool
+        alone unless -Force, which recreates it.
+    #>
     [CmdletBinding(SupportsShouldProcess)]
     param(
         [Parameter(Mandatory)] [string]$Name,
@@ -45,6 +51,7 @@ function New-BlueTrackCertificateBinding {
         The certificate thumbprint to bind.
     #>
     [CmdletBinding(SupportsShouldProcess)]
+    [OutputType([string])]
     param(
         [string]$CertificateThumbprint,
         [Parameter(Mandatory)] [string]$Hostname,
@@ -217,6 +224,10 @@ function Set-BlueTrackSiteWebConfig {
 }
 
 function Restart-BlueTrackAppPool {
+    <#
+    .SYNOPSIS
+        Recycles the Application Pool, so a newly published API build loads.
+    #>
     [CmdletBinding(SupportsShouldProcess)]
     param(
         [Parameter(Mandatory)] [string]$Name
