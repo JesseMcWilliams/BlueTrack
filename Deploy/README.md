@@ -75,6 +75,8 @@ Preview without changing anything:
 | `-InstallNightlyJob` | Install the nightly Import+Load SQL Agent job | prompted |
 | `-GrantAppPoolSqlAccess` | Give the App Pool's account a SQL login and the grants in `Database/Manual/02_BlueTrack_GrantAppServiceAccountAccess.sql` (`Db.AppPoolAccess` step). Only asked with Windows Integrated Security | prompted |
 | `-AppPoolSqlLogin` | Account to grant, overriding the one worked out from the App Pool (e.g. on a server that isn't domain-joined) | worked out |
+| `-TrustServerCertificate` | Skip validating SQL Server's TLS certificate (`TrustServerCertificate=True`, and `sqlcmd -C`). Leave it unset: the default trusts it only when SQL Server is on this machine; for a remote server the certificate must then be trusted here (D-197) | worked out |
+| `-AllowedFileRoots` | The only folders data feeds may read and the Deployment page's backups may be written to (`FileAccess:AllowedRoots`). Unset: any local folder, no network shares. List a share here to use it, e.g. `-AllowedFileRoots 'D:\Feeds','\\fileserver\bluetrack'` (D-197) | none |
 | `-ResetIis` | Run `iisreset` after the IIS steps (`Iis.Reset`), before the smoke test. Briefly stops **every** site on the server | prompted |
 | `-ImportSources` | Which CyberArk sources the nightly job imports: `Both`, `PrivilegeCloud` or `SelfHosted` (D-176) | prompted, if `-InstallNightlyJob` |
 | `-ExportFolderPath` / `-EvdDatabaseName` | Privilege Cloud export folder / Self-Hosted EVD database; each only needed when `-ImportSources` includes that source — see below | prompted, if needed |
@@ -151,7 +153,7 @@ With Windows Integrated Security, the API connects to SQL Server as the App Pool
 
 ### Data feed folders
 
-The Data Sources page's feeds (D-181) are read by the API itself, so the **App Pool's account** (the table above: `IIS APPPOOL\<pool>` for a local folder, the computer account `DOMAIN\HOSTNAME$` for a share on another machine, or the gMSA) needs read access to each feed folder. The page's **Test** button checks this as that account. The installer doesn't grant folder access. After an upgrade adds `ManageDataSources`, an Admin who was already signed in sees Data Sources after **Reload My Rights** (or once their cached rights expire).
+Feed folders (and the Deployment page's backup folder) must be inside a folder listed in `-AllowedFileRoots`, which the installer writes to `FileAccess:AllowedRoots`; with none listed, any local folder is allowed and network (UNC) shares are refused (D-197). The web pages can't change this list, since the server acts on these paths as itself. The Data Sources page's feeds (D-181) are read by the API itself, so the **App Pool's account** (the table above: `IIS APPPOOL\<pool>` for a local folder, the computer account `DOMAIN\HOSTNAME$` for a share on another machine, or the gMSA) needs read access to each feed folder. The page's **Test** button checks this as that account. The installer doesn't grant folder access. After an upgrade adds `ManageDataSources`, an Admin who was already signed in sees Data Sources after **Reload My Rights** (or once their cached rights expire).
 
 ### Smoke test failures
 
@@ -178,6 +180,7 @@ Whenever a smoke check fails, the output ends with the two URLs it checks, so yo
 ```
 
 - **Where:** each download is extracted to its own folder in the **download folder**, e.g. `BlueTrack-v1.2.0` or `BlueTrack-main-20261009-2030`, with a `download.json` recording the branch or tag and commit. Earlier versions stay for rollback; delete old ones yourself.
+- **Run it elevated.** Its downloads are later run as an administrator, so on every run the script makes Administrators the download folder's owner and limits access to Administrators and SYSTEM, contents included (D-197); a folder made under `C:\` otherwise lets any signed-in user change it.
 - **Download folder:** the `UpdateDownloadFolder` setting in this site's saved answers (`Deploy\State\answers.<SiteName>.json`). If it isn't set, pass `-DownloadFolder` or answer the prompt once; it's saved either way.
 - **Redeploy:** the script copies the saved answers into the new copy's `Deploy\State` and asks whether to run that copy's `Install-BlueTrack.ps1 -ConfigFile <those answers>`, a full install run, including the pre-deployment backup. `-RunInstaller` skips the question; otherwise it prints the command to run later.
 - **Afterwards**, use the new copy's `Deploy` folder for further runs (`-Step`, `-Resume`, the next update): its `State` folder now holds this site's answers and progress.

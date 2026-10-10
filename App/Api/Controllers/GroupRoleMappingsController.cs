@@ -102,7 +102,7 @@ public sealed class GroupRoleMappingsController(
     }
 
     [HttpPost]
-    public async Task<IActionResult> Create([FromBody] CreateGroupRoleMappingRequest request)
+    public async Task<IActionResult> Create([FromBody] CreateGroupRoleMappingRequest request, [FromServices] UserRightsCache rightsCache)
     {
         var resolved = WindowsGroupResolver.TryResolve(request.GroupName);
         // D-194: 400, not 404 -- the URL is fine; the group named in the body is the problem.
@@ -128,6 +128,7 @@ public sealed class GroupRoleMappingsController(
 
         var (sid, resolvedAccountName) = resolved.Value;
         var mappingKey = await repository.CreateAsync(provider.ProviderKey, sid, roleKey.Value);
+        await rightsCache.InvalidateAllAsync();   // D-197: applies to everyone's next request
 
         await auditLogger.LogAsync("FieldEdit", user.UserKey, "identity_group_role_map", mappingKey.ToString(),
             detail: $"Mapped {resolvedAccountName} ({sid}) to role '{request.RoleName}'");
@@ -136,12 +137,13 @@ public sealed class GroupRoleMappingsController(
     }
 
     [HttpDelete("{mappingKey:int}")]
-    public async Task<IActionResult> Delete(int mappingKey)
+    public async Task<IActionResult> Delete(int mappingKey, [FromServices] UserRightsCache rightsCache)
     {
         var user = await currentUserResolver.ResolveAsync(User);
         if (user is null) return Unauthorized();
 
         await repository.DeleteAsync(mappingKey);
+        await rightsCache.InvalidateAllAsync();   // D-197: applies to everyone's next request
         await auditLogger.LogAsync("FieldEdit", user.UserKey, "identity_group_role_map", mappingKey.ToString(), detail: "Mapping deleted");
         return NoContent();
     }

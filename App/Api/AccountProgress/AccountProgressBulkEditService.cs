@@ -22,7 +22,8 @@ public sealed class AccountProgressBulkEditService(
     AccountProgressLockRepository lockRepository,
     AccountProgressSaveService saveService,
     AppConfigRepository appConfigRepository,
-    AuditLogger auditLogger)
+    AuditLogger auditLogger,
+    ILogger<AccountProgressBulkEditService> logger)
 {
     public static readonly IReadOnlySet<string> EditableFields = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
     {
@@ -97,7 +98,7 @@ public sealed class AccountProgressBulkEditService(
             }
             catch (Exception ex)
             {
-                skipped.Add(new BulkEditSkippedAccount { AccountKey = accountKey, AccountName = before.AccountName, Reason = $"Could not save: {ex.Message}" });
+                skipped.Add(new BulkEditSkippedAccount { AccountKey = accountKey, AccountName = before.AccountName, Reason = $"Could not save: {Errors.RowErrorText.For(ex, logger)}" });
             }
             finally
             {

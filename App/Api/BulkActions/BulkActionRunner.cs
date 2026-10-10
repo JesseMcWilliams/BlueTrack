@@ -57,7 +57,7 @@ public sealed class BulkActionRunner(AppConfigRepository appConfigRepository)
             }
             catch (Exception ex)
             {
-                skipped.Add(new BulkSkippedItem { Key = key, Reason = $"Could not save: {ex.Message}" });
+                skipped.Add(new BulkSkippedItem { Key = key, Reason = $"Could not save: {Errors.RowErrorText.For(ex)}" });
             }
         }
         return new BulkActionResult { Requested = distinct.Count, Changed = changed, Skipped = skipped };

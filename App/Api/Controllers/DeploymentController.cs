@@ -28,7 +28,8 @@ public sealed class DeploymentController(
     IHostEnvironment hostEnvironment,
     HealthCheckService healthCheckService,
     DeploymentRepository repository,
-    AppConfigRepository appConfigRepository) : ControllerBase
+    AppConfigRepository appConfigRepository,
+    Security.AllowedFileRoots allowedFileRoots) : ControllerBase
 {
     [HttpGet]
     public async Task<IActionResult> Get()
@@ -86,6 +87,12 @@ public sealed class DeploymentController(
             return Problem(title: "Backup folder not configured",
                 detail: "Set a Backup Folder on the Global Application Configuration admin page first.",
                 statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        // D-197: checked again here -- the allowed folders may have changed since the setting was saved.
+        if (allowedFileRoots.Check(config.BackupFolder) is { } folderError)
+        {
+            return Problem(title: "Backup folder not allowed", detail: folderError, statusCode: StatusCodes.Status400BadRequest);
         }
 
         string backupFilePath;

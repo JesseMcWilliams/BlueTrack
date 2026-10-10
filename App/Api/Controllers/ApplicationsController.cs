@@ -20,6 +20,7 @@ public sealed class ApplicationsController(
     CurrentUserResolver currentUserResolver,
     AuditLogger auditLogger) : ControllerBase
 {
+    [Authorize(Policy = Permissions.ViewDashboard)]   // D-197: reading tracked data needs ViewDashboard, not just a sign-in
     [HttpGet]
     public async Task<IActionResult> GetList() => Ok(await repository.GetAllAsync());
 

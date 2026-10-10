@@ -87,6 +87,12 @@ param(
     [bool]$GrantAppPoolSqlAccess,
     [string]$AppPoolSqlLogin,
     [bool]$ResetIis,
+    # D-197: validate SQL Server's certificate unless this is $true. Default:
+    # trust it only when SQL Server is this machine.
+    [Nullable[bool]]$TrustServerCertificate,
+    # D-197: the only folders data feeds may read and backups may be written
+    # to (FileAccess:AllowedRoots). Empty: any local folder, no UNC shares.
+    [string[]]$AllowedFileRoots,
 
     # --- IIS ---
     [string]$SiteName = 'BlueTrack',
@@ -336,11 +342,25 @@ function Resolve-InstallAnswer {
     }
 }
 
+function Get-InstallTrustServerCertificate {
+    # D-197: the answer if given, else trust the certificate only for a SQL Server on this machine.
+    if ($null -ne $script:TrustServerCertificate) { return [bool]$script:TrustServerCertificate }
+    return (Test-BlueTrackSqlInstanceIsThisMachine -SqlServerInstance $script:SqlServerInstance)
+}
+
+function Get-InstallHstsSetting {
+    # D-197: HSTS only with a certificate that isn't self-signed -- browsers
+    # then refuse to click through a certificate warning for this host.
+    if (-not $script:CertificateThumbprint) { return $false }
+    $cert = Get-Item -Path "Cert:\LocalMachine\My\$($script:CertificateThumbprint)" -ErrorAction SilentlyContinue
+    return [bool]($cert -and $cert.Issuer -ne $cert.Subject)
+}
+
 function Get-InstallConnectionString {
     # Builds the connection string and confirms SQL Server is reachable, once per run.
     if (-not $script:ConnectionString) {
         $cs = Format-BlueTrackConnectionString -SqlServerInstance $script:SqlServerInstance -DatabaseName $script:DatabaseName `
-            -UseWindowsAuth $script:UseWindowsAuth -SqlCredential $script:SqlCredential
+            -UseWindowsAuth $script:UseWindowsAuth -SqlCredential $script:SqlCredential -TrustServerCertificate (Get-InstallTrustServerCertificate)
         if (-not (Test-BlueTrackSqlConnection -ConnectionString $cs)) {
             throw "Could not connect to SQL Server instance '$($script:SqlServerInstance)'. This script does not install SQL Server itself -- confirm the instance is running and reachable, then re-run with -Resume."
         }
@@ -436,12 +456,14 @@ $StepActions = @{
         Invoke-BlueTrackMigrator -RepoRoot $RepoRoot -ConnectionString (Get-InstallConnectionString) -ScriptsFolder 'Database/Test'
     }
     'Db.AppSettings'  = {
-        Set-BlueTrackEnvironmentConfig -PublishDirectory $ApiInstallPath -Environment $Environment -ConnectionString (Get-InstallConnectionString)
+        Set-BlueTrackEnvironmentConfig -PublishDirectory $ApiInstallPath -Environment $Environment -ConnectionString (Get-InstallConnectionString) `
+            -EnableHsts (Get-InstallHstsSetting) -AllowedFileRoots @($AllowedFileRoots | Where-Object { $_ })
     }
     'Db.NightlyJob'   = {
         Get-InstallConnectionString | Out-Null
         Install-BlueTrackNightlyJob -RepoRoot $RepoRoot -SqlServerInstance $SqlServerInstance -DatabaseName $DatabaseName `
-            -ImportSources $ImportSources -ExportFolderPath $ExportFolderPath -EvdDatabaseName $EvdDatabaseName
+            -ImportSources $ImportSources -ExportFolderPath $ExportFolderPath -EvdDatabaseName $EvdDatabaseName `
+            -TrustServerCertificate (Get-InstallTrustServerCertificate)
     }
     'Db.AppPoolAccess' = {
         Import-IisModule
@@ -451,7 +473,8 @@ $StepActions = @{
             $account = Get-BlueTrackAppPoolSqlLogin -AppPoolName "$SiteName-AppPool" -SqlServerInstance $SqlServerInstance
         }
         Write-Host "App pool '$SiteName-AppPool' reaches SQL Server as: $account"
-        Grant-BlueTrackAppPoolSqlAccess -RepoRoot $RepoRoot -SqlServerInstance $SqlServerInstance -DatabaseName $DatabaseName -Account $account
+        Grant-BlueTrackAppPoolSqlAccess -RepoRoot $RepoRoot -SqlServerInstance $SqlServerInstance -DatabaseName $DatabaseName -Account $account `
+            -TrustServerCertificate (Get-InstallTrustServerCertificate)
         return @{ Status = 'Completed'; Message = "Granted $account" }
     }
     'Iis.AppPool'     = {

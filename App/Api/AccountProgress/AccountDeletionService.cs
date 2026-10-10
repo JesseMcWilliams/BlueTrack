@@ -20,7 +20,8 @@ public sealed class AccountDeletionService(
     AccountDeletionRepository deletionRepository,
     AccountProgressLockRepository lockRepository,
     AppConfigRepository appConfigRepository,
-    AuditLogger auditLogger)
+    AuditLogger auditLogger,
+    ILogger<AccountDeletionService> logger)
 {
     public const int MaxReasonLength = 1000;
 
@@ -82,7 +83,7 @@ public sealed class AccountDeletionService(
             }
             catch (Exception ex)
             {
-                skipped.Add(Skip($"Could not save: {ex.Message}"));
+                skipped.Add(Skip($"Could not save: {Errors.RowErrorText.For(ex, logger)}"));
             }
             finally
             {

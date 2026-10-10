@@ -90,6 +90,7 @@ builder.Services.AddDistributedSqlServerCache(options =>
     options.TableName = "distributed_cache";
 });
 builder.Services.AddScoped<UserRightsCache>();
+builder.Services.AddSingleton<BlueTrack.Api.Security.AllowedFileRoots>();   // D-197
 
 // Secrets Storage (D-16/D-32/D-79/D-80). Vault-lookup backends (CyberArk
 // CP/CCP so far) register as IVaultSecretProvider -- Scoped, not Singleton,
@@ -219,7 +220,18 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseExceptionHandler();
+// D-197: HSTS tells browsers to use HTTPS only for this host from now on --
+// only where the site has a trusted certificate (Security:EnableHsts, set by
+// the installer when a real certificate thumbprint is given), since browsers
+// then refuse to click through a self-signed certificate's warning.
+if (!app.Environment.IsDevelopment() && app.Configuration.GetValue<bool>("Security:EnableHsts"))
+{
+    app.UseHsts();
+}
 app.UseHttpsRedirection();
+
+// D-197: requests that change data must carry X-Requested-With (CSRF defence).
+app.UseMiddleware<BlueTrack.Api.Security.RequireApiRequestHeaderMiddleware>();
 
 app.UseAuthentication();
 

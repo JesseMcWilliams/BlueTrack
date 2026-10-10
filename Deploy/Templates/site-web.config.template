@@ -53,6 +53,25 @@
         </rule>
       </rules>
     </rewrite>
+    <!-- D-197: browser security headers, for the SPA and (inherited) the
+         /BlueTrack API. CSP: the SPA loads only its own script/style files;
+         'unsafe-inline' styles because Vue's production build can insert
+         static style="" attributes as HTML. frame-ancestors 'none' and
+         X-Frame-Options stop the app being framed (clickjacking). HSTS is
+         sent by the API when Security:EnableHsts is on (a trusted
+         certificate), not here, so a self-signed site stays reachable. -->
+    <httpProtocol>
+      <customHeaders>
+        <remove name="X-Powered-By" />
+        <add name="X-Content-Type-Options" value="nosniff" />
+        <add name="X-Frame-Options" value="DENY" />
+        <add name="Referrer-Policy" value="same-origin" />
+        <add name="Content-Security-Policy" value="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'" />
+      </customHeaders>
+    </httpProtocol>
+    <security>
+      <requestFiltering removeServerHeader="true" />
+    </security>
     <staticContent>
       <!-- IIS's default MIME map already includes .json in most versions; this
            guards the rare configuration where it doesn't, since Vite build

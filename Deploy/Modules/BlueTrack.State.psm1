@@ -23,6 +23,7 @@ $script:AnswerNames = @(
     'SiteName', 'ApiInstallPath', 'WebInstallPath', 'Hostname', 'HttpPort', 'HttpsPort',
     'CertificateThumbprint', 'GenerateSelfSignedCert',
     'PrerequisiteSource', 'InstallerSourcePath',
+    'TrustServerCertificate', 'AllowedFileRoots',   # D-197
     'UpdateDownloadFolder'   # Update-BlueTrack.ps1 (D-192); the installer itself doesn't use it
 )
 

@@ -18,6 +18,12 @@ public sealed class PermissionClaimsTransformation(UserRightsResolver rightsReso
 {
     public const string PermissionClaimType = "permission";
 
+    // D-197: the identity this transformation adds is tagged with this
+    // authentication type, so "already resolved" means "our identity is
+    // present" -- not "some permission claim is present", which a token from
+    // an identity provider could have supplied.
+    private const string PermissionIdentityType = "BlueTrack.Permissions";
+
     public async Task<ClaimsPrincipal> TransformAsync(ClaimsPrincipal principal)
     {
         if (principal.Identity is not { IsAuthenticated: true })
@@ -27,9 +33,19 @@ public sealed class PermissionClaimsTransformation(UserRightsResolver rightsReso
 
         // IClaimsTransformation can run more than once per request -- don't
         // re-query or add duplicate claims if it already has.
-        if (principal.HasClaim(c => c.Type == PermissionClaimType))
+        if (principal.Identities.Any(i => i.AuthenticationType == PermissionIdentityType))
         {
             return principal;
+        }
+
+        // Permissions come only from BlueTrack's own role mapping: drop any
+        // permission claim another identity carries (D-197).
+        foreach (var other in principal.Identities)
+        {
+            foreach (var claim in other.Claims.Where(c => c.Type == PermissionClaimType).ToList())
+            {
+                other.TryRemoveClaim(claim);
+            }
         }
 
         var rights = await rightsResolver.ResolveAsync(principal);
@@ -38,7 +54,7 @@ public sealed class PermissionClaimsTransformation(UserRightsResolver rightsReso
             return principal;
         }
 
-        var identity = new ClaimsIdentity();
+        var identity = new ClaimsIdentity(PermissionIdentityType);
         foreach (var permissionName in rights.PermissionNames)
         {
             identity.AddClaim(new Claim(PermissionClaimType, permissionName));

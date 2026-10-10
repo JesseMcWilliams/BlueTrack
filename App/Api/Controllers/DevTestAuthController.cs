@@ -70,6 +70,7 @@ public sealed class DevTestAuthController(
 
         await HttpContext.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, new ClaimsPrincipal(identity));
 
-        return string.IsNullOrEmpty(returnUrl) ? NoContent() : Redirect(returnUrl);
+        if (string.IsNullOrEmpty(returnUrl)) return NoContent();
+        return Url.IsLocalUrl(returnUrl) ? LocalRedirect(returnUrl) : BadRequest();   // D-197: local paths only
     }
 }

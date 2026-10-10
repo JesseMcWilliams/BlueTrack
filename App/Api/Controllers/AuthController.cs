@@ -58,7 +58,8 @@ public sealed class AuthController(IdentityProviderRepository identityProviderRe
                 statusCode: StatusCodes.Status503ServiceUnavailable);
         }
 
-        var redirectUri = string.IsNullOrEmpty(returnUrl) ? "/" : returnUrl;
+        // D-197: local paths only -- the OIDC handler redirects here after sign-in without checking.
+        var redirectUri = Url.IsLocalUrl(returnUrl) ? returnUrl! : "/";
         return Challenge(new AuthenticationProperties { RedirectUri = redirectUri }, "OIDC");
     }
 

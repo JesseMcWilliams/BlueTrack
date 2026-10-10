@@ -17,13 +17,16 @@ public sealed class ReportsController(
     DecommissionRepository decommissionRepository) : ControllerBase
 {
     /// <summary>D-186: safes whose name matches the safe decommission pattern (not ignored safes). Same access as the other general reports.</summary>
+    [Authorize(Policy = Permissions.ViewDashboard)]   // D-197: reading tracked data needs ViewDashboard, not just a sign-in
     [HttpGet("decom-safes")]
     public async Task<IActionResult> GetDecomSafes() => Ok(await decommissionRepository.GetSafesAsync());
 
     /// <summary>D-186: accounts in those safes, or whose name matches the account pattern, with any other safe holding the same account.</summary>
+    [Authorize(Policy = Permissions.ViewDashboard)]   // D-197: reading tracked data needs ViewDashboard, not just a sign-in
     [HttpGet("decom-accounts")]
     public async Task<IActionResult> GetDecomAccounts() => Ok(await decommissionRepository.GetAccountsAsync());
 
+    [Authorize(Policy = Permissions.ViewDashboard)]   // D-197: reading tracked data needs ViewDashboard, not just a sign-in
     [HttpGet("overdue-at-risk")]
     public async Task<IActionResult> GetOverdueAtRisk()
     {
@@ -31,6 +34,7 @@ public sealed class ReportsController(
         return Ok(results);
     }
 
+    [Authorize(Policy = Permissions.ViewDashboard)]   // D-197: reading tracked data needs ViewDashboard, not just a sign-in
     [HttpGet("stage-status-summary")]
     public async Task<IActionResult> GetStageStatusSummary()
     {
@@ -57,6 +61,7 @@ public sealed class ReportsController(
     /// read-only, informational, matching Overdue/At-Risk and Stage/Status
     /// Summary above.
     /// </summary>
+    [Authorize(Policy = Permissions.ViewDashboard)]   // D-197: reading tracked data needs ViewDashboard, not just a sign-in
     [HttpGet("unresolved-entitlement-members")]
     public async Task<IActionResult> GetUnresolvedEntitlementMembers()
     {
@@ -65,6 +70,7 @@ public sealed class ReportsController(
     }
 
     /// <summary>D-143: Total/In Scope/Onboarded/Managed/Compliant account counts. No specific permission required, matching Overdue/At-Risk and Stage/Status Summary above -- read-only, aggregate counts only, no account-level detail.</summary>
+    [Authorize(Policy = Permissions.ViewDashboard)]   // D-197: reading tracked data needs ViewDashboard, not just a sign-in
     [HttpGet("kpi-summary")]
     public async Task<IActionResult> GetKpiSummary()
     {

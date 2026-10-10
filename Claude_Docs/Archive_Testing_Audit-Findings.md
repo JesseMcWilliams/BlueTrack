@@ -103,3 +103,18 @@ From `feature/rollback-sod-backupreader`, merged into `main` via PR #28 on 2026-
 ## Tests
 
 - [x] **Found and fixed 2026-10-09**: `NotificationRepositoryTests.WasSentRecentlyAsync_...` failed now and then: it checked a zero cooldown against a send made moments earlier, and the two often landed on the same SQL Server clock tick. The test now backdates the send by an hour and checks 2-hour and 30-minute windows (15/15 runs passed); `WasSentRecentlyAsync` also computes its cutoff in SQL (`SYSUTCDATETIME`), the same clock and precision as `SentDate`.
+
+## Security review 2026-10-10 (fixed, D-197)
+
+Open items from the same review stay in `Testing_Audit-Findings.md`.
+
+- [x] **High -- tracked data readable without `ViewDashboard`.** 18 read actions in `AccountProgressController`, `ReportsController`, `RiskExceptionsController` and `ApplicationsController` had only `[Authorize]`; each now requires `ViewDashboard` (per action, so stricter actions don't also need it). Test: `SecurityHardeningTests.ReadingTrackedData_NeedsViewDashboard`.
+- [x] **High -- open redirect after SAML/OIDC sign-in.** `Saml2Controller` and `AuthController` (and the dev test sign-in) accept only local return URLs (`Url.IsLocalUrl`, `LocalRedirect`); the SPA's check also rejects `//` and `/\`.
+- [x] **Medium -- no CSRF defence.** `RequireApiRequestHeaderMiddleware`: POST/PUT/PATCH/DELETE under `/api` need `X-Requested-With: XMLHttpRequest` (the SPA's fetch wrapper adds it; SAML ACS exempt). Verified on IIS: the SPA's PUT 204, the same without the header 403.
+- [x] **Medium -- lost permissions lingered.** Cached rights expire after 15 minutes at most, and every role, group-mapping or identity-provider change clears all cached rights.
+- [x] **Medium -- identity-provider claims trusted.** OIDC/SAML `permission` and `bluetrack:provider_type` claims are stripped (`ExternalIdentityClaims`); the claims transformation recognises only its own permission identity. A disabled provider now grants nothing to existing sessions.
+- [x] **Medium -- admin-entered folders unrestricted (incl. UNC).** Data-feed folders and the backup folder must be inside `FileAccess:AllowedRoots` (installer `-AllowedFileRoots`); with none set, local folders only.
+- [x] **Medium -- no security headers.** CSP, X-Frame-Options, nosniff, Referrer-Policy; `Server`/`X-Powered-By` removed; HSTS from the API when `Security:EnableHsts` (installer: a certificate that isn't self-signed). Verified on IIS, no CSP violations.
+- [x] **Medium -- deploy:** a SQL-auth password in `appsettings.<Env>.json` now gets an Administrators/SYSTEM/IIS_IUSRS-only ACL (with a warning); `Update-BlueTrack.ps1` re-owns and locks its download folder to Administrators/SYSTEM and needs elevation; `TrustServerCertificate` is now an answer, defaulting to trust only for a SQL Server on this machine.
+- [x] **Low -- SQL error text in import/bulk row errors** (reached the Analyst role): shown as classified or generic text, logged in full (`RowErrorText`).
+- [x] **Low -- nightly-job values pasted into T-SQL unescaped:** the export folder may not contain `'`; the EVD database name must be letters, digits and underscores.

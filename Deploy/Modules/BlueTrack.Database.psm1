@@ -16,13 +16,18 @@ function Format-BlueTrackConnectionString {
         [Parameter(Mandatory)] [string]$SqlServerInstance,
         [Parameter(Mandatory)] [string]$DatabaseName,
         [bool]$UseWindowsAuth = $true,
-        [pscredential]$SqlCredential
+        [pscredential]$SqlCredential,
+        # D-197: skip validating SQL Server's certificate. Harmless on this
+        # machine; for a remote server it lets a man-in-the-middle read a SQL
+        # login's password. The installer passes its TrustServerCertificate
+        # answer (default: only when SQL Server is local).
+        [bool]$TrustServerCertificate = $true
     )
 
     $builder = New-Object System.Data.SqlClient.SqlConnectionStringBuilder
     $builder['Server'] = $SqlServerInstance
     $builder['Database'] = $DatabaseName
-    $builder['TrustServerCertificate'] = $true
+    $builder['TrustServerCertificate'] = $TrustServerCertificate
 
     if ($UseWindowsAuth) {
         $builder['Integrated Security'] = $true
@@ -118,7 +123,11 @@ function Set-BlueTrackEnvironmentConfig {
     param(
         [Parameter(Mandatory)] [string]$PublishDirectory,
         [Parameter(Mandatory)] [ValidateSet('Development', 'Test', 'Staging', 'Production')] [string]$Environment,
-        [Parameter(Mandatory)] [string]$ConnectionString
+        [Parameter(Mandatory)] [string]$ConnectionString,
+        # D-197: Security:EnableHsts -- only with a trusted (not self-signed) certificate.
+        [bool]$EnableHsts = $false,
+        # D-197: FileAccess:AllowedRoots -- folders data feeds may read and backups may go to.
+        [string[]]$AllowedFileRoots = @()
     )
 
     $configPath = Join-Path $PublishDirectory "appsettings.$Environment.json"
@@ -126,11 +135,50 @@ function Set-BlueTrackEnvironmentConfig {
         ConnectionStrings = [ordered]@{
             BlueTrackDb = $ConnectionString
         }
+        Security          = [ordered]@{
+            EnableHsts = $EnableHsts
+        }
+        FileAccess        = [ordered]@{
+            AllowedRoots = @($AllowedFileRoots | Where-Object { $_ })
+        }
     }
 
     if ($PSCmdlet.ShouldProcess($configPath, 'Write environment-specific appsettings')) {
         $config | ConvertTo-Json -Depth 5 | Set-Content -Path $configPath -Encoding UTF8
+
+        # D-197: with SQL authentication the file holds a password. Limit it to
+        # Administrators, SYSTEM and IIS's worker processes (IIS_IUSRS holds
+        # every app pool's identity), instead of the folder's inherited access.
+        $builder = New-Object System.Data.SqlClient.SqlConnectionStringBuilder $ConnectionString
+        if ($builder['Password']) {
+            $acl = New-Object System.Security.AccessControl.FileSecurity
+            $acl.SetAccessRuleProtection($true, $false)
+            foreach ($identity in 'BUILTIN\Administrators', 'NT AUTHORITY\SYSTEM') {
+                $acl.AddAccessRule((New-Object System.Security.AccessControl.FileSystemAccessRule $identity, 'FullControl', 'Allow'))
+            }
+            $acl.AddAccessRule((New-Object System.Security.AccessControl.FileSystemAccessRule 'BUILTIN\IIS_IUSRS', 'Read', 'Allow'))
+            Set-Acl -Path $configPath -AclObject $acl
+            Write-Warning "appsettings.$Environment.json holds a SQL login's password; its access is now limited to Administrators, SYSTEM and IIS_IUSRS. Windows authentication (-UseWindowsAuth `$true) avoids storing a password at all, and the runtime login should not be the one used to install."
+        }
     }
+}
+
+function Test-BlueTrackSqlInstanceIsThisMachine {
+    <#
+    .SYNOPSIS
+        Quick check (no DNS lookups) whether a SQL Server instance name is
+        this machine -- for D-197's TrustServerCertificate default, where
+        guessing "remote" only means the certificate gets validated.
+    #>
+    [CmdletBinding()]
+    [OutputType([bool])]
+    param(
+        [Parameter(Mandatory)] [string]$SqlServerInstance
+    )
+
+    $hostPart = (($SqlServerInstance -replace '^[a-zA-Z]+:', '') -split '[\x5C,]' | Select-Object -First 1).Trim()
+    if ($hostPart -in '.', '(local)', 'localhost', '127.0.0.1', '::1', '') { return $true }
+    return ($hostPart.Split('.')[0] -eq $env:COMPUTERNAME)
 }
 
 function Install-BlueTrackNightlyJob {
@@ -159,8 +207,14 @@ function Install-BlueTrackNightlyJob {
         [Parameter(Mandatory)] [string]$DatabaseName,
         [ValidateSet('Both', 'PrivilegeCloud', 'SelfHosted')] [string]$ImportSources = 'Both',
         [string]$ExportFolderPath,
-        [string]$EvdDatabaseName
+        [string]$EvdDatabaseName,
+        [bool]$TrustServerCertificate = $true
     )
+
+    # D-197: both values are pasted into T-SQL string literals inside the
+    # job's command text, so refuse characters that would end the literal.
+    if ($ExportFolderPath -and $ExportFolderPath.Contains("'")) { throw "The export folder path can't contain an apostrophe: $ExportFolderPath" }
+    if ($EvdDatabaseName -and $EvdDatabaseName -notmatch '^[A-Za-z0-9_]+$') { throw "The EVD database name may contain only letters, digits and underscores: $EvdDatabaseName" }
 
     $importPrivilegeCloud = $ImportSources -in 'Both', 'PrivilegeCloud'
     $importSelfHosted = $ImportSources -in 'Both', 'SelfHosted'
@@ -215,7 +269,8 @@ function Install-BlueTrackNightlyJob {
     try {
         Write-Host "Generated a temp copy of the nightly job script with:`n  Sources:       $ImportSources`n  Export folder: $normalizedFolder`n  EVD database:  $evdShown`n(the tracked repo file was not modified)"
         if ($PSCmdlet.ShouldProcess("$SqlServerInstance / $DatabaseName", 'Install nightly Import+Load SQL Agent job via sqlcmd')) {
-            & sqlcmd -S $SqlServerInstance -C -v DatabaseName="$DatabaseName" -i $tempScript | Out-Host
+            $trustArgs = if ($TrustServerCertificate) { @('-C') } else { @() }
+            & sqlcmd -S $SqlServerInstance @trustArgs -v DatabaseName="$DatabaseName" -i $tempScript | Out-Host
             if ($LASTEXITCODE -ne 0) {
                 throw "sqlcmd failed installing the nightly job (exit code $LASTEXITCODE)."
             }
@@ -244,8 +299,10 @@ function Grant-BlueTrackAppPoolSqlAccess {
         [Parameter(Mandatory)] [string]$RepoRoot,
         [Parameter(Mandatory)] [string]$SqlServerInstance,
         [Parameter(Mandatory)] [string]$DatabaseName,
-        [Parameter(Mandatory)] [string]$Account
+        [Parameter(Mandatory)] [string]$Account,
+        [bool]$TrustServerCertificate = $true
     )
+    $trustArgs = if ($TrustServerCertificate) { @('-C') } else { @() }   # D-197
 
     # The account goes into both N'...' literals and [...] identifiers below
     # by plain text substitution, so refuse anything that could break out of
@@ -265,7 +322,7 @@ function Grant-BlueTrackAppPoolSqlAccess {
 
     try {
         if ($PSCmdlet.ShouldProcess($SqlServerInstance, "CREATE LOGIN [$Account] FROM WINDOWS (if missing)")) {
-            & sqlcmd -S $SqlServerInstance -C -b -Q $createLogin | Out-Host
+            & sqlcmd -S $SqlServerInstance @trustArgs -b -Q $createLogin | Out-Host
             if ($LASTEXITCODE -ne 0) {
                 throw "sqlcmd failed creating the SQL Server login for '$Account' (exit code $LASTEXITCODE). The installing user needs the securityadmin (or sysadmin) server role."
             }
@@ -273,7 +330,7 @@ function Grant-BlueTrackAppPoolSqlAccess {
         if ($PSCmdlet.ShouldProcess("$SqlServerInstance / $DatabaseName", "Run 02_BlueTrack_GrantAppServiceAccountAccess.sql for '$Account'")) {
             # Script 41 starts with :on error exit (D-167), so its first
             # failure stops it and sets a nonzero exit code.
-            & sqlcmd -S $SqlServerInstance -C -d $DatabaseName -i $tempScript | Out-Host
+            & sqlcmd -S $SqlServerInstance @trustArgs -d $DatabaseName -i $tempScript | Out-Host
             if ($LASTEXITCODE -ne 0) {
                 throw "sqlcmd failed granting '$Account' access to '$DatabaseName' (exit code $LASTEXITCODE) -- see the output above."
             }
@@ -283,4 +340,4 @@ function Grant-BlueTrackAppPoolSqlAccess {
     }
 }
 
-Export-ModuleMember -Function Format-BlueTrackConnectionString, Test-BlueTrackSqlConnection, Invoke-BlueTrackMigrator, Set-BlueTrackEnvironmentConfig, Install-BlueTrackNightlyJob, Grant-BlueTrackAppPoolSqlAccess
+Export-ModuleMember -Function Format-BlueTrackConnectionString, Test-BlueTrackSqlConnection, Test-BlueTrackSqlInstanceIsThisMachine, Invoke-BlueTrackMigrator, Set-BlueTrackEnvironmentConfig, Install-BlueTrackNightlyJob, Grant-BlueTrackAppPoolSqlAccess

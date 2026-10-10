@@ -34,24 +34,26 @@ public sealed class RolesController(
     }
 
     [HttpPut("roles/{roleKey:int}")]
-    public async Task<IActionResult> UpdateRole(int roleKey, [FromBody] SaveRoleRequest request)
+    public async Task<IActionResult> UpdateRole(int roleKey, [FromBody] SaveRoleRequest request, [FromServices] UserRightsCache rightsCache)
     {
         var user = await currentUserResolver.ResolveAsync(User);
         if (user is null) return Unauthorized();
 
         await repository.UpdateRoleAsync(roleKey, request);
+        await rightsCache.InvalidateAllAsync();   // D-197: applies to everyone's next request
         await auditLogger.LogAsync("FieldEdit", user.UserKey, "app_role", roleKey.ToString(),
             detail: $"Role '{request.RoleName}' updated, permissions now: {string.Join(", ", request.PermissionNames)}");
         return NoContent();
     }
 
     [HttpDelete("roles/{roleKey:int}")]
-    public async Task<IActionResult> DeleteRole(int roleKey)
+    public async Task<IActionResult> DeleteRole(int roleKey, [FromServices] UserRightsCache rightsCache)
     {
         var user = await currentUserResolver.ResolveAsync(User);
         if (user is null) return Unauthorized();
 
         await repository.DeleteRoleAsync(roleKey);
+        await rightsCache.InvalidateAllAsync();   // D-197: applies to everyone's next request
         await auditLogger.LogAsync("FieldEdit", user.UserKey, "app_role", roleKey.ToString(), detail: "Role deleted");
         return NoContent();
     }

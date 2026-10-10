@@ -14,7 +14,8 @@ public sealed class GlobalApplicationConfigController(
     AppConfigRepository repository,
     CurrentUserResolver currentUserResolver,
     AuditLogger auditLogger,
-    DecommissionRepository decommissionRepository) : ControllerBase
+    DecommissionRepository decommissionRepository,
+    Security.AllowedFileRoots allowedFileRoots) : ControllerBase
 {
     /// <summary>
     /// D-186: the settings page's pattern helper -- which sample names each
@@ -74,6 +75,11 @@ public sealed class GlobalApplicationConfigController(
         if (request.BulkEditMaxAccounts is < 1 or > 10000)
         {
             return Problem(title: "Invalid bulk edit limit", detail: "BulkEditMaxAccounts must be between 1 and 10000.", statusCode: StatusCodes.Status400BadRequest);
+        }
+        // D-197: SQL Server writes a full database backup to this folder.
+        if (!string.IsNullOrWhiteSpace(request.BackupFolder) && allowedFileRoots.Check(request.BackupFolder) is { } backupFolderError)
+        {
+            return Problem(title: "Invalid backup folder", detail: backupFolderError, statusCode: StatusCodes.Status400BadRequest);
         }
         if (scheduleErrors.Count > 0)
         {
