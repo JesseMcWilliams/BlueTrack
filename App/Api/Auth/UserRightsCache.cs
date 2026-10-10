@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Dapper;
 using Microsoft.Extensions.Caching.Distributed;
 using BlueTrack.Api.Data;
 
@@ -17,8 +18,14 @@ namespace BlueTrack.Api.Auth;
 /// Negotiate doesn't need cookie/session-ID tracking for anything else
 /// this app does, so none was introduced just for this.
 /// </summary>
-public sealed class UserRightsCache(IDistributedCache cache, AppConfigRepository appConfigRepository)
+public sealed class UserRightsCache(IDistributedCache cache, AppConfigRepository appConfigRepository, IDbConnectionFactory connectionFactory)
 {
+    // D-197: the longest anyone keeps rights they've lost. The sliding idle
+    // timeout alone never expired for someone who kept working, so a removed
+    // AD group or role permission lingered indefinitely.
+    private static readonly TimeSpan MaximumAge = TimeSpan.FromMinutes(15);
+    private const string KeyPrefix = "rights:";
+
     public async Task<UserRights?> GetAsync(int providerKey, string externalIdentifier)
     {
         var raw = await cache.GetStringAsync(BuildKey(providerKey, externalIdentifier));
@@ -35,7 +42,8 @@ public sealed class UserRightsCache(IDistributedCache cache, AppConfigRepository
         var config = await appConfigRepository.GetAsync();
         var options = new DistributedCacheEntryOptions
         {
-            SlidingExpiration = TimeSpan.FromMinutes(config.IdleTimeoutMinutes)
+            SlidingExpiration = TimeSpan.FromMinutes(config.IdleTimeoutMinutes),
+            AbsoluteExpirationRelativeToNow = MaximumAge
         };
         await cache.SetStringAsync(BuildKey(providerKey, externalIdentifier), JsonSerializer.Serialize(rights), options);
     }
@@ -44,5 +52,17 @@ public sealed class UserRightsCache(IDistributedCache cache, AppConfigRepository
     public Task InvalidateAsync(int providerKey, string externalIdentifier) =>
         cache.RemoveAsync(BuildKey(providerKey, externalIdentifier));
 
-    private static string BuildKey(int providerKey, string externalIdentifier) => $"rights:{providerKey}:{externalIdentifier}";
+    /// <summary>
+    /// D-197: drops every user's cached rights, so a change to a role's
+    /// permissions, a group mapping or an identity provider applies on each
+    /// user's next request. The cache is SQL Server's (web.distributed_cache,
+    /// Program.cs), which has no "remove by prefix", hence the direct delete.
+    /// </summary>
+    public async Task InvalidateAllAsync()
+    {
+        using var connection = connectionFactory.Create();
+        await connection.ExecuteAsync("DELETE FROM web.distributed_cache WHERE Id LIKE @Prefix", new { Prefix = KeyPrefix + "%" });
+    }
+
+    private static string BuildKey(int providerKey, string externalIdentifier) => $"{KeyPrefix}{providerKey}:{externalIdentifier}";
 }

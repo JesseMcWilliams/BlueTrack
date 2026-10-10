@@ -49,6 +49,19 @@ file sealed class NegotiateFreeSchemeProvider(IOptions<AuthenticationOptions> op
 /// </summary>
 public sealed class BlueTrackWebApplicationFactory : WebApplicationFactory<Program>
 {
+    /// <summary>
+    /// D-197: every client sends X-Requested-With, as the SPA does, so
+    /// state-changing calls pass RequireApiRequestHeaderMiddleware. A test of
+    /// the middleware itself removes it from its own client.
+    /// </summary>
+    protected override void ConfigureClient(HttpClient client)
+    {
+        base.ConfigureClient(client);
+        client.DefaultRequestHeaders.Add(
+            BlueTrack.Api.Security.RequireApiRequestHeaderMiddleware.HeaderName,
+            BlueTrack.Api.Security.RequireApiRequestHeaderMiddleware.HeaderValue);
+    }
+
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Development");

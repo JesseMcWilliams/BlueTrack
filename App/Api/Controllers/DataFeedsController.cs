@@ -25,7 +25,8 @@ public sealed class DataFeedsController(
     DataFeedRunner runner,
     TimeProvider timeProvider,
     CurrentUserResolver currentUserResolver,
-    AuditLogger auditLogger) : ControllerBase
+    AuditLogger auditLogger,
+    Security.AllowedFileRoots allowedFileRoots) : ControllerBase
 {
     /// <summary>The CHECK constraint's values in 04_BlueTrack_Baseline_WebSchema.sql, with the labels the page shows.</summary>
     public static readonly IReadOnlyDictionary<string, string> FeedTypes = new Dictionary<string, string>
@@ -160,6 +161,7 @@ public sealed class DataFeedsController(
     {
         if (string.IsNullOrWhiteSpace(request.FolderPath)) return BadRequest(new { error = "Folder path is required." });
         if (FeedFileResolver.ValidatePattern(request.FileNamePattern) is { } patternError) return BadRequest(new { error = patternError });
+        if (allowedFileRoots.Check(request.FolderPath) is { } folderError) return BadRequest(new { error = folderError });   // D-197
 
         if (!Directory.Exists(request.FolderPath))
         {
@@ -251,7 +253,7 @@ public sealed class DataFeedsController(
         if (!FeedTypes.ContainsKey(request.FeedType ?? "")) errors.Add("Feed type is not one of the supported imports.");
         if (string.IsNullOrWhiteSpace(request.FolderPath)) errors.Add("Folder path is required.");
         else if (request.FolderPath.Length > 500) errors.Add("Folder path must be 500 characters or fewer.");
-        else if (!Path.IsPathFullyQualified(request.FolderPath)) errors.Add("Folder path must be a full path, e.g. D:\\Feeds or \\\\server\\share\\feeds.");
+        else if (allowedFileRoots.Check(request.FolderPath) is { } folderError) errors.Add(folderError);   // D-197
         if (FeedFileResolver.ValidatePattern(request.FileNamePattern) is { } patternError) errors.Add(patternError);
         else if (request.FileNamePattern.Length > 260) errors.Add("File name pattern must be 260 characters or fewer.");
 

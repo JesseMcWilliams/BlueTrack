@@ -28,8 +28,10 @@ public sealed class UserRightsResolver(
     /// <summary>Cache-first. Populates the cache and logs a Logon event (D-11) on a miss. Shared by PermissionClaimsTransformation and /api/me.</summary>
     public async Task<UserRights> ResolveAsync(ClaimsPrincipal principal)
     {
+        // D-197: a disabled provider grants nothing -- including to OIDC/SAML
+        // sessions signed in before an admin disabled it.
         var provider = await negotiateProviderResolver.ResolveAsync(principal);
-        if (provider is null)
+        if (provider is null || !provider.IsEnabled)
         {
             return None;
         }
@@ -61,8 +63,10 @@ public sealed class UserRightsResolver(
     /// <summary>Bypasses the cache, always resolves live, and refreshes the cache -- self-service Reload Rights (D-14). Not a logon: no audit event here.</summary>
     public async Task<UserRights> RefreshAsync(ClaimsPrincipal principal)
     {
+        // D-197: a disabled provider grants nothing -- including to OIDC/SAML
+        // sessions signed in before an admin disabled it.
         var provider = await negotiateProviderResolver.ResolveAsync(principal);
-        if (provider is null)
+        if (provider is null || !provider.IsEnabled)
         {
             return None;
         }

@@ -25,6 +25,7 @@ public sealed class AccountProgressController(
     /// plus multi-column sort, e.g. sort=stageName:asc,ownerName:desc.
     /// </summary>
     /// <summary>D-124 Phase 3: page/pageSize add server-side paging; X-Filtered-Count carries how many rows match the current filter, ignoring paging.</summary>
+    [Authorize(Policy = Permissions.ViewDashboard)]   // D-197: reading tracked data needs ViewDashboard, not just a sign-in
     [HttpGet]
     public async Task<IActionResult> GetList(
         [FromQuery] string? stage = null,
@@ -54,6 +55,7 @@ public sealed class AccountProgressController(
     /// reveals no more than the list does): it serves bulk edit and, since
     /// D-185, bulk delete/undelete, which need different permissions.
     /// </summary>
+    [Authorize(Policy = Permissions.ViewDashboard)]   // D-197: reading tracked data needs ViewDashboard, not just a sign-in
     [HttpGet("keys")]
     public async Task<IActionResult> GetMatchingKeys(
         [FromQuery] string? stage = null,
@@ -111,6 +113,7 @@ public sealed class AccountProgressController(
     }
 
     /// <summary>D-185: every delete and undelete of this account in BlueTrack, newest first, with reasons.</summary>
+    [Authorize(Policy = Permissions.ViewDashboard)]   // D-197: reading tracked data needs ViewDashboard, not just a sign-in
     [HttpGet("{accountKey:long}/deletion-history")]
     public async Task<IActionResult> GetDeletionHistory(long accountKey, [FromServices] AccountDeletionRepository deletionRepository) =>
         Ok(await deletionRepository.GetHistoryAsync(accountKey));
@@ -121,18 +124,21 @@ public sealed class AccountProgressController(
     /// read this to render the edit form; managing the list itself is
     /// gated separately (ManageFieldMetadata, FieldMetadataController).
     /// </summary>
+    [Authorize(Policy = Permissions.ViewDashboard)]   // D-197: reading tracked data needs ViewDashboard, not just a sign-in
     [HttpGet("field-metadata")]
     public async Task<IActionResult> GetFieldMetadata()
     {
         return Ok(await fieldMetadataRepository.GetAllAsync());
     }
 
+    [Authorize(Policy = Permissions.ViewDashboard)]   // D-197: reading tracked data needs ViewDashboard, not just a sign-in
     [HttpGet("reference-data")]
     public async Task<IActionResult> GetReferenceData()
     {
         return Ok(await referenceDataRepository.GetAllReferenceDataAsync());
     }
 
+    [Authorize(Policy = Permissions.ViewDashboard)]   // D-197: reading tracked data needs ViewDashboard, not just a sign-in
     [HttpGet("{accountKey:long}")]
     public async Task<IActionResult> GetDetail(long accountKey)
     {
@@ -158,12 +164,14 @@ public sealed class AccountProgressController(
     /// can be covered by both, neither, or an application one with no
     /// account-scoped one at all.
     /// </summary>
+    [Authorize(Policy = Permissions.ViewDashboard)]   // D-197: reading tracked data needs ViewDashboard, not just a sign-in
     [HttpGet("{accountKey:long}/application-exceptions")]
     public async Task<IActionResult> GetApplicationScopedExceptions(long accountKey)
     {
         return Ok(await repository.GetApplicationScopedExceptionsAsync(accountKey));
     }
 
+    [Authorize(Policy = Permissions.ViewDashboard)]   // D-197: reading tracked data needs ViewDashboard, not just a sign-in
     [HttpGet("{accountKey:long}/lock")]
     public async Task<IActionResult> GetLockStatus(long accountKey)
     {

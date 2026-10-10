@@ -120,6 +120,9 @@ public sealed class DataFeedRunner(
         FileInfo file;
         try
         {
+            // D-197: checked again at run time -- the allowed folders may have changed since the feed was saved.
+            if (services.GetRequiredService<Security.AllowedFileRoots>().Check(feed.FolderPath) is { } folderError)
+                return Failed(folderError);
             if (!Directory.Exists(feed.FolderPath))
                 return Failed($"Folder not found, or the app pool can't read it: {feed.FolderPath}");
             var matches = FeedFileResolver.FindMatches(feed.FolderPath, feed.FileNamePattern, timeProvider.GetLocalNow().DateTime);

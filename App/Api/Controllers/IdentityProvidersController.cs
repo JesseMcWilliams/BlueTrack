@@ -31,24 +31,26 @@ public sealed class IdentityProvidersController(
     }
 
     [HttpPut("{providerKey:int}")]
-    public async Task<IActionResult> Update(int providerKey, [FromBody] SaveIdentityProviderRequest request)
+    public async Task<IActionResult> Update(int providerKey, [FromBody] SaveIdentityProviderRequest request, [FromServices] UserRightsCache rightsCache)
     {
         var user = await currentUserResolver.ResolveAsync(User);
         if (user is null) return Unauthorized();
 
         await repository.UpdateAsync(providerKey, request);
+        await rightsCache.InvalidateAllAsync();   // D-197: applies to everyone's next request
         await auditLogger.LogAsync("ProviderConfigChanged", user.UserKey, "identity_provider_config", providerKey.ToString(),
             detail: $"Provider '{request.DisplayName}' updated, enabled={request.IsEnabled}");
         return NoContent();
     }
 
     [HttpDelete("{providerKey:int}")]
-    public async Task<IActionResult> Delete(int providerKey)
+    public async Task<IActionResult> Delete(int providerKey, [FromServices] UserRightsCache rightsCache)
     {
         var user = await currentUserResolver.ResolveAsync(User);
         if (user is null) return Unauthorized();
 
         await repository.DeleteAsync(providerKey);
+        await rightsCache.InvalidateAllAsync();   // D-197: applies to everyone's next request
         await auditLogger.LogAsync("ProviderConfigChanged", user.UserKey, "identity_provider_config", providerKey.ToString(), detail: "Provider deleted");
         return NoContent();
     }

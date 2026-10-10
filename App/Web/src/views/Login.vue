@@ -35,7 +35,8 @@ const rights = useRightsStore()
 
 function returnUrl() {
   const value = route.query.returnUrl
-  return typeof value === 'string' && value.startsWith('/') ? value : '/'
+  // D-197: a path on this site only -- "//host" and "/\host" are other sites to a browser.
+  return typeof value === 'string' && value.startsWith('/') && !value.startsWith('//') && !value.startsWith('/\\') ? value : '/'
 }
 
 function externalRedirectUrl(provider) {

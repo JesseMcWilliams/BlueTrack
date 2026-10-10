@@ -44,6 +44,9 @@ public sealed class Saml2Controller(Saml2ConfigurationFactory configFactory) : C
         }
 
         var binding = new Saml2RedirectBinding();
+        // D-197: only a local path is ever carried through the IdP and back --
+        // never another site (an open redirect after a genuine sign-in).
+        returnUrl = Url.IsLocalUrl(returnUrl) ? returnUrl : null;
         if (!string.IsNullOrEmpty(returnUrl))
         {
             binding.SetRelayStateQuery(new Dictionary<string, string> { [ReturnUrlKey] = returnUrl });
@@ -89,13 +92,14 @@ public sealed class Saml2Controller(Saml2ConfigurationFactory configFactory) : C
 
         await saml2AuthnResponse.CreateSession(HttpContext, claimsTransform: principal =>
         {
-            (principal.Identity as ClaimsIdentity)?.AddClaim(new Claim(BlueTrackClaimTypes.ProviderType, "SAML"));
+            // D-197: any permission/provider claims the IdP sent are dropped first.
+            ExternalIdentityClaims.MarkProvider(principal, "SAML");
             return principal;
         });
 
         var relayState = binding.GetRelayStateQuery();
-        var returnUrl = relayState.TryGetValue(ReturnUrlKey, out var url) && !string.IsNullOrEmpty(url) ? url : "/";
-        return Redirect(returnUrl);
+        var returnUrl = relayState.TryGetValue(ReturnUrlKey, out var url) && Url.IsLocalUrl(url) ? url : "/";
+        return LocalRedirect(returnUrl);
     }
 
     [HttpGet("metadata")]

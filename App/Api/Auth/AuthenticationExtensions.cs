@@ -199,8 +199,9 @@ public static class AuthenticationExtensions
                     // Marks this principal as OIDC-authenticated (D-84) --
                     // AuthenticatedProviderResolver (NegotiateProviderResolver.cs)
                     // has no other reliable way to distinguish it once more
-                    // than one non-Negotiate scheme can be registered.
-                    (context.Principal!.Identity as ClaimsIdentity)?.AddClaim(new Claim(BlueTrackClaimTypes.ProviderType, "OIDC"));
+                    // than one non-Negotiate scheme can be registered. D-197:
+                    // any permission/provider claims the IdP sent are dropped first.
+                    ExternalIdentityClaims.MarkProvider(context.Principal!, "OIDC");
                     return Task.CompletedTask;
                 };
             });

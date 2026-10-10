@@ -21,6 +21,12 @@ on:
     branches: [main]
   workflow_dispatch:
 
+# D-197: the job only reads the repository; the token gets nothing more.
+# Pull requests from outside contributors need approval before they run on
+# this self-hosted runner (a repository setting, set 2026-10-10).
+permissions:
+  contents: read
+
 env:
   BLUETRACK_TEST_CONNECTION: "Server=WIN-K5POLANERI5.Company.com;Database=BlueTrackTest;Integrated Security=true;TrustServerCertificate=true"
 
@@ -29,7 +35,8 @@ jobs:
     runs-on: [self-hosted, Windows, X64]
 
     steps:
-      - uses: actions/checkout@v4
+      # Pinned to a commit (D-197): a moved tag can't change what runs here. v4 as of 2026-10-10.
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       # D-58: BlueTrackTest is dropped and recreated as its own explicit,
       # visible step -- App/Migrator itself never drops a database (see

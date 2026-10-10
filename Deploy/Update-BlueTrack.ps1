@@ -175,8 +175,21 @@ if (Test-Path $target) {
 if (-not $PSCmdlet.ShouldProcess($target, "Download $Repository at '$ref' and extract it")) { return }
 
 New-Item -ItemType Directory -Path $DownloadFolder -Force | Out-Null
+# D-197: what's extracted here is later run elevated (the installer), so only
+# Administrators and SYSTEM may change it. A folder created under C:\ inherits
+# "Authenticated Users: Modify", and one a non-admin created first is theirs,
+# so the folder is re-owned and re-locked on every run, contents included.
+$isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltinRole]::Administrator)
+if (-not $isAdmin) {
+    throw 'Run this from an elevated (Run as Administrator) PowerShell session: the download folder is locked to Administrators, since its scripts are later run elevated.'
+}
+& icacls $DownloadFolder /setowner '*S-1-5-32-544' /T /C /Q | Out-Null
+& icacls $DownloadFolder /inheritance:r /grant:r '*S-1-5-32-544:(OI)(CI)F' '*S-1-5-18:(OI)(CI)F' /T /C /Q | Out-Null
+if ($LASTEXITCODE -ne 0) { throw "Could not limit '$DownloadFolder' to Administrators and SYSTEM (icacls exit code $LASTEXITCODE)." }
+
 $zip = Join-Path $DownloadFolder "BlueTrack-$label.zip"
 $staging = Join-Path $DownloadFolder "BlueTrack-$label.extracting"
+Remove-Item -Path $zip, $staging -Recurse -Force -ErrorAction SilentlyContinue   # D-197: nothing left over is reused
 try {
     Write-Host "Downloading $Repository at '$ref'..."
     Invoke-WebRequest -Uri "$ApiRoot/zipball/$([uri]::EscapeDataString($ref))" -Headers $Headers -OutFile $zip -UseBasicParsing

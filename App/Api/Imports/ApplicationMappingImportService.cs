@@ -22,7 +22,8 @@ namespace BlueTrack.Api.Imports;
 /// </summary>
 public sealed class ApplicationMappingImportService(
     ApplicationRepository repository,
-    AuditLogger auditLogger)
+    AuditLogger auditLogger,
+    ILogger<ApplicationMappingImportService> logger)
 {
     public static readonly string[] ApplicationColumns =
         ["ApplicationCode", "ApplicationName", "Description", "OwnerName", "OwnerEmail", "TechnicalName", "TechnicalEmail", "Notes"];
@@ -107,7 +108,7 @@ public sealed class ApplicationMappingImportService(
             }
             catch (Exception ex)
             {
-                errors.Add(new ImportRowError { RowNumber = rowNumber, Error = ex.Message });
+                errors.Add(new ImportRowError { RowNumber = rowNumber, Error = Errors.RowErrorText.For(ex, logger) });
             }
         }
 
@@ -178,7 +179,7 @@ public sealed class ApplicationMappingImportService(
             }
             catch (Exception ex)
             {
-                errors.Add(new ImportRowError { RowNumber = rowNumber, Error = ex.Message });
+                errors.Add(new ImportRowError { RowNumber = rowNumber, Error = Errors.RowErrorText.For(ex, logger) });
             }
         }
 

@@ -35,6 +35,7 @@ public sealed class RiskExceptionsController(
     }
 
     /// <summary>D-42: stacked filters (status/accountKey/scopeType) plus multi-column sort. D-124 Phase 3: page/pageSize add server-side paging; X-Filtered-Count carries how many rows match the current filter, ignoring paging.</summary>
+    [Authorize(Policy = Permissions.ViewDashboard)]   // D-197: reading tracked data needs ViewDashboard, not just a sign-in
     [HttpGet]
     public async Task<IActionResult> GetList(
         [FromQuery] string? status = null,
@@ -60,12 +61,14 @@ public sealed class RiskExceptionsController(
     }
 
     /// <summary>Overdue-review worklist: Active exceptions past ReviewDate (D-19).</summary>
+    [Authorize(Policy = Permissions.ViewDashboard)]   // D-197: reading tracked data needs ViewDashboard, not just a sign-in
     [HttpGet("overdue-review")]
     public async Task<IActionResult> GetOverdueReview()
     {
         return Ok(await repository.GetOverdueReviewAsync());
     }
 
+    [Authorize(Policy = Permissions.ViewDashboard)]   // D-197: reading tracked data needs ViewDashboard, not just a sign-in
     [HttpGet("{exceptionKey:int}")]
     public async Task<IActionResult> GetByKey(int exceptionKey)
     {

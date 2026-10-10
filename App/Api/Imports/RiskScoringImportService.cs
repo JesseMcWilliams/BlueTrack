@@ -16,7 +16,8 @@ public sealed class RiskScoringImportService(
     TargetRepository targetRepository,
     RiskScoringImportRepository importRepository,
     TargetMatchingService targetMatchingService,
-    ImportMappingService importMappingService)
+    ImportMappingService importMappingService,
+    ILogger<RiskScoringImportService> logger)
 {
     public async Task<ImportResultResponse> ImportTargetInventoryAsync(
         IReadOnlyList<IReadOnlyDictionary<string, string>> rows, int? mappingProfileKey, string fileName, int userKey)
@@ -63,7 +64,7 @@ public sealed class RiskScoringImportService(
             }
             catch (Exception ex)
             {
-                result.Errors.Add(new ImportRowError { RowNumber = rowNumber, Error = ex.Message });
+                result.Errors.Add(new ImportRowError { RowNumber = rowNumber, Error = Errors.RowErrorText.For(ex, logger) });
             }
         }
 
@@ -97,7 +98,7 @@ public sealed class RiskScoringImportService(
             }
             catch (Exception ex)
             {
-                result.Errors.Add(new ImportRowError { RowNumber = i + 2, Error = ex.Message });
+                result.Errors.Add(new ImportRowError { RowNumber = i + 2, Error = Errors.RowErrorText.For(ex, logger) });
             }
         }
 
@@ -130,7 +131,7 @@ public sealed class RiskScoringImportService(
             }
             catch (Exception ex)
             {
-                result.Errors.Add(new ImportRowError { RowNumber = i + 2, Error = ex.Message });
+                result.Errors.Add(new ImportRowError { RowNumber = i + 2, Error = Errors.RowErrorText.For(ex, logger) });
             }
         }
 
@@ -163,7 +164,7 @@ public sealed class RiskScoringImportService(
             }
             catch (Exception ex)
             {
-                result.Errors.Add(new ImportRowError { RowNumber = i + 2, Error = ex.Message });
+                result.Errors.Add(new ImportRowError { RowNumber = i + 2, Error = Errors.RowErrorText.For(ex, logger) });
             }
         }
 
@@ -197,7 +198,7 @@ public sealed class RiskScoringImportService(
             }
             catch (Exception ex)
             {
-                result.Errors.Add(new ImportRowError { RowNumber = i + 2, Error = ex.Message });
+                result.Errors.Add(new ImportRowError { RowNumber = i + 2, Error = Errors.RowErrorText.For(ex, logger) });
             }
         }
 

@@ -46,7 +46,10 @@ export default defineConfig({
   reporter: 'list',
   use: {
     baseURL: 'http://localhost:4173',
-    trace: 'retain-on-failure'
+    trace: 'retain-on-failure',
+    // D-197: the API refuses POST/PUT/DELETE without it (CSRF defence). The
+    // SPA's fetch wrapper adds it; this covers the tests' own page.request calls.
+    extraHTTPHeaders: { 'X-Requested-With': 'XMLHttpRequest' }
   },
   projects: [
     { name: 'chromium', use: { ...devices['Desktop Chrome'] } }
