@@ -5,15 +5,14 @@ name: CI
 # drop-and-recreate philosophy, restated there: BlueTrackTest is rebuilt
 # fresh every run, never reused).
 #
-# ASSUMPTION worth confirming: `runs-on` below targets the default label
-# set GitHub gives a self-hosted runner registered with no custom labels
-# (self-hosted, Windows, X64). If this runner was registered with a
-# different/additional label, update `runs-on` to match.
+# `runs-on` below targets the default label set GitHub gives a self-hosted
+# runner registered with no custom labels (self-hosted, Windows, X64) --
+# confirmed against the registered runner on 2026-10-09 (D-189).
 #
-# CI gating (Design_Testing-Strategy.md's Open Questions #3) is NOT decided
-# yet -- this workflow runs on push/pull_request so results are visible,
-# but nothing here makes it a required check. That's a separate, explicit
-# branch-protection setting for whoever owns that decision.
+# CI gating (Design_Testing-Strategy.md's Open Questions #3): decided
+# 2026-10-09 that `main`'s branch protection should require this workflow's
+# `test` job before a PR can merge. That's a GitHub setting, not this file,
+# and it isn't on yet (see Planning_Backlog.md, "Process and tooling").
 
 on:
   push:

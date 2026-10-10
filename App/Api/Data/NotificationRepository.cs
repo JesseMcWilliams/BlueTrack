@@ -163,12 +163,16 @@ public sealed class NotificationRepository(IDbConnectionFactory connectionFactor
             FROM web.notification_log nl
             JOIN web.dim_notification_type nt ON nt.NotificationTypeKey = nl.NotificationTypeKey
             WHERE nt.NotificationTypeName = @NotificationTypeName
-              AND nl.SentDate >= @Cutoff
+              AND nl.SentDate >= DATEADD(SECOND, -@CooldownSeconds, SYSUTCDATETIME())
             """;
+        // The cutoff is computed by SQL Server, on the same clock and at the
+        // same precision as SentDate (SYSUTCDATETIME), rather than from the
+        // app's DateTime.UtcNow, which Dapper sends as `datetime` (rounded to
+        // ~3 ms) and which can differ from SQL Server's clock on another host.
         var count = await connection.QuerySingleAsync<int>(sql, new
         {
             NotificationTypeName = notificationTypeName,
-            Cutoff = DateTime.UtcNow - cooldown
+            CooldownSeconds = (int)Math.Min(int.MaxValue, Math.Ceiling(cooldown.TotalSeconds))
         });
         return count > 0;
     }

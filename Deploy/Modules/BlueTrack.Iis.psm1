@@ -163,8 +163,15 @@ function New-BlueTrackSite {
         & "$env:windir\system32\inetsrv\appcmd.exe" unlock config -section:system.webServer/security/authentication/windowsAuthentication | Out-Host
         & "$env:windir\system32\inetsrv\appcmd.exe" unlock config -section:system.webServer/security/authentication/anonymousAuthentication | Out-Host
 
-        Set-WebConfigurationProperty -Filter '/system.webServer/security/authentication/windowsAuthentication' -PSPath "IIS:\Sites\$SiteName\BlueTrack" -Name Enabled -Value $true
-        Set-WebConfigurationProperty -Filter '/system.webServer/security/authentication/anonymousAuthentication' -PSPath "IIS:\Sites\$SiteName\BlueTrack" -Name Enabled -Value $true
+        # D-189: written to applicationHost.config (a <location> for
+        # "<site>/BlueTrack"), not through IIS:\Sites\...\BlueTrack, which
+        # writes the API's own web.config -- a file `dotnet publish` replaces
+        # (confirmed 2026-10-09). Since D-172 the app also inherits these
+        # from the site root's applicationHost.config setting below, so IIS
+        # may not write a separate entry here; either way, nothing that
+        # publish replaces holds them.
+        Set-WebConfigurationProperty -PSPath 'MACHINE/WEBROOT/APPHOST' -Location "$SiteName/BlueTrack" -Filter 'system.webServer/security/authentication/windowsAuthentication' -Name enabled -Value $true
+        Set-WebConfigurationProperty -PSPath 'MACHINE/WEBROOT/APPHOST' -Location "$SiteName/BlueTrack" -Filter 'system.webServer/security/authentication/anonymousAuthentication' -Name enabled -Value $true
     }
 
     # D-172, corrected by D-175: the SPA calls /api/... at the SITE ROOT,
