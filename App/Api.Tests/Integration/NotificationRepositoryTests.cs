@@ -61,8 +61,14 @@ public class NotificationRepositoryTests
         try
         {
             Assert.True(await repository.WasSentRecentlyAsync("DevFakeAuthEnabledTooLong", TimeSpan.FromDays(7)));
-            // A cooldown shorter than "just now" has already elapsed.
-            Assert.False(await repository.WasSentRecentlyAsync("DevFakeAuthEnabledTooLong", TimeSpan.Zero));
+
+            // Backdate the send by an hour, so the window check doesn't depend
+            // on timing: it used to check a zero cooldown against a send made
+            // moments earlier, which failed whenever both landed on the same
+            // SQL Server clock tick (2026-10-09, Testing_Audit-Findings).
+            await BackdateNotificationLogRowsAsync("DevFakeAuthEnabledTooLong", TimeSpan.FromHours(1));
+            Assert.True(await repository.WasSentRecentlyAsync("DevFakeAuthEnabledTooLong", TimeSpan.FromHours(2)));
+            Assert.False(await repository.WasSentRecentlyAsync("DevFakeAuthEnabledTooLong", TimeSpan.FromMinutes(30)));
         }
         finally
         {
@@ -133,6 +139,17 @@ public class NotificationRepositoryTests
             JOIN web.dim_notification_type nt ON nt.NotificationTypeKey = nl.NotificationTypeKey
             WHERE nt.NotificationTypeName = @NotificationTypeName
             """, new { NotificationTypeName = notificationTypeName });
+    }
+
+    private static async Task BackdateNotificationLogRowsAsync(string notificationTypeName, TimeSpan by)
+    {
+        await using var connection = new Microsoft.Data.SqlClient.SqlConnection(TestDatabase.ConnectionString);
+        await Dapper.SqlMapper.ExecuteAsync(connection, """
+            UPDATE nl SET SentDate = DATEADD(SECOND, -@Seconds, nl.SentDate)
+            FROM web.notification_log nl
+            JOIN web.dim_notification_type nt ON nt.NotificationTypeKey = nl.NotificationTypeKey
+            WHERE nt.NotificationTypeName = @NotificationTypeName
+            """, new { NotificationTypeName = notificationTypeName, Seconds = (int)by.TotalSeconds });
     }
 
     private static async Task<int> GetDevFakeAuthProviderKeyAsync()
