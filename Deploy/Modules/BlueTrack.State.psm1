@@ -22,7 +22,8 @@ $script:AnswerNames = @(
     'GrantAppPoolSqlAccess', 'AppPoolSqlLogin', 'ResetIis',
     'SiteName', 'ApiInstallPath', 'WebInstallPath', 'Hostname', 'HttpPort', 'HttpsPort',
     'CertificateThumbprint', 'GenerateSelfSignedCert',
-    'PrerequisiteSource', 'InstallerSourcePath'
+    'PrerequisiteSource', 'InstallerSourcePath',
+    'UpdateDownloadFolder'   # Update-BlueTrack.ps1 (D-192); the installer itself doesn't use it
 )
 
 function Get-BlueTrackAnswerName {

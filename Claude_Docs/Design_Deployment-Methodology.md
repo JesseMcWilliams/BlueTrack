@@ -32,7 +32,7 @@ Given the single-server, no-redundancy environment, this stays a small, explicit
 
 ### Installer steps, resume and prerequisite sources (D-168)
 
-`Install-BlueTrack.ps1` runs the sequence above as named steps (`Prereq.*`, `Build.*`, `Db.*`, `Iis.*`, `Smoke`). Answers and each step's outcome are saved under `Deploy/State/`, so a failed install continues with `-Resume`, and any step can be re-run with `-Step` or `-StartAt`. Prerequisites install from an offline installer folder, winget, or the vendor's release metadata, in that order under `-PrerequisiteSource Auto`, and every installer is hash- and signature-checked before it runs. Usage: `Deploy/README.md`.
+`Install-BlueTrack.ps1` runs the sequence above as named steps (`Prereq.*`, `Build.*`, `Db.*`, `Iis.*`, `Smoke`). Answers and each step's outcome are saved under `Deploy/State/`, so a failed install continues with `-Resume`, and any step can be re-run with `-Step` or `-StartAt`. Prerequisites install from an offline installer folder, winget, or the vendor's release metadata, in that order under `-PrerequisiteSource Auto`, and every installer is hash- and signature-checked before it runs. Usage: `Deploy/README.md`. `Update-BlueTrack.ps1` (D-192) fetches a release, `main` or a chosen branch as GitHub's source zip into a per-version folder under the saved `UpdateDownloadFolder`, copies the site's saved answers into it, and offers to run that copy's installer.
 
 ### IIS restart, the browser path, and redeploying over a running API (D-172, D-175)
 
