@@ -108,6 +108,11 @@ GO
 
 ALTER ROLE db_datareader ADD MEMBER [__TARGET_ACCOUNT__];
 ALTER ROLE db_datawriter ADD MEMBER [__TARGET_ACCOUNT__];
+-- D-198: the Deployment page's "Backup App" runs BACKUP DATABASE as this
+-- account. db_backupoperator allows that (and BACKUP LOG/CHECKPOINT) and
+-- nothing else; the file goes only to a folder inside FileAccess:AllowedRoots
+-- (D-197), and SQL Server's service account writes it.
+ALTER ROLE db_backupoperator ADD MEMBER [__TARGET_ACCOUNT__];
 GO
 
 GRANT EXECUTE ON SCHEMA::dbo TO [__TARGET_ACCOUNT__];

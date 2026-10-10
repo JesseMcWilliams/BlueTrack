@@ -132,3 +132,4 @@ Open items from the same review stay in `Testing_Audit-Findings.md`.
 - [x] **Needs checking -- the app account's SQL rights.** `db_datareader` + `db_datawriter` only (no wider grant); see the open backup item.
 - [x] **Low -- prerequisite installers weren't pinned to a signer.** Each must be signed by its vendor's organisation.
 - [x] **Found while fixing -- `sqlcmd -C` splatting (D-197) broke `Db.AppPoolAccess` and `Db.NightlyJob`.** Fixed; see `Reference_Lessons-Learned.md`.
+- [x] **Found while checking -- the Deployment page's "Backup App" couldn't work under the least-privilege grant** (no `BACKUP DATABASE`). Chosen: `Manual/02` adds `db_backupoperator`; verified on the dev host (BACKUP DATABASE allowed, audit DELETE still refused).
