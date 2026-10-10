@@ -2,6 +2,15 @@
 
 > **Stage: Planning.** Work that isn't built or proven yet. Carried forward from the 2026-09-16 survey (`Archive_Planning_Outstanding-Work-Survey-2026-09-16.md`); items that survey listed but the audit tracker records as resolved were left in the archive. Items tagged *(verify)* may already be done; confirm before starting. When an item ships, delete it here and record it in the relevant `Design_` doc.
 
+## DCACYBSQL01: outstanding (as of 2026-10-10)
+Last updated there from a pre-D-197 build (it has D-196). To bring it up to `main`, in order:
+1. **Update the code.** Its copy of `Update-BlueTrack.ps1` predates D-199, so this update runs the old way. From the next update on, until a signed release exists, use `.\Update-BlueTrack.ps1 -Branch main -AllowUnsignedBranch` (D-199).
+2. **Run the installer elevated** (the update script offers to). `Db.Migrate` applies `07_BlueTrack_ScheduledBackups.sql` (D-200); the Migrator only records the `01`-`06` baseline as applied (D-195).
+3. **If a data feed or the backup folder is on a network share**, pass it in `-AllowedFileRoots` (D-197); otherwise those feeds and backups are refused.
+4. **Re-run `-Step Db.AppPoolAccess`.** It applies `db_backupoperator` and the append-only audit log (D-198); a normal update doesn't re-apply database grants. Its first run by the installer here also proves the step (see "Installer on a fresh server" below).
+5. **Optional, scheduled backups (D-200):** set a time (and days to keep) on Global Application Configuration, and give the App Pool's account Modify on the Backup Folder so old scheduled backups can be cleaned up.
+6. **Check afterwards:** smoke test passes; Windows sign-in from a remote machine; the Deployment page lists recent backups; a role without `ViewDashboard` can't see Account Progress (D-197).
+
 ## Requested, not started
 - **Data Sources admin page** (requested 2026-10-08; design agreed 2026-10-09; phases 1-2 built 2026-10-09, phases 3-4 not started): scheduled CSV feeds over the existing import pipelines (groups, servers, applications, account links), an account inventory feed that adds other systems' accounts as Discovered with their source and links them to CyberArk accounts on an exact username + address match, a possible-match remediation report, and the CyberArk sources' settings editable on the page. Design, decisions and phasing: `Planning_Data-Sources.md`.
 
@@ -10,11 +19,7 @@
 - **SAML and OIDC**: working code, pointed only at placeholder IdP config. SAML Single Logout isn't built.
 - **Break-glass**: exists only as a decision (credential in CyberArk, logon triggers an alert). No distinct code path exists.
 - **Installer on a fresh server**: `Db.AppPoolAccess` (D-171) and `Iis.Reset` (D-175) have only run by hand or with `-WhatIf`; the new `Iis.SiteRestart` (D-188) ran on the dev host only. DCACYBSQL01's app pool SQL login was granted by hand. Check all three on the next real install.
-- **The `/api/...` login loop** (D-172, D-175, D-188): `Iis.SiteRestart` is the current best fix, not yet seen to prevent a recurrence. If it comes back, capture Failed Request Tracing for `401` before changing anything (see `Reference_Lessons-Learned.md`).
 - **AD Account Discovery multi-domain**: code loops over every enabled domain, but only one real domain exists to test against.
-
-## Deliberately deferred (confirmed choices, not gaps)
-- Per-field permission granularity on the field-metadata system (D-20).
 
 ## Waiting on real external data or specs
 - Self-Hosted CyberArk pivot logic uses **placeholder property names**, unconfirmed against real `stg_sh_objectproperties` data.
@@ -22,7 +27,6 @@
 - `dbo.stg_discovered_accounts`: a content-free stub, effectively superseded by `web.discovered_account`. Candidate for removal.
 
 ## Process and tooling
-- **Turn on CI as a required check** (decided 2026-10-09): `main`'s branch protection should require the `ci.yml` `test` job, including for admins. Not set yet: it needs repository-admin access in GitHub.
 - Playwright E2E has a known recurring flaky-proxy issue, accepted as a limitation (see `Reference_Lessons-Learned.md`).
 - No automated versioning: the API's `<Version>` is bumped by hand.
 - Target Match Review's "Merged" resolution and the CSV import-mapping UX are plain manual forms, with no typeahead or header auto-detect.
