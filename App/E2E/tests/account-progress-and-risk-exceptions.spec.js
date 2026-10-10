@@ -190,6 +190,7 @@ test.describe('Risk Exception create/extend/revoke workflow', () => {
     await page.click('button:has-text("Extend Review Date")')
     await expect(page.getByText(newReviewDate)).toBeVisible()
 
+    await page.getByLabel('Reason to revoke:').fill('E2E: no longer needed')
     await page.click('button:has-text("Revoke Exception")')
     await expect(page.getByText('Revoked')).toBeVisible()
   })
@@ -277,5 +278,30 @@ test.describe('Account delete and undelete (D-185)', () => {
     await page.getByLabel('Select accounts for bulk actions').check()
     await expect(page.getByRole('button', { name: 'Bulk edit…' })).toBeVisible()
     await expect(page.getByRole('button', { name: 'Delete…' })).toHaveCount(0)
+  })
+})
+
+test.describe('Bulk actions on Risk Exceptions (D-190)', () => {
+  test('Approver bulk revokes selected exceptions with a reason', async ({ page }) => {
+    await signInAs(page, 'TestUser.Approver')
+    const accounts = await (await page.request.get('/api/account-progress?search=TestAccount03')).json()
+    const accountKey = accounts.find(a => a.accountName === 'TestAccount03').accountKey
+    const reviewDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
+    const ids = []
+    for (const n of [1, 2]) {
+      const created = await (await page.request.post('/api/risk-exceptions', {
+        data: { accountKey, justification: `E2E bulk revoke ${Date.now()}-${n}`, reviewDate }
+      })).json()
+      ids.push((await (await page.request.get(`/api/risk-exceptions/${created.exceptionKey}`)).json()).exceptionID)
+    }
+
+    await page.goto('/exceptions')
+    await page.getByLabel('Status:').selectOption('Active')
+    await page.getByLabel('Select exceptions for bulk actions').check()
+    for (const id of ids) await page.getByLabel(`Select ${id}`, { exact: true }).check()
+    await page.getByRole('button', { name: 'Revoke…' }).click()
+    await page.getByLabel(/Reason to revoke 2 exception/).fill('E2E: remediated')
+    await page.getByRole('button', { name: 'Revoke', exact: true }).click()
+    await expect(page.getByText('2 revoked, 0 skipped.')).toBeVisible()
   })
 })

@@ -123,13 +123,21 @@ async function extendReview() {
   }
 }
 
+// D-190: revoking always needs a reason, recorded in the audit log.
+const revokeReason = ref('')
+
 async function revoke() {
   error.value = null
   saving.value = true
   try {
-    const response = await fetch(`/api/risk-exceptions/${props.exceptionKey}/revoke`, { method: 'PUT' })
+    const response = await fetch(`/api/risk-exceptions/${props.exceptionKey}/revoke`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reason: revokeReason.value })
+    })
     if (!response.ok) {
-      throw new Error(`Request failed: ${response.status}`)
+      const problem = await response.json().catch(() => null)
+      throw new Error(problem?.detail ?? `Request failed: ${response.status}`)
     }
     detail.value.statusName = 'Revoked'
   } catch (err) {
@@ -179,7 +187,8 @@ async function revoke() {
         <button class="btn-primary" :disabled="saving" @click="extendReview">Extend Review Date</button>
 
         <h3>Revoke</h3>
-        <button :disabled="saving" @click="revoke">Revoke Exception</button>
+        <p><label class="field-label"><span class="field-label-text">Reason to revoke:</span> <input v-model="revokeReason" size="60" maxlength="1000" /></label></p>
+        <button :disabled="saving || !revokeReason.trim()" @click="revoke">Revoke Exception</button>
       </template>
     </template>
 

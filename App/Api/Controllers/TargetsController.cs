@@ -32,6 +32,94 @@ public sealed class TargetsController(
         return Ok(results);
     }
 
+    /// <summary>D-190: "Select all matching" for the list's bulk actions -- no keys if more match than the bulk limit.</summary>
+    [HttpGet("keys")]
+    public async Task<IActionResult> GetMatchingKeys([FromQuery] int? targetTypeKey, [FromQuery] int? applicationKey,
+        [FromServices] BulkActions.BulkActionRunner runner)
+    {
+        var max = await runner.GetMaxItemsAsync();
+        var matching = await repository.GetFilteredCountAsync(targetTypeKey, applicationKey);
+        var keys = matching > max ? [] : await repository.GetFilteredKeysAsync(targetTypeKey, applicationKey, max);
+        return Ok(new BulkKeysResult { MatchingCount = matching, MaxItems = max, Keys = keys });
+    }
+
+    private static readonly HashSet<string> BulkEditableFields = new(StringComparer.OrdinalIgnoreCase)
+        { "TargetTypeKey", "ApplicationKey", "RiskScore", "Description" };
+
+    /// <summary>D-190: the same values for the chosen fields on every selected target; each is saved (and audited) as a single edit would be.</summary>
+    [HttpPost("bulk-edit")]
+    public async Task<IActionResult> BulkEdit([FromBody] BulkEditTargetsRequest request, [FromServices] BulkActions.BulkActionRunner runner)
+    {
+        var user = await currentUserResolver.ResolveAsync(User);
+        if (user is null) return Unauthorized();
+        var error = await runner.ValidateAsync(request.Keys);
+        bool Has(string field) => request.Fields.Contains(field, StringComparer.OrdinalIgnoreCase);
+        if (error is null && request.Fields is not { Count: > 0 }) error = "Choose at least one field to change.";
+        if (error is null && request.Fields.FirstOrDefault(f => !BulkEditableFields.Contains(f)) is { } unknown) error = $"'{unknown}' can't be bulk edited.";
+        if (error is null && Has("TargetTypeKey") && (request.TargetTypeKey is null || !(await repository.GetTargetTypesAsync()).Any(t => t.TargetTypeKey == request.TargetTypeKey))) error = "Choose a valid Target Type.";
+        if (error is null && Has("RiskScore") && request.RiskScore is null or < 0) error = "Risk Score must be 0 or more.";
+        if (error is not null) return Problem(title: "Invalid bulk edit", detail: error, statusCode: StatusCodes.Status400BadRequest);
+
+        var result = await BulkActions.BulkActionRunner.RunAsync(request.Keys, async key =>
+        {
+            var before = await repository.GetByKeyAsync(key) ?? throw new BulkActions.BulkActionRunner.SkipException("Target not found.");
+            var save = new SaveTargetRequest
+            {
+                TargetTypeKey = Has("TargetTypeKey") ? request.TargetTypeKey!.Value : before.TargetTypeKey,
+                TargetName = before.TargetName,
+                ApplicationKey = Has("ApplicationKey") ? request.ApplicationKey : before.ApplicationKey,
+                RiskScore = Has("RiskScore") ? request.RiskScore!.Value : before.RiskScore,
+                Description = Has("Description") ? (string.IsNullOrWhiteSpace(request.Description) ? null : request.Description.Trim()) : before.Description,
+                DiscoverySource = before.DiscoverySource,
+                Identifiers = before.Identifiers.Select(i => new SaveTargetIdentifierRequest { IdentifierType = i.IdentifierType, IdentifierValue = i.IdentifierValue }).ToList()
+            };
+            await repository.UpdateAsync(key, save, user.UserKey);
+            List<FieldChange> changes = [];
+            void Track(string name, object? oldValue, object? newValue)
+            {
+                if (oldValue?.ToString() != newValue?.ToString()) changes.Add(new FieldChange(name, oldValue?.ToString(), newValue?.ToString()));
+            }
+            Track("TargetTypeKey", before.TargetTypeKey, save.TargetTypeKey);
+            Track("ApplicationKey", before.ApplicationKey, save.ApplicationKey);
+            Track("RiskScore", before.RiskScore, save.RiskScore);
+            Track("Description", before.Description, save.Description);
+            await auditLogger.LogAsync("FieldEdit", user.UserKey, "dim_target", key.ToString(),
+                detail: $"Target '{before.TargetName}' updated (bulk edit)", fieldChanges: changes);
+            return before.TargetName;
+        });
+        return Ok(result);
+    }
+
+    /// <summary>D-190: deletes the selected targets; a reason is required and recorded on each one's audit event.</summary>
+    [HttpPost("bulk-delete")]
+    public async Task<IActionResult> BulkDelete([FromBody] BulkDeleteRequest request, [FromServices] BulkActions.BulkActionRunner runner)
+    {
+        var user = await currentUserResolver.ResolveAsync(User);
+        if (user is null) return Unauthorized();
+        if (await runner.ValidateAsync(request.Keys, reasonRequired: true, request.Reason) is { } error)
+        {
+            return Problem(title: "Invalid bulk delete", detail: error, statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        var reason = request.Reason.Trim();
+        var result = await BulkActions.BulkActionRunner.RunAsync(request.Keys, async key =>
+        {
+            var target = await repository.GetByKeyAsync(key) ?? throw new BulkActions.BulkActionRunner.SkipException("Target not found.");
+            try
+            {
+                await repository.DeleteAsync(key);
+            }
+            catch (Microsoft.Data.SqlClient.SqlException ex) when (ex.Number == 547)
+            {
+                throw new BulkActions.BulkActionRunner.SkipException("Access groups or accounts still point at it, so it can't be deleted.", target.TargetName);
+            }
+            await auditLogger.LogAsync("FieldEdit", user.UserKey, "dim_target", key.ToString(),
+                detail: $"Target '{target.TargetName}' deleted (bulk delete)", reason: reason);
+            return target.TargetName;
+        });
+        return Ok(result);
+    }
+
     [HttpGet("identifier-types")]
     public async Task<IActionResult> GetIdentifierTypes() => Ok(await repository.GetIdentifierTypesAsync());
 

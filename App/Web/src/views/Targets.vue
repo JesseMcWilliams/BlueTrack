@@ -39,6 +39,12 @@ import { confirmDelete } from '../composables/useConfirmDialog'
 import { usePageSizeStore } from '../stores/pageSize'
 import FilterCountSummary from '../components/FilterCountSummary.vue'
 import Pager from '../components/Pager.vue'
+import SelectionBar from '../components/SelectionBar.vue'
+import BulkFieldEditor from '../components/BulkFieldEditor.vue'
+import BulkReasonForm from '../components/BulkReasonForm.vue'
+import BulkResultSummary from '../components/BulkResultSummary.vue'
+import { useListSelectionStore } from '../stores/listSelection'
+import { useBulkAction } from '../composables/useBulkAction'
 
 const router = useRouter()
 
@@ -192,6 +198,39 @@ watch([typeFilter, applicationFilter, sortQueryParam], () => {
   load()
 })
 
+// D-190: bulk edit and bulk delete (reason required) through the shared
+// selection bar, as on Account Progress.
+const selection = useListSelectionStore('targets')
+const { saving: bulkSaving, result: bulkResult, error: bulkError, run: runBulk } = useBulkAction(selection)
+const bulkPanel = ref(null) // 'edit' | 'delete'
+const pageKeys = computed(() => items.value.map(i => i.targetKey))
+const keysUrl = computed(() => {
+  const params = new URLSearchParams()
+  if (typeFilter.value) params.set('targetTypeKey', typeFilter.value)
+  if (applicationFilter.value) params.set('applicationKey', applicationFilter.value)
+  return `/api/admin/targets/keys?${params.toString()}`
+})
+const bulkFields = computed(() => [
+  { field: 'TargetTypeKey', label: 'Type', type: 'select', required: true, options: targetTypes.value.map(t => ({ value: t.targetTypeKey, label: t.displayName })) },
+  { field: 'ApplicationKey', label: 'Application', type: 'select', options: applications.value.map(a => ({ value: a.applicationKey, label: a.applicationName })) },
+  { field: 'RiskScore', label: 'Risk Score', type: 'number' },
+  { field: 'Description', label: 'Description', type: 'text' }
+])
+
+async function bulkEdit(payload) {
+  if (await runBulk('/api/admin/targets/bulk-edit', payload, 'updated')) {
+    bulkPanel.value = null
+    await load()
+  }
+}
+
+async function bulkDelete(reason) {
+  if (await runBulk('/api/admin/targets/bulk-delete', { reason }, 'deleted')) {
+    bulkPanel.value = null
+    await load()
+  }
+}
+
 async function remove(item) {
   // D-129/D-131: a structured Name/Scope/Address/Source summary (rendered
   // indented, set off from the title/warning) -- Target has no literal
@@ -242,6 +281,14 @@ async function remove(item) {
         </select>
       </label>
     </p>
+    <SelectionBar :selection="selection" :page-keys="pageKeys" :filtered-count="filteredCount" :keys-url="keysUrl" toggle-label="Select targets for bulk actions">
+      <button type="button" class="btn-primary" :disabled="selection.count === 0" @click="bulkPanel = 'edit'">Bulk edit…</button>
+      <button type="button" :disabled="selection.count === 0" @click="bulkPanel = 'delete'">Delete…</button>
+    </SelectionBar>
+    <BulkFieldEditor v-if="bulkPanel === 'edit'" :fields="bulkFields" :count="selection.count" :saving="bulkSaving" @apply="bulkEdit" @cancel="bulkPanel = null" />
+    <BulkReasonForm v-if="bulkPanel === 'delete'" :action="`delete ${selection.count} target(s)`" button-label="Delete" :saving="bulkSaving" @submit="bulkDelete" @cancel="bulkPanel = null" />
+    <p v-if="bulkError" role="alert">{{ bulkError }}</p>
+    <BulkResultSummary v-if="bulkResult" :result="bulkResult" />
     <FilterCountSummary :shown="items.length" :filtered-count="filteredCount" :total="totalCount" :page="page" :page-size="pageSizeStore.current" />
     <Pager :page="page" :page-count="pageCount" @update:page="onPageChange" @page-size-change="onPageSizeChange" />
 
@@ -251,6 +298,7 @@ async function remove(item) {
       <table>
         <thead>
           <tr>
+            <th v-if="selection.enabled"><span class="visually-hidden">Selected</span></th>
             <th v-for="col in columns" :key="col.field" :aria-sort="ariaSortFor(col.field)">
               <button type="button" @click="toggleSort(col.field, $event)">
                 {{ col.label }} <span aria-hidden="true">{{ sortIndicator(col.field) }}</span>
@@ -262,6 +310,7 @@ async function remove(item) {
         </thead>
         <tbody>
           <tr v-for="item in items" :key="item.targetKey">
+            <td v-if="selection.enabled"><input type="checkbox" :checked="selection.isSelected(item.targetKey)" :aria-label="`Select ${item.targetName}`" @change="selection.toggle(item.targetKey)" /></td>
             <td><router-link :to="{ name: 'target-edit', params: { targetKey: item.targetKey } }">{{ item.targetName }}</router-link></td>
             <td>{{ item.targetTypeDisplayName }}</td>
             <td>{{ item.applicationName }}</td>

@@ -156,3 +156,46 @@ async function readTotalCount(page) {
   const text = await page.getByText(/matching \(\d+ total\)/).textContent()
   return Number(text.match(/\((\d+) total\)/)[1])
 }
+
+test.describe('Bulk actions on Targets (D-190)', () => {
+  test('Analyst selects two targets, bulk edits their risk score, then bulk deletes them with a reason', async ({ page }) => {
+    await signInAs(page, 'TestUser.Analyst')
+    const tag = `E2EBulk${Date.now()}`
+    const types = await (await page.request.get('/api/admin/targets/target-types')).json()
+    const serverTypeKey = types.find(t => t.typeCode === 'Server').targetTypeKey
+    const keys = []
+    for (const n of [1, 2]) {
+      const created = await (await page.request.post('/api/admin/targets', {
+        data: { targetTypeKey: serverTypeKey, targetName: `${tag}-${n}`, riskScore: 100, identifiers: [] }
+      })).json()
+      keys.push(created.targetKey)
+    }
+
+    try {
+      await page.goto('/targets')
+      await page.getByLabel('Select targets for bulk actions').check()
+      await page.getByLabel(`Select ${tag}-1`).check()
+      await page.getByLabel(`Select ${tag}-2`).check()
+      await expect(page.locator('.selection-bar')).toContainText('2 selected')
+
+      await page.getByRole('button', { name: 'Bulk edit…' }).click()
+      await page.getByLabel('Change Risk Score').check()
+      await page.getByLabel('Risk Score', { exact: true }).fill('640')
+      await page.getByRole('button', { name: 'Apply to 2' }).click()
+      await expect(page.getByText('2 updated, 0 skipped.')).toBeVisible()
+      const target = await (await page.request.get(`/api/admin/targets/${keys[0]}`)).json()
+      expect(target.riskScore).toBe(640)
+
+      // The selection was cleared (nothing skipped), so select them again.
+      await page.getByLabel(`Select ${tag}-1`).check()
+      await page.getByLabel(`Select ${tag}-2`).check()
+      await page.getByRole('button', { name: 'Delete…' }).click()
+      await page.getByLabel(/Reason to delete 2 target/).fill('E2E: retired')
+      await page.locator('form.bulk-panel').getByRole('button', { name: 'Delete', exact: true }).click()
+      await expect(page.getByText('2 deleted, 0 skipped.')).toBeVisible()
+      expect((await page.request.get(`/api/admin/targets/${keys[0]}`)).status()).toBe(404)
+    } finally {
+      for (const key of keys) await page.request.delete(`/api/admin/targets/${key}`)
+    }
+  })
+})
