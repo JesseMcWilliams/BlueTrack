@@ -79,7 +79,15 @@ function Invoke-BlueTrackWebBuild {
     }
 
     Push-Location $webProject
+    # npm and Vite write UTF-8 (e.g. the check mark, U+2713, in Vite's
+    # "built in" line), but piping a program's output makes Windows
+    # PowerShell decode it with [Console]::OutputEncoding -- the OEM code
+    # page (437) on a default server -- which shows the check mark as three
+    # wrong characters. UTF-8 for these two calls only; the caller's setting
+    # is restored in finally.
+    $savedOutputEncoding = [Console]::OutputEncoding
     try {
+        [Console]::OutputEncoding = New-Object System.Text.UTF8Encoding $false
         if ($PSCmdlet.ShouldProcess($webProject, 'npm ci')) {
             # Piped through Out-Host, not left as pipeline output: this
             # function's caller assigns its return value ($spaDist = ...),
@@ -99,6 +107,7 @@ function Invoke-BlueTrackWebBuild {
             }
         }
     } finally {
+        [Console]::OutputEncoding = $savedOutputEncoding
         Pop-Location
     }
 
