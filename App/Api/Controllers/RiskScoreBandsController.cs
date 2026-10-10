@@ -38,7 +38,7 @@ public sealed class RiskScoreBandsController(
         }
         catch (RiskScoreBandOverlapException ex)
         {
-            return BadRequest(new { message = ex.Message });
+            return Problem(title: "Overlapping band", detail: ex.Message, statusCode: StatusCodes.Status409Conflict);
         }
     }
 
@@ -56,7 +56,7 @@ public sealed class RiskScoreBandsController(
         }
         catch (RiskScoreBandOverlapException ex)
         {
-            return BadRequest(new { message = ex.Message });
+            return Problem(title: "Overlapping band", detail: ex.Message, statusCode: StatusCodes.Status409Conflict);
         }
     }
 

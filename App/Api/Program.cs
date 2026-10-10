@@ -18,6 +18,10 @@ var builder = WebApplication.CreateBuilder(args);
 // Add services to the container.
 
 builder.Services.AddControllers();
+// D-194: database constraint violations become 409/400 ProblemDetails, not 500s.
+builder.Services.AddExceptionHandler<BlueTrack.Api.Errors.ApiProblemExceptionHandler>();
+builder.Services.AddExceptionHandler<BlueTrack.Api.Errors.SqlConstraintExceptionHandler>();
+builder.Services.AddProblemDetails();
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
 builder.Services.AddHttpContextAccessor(); // AuditLogger needs the request's source IP
@@ -214,6 +218,7 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 }
 
+app.UseExceptionHandler();
 app.UseHttpsRedirection();
 
 app.UseAuthentication();

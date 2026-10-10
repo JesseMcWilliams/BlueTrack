@@ -105,9 +105,10 @@ public sealed class GroupRoleMappingsController(
     public async Task<IActionResult> Create([FromBody] CreateGroupRoleMappingRequest request)
     {
         var resolved = WindowsGroupResolver.TryResolve(request.GroupName);
+        // D-194: 400, not 404 -- the URL is fine; the group named in the body is the problem.
         if (resolved is null)
         {
-            return Problem(title: "Group not found", detail: $"Could not resolve '{request.GroupName}' to a Windows account.", statusCode: StatusCodes.Status404NotFound);
+            return Problem(title: "Group not found", detail: $"Could not resolve '{request.GroupName}' to a Windows account.", statusCode: StatusCodes.Status400BadRequest);
         }
 
         var provider = await identityProviderRepository.GetByTypeAsync("WindowsIntegrated");

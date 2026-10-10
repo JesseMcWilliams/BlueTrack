@@ -179,7 +179,12 @@ public sealed class AccountProgressController(
         if (user is null) return Unauthorized();
 
         var status = await lockRepository.TryAcquireAsync(accountKey, user.UserKey);
-        if (status is null || status.LockedByUserKey != user.UserKey)
+        if (status is null)
+        {
+            // D-194: the lock changed hands between the insert and the read-back; never a 409 with an empty body.
+            return Problem(title: "Lock not acquired", detail: "Someone else took the edit lock at the same moment. Reload and try again.", statusCode: StatusCodes.Status409Conflict);
+        }
+        if (status.LockedByUserKey != user.UserKey)
         {
             return Conflict(status);
         }
@@ -239,15 +244,16 @@ public sealed class AccountProgressController(
         // D-174: ownership, not liveness -- GetStatusAsync now hides a lock
         // whose heartbeat lapsed, which would otherwise refuse a save from
         // the holder who merely paused while nobody else took over.
-        if (!await lockRepository.IsHeldByAsync(accountKey, user.UserKey))
-        {
-            return Conflict("This record is not locked by you -- acquire the edit lock before saving.");
-        }
-
+        // D-194: a missing account is 404 before any lock question arises.
         var before = await repository.GetDetailAsync(accountKey);
         if (before is null)
         {
             return NotFound();
+        }
+
+        if (!await lockRepository.IsHeldByAsync(accountKey, user.UserKey))
+        {
+            return Problem(title: "Not locked by you", detail: "This record is not locked by you -- acquire the edit lock before saving.", statusCode: StatusCodes.Status409Conflict);
         }
 
         // D-51 and the Risk Exception link rules live in

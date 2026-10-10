@@ -198,6 +198,10 @@ public class RiskExceptionsWorkflowTests : IClassFixture<BlueTrackWebApplication
 
         var detail = await client.GetFromJsonAsync<RiskExceptionDetailResponse>($"/api/risk-exceptions/{created}");
         Assert.Equal("Revoked", detail!.StatusName);
+
+        // D-194: a second revoke, or a re-approval, of a no-longer-Active exception is a conflict.
+        Assert.Equal(HttpStatusCode.Conflict, (await client.PutAsJsonAsync($"/api/risk-exceptions/{created}/revoke", new { reason = "Again" })).StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict, (await client.PutAsJsonAsync($"/api/risk-exceptions/{created}/extend-review", new { newReviewDate = DateTime.UtcNow.Date.AddDays(30) })).StatusCode);
     }
 
     [Fact]

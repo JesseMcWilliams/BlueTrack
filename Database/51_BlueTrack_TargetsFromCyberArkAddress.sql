@@ -27,15 +27,16 @@
      Description flag the row for an analyst to re-score.
    - Target type is 'Other' (web.dim_target_type TypeCode), since nothing in
      the CyberArk data maps cleanly to Server/Database/etc.
-   - It only fills the Target inventory. It does NOT link accounts to these
-     Targets (web.account_target_map): direct grants stay the exception in
-     the risk model; CSV import, Phase C and manual links are the only ways
-     an account connects to a Target.
+   - Linking (D-193, decided 2026-10-09, reversing the 2026-09 "inventory
+     only" choice): usp_DeriveAccountTargetMap_FromAddress below links each
+     active account to every Target whose identifier equals its Address,
+     marked SourceMethod = 'AddressDerived' and kept up to date each run.
    Idempotent: a NOT EXISTS guard on web.target_identifier.IdentifierValue.
 
    usp_RunFullLoad (last defined in 23_BlueTrack_RiskScoringCalculation.sql)
-   is redefined to call it just before Phase C's derivation, so a new
-   Target's identifier is available to that same run's account matching.
+   is redefined to create Targets just before Phase C's derivation (so a new
+   Target's identifier is available to that same run's matching) and to run
+   the address linking just after it, before risk scores are recalculated.
    ============================================================================ */
 
 USE $DatabaseName$;
@@ -101,6 +102,81 @@ BEGIN
 END
 GO
 
+-- D-193: allow the new link kind. The constraint
+-- (20_BlueTrack_RiskScoringSchema.sql) only listed 'PendingSafeDerived',
+-- 'ManualImport' and 'ETL'. Rebuilt only when 'AddressDerived' is missing.
+IF NOT EXISTS (SELECT 1 FROM sys.check_constraints
+               WHERE name = 'CK_account_target_map_SourceMethod' AND definition LIKE '%AddressDerived%')
+BEGIN
+    IF EXISTS (SELECT 1 FROM sys.check_constraints WHERE name = 'CK_account_target_map_SourceMethod')
+        ALTER TABLE web.account_target_map DROP CONSTRAINT CK_account_target_map_SourceMethod;
+    ALTER TABLE web.account_target_map ADD CONSTRAINT CK_account_target_map_SourceMethod
+        CHECK (SourceMethod IN ('PendingSafeDerived', 'ManualImport', 'ETL', 'AddressDerived'));
+END
+GO
+
+/* usp_DeriveAccountTargetMap_FromAddress (D-193, agreed 2026-10-09): a
+   CyberArk account whose Address is server X is a credential for X, so it
+   is linked directly to every Target with an identifier equal to that
+   Address -- auto-created above or entered by hand, domain addresses
+   included. An account can reach many Targets: these links sit alongside
+   the ones its group memberships give it. Links are marked
+   SourceMethod = 'AddressDerived' and kept in step with the data on every
+   run: new matches are added; an AddressDerived link whose account was
+   deleted, or whose Address no longer matches, is removed. Links made any
+   other way (CSV import, Phase C's 'PendingSafeDerived', manual) are never
+   touched. Every account whose links changed is marked stale for
+   usp_RecalculateRiskScores. */
+CREATE OR ALTER PROCEDURE dbo.usp_DeriveAccountTargetMap_FromAddress
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    DECLARE @Changed TABLE (AccountKey BIGINT NOT NULL);
+
+    IF OBJECT_ID('tempdb..#DesiredLinks') IS NOT NULL DROP TABLE #DesiredLinks;
+    CREATE TABLE #DesiredLinks (
+        AccountKey BIGINT NOT NULL,
+        TargetKey  INT    NOT NULL,
+        PRIMARY KEY (AccountKey, TargetKey)
+    );
+
+    INSERT INTO #DesiredLinks (AccountKey, TargetKey)
+    SELECT DISTINCT fa.AccountKey, ti.TargetKey
+    FROM fact_account fa
+    JOIN web.target_identifier ti ON ti.IdentifierValue = LTRIM(RTRIM(fa.Address))
+    WHERE fa.IsDeleted = 0
+      AND fa.Address IS NOT NULL
+      AND LTRIM(RTRIM(fa.Address)) <> '';
+
+    INSERT INTO web.account_target_map (AccountKey, TargetKey, SourceMethod, LoadTimestamp)
+    OUTPUT inserted.AccountKey INTO @Changed (AccountKey)
+    SELECT d.AccountKey, d.TargetKey, 'AddressDerived', SYSUTCDATETIME()
+    FROM #DesiredLinks d
+    WHERE NOT EXISTS (
+        SELECT 1 FROM web.account_target_map atm
+        WHERE atm.AccountKey = d.AccountKey AND atm.TargetKey = d.TargetKey
+    );
+
+    DELETE atm
+    OUTPUT deleted.AccountKey INTO @Changed (AccountKey)
+    FROM web.account_target_map atm
+    WHERE atm.SourceMethod = 'AddressDerived'
+      AND NOT EXISTS (
+          SELECT 1 FROM #DesiredLinks d
+          WHERE d.AccountKey = atm.AccountKey AND d.TargetKey = atm.TargetKey
+      );
+
+    MERGE web.account_risk_score AS tgt
+    USING (SELECT DISTINCT AccountKey FROM @Changed) AS src (AccountKey)
+    ON tgt.AccountKey = src.AccountKey
+    WHEN MATCHED THEN UPDATE SET IsRiskScoreStale = 1
+    WHEN NOT MATCHED THEN INSERT (AccountKey, IsRiskScoreStale) VALUES (src.AccountKey, 1);
+
+    DROP TABLE #DesiredLinks;
+END
+GO
+
 CREATE OR ALTER PROCEDURE usp_RunFullLoad
 AS
 BEGIN
@@ -122,6 +198,7 @@ BEGIN
         EXEC usp_Load_FactAccountProgressHistory;
         EXEC usp_DeriveTargetsFromAccountAddress;   -- D-123 (51_)
         EXEC usp_DeriveAccountTargetMap_FromPendingSafes;
+        EXEC usp_DeriveAccountTargetMap_FromAddress;    -- D-193 (51_)
         EXEC usp_RecalculateRiskScores;
 
         COMMIT TRANSACTION;

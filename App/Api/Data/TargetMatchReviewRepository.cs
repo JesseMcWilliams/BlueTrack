@@ -1,3 +1,4 @@
+using BlueTrack.Api.Errors;
 using Dapper;
 using BlueTrack.Api.Models;
 
@@ -27,14 +28,23 @@ public sealed class TargetMatchReviewRepository(IDbConnectionFactory connectionF
         connection.Open();
         using var transaction = connection.BeginTransaction();
 
-        var row = await connection.QuerySingleAsync<(string IdentifierType, string IdentifierValue, int? CandidateTargetKey)>(
-            "SELECT IdentifierType, IdentifierValue, CandidateTargetKey FROM web.target_match_review WHERE TargetMatchReviewKey = @Key",
+        // D-194: a missing review is 404, an already-resolved one 409, a bad resolution 400.
+        var row = await connection.QuerySingleOrDefaultAsync<(string IdentifierType, string IdentifierValue, int? CandidateTargetKey, string? Resolution)>(
+            "SELECT IdentifierType, IdentifierValue, CandidateTargetKey, Resolution FROM web.target_match_review WITH (UPDLOCK) WHERE TargetMatchReviewKey = @Key",
             new { Key = targetMatchReviewKey }, transaction);
+        if (row.IdentifierValue is null)
+        {
+            throw ApiProblemException.NotFound($"Target match review {targetMatchReviewKey} doesn't exist.");
+        }
+        if (row.Resolution is not null)
+        {
+            throw ApiProblemException.Conflict($"This review was already resolved ({row.Resolution}).");
+        }
 
         if (request.Resolution == "Merged")
         {
             var mergeIntoTargetKey = request.MergeIntoTargetKey ?? row.CandidateTargetKey
-                ?? throw new InvalidOperationException("No target to merge into -- supply MergeIntoTargetKey.");
+                ?? throw ApiProblemException.BadRequest("No target to merge into -- choose one.");
             await connection.ExecuteAsync(
                 "INSERT INTO web.target_identifier (TargetKey, IdentifierType, IdentifierValue) VALUES (@TargetKey, @IdentifierType, @IdentifierValue)",
                 new { TargetKey = mergeIntoTargetKey, row.IdentifierType, row.IdentifierValue }, transaction);
@@ -49,7 +59,7 @@ public sealed class TargetMatchReviewRepository(IDbConnectionFactory connectionF
             var newTargetTypeKey = await connection.QuerySingleOrDefaultAsync<int?>(
                 "SELECT TargetTypeKey FROM web.dim_target_type WHERE TypeCode = @TypeCode",
                 new { TypeCode = newTargetTypeCode }, transaction)
-                ?? throw new InvalidOperationException($"Unknown target type '{newTargetTypeCode}'.");
+                ?? throw ApiProblemException.BadRequest($"Unknown target type '{newTargetTypeCode}'.");
 
             var targetKey = await connection.QuerySingleAsync<int>("""
                 INSERT INTO web.dim_target (TargetTypeKey, TargetName, RiskScore)
@@ -62,7 +72,7 @@ public sealed class TargetMatchReviewRepository(IDbConnectionFactory connectionF
         }
         else if (request.Resolution != "Ignored")
         {
-            throw new InvalidOperationException($"Unknown resolution '{request.Resolution}'.");
+            throw ApiProblemException.BadRequest($"Unknown resolution '{request.Resolution}'.");
         }
 
         await connection.ExecuteAsync(

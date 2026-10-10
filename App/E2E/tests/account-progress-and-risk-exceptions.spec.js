@@ -269,6 +269,8 @@ test.describe('Account delete and undelete (D-185)', () => {
       await expect(page.getByText('1 undeleted, 0 skipped.')).toBeVisible()
     } finally {
       await page.request.post('/api/account-progress/undelete', { data: { accountKeys: [accountKey], reason: 'E2E cleanup' } })
+      // Opening the account took the edit lock; left held, a re-run within the lock timeout finds TestAccount01 "being edited".
+      await page.request.delete(`/api/account-progress/${accountKey}/lock`)
     }
   })
 
@@ -297,6 +299,10 @@ test.describe('Bulk actions on Risk Exceptions (D-190)', () => {
 
     await page.goto('/exceptions')
     await page.getByLabel('Status:').selectOption('Active')
+    // Newest first, so the two just created are on page 1 however many Active exceptions earlier runs left behind.
+    await page.getByRole('button', { name: /^Exception ID/ }).click()
+    await page.getByRole('button', { name: /^Exception ID/ }).click()
+    await expect(page.getByRole('columnheader', { name: /Exception ID/ })).toHaveAttribute('aria-sort', 'descending')
     await page.getByLabel('Select exceptions for bulk actions').check()
     for (const id of ids) await page.getByLabel(`Select ${id}`, { exact: true }).check()
     await page.getByRole('button', { name: 'Revoke…' }).click()

@@ -172,6 +172,10 @@ While tracking down a batch of E2E failures that looked like the already-documen
 
 ## Tooling note
 
+- **An E2E test that opens an account as an editor holds its edit lock (2026-10-09):** the detail page takes the lock on load, and closing the page doesn't release it. A later test (or a re-run within `LockTimeoutMinutes`) then finds that account "being edited" and bulk edits skip it. Release it in the test's cleanup: `page.request.delete('/api/account-progress/<key>/lock')`.
+
+- **`sqlcmd` needs `-I` for these scripts (2026-10-09):** without it, `sqlcmd` runs with `QUOTED_IDENTIFIER OFF`, and a procedure created that way fails at run time on any table with a computed column or filtered index (e.g. `web.account_risk_score`): "MERGE failed because the following SET options have incorrect settings: 'QUOTED_IDENTIFIER'". The Migrator always has it on. When applying a script by hand, use `sqlcmd -I`.
+
 - **Bash tool and backslashes (2026-10-08 to 2026-10-09, many times):** backslashes passed through Bash (heredocs, `sed`, inline Python) are collapsed or stripped, e.g. `"\r\n"` became a real line break and `\d` became `d`; long heredocs full of quotes sometimes failed to parse at all. Use the Edit/Write tools for text containing `\`, or write a Python script to a file with Write and run it.
 - **After merging a PR**, update `main` with `git fetch origin main:main` rather than switching branches when `.claude/` tracking differs between commits; switching once left `.claude` "delete pending" until the session restarted.
 

@@ -69,7 +69,7 @@ async function save() {
     })
     if (!response.ok) {
       // D-122: a duplicate (name, identifier, found-on target) comes back as
-      // a 400 with a message -- show it rather than a bare status code.
+      // a 409 with a message -- show it rather than a bare status code.
       const problem = await response.json().catch(() => null)
       saveError.value = problem?.message ?? `Save failed: ${response.status}`
       return

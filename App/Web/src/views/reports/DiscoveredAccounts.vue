@@ -133,7 +133,7 @@ async function accept(row) {
   busyKey.value = row.discoveredAccountKey
   try {
     const response = await fetch(`/api/reports/discovered-accounts/${row.discoveredAccountKey}/accept`, { method: 'POST' })
-    if (!response.ok) throw new Error(`Request failed: ${response.status}`)
+    if (!response.ok) throw new Error((await response.json().catch(() => null))?.detail ?? `Request failed: ${response.status}`)
     await load()
   } catch (err) {
     actionError.value = err.message
@@ -147,7 +147,7 @@ async function dismiss(row) {
   busyKey.value = row.discoveredAccountKey
   try {
     const response = await fetch(`/api/reports/discovered-accounts/${row.discoveredAccountKey}/dismiss`, { method: 'POST' })
-    if (!response.ok) throw new Error(`Request failed: ${response.status}`)
+    if (!response.ok) throw new Error((await response.json().catch(() => null))?.detail ?? `Request failed: ${response.status}`)
     await load()
   } catch (err) {
     actionError.value = err.message

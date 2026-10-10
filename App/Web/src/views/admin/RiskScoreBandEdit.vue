@@ -47,7 +47,7 @@ async function save() {
     })
     if (!response.ok) {
       const problem = await response.json().catch(() => null)
-      saveError.value = problem?.message ?? `Save failed: ${response.status}`
+      saveError.value = problem?.detail ?? problem?.message ?? `Save failed: ${response.status}`
       return
     }
     router.push({ name: 'admin-risk-score-bands' })

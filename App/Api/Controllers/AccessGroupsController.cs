@@ -153,7 +153,7 @@ public sealed class AccessGroupsController(
         var user = await currentUserResolver.ResolveAsync(User);
         if (user is null) return Unauthorized();
 
-        // D-122: a duplicate (GroupName, GroupIdentifier, FoundOnTargetKey) is a clean 400, not an unhandled SQL error.
+        // D-122: a duplicate (GroupName, GroupIdentifier, FoundOnTargetKey) is a 409 Conflict with a message, not an unhandled SQL error.
         try
         {
             var key = await repository.CreateAsync(request, user.UserKey);
@@ -162,7 +162,7 @@ public sealed class AccessGroupsController(
         }
         catch (RiskScoring.DuplicateAccessGroupException ex)
         {
-            return BadRequest(new { message = ex.Message });
+            return Conflict(new { message = ex.Message });
         }
     }
 
@@ -180,7 +180,7 @@ public sealed class AccessGroupsController(
         }
         catch (RiskScoring.DuplicateAccessGroupException ex)
         {
-            return BadRequest(new { message = ex.Message });
+            return Conflict(new { message = ex.Message });
         }
     }
 

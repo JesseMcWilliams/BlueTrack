@@ -134,6 +134,12 @@ public sealed class RiskExceptionsController(
             return NotFound();
         }
 
+        if (before.StatusName != "Active")
+        {
+            return Problem(title: "Not active", detail: $"This exception is {before.StatusName}; only Active exceptions can be re-approved.",
+                statusCode: StatusCodes.Status409Conflict);
+        }
+
         var user = await currentUserResolver.ResolveAsync(User);
         if (user is null)
         {
@@ -167,6 +173,12 @@ public sealed class RiskExceptionsController(
         if (before is null)
         {
             return NotFound();
+        }
+
+        if (before.StatusName != "Active")
+        {
+            return Problem(title: "Not active", detail: $"This exception is already {before.StatusName}; only Active exceptions can be revoked.",
+                statusCode: StatusCodes.Status409Conflict);
         }
 
         var user = await currentUserResolver.ResolveAsync(User);
