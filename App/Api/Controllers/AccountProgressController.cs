@@ -37,7 +37,7 @@ public sealed class AccountProgressController(
         [FromQuery] string? search = null,
         [FromQuery] string? deleted = null)
     {
-        // D-178: search matches Username or Address ("contains").
+        // D-178 / D-191: search matches Username, Address or AccountName ("contains").
         // D-185: deleted = Hide (default) / Show / Only.
         var sortBy = SortParser.Parse(sort);
         var results = await repository.GetSummaryListAsync(stage, status, riskLevel, owner, sortBy, page, pageSize, search, deleted);

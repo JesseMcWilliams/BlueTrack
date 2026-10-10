@@ -28,7 +28,7 @@ Four at-a-glance summary cards, each linking into the full report/worklist behin
 
 ### The list
 
-**Search** finds accounts whose username or address contains what you type. Filter by Stage, Status, Risk Level, or Owner (a "contains" text match) — filters stack together. Click any column header to sort by it; shift-click another header to add it as a secondary sort key (a small numbered arrow shows the resulting priority). Click an account's **Username** to open it.
+**Search** finds accounts whose username, address or account name contains what you type. An account with no username is listed by its CyberArk account name, marked *(no username)*; click it to open the account. Filter by Stage, Status, Risk Level, or Owner (a "contains" text match) — filters stack together. Click any column header to sort by it; shift-click another header to add it as a secondary sort key (a small numbered arrow shows the resulting priority). Click an account's **Username** to open it.
 
 A **⚠** next to a username means the account is flagged for deletion: it's in a safe matching the safe decommission pattern, or its name matches the account pattern. Point at it (or use a screen reader) for the safe's name and any other safe the account is also in; the account's page shows the same as a notice.
 

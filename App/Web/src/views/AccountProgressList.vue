@@ -221,7 +221,7 @@ watch([stageFilter, statusFilter, riskLevelFilter, ownerFilter, searchFilter, de
   <div>
     <h1>Account Progress</h1>
     <p class="filter-row">
-      <label class="field-label"><span class="field-label-text">Search:</span> <input v-model="searchFilter" type="search" placeholder="username or address..." /></label>
+      <label class="field-label"><span class="field-label-text">Search:</span> <input v-model="searchFilter" type="search" placeholder="username, address or account name..." /></label>
       <label class="field-label"><span class="field-label-text">Stage:</span>
         <select v-model="stageFilter">
           <option value="">All</option>
@@ -289,10 +289,12 @@ watch([stageFilter, statusFilter, riskLevelFilter, ownerFilter, searchFilter, de
         <template v-for="account in accounts" :key="account.accountKey">
           <tr>
             <td v-if="selection.enabled">
-              <input type="checkbox" :checked="selection.isSelected(account.accountKey)" :aria-label="`Select ${account.userName} on ${account.address}`" @change="selection.toggle(account.accountKey)" />
+              <input type="checkbox" :checked="selection.isSelected(account.accountKey)" :aria-label="`Select ${account.userName || account.accountName}${account.address ? ` on ${account.address}` : ''}`" @change="selection.toggle(account.accountKey)" />
             </td>
             <td>
-              <router-link :to="{ name: 'account-progress-detail', params: { accountKey: account.accountKey } }">{{ account.userName }}</router-link>
+              <!-- D-191: an account with no username links by its account name, so it can always be opened. -->
+              <router-link :to="{ name: 'account-progress-detail', params: { accountKey: account.accountKey } }">{{ account.userName || account.accountName }}</router-link>
+              <span v-if="!account.userName" class="no-username"> (no username)</span>
               <span v-if="decomNote(account)" class="decom-marker" :title="decomNote(account)"><span aria-hidden="true">⚠</span><span class="visually-hidden">Flagged for deletion: {{ decomNote(account) }}</span></span>
               <span v-if="account.isDeleted" class="deleted-badge" :title="deletedNote(account)">Deleted<span class="visually-hidden">: {{ deletedNote(account) }}</span></span>
             </td>
@@ -314,6 +316,10 @@ watch([stageFilter, statusFilter, riskLevelFilter, ownerFilter, searchFilter, de
 </template>
 
 <style scoped>
+.no-username {
+  font-size: 0.85em;
+  opacity: 0.8;
+}
 .decom-marker {
   margin-left: 0.4rem;
   cursor: help;

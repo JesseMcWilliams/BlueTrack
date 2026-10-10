@@ -184,4 +184,14 @@ describe('AccountProgressList.vue', () => {
 
     expect(wrapper.find('.deleted-badge').attributes('title')).toBe('Not imported (ignored safe)')
   })
+  // D-191: an account without a username is still a link, by its account name.
+  it('links an account without a username by its account name, marked (no username)', async () => {
+    mockInitialLoad({ accounts: [{ ...sampleAccount, userName: null, address: null, accountName: 'salesforce_hash_key' }] })
+    const wrapper = mount(AccountProgressList, { global: { plugins: [makeRouter()] } })
+    await flushPromises()
+
+    const link = wrapper.findAll('a').find(a => a.text() === 'salesforce_hash_key')
+    expect(link.attributes('href')).toBe('/account-progress/1')
+    expect(wrapper.find('.no-username').text()).toBe('(no username)')
+  })
 })

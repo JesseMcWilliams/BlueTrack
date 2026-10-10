@@ -114,7 +114,7 @@ test.describe('Account Progress bulk edit (D-182)', () => {
   test('Analyst selects accounts, uses the selection buttons, and bulk edits a field', async ({ page }) => {
     await signInAs(page, 'TestUser.Analyst')
     await page.goto('/accounts')
-    await page.getByPlaceholder('username or address...').fill('TestAccount0')
+    await page.getByPlaceholder('username, address or account name...').fill('TestAccount0')
     await expect(page.locator('tbody tr')).toHaveCount(4)
 
     await page.getByLabel('Select accounts for bulk actions').check()
@@ -240,7 +240,7 @@ test.describe('Account delete and undelete (D-185)', () => {
   test('Admin deletes an account with a reason, finds it under Only deleted, and undeletes it in bulk', async ({ page }) => {
     await signInAs(page, 'TestUser.Admin')
     await page.goto('/accounts')
-    await page.getByPlaceholder('username or address...').fill('TestAccount01')
+    await page.getByPlaceholder('username, address or account name...').fill('TestAccount01')
     const row = page.locator('tbody tr', { hasText: 'TestAccount01' })
     const href = await row.getByRole('link').first().getAttribute('href')
     const accountKey = Number(href.split('/').pop())
@@ -255,7 +255,7 @@ test.describe('Account delete and undelete (D-185)', () => {
       await expect(page.getByText(/Delete \/ undelete history \(\d+\)/)).toBeVisible()
 
       await page.goto('/accounts')
-      await page.getByPlaceholder('username or address...').fill('TestAccount01')
+      await page.getByPlaceholder('username, address or account name...').fill('TestAccount01')
       await expect(page.locator('tbody tr', { hasText: 'TestAccount01' })).toHaveCount(0)
       await page.getByLabel('Deleted accounts:').selectOption('Only')
       const deletedRow = page.locator('tbody tr', { hasText: 'TestAccount01' })

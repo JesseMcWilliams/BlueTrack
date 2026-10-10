@@ -54,7 +54,7 @@ onMounted(async () => {
         </thead>
         <tbody>
           <tr v-for="item in shown" :key="item.accountKey">
-            <td><router-link :to="{ name: 'account-progress-detail', params: { accountKey: item.accountKey } }">{{ item.userName ?? '—' }}</router-link></td>
+            <td><router-link :to="{ name: 'account-progress-detail', params: { accountKey: item.accountKey } }">{{ item.userName || item.accountName }}</router-link><span v-if="!item.userName" class="no-username"> (no username)</span></td>
             <td>{{ item.address }}</td>
             <td>{{ item.accountName }}</td>
             <td>{{ item.safeName }}</td>
@@ -71,3 +71,10 @@ onMounted(async () => {
     </template>
   </div>
 </template>
+
+<style scoped>
+.no-username {
+  font-size: 0.85em;
+  opacity: 0.8;
+}
+</style>
