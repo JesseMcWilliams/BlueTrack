@@ -155,6 +155,8 @@ The Data Sources page's feeds (D-181) are read by the API itself, so the **App P
 
 ### Smoke test failures
 
+Whenever a smoke check fails, the output ends with the two URLs it calls, so you can try them by hand in a browser on the server or with the `Invoke-RestMethod` lines it prints: **1** the application directly (`/BlueTrack/api/admin/deployment`) and **2** the browser's path through the site-root rewrite (`/api/admin/deployment`). Each should return JSON. If 1 works and 2 keeps asking you to sign in, that's the login loop in the second row below.
+
 | Result | Meaning | What to do |
 |---|---|---|
 | `401` | IIS rejected the Windows login; BlueTrack wasn't reached. Seen live as `401.1` / `0x8009030e`. | Run `klist purge`, then `-Step Smoke` (that cleared it live; a stale Kerberos ticket is the likely, unconfirmed cause). If it persists with a custom App Pool identity, check SPNs and `useAppPoolCredentials` (see the install guide's gMSA section). |

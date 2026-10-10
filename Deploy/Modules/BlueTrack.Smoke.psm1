@@ -32,6 +32,7 @@ function Test-BlueTrackDeployment {
     )
 
     $endpoint = "$($SiteUrl.TrimEnd('/'))/BlueTrack/api/admin/deployment"
+    $rootEndpoint = "$($SiteUrl.TrimEnd('/'))/api/admin/deployment"
     Write-Host "Smoke test: GET $endpoint (Windows-integrated auth, current identity)..."
 
     try {
@@ -39,6 +40,7 @@ function Test-BlueTrackDeployment {
     } catch {
         Write-Warning "Smoke test failed calling '$endpoint': $($_.Exception.Message)"
         Write-BlueTrackSmokeDiagnosis -ErrorRecord $_
+        Write-BlueTrackSmokeTestUrl -AppEndpoint $endpoint -BrowserEndpoint $rootEndpoint
         return $false
     }
 
@@ -60,7 +62,6 @@ function Test-BlueTrackDeployment {
     # at the site root, which D-166's rewrite rule hands to /BlueTrack. That
     # path failed sign-in on its own on DCACYBSQL01 (looping 401.1 until a
     # full iisreset) while the call above passed, so check it too.
-    $rootEndpoint = "$($SiteUrl.TrimEnd('/'))/api/admin/deployment"
     Write-Host "Smoke test: GET $rootEndpoint (the browser's path, through the site-root rewrite)..."
     try {
         Invoke-RestMethod -Uri $rootEndpoint -UseDefaultCredentials -TimeoutSec $TimeoutSeconds | Out-Null
@@ -74,10 +75,32 @@ function Test-BlueTrackDeployment {
         } else {
             Write-BlueTrackSmokeDiagnosis -ErrorRecord $_
         }
+        Write-BlueTrackSmokeTestUrl -AppEndpoint $endpoint -BrowserEndpoint $rootEndpoint
         return $false
     }
 
     return $allHealthy
+}
+
+function Write-BlueTrackSmokeTestUrl {
+    <#
+    .SYNOPSIS
+        After a smoke test failure, prints the two URLs it calls so they can
+        be tried by hand: in a browser on this server, and with PowerShell as
+        the current Windows identity.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)] [string]$AppEndpoint,
+        [Parameter(Mandatory)] [string]$BrowserEndpoint
+    )
+
+    Write-Warning 'To test by hand, open these in a browser on this server, or run the PowerShell lines. Each should return JSON, not a sign-in prompt or an error:'
+    Write-Warning "  1. The application directly:  $AppEndpoint"
+    Write-Warning "  2. The browser's path (site-root rewrite to /BlueTrack):  $BrowserEndpoint"
+    Write-Warning "     Invoke-RestMethod -Uri '$AppEndpoint' -UseDefaultCredentials"
+    Write-Warning "     Invoke-RestMethod -Uri '$BrowserEndpoint' -UseDefaultCredentials"
+    Write-Warning 'If 1 works but 2 keeps asking you to sign in, that is the login loop: run iisreset (or -Step Iis.Reset -ResetIis $true), then -Step Smoke.'
 }
 
 function Write-BlueTrackSmokeDiagnosis {

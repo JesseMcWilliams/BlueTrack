@@ -40,7 +40,7 @@ After IIS changes and an app pool recycle, browser sign-in through the rewritten
 
 ### App pool SQL access and smoke-test diagnosis (D-170, D-171)
 
-With Windows Integrated Security, the `Db.AppPoolAccess` step (opt-in via `-GrantAppPoolSqlAccess`) gives the App Pool's Windows account a SQL login and script 41's grants. For `ApplicationPoolIdentity` that's `IIS APPPOOL\<pool>` when SQL Server is on the same machine (the D-09 layout) and the computer account `DOMAIN\HOSTNAME$` when it's elsewhere; a custom identity is itself. A failed smoke test is explained by HTTP status (401 IIS sign-in, 403 permission, 500 app error plus SQL Server's matching `Login failed` event, with the account from the event's SID, since the message text can name the wrong one). Details: `Deploy/README.md`, "App pool SQL access" and "Smoke test failures".
+With Windows Integrated Security, the `Db.AppPoolAccess` step (opt-in via `-GrantAppPoolSqlAccess`) gives the App Pool's Windows account a SQL login and script 41's grants. For `ApplicationPoolIdentity` that's `IIS APPPOOL\<pool>` when SQL Server is on the same machine (the D-09 layout) and the computer account `DOMAIN\HOSTNAME$` when it's elsewhere; a custom identity is itself. A failed smoke test is explained by HTTP status (401 IIS sign-in, 403 permission, 500 app error plus SQL Server's matching `Login failed` event, with the account from the event's SID, since the message text can name the wrong one), and ends by listing the two URLs it calls (the application directly and the browser's site-root path) so they can be tried by hand. Details: `Deploy/README.md`, "App pool SQL access" and "Smoke test failures".
 
 ## Open Questions
 
