@@ -14,6 +14,8 @@ const loading = ref(true)
 
 const backupError = ref(null)
 const backingUp = ref(false)
+// D-200: the latest backups (scheduled and manual), from web.backup_run.
+const recentBackups = ref([])
 
 async function load() {
   loading.value = true
@@ -21,6 +23,8 @@ async function load() {
     const response = await fetch('/api/admin/deployment')
     if (!response.ok) throw new Error(`Request failed: ${response.status}`)
     info.value = await response.json()
+    const backups = await fetch('/api/admin/deployment/backups')
+    recentBackups.value = backups.ok ? await backups.json() : []
   } catch (err) {
     error.value = err.message
   } finally {
@@ -108,6 +112,25 @@ async function backupApp() {
             <tr v-for="entry in info.backupStatus.entries" :key="entry.backupType">
               <td>{{ entry.backupType }}</td>
               <td>{{ entry.lastBackupFinishDate ?? 'Never' }}</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h4>Recent backups</h4>
+        <p class="hint">Scheduled backups are set on Global Application Configuration (time and days to keep).</p>
+        <p v-if="recentBackups.length === 0">None recorded yet.</p>
+        <table v-else>
+          <thead>
+            <tr><th>Started (UTC)</th><th>Type</th><th>Outcome</th><th>File</th><th>Old files deleted</th><th>Note</th></tr>
+          </thead>
+          <tbody>
+            <tr v-for="run in recentBackups" :key="run.backupRunKey">
+              <td>{{ run.startedAt.replace('T', ' ').slice(0, 19) }}</td>
+              <td>{{ run.triggerType === 'Schedule' ? 'Scheduled' : `Manual${run.triggeredByName ? ` (${run.triggeredByName})` : ''}` }}</td>
+              <td>{{ run.outcome }}</td>
+              <td>{{ run.filePath ?? '' }}</td>
+              <td>{{ run.filesDeleted ?? '' }}</td>
+              <td>{{ run.errorMessage ?? '' }}</td>
             </tr>
           </tbody>
         </table>

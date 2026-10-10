@@ -35,6 +35,12 @@ public sealed class GlobalApplicationConfig
     // comma-separated three-letter English day names ("Mon,Tue,...").
     public required string DataFeedRunTime { get; init; }
     public int DataFeedRunRetentionDays { get; init; }
+
+    /// <summary>D-200: daily scheduled backup time ("HH:mm", server local time); null = off.</summary>
+    public string? ScheduledBackupTime { get; init; }
+
+    /// <summary>D-200: scheduled backup files older than this are deleted after each scheduled backup.</summary>
+    public int ScheduledBackupRetentionDays { get; init; }
     public required string BusinessHoursStart { get; init; }
     public required string BusinessHoursEnd { get; init; }
     public required string BusinessDays { get; init; }
@@ -70,6 +76,13 @@ public sealed class SaveGlobalApplicationConfigRequest
     // settings as they are (null = unchanged), rather than resetting them.
     public string? DataFeedRunTime { get; init; }
     public int? DataFeedRunRetentionDays { get; init; }
+
+    /// <summary>D-200: null = unchanged; "" = off; else "HH:mm".</summary>
+    public string? ScheduledBackupTime { get; init; }
+
+    /// <summary>D-200: null = unchanged.</summary>
+    public int? ScheduledBackupRetentionDays { get; init; }
+
     public string? BusinessHoursStart { get; init; }
     public string? BusinessHoursEnd { get; init; }
     public string? BusinessDays { get; init; }

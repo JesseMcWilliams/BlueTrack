@@ -22,7 +22,7 @@ instead.
 | 05 | `05_BlueTrack_Baseline_WebSeed.sql` | Starting data: identity providers (WindowsIntegrated on; DevFakeAuth, OIDC and SAML off), the bootstrap Admin role with every permission mapped to `BUILTIN\Administrators` (S-1-5-32-544), the default roles, Account Progress field metadata, and the data feeds' system user. |
 | 06 | `06_BlueTrack_Baseline_WebLogic.sql` | Risk scoring procedures and functions, the audit-log purge procedure, the decommissioning views, Targets and links from account addresses (D-123, D-193), and **`usp_RunFullLoad`**, the nightly orchestrator. |
 
-Scripts after the baseline start at `07`. None yet.
+| 07 | `07_BlueTrack_ScheduledBackups.sql` | D-200: `web.app_config.ScheduledBackupTime` / `ScheduledBackupRetentionDays` and the `web.backup_run` history table. |
 
 ## The baseline (D-195)
 
@@ -47,7 +47,7 @@ scripts but not up to `51` is refused; upgrade it first from the
 
 ## Adding a script
 
-1. Name it `NN_BlueTrack_<Topic>.sql`, with `NN` the next number (`07` is next).
+1. Name it `NN_BlueTrack_<Topic>.sql`, with `NN` the next number (`08` is next).
 2. Start with a header comment: the file name, `RUN THIS AFTER 01-NN.`, what
    it changes and why (with the `D-n` decision), and whether it's safe to
    re-run.

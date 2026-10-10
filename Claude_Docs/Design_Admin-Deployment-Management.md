@@ -137,6 +137,10 @@ Query shape (illustrative): most recent `backup_finish_date` per backup `type` (
 
 Verified: `dotnet test` 247/247 (including new gate/functional coverage in `AdminControllersPermissionTests.cs`), Vitest 16/16, and a new Playwright test loading the page and asserting all three sections render plus a 403 for a user without the permission. One non-obvious pitfall hit and documented in `Reference_Lessons-Learned.md`: granting a brand-new permission to an already-cached test identity's role doesn't take effect until that identity's rights are reloaded (Reload Rights) or its cache entry's sliding expiration lapses. See PR #16.
 
+### 3.5 Scheduled backups (D-200)
+
+A daily backup of the BlueTrack database, run by the API (`App/Api/Backups/ScheduledBackupService.cs`) at `web.app_config.ScheduledBackupTime` (server local time; NULL = off, the default) into `BackupFolder`. It names its files `<database>_scheduled_yyyyMMdd_HHmmss.bak` (UTC) and afterwards deletes this database's scheduled files older than `ScheduledBackupRetentionDays` (`BackupRetention` -- manual files never). Every backup, scheduled or manual, is a `web.backup_run` row (`07_BlueTrack_ScheduledBackups.sql`), listed under **Recent backups** on the Deployment page (`GET /api/admin/deployment/backups`). A failure to clean up doesn't fail the backup; it's noted on the run. The folder must pass `FileAccess:AllowedRoots` (D-197) at run time. Verified: integration test with a real backup of BlueTrackTest (old scheduled file deleted, manual kept, run recorded).
+
 ### 3.4 On-demand backup ("Backup App" button)
 
 **Requested directly, 2026-09-08 (D-117)**, alongside the new Credentials/LDAP work (D-116, `Design_Credentials-Management.md`) and role-targeted notification email (`Design_Notifications.md`'s updated Proposed Workflow) — a button on this same Deployment page to trigger a real backup on demand, not just view history.
