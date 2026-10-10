@@ -22,5 +22,6 @@
     "CertificateThumbprint": "0000000000000000000000000000000000000000",
     "GenerateSelfSignedCert": false,
     "PrerequisiteSource": "Auto",
-    "InstallerSourcePath": ""
+    "InstallerSourcePath": "",
+    "UpdateDownloadFolder": "D:\\BlueTrack\\Downloads"
 }
