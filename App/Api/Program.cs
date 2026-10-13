@@ -215,7 +215,8 @@ builder.Services.AddHostedService<BlueTrack.Api.Backups.ScheduledBackupService>(
 builder.Services.AddHealthChecks()
     .AddCheck<BlueTrack.Api.HealthChecks.SqlServerHealthCheck>("SQL Server")
     .AddCheck<BlueTrack.Api.HealthChecks.SecretsStoreHealthCheck>("Secrets Store")
-    .AddCheck<BlueTrack.Api.HealthChecks.IdentityProvidersHealthCheck>("Identity Providers");
+    .AddCheck<BlueTrack.Api.HealthChecks.IdentityProvidersHealthCheck>("Identity Providers")
+    .AddCheck<BlueTrack.Api.HealthChecks.BackupFolderHealthCheck>("Backup Folder");
 
 // One authorization policy per permission (D-05/D-61) -- see
 // AuthorizationExtensions for how [Authorize(Policy = Permissions.X)] maps

@@ -84,6 +84,15 @@ public sealed class ScheduledBackupService(
             return;
         }
 
+        // D-203: broad groups mustn't be able to read the backups -- fixed here if possible, else refused.
+        var access = BackupFolderAccess.Enforce(config.BackupFolder);
+        if (!access.MayBackUp)
+        {
+            logger.LogError("Scheduled database backup refused: {Reason}", access.Note);
+            await runs.RecordAsync(Result("Failed", error: access.Note));
+            return;
+        }
+
         var deployment = services.GetRequiredService<DeploymentRepository>();
         string filePath;
         try
@@ -126,7 +135,8 @@ public sealed class ScheduledBackupService(
         }
 
         logger.LogInformation("Scheduled database backup written to {File}; {Deleted} old scheduled backups deleted.", filePath, deleted);
-        await runs.RecordAsync(Result("Succeeded", filePath, deleted, note));
+        var notes = string.Join(" ", new[] { access.Note, note }.Where(n => n is not null));
+        await runs.RecordAsync(Result("Succeeded", filePath, deleted, notes.Length == 0 ? null : notes));
     }
 
     private static string Truncate(string value, int length) => value.Length <= length ? value : value[..length];

@@ -104,6 +104,19 @@ public sealed class DeploymentController(
         // D-200: manual backups are recorded alongside scheduled ones.
         var user = await currentUserResolver.ResolveAsync(User);
         var startedAt = DateTime.UtcNow;
+
+        // D-203: broad groups mustn't be able to read the backups -- fixed here if possible, else refused.
+        var access = Backups.BackupFolderAccess.Enforce(config.BackupFolder);
+        if (!access.MayBackUp)
+        {
+            await backupRunRepository.RecordAsync(new BackupRunRepository.BackupRun
+            {
+                TriggerType = "Manual", TriggeredBy = user?.UserKey, StartedAt = startedAt, FinishedAt = DateTime.UtcNow,
+                Outcome = "Failed", ErrorMessage = access.Note,
+            });
+            return Problem(title: "Backup folder is readable by everyone", detail: access.Note, statusCode: StatusCodes.Status409Conflict);
+        }
+
         string backupFilePath;
         try
         {
@@ -121,7 +134,7 @@ public sealed class DeploymentController(
         await backupRunRepository.RecordAsync(new BackupRunRepository.BackupRun
         {
             TriggerType = "Manual", TriggeredBy = user?.UserKey, StartedAt = startedAt, FinishedAt = DateTime.UtcNow,
-            Outcome = "Succeeded", FilePath = backupFilePath,
+            Outcome = "Succeeded", FilePath = backupFilePath, ErrorMessage = access.Note,
         });
 
         using var zipStream = new MemoryStream();
