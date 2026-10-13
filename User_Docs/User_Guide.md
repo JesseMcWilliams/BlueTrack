@@ -10,9 +10,9 @@ This is a task-oriented, "how do I use this" guide for BlueTrack administrators 
 
 ## Getting Around
 
-The top navigation reads **Dashboard | Access Groups | Accounts | Admin | Exceptions | Reports | Targets**, with **My Profile** on the right. **Access Groups** appears only with `ManageAccessGroups`, and **Targets** only with `ManageTargets`. Inside **Admin**, the sidebar lists only the sections you hold permission for. Every page shows a breadcrumb trail at the top so you always know where you are.
+The top navigation reads **Dashboard | Access Groups | Accounts | Admin | Exceptions | Reports | Targets**, with a menu showing your name on the right: **Profile & Preferences** and **Sign out**. **Access Groups** appears only with `ManageAccessGroups`, and **Targets** only with `ManageTargets`. Inside **Admin**, the sidebar lists only the sections you hold permission for. Every page shows a breadcrumb trail at the top so you always know where you are.
 
-Seeing tracked data (the Dashboard, Accounts, Exceptions and most reports) needs a role with `ViewDashboard`. Without it, those pages show an error (such as "Request failed: 403") instead of data. An administrator's changes to roles or group mappings apply straight away. A change to your own group membership (for example, being added to an AD group) can take up to 15 minutes; **Reload My Rights** on My Profile picks it up straight away.
+Seeing tracked data (the Dashboard, Accounts, Exceptions and most reports) needs a role with `ViewDashboard`. Without it, those pages show an error (such as "Request failed: 403") instead of data. An administrator's changes to roles or group mappings apply straight away. A change to your own group membership (for example, being added to an AD group) can take up to 15 minutes; **Reload My Rights** on **Profile & Preferences** picks it up straight away.
 
 When BlueTrack refuses a save or delete, the page says why: for example, a name, identifier or score range that's already used, something still in use by other records, or a record someone else changed first.
 
@@ -28,6 +28,13 @@ How it behaves depends on the **Default sign-in method** your administrator sets
 Each method also has its own direct address, which uses that method whatever the default is: `/login/windows`, `/login/oidc` and `/login/saml` (after the site's address, e.g. `https://<server>/login/saml`; the Identity Providers page shows the full addresses). Your administrator may give you one of these, or use it as the launch link of an app tile in your identity provider. A direct OIDC or SAML address goes to the identity provider without a Windows prompt first. If that method isn't enabled, the page says "That sign-in method isn't enabled. Choose one below."
 
 If you sign in with OIDC or SAML and your identity provider sends no full name, BlueTrack shows your username instead.
+
+### Signing out
+
+Open the menu with your name at the right of the top nav and choose **Sign out**. BlueTrack ends your session and shows the sign-in page with "You're signed out."; it doesn't start the default sign-in method again on its own.
+
+- **Windows sign-in:** if Windows Integrated is the default method, going to any other page signs you straight back in with your Windows account. To use another account, choose another method on the sign-in page.
+- **SSO (OIDC or SAML):** you're signed out of BlueTrack, not out of the identity provider. Choosing the same method again may sign you in without asking for your password, if your session with the identity provider is still open.
 
 ## Dashboard
 
@@ -138,9 +145,9 @@ An exception that's no longer Active can't be re-approved or revoked; if someone
 - **Accounts Flagged for Deletion** — accounts in those safes, or whose own name matches the *account decommission pattern*. Accounts still active are marked **Not deleted yet**; **Also in** names any other safe holding an account with the same username and address, which usually means it has moved there. Tick *Only accounts not yet deleted* to hide the rest.
 - **KPI Summary** — the four progress ratios (In Scope vs. All Accounts, Onboarded vs. In Scope, Managed vs. Onboarded, Compliant vs. Managed) as counts and percentages. "In scope" means not currently excluded via an active Risk Accepted / Excluded exception. The same four ratios, plus a summary pie chart, also appear on the Dashboard's Key Progress Indicators card.
 
-## My Profile
+## Profile & Preferences
 
-**Where**: **My Profile** at the right of the top nav (`/profile`).
+**Where**: open the menu with your name at the right of the top nav and choose **Profile & Preferences** (`/profile`).
 
 Shows your display name, mapped role(s), and full permission list. Click **Reload My Rights** to re-check your current group membership immediately, without waiting for anything to expire — useful right after you know you've been added to a new group. Also where you pick a display theme: Light, Dark, or High Visibility.
 

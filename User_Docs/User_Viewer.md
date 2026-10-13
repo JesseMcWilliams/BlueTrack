@@ -25,7 +25,7 @@ Click any card to open the full report or worklist behind it.
 
 ## Your profile
 
-**Where**: **My Profile** at the right of the top nav (`/profile`).
+**Where**: open the menu with your name at the right of the top nav and choose **Profile & Preferences** (`/profile`).
 
 Shows your display name, role, and permission list. Click **Reload My Rights** if you've just been added to a new group (otherwise it can take up to 15 minutes). Pick a display theme (Light, Dark, High Visibility) here too.
 

@@ -8,6 +8,7 @@
 import { ref, onMounted } from 'vue'
 import Breadcrumbs from './components/Breadcrumbs.vue'
 import ConfirmDialog from './components/ConfirmDialog.vue'
+import UserMenu from './components/UserMenu.vue'
 import { useRightsStore } from './stores/rights'
 
 const rights = useRightsStore()
@@ -90,8 +91,9 @@ onMounted(async () => {
     <a href="#main-content" class="skip-link visually-hidden">Skip to main content</a>
     <!-- D-124: Dashboard always leftmost, every other item alphabetical by
          label (Access Groups, Accounts, Admin, Exceptions, Reports, Targets)
-         -- confirmed directly. My Profile stays pinned right via
-         .top-nav__user-menu, outside the alphabetical ordering. -->
+         -- confirmed directly. The user menu (D-206: the signed-in user's
+         name, with Profile & Preferences and Sign out) stays pinned right,
+         outside the alphabetical ordering. -->
     <nav class="top-nav" aria-label="Primary">
       <router-link :to="{ name: 'dashboard' }">Dashboard</router-link>
       <!-- D-121: Targets/Access Groups gated per-permission here (unlike
@@ -104,7 +106,7 @@ onMounted(async () => {
       <router-link :to="{ name: 'risk-exceptions-list' }">Exceptions</router-link>
       <router-link :to="{ name: 'reports' }">Reports</router-link>
       <router-link v-if="rights.hasPermission('ManageTargets')" :to="{ name: 'targets' }">Targets</router-link>
-      <router-link :to="{ name: 'my-profile' }" class="top-nav__user-menu">My Profile</router-link>
+      <UserMenu v-if="rights.authenticated" />
     </nav>
     <Breadcrumbs />
     <p v-if="negotiateDisabledWarning" role="alert" class="dev-fake-auth-warning">{{ negotiateDisabledWarning }}</p>
@@ -133,9 +135,6 @@ onMounted(async () => {
   gap: var(--space-4);
   padding: var(--space-3) var(--space-4);
   border-bottom: 1px solid var(--color-border);
-}
-.top-nav__user-menu {
-  margin-left: auto;
 }
 #main-content {
   padding: var(--space-4);

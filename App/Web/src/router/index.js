@@ -175,7 +175,7 @@ const routes = [
   {
     path: '/profile',
     name: 'my-profile',
-    meta: { breadcrumb: 'My Profile' },
+    meta: { breadcrumb: 'Profile & Preferences' },
     component: () => import('../views/MyProfile.vue')
   },
   // D-121: promoted out of the Admin hub to their own top-level nav entries

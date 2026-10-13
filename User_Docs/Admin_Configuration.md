@@ -99,7 +99,7 @@ Define your Low/Medium/High/Critical (or however you name them) bands under **Ad
 - **Run now / Run all** start a run straight away. Inside the **business hours** set on Global Application Configuration (default 07:00-18:00, Monday to Friday), they ask for confirmation first. Only one run happens at a time.
 - **History:** each feed's page lists its runs; click a run to see its row errors. Nightly runs are recorded as by the user "BlueTrack Data Feeds (system)", which can't be signed in as; Run now is recorded as by the person who clicked it.
 - **Folder access:** feeds are read by the App Pool's account, which needs read access to each folder ([Admin_Installation.md](Admin_Installation.md), "Data feed folders").
-- After an upgrade that adds this page, an Admin who was already signed in needs **Reload My Rights** (My Profile) to see it.
+- After an upgrade that adds this page, an Admin who was already signed in needs **Reload My Rights** (**Profile & Preferences**, in the menu with their name) to see it.
 
 ## What's next
 

@@ -405,7 +405,7 @@ test.describe('Credentials & LDAP admin page', () => {
     await expect(row).toBeVisible()
     await expect(row).toContainText('Machine') // starts Machine even though ScopePreference is User
 
-    await row.getByRole('button', { name: 'Test' }).click()
+    await row.getByRole('button', { name: 'Test', exact: true }).click()
     await expect(row.getByText(/OK \(e2e-test-user\)/)).toBeVisible()
     await expect(row).toContainText('User') // upgraded after the first real decrypt
 
@@ -622,12 +622,12 @@ test.describe('Data Sources admin page (D-181)', () => {
       await page.getByLabel('Run order:').fill('950')
       await page.getByLabel('Enabled (runs nightly)').uncheck()
 
-      await page.getByRole('button', { name: 'Test' }).click()
+      await page.getByRole('button', { name: 'Test', exact: true }).click()
       await expect(page.getByText(/no file matches 'safes_\d{4}-\d\d-\d\d\.csv' today/)).toBeVisible()
 
       fs.writeFileSync(path.join(folder, 'safes_e2e.csv'), 'SafeName,Application\r\n')
       await page.getByLabel('File name pattern:').fill('safes_*.csv')
-      await page.getByRole('button', { name: 'Test' }).click()
+      await page.getByRole('button', { name: 'Test', exact: true }).click()
       await expect(page.getByText('Found safes_e2e.csv, with 2 columns.')).toBeVisible()
       await expect(page.getByText('Has every column the import needs.')).toBeVisible()
 

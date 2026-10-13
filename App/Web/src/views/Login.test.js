@@ -139,6 +139,16 @@ describe('Login.vue', () => {
     expect(navigatedTo).toBe('/api/auth/login/windows?returnUrl=%2F')
   })
 
+  // D-206: after Sign out, the default doesn't start again on its own.
+  it('just signed out: says so and lists the methods instead of starting the SAML default', async () => {
+    mockFetch({ providers: [windows, saml], defaultProviderType: 'SAML' })
+    const { wrapper } = await mountAt('/login?signedOut=1')
+
+    expect(navigatedTo).toBeNull()
+    expect(wrapper.text()).toContain("You're signed out.")
+    expect(wrapper.text()).toContain('Authentik (SAML)')
+  })
+
   it('/login/oidc when OIDC is not enabled says so and lists the methods', async () => {
     mockFetch({ providers: [windows, saml], defaultProviderType: null })
     const { wrapper } = await mountAt('/login/oidc')

@@ -42,3 +42,27 @@ test.describe('Login', () => {
     await expect(page.getByText(/Dev Fake Auth.*signs in automatically/)).toBeVisible()
   })
 })
+
+// D-206: the top nav's user menu -- the user's name, Profile & Preferences, Sign out.
+test.describe('User menu', () => {
+  test('shows who is signed in, opens Profile & Preferences, and Sign out ends the session', async ({ page }) => {
+    await signInAs(page, 'TestUser.Viewer')
+    await page.goto('/')
+    const menuButton = page.locator('button.user-menu__button')
+    await expect(menuButton).toContainText('TestUser.Viewer')
+    await expect(page.getByRole('link', { name: 'My Profile' })).toHaveCount(0)
+
+    await menuButton.click()
+    await page.getByRole('link', { name: 'Profile & Preferences' }).click()
+    await expect(page).toHaveURL(/\/profile$/)
+    await expect(page.getByRole('heading', { name: 'Profile & Preferences' })).toBeVisible()
+
+    await menuButton.click()
+    await page.getByRole('button', { name: 'Sign out' }).click()
+    await expect(page).toHaveURL(/\/login\?signedOut=1$/)
+    await expect(page.getByText("You're signed out.")).toBeVisible()
+    await expect(page.locator('button.user-menu__button')).toHaveCount(0)
+    expect((await page.request.get('/api/auth/session')).ok()).toBe(true)
+    expect((await (await page.request.get('/api/auth/session')).json()).authenticated).toBe(false)
+  })
+})
