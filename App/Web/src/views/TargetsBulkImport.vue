@@ -15,8 +15,11 @@ import { apiUrl } from '../utils/apiBase'
 // (a single-record form, not a CSV/file-upload import) is NOT a bulk-import
 // section and stays on Targets.vue untouched.
 import { ref } from 'vue'
+import MappingProfileSelect from '../components/MappingProfileSelect.vue'
 
 const inventoryFile = ref(null)
+const inventoryProfile = ref(null) // D-207
+const accountTargetProfile = ref(null)
 const inventoryImportResult = ref(null)
 const inventoryImporting = ref(false)
 
@@ -24,13 +27,14 @@ const accountTargetFile = ref(null)
 const accountTargetImportResult = ref(null)
 const accountTargetImporting = ref(false)
 
-async function importFile(url, fileRef, resultRef, importingRef) {
+async function importFile(url, fileRef, resultRef, importingRef, profileRef) {
   if (!fileRef.value) return
   importingRef.value = true
   resultRef.value = null
   try {
     const formData = new FormData()
     formData.append('file', fileRef.value)
+    if (profileRef.value !== null) formData.append('mappingProfileKey', String(profileRef.value)) // D-207
     const response = await fetch(url, { method: 'POST', body: formData })
     resultRef.value = response.ok ? await response.json() : { error: `Import failed: ${response.status}` }
   } finally {
@@ -46,10 +50,10 @@ function onAccountTargetFileChange(event) {
 }
 
 async function importInventory() {
-  await importFile('/api/admin/risk-scoring/import/target-inventory', inventoryFile, inventoryImportResult, inventoryImporting)
+  await importFile('/api/admin/risk-scoring/import/target-inventory', inventoryFile, inventoryImportResult, inventoryImporting, inventoryProfile)
 }
 async function importAccountTargetMap() {
-  await importFile('/api/admin/risk-scoring/import/account-target-map', accountTargetFile, accountTargetImportResult, accountTargetImporting)
+  await importFile('/api/admin/risk-scoring/import/account-target-map', accountTargetFile, accountTargetImportResult, accountTargetImporting, accountTargetProfile)
 }
 </script>
 
@@ -64,6 +68,7 @@ async function importAccountTargetMap() {
     </p>
     <p class="filter-row">
       <input type="file" accept=".csv" @change="onInventoryFileChange" />
+      <MappingProfileSelect v-model="inventoryProfile" feed-type="TargetInventory" area="target" />
       <button :disabled="!inventoryFile || inventoryImporting" @click="importInventory">{{ inventoryImporting ? 'Importing...' : 'Import' }}</button>
     </p>
     <p v-if="inventoryImportResult">
@@ -75,6 +80,7 @@ async function importAccountTargetMap() {
     <p><a :href="apiUrl('/api/admin/risk-scoring/import/account-target-map/template')">Download template</a> -- rows this app cannot yet match to an existing Target/Account are reported as row errors, not silently skipped.</p>
     <p class="filter-row">
       <input type="file" accept=".csv" @change="onAccountTargetFileChange" />
+      <MappingProfileSelect v-model="accountTargetProfile" feed-type="AccountTargetMap" area="target" />
       <button :disabled="!accountTargetFile || accountTargetImporting" @click="importAccountTargetMap">{{ accountTargetImporting ? 'Importing...' : 'Import' }}</button>
     </p>
     <p v-if="accountTargetImportResult">

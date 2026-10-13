@@ -20,6 +20,8 @@ export const useRightsStore = defineStore('rights', {
     // `error`, since a 401 here is an expected, meaningful state (not
     // authenticated yet), not a failure to report as an error banner.
     authenticated: null,
+    // D-209: minutes without activity before the SPA signs out (useIdleSignOut).
+    idleTimeoutMinutes: null,
     _loadPromise: null
   }),
   getters: {
@@ -52,6 +54,7 @@ export const useRightsStore = defineStore('rights', {
         const sessionResponse = await fetch('/api/auth/session')
         if (sessionResponse.ok) {
           const session = await sessionResponse.json()
+          this.idleTimeoutMinutes = session.idleTimeoutMinutes ?? null
           if (!session.authenticated && (!session.windows || ssoAddress)) {
             this.authenticated = false
             this.loaded = true

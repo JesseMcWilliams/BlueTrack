@@ -36,6 +36,8 @@ Open the menu with your name at the right of the top nav and choose **Sign out**
 - **Windows sign-in:** if Windows Integrated is the default method, going to any other page signs you straight back in with your Windows account. To use another account, choose another method on the sign-in page.
 - **SSO (OIDC or SAML):** you're signed out of BlueTrack, not out of the identity provider. Choosing the same method again may sign you in without asking for your password, if your session with the identity provider is still open.
 
+**Inactivity.** If you don't use BlueTrack for the Idle Timeout your administrator set (30 minutes by default), it signs you out and the sign-in page says so. Using BlueTrack in any tab counts as activity for all of them.
+
 ## Dashboard
 
 **Where**: the home page you land on after signing in.
@@ -165,7 +167,7 @@ Below the table, **Link a Single Account to a Target** creates a direct account-
 
 **Select targets for bulk actions** adds checkboxes and the selection bar (as on Account Progress): **Bulk edit…** sets Type, Application, Risk Score or Description on every selected Target (tick *Change* for each field to set), and **Delete…** deletes them after you give a reason, recorded in the Audit Log. A Target still used by an access group or account is skipped, not deleted.
 
-**Bulk Actions** (its own page, reached via the button above the table) offers two CSV imports: **Target Inventory** and the **Account → Target Map**. Each accepts a file upload and reports success/errors per row rather than failing the whole batch on one bad row.
+**Bulk Actions** (its own page, reached via the button above the table) offers two CSV imports: **Target Inventory** and the **Account → Target Map**. Each accepts a file upload and reports success/errors per row rather than failing the whole batch on one bad row. When the import has active Import Mapping Profiles, a **Mapping profile** list appears next to the file picker: leave it at **None** for a file in the template's format, or choose the profile that matches the file.
 
 ### Access Groups
 
@@ -173,7 +175,7 @@ An **Access Group** is a privileged-access group in the *managed environment* (e
 
 **Select access groups for bulk actions** works the same way: **Bulk edit…** sets Scope, Base Risk Score or Description, and **Delete…** needs a reason. Switching a group to Local scope needs the target it was found on, so groups without one are skipped (set it on the group's own page).
 
-**Bulk Actions** here covers three CSV imports: the group inventory itself, which Targets each group reaches, and which Accounts belong to each group.
+**Bulk Actions** here covers three CSV imports: the group inventory itself, which Targets each group reaches, and which Accounts belong to each group. Each offers a **Mapping profile** choice when the import has active profiles, as on Targets.
 
 An Access Group is unique by name, identifier and the Target it was found on, so a local group such as `BUILTIN\Administrators` (the same SID on every server) can be added once per server; adding an exact duplicate shows a message saying it already exists.
 

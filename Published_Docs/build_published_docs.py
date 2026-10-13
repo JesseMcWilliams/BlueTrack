@@ -28,6 +28,8 @@ DOCS = [
      'Getting Started with BlueTrack', 'BlueTrack: CyberArk PAM Blueprint progress tracking'),
     ('User_Docs/Admin_SettingsReference.md', 'Published_Docs/Administrator_Settings_Guide.docx',
      'Administrator Settings Guide', 'BlueTrack: CyberArk PAM Blueprint progress tracking'),
+    ('User_Docs/Release_Notes.md', 'Published_Docs/Release_Notes.docx',
+     'Release Notes', 'BlueTrack: CyberArk PAM Blueprint progress tracking'),
 ]
 
 INLINE = re.compile(r'(\*\*[^*]+\*\*|`[^`]+`|\[[^\]]+\]\([^)]+\))')

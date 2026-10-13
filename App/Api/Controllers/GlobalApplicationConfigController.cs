@@ -74,6 +74,11 @@ public sealed class GlobalApplicationConfigController(
         }
         // At 0 every edit lock reads as abandoned the moment it's taken, so locks
         // fail at random (seen as AccountDeletionTests' intermittent "1 of 2").
+        // D-209: Idle Timeout signs people out now; 0 would sign everyone out at once.
+        if (request.IdleTimeoutMinutes is < 5 or > 720)
+        {
+            return Problem(title: "Invalid idle timeout", detail: "IdleTimeoutMinutes must be between 5 and 720.", statusCode: StatusCodes.Status400BadRequest);
+        }
         if (request.LockTimeoutMinutes is < 1 or > 720)
         {
             return Problem(title: "Invalid lock timeout", detail: "LockTimeoutMinutes must be between 1 and 720.", statusCode: StatusCodes.Status400BadRequest);

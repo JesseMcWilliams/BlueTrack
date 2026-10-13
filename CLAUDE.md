@@ -35,8 +35,8 @@ CyberArk PAM Blueprint progress tracking: a SQL Server warehouse (ETL from Cyber
   - `Reference_`: rules that apply at every stage (lessons learned, conventions, interface contracts).
   - `Archive_<OriginalStage>_<Topic>.md`: finished or superseded material. **Don't read `Archive_*` unless the user asks or the task needs history.**
 - `User_Docs/`: end-user documentation, usually written near the end of the project from `Claude_Docs/Planning_User-Docs-Backlog.md`. It's output, not a source of facts. Take facts from the code and `Claude_Docs/`.
-- `Published_Docs/`: `.docx` deliverables (Installation, Dev Host Setup), refreshed from `User_Docs/` and `Claude_Docs/` when a release is created. Don't read them for facts, and don't edit them between releases.
-- When you make a user-visible change, add one line for it to `Planning_User-Docs-Backlog.md`.
+- `Published_Docs/`: `.docx` deliverables (Installation, Dev Host Setup, Getting Started, Administrator Settings, Release Notes), built from their `User_Docs/` sources by `python Published_Docs/build_published_docs.py` when a release is created. Don't read them for facts, and don't edit them between releases.
+- When you make a user-visible change, add one line for it to `Planning_User-Docs-Backlog.md` and one under **Unreleased** in `User_Docs/Release_Notes.md` (plain words for users and admins: new, changed, fixed, and any upgrade step). At a release, the Unreleased items become that version's section.
 - Keep each doc to about 500 lines. Past that, move closed or old content into an `Archive_` file. Don't keep revision logs, because git has the history. Put dates in file names only for point-in-time snapshots, such as reviews.
 - Rename docs with `git mv`, and update every link to them in the same change.
 - If a doc is large, find the target with grep and read a narrow range. Keep table rows to one or two sentences.
@@ -52,7 +52,7 @@ CyberArk PAM Blueprint progress tracking: a SQL Server warehouse (ETL from Cyber
 | New dependency or external system | `Claude_Docs/Design_Dependencies-And-External-Integrations.md`. |
 | Bug fix / new gotcha | `Claude_Docs/Reference_Lessons-Learned.md` if it's a lesson others would hit. |
 | Audit/test finding | `Claude_Docs/Testing_Audit-Findings.md`; closed items → `Archive_Testing_Audit-Findings.md`. |
-| User-visible change | One line in `Claude_Docs/Planning_User-Docs-Backlog.md`. |
+| User-visible change | One line in `Claude_Docs/Planning_User-Docs-Backlog.md`, and one under Unreleased in `User_Docs/Release_Notes.md`. |
 
 - For "verify the docs are updated", use a subagent to diff the branch against this checklist and report the gaps only.
 

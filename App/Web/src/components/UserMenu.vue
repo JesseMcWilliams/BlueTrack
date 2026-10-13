@@ -7,12 +7,13 @@
 // Closes on Escape (focus back on the button), on a click outside, and when
 // the route changes.
 import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { useRoute } from 'vue-router'
 import { useRightsStore } from '../stores/rights'
+import { useSignOut } from '../composables/useSignOut'
 
 const rights = useRightsStore()
 const route = useRoute()
-const router = useRouter()
+const signOutNow = useSignOut()
 const open = ref(false)
 const signingOut = ref(false)
 const error = ref(null)
@@ -42,14 +43,10 @@ async function signOut() {
   signingOut.value = true
   error.value = null
   try {
-    const response = await fetch('/api/auth/logout', { method: 'POST' })
-    if (!response.ok && response.status !== 401) {
-      error.value = `Sign out failed: ${response.status}`
-      return
-    }
-    rights.$reset()
     close()
-    await router.push({ name: 'login', query: { signedOut: '1' } })
+    await signOutNow()
+  } catch (err) {
+    error.value = err.message
   } finally {
     signingOut.value = false
   }

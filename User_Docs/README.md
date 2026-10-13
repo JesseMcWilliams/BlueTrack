@@ -2,9 +2,11 @@
 
 Short, linear, role-based walkthroughs — "what do I do first, then next" — as opposed to the field-by-field reference material in `Claude_Docs/`, which these guides link out to rather than duplicate.
 
-These guides live in `User_Docs/` (they were in `Guides/` before; update any bookmark or link to the old path). The Word deliverables (the Installation, Development Host Setup, Getting Started and Administrator Settings guides) are in `Published_Docs/`. They're built from `Admin_Installation.md`, `Developer_HostSetup.md`, `User_GettingStarted.md` and `Admin_SettingsReference.md` when a release is made (`python Published_Docs/build_published_docs.py`, needs python-docx), so between releases the guides here are the more current.
+These guides live in `User_Docs/` (they were in `Guides/` before; update any bookmark or link to the old path). The Word deliverables (the Installation, Development Host Setup, Getting Started and Administrator Settings guides, and the Release Notes) are in `Published_Docs/`. They're built from `Admin_Installation.md`, `Developer_HostSetup.md`, `User_GettingStarted.md`, `Admin_SettingsReference.md` and `Release_Notes.md` when a release is made (`python Published_Docs/build_published_docs.py`, needs python-docx), so between releases the guides here are the more current.
 
 ## New to BlueTrack? Start here
+
+- [Release_Notes.md](Release_Notes.md) — what changed in each release, and what to do when upgrading. Published as Release Notes.
 
 - [User_GettingStarted.md](User_GettingStarted.md) — what BlueTrack is for, the key terms, and the typical flow from importing data to working accounts through their stages, exceptions and reports. Published as the Getting Started Guide.
 

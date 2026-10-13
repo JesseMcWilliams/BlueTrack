@@ -18,16 +18,17 @@ public sealed class ImportMappingService(IDbConnectionFactory connectionFactory)
 
     public async Task<IReadOnlyDictionary<string, FieldMapping>> GetActiveMappingAsync(string feedType, int? mappingProfileKey)
     {
-        using var connection = connectionFactory.Create();
-
-        var profileKey = mappingProfileKey ?? await connection.QuerySingleOrDefaultAsync<int?>(
-            "SELECT TOP 1 ImportMappingProfileKey FROM web.import_mapping_profile WHERE FeedType = @FeedType AND IsActive = 1 ORDER BY ImportMappingProfileKey",
-            new { FeedType = feedType });
-
-        if (profileKey is null)
+        // D-207: no profile chosen means none -- the CSV's own column names, as the
+        // feed page and this class's summary say. It used to fall back to the
+        // oldest active profile for the feed type, so an upload or feed set to
+        // "None" was silently remapped. The Bulk Actions pages now let the
+        // uploader choose a profile instead.
+        if (mappingProfileKey is not { } profileKey)
         {
             return new Dictionary<string, FieldMapping>();
         }
+
+        using var connection = connectionFactory.Create();
 
         var rows = await connection.QueryAsync<(string TargetFieldName, string SourceColumnName, bool IsRequired, string? DefaultValue)>(
             "SELECT TargetFieldName, SourceColumnName, IsRequired, DefaultValue FROM web.import_mapping_field WHERE ImportMappingProfileKey = @ProfileKey",

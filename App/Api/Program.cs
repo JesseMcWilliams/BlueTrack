@@ -174,6 +174,15 @@ builder.Services.Configure<Microsoft.AspNetCore.Authentication.AuthenticationOpt
     options.DefaultChallengeScheme = postSamlDefaultScheme;
 });
 
+// D-209: Idle Timeout ends the cookie-based sessions (OIDC/DevFakeAuth and
+// SAML) on the server too, so one whose tab was closed doesn't stay valid.
+// PostConfigure, after both schemes are registered; the scheme setup itself
+// is unchanged.
+builder.Services.PostConfigure<Microsoft.AspNetCore.Authentication.Cookies.CookieAuthenticationOptions>(
+    Microsoft.AspNetCore.Authentication.Cookies.CookieAuthenticationDefaults.AuthenticationScheme, IdleSessionValidator.Attach);
+builder.Services.PostConfigure<Microsoft.AspNetCore.Authentication.Cookies.CookieAuthenticationOptions>(
+    ITfoxtec.Identity.Saml2.Schemas.Saml2Constants.AuthenticationScheme, IdleSessionValidator.Attach);
+
 builder.Services.AddScoped<Saml2ConfigurationFactory>();
 builder.Services.AddSingleton<SamlTokenReplayCache>();   // D-198
 

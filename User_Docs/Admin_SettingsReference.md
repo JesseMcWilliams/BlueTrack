@@ -32,14 +32,14 @@ Every Admin page needs its own permission (see "Roles & Permissions"). A user se
 
 | Setting | What it does | Default | Recommended | Why |
 |---|---|---|---|---|
-| Idle Timeout (minutes) | How long a user's cached rights last without activity. After that, BlueTrack works out their roles again and records a new Logon event. | 30 | 15 | Cached rights expire after 15 minutes regardless (see below), so values above 15 make no practical difference. |
+| Idle Timeout (minutes) | Signs a user out after this many minutes without activity in any BlueTrack tab. OIDC and SAML sessions also end on the server after this long without a request, even if the tab was closed. | 30 | 15 to 30 | Short enough that an unattended screen doesn't stay signed in to privileged-access data, long enough not to interrupt normal work. Allowed: 5 to 720. |
 | Breadcrumb Position | Where the breadcrumb trail appears on every page: Top Left or Top Right. Applies to all users. | Top Left | Top Left | A matter of taste; Top Left is the usual place for breadcrumbs. |
 | Exception ID Pattern | The format of new Risk Exception IDs. Tokens: `{yyyy}` (year), `{yy}` (two-digit year), `{seq:0000}` (running number, padded to the number of zeros). | `EXC-{yyyy}-{seq:0000}` | Keep the default, or your own prefix with a year token and `{seq:...}` | The running number restarts at 1 each year, so a pattern without a year token, or without `{seq:...}`, produces duplicate IDs, which are refused. |
 | Account Progress Lock Timeout (minutes) | How long an Account Progress edit lock survives after the editor's page stops renewing it, for example when a browser is closed. Allowed: 1 to 720. | 30 | 30 (10 to 30 suits most teams) | An open edit page renews its lock every minute, so this only controls how long an abandoned lock blocks others. Keep it well above 1 minute. |
 | Enforce segregation of duties on Risk Exception approval | When on, the person who approved a Risk Exception cannot also be the one who links it to an account. | Off | On, if you have separate staff | Stops one person both approving and applying an exception. Leave it off for a small team, and review the Risk Exception segregation-of-duties report instead. |
 | Bulk edit limit (accounts) | The most accounts one bulk edit, bulk action, delete or undelete may change. Allowed: 1 to 10,000. | 500 | 500 | Large enough for normal work, small enough that a mistaken bulk change is limited. Raise it only for planned clean-ups. |
 
-**Idle timeout.** This setting does not sign anyone out. It controls how long BlueTrack keeps a user's roles and permissions in its cache between requests. Cached rights also expire 15 minutes after they were worked out, even for an active user, and any change to a role, group mapping or identity provider clears every user's cache. An OIDC sign-in is held by a session cookie that lasts 8 hours; that lifetime is fixed and is not changed by this setting. There is no range check, so always enter a positive number of minutes.
+**Idle timeout.** In the browser, BlueTrack signs the user out after this many minutes with no mouse, keyboard or touch activity in any of its tabs, and the sign-in page says why. OIDC and SAML sessions are also ended on the server once no request has arrived for this long, so a closed tab doesn't leave a usable session behind; each OIDC session also ends after 8 hours regardless. Windows sign-in has no session to end: if Windows Integrated is the default method, the user is signed in again as soon as they leave the sign-in page. Separately, a user's cached roles and permissions last at most 15 minutes, and any change to a role, group mapping or identity provider clears every user's cache.
 
 ### Audit
 
@@ -181,7 +181,7 @@ A new install maps `BUILTIN\Administrators` (local administrators of the server)
 | `ConfirmReconciliation` | Confirm an account reconciliation match | Admin, Approver |
 | `ManageTargets` | Manage the Target inventory; also opens Target Match Review and Import Mapping Profiles | Admin, Analyst |
 | `ManageAccessGroups` | Manage Access Groups for risk scoring | Admin, Analyst |
-| `ViewRiskReport` | View the account risk score report | Admin |
+| `ViewRiskReport` | View the account risk score report | Admin, Analyst |
 | `ManageRiskScoreBands` | Manage Risk Score Bands | Admin |
 | `ViewDiscoveredAccounts` | View the Discovered Accounts report | Admin |
 | `ManageDiscoveredAccounts` | Accept or dismiss a Discovered Account | Admin |
@@ -306,7 +306,7 @@ Changing the host, port, STARTTLS, "Ignore all SSL errors", authentication metho
 |---|---|---|---|---|
 | Name | The feed's name, up to 200 characters. | Blank | Say what the file is and where it comes from | Makes run history easy to read. |
 | Import | What the file holds: Target inventory, Access group inventory, Access group → target map, Account → access group membership, Account → target map, Applications, or Safe → application assignments. | None | The import the file matches | The file must have the columns of that import's Bulk Actions template, or match a mapping profile. |
-| Mapping profile | For the five risk-scoring imports: which Import Mapping Profile translates the file's column names. | None | Choose the profile explicitly when the file isn't in template format | With None, the import uses the oldest active profile for that import type, if there is one, otherwise the template's own column names. Choosing one avoids surprises. |
+| Mapping profile | For the five risk-scoring imports: which Import Mapping Profile translates the file's column names. | None | Choose the profile when the file isn't in template format | None means the file uses the template's own column names. |
 | Folder path | A full local or UNC path, up to 500 characters. | Blank | A dedicated feed folder inside the server's allowed folders | The App Pool's account reads it, so it needs read access. Network shares need to be in the allowed folders. |
 | File name pattern | The file to pick, up to 260 characters. A date format in braces, such as `{yyyy-MM-dd}`, becomes today's date; `*` and `?` are wildcards. | Blank | Include the date, for example `targets_{yyyy-MM-dd}.csv` | A dated name stops yesterday's file being imported again by mistake. |
 | Run order | The order enabled feeds run in. | 0 | Inventories first, then the maps that refer to them | A map that refers to targets or groups loads cleanly once they exist. |
@@ -322,7 +322,7 @@ The matched file is left in place after import. Only one run happens at a time.
 |---|---|---|---|---|
 | Feed Type | Which import the profile is for. | TargetInventory | The import the file feeds | A profile only applies to its own import. |
 | Profile Name | The profile's name; unique per feed type. | Blank | The source tool and version, for example "CMDB export v2" | A new file format gets a new profile. |
-| Active | Whether the profile may be used. | On | One active profile per feed type | When no profile is chosen, the oldest active one is used. Several active profiles make it unclear which applies. |
+| Active | Whether the profile is offered when a data feed or a Bulk Actions upload chooses a profile. | On | On for the profiles in use | A profile is used only when it's chosen; none chosen means the template's own column names. |
 | Description | Free text. | Blank | Where the file comes from | Helps the next administrator. |
 | Source Column | The column header exactly as it appears in the file. | Blank | Copy it from the file | Must match the header. |
 | Internal Field | The BlueTrack field the column feeds. | Blank | A field name from that import's template | Only the template's field names are used. |

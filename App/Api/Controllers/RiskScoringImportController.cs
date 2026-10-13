@@ -109,6 +109,33 @@ public sealed class RiskScoringImportController(
         return Ok(await importService.ImportAccountTargetMapAsync(rows, mappingProfileKey, file.FileName));
     }
 
+    /// <summary>
+    /// D-207: the active mapping profiles for a feed type, for the Bulk Actions
+    /// pages' profile choice (none chosen = the CSV's own column names). Two
+    /// endpoints so each carries the same permission as the imports it serves.
+    /// </summary>
+    [HttpGet("target-mapping-profiles")]
+    [Authorize(Policy = Permissions.ManageTargets)]
+    public Task<IActionResult> GetTargetMappingProfiles([FromQuery] string feedType, [FromServices] ImportMappingProfileRepository profiles) =>
+        MappingProfilesFor(feedType, ["TargetInventory", "AccountTargetMap"], profiles);
+
+    [HttpGet("access-group-mapping-profiles")]
+    [Authorize(Policy = Permissions.ManageAccessGroups)]
+    public Task<IActionResult> GetAccessGroupMappingProfiles([FromQuery] string feedType, [FromServices] ImportMappingProfileRepository profiles) =>
+        MappingProfilesFor(feedType, ["AccessGroupInventory", "AccessGroupTargetMap", "AccountAccessGroupMembership"], profiles);
+
+    private async Task<IActionResult> MappingProfilesFor(string feedType, string[] allowed, ImportMappingProfileRepository profiles)
+    {
+        if (!allowed.Contains(feedType))
+        {
+            return Problem(title: "Unknown feed type", detail: $"Use one of {string.Join(", ", allowed)}.", statusCode: StatusCodes.Status400BadRequest);
+        }
+        var active = (await profiles.GetAllAsync())
+            .Where(p => p.FeedType == feedType && p.IsActive)
+            .Select(p => new { p.ImportMappingProfileKey, p.ProfileName });
+        return Ok(active);
+    }
+
     /// <summary>Single-add analog of account-target-map -- an analyst picks one Account and one Target directly.</summary>
     [HttpPost("~/api/admin/risk-scoring/account-target-links")]
     [Authorize(Policy = Permissions.ManageTargets)]

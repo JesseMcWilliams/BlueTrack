@@ -6,11 +6,6 @@
 
 - [ ] **Found 2026-09-24, while verifying D-162/D-163 end to end with a real SQL grant (D-164)**: `Database/41_BlueTrack_GrantAppServiceAccountAccess.sql` correctly grants the app's own database permissions, but the real host still fails every DB-touching request with `Login failed for user 'DOMAIN\HOSTNAME$'. Reason: Could not find a login matching the name provided` -- not a permissions error, and not fixed by the login existing, being enabled, having the correct SID (confirmed three independent ways), or toggling the App Pool's `loadUserProfile`. Matches a known, general limitation of `ApplicationPoolIdentity` for outbound Windows-authenticated connections to remote services like SQL Server. **Not fixed** -- needs a real environment decision (switch the App Pool to a dedicated domain service account or gMSA), not something to guess at further; see D-164 and `User_Docs/Admin_OperationsGuide.md`'s "Granting the app's own SQL Server access" section.
 
-## Found writing the settings guide (2026-10-13)
-
-- [ ] **Medium -- "Idle timeout" never signs anyone out.** `IdleTimeoutMinutes` is used only as the sliding expiry of the cached user rights (`UserRightsCache`), which also expire after 15 minutes regardless; no session or cookie lifetime reads it. An admin setting it expects idle sessions to end. Decide: wire it to the sign-in cookie lifetimes (OIDC/DevFakeAuth cookie, SAML session), or rename and re-describe it.
-- [ ] **Low -- a data feed or import with no mapping profile uses the oldest active profile.** `ImportMappingService.GetActiveMappingAsync` falls back to the first active profile for the feed type when none is chosen, though the feed page says "None (the template's own column names)" and the method's own comment says no profile means 1:1 headers. Changing it alters existing imports that rely on the fallback, so it needs a decision.
-
 ## Security review 2026-10-10 (open)
 
 Five-area review (auth/session, SQL/data access, uploads/feeds/secrets, frontend/HTTP, deployment/CI). Fixed items are in `Archive_Testing_Audit-Findings.md` under the same date (D-197).

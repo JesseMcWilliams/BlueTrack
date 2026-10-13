@@ -69,7 +69,7 @@ A few things to know:
 - **Access Groups** and **Targets** only appear in the top navigation if your role can manage them.
 - The Dashboard, **Accounts**, **Exceptions** and most reports need `ViewDashboard`. Without it, those pages show an error such as "Request failed: 403" instead of data. The Auditor role doesn't include it.
 - Inside **Admin**, the sidebar lists only the sections you have permission for.
-- Some work is admin-only out of the box: deleting accounts, the Risk Score and Discovered Accounts reports, and data feeds. Your administrator can grant these to other roles.
+- Some work is admin-only out of the box: deleting accounts, the Discovered Accounts report, and data feeds. (Analysts can also see the Risk Score report.) Your administrator can grant these to other roles.
 - To check exactly what you hold, open **Profile & Preferences**. If you've just been added to a group, click **Reload My Rights**. Otherwise the change can take up to 15 minutes to reach you.
 
 ## How data gets into BlueTrack
