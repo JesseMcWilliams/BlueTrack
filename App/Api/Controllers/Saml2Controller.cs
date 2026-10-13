@@ -57,7 +57,21 @@ public sealed class Saml2Controller(Saml2ConfigurationFactory configFactory, ILo
             AssertionConsumerServiceUrl = new Uri(Url.ActionLink(nameof(Acs))!)
         };
 
-        return binding.Bind(request).ToActionResult();
+        // D-210: signing the request is where an SP key the App Pool account can't
+        // read fails ("Keyset does not exist"); say so rather than an unhandled 500.
+        try
+        {
+            return binding.Bind(request).ToActionResult();
+        }
+        catch (System.Security.Cryptography.CryptographicException ex)
+        {
+            logger.LogError(ex, "SAML sign-in request could not be signed with the SP certificate's private key.");
+            return Problem(
+                title: "SAML sign-in is not available",
+                detail: "BlueTrack can't use the SAML SP certificate's private key. The App Pool account needs read access to it "
+                    + "(see the Installation guide, \"SAML signing certificate\"). The Identity Providers health check shows the same problem.",
+                statusCode: StatusCodes.Status503ServiceUnavailable);
+        }
     }
 
     /// <summary>Assertion Consumer Service -- where the IdP POSTs the SAML response back.</summary>

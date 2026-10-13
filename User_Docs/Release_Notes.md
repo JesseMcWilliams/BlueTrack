@@ -4,7 +4,17 @@ What changed in each BlueTrack release, newest first, for users and administrato
 
 ## Unreleased
 
-Nothing yet.
+### Changed
+
+- **Test buttons are audit-logged.** Each Test on the Secrets Store Configuration and Credentials & LDAP pages is recorded in the Audit Log as a `ConnectionTest` event, with what was looked up and whether it worked. The Secrets Store test no longer shows the password's length.
+
+### Fixed
+
+- **SAML sign-in with an unreadable signing key** now says "SAML sign-in is not available" instead of a server error, and the Identity Providers health check reports the problem. The Installation Guide says how to give the App Pool's account read access to the key.
+
+### Upgrading
+
+- Run the installer as usual; it applies the new database script (`11_BlueTrack_ConnectionTestAudit.sql`).
 
 ## 1.0.0
 

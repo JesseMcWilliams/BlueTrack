@@ -10,6 +10,9 @@ namespace BlueTrack.Api.Audit;
 /// </summary>
 public sealed class AuditLogger(IDbConnectionFactory connectionFactory, IHttpContextAccessor httpContextAccessor, AppConfigRepository appConfigRepository)
 {
+    /// <summary>audit_event.Detail is NVARCHAR(2000); clips text built from user input or an exception message to fit.</summary>
+    public static string ClipDetail(string detail) => detail.Length <= 2000 ? detail : detail[..1997] + "...";
+
     public async Task LogAsync(
         string eventTypeName,
         int performedByUserKey,

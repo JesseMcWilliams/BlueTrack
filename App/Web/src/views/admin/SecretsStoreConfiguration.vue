@@ -198,7 +198,7 @@ async function testConnection() {
     </form>
     <div v-if="testResult">
       <p v-if="testResult.success" role="status">
-        Success. UserName: {{ testResult.userName }}, Address: {{ testResult.address }}, password length: {{ testResult.passwordLength }}
+        Success. UserName: {{ testResult.userName }}, Address: {{ testResult.address }}
         <span v-if="testResult.fromFallbackCache"> (served from fallback cache, D-49)</span>
       </p>
       <p v-else role="alert">Failed{{ testResult.errorCategory ? ` (${testResult.errorCategory})` : '' }}: {{ testResult.error }}</p>

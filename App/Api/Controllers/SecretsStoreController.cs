@@ -48,31 +48,42 @@ public sealed class SecretsStoreController(
     /// Azure Key Vault, AWS Secrets Manager) -- Windows DPAPI doesn't fit
     /// this shape at all (D-79), so activating it makes this endpoint
     /// correctly fail with "no provider implementation."
+    /// D-210: every test is audit-logged (ConnectionTest) with what was asked
+    /// and the outcome; the password's length is no longer returned.
     /// </summary>
     [HttpPost("test")]
     public async Task<IActionResult> TestConnection([FromBody] TestSecretRequest request)
     {
+        var user = await currentUserResolver.ResolveAsync(User);
+        if (user is null) return Unauthorized();
+
+        var asked = $"Test lookup of Safe '{request.Safe}', Folder '{request.Folder}', Object '{request.Object}'";
+        TestSecretResult outcome;
         try
         {
             var secretsProvider = await vaultSecretProviderResolver.ResolveActiveAsync();
             var result = await secretsProvider.GetSecretAsync(new SecretQuery(request.Safe, request.Folder, request.Object));
-            return Ok(new TestSecretResult
+            outcome = new TestSecretResult
             {
                 Success = true,
                 UserName = result.UserName,
                 Address = result.Address,
-                PasswordLength = result.Content.Length,
                 FromFallbackCache = result.FromFallbackCache
-            });
+            };
+            asked += result.FromFallbackCache ? ": succeeded (from the fallback cache)" : ": succeeded";
         }
         catch (SecretRetrievalException ex)
         {
-            return Ok(new TestSecretResult
+            outcome = new TestSecretResult
             {
                 Success = false,
                 Error = ex.Message,
                 ErrorCategory = ex.Category.ToString()
-            });
+            };
+            asked += $": failed ({ex.Category}): {ex.Message}";
         }
+
+        await auditLogger.LogAsync("ConnectionTest", user.UserKey, "secrets_store", detail: AuditLogger.ClipDetail(asked));
+        return Ok(outcome);
     }
 }

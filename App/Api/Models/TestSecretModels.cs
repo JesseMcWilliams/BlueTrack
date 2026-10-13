@@ -12,14 +12,13 @@ public sealed class TestSecretRequest
 /// Never carries the actual secret value -- only non-secret identifying
 /// metadata (D-39: UserName/Address) and enough to tell success from
 /// failure, consistent with never surfacing a raw secret through a general
-/// admin UI/API response.
+/// admin UI/API response. D-210: not even the password's length.
 /// </summary>
 public sealed class TestSecretResult
 {
     public bool Success { get; init; }
     public string? UserName { get; init; }
     public string? Address { get; init; }
-    public int? PasswordLength { get; init; }
     public bool FromFallbackCache { get; init; }
     public string? Error { get; init; }
     public string? ErrorCategory { get; init; }
