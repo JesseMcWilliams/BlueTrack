@@ -24,6 +24,12 @@ DOCS = [
      'Installation Guide', 'BlueTrack: CyberArk PAM Blueprint progress tracking'),
     ('User_Docs/Developer_HostSetup.md', 'Published_Docs/Development_Host_Setup_Guide.docx',
      'Development Host Setup Guide', 'BlueTrack: CyberArk PAM Blueprint progress tracking'),
+    ('User_Docs/User_GettingStarted.md', 'Published_Docs/Getting_Started_Guide.docx',
+     'Getting Started with BlueTrack', 'BlueTrack: CyberArk PAM Blueprint progress tracking'),
+    ('User_Docs/Admin_SettingsReference.md', 'Published_Docs/Administrator_Settings_Guide.docx',
+     'Administrator Settings Guide', 'BlueTrack: CyberArk PAM Blueprint progress tracking'),
+    ('User_Docs/Release_Notes.md', 'Published_Docs/Release_Notes.docx',
+     'Release Notes', 'BlueTrack: CyberArk PAM Blueprint progress tracking'),
 ]
 
 INLINE = re.compile(r'(\*\*[^*]+\*\*|`[^`]+`|\[[^\]]+\]\([^)]+\))')

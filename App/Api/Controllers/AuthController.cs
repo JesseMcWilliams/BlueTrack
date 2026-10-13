@@ -70,7 +70,7 @@ public sealed class AuthController(IdentityProviderRepository identityProviderRe
     /// </summary>
     [HttpGet("session")]
     [AllowAnonymous]
-    public async Task<IActionResult> GetSession()
+    public async Task<IActionResult> GetSession([FromServices] AppConfigRepository appConfigRepository)
     {
         var defaultProvider = await identityProviderRepository.GetDefaultSignInProviderAsync();
         var chose = Request.Cookies.TryGetValue(SignInChoiceCookieName, out var choice) && choice == WindowsChoice;
@@ -85,7 +85,9 @@ public sealed class AuthController(IdentityProviderRepository identityProviderRe
         {
             authenticated = signedIn,
             windows = windowsWanted,
-            defaultProviderType = defaultProvider
+            defaultProviderType = defaultProvider,
+            // D-209: the SPA signs out after this many minutes without activity.
+            idleTimeoutMinutes = (await appConfigRepository.GetAsync()).IdleTimeoutMinutes
         });
     }
 

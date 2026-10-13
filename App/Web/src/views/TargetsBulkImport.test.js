@@ -49,7 +49,7 @@ describe('TargetsBulkImport.vue', () => {
     await importButton.trigger('click')
     await flushPromises()
 
-    const [url, options] = globalThis.fetch.mock.calls[0]
+    const [url, options] = globalThis.fetch.mock.calls.find(([, o]) => o?.method === 'POST')
     expect(url).toBe('/api/admin/risk-scoring/import/target-inventory')
     expect(options.method).toBe('POST')
     expect(options.body.get('file').name).toBe(file.name)
@@ -88,7 +88,7 @@ describe('TargetsBulkImport.vue', () => {
     await importButton.trigger('click')
     await flushPromises()
 
-    const [url, options] = globalThis.fetch.mock.calls[0]
+    const [url, options] = globalThis.fetch.mock.calls.find(([, o]) => o?.method === 'POST')
     expect(url).toBe('/api/admin/risk-scoring/import/account-target-map')
     expect(options.body.get('file').name).toBe(file.name)
     expect(wrapper.text()).toContain('4 rows -- 3 created, 1 already linked, 0 errors.')
@@ -106,5 +106,52 @@ describe('TargetsBulkImport.vue', () => {
     await flushPromises()
 
     expect(wrapper.text()).toContain('Row 2: Unknown identifier type')
+  })
+})
+
+// D-207: with active profiles for the feed type, the upload offers them (None by default)
+// and sends the chosen one; with none chosen, nothing extra is sent.
+describe('TargetsBulkImport.vue mapping profile', () => {
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('offers the active profiles and sends the chosen one with the upload', async () => {
+    globalThis.fetch = vi.fn((url, options) => {
+      if (url.startsWith('/api/admin/risk-scoring/import/target-mapping-profiles?feedType=TargetInventory')) {
+        return Promise.resolve(jsonResponse([{ importMappingProfileKey: 7, profileName: 'CMDB export' }]))
+      }
+      if (url.includes('mapping-profiles')) return Promise.resolve(jsonResponse([]))
+      return Promise.resolve(jsonResponse({ totalRows: 1, createdCount: 1, mergedCount: 0, pendingReviewCount: 0, errors: [] }))
+    })
+    const wrapper = mount(TargetsBulkImport)
+    await flushPromises()
+
+    const select = wrapper.get('select')
+    expect(select.text()).toContain('None (the template\'s own column names)')
+    expect(select.text()).toContain('CMDB export')
+
+    await wrapper.findAll('option').find(o => o.text() === 'CMDB export').setSelected()
+    await selectFile(wrapper.findAll('input[type="file"]')[0], new File(['a,b'], 'cmdb.csv', { type: 'text/csv' }))
+    await wrapper.findAll('button')[0].trigger('click')
+    await flushPromises()
+
+    const [, options] = globalThis.fetch.mock.calls.find(([, o]) => o?.method === 'POST')
+    expect(options.body.get('mappingProfileKey')).toBe('7')
+  })
+
+  it('sends no profile when None is left selected', async () => {
+    globalThis.fetch = vi.fn((url) => url.includes('mapping-profiles')
+      ? Promise.resolve(jsonResponse([{ importMappingProfileKey: 7, profileName: 'CMDB export' }]))
+      : Promise.resolve(jsonResponse({ totalRows: 1, createdCount: 1, mergedCount: 0, pendingReviewCount: 0, errors: [] })))
+    const wrapper = mount(TargetsBulkImport)
+    await flushPromises()
+
+    await selectFile(wrapper.findAll('input[type="file"]')[0], new File(['a,b'], 'targets.csv', { type: 'text/csv' }))
+    await wrapper.findAll('button')[0].trigger('click')
+    await flushPromises()
+
+    const [, options] = globalThis.fetch.mock.calls.find(([, o]) => o?.method === 'POST')
+    expect(options.body.get('mappingProfileKey')).toBeNull()
   })
 })

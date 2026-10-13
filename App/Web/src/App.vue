@@ -9,9 +9,11 @@ import { ref, onMounted } from 'vue'
 import Breadcrumbs from './components/Breadcrumbs.vue'
 import ConfirmDialog from './components/ConfirmDialog.vue'
 import UserMenu from './components/UserMenu.vue'
+import { useIdleSignOut } from './composables/useIdleSignOut'
 import { useRightsStore } from './stores/rights'
 
 const rights = useRightsStore()
+useIdleSignOut() // D-209: sign out after Idle Timeout without activity
 
 // DevFakeAuth-enabled-too-long warning (added 2026-09-06, user-requested):
 // DevFakeAuth bypasses real authentication and is meant only for local

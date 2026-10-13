@@ -149,6 +149,14 @@ describe('Login.vue', () => {
     expect(wrapper.text()).toContain('Authentik (SAML)')
   })
 
+  it('signed out for inactivity: says why', async () => {
+    mockFetch({ providers: [windows, saml], defaultProviderType: 'SAML' })
+    const { wrapper } = await mountAt('/login?signedOut=1&reason=idle')
+
+    expect(navigatedTo).toBeNull()
+    expect(wrapper.text()).toContain("You were signed out because you weren't active for a while.")
+  })
+
   it('/login/oidc when OIDC is not enabled says so and lists the methods', async () => {
     mockFetch({ providers: [windows, saml], defaultProviderType: null })
     const { wrapper } = await mountAt('/login/oidc')

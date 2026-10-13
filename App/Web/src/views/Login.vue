@@ -40,6 +40,7 @@ const rights = useRightsStore()
 
 const requestedType = computed(() => PROVIDER_BY_PATH[route.params.provider] ?? null)
 const signedOut = computed(() => route.query.signedOut === '1')
+const signedOutIdle = computed(() => signedOut.value && route.query.reason === 'idle')
 
 function returnUrl() {
   const value = route.query.returnUrl
@@ -131,7 +132,8 @@ onMounted(load)
 <template>
   <div>
     <h1>Sign in</h1>
-    <p v-if="signedOut" role="status">You're signed out.</p>
+    <p v-if="signedOutIdle" role="status">You were signed out because you weren't active for a while.</p>
+    <p v-else-if="signedOut" role="status">You're signed out.</p>
     <p v-if="error" role="alert">{{ error }}</p>
     <p v-if="loading" role="status">Loading...</p>
     <p v-if="windowsFailed && !signingIn" role="alert">

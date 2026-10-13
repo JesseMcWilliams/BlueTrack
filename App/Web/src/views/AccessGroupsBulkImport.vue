@@ -12,11 +12,12 @@ import { apiUrl } from '../utils/apiBase'
 // page, and navigating back to Access Groups re-fetches fresh data on
 // mount anyway.
 import { ref } from 'vue'
+import MappingProfileSelect from '../components/MappingProfileSelect.vue'
 
 const importState = ref({
-  inventory: { file: null, result: null, importing: false },
-  targetMap: { file: null, result: null, importing: false },
-  membership: { file: null, result: null, importing: false }
+  inventory: { file: null, result: null, importing: false, profile: null },
+  targetMap: { file: null, result: null, importing: false, profile: null },
+  membership: { file: null, result: null, importing: false, profile: null }
 })
 
 function onFileChange(key, event) {
@@ -31,6 +32,7 @@ async function importFile(key, url) {
   try {
     const formData = new FormData()
     formData.append('file', state.file)
+    if (state.profile !== null) formData.append('mappingProfileKey', String(state.profile)) // D-207
     const response = await fetch(url, { method: 'POST', body: formData })
     state.result = response.ok ? await response.json() : { error: `Import failed: ${response.status}` }
   } finally {
@@ -47,6 +49,7 @@ async function importFile(key, url) {
     <p><a :href="apiUrl('/api/admin/risk-scoring/import/access-group-inventory/template')">Download template</a> -- upserts by GroupIdentifier (a matching row updates the existing group instead of creating a duplicate).</p>
     <p class="filter-row">
       <input type="file" accept=".csv" @change="onFileChange('inventory', $event)" />
+      <MappingProfileSelect v-model="importState.inventory.profile" feed-type="AccessGroupInventory" area="access-group" />
       <button :disabled="!importState.inventory.file || importState.inventory.importing" @click="importFile('inventory', '/api/admin/risk-scoring/import/access-group-inventory')">{{ importState.inventory.importing ? 'Importing...' : 'Import' }}</button>
     </p>
     <p v-if="importState.inventory.result">
@@ -58,6 +61,7 @@ async function importFile(key, url) {
     <p><a :href="apiUrl('/api/admin/risk-scoring/import/access-group-target-map/template')">Download template</a> -- which Targets each group grants access to (both the group and the target must already exist).</p>
     <p class="filter-row">
       <input type="file" accept=".csv" @change="onFileChange('targetMap', $event)" />
+      <MappingProfileSelect v-model="importState.targetMap.profile" feed-type="AccessGroupTargetMap" area="access-group" />
       <button :disabled="!importState.targetMap.file || importState.targetMap.importing" @click="importFile('targetMap', '/api/admin/risk-scoring/import/access-group-target-map')">{{ importState.targetMap.importing ? 'Importing...' : 'Import' }}</button>
     </p>
     <p v-if="importState.targetMap.result">
@@ -69,6 +73,7 @@ async function importFile(key, url) {
     <p><a :href="apiUrl('/api/admin/risk-scoring/import/account-access-group-membership/template')">Download template</a> -- which Accounts belong to each group.</p>
     <p class="filter-row">
       <input type="file" accept=".csv" @change="onFileChange('membership', $event)" />
+      <MappingProfileSelect v-model="importState.membership.profile" feed-type="AccountAccessGroupMembership" area="access-group" />
       <button :disabled="!importState.membership.file || importState.membership.importing" @click="importFile('membership', '/api/admin/risk-scoring/import/account-access-group-membership')">{{ importState.membership.importing ? 'Importing...' : 'Import' }}</button>
     </p>
     <p v-if="importState.membership.result">

@@ -49,7 +49,7 @@ describe('AccessGroupsBulkImport.vue', () => {
     await importButton.trigger('click')
     await flushPromises()
 
-    const [url, options] = globalThis.fetch.mock.calls[0]
+    const [url, options] = globalThis.fetch.mock.calls.find(([, o]) => o?.method === 'POST')
     expect(url).toBe('/api/admin/risk-scoring/import/access-group-inventory')
     expect(options.method).toBe('POST')
     expect(options.body.get('file').name).toBe(file.name)
@@ -68,7 +68,7 @@ describe('AccessGroupsBulkImport.vue', () => {
     await importButton.trigger('click')
     await flushPromises()
 
-    const [url, options] = globalThis.fetch.mock.calls[0]
+    const [url, options] = globalThis.fetch.mock.calls.find(([, o]) => o?.method === 'POST')
     expect(url).toBe('/api/admin/risk-scoring/import/access-group-target-map')
     expect(options.body.get('file').name).toBe(file.name)
     expect(wrapper.text()).toContain('8 rows -- 7 succeeded, 1 errors.')
@@ -87,7 +87,7 @@ describe('AccessGroupsBulkImport.vue', () => {
     await importButton.trigger('click')
     await flushPromises()
 
-    const [url, options] = globalThis.fetch.mock.calls[0]
+    const [url, options] = globalThis.fetch.mock.calls.find(([, o]) => o?.method === 'POST')
     expect(url).toBe('/api/admin/risk-scoring/import/account-access-group-membership')
     expect(options.body.get('file').name).toBe(file.name)
     expect(wrapper.text()).toContain('3 rows -- 3 succeeded, 0 errors.')

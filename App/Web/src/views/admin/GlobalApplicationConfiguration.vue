@@ -96,7 +96,7 @@ async function save() {
     <p v-else-if="error && !config" role="alert">{{ error }}</p>
     <form v-else @submit.prevent="save">
       <p>
-        <label class="field-label"><span class="field-label-text">Idle Timeout (minutes):</span> <input v-model.number="config.idleTimeoutMinutes" type="number" required /></label>
+        <label class="field-label"><span class="field-label-text">Idle Timeout (minutes):</span> <input v-model.number="config.idleTimeoutMinutes" type="number" min="5" max="720" required /></label>
       </p>
       <p>
         <label class="field-label">
