@@ -2,6 +2,8 @@
 
 Short, linear, role-based walkthroughs — "what do I do first, then next" — as opposed to the field-by-field reference material in `Claude_Docs/`, which these guides link out to rather than duplicate.
 
+These guides live in `User_Docs/` (they were in `Guides/` before; update any bookmark or link to the old path). The Word deliverables, the Installation Guide and the Development Host Setup Guide, are in `Published_Docs/` and are refreshed from these guides when a release is made, so between releases the guides here are the more current.
+
 ## Admin guides (read in order, for a new environment)
 
 1. [Admin_Installation.md](Admin_Installation.md) — first-time setup, from prerequisites through first sign-in.
@@ -20,6 +22,6 @@ Each covers one BlueTrack role in isolation. The roles are siblings built on a s
 ## See also
 
 - `User_Guide.md` — the full reference guide covering every page in the application, for every role at once.
-- `Admin_OperationsGuide.md` — the DBA/operator-facing tasks with no UI of their own.
+- `Admin_OperationsGuide.md` — the DBA/operator-facing tasks with no UI of their own: backups and restore, updating to a new version, SQL Server grants, the nightly jobs.
 - `Admin_DeploymentRunbook.md` — the step-by-step procedure for standing up or rebuilding an environment.
 - `Claude_Docs/Design_Application-Structure.md` — the authoritative page inventory and navigation conventions.
