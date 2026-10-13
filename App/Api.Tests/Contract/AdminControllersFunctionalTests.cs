@@ -191,6 +191,58 @@ public class AdminControllersFunctionalTests : IClassFixture<BlueTrackWebApplica
     }
 
     private sealed record GroupRoleMappingListItem(int MappingKey, string ProviderType, string IdentityGroupName, string RoleName, string? GroupDisplayName);
+    private sealed record MappableProviderItem(int ProviderKey, string ProviderType, string DisplayName, bool IsEnabled, string? GroupClaimType);
+    private sealed record MappingListItemWithProvider(int MappingKey, int ProviderKey, string ProviderDisplayName, string IdentityGroupName, string RoleName);
+    private sealed record ResolvedGroup(string ResolvedAccountName, string Sid, List<string> CurrentRoleNames);
+
+    /// <summary>D-204: OIDC/SAML groups are mapped by their claim value, per provider; Windows stays the default.</summary>
+    [Fact]
+    public async Task GroupRoleMapping_SamlGroup_CreateResolveConflictAndDelete()
+    {
+        var client = AdminClient();
+        var providers = await client.GetFromJsonAsync<List<MappableProviderItem>>("/api/admin/group-role-mappings/providers");
+        var saml = Assert.Single(providers!, p => p.ProviderType == "SAML");
+        Assert.Contains(providers!, p => p.ProviderType == "WindowsIntegrated" && p.GroupClaimType is null);
+        Assert.DoesNotContain(providers!, p => p.ProviderType == "DevFakeAuth");
+        var groupName = $"ContractTest-{Guid.NewGuid():N}"[..30];
+
+        var create = await client.PostAsJsonAsync("/api/admin/group-role-mappings", new { groupName = $"  {groupName} ", roleName = "Analyst", providerKey = saml.ProviderKey });
+        Assert.Equal(HttpStatusCode.Created, create.StatusCode);
+        var created = await create.Content.ReadFromJsonAsync<MappingKeyResponse>();
+        try
+        {
+            var mappings = await client.GetFromJsonAsync<List<MappingListItemWithProvider>>("/api/admin/group-role-mappings");
+            var row = Assert.Single(mappings!, m => m.MappingKey == created!.MappingKey);
+            Assert.Equal(groupName, row.IdentityGroupName); // stored as typed, trimmed -- no SID lookup
+            Assert.Equal(saml.ProviderKey, row.ProviderKey);
+            Assert.Equal(saml.DisplayName, row.ProviderDisplayName);
+
+            var resolved = await (await client.PostAsJsonAsync("/api/admin/group-role-mappings/resolve-group", new { groupName, providerKey = saml.ProviderKey }))
+                .Content.ReadFromJsonAsync<ResolvedGroup>();
+            Assert.Equal(groupName, resolved!.Sid);
+            Assert.Equal(["Analyst"], resolved.CurrentRoleNames);
+
+            var duplicate = await client.PostAsJsonAsync("/api/admin/group-role-mappings", new { groupName, roleName = "Analyst", providerKey = saml.ProviderKey });
+            Assert.Equal(HttpStatusCode.Conflict, duplicate.StatusCode);
+        }
+        finally
+        {
+            Assert.Equal(HttpStatusCode.NoContent, (await client.DeleteAsync($"/api/admin/group-role-mappings/{created!.MappingKey}")).StatusCode);
+        }
+    }
+
+    [Fact]
+    public async Task GroupRoleMapping_Create_UnknownProviderOrBlankClaimGroup_Returns400()
+    {
+        var client = AdminClient();
+        var providers = await client.GetFromJsonAsync<List<MappableProviderItem>>("/api/admin/group-role-mappings/providers");
+        var oidc = Assert.Single(providers!, p => p.ProviderType == "OIDC");
+
+        Assert.Equal(HttpStatusCode.BadRequest,
+            (await client.PostAsJsonAsync("/api/admin/group-role-mappings", new { groupName = "Anything", roleName = "Viewer", providerKey = 999999 })).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest,
+            (await client.PostAsJsonAsync("/api/admin/group-role-mappings", new { groupName = "   ", roleName = "Viewer", providerKey = oidc.ProviderKey })).StatusCode);
+    }
 
     /// <summary>Backs the Role dropdown on the Group → Role Mapping admin page's Add Mapping form.</summary>
     [Fact]

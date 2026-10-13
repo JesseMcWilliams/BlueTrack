@@ -1,16 +1,16 @@
 <script setup>
 // CRUD + lookup/test tool against /api/admin/group-role-mappings
-// (GroupRoleMappingsController), scoped to the WindowsIntegrated provider
-// only (the only one that actually authenticates anyone). Admins type a
-// friendly group name; the server resolves it to the SID that's actually
-// stored (D-69) and matched against at login.
+// (GroupRoleMappingsController). For WindowsIntegrated, admins type a
+// friendly group name and the server resolves it to the SID that's actually
+// stored (D-69) and matched against at login. D-204: OIDC and SAML groups
+// are stored as the IdP sends them in the groups claim.
 //
 // D-124 Phase 4 (partial conversion): the "Add Mapping" form moved to its
 // own routed page (GroupRoleMappingCreate.vue,
 // admin-group-role-mapping-create) -- this page no longer owns that inline
 // form or its own roles fetch (used only by that form). Delete-only per
 // row and the Lookup/Test Tool below are both untouched.
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { confirmDelete } from '../../composables/useConfirmDialog'
 
@@ -23,13 +23,27 @@ const loading = ref(true)
 const lookupGroupName = ref('')
 const lookupResult = ref(null)
 const lookupError = ref(null)
+const providers = ref([])
+const lookupProviderKey = ref(null)
+
+const lookupProvider = computed(() => providers.value.find(p => p.providerKey === lookupProviderKey.value) ?? null)
+const lookupIsWindows = computed(() => !lookupProvider.value || lookupProvider.value.providerType === 'WindowsIntegrated')
 
 async function load() {
   loading.value = true
   try {
-    const response = await fetch('/api/admin/group-role-mappings')
-    if (!response.ok) throw new Error(`Request failed: ${response.status}`)
-    mappings.value = await response.json()
+    const [mappingsResponse, providersResponse] = await Promise.all([
+      fetch('/api/admin/group-role-mappings'),
+      fetch('/api/admin/group-role-mappings/providers')
+    ])
+    if (!mappingsResponse.ok) throw new Error(`Request failed: ${mappingsResponse.status}`)
+    mappings.value = await mappingsResponse.json()
+    if (providersResponse.ok) {
+      providers.value = await providersResponse.json()
+      if (lookupProviderKey.value === null) {
+        lookupProviderKey.value = providers.value.find(p => p.providerType === 'WindowsIntegrated')?.providerKey ?? providers.value[0]?.providerKey ?? null
+      }
+    }
   } catch (err) {
     error.value = err.message
   } finally {
@@ -45,7 +59,7 @@ async function lookup() {
   const response = await fetch('/api/admin/group-role-mappings/resolve-group', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ groupName: lookupGroupName.value })
+    body: JSON.stringify({ groupName: lookupGroupName.value, providerKey: lookupProviderKey.value })
   })
   if (!response.ok) {
     lookupError.value = response.status === 404 ? 'Could not resolve that group name.' : `Request failed: ${response.status}`
@@ -118,7 +132,7 @@ async function remove(mapping) {
         </thead>
         <tbody>
           <tr v-for="mapping in mappings" :key="mapping.mappingKey">
-            <td>{{ mapping.providerType }}</td>
+            <td>{{ mapping.providerDisplayName }} <span class="group-identifier">{{ mapping.providerType }}</span></td>
             <td>
               {{ groupLabel(mapping) }}
               <span v-if="mapping.groupDisplayName" class="group-identifier">{{ mapping.identityGroupName }}</span>
@@ -133,23 +147,32 @@ async function remove(mapping) {
       <h3>Lookup / Test Tool</h3>
       <p>Resolve a group name and see what it currently grants, without saving anything.</p>
       <form class="filter-row" @submit.prevent="lookup">
+        <label v-if="providers.length > 1" class="field-label">
+          <span class="field-label-text">Provider</span>
+          <select v-model="lookupProviderKey" @change="lookupResult = null">
+            <option v-for="provider in providers" :key="provider.providerKey" :value="provider.providerKey">{{ provider.displayName }} ({{ provider.providerType }})</option>
+          </select>
+        </label>
         <label class="field-label"><span class="field-label-text">Group name</span> <input v-model="lookupGroupName" required /></label>
         <button type="submit">Resolve</button>
       </form>
       <p v-if="lookupError" role="alert">{{ lookupError }}</p>
       <div v-if="lookupResult">
-        <p>Resolved to: {{ lookupResult.resolvedAccountName }} ({{ lookupResult.sid }})</p>
+        <p v-if="lookupIsWindows">Resolved to: {{ lookupResult.resolvedAccountName }} ({{ lookupResult.sid }})</p>
+        <p v-else>Group claim value: {{ lookupResult.sid }}</p>
         <p>Current role(s): {{ lookupResult.currentRoleNames.join(', ') || '(none mapped)' }}</p>
         <p>Current permission(s): {{ lookupResult.currentPermissionNames.join(', ') || '(none)' }}</p>
-        <p>
-          <button type="button" @click="generateBackupStatusReaderScript">Generate db_backupstatus_reader Script</button>
-        </p>
-        <p>
-          Downloads a copy of <code>Database/Manual/03_BlueTrack_GrantBackupStatusReaderRole.sql</code> targeting this
-          resolved account -- a DBA still has to run it manually via <code>sqlcmd</code> against <code>msdb</code>,
-          never through the app itself.
-        </p>
-        <p v-if="scriptGenerationError" role="alert">{{ scriptGenerationError }}</p>
+        <template v-if="lookupIsWindows">
+          <p>
+            <button type="button" @click="generateBackupStatusReaderScript">Generate db_backupstatus_reader Script</button>
+          </p>
+          <p>
+            Downloads a copy of <code>Database/Manual/03_BlueTrack_GrantBackupStatusReaderRole.sql</code> targeting this
+            resolved account -- a DBA still has to run it manually via <code>sqlcmd</code> against <code>msdb</code>,
+            never through the app itself.
+          </p>
+          <p v-if="scriptGenerationError" role="alert">{{ scriptGenerationError }}</p>
+        </template>
       </div>
     </template>
   </div>

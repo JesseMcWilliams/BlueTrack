@@ -44,6 +44,66 @@ public sealed class GroupRoleMappingsController(
     public async Task<IActionResult> GetRoles() => Ok(await roleRepository.GetRolesAsync());
 
     /// <summary>
+    /// D-204: the providers groups can be mapped for (the Add Mapping page's
+    /// dropdown), with the claim OIDC/SAML groups arrive in. Gated by this
+    /// controller's ManageGroupRoleMapping, like /roles, rather than
+    /// ManageIdentityProviders.
+    /// </summary>
+    [HttpGet("providers")]
+    public async Task<IActionResult> GetProviders()
+    {
+        var providers = (await identityProviderRepository.GetAllConfigsAsync())
+            .Where(p => p.ProviderType != "DevFakeAuth")
+            .Select(p => new MappableProvider
+            {
+                ProviderKey = p.ProviderKey,
+                ProviderType = p.ProviderType,
+                DisplayName = p.DisplayName,
+                IsEnabled = p.IsEnabled,
+                GroupClaimType = p.ProviderType is "OIDC" or "SAML" ? ProviderSettingsReader.ReadGroupClaimType(p) : null
+            });
+        return Ok(providers);
+    }
+
+    /// <summary>
+    /// D-204: the provider a request names (null = WindowsIntegrated, as
+    /// before) and the identifier to store and match for its group: a SID for
+    /// WindowsIntegrated (D-69); for OIDC/SAML the group claim's value as the
+    /// IdP sends it, which is what sign-in matches (GroupIdentifierExtractor).
+    /// </summary>
+    private async Task<(IdentityProviderConfig? Provider, string Identifier, string DisplayName, IActionResult? Error)> ResolveForProviderAsync(
+        string groupName, int? providerKey, int groupNotFoundStatus)
+    {
+        var provider = providerKey is null
+            ? await identityProviderRepository.GetByTypeAsync("WindowsIntegrated")
+            : await identityProviderRepository.GetByKeyAsync(providerKey.Value);
+        if (provider is null)
+        {
+            return (null, "", "", providerKey is null
+                ? Problem(title: "No WindowsIntegrated provider configured", statusCode: StatusCodes.Status503ServiceUnavailable)
+                : Problem(title: "Provider not found", detail: $"No identity provider {providerKey}.", statusCode: StatusCodes.Status400BadRequest));
+        }
+
+        if (provider.ProviderType == "WindowsIntegrated")
+        {
+            var resolved = WindowsGroupResolver.TryResolve(groupName);
+            if (resolved is null)
+            {
+                // D-194: 400 on create, not 404 -- the URL is fine; the group named in the body is the problem.
+                return (provider, "", "", Problem(title: "Group not found", detail: $"Could not resolve '{groupName}' to a Windows account.", statusCode: groupNotFoundStatus));
+            }
+            return (provider, resolved.Value.Sid, resolved.Value.ResolvedAccountName, null);
+        }
+
+        var claimValue = groupName.Trim();
+        if (claimValue.Length is 0 or > 300)
+        {
+            return (provider, "", "", Problem(title: "Invalid group name", detail: "Enter the group's name as the identity provider sends it (1 to 300 characters).", statusCode: StatusCodes.Status400BadRequest));
+        }
+        return (provider, claimValue, claimValue, null);
+    }
+
+    /// <summary>
     /// The lookup/test tool (Design_Authorization-Model.md): resolves a
     /// friendly group name to its SID and shows what role(s)/permissions
     /// it currently resolves to, without saving anything.
@@ -51,20 +111,10 @@ public sealed class GroupRoleMappingsController(
     [HttpPost("resolve-group")]
     public async Task<IActionResult> ResolveGroup([FromBody] ResolveGroupRequest request)
     {
-        var resolved = WindowsGroupResolver.TryResolve(request.GroupName);
-        if (resolved is null)
-        {
-            return Problem(title: "Group not found", detail: $"Could not resolve '{request.GroupName}' to a Windows account.", statusCode: StatusCodes.Status404NotFound);
-        }
+        var (provider, sid, resolvedAccountName, error) = await ResolveForProviderAsync(request.GroupName, request.ProviderKey, StatusCodes.Status404NotFound);
+        if (error is not null) return error;
 
-        var provider = await identityProviderRepository.GetByTypeAsync("WindowsIntegrated");
-        if (provider is null)
-        {
-            return Problem(title: "No WindowsIntegrated provider configured", statusCode: StatusCodes.Status503ServiceUnavailable);
-        }
-
-        var (sid, resolvedAccountName) = resolved.Value;
-        var roleNames = await authorizationRepository.GetMatchedRoleNamesAsync(provider.ProviderKey, [sid]);
+        var roleNames = await authorizationRepository.GetMatchedRoleNamesAsync(provider!.ProviderKey, [sid]);
         var permissionNames = await authorizationRepository.GetEffectivePermissionNamesAsync(provider.ProviderKey, [sid]);
 
         return Ok(new ResolveGroupResult
@@ -104,18 +154,8 @@ public sealed class GroupRoleMappingsController(
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] CreateGroupRoleMappingRequest request, [FromServices] UserRightsCache rightsCache)
     {
-        var resolved = WindowsGroupResolver.TryResolve(request.GroupName);
-        // D-194: 400, not 404 -- the URL is fine; the group named in the body is the problem.
-        if (resolved is null)
-        {
-            return Problem(title: "Group not found", detail: $"Could not resolve '{request.GroupName}' to a Windows account.", statusCode: StatusCodes.Status400BadRequest);
-        }
-
-        var provider = await identityProviderRepository.GetByTypeAsync("WindowsIntegrated");
-        if (provider is null)
-        {
-            return Problem(title: "No WindowsIntegrated provider configured", statusCode: StatusCodes.Status503ServiceUnavailable);
-        }
+        var (provider, sid, resolvedAccountName, error) = await ResolveForProviderAsync(request.GroupName, request.ProviderKey, StatusCodes.Status400BadRequest);
+        if (error is not null) return error;
 
         var roleKey = await repository.GetRoleKeyByNameAsync(request.RoleName);
         if (roleKey is null)
@@ -126,12 +166,13 @@ public sealed class GroupRoleMappingsController(
         var user = await currentUserResolver.ResolveAsync(User);
         if (user is null) return Unauthorized();
 
-        var (sid, resolvedAccountName) = resolved.Value;
-        var mappingKey = await repository.CreateAsync(provider.ProviderKey, sid, roleKey.Value);
+        var mappingKey = await repository.CreateAsync(provider!.ProviderKey, sid, roleKey.Value);
         await rightsCache.InvalidateAllAsync();   // D-197: applies to everyone's next request
 
         await auditLogger.LogAsync("FieldEdit", user.UserKey, "identity_group_role_map", mappingKey.ToString(),
-            detail: $"Mapped {resolvedAccountName} ({sid}) to role '{request.RoleName}'");
+            detail: provider.ProviderType == "WindowsIntegrated"
+                ? $"Mapped {resolvedAccountName} ({sid}) to role '{request.RoleName}'"
+                : $"Mapped {provider.ProviderType} group '{sid}' ({provider.DisplayName}) to role '{request.RoleName}'");
 
         return CreatedAtAction(nameof(GetAll), new { }, new { mappingKey, sid, resolvedAccountName });
     }

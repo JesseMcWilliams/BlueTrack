@@ -18,6 +18,30 @@ public sealed class IdentityProviderRepository(IDbConnectionFactory connectionFa
         return await connection.QuerySingleOrDefaultAsync<IdentityProviderConfig>(sql, new { ProviderType = providerType });
     }
 
+    public async Task<IdentityProviderConfig?> GetByKeyAsync(int providerKey)
+    {
+        using var connection = connectionFactory.Create();
+        const string sql = """
+            SELECT ProviderKey, ProviderType, DisplayName, IsEnabled, DisplayOrder, ConfigurationValues
+            FROM web.identity_provider_config
+            WHERE ProviderKey = @ProviderKey
+            """;
+        return await connection.QuerySingleOrDefaultAsync<IdentityProviderConfig>(sql, new { ProviderKey = providerKey });
+    }
+
+    /// <summary>Every provider, enabled or not, with its non-secret settings (no SecretReference).</summary>
+    public async Task<IReadOnlyList<IdentityProviderConfig>> GetAllConfigsAsync()
+    {
+        using var connection = connectionFactory.Create();
+        const string sql = """
+            SELECT ProviderKey, ProviderType, DisplayName, IsEnabled, DisplayOrder, ConfigurationValues
+            FROM web.identity_provider_config
+            ORDER BY DisplayOrder, ProviderKey
+            """;
+        var rows = await connection.QueryAsync<IdentityProviderConfig>(sql);
+        return rows.AsList();
+    }
+
     public async Task<IReadOnlyList<IdentityProviderConfig>> GetEnabledAsync()
     {
         using var connection = connectionFactory.Create();
