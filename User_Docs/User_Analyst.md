@@ -39,7 +39,7 @@ If a save or delete is refused (a duplicate name or identifier, or a row still i
 
 ## Reports you'll likely use
 
-**Reports** in the top nav — Risk Score, KPI Summary, Stage/Status Summary, and Overdue/At-Risk.
+**Reports** in the top nav — KPI Summary, Stage/Status Summary, and Overdue/At-Risk. The Risk Score report needs the `ViewRiskReport` permission, which the default Analyst role doesn't have; ask an admin to add it to your role if you need it.
 
 ## See also
 

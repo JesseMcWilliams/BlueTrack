@@ -2,13 +2,18 @@
 
 Short, linear, role-based walkthroughs — "what do I do first, then next" — as opposed to the field-by-field reference material in `Claude_Docs/`, which these guides link out to rather than duplicate.
 
-These guides live in `User_Docs/` (they were in `Guides/` before; update any bookmark or link to the old path). The Word deliverables, the Installation Guide and the Development Host Setup Guide, are in `Published_Docs/`. They're built from `Admin_Installation.md` and `Developer_HostSetup.md` when a release is made (`python Published_Docs/build_published_docs.py`, needs python-docx), so between releases the guides here are the more current.
+These guides live in `User_Docs/` (they were in `Guides/` before; update any bookmark or link to the old path). The Word deliverables (the Installation, Development Host Setup, Getting Started and Administrator Settings guides) are in `Published_Docs/`. They're built from `Admin_Installation.md`, `Developer_HostSetup.md`, `User_GettingStarted.md` and `Admin_SettingsReference.md` when a release is made (`python Published_Docs/build_published_docs.py`, needs python-docx), so between releases the guides here are the more current.
+
+## New to BlueTrack? Start here
+
+- [User_GettingStarted.md](User_GettingStarted.md) — what BlueTrack is for, the key terms, and the typical flow from importing data to working accounts through their stages, exceptions and reports. Published as the Getting Started Guide.
 
 ## Admin guides (read in order, for a new environment)
 
 1. [Admin_Installation.md](Admin_Installation.md) — first-time setup, from prerequisites through first sign-in.
 2. [Admin_Configuration.md](Admin_Configuration.md) — the day-2 settings to review before regular use begins.
 3. [Admin_DataManagement.md](Admin_DataManagement.md) — the recurring operational tasks on a running environment.
+4. [Admin_SettingsReference.md](Admin_SettingsReference.md) — every setting, its default, the recommended value and why. Published as the Administrator Settings Guide.
 
 ## User guides (by role)
 
