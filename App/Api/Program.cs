@@ -103,7 +103,14 @@ builder.Services.AddSingleton<BlueTrack.Api.Security.AllowedFileRoots>();   // D
 // Only when built with the CyberArk SDK present (D-169, App/CyberArkSdk.targets).
 builder.Services.AddScoped<IVaultSecretProvider, CyberArkCpSecretsProvider>();
 #endif
-builder.Services.AddHttpClient(nameof(CyberArkCcpSecretsProvider));
+// D-202: the secrets clients don't follow redirects (a 307/308 would re-send
+// Conjur's API key, or fetch a CCP "secret", from another host) and time out
+// after 30 seconds instead of HttpClient's 100.
+static void ConfigureSecretsHttpClient(IHttpClientBuilder client) => client
+    .ConfigureHttpClient(c => c.Timeout = TimeSpan.FromSeconds(30))
+    .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler { AllowAutoRedirect = false });
+builder.Services.AddSingleton<SecretFallbackCache>();
+ConfigureSecretsHttpClient(builder.Services.AddHttpClient(nameof(CyberArkCcpSecretsProvider)));
 builder.Services.AddScoped<IVaultSecretProvider, CyberArkCcpSecretsProvider>();
 builder.Services.AddScoped<VaultSecretProviderResolver>();
 builder.Services.AddSingleton<ILocalSecretProtector, WindowsDpapiProtector>();
@@ -125,7 +132,7 @@ builder.Services.AddScoped<IVaultSecretProvider, WindowsDpapiVaultSecretsProvide
 // can't recursively depend on "the active secrets store."
 builder.Services.AddScoped<IVaultSecretProvider, AzureKeyVaultSecretsProvider>();
 builder.Services.AddScoped<IVaultSecretProvider, AwsSecretsManagerSecretsProvider>();
-builder.Services.AddHttpClient(nameof(CyberArkConjurSecretsProvider));
+ConfigureSecretsHttpClient(builder.Services.AddHttpClient(nameof(CyberArkConjurSecretsProvider)));
 builder.Services.AddScoped<IVaultSecretProvider, CyberArkConjurSecretsProvider>();
 
 // SAML (D-84/D-23): ITfoxtec.Identity.Saml2.MvcCore's own cookie-based

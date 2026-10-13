@@ -404,6 +404,22 @@ public class AdminControllersFunctionalTests : IClassFixture<BlueTrackWebApplica
         }
     }
 
+    [Fact]
+    public async Task SecretsStore_SetActive_RejectsAnHttpBackendUrl_AndKeepsTheActiveBackend()
+    {
+        var client = AdminClient();
+
+        var response = await client.PutAsJsonAsync("/api/admin/secrets-store/active", new
+        {
+            backendType = "CyberArkCCP",
+            backendSettings = """{"BaseUrl":"http://pvwa.contract-test.example","AppId":"ContractTest"}"""
+        });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode); // D-202
+        var backends = await client.GetFromJsonAsync<List<SecretsStoreBackendResponse>>("/api/admin/secrets-store");
+        Assert.Contains(backends!, b => b.BackendType == "WindowsDpapi" && b.IsActive);
+    }
+
     /// <summary>
     /// WindowsDpapi is the default active backend (seeded, and every other
     /// test here restores it) and has no IVaultSecretProvider implementation

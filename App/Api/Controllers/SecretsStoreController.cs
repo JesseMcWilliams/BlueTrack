@@ -15,7 +15,8 @@ public sealed class SecretsStoreController(
     SecretsStoreRepository repository,
     CurrentUserResolver currentUserResolver,
     AuditLogger auditLogger,
-    VaultSecretProviderResolver vaultSecretProviderResolver) : ControllerBase
+    VaultSecretProviderResolver vaultSecretProviderResolver,
+    SecretFallbackCache fallbackCache) : ControllerBase
 {
     [HttpGet]
     public async Task<IActionResult> GetAll() => Ok(await repository.GetAllAsync());
@@ -26,7 +27,14 @@ public sealed class SecretsStoreController(
         var user = await currentUserResolver.ResolveAsync(User);
         if (user is null) return Unauthorized();
 
+        // D-202: backend URLs must be https.
+        if (SecretsBackendUrls.Validate(request.BackendType, request.BackendSettings) is { } urlError)
+        {
+            return Problem(title: "Invalid backend URL", detail: urlError, statusCode: StatusCodes.Status400BadRequest);
+        }
+
         await repository.SetActiveAsync(request);
+        fallbackCache.Clear(); // D-202: nothing kept from the previous settings
         await auditLogger.LogAsync("FieldEdit", user.UserKey, "secrets_store", entityKey: request.BackendType,
             detail: $"Active secrets store backend set to {request.BackendType}");
         return NoContent();

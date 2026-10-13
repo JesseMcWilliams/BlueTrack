@@ -70,6 +70,12 @@ public sealed class AzureKeyVaultSecretsProvider(
             throw new SecretRetrievalException("Azure Key Vault is not configured -- VaultUri is empty.", CyberArkErrorCategory.Other);
         }
 
+        // D-202: HTTPS only; also keeps a malformed VaultUri from throwing out of new Uri() below as a 500.
+        if (SecretsBackendUrls.HttpsError("VaultUri", settings.VaultUri) is { } urlError)
+        {
+            throw new SecretRetrievalException($"Azure Key Vault: {urlError}", CyberArkErrorCategory.Other);
+        }
+
         var credential = BuildCredential(settings);
         var client = new SecretClient(new Uri(settings.VaultUri), credential);
         var version = string.IsNullOrWhiteSpace(query.Folder) ? null : query.Folder;
