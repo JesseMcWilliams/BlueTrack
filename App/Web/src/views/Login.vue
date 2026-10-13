@@ -1,30 +1,35 @@
 <script setup>
 import { apiUrl } from '../utils/apiBase'
-// D-100: real provider redirect logic, unblocked now that the Identity
-// Providers admin screen exists and GET /api/auth/providers is real.
-// D-41's "default provider" policy resolved 2026-09-05: lowest DisplayOrder
-// among enabled providers wins, no new admin setting or per-user
-// last-used tracking for now.
+// D-100: real provider redirect logic against GET /api/auth/providers.
 //
-// Only OIDC/SAML need an actual browser redirect to an external IdP --
-// WindowsIntegrated authenticates transparently on the next request
-// (Negotiate is this app's default challenge scheme, AuthenticationExtensions.cs),
-// and DevFakeAuth is a dev-only convenience (DevTestAuthController), never
-// auto-triggered from a real login screen.
+// D-205 (2026-10-12): the default sign-in method is an explicit setting
+// (Identity Providers page; `defaultProviderType`, null = none) rather than
+// the lowest DisplayOrder (D-41's old rule):
+//   - /login with a default: OIDC/SAML redirect to the IdP straight away;
+//     Windows signs in as before (D-173, below).
+//   - /login with no default: lists the enabled methods.
+//   - /login/windows, /login/oidc, /login/saml: that method, whatever the
+//     default -- the address an IdP's launch URL or an admin's link uses.
+// Choosing Windows while it isn't the default goes through
+// /api/auth/login/windows, which records the choice (a session cookie) so the
+// rights store's next /api/me does the Windows sign-in; otherwise the store
+// never calls /api/me without a session (the browser would answer its Windows
+// challenge silently).
 //
-// D-173: "transparently on the next request" needs a next request. The
-// router guard lands here after /api/me returned 401, and the rights store
-// caches that answer. The browser may finish the Windows sign-in (silently,
-// or after its own credentials prompt) without anything asking /api/me
-// again, so the page used to sit here signed in. When the guard sent us
-// (returnUrl present) and Windows Integrated is the default provider, ask
-// /api/me again and go on to returnUrl once it succeeds. A direct visit to
-// /login (no returnUrl) still just lists the providers.
-import { ref, onMounted } from 'vue'
+// D-173: the router guard lands here after /api/me returned 401, and the
+// rights store caches that answer. The browser may finish the Windows sign-in
+// (silently, or after its own credentials prompt) without anything asking
+// /api/me again, so the page used to sit here signed in. When the guard sent
+// us (returnUrl present) and Windows is the default, ask /api/me again and go
+// on to returnUrl once it succeeds.
+import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useRightsStore } from '../stores/rights'
 
+const PROVIDER_BY_PATH = { windows: 'WindowsIntegrated', oidc: 'OIDC', saml: 'SAML' }
+
 const providers = ref([])
+const defaultProviderType = ref(null)
 const loading = ref(true)
 const error = ref(null)
 const signingIn = ref(false)
@@ -32,6 +37,8 @@ const windowsFailed = ref(false)
 const route = useRoute()
 const router = useRouter()
 const rights = useRightsStore()
+
+const requestedType = computed(() => PROVIDER_BY_PATH[route.params.provider] ?? null)
 
 function returnUrl() {
   const value = route.query.returnUrl
@@ -44,6 +51,12 @@ function externalRedirectUrl(provider) {
   if (provider.providerType === 'OIDC') return apiUrl(`/api/auth/login/oidc?returnUrl=${encoded}`)
   if (provider.providerType === 'SAML') return apiUrl(`/api/auth/saml/login?returnUrl=${encoded}`)
   return null
+}
+
+// Windows only when it's the default (otherwise it takes a click); DevFakeAuth is dev/E2E only.
+function signsInAutomatically(provider) {
+  return provider.providerType === 'DevFakeAuth' ||
+    (provider.providerType === 'WindowsIntegrated' && defaultProviderType.value === 'WindowsIntegrated')
 }
 
 async function windowsSignIn() {
@@ -62,6 +75,21 @@ async function windowsSignIn() {
   }
 }
 
+function start(provider) {
+  const redirectUrl = externalRedirectUrl(provider)
+  if (redirectUrl) {
+    window.location.href = redirectUrl
+    return
+  }
+  if (provider.providerType === 'WindowsIntegrated') {
+    if (defaultProviderType.value === 'WindowsIntegrated') {
+      windowsSignIn()
+    } else {
+      window.location.href = apiUrl(`/api/auth/login/windows?returnUrl=${encodeURIComponent(returnUrl())}`)
+    }
+  }
+}
+
 async function load() {
   loading.value = true
   let tryWindows = false
@@ -70,11 +98,18 @@ async function load() {
     if (!response.ok) throw new Error(`Request failed: ${response.status}`)
     const data = await response.json()
     providers.value = [...data.providers].sort((a, b) => a.displayOrder - b.displayOrder)
+    defaultProviderType.value = data.defaultProviderType ?? null
 
-    const defaultProvider = providers.value[0]
-    const redirectUrl = defaultProvider ? externalRedirectUrl(defaultProvider) : null
-    if (redirectUrl) {
-      window.location.href = redirectUrl
+    if (requestedType.value) {
+      const requested = providers.value.find(p => p.providerType === requestedType.value)
+      if (requested) start(requested)
+      else error.value = "That sign-in method isn't enabled. Choose one below."
+      return
+    }
+
+    const defaultProvider = providers.value.find(p => p.providerType === defaultProviderType.value)
+    if (defaultProvider && externalRedirectUrl(defaultProvider)) {
+      start(defaultProvider)
       return
     }
     tryWindows = defaultProvider?.providerType === 'WindowsIntegrated' && typeof route.query.returnUrl === 'string'
@@ -105,12 +140,14 @@ onMounted(load)
         <ul>
           <li v-for="provider in providers" :key="provider.providerType">
             <a v-if="externalRedirectUrl(provider)" :href="externalRedirectUrl(provider)">{{ provider.displayName }}</a>
-            <span v-else>{{ provider.displayName }} (signs in automatically)</span>
+            <span v-else-if="signsInAutomatically(provider)">{{ provider.displayName }} (signs in automatically)</span>
+            <span v-else>{{ provider.displayName }}</span>
+            <span v-if="provider.providerType === defaultProviderType"> (default)</span>
             <button
               v-if="provider.providerType === 'WindowsIntegrated'"
               type="button"
               :disabled="signingIn"
-              @click="windowsSignIn"
+              @click="start(provider)"
             >{{ signingIn ? 'Signing in...' : 'Continue' }}</button>
           </li>
         </ul>

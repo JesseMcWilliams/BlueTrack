@@ -27,6 +27,14 @@ const routes = [
     meta: { breadcrumb: 'Login' },
     component: () => import('../views/Login.vue')
   },
+  // D-205: a direct sign-in address per method (an IdP's launch URL, or a
+  // link an admin hands out); overrides the default sign-in method.
+  {
+    path: '/login/:provider(windows|oidc|saml)',
+    name: 'login-provider',
+    meta: { breadcrumb: 'Login' },
+    component: () => import('../views/Login.vue')
+  },
   {
     path: '/',
     name: 'dashboard',
@@ -497,7 +505,7 @@ const router = createRouter({
 // roleNames/permissionNames (MeController), so this never fires for that
 // case, only for a genuinely unauthenticated request.
 router.beforeEach(async (to) => {
-  if (to.name === 'login') return true
+  if (to.name === 'login' || to.name === 'login-provider') return true
 
   const rights = useRightsStore()
   await rights.ensureLoaded()

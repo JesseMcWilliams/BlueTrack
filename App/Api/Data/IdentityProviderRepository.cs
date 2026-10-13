@@ -11,10 +11,12 @@ public sealed class IdentityProviderRepository(IDbConnectionFactory connectionFa
     {
         using var connection = connectionFactory.Create();
         const string sql = """
-            SELECT ProviderKey, ProviderType, DisplayName, IsEnabled, DisplayOrder, ConfigurationValues
+            SELECT TOP (1) ProviderKey, ProviderType, DisplayName, IsEnabled, DisplayOrder, ConfigurationValues
             FROM web.identity_provider_config
             WHERE ProviderType = @ProviderType
+            ORDER BY IsEnabled DESC, DisplayOrder, ProviderKey
             """;
+        // D-205: the model allows two providers of one type; the enabled one with the lower DisplayOrder wins.
         return await connection.QuerySingleOrDefaultAsync<IdentityProviderConfig>(sql, new { ProviderType = providerType });
     }
 
@@ -40,6 +42,37 @@ public sealed class IdentityProviderRepository(IDbConnectionFactory connectionFa
             """;
         var rows = await connection.QueryAsync<IdentityProviderConfig>(sql);
         return rows.AsList();
+    }
+
+    public static readonly string[] SignInProviderTypes = ["WindowsIntegrated", "OIDC", "SAML"];
+
+    /// <summary>
+    /// D-205: the default sign-in method's provider type, or null for none (the
+    /// sign-in page lists the methods). Also null when the chosen type has no
+    /// enabled provider, so a disabled default never blocks sign-in.
+    /// </summary>
+    public async Task<string?> GetDefaultSignInProviderAsync()
+    {
+        using var connection = connectionFactory.Create();
+        const string sql = """
+            SELECT TOP (1) ac.DefaultSignInProvider
+            FROM web.app_config ac
+            WHERE EXISTS (SELECT 1 FROM web.identity_provider_config ipc WHERE ipc.ProviderType = ac.DefaultSignInProvider AND ipc.IsEnabled = 1)
+            """;
+        return await connection.QuerySingleOrDefaultAsync<string?>(sql);
+    }
+
+    /// <summary>D-205: the stored setting as-is (the admin page shows it even when that provider is disabled).</summary>
+    public async Task<string?> GetStoredDefaultSignInProviderAsync()
+    {
+        using var connection = connectionFactory.Create();
+        return await connection.QuerySingleOrDefaultAsync<string?>("SELECT TOP (1) DefaultSignInProvider FROM web.app_config");
+    }
+
+    public async Task SetDefaultSignInProviderAsync(string? providerType)
+    {
+        using var connection = connectionFactory.Create();
+        await connection.ExecuteAsync("UPDATE web.app_config SET DefaultSignInProvider = @ProviderType", new { ProviderType = providerType });
     }
 
     public async Task<IReadOnlyList<IdentityProviderConfig>> GetEnabledAsync()

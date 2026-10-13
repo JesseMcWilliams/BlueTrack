@@ -54,4 +54,31 @@ public sealed class IdentityProvidersController(
         await auditLogger.LogAsync("ProviderConfigChanged", user.UserKey, "identity_provider_config", providerKey.ToString(), detail: "Provider deleted");
         return NoContent();
     }
+
+    public sealed record DefaultSignInProviderBody(string? ProviderType);
+
+    /// <summary>D-205: the default sign-in method as stored (null = none: the sign-in page lists the methods).</summary>
+    [HttpGet("default")]
+    public async Task<IActionResult> GetDefault() =>
+        Ok(new DefaultSignInProviderBody(await repository.GetStoredDefaultSignInProviderAsync()));
+
+    [HttpPut("default")]
+    public async Task<IActionResult> SetDefault([FromBody] DefaultSignInProviderBody body)
+    {
+        var user = await currentUserResolver.ResolveAsync(User);
+        if (user is null) return Unauthorized();
+
+        var providerType = string.IsNullOrWhiteSpace(body.ProviderType) ? null : body.ProviderType.Trim();
+        if (providerType is not null && !IdentityProviderRepository.SignInProviderTypes.Contains(providerType))
+        {
+            return Problem(title: "Invalid default sign-in method",
+                detail: $"Use one of {string.Join(", ", IdentityProviderRepository.SignInProviderTypes)}, or none.",
+                statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        await repository.SetDefaultSignInProviderAsync(providerType);
+        await auditLogger.LogAsync("ProviderConfigChanged", user.UserKey, "app_config", "DefaultSignInProvider",
+            detail: $"Default sign-in method set to {providerType ?? "none (sign-in page lists the methods)"}");
+        return NoContent();
+    }
 }

@@ -24,6 +24,7 @@ instead.
 
 | 07 | `07_BlueTrack_ScheduledBackups.sql` | D-200: `web.app_config.ScheduledBackupTime` / `ScheduledBackupRetentionDays` and the `web.backup_run` history table. |
 | 08 | `08_BlueTrack_LockTimeoutDefault.sql` | D-201: `LockTimeoutMinutes` defaults to 30 (new installs only; an install where someone has signed in keeps its value). |
+| 09 | `09_BlueTrack_DefaultSignInProvider.sql` | D-205: `web.app_config.DefaultSignInProvider`, the explicit default sign-in method (set to the old implied default on first run). |
 
 ## The baseline (D-195)
 
@@ -48,7 +49,7 @@ scripts but not up to `51` is refused; upgrade it first from the
 
 ## Adding a script
 
-1. Name it `NN_BlueTrack_<Topic>.sql`, with `NN` the next number (`09` is next).
+1. Name it `NN_BlueTrack_<Topic>.sql`, with `NN` the next number (`10` is next).
 2. Start with a header comment: the file name, `RUN THIS AFTER 01-NN.`, what
    it changes and why (with the `D-n` decision), and whether it's safe to
    re-run.

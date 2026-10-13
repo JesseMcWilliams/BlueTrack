@@ -144,6 +144,7 @@ public sealed class Saml2Controller(Saml2ConfigurationFactory configFactory) : C
         // (Saml2LogoutRequest/Response) is a follow-up once a real IdP
         // exists to test the flow against.
         await HttpContext.SignOutAsync(Saml2Constants.AuthenticationScheme);
+        AuthController.ClearSignInChoice(HttpContext); // D-205
         return Redirect("/");
     }
 

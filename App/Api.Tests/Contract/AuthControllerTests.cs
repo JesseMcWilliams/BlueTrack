@@ -77,6 +77,80 @@ public class AuthControllerTests : IClassFixture<BlueTrackWebApplicationFactory>
         Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
     }
 
+    private sealed record SessionResponse(bool Authenticated, bool Windows, string? DefaultProviderType);
+    private sealed record DefaultBody(string? ProviderType);
+
+    private HttpClient Admin()
+    {
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Add(TestAuthHandler.TestUserHeaderName, "TestUser.Admin");
+        return client;
+    }
+
+    /// <summary>D-205: never a 401 (a 401 would trigger the browser's silent Windows sign-in).</summary>
+    [Fact]
+    public async Task Session_Anonymous_Returns200_AndWantsWindowsOnlyWhenItIsTheDefault()
+    {
+        var admin = Admin();
+        var before = (await admin.GetFromJsonAsync<DefaultBody>("/api/admin/identity-providers/default"))!.ProviderType;
+        try
+        {
+            Assert.Equal(HttpStatusCode.NoContent, (await admin.PutAsJsonAsync("/api/admin/identity-providers/default", new { providerType = "WindowsIntegrated" })).StatusCode);
+            var anonymous = _factory.CreateClient();
+            var response = await anonymous.GetAsync("/api/auth/session");
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            var session = await response.Content.ReadFromJsonAsync<SessionResponse>();
+            Assert.False(session!.Authenticated);
+            Assert.True(session.Windows);
+            Assert.Equal("WindowsIntegrated", session.DefaultProviderType);
+
+            // No default: no Windows attempt unless the user chose it.
+            Assert.Equal(HttpStatusCode.NoContent, (await admin.PutAsJsonAsync("/api/admin/identity-providers/default", new { providerType = (string?)null })).StatusCode);
+            var noDefault = await anonymous.GetFromJsonAsync<SessionResponse>("/api/auth/session");
+            Assert.False(noDefault!.Windows);
+            Assert.Null(noDefault.DefaultProviderType);
+            var providers = await anonymous.GetFromJsonAsync<System.Text.Json.Nodes.JsonObject>("/api/auth/providers");
+            Assert.Null(providers!["defaultProviderType"]);
+
+            var chose = new HttpRequestMessage(HttpMethod.Get, "/api/auth/session");
+            chose.Headers.Add("Cookie", $"{BlueTrack.Api.Controllers.AuthController.SignInChoiceCookieName}=windows");
+            Assert.True((await (await anonymous.SendAsync(chose)).Content.ReadFromJsonAsync<SessionResponse>())!.Windows);
+        }
+        finally
+        {
+            await admin.PutAsJsonAsync("/api/admin/identity-providers/default", new { providerType = before });
+        }
+    }
+
+    [Fact]
+    public async Task LoginWindows_RecordsTheChoice_AndRedirectsLocallyOnly()
+    {
+        var client = _factory.CreateClient(new Microsoft.AspNetCore.Mvc.Testing.WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+
+        var response = await client.GetAsync("/api/auth/login/windows?returnUrl=%2Ftargets");
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        Assert.Equal("/targets", response.Headers.Location!.OriginalString);
+        var cookie = Assert.Single(response.Headers.GetValues("Set-Cookie"), c => c.StartsWith(BlueTrack.Api.Controllers.AuthController.SignInChoiceCookieName + "="));
+        Assert.Contains("windows", cookie);
+        Assert.Contains("httponly", cookie, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("secure", cookie, StringComparison.OrdinalIgnoreCase);
+
+        var offSite = await client.GetAsync("/api/auth/login/windows?returnUrl=https%3A%2F%2Fevil.example%2F");
+        Assert.Equal("/", offSite.Headers.Location!.OriginalString);
+    }
+
+    [Fact]
+    public async Task SetDefault_RejectsAnUnknownType_AndRequiresManageIdentityProviders()
+    {
+        Assert.Equal(HttpStatusCode.BadRequest,
+            (await Admin().PutAsJsonAsync("/api/admin/identity-providers/default", new { providerType = "DevFakeAuth" })).StatusCode);
+
+        var viewer = _factory.CreateClient();
+        viewer.DefaultRequestHeaders.Add(TestAuthHandler.TestUserHeaderName, "TestUser.Viewer");
+        Assert.Equal(HttpStatusCode.Forbidden,
+            (await viewer.PutAsJsonAsync("/api/admin/identity-providers/default", new { providerType = (string?)null })).StatusCode);
+    }
+
     private sealed class ProviderResponse
     {
         public string ProviderType { get; set; } = "";

@@ -4,6 +4,7 @@
 
 | Date | Change | User doc / section it affects |
 |---|---|---|
+| 2026-10-12 | Sign-in: a **Default sign-in method** setting on Identity Providers (none = the sign-in page lists the methods), and a direct address per method, `/login/windows`, `/login/oidc`, `/login/saml`, for an identity provider's launch URL or a link to hand out. Signing out now stays signed out when Windows isn't the default. SAML SP certificates are also found in the App Pool account's own store (D-205). | `User_Docs/User_Guide.md` (signing in); `User_Docs/Admin_Configuration.md` (Identity Providers); Installation `.docx` at next release |
 | 2026-10-12 | Group → Role Mapping: choose the provider. OIDC/SAML groups are entered exactly as the identity provider sends them; the lookup tool works for every provider (D-204). | `User_Docs/Admin_Configuration.md` (Group → Role Mapping) |
 | 2026-10-12 | Backups: the backup folder is limited to specific accounts (installer, `Backup-BlueTrack.ps1`); BlueTrack removes broad groups' access before each backup, or refuses the backup and says why on the Deployment page; new **Backup Folder** health check (D-203). | `User_Docs/Admin_OperationsGuide.md` (backups); `User_Docs/Admin_Installation.md`; Installation `.docx` at next release |
 | 2026-10-12 | Secrets Store: CCP, Conjur and Azure Key Vault URLs must start with `https://` (D-202). When CyberArk is briefly unreachable, the last value fetched in the past 24 hours is used. | `User_Docs/Admin_Configuration.md` (Secrets Store) |

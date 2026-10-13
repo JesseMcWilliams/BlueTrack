@@ -18,6 +18,25 @@ namespace BlueTrack.Api.Controllers;
 public sealed class AuthController(IdentityProviderRepository identityProviderRepository, AuthenticationModeInfo authenticationModeInfo) : ControllerBase
 {
     /// <summary>
+    /// D-205: set when someone chooses Windows sign-in (the sign-in page, or
+    /// /login/windows) while Windows isn't the default. A browser session
+    /// cookie, cleared on sign-out.
+    /// </summary>
+    public const string SignInChoiceCookieName = "BlueTrack.SignIn";
+    private const string WindowsChoice = "windows";
+
+    public static void ClearSignInChoice(HttpContext context) =>
+        context.Response.Cookies.Delete(SignInChoiceCookieName, SignInChoiceCookieOptions(context));
+
+    private static CookieOptions SignInChoiceCookieOptions(HttpContext context) => new()
+    {
+        HttpOnly = true,
+        Secure = true,
+        SameSite = SameSiteMode.Lax,
+        Path = context.Request.PathBase.HasValue ? context.Request.PathBase.Value : "/",
+    };
+
+    /// <summary>
     /// For a login screen to render its provider choices (D-41: default
     /// provider first, a small link for the rest) -- deliberately excludes
     /// DevFakeAuth's own admin-only config details, returning only what a
@@ -35,8 +54,52 @@ public sealed class AuthController(IdentityProviderRepository identityProviderRe
         return Ok(new
         {
             providers = providers.Select(p => new { p.ProviderType, p.DisplayName, p.DisplayOrder }),
-            negotiateDisabled = authenticationModeInfo.NegotiateDisabled
+            negotiateDisabled = authenticationModeInfo.NegotiateDisabled,
+            // D-205: null = no default; the sign-in page lists the methods.
+            defaultProviderType = await identityProviderRepository.GetDefaultSignInProviderAsync()
         });
+    }
+
+    /// <summary>
+    /// D-205: what the SPA asks before /api/me. Never a 401 -- a 401 here would
+    /// make the browser answer IIS's Windows challenge silently, which is what
+    /// signed people in with Windows when they came for SSO. `windows` says
+    /// whether to try Windows sign-in (/api/me): when it's the default, or
+    /// the user chose it. Otherwise an unauthenticated user goes to the
+    /// sign-in page, which starts the default SSO or lists the methods.
+    /// </summary>
+    [HttpGet("session")]
+    [AllowAnonymous]
+    public async Task<IActionResult> GetSession()
+    {
+        var defaultProvider = await identityProviderRepository.GetDefaultSignInProviderAsync();
+        var chose = Request.Cookies.TryGetValue(SignInChoiceCookieName, out var choice) && choice == WindowsChoice;
+        return Ok(new
+        {
+            authenticated = User.Identity?.IsAuthenticated == true,
+            windows = !authenticationModeInfo.NegotiateDisabled && (defaultProvider == "WindowsIntegrated" || chose),
+            defaultProviderType = defaultProvider
+        });
+    }
+
+    /// <summary>
+    /// D-205: the direct address for Windows sign-in (/login/windows in the
+    /// SPA lands here). Records the choice, then goes back to the SPA, whose
+    /// next /api/me does the Windows sign-in.
+    /// </summary>
+    [HttpGet("login/windows")]
+    [AllowAnonymous]
+    public async Task<IActionResult> LoginWindows([FromQuery] string? returnUrl = null)
+    {
+        var windows = await identityProviderRepository.GetByTypeAsync("WindowsIntegrated");
+        if (windows is null || !windows.IsEnabled || authenticationModeInfo.NegotiateDisabled)
+        {
+            return Problem(title: "Windows sign-in is not enabled", statusCode: StatusCodes.Status404NotFound);
+        }
+
+        Response.Cookies.Append(SignInChoiceCookieName, WindowsChoice, SignInChoiceCookieOptions(HttpContext));
+        // D-197: local paths only.
+        return LocalRedirect(Url.IsLocalUrl(returnUrl) ? returnUrl! : "/");
     }
 
     /// <summary>
@@ -68,6 +131,7 @@ public sealed class AuthController(IdentityProviderRepository identityProviderRe
     public async Task<IActionResult> Logout()
     {
         await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+        ClearSignInChoice(HttpContext); // D-205
         return NoContent();
     }
 }
