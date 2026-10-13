@@ -74,10 +74,17 @@ public sealed class AuthController(IdentityProviderRepository identityProviderRe
     {
         var defaultProvider = await identityProviderRepository.GetDefaultSignInProviderAsync();
         var chose = Request.Cookies.TryGetValue(SignInChoiceCookieName, out var choice) && choice == WindowsChoice;
+        var windowsWanted = !authenticationModeInfo.NegotiateDisabled && (defaultProvider == "WindowsIntegrated" || chose);
+        // Found live 2026-10-13: IIS keeps Windows authentication on the TCP connection, so
+        // after sign-out the same keep-alive connection still arrives as the Windows user,
+        // with no Authorization header. A Windows identity counts here only when Windows is
+        // wanted; otherwise the SPA goes to the sign-in page, as it should after sign-out.
+        var signedIn = User.Identity?.IsAuthenticated == true
+            && (User.Identity is not System.Security.Principal.WindowsIdentity || windowsWanted);
         return Ok(new
         {
-            authenticated = User.Identity?.IsAuthenticated == true,
-            windows = !authenticationModeInfo.NegotiateDisabled && (defaultProvider == "WindowsIntegrated" || chose),
+            authenticated = signedIn,
+            windows = windowsWanted,
             defaultProviderType = defaultProvider
         });
     }

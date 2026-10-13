@@ -220,3 +220,9 @@ In Windows PowerShell 5.1, `Invoke-RestMethod -Uri $api | Where-Object providerT
 
 - The aPeTemplate rule `Secrets/` ignores every folder named Secrets, including `App/Api/Secrets/`. Its existing files were tracked, so nothing looked wrong; two new files there were never committed, and the tests passed locally while CI failed to build. `.gitignore` now has `!App/Api/Secrets/`. After adding files, check `git status --short --ignored`.
 - Merging a PR with `--delete-branch` **closed** the PR stacked on it (based on the deleted branch) instead of retargeting it, and a closed PR's base can't be changed. Recovery: push the old branch back, reopen, `gh pr edit <n> --base main`, delete the branch again. Before merging a stacked PR, retarget the next one to `main` first. A retarget alone doesn't start CI (no `pull_request` event); a push, or closing and reopening the PR, does.
+
+## 2026-10-13 -- IIS keeps Windows sign-in on the connection, so sign-out can't end it
+
+After `POST /api/auth/logout` cleared every BlueTrack cookie, the next `/api/auth/session` on the same keep-alive connection was still authenticated as the Windows user, with no `Authorization` header: IIS ties Windows authentication (NTLM, and Kerberos by default) to the TCP connection. The app can't sign a Windows user out of that connection, only stop treating it as a session: `GetSession` now counts a `WindowsIdentity` only while Windows sign-in is wanted (D-205).
+
+**Lesson:** test sign-out in a real browser against IIS, not with a fresh client per request; Kestrel tests and new connections hide this.
