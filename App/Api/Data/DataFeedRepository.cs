@@ -12,7 +12,8 @@ public sealed class DataFeedRepository(IDbConnectionFactory connectionFactory)
 
     private const string FeedColumns = """
         f.DataFeedKey, f.DisplayName, f.FeedType, f.FolderPath, f.FileNamePattern,
-        f.ImportMappingProfileKey, p.ProfileName AS ImportMappingProfileName, f.IsEnabled, f.DisplayOrder
+        f.ImportMappingProfileKey, p.ProfileName AS ImportMappingProfileName, f.IsEnabled, f.DisplayOrder,
+        f.SourceSystemKey, ss.SourceSystemName
         """;
 
     private const string RunColumns = """
@@ -28,6 +29,7 @@ public sealed class DataFeedRepository(IDbConnectionFactory connectionFactory)
             SELECT {FeedColumns}
             FROM web.data_feed f
             LEFT JOIN web.import_mapping_profile p ON p.ImportMappingProfileKey = f.ImportMappingProfileKey
+            LEFT JOIN dbo.dim_source_system ss ON ss.SourceSystemKey = f.SourceSystemKey
             ORDER BY f.DisplayOrder, f.DisplayName
             """)).ToList();
 
@@ -63,13 +65,13 @@ public sealed class DataFeedRepository(IDbConnectionFactory connectionFactory)
     {
         using var connection = connectionFactory.Create();
         return await connection.QuerySingleAsync<int>("""
-            INSERT INTO web.data_feed (DisplayName, FeedType, FolderPath, FileNamePattern, ImportMappingProfileKey, IsEnabled, DisplayOrder, CreatedBy)
+            INSERT INTO web.data_feed (DisplayName, FeedType, FolderPath, FileNamePattern, ImportMappingProfileKey, IsEnabled, DisplayOrder, SourceSystemKey, CreatedBy)
             OUTPUT inserted.DataFeedKey
-            VALUES (@DisplayName, @FeedType, @FolderPath, @FileNamePattern, @ImportMappingProfileKey, @IsEnabled, @DisplayOrder, @userKey)
+            VALUES (@DisplayName, @FeedType, @FolderPath, @FileNamePattern, @ImportMappingProfileKey, @IsEnabled, @DisplayOrder, @SourceSystemKey, @userKey)
             """, new
         {
             request.DisplayName, request.FeedType, request.FolderPath, request.FileNamePattern,
-            request.ImportMappingProfileKey, request.IsEnabled, request.DisplayOrder, userKey
+            request.ImportMappingProfileKey, request.IsEnabled, request.DisplayOrder, request.SourceSystemKey, userKey
         });
     }
 
@@ -81,12 +83,12 @@ public sealed class DataFeedRepository(IDbConnectionFactory connectionFactory)
             UPDATE web.data_feed
             SET DisplayName = @DisplayName, FeedType = @FeedType, FolderPath = @FolderPath, FileNamePattern = @FileNamePattern,
                 ImportMappingProfileKey = @ImportMappingProfileKey, IsEnabled = @IsEnabled, DisplayOrder = @DisplayOrder,
-                ModifiedBy = @userKey, ModifiedDate = SYSUTCDATETIME()
+                SourceSystemKey = @SourceSystemKey, ModifiedBy = @userKey, ModifiedDate = SYSUTCDATETIME()
             WHERE DataFeedKey = @dataFeedKey
             """, new
         {
             request.DisplayName, request.FeedType, request.FolderPath, request.FileNamePattern,
-            request.ImportMappingProfileKey, request.IsEnabled, request.DisplayOrder, userKey, dataFeedKey
+            request.ImportMappingProfileKey, request.IsEnabled, request.DisplayOrder, request.SourceSystemKey, userKey, dataFeedKey
         });
         return affected > 0;
     }
@@ -153,5 +155,49 @@ public sealed class DataFeedRepository(IDbConnectionFactory connectionFactory)
             JOIN web.identity_provider_config p ON p.ProviderKey = u.ProviderKey AND p.ProviderType = 'WindowsIntegrated'
             WHERE u.ExternalIdentifier = @SystemUserExternalIdentifier
             """, new { SystemUserExternalIdentifier });
+    }
+
+    // D-212: the CyberArk loads' and AD Account Discovery's own sources, never a feed's.
+    public static readonly string[] ReservedSourceSystemCodes = ["PRIVCLOUD", "SELFHOSTED", "DISCOVERY"];
+
+    /// <summary>D-212: the source systems an AccountInventory feed can use -- every one but the reserved ones.</summary>
+    public async Task<IReadOnlyList<FeedSourceSystem>> GetFeedSourceSystemsAsync()
+    {
+        using var connection = connectionFactory.Create();
+        return (await connection.QueryAsync<FeedSourceSystem>("""
+            SELECT SourceSystemKey, SourceSystemCode, SourceSystemName
+            FROM dbo.dim_source_system
+            WHERE SourceSystemCode NOT IN @ReservedSourceSystemCodes
+            ORDER BY SourceSystemName
+            """, new { ReservedSourceSystemCodes })).ToList();
+    }
+
+    /// <summary>D-212: whether a source system with this code or name exists (any source, reserved ones included).</summary>
+    public async Task<bool> SourceSystemExistsAsync(string code, string name)
+    {
+        using var connection = connectionFactory.Create();
+        return await connection.ExecuteScalarAsync<bool>(
+            "SELECT CASE WHEN EXISTS (SELECT 1 FROM dbo.dim_source_system WHERE SourceSystemCode = @code OR SourceSystemName = @name) THEN 1 ELSE 0 END",
+            new { code, name });
+    }
+
+    public async Task<int> CreateSourceSystemAsync(string code, string name)
+    {
+        using var connection = connectionFactory.Create();
+        return await connection.QuerySingleAsync<int>("""
+            INSERT INTO dbo.dim_source_system (SourceSystemCode, SourceSystemName)
+            OUTPUT inserted.SourceSystemKey
+            VALUES (@code, @name)
+            """, new { code, name });
+    }
+
+    /// <summary>D-212: the AccountInventory feed already using this source, other than <paramref name="exceptDataFeedKey"/>; null if none.</summary>
+    public async Task<string?> AccountInventoryFeedForSourceAsync(int sourceSystemKey, int? exceptDataFeedKey)
+    {
+        using var connection = connectionFactory.Create();
+        return await connection.QuerySingleOrDefaultAsync<string?>("""
+            SELECT TOP (1) DisplayName FROM web.data_feed
+            WHERE FeedType = 'AccountInventory' AND SourceSystemKey = @sourceSystemKey AND DataFeedKey <> ISNULL(@exceptDataFeedKey, -1)
+            """, new { sourceSystemKey, exceptDataFeedKey });
     }
 }

@@ -20,7 +20,8 @@ public static class FeedColumns
         ["AccountAccessGroupMembership"] = [["AccountName", "AccountKey"], ["GroupIdentifier"]],
         ["AccountTargetMap"] = [["AccountName", "AccountKey"], ["TargetIdentifierType"], ["TargetIdentifierValue"]],
         ["Applications"] = [["ApplicationCode"]],
-        ["SafeAssignments"] = [["SafeName"], ["Application"]]
+        ["SafeAssignments"] = [["SafeName"], ["Application"]],
+        ["AccountInventory"] = [["UserName"], ["Address"]]   // D-212
     };
 
     /// <summary>

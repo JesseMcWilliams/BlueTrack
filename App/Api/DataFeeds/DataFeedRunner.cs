@@ -170,7 +170,7 @@ public sealed class DataFeedRunner(
         var applications = services.GetRequiredService<ApplicationMappingImportService>();
         var profile = feed.ImportMappingProfileKey;
 
-        if (feed.FeedType is "Applications" or "SafeAssignments" or "TargetInventory" && userKey is null)
+        if (feed.FeedType is "Applications" or "SafeAssignments" or "TargetInventory" or "AccountInventory" && userKey is null)
             throw new InvalidOperationException("No user to attribute the import to: the 'BlueTrack Data Feeds (system)' user is missing (it's seeded by Database/05_BlueTrack_Baseline_WebSeed.sql).");
 
         switch (feed.FeedType)
@@ -184,6 +184,13 @@ public sealed class DataFeedRunner(
             {
                 var r = await applications.ImportSafeAssignmentsAsync(rows, userKey!.Value);
                 return (r.TotalRows, r.Errors.Count, $"{r.AssignedCount} assigned, {r.ChangedCount} changed, {r.UnchangedCount} unchanged, {r.Errors.Count} errors", r);
+            }
+            case "AccountInventory":   // D-212
+            {
+                if (feed.SourceSystemKey is not { } sourceKey) throw new InvalidOperationException("This account inventory feed has no source system.");
+                var r = await services.GetRequiredService<AccountInventoryImportService>()
+                    .ImportAsync(rows, sourceKey, feed.SourceSystemName ?? sourceKey.ToString(), userKey!.Value);
+                return (r.TotalRows, r.Errors.Count, r.Summary, r);
             }
         }
 

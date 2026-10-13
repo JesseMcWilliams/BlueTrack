@@ -28,6 +28,7 @@ instead.
 | 10 | `10_BlueTrack_AnalystRiskReport.sql` | D-208: the Analyst role gets `ViewRiskReport` (the Risk Score report), on existing installs too. |
 | 11 | `11_BlueTrack_ConnectionTestAudit.sql` | D-210: the `ConnectionTest` audit event type, logged by the Secrets Store and Credentials Test buttons. |
 | 12 | `12_BlueTrack_CyberArkSourceConfig.sql` | D-211: `web.cyberark_source_config` (the CyberArk sources' settings, edited on Admin > Data Sources), `fn_ExpandDateTokens` and `usp_Import_Configured`, the nightly job's Import step. |
+| 13 | `13_BlueTrack_AccountInventoryFeed.sql` | D-212: `web.data_feed.SourceSystemKey` and the `AccountInventory` feed type; auto-advance now only for CyberArk (`PRIVCLOUD`/`SELFHOSTED`) accounts. |
 
 ## The baseline (D-195)
 
@@ -52,7 +53,7 @@ scripts but not up to `51` is refused; upgrade it first from the
 
 ## Adding a script
 
-1. Name it `NN_BlueTrack_<Topic>.sql`, with `NN` the next number (`13` is next).
+1. Name it `NN_BlueTrack_<Topic>.sql`, with `NN` the next number (`14` is next).
 2. Start with a header comment: the file name, `RUN THIS AFTER 01-NN.`, what
    it changes and why (with the `D-n` decision), and whether it's safe to
    re-run.

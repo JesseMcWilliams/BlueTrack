@@ -7,7 +7,8 @@ const feedTypeLabels = {
   AccountAccessGroupMembership: 'Account → access group membership',
   AccountTargetMap: 'Account → target map',
   Applications: 'Applications',
-  SafeAssignments: 'Safe → application assignments'
+  SafeAssignments: 'Safe → application assignments',
+  AccountInventory: 'Account inventory' // D-212
 }
 
 export function feedTypeLabel(feedType) {
