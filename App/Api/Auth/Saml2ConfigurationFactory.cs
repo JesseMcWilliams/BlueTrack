@@ -79,11 +79,29 @@ public sealed class Saml2ConfigurationFactory(IdentityProviderRepository identit
     }
 
     /// <summary>D-25/D-34: LocalMachine\My, matching where an IIS app pool identity can read a certificate's private key without extra ACL setup.</summary>
+    /// <summary>
+    /// D-205: the App Pool account's own store (CurrentUser\My) first, so an SP
+    /// certificate requested by that account -- whose key only it can read --
+    /// works; then LocalMachine\My, as before. CurrentUser needs the App Pool's
+    /// "Load User Profile" on; without a profile the store is empty or can't be
+    /// opened, and the lookup falls through to LocalMachine.
+    /// </summary>
     private static X509Certificate2? FindCertificate(string thumbprint)
     {
-        using var store = new X509Store(StoreName.My, StoreLocation.LocalMachine);
-        store.Open(OpenFlags.ReadOnly);
-        var matches = store.Certificates.Find(X509FindType.FindByThumbprint, thumbprint, validOnly: false);
-        return matches.Count > 0 ? matches[0] : null;
+        foreach (var location in new[] { StoreLocation.CurrentUser, StoreLocation.LocalMachine })
+        {
+            try
+            {
+                using var store = new X509Store(StoreName.My, location);
+                store.Open(OpenFlags.ReadOnly | OpenFlags.OpenExistingOnly);
+                var matches = store.Certificates.Find(X509FindType.FindByThumbprint, thumbprint, validOnly: false);
+                if (matches.Count > 0) return matches[0];
+            }
+            catch (System.Security.Cryptography.CryptographicException) when (location == StoreLocation.CurrentUser)
+            {
+                // No user profile loaded for the App Pool's account: try LocalMachine.
+            }
+        }
+        return null;
     }
 }

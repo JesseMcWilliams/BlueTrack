@@ -40,6 +40,19 @@ export const useRightsStore = defineStore('rights', {
       this.loading = true
       this.error = null
       try {
+        // D-205: ask first, without risking a 401. A 401 from /api/me makes the
+        // browser answer the Windows challenge silently, so only call it when
+        // there's already a session, or Windows sign-in is wanted (the default,
+        // or chosen via /login/windows). Otherwise the sign-in page takes over.
+        const sessionResponse = await fetch('/api/auth/session')
+        if (sessionResponse.ok) {
+          const session = await sessionResponse.json()
+          if (!session.authenticated && !session.windows) {
+            this.authenticated = false
+            this.loaded = true
+            return
+          }
+        }
         const response = await fetch('/api/me')
         if (response.status === 401) {
           this.authenticated = false

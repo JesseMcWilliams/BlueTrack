@@ -18,7 +18,11 @@
 // handling above) moved to its own routed page (IdentityProviderEdit.vue,
 // admin-identity-provider-create/-edit) -- this page no longer owns an
 // inline editing form.
-import { ref, onMounted } from 'vue'
+//
+// D-205: the default sign-in method (GET/PUT .../identity-providers/default;
+// none = the sign-in page lists the methods), and each method's direct
+// sign-in address -- what to put in an IdP's launch URL or hand to users.
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { confirmDelete } from '../../composables/useConfirmDialog'
 
@@ -27,13 +31,33 @@ const router = useRouter()
 const providers = ref([])
 const error = ref(null)
 const loading = ref(true)
+const defaultProviderType = ref('')
+const savingDefault = ref(false)
+const defaultSaved = ref(false)
+
+const SIGN_IN_PATHS = { WindowsIntegrated: 'windows', OIDC: 'oidc', SAML: 'saml' }
+
+// One choice per sign-in type (the enabled provider with the lowest Order wins for its direct address).
+const signInTypes = computed(() => Object.keys(SIGN_IN_PATHS).filter(type => providers.value.some(p => p.providerType === type)))
+
+function directAddress(providerType) {
+  return `${window.location.origin}/login/${SIGN_IN_PATHS[providerType]}`
+}
+
+function isEnabledType(providerType) {
+  return providers.value.some(p => p.providerType === providerType && p.isEnabled)
+}
 
 async function load() {
   loading.value = true
   try {
-    const response = await fetch('/api/admin/identity-providers')
+    const [response, defaultResponse] = await Promise.all([
+      fetch('/api/admin/identity-providers'),
+      fetch('/api/admin/identity-providers/default')
+    ])
     if (!response.ok) throw new Error(`Request failed: ${response.status}`)
     providers.value = await response.json()
+    if (defaultResponse.ok) defaultProviderType.value = (await defaultResponse.json()).providerType ?? ''
   } catch (err) {
     error.value = err.message
   } finally {
@@ -42,6 +66,26 @@ async function load() {
 }
 
 onMounted(load)
+
+async function saveDefault() {
+  savingDefault.value = true
+  defaultSaved.value = false
+  error.value = null
+  try {
+    const response = await fetch('/api/admin/identity-providers/default', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ providerType: defaultProviderType.value || null })
+    })
+    if (!response.ok) {
+      error.value = `Saving the default sign-in method failed: ${response.status}`
+      return
+    }
+    defaultSaved.value = true
+  } finally {
+    savingDefault.value = false
+  }
+}
 
 async function remove(provider) {
   if (!(await confirmDelete(`Delete Identity Provider "${provider.displayName}"? This cannot be undone.`))) return
@@ -79,6 +123,26 @@ async function remove(provider) {
           </tr>
         </tbody>
       </table>
+
+      <h3>Sign-in</h3>
+      <form class="filter-row" @submit.prevent="saveDefault">
+        <label class="field-label">
+          <span class="field-label-text">Default sign-in method</span>
+          <select v-model="defaultProviderType" @change="defaultSaved = false">
+            <option value="">None (the sign-in page lists the methods)</option>
+            <option v-for="type in signInTypes" :key="type" :value="type">{{ type }}{{ isEnabledType(type) ? '' : ' (disabled)' }}</option>
+          </select>
+        </label>
+        <button type="submit" :disabled="savingDefault">Save</button>
+      </form>
+      <p v-if="defaultSaved" role="status">Saved. It applies the next time someone signs in.</p>
+      <p>
+        With a default, people without a session go straight to it: Windows signs in silently, OIDC and SAML go to the identity provider.
+        A direct address always uses its own method, so it suits an identity provider's launch URL or a link you hand out:
+      </p>
+      <ul>
+        <li v-for="type in signInTypes" :key="type"><code>{{ directAddress(type) }}</code> {{ type }}{{ isEnabledType(type) ? '' : ' (disabled)' }}</li>
+      </ul>
     </template>
   </div>
 </template>
