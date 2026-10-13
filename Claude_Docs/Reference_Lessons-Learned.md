@@ -215,3 +215,8 @@ In Windows PowerShell 5.1, `Invoke-RestMethod -Uri $api | Where-Object providerT
 `BlueTrackWebApplicationFactory` set `ConnectionStrings:BlueTrackDb` with `ConfigureAppConfiguration`, which applies only after `Program.cs` has run its top-level code. `AddBlueTrackAuthentication` reads the OIDC row while the host is being built, so in tests that read went to `appsettings.json`'s live `BlueTrack` database. Enabling OIDC on the dev site made `LoginOidc_NotConfigured_ReturnsServiceUnavailable` fail. The factory now also sets it with `builder.UseSetting(...)`, which `Program.cs` sees.
 
 **Lesson:** any setting `Program.cs` reads before `Build()` must be overridden in tests with `UseSetting`, not `ConfigureAppConfiguration`.
+
+## 2026-10-13 -- `.gitignore`'s `Secrets/` hid new source files, and merging a stacked PR closed the next one
+
+- The aPeTemplate rule `Secrets/` ignores every folder named Secrets, including `App/Api/Secrets/`. Its existing files were tracked, so nothing looked wrong; two new files there were never committed, and the tests passed locally while CI failed to build. `.gitignore` now has `!App/Api/Secrets/`. After adding files, check `git status --short --ignored`.
+- Merging a PR with `--delete-branch` **closed** the PR stacked on it (based on the deleted branch) instead of retargeting it, and a closed PR's base can't be changed. Recovery: push the old branch back, reopen, `gh pr edit <n> --base main`, delete the branch again. Before merging a stacked PR, retarget the next one to `main` first. A retarget alone doesn't start CI (no `pull_request` event); a push, or closing and reopening the PR, does.

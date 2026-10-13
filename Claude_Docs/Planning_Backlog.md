@@ -2,15 +2,6 @@
 
 > **Stage: Planning.** Work that isn't built or proven yet. Carried forward from the 2026-09-16 survey (`Archive_Planning_Outstanding-Work-Survey-2026-09-16.md`); items that survey listed but the audit tracker records as resolved were left in the archive. Items tagged *(verify)* may already be done; confirm before starting. When an item ships, delete it here and record it in the relevant `Design_` doc.
 
-## DCACYBSQL01: outstanding (as of 2026-10-10)
-Last updated there from a pre-D-197 build (it has D-196). To bring it up to `main`, in order:
-1. **Update the code.** Its copy of `Update-BlueTrack.ps1` predates D-199, so this update runs the old way. From the next update on, until a signed release exists, use `.\Update-BlueTrack.ps1 -Branch main -AllowUnsignedBranch` (D-199).
-2. **Run the installer elevated** (the update script offers to). `Db.Migrate` applies `07_BlueTrack_ScheduledBackups.sql` (D-200); the Migrator only records the `01`-`06` baseline as applied (D-195).
-3. **If a data feed or the backup folder is on a network share**, pass it in `-AllowedFileRoots` (D-197); otherwise those feeds and backups are refused.
-4. **Re-run `-Step Db.AppPoolAccess`.** It applies `db_backupoperator` and the append-only audit log (D-198); a normal update doesn't re-apply database grants. Its first run by the installer here also proves the step (see "Installer on a fresh server" below).
-5. **Optional, scheduled backups (D-200):** set a time (and days to keep) on Global Application Configuration, and give the App Pool's account Modify on the Backup Folder so old scheduled backups can be cleaned up.
-6. **Check afterwards:** smoke test passes; Windows sign-in from a remote machine; the Deployment page lists recent backups; a role without `ViewDashboard` can't see Account Progress (D-197).
-
 ## Requested, not started
 - **Data Sources admin page** (requested 2026-10-08; design agreed 2026-10-09; phases 1-2 built 2026-10-09, phases 3-4 not started): scheduled CSV feeds over the existing import pipelines (groups, servers, applications, account links), an account inventory feed that adds other systems' accounts as Discovered with their source and links them to CyberArk accounts on an exact username + address match, a possible-match remediation report, and the CyberArk sources' settings editable on the page. Design, decisions and phasing: `Planning_Data-Sources.md`.
 
