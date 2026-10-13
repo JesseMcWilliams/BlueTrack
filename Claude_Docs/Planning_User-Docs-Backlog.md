@@ -5,3 +5,4 @@
 | Date | Change | User doc / section it affects |
 |---|---|---|
 | 2026-10-13 | D-210: Test buttons audit-logged (`ConnectionTest`), Secrets Store test no longer shows password length; SAML unreadable SP key gives a clear 503 and a Degraded health check. Already written into `User_Docs/`; rebuild the `.docx` guides at the next release. | `Admin_SettingsReference.md` (Secrets Store, Health checks), `Admin_Installation.md` (Certificates) |
+| 2026-10-13 | D-211: CyberArk sources (export folder, file names, EVD database) edited on Admin > Data Sources; installer answers only seed them; upgrade needs `-Step Db.NightlyJob`. Written into `User_Docs/`; rebuild the `.docx` guides at the next release. | `Admin_SettingsReference.md` and `Admin_Configuration.md` (Data Sources), `Admin_Installation.md`, `Admin_OperationsGuide.md`, `Admin_DeploymentRunbook.md` |

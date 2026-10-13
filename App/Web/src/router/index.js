@@ -444,6 +444,13 @@ const routes = [
         meta: { breadcrumb: 'Data Sources', breadcrumbParent: 'admin' },
         component: () => import('../views/admin/DataSources.vue')
       },
+      // D-211 (Data Sources phase 3): the CyberArk sources' nightly import settings.
+      {
+        path: 'data-sources/cyberark',
+        name: 'admin-cyberark-sources-edit',
+        meta: { breadcrumb: 'CyberArk Sources', breadcrumbParent: 'admin-data-sources' },
+        component: () => import('../views/admin/CyberArkSourcesEdit.vue')
+      },
       {
         path: 'data-sources/new',
         name: 'admin-data-feed-create',

@@ -25,7 +25,15 @@
 | How strictly to match | **Exact match** (username + address) to link. Possible matches found by a looser comparison, including **DNS forward and reverse lookups** of the addresses, go to a **remediation report** for a person to act on; they are never linked automatically. | 2026-10-09 |
 | Run now for the CyberArk sources | **No.** They keep running on the nightly SQL Agent job only. | 2026-10-09 |
 | When feeds run | **After** the CyberArk Import+Load job. | 2026-10-09 |
-| Start building? | **Not yet** (2026-10-09: "don't build anything yet"). | |
+| Start building? | Phases 1-2 built 2026-10-09; phases 3-4 started 2026-10-13. | 2026-10-13 |
+| CyberArk file names (phase 3) | **All seven editable** on the page, with `{date}` tokens (D-211). | 2026-10-13 |
+| Installer vs. page (phase 3) | The installer writes the settings **only when none exist**; afterwards the page owns them and the installer warns if they differ (D-211). | 2026-10-13 |
+| CyberArk Test (phase 3) | EVD database exists; folder and today's files as the App Pool sees them, noting SQL Server reads them as its own account (D-211). | 2026-10-13 |
+| Feed account identity (phase 4) | `SourceAccountId` = lowercase trimmed `username@address` (D-212). | 2026-10-13 |
+| Auto-advance (phase 4) | Only `PRIVCLOUD`/`SELFHOSTED` accounts auto-advance (D-212). | 2026-10-13 |
+| Recording a link (phase 4) | `FieldEdit` audit event with a field change, by the Data Feeds system user (D-212). | 2026-10-13 |
+| Remediation report permission (phase 4) | `ConfirmReconciliation` (D-212). | 2026-10-13 |
+| Account CSV columns (phase 4) | Required `UserName`, `Address`; optional `AccountName` (default `username@address`), `PlatformName`, `OwnerName`, `Notes` (D-212). | 2026-10-13 |
 
 Superseded by the approach change: per-system staging tables and import procedures, `usp_Import_Configured` as the runner for other systems, and **Run now** through `SQLAgentOperatorRole`. With no Run now for the CyberArk sources (2026-10-09), no `msdb` grant is needed at all.
 
@@ -95,9 +103,9 @@ Stay on the existing SQL import and nightly Agent job (D-176), which already wor
 
 1. **Shared import services** (2), no behavior change. **Built 2026-10-09:** `App/Api/Imports/RiskScoringImportService.cs` and `ApplicationMappingImportService.cs`; every existing test passed unchanged (xUnit 456, Vitest 137, Playwright 58). For phase 2: `ImportTargetInventoryAsync` records the user who ran it (`TargetMatchingService.MatchOrCreateAsync`), so a scheduled feed needs a user to attribute its changes to, for example a dedicated system account.
 2. **Feeds** (1, 3, 4, 7) for the existing pipelines: registry, background runner, Run now, status and history, page. **Built 2026-10-09 (D-181):** script 43, `App/Api/DataFeeds/`, `DataFeedsController`, Admin > Data Sources (`DataSources.vue`, `DataFeedEdit.vue`), five settings on Global Application Configuration. Differences from the design above: `SourceSystemKey` waits for phase 4 (only `AccountInventory` needs it); retention is applied after the nightly run, not before; **Test** checks the import's *required* columns (`FeedColumns.cs`, under the mapping profile's names), not every template column.
-3. **CyberArk settings on the page** (6): settings table, `usp_Import_Configured`, job and installer changes.
+3. **CyberArk settings on the page** (6): settings table, `usp_Import_Configured`, job and installer changes. **Built 2026-10-13 (D-211):** script 12, `CyberArkSourcesController`, `CyberArkSourceValidation`, the "CyberArk sources" section of Data Sources and `CyberArkSourcesEdit.vue`; `Database/Manual/04_*` and `Install-BlueTrackNightlyJob` seed the row from four tokens. Difference from the design above: the job is still recreated only by `Db.NightlyJob`, so an existing install must re-run that step before page edits take effect.
 4. **Account inventory feed** (5): accounts as Discovered with their source, exact-match linking to CyberArk accounts, hiding linked feed accounts (with the filter), and the possible-match remediation report.
 
 ## Open questions
 
-None outstanding as of 2026-10-09. Details to settle when each phase is built, with real sample files: the account CSV's full column list, and which permission guards acting on the remediation report.
+None outstanding as of 2026-10-13 (phase 4's details settled in D-212).

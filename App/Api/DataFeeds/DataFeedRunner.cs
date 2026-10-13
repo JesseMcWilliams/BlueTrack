@@ -171,7 +171,7 @@ public sealed class DataFeedRunner(
         var profile = feed.ImportMappingProfileKey;
 
         if (feed.FeedType is "Applications" or "SafeAssignments" or "TargetInventory" && userKey is null)
-            throw new InvalidOperationException("No user to attribute the import to: the 'BlueTrack Data Feeds (system)' user is missing (run Database script 43).");
+            throw new InvalidOperationException("No user to attribute the import to: the 'BlueTrack Data Feeds (system)' user is missing (it's seeded by Database/05_BlueTrack_Baseline_WebSeed.sql).");
 
         switch (feed.FeedType)
         {

@@ -314,6 +314,20 @@ Changing the host, port, STARTTLS, "Ignore all SSL errors", authentication metho
 
 The matched file is left in place after import. Only one run happens at a time.
 
+### CyberArk sources
+
+**Admin > Data Sources**, the "CyberArk sources" section at the top, then **Edit CyberArk sources** (permission `ManageDataSources`). These settings are read by the nightly Import+Load job's Import step (02:00); changes apply from the next nightly run. There is no Run now for them. The installer sets them on first install (section 7, "Nightly import"); until they're saved, the page shows "Not set up yet" and the nightly import fails.
+
+| Setting | What it does | Default | Recommended | Why |
+|---|---|---|---|---|
+| Import Privilege Cloud | Import the Privilege Cloud CSV exports. At least one source must be on. | Installer's answer | On if you have Privilege Cloud | A source that is on but missing fails the job each night. |
+| Export folder | The folder holding the exports, up to 400 characters. Must be inside the server's allowed folders (without any set: local folders only, no network shares). | Installer's answer | A local folder on the SQL Server | SQL Server's service account reads the files, so it needs read access. |
+| Platforms, Users, Groups, Local group members, Safes, Accounts, Entitlements file | The file name of each export, up to 200 characters. A date format in braces, such as `{yyyy-MM-dd}`, becomes the run's date; `*` and `?` aren't allowed. | `Export_PlatformsList.csv`, `Export_UsersList.csv`, `Export_GroupsList.csv`, `Export Local Group Members {yyyy-MM-dd}.csv`, `Export_SafesList.csv`, `Export_AccountsList.csv`, `Export Entitlements {yyyy-MM-dd}.csv` | The defaults, unless your exports are named differently | SQL Server needs the exact file name. |
+| Import Self-Hosted | Import from the Self-Hosted EVD database. | Installer's answer | On if you have Self-Hosted | As above. |
+| EVD database | The EVD database on BlueTrack's SQL Server instance: letters, digits and underscores only. | Installer's answer | Your EVD database | Read with a cross-database query, so it must be on the same instance. |
+
+**Test** checks the values on the page, saved or not: that the EVD database exists on BlueTrack's SQL Server, and that the export folder and today's seven files exist as the App Pool's account sees them. During the import it's SQL Server's service account that reads the files, so it needs read access too. Every save is recorded in the audit log, with each changed field.
+
 ### Import Mapping Profiles
 
 **Admin > Import Mapping Profiles** (permission `ManageTargets`). A profile maps a source file's column names to BlueTrack's internal field names, for the five risk-scoring imports (TargetInventory, AccessGroupInventory, AccessGroupTargetMap, AccountAccessGroupMembership, AccountTargetMap).
@@ -395,9 +409,11 @@ These are chosen when running `Deploy\Install-BlueTrack.ps1`. Each can be a para
 | Setting | What it does | Default | Recommended | Why |
 |---|---|---|---|---|
 | `-InstallNightlyJob` | Install the nightly Import and Load SQL Server Agent job (runs at 02:00). | Prompted | `$true` once export files are in place | Without it, data is loaded only by hand. |
-| `-ImportSources` | Which CyberArk sources the job imports: Both, PrivilegeCloud or SelfHosted. | Prompted | Only the sources you have | A source that is switched on but missing fails the job each night. |
-| `-ExportFolderPath` | The Privilege Cloud export folder, as seen by the SQL Server service account. | Prompted if needed | A local folder on the SQL Server | SQL Server reads it directly. |
-| `-EvdDatabaseName` | The Self-Hosted EVD database, on the same SQL Server instance. | Prompted if needed | Your EVD database | Needed for the Self-Hosted import. |
+| `-ImportSources` | Which CyberArk sources the job imports: Both, PrivilegeCloud or SelfHosted. Sets the CyberArk sources on first install only. | Prompted | Only the sources you have | A source that is switched on but missing fails the job each night. |
+| `-ExportFolderPath` | The Privilege Cloud export folder, as seen by the SQL Server service account. First install only. | Prompted if needed | A local folder on the SQL Server | SQL Server reads it directly. |
+| `-EvdDatabaseName` | The Self-Hosted EVD database, on the same SQL Server instance. First install only. | Prompted if needed | Your EVD database | Needed for the Self-Hosted import. |
+
+After the first install, these three are changed on **Admin > Data Sources** ("CyberArk sources", in section 5); re-running the installer doesn't overwrite what's saved there.
 
 ### IIS and certificate
 

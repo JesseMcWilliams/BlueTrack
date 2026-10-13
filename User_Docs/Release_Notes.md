@@ -4,6 +4,10 @@ What changed in each BlueTrack release, newest first, for users and administrato
 
 ## Unreleased
 
+### New
+
+- **CyberArk sources on the Data Sources page.** Admin > Data Sources now shows which CyberArk sources the nightly import uses, and **Edit CyberArk sources** changes them: the Privilege Cloud export folder and file names, and the Self-Hosted EVD database. **Test** checks them first. Until now they could only be changed by re-running the installer. See the Administrator Settings Guide, "Data Sources".
+
 ### Changed
 
 - **Test buttons are audit-logged.** Each Test on the Secrets Store Configuration and Credentials & LDAP pages is recorded in the Audit Log as a `ConnectionTest` event, with what was looked up and whether it worked. The Secrets Store test no longer shows the password's length.
@@ -14,7 +18,8 @@ What changed in each BlueTrack release, newest first, for users and administrato
 
 ### Upgrading
 
-- Run the installer as usual; it applies the new database script (`11_BlueTrack_ConnectionTestAudit.sql`).
+- Run the installer as usual; it applies the new database scripts (`11_BlueTrack_ConnectionTestAudit.sql`, `12_BlueTrack_CyberArkSourceConfig.sql`).
+- **If you use the nightly import job**, also run the installer with `-Step Db.NightlyJob`. It saves your current CyberArk source settings for the Data Sources page and recreates the job to read them. Until you do, the job keeps working with its old settings, and changes made on the page have no effect.
 
 ## 1.0.0
 

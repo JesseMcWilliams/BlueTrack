@@ -14,6 +14,7 @@ import { feedTypeLabel, formatRunTime } from './dataFeedFormat'
 const router = useRouter()
 
 const feeds = ref([])
+const cyberArk = ref(null)
 const status = ref(null)
 const error = ref(null)
 const message = ref(null)
@@ -32,10 +33,17 @@ async function loadStatus() {
   status.value = await response.json()
 }
 
+// D-211: the CyberArk sources' settings, summarized; edited on their own page.
+async function loadCyberArk() {
+  const response = await fetch('/api/admin/cyberark-sources')
+  if (!response.ok) throw new Error(`Request failed: ${response.status}`)
+  cyberArk.value = await response.json()
+}
+
 async function load() {
   loading.value = true
   try {
-    await Promise.all([loadFeeds(), loadStatus()])
+    await Promise.all([loadFeeds(), loadStatus(), loadCyberArk()])
     if (status.value.isRunning) startPolling()
   } catch (err) {
     error.value = err.message
@@ -110,14 +118,34 @@ async function remove(feed) {
 <template>
   <div>
     <h2>Data Sources</h2>
-    <p>
-      Data feeds import a CSV file from a folder, using the same imports as the Bulk Actions uploads.
-      Enabled feeds run every night, in the order shown; the newest file matching the pattern is imported and left in place.
-      The application pool's account needs read access to each folder.
-    </p>
     <p v-if="loading" role="status">Loading...</p>
 
     <template v-else>
+      <h3>CyberArk sources</h3>
+      <p>Imported by the nightly SQL Agent job, before the data feeds. They don't have Run now.</p>
+      <template v-if="cyberArk">
+        <p v-if="!cyberArk.isConfigured" role="alert">Not set up yet: the nightly import fails until these settings are saved.</p>
+        <ul v-else class="cyberark-summary">
+          <li>
+            Privilege Cloud:
+            <template v-if="cyberArk.settings.importPrivilegeCloud">on, from <code>{{ cyberArk.settings.exportFolderPath }}</code></template>
+            <template v-else>off</template>
+          </li>
+          <li>
+            Self-Hosted:
+            <template v-if="cyberArk.settings.importSelfHosted">on, from the <code>{{ cyberArk.settings.evdDatabaseName }}</code> database</template>
+            <template v-else>off</template>
+          </li>
+        </ul>
+      </template>
+      <p><button type="button" @click="router.push({ name: 'admin-cyberark-sources-edit' })">Edit CyberArk sources</button></p>
+
+      <h3>Data feeds</h3>
+      <p>
+        Data feeds import a CSV file from a folder, using the same imports as the Bulk Actions uploads.
+        Enabled feeds run every night, in the order shown; the newest file matching the pattern is imported and left in place.
+        The application pool's account needs read access to each folder.
+      </p>
       <p v-if="status" class="feed-status" role="status">
         <template v-if="status.isRunning">Running{{ status.runningFeed ? `: ${status.runningFeed}` : '' }}…</template>
         <template v-else>Next nightly run: {{ formatRunTime(status.nextScheduledRun, true) }}.</template>

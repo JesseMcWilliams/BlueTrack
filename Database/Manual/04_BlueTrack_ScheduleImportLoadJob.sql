@@ -5,104 +5,60 @@
    runs -- it reads only the top level of Database/. Each is run by hand
    (sqlcmd or SSMS) or by Deploy/Install-BlueTrack.ps1.
 
-   Purely operational scheduling, with no schema of its own. While
-   reviewing this file against the D-89 lesson
-   (never hardcode a target database name -- a prior real incident where a
-   hardcoded name caused the real BlueTrack database to be dropped/recreated
-   instead of the intended BlueTrackTest), found and fixed one: both
-   sp_add_jobstep calls' @database_name argument was the literal 'BlueTrack'
-   rather than a substitutable token, which would have pointed this job at
-   the wrong database for any environment other than the real BlueTrack
-   (e.g. BlueTrackTest).
+   Creates the SQL Server Agent job "BlueTrack (<database>) - Import and
+   Load": Step 1 Import (EXEC usp_Import_Configured;), Step 2 Load (EXEC
+   usp_RunFullLoad;), nightly at 2:00 AM. Drops and recreates the job if it
+   exists, so it can be re-run.
 
-   A second, related issue found and fixed the same way: the job name
-   ('BlueTrack - Import and Load') and schedule name ('BlueTrack Nightly
-   2AM') were also hardcoded, but msdb.dbo.sysjobs/sysschedules are
-   instance-global, not scoped per target database -- running this file
-   against BlueTrackTest on the same SQL Server instance as the real
-   BlueTrack would have made sp_delete_job's drop-and-recreate guard
-   silently delete and replace the REAL BlueTrack's job (a variant of the
-   exact D-89 failure mode: same instance, different intended database).
-   Both names now embed a substitutable database-name placeholder so each
-   environment gets its own distinctly-named job/schedule on a shared SQL
-   Server instance. (Originally written using DbUp's `$DatabaseName$`
-   token like every other script, on the assumption this would run through
-   App/Migrator -- changed to sqlcmd's `$(DatabaseName)` scripting-variable
-   syntax once that assumption turned out to be wrong; see below.)
+   D-211 (Data Sources phase 3): the job no longer holds any source setting.
+   usp_Import_Configured (Database/12_BlueTrack_CyberArkSourceConfig.sql)
+   reads them from web.cyberark_source_config, which Admin > Data Sources
+   edits. Before creating the job, this script writes that row from the
+   values below **only when no row exists**; when one does, the page's
+   settings are kept and a WARNING is printed if they differ from these.
 
-   RUN THIS once the database is built and Import and Load have both been
-   run manually at least once and confirmed working (see
-   Import_Load_Process_Guide.docx). Deploy/Install-BlueTrack.ps1's nightly
-   job option runs a filled-in copy of it for you.
+   Values: Deploy/Install-BlueTrack.ps1 (Db.NightlyJob step) runs a temp
+   copy with the four __TOKENS__ below replaced from its answers. To run it
+   by hand, replace them yourself in a copy:
+     __IMPORT_PC__ / __IMPORT_SH__   1 or 0 (at least one must be 1)
+     __EXPORT_FOLDER__               the Privilege Cloud export folder, read by
+                                     the SQL Server *service account*
+     __EVD_DB__                      the Self-Hosted EVD database name
+   then: sqlcmd -S <server> -C -v DatabaseName="BlueTrack" -i <copy>.sql
+   (In SSMS, enable SQLCMD Mode, or start with :setvar DatabaseName "BlueTrack".)
 
-   Not a Migrator script. Confirmed 2026-09-05 against the real BlueTrack database:
-   this script's own `USE msdb;` succeeds and creates the job correctly,
-   but DbUp then tries to write ITS OWN journal entry for this script
-   against whatever database the connection is now on -- msdb, since this
-   script never switches back -- which fails with "Invalid object name
-   'SchemaVersions'" (msdb has no such table) and DbUp reports the whole
-   run as failed even though the job was actually created successfully.
-   Run this manually instead, via sqlcmd, which natively supports scripting
-   variables the same way DbUp does for every other script -- except the
-   syntax is `$(DatabaseName)`, not `$DatabaseName$`, since sqlcmd doesn't
-   understand DbUp's own token format:
-
-       sqlcmd -S <server> -C -v DatabaseName="BlueTrack" -i 04_BlueTrack_ScheduleImportLoadJob.sql
-
-   In SSMS, enable SQLCMD Mode first (Query menu), or use `:setvar DatabaseName "BlueTrack"`
-   as the file's first line before running it.
-
-   Creates a SQL Server Agent job, "BlueTrack - Import and Load", with two
-   steps -- Import, then Load -- matching the guide's own "Recommended
-   Operational Cadence" section. Runs nightly at 2:00 AM.
-
-   REAL VALUES USED BELOW (confirmed 2026-09-01, updated 2026-09-05, not
-   placeholders):
-     - EVD database name: CyberArkSH
-     - Privilege Cloud export folder: C:\Code\aPePAS\Output (updated
-       2026-09-05, was C:\Code\BlueTrack\Reference\PrivilegedCloud)
-       (a local path, not UNC -- confirm the SQL Server *service account*,
-       not your own login, has read access to it; see Prerequisites in the guide)
-
-   BUG FOUND AND FIXED 2026-09-05, on the first real run of this job's
-   Import step: SQL Server's EXECUTE statement only accepts a constant or a
-   plain variable for each parameter -- never an expression like string
-   concatenation. The original Step 1 passed `@Folder + N'...'` directly as
-   each usp_Import_All parameter, which fails to even PARSE ("Incorrect
-   syntax near '+'"), regardless of what @Folder's value is -- reproduced
-   identically with both the original path and a freshly-edited one, so
-   this was never about the path. Each file path is now built into its own
-   variable first, then passed as a plain variable. Also added: @Folder is
-   normalized to always end in a backslash, since a path edited directly in
-   SSMS's Job Step Properties dialog (as happened here) is easy to paste
-   without the trailing separator.
-
-   NAMING CORRECTION vs. the guide's own example text: the two date-stamped
-   exports in this folder are actually space-separated, not underscored --
-   "Export Entitlements YYYY-MM-DD.csv" and "Export Local Group Members
-   YYYY-MM-DD.csv" -- not "Export_Entitlements_..."/"Export_Local_Group_
-   Members_...". Step 1 below builds both dynamically from today's date to
-   match what's actually there. If your real export process ever changes
-   this naming, update the two string-concatenation lines in Step 1 to match.
-
-   DOCUMENTATION GAP FOUND ALONGSIDE THIS: the guide's own Process 1 / Step 1
-   text says "six current Privilege Cloud CSV exports" and doesn't mention
-   the seventh -- Local Group Members, imported via usp_Import_PC_GroupMembers
-   -- even though usp_Import_All has always required it. Fixed in the guide
-   at the same time as this script was added.
-
-   SOURCE SELECTION (D-176):
-   the Import step passes @ImportPrivilegeCloud and @ImportSelfHosted to
-   usp_Import_All. Both are 1 below (import both sources). For a
-   Privilege-Cloud-only implementation set @ImportSelfHosted = 0; for a
-   Self-Hosted-only one set @ImportPrivilegeCloud = 0. The source that's
-   off is skipped and its staging tables are emptied each night; its folder
-   or EVD value below is then ignored. Deploy/Install-BlueTrack.ps1 sets
-   both from its ImportSources answer.
-
-   This script is guarded (drops and recreates the job if it already exists)
-   so it can be safely re-run.
+   Lessons kept from earlier versions:
+   - D-89: the job and schedule names embed $(DatabaseName), because msdb's
+     job list is instance-wide; a fixed name would let a BlueTrackTest run
+     replace the real BlueTrack's job on a shared instance.
+   - Not a Migrator script: after USE msdb, DbUp tries to write its journal
+     into msdb and reports failure even though the job was created.
    ============================================================================ */
+
+USE [$(DatabaseName)];
+GO
+
+-- D-211: the settings row, written only when none exists.
+DECLARE @ImportPrivilegeCloud BIT = __IMPORT_PC__;
+DECLARE @ImportSelfHosted BIT = __IMPORT_SH__;
+DECLARE @ExportFolderPath NVARCHAR(400) = NULLIF(N'__EXPORT_FOLDER__', N'');
+DECLARE @EvdDatabaseName NVARCHAR(128) = NULLIF(N'__EVD_DB__', N'');
+
+IF NOT EXISTS (SELECT 1 FROM web.cyberark_source_config WHERE CyberArkSourceConfigKey = 1)
+BEGIN
+    INSERT INTO web.cyberark_source_config (CyberArkSourceConfigKey, ImportPrivilegeCloud, ExportFolderPath, ImportSelfHosted, EvdDatabaseName)
+    VALUES (1, @ImportPrivilegeCloud, @ExportFolderPath, @ImportSelfHosted, @EvdDatabaseName);
+    PRINT 'CyberArk source settings saved (web.cyberark_source_config). From now on, change them on Admin > Data Sources.';
+END
+ELSE IF EXISTS (SELECT 1 FROM web.cyberark_source_config
+                WHERE CyberArkSourceConfigKey = 1
+                  AND (ImportPrivilegeCloud <> @ImportPrivilegeCloud OR ImportSelfHosted <> @ImportSelfHosted
+                       OR (@ImportPrivilegeCloud = 1 AND ISNULL(ExportFolderPath, N'') <> ISNULL(@ExportFolderPath, N''))
+                       OR (@ImportSelfHosted = 1 AND ISNULL(EvdDatabaseName, N'') <> ISNULL(@EvdDatabaseName, N''))))
+BEGIN
+    PRINT 'WARNING: the CyberArk source settings saved on Admin > Data Sources differ from the installer''s answers. The saved settings are kept; change them on the page if they''re wrong.';
+END
+GO
 
 USE msdb;
 GO
@@ -118,12 +74,10 @@ DECLARE @JobId BINARY(16);
 EXEC msdb.dbo.sp_add_job
     @job_name = 'BlueTrack ($(DatabaseName)) - Import and Load',
     @enabled = 1,
-    @description = 'Nightly Import (staging refresh from Privilege Cloud + Self-Hosted EVD) followed by Load (usp_RunFullLoad) for the BlueTrack database. See Database/Import_Load_Process_Guide.docx.',
+    @description = 'Nightly Import (usp_Import_Configured: the CyberArk sources set on Admin > Data Sources) followed by Load (usp_RunFullLoad).',
     @job_id = @JobId OUTPUT;
 
--- Step 1: Import. Builds the two date-stamped file paths from today's date
--- to match the real naming pattern (see header note above); the other five
--- exports use fixed filenames that get overwritten in place on each export.
+-- Step 1: Import. D-211: every setting is read from web.cyberark_source_config.
 EXEC msdb.dbo.sp_add_jobstep
     @job_id = @JobId,
     @step_id = 1,
@@ -132,39 +86,7 @@ EXEC msdb.dbo.sp_add_jobstep
     @database_name = N'$(DatabaseName)',
     @on_success_action = 3,   -- go to next step
     @on_fail_action = 2,      -- quit the job, reporting failure
-    @command = N'
-DECLARE @Today DATE = CAST(SYSDATETIME() AS DATE);
-DECLARE @TodayStr NVARCHAR(10) = CONVERT(NVARCHAR(10), @Today, 23);   -- YYYY-MM-DD
-DECLARE @Folder NVARCHAR(400) = N''C:\Code\aPePAS\Output'';
-IF RIGHT(@Folder, 1) <> N''\'' SET @Folder = @Folder + N''\'';
-
--- EXEC''s own parameter list only accepts a constant or a plain variable
--- for each argument, never an expression like concatenation (confirmed
--- 2026-09-05: "Incorrect syntax near ''+''" -- a genuine, pre-existing bug,
--- reproduced with both the original and a newly-edited folder path, so
--- unrelated to whichever path is actually in use). Each file path is
--- built into its own variable first, then passed as a plain variable below.
-DECLARE @PlatformsFile     NVARCHAR(500) = @Folder + N''Export_PlatformsList.csv'';
-DECLARE @UsersFile         NVARCHAR(500) = @Folder + N''Export_UsersList.csv'';
-DECLARE @GroupsFile        NVARCHAR(500) = @Folder + N''Export_GroupsList.csv'';
-DECLARE @GroupMembersFile  NVARCHAR(500) = @Folder + N''Export Local Group Members '' + @TodayStr + N''.csv'';
-DECLARE @SafesFile         NVARCHAR(500) = @Folder + N''Export_SafesList.csv'';
-DECLARE @AccountsFile      NVARCHAR(500) = @Folder + N''Export_AccountsList.csv'';
-DECLARE @EntitlementsFile  NVARCHAR(500) = @Folder + N''Export Entitlements '' + @TodayStr + N''.csv'';
-
-EXEC usp_Import_All
-    @EVDDatabaseName = N''CyberArkSH'',
-    @PlatformsFile = @PlatformsFile,
-    @UsersFile = @UsersFile,
-    @GroupsFile = @GroupsFile,
-    @GroupMembersFile = @GroupMembersFile,
-    @SafesFile = @SafesFile,
-    @AccountsFile = @AccountsFile,
-    @EntitlementsFile = @EntitlementsFile,
-    @EntitlementsExportDate = @Today,
-    @ImportPrivilegeCloud = 1,
-    @ImportSelfHosted = 1;
-';
+    @command = N'EXEC usp_Import_Configured;';
 
 -- Step 2: Load.
 EXEC msdb.dbo.sp_add_jobstep

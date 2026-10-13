@@ -39,6 +39,15 @@ const feed = {
   lastRun: { outcome: 'CompletedWithErrors', startedAt: '2026-10-09T04:00:00', summary: '3 assigned, 1 errors' }
 }
 
+// D-211: the CyberArk sources' settings, as GET /api/admin/cyberark-sources returns them.
+function cyberArk(overrides = {}) {
+  return {
+    isConfigured: true,
+    settings: { importPrivilegeCloud: true, exportFolderPath: 'D:\\Exports', importSelfHosted: false, evdDatabaseName: null },
+    ...overrides
+  }
+}
+
 function status(overrides = {}) {
   return { isRunning: false, runningFeed: null, withinBusinessHours: false, nextScheduledRun: '2026-10-10T04:00:00', ...overrides }
 }
@@ -65,7 +74,8 @@ describe('DataSources.vue', () => {
   it('lists feeds with their last run and the next nightly run', async () => {
     routeFetch({
       'GET /api/admin/data-feeds': jsonResponse([feed]),
-      'GET /api/admin/data-feeds/status': jsonResponse(status())
+      'GET /api/admin/data-feeds/status': jsonResponse(status()),
+      'GET /api/admin/cyberark-sources': jsonResponse(cyberArk())
     })
 
     const wrapper = mount(DataSources, { global: { plugins: [makeRouter()] } })
@@ -76,12 +86,28 @@ describe('DataSources.vue', () => {
     expect(wrapper.text()).toContain('CompletedWithErrors')
     expect(wrapper.text()).toContain('3 assigned, 1 errors')
     expect(wrapper.text()).toContain('Next nightly run')
+    expect(wrapper.text()).toContain('Privilege Cloud: on, from D:\\Exports')
+    expect(wrapper.text()).toContain('Self-Hosted: off')
+  })
+
+  it('warns when the CyberArk sources are not set up (D-211)', async () => {
+    routeFetch({
+      'GET /api/admin/data-feeds': jsonResponse([]),
+      'GET /api/admin/data-feeds/status': jsonResponse(status()),
+      'GET /api/admin/cyberark-sources': jsonResponse(cyberArk({ isConfigured: false }))
+    })
+
+    const wrapper = mount(DataSources, { global: { plugins: [makeRouter()] } })
+    await flushPromises()
+
+    expect(wrapper.find('[role="alert"]').text()).toContain('Not set up yet')
   })
 
   it('Run now outside business hours starts the run without asking', async () => {
     routeFetch({
       'GET /api/admin/data-feeds': jsonResponse([feed]),
       'GET /api/admin/data-feeds/status': jsonResponse(status()),
+      'GET /api/admin/cyberark-sources': jsonResponse(cyberArk()),
       'POST /api/admin/data-feeds/run': jsonResponse(null, true, 202)
     })
     const wrapper = mount(DataSources, { global: { plugins: [makeRouter()] } })
@@ -101,7 +127,8 @@ describe('DataSources.vue', () => {
     confirmDelete.mockResolvedValue(false)
     routeFetch({
       'GET /api/admin/data-feeds': jsonResponse([feed]),
-      'GET /api/admin/data-feeds/status': jsonResponse(status({ withinBusinessHours: true }))
+      'GET /api/admin/data-feeds/status': jsonResponse(status({ withinBusinessHours: true })),
+      'GET /api/admin/cyberark-sources': jsonResponse(cyberArk())
     })
     const wrapper = mount(DataSources, { global: { plugins: [makeRouter()] } })
     await flushPromises()
@@ -117,6 +144,7 @@ describe('DataSources.vue', () => {
     routeFetch({
       'GET /api/admin/data-feeds': jsonResponse([feed]),
       'GET /api/admin/data-feeds/status': jsonResponse(status()),
+      'GET /api/admin/cyberark-sources': jsonResponse(cyberArk()),
       'POST /api/admin/data-feeds/run': jsonResponse({ detail: 'Running: Other feed' }, false, 409)
     })
     const wrapper = mount(DataSources, { global: { plugins: [makeRouter()] } })
