@@ -32,6 +32,7 @@ public sealed class ReportsRepository(IDbConnectionFactory connectionFactory)
             JOIN dbo.dim_progress_status sts     ON sts.StatusKey = fap.CurrentStatusKey
             LEFT JOIN dbo.dim_risk_level rl         ON rl.RiskLevelKey = fap.RiskLevelKey
             WHERE fa.IsDeleted = 0
+              AND NOT EXISTS (SELECT 1 FROM dbo.vw_linked_feed_account l WHERE l.AccountKey = fa.AccountKey)   -- D-212: a linked feed account counts as its CyberArk account
               AND fap.ActualCompletionDate IS NULL
               AND fap.TargetRemediationDate IS NOT NULL
               AND fap.TargetRemediationDate < CAST(SYSUTCDATETIME() AS DATE)
@@ -70,6 +71,7 @@ public sealed class ReportsRepository(IDbConnectionFactory connectionFactory)
             CROSS JOIN dbo.dim_progress_status sts
             LEFT JOIN dbo.fact_account_progress fap ON fap.CurrentStageKey = stg.StageKey AND fap.CurrentStatusKey = sts.StatusKey
             LEFT JOIN dbo.fact_account fa ON fa.AccountKey = fap.AccountKey AND fa.IsDeleted = 0
+                AND NOT EXISTS (SELECT 1 FROM dbo.vw_linked_feed_account l WHERE l.AccountKey = fa.AccountKey)   -- D-212
             GROUP BY stg.StageOrder, stg.StageName, sts.StatusName
             ORDER BY stg.StageOrder, sts.StatusName
             """;
@@ -133,6 +135,7 @@ public sealed class ReportsRepository(IDbConnectionFactory connectionFactory)
                 LEFT JOIN dbo.dim_blueprint_stage stg ON stg.StageKey = fap.CurrentStageKey
                 LEFT JOIN dbo.dim_progress_status sts ON sts.StatusKey = fap.CurrentStatusKey
                 WHERE fa.IsDeleted = 0
+                  AND NOT EXISTS (SELECT 1 FROM dbo.vw_linked_feed_account l WHERE l.AccountKey = fa.AccountKey)   -- D-212
             )
             SELECT
                 COUNT(*) AS TotalAccounts,

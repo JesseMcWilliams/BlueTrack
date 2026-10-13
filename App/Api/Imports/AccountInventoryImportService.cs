@@ -17,6 +17,10 @@ namespace BlueTrack.Api.Imports;
 ///     the source (D-185); one that comes back is restored.
 ///   - A file with no valid rows changes nothing, so an empty or broken file
 ///     can't mark every account deleted.
+///   - Phase 4b: afterwards, every account of this source that CyberArk also
+///     has (same user name and address) is linked to the CyberArk account and
+///     moved to Onboarded to Vault (dbo.usp_Link_FeedAccounts). Feeds run after
+///     the nightly CyberArk load, so an account onboarded today links tonight.
 /// PlatformName is optional; one that matches no CyberArk platform (by name
 /// or ID) still imports the account, without a platform, and is reported.
 /// </summary>
@@ -116,6 +120,7 @@ public sealed class AccountInventoryImportService(
 
         var deletes = existing.Values.Where(a => !a.IsDeletedInSource && !seen.Contains(a.SourceAccountId)).Select(a => a.AccountKey).ToList();
         await repository.ApplyAsync(sourceSystemKey, creates, updates, deletes);
+        var (linked, _) = await repository.LinkAsync(sourceSystemKey, userKey);
 
         var restored = updates.Count(u => u.Restore);
         var result = new AccountInventoryImportResult
@@ -126,6 +131,7 @@ public sealed class AccountInventoryImportService(
             RestoredCount = restored,
             DeletedCount = deletes.Count,
             UnchangedCount = unchanged,
+            LinkedCount = linked,
             Errors = errors.OrderBy(e => e.RowNumber).ToList()
         };
         if (creates.Count + updates.Count + deletes.Count > 0)

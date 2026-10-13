@@ -43,8 +43,13 @@ public sealed class AccountProgressRepository(IDbConnectionFactory connectionFac
         LEFT JOIN web.dim_risk_score_band band  ON ars.EffectiveRiskScore BETWEEN band.MinScore AND band.MaxScore
         LEFT JOIN web.account_deletion ad       ON ad.AccountKey = fa.AccountKey
         LEFT JOIN web.app_user adu              ON adu.UserKey = ad.DeletedBy
+        JOIN dbo.dim_source_system ss           ON ss.SourceSystemKey = fa.SourceSystemKey
+        OUTER APPLY (SELECT TOP (1) l.LinkedAccountKey FROM dbo.vw_linked_feed_account l WHERE l.AccountKey = fa.AccountKey) lnk
+        LEFT JOIN dbo.fact_account lfa          ON lfa.AccountKey = lnk.LinkedAccountKey
         -- D-185: deleted accounts are hidden unless asked for ("Show" or "Only").
         WHERE (CASE @DeletedFilter WHEN 'Show' THEN 1 WHEN 'Only' THEN fa.IsDeleted ELSE 1 - fa.IsDeleted END) = 1
+          -- D-212: a feed account linked to a CyberArk account is hidden (the CyberArk one shows) unless asked for.
+          AND (@LinkedFilter = 'Show' OR lnk.LinkedAccountKey IS NULL)
           AND (@StageName IS NULL OR stg.StageName = @StageName)
           AND (@StatusName IS NULL OR sts.StatusName = @StatusName)
           AND (@RiskLevelName IS NULL OR rl.RiskLevelName = @RiskLevelName)
@@ -76,7 +81,8 @@ public sealed class AccountProgressRepository(IDbConnectionFactory connectionFac
         int? page = null,
         int? pageSize = null,
         string? search = null,
-        string? deleted = null)
+        string? deleted = null,
+        string? linked = null)
     {
         using var connection = connectionFactory.Create();
         var (normalizedPage, normalizedPageSize) = PagingParams.Normalize(page, pageSize);
@@ -105,6 +111,7 @@ public sealed class AccountProgressRepository(IDbConnectionFactory connectionFac
                     ars.EffectiveRiskScore,
                     band.BandName AS RiskScoreBandName,
                     fa.IsDeleted, fa.IsDeletedInSource, adu.DisplayName AS DeletedByName, ad.DeletedAt, ad.Reason AS DeletionReason,
+                    ss.SourceSystemCode, ss.SourceSystemName, lnk.LinkedAccountKey AS LinkedToAccountKey, lfa.AccountName AS LinkedToAccountName,
                     ROW_NUMBER() OVER (ORDER BY {orderBy}) AS RowNo
                 {FilterFromSql}
                 ORDER BY {orderBy}
@@ -126,6 +133,7 @@ public sealed class AccountProgressRepository(IDbConnectionFactory connectionFac
             OwnerContains = ownerContains,
             SearchPattern = ToContainsPattern(search),
             DeletedFilter = NormalizeDeleted(deleted),
+            LinkedFilter = NormalizeLinked(linked),
             Offset = PagingParams.Offset(normalizedPage, normalizedPageSize),
             PageSize = normalizedPageSize
         });
@@ -136,7 +144,7 @@ public sealed class AccountProgressRepository(IDbConnectionFactory connectionFac
     public async Task<int> GetTotalCountAsync()
     {
         using var connection = connectionFactory.Create();
-        return await connection.QuerySingleAsync<int>("SELECT COUNT(*) FROM dbo.fact_account_progress fap JOIN dbo.fact_account fa ON fa.AccountKey = fap.AccountKey WHERE fa.IsDeleted = 0");
+        return await connection.QuerySingleAsync<int>("SELECT COUNT(*) FROM dbo.fact_account_progress fap JOIN dbo.fact_account fa ON fa.AccountKey = fap.AccountKey WHERE fa.IsDeleted = 0 AND NOT EXISTS (SELECT 1 FROM dbo.vw_linked_feed_account l WHERE l.AccountKey = fa.AccountKey)");
     }
 
     /// <summary>D-124 Phase 3: how many rows match the current filter (ignoring paging) -- backs the new X-Filtered-Count header, distinct from GetTotalCountAsync's unfiltered grand total.</summary>
@@ -146,7 +154,8 @@ public sealed class AccountProgressRepository(IDbConnectionFactory connectionFac
         string? riskLevelName = null,
         string? ownerContains = null,
         string? search = null,
-        string? deleted = null)
+        string? deleted = null,
+        string? linked = null)
     {
         using var connection = connectionFactory.Create();
         var sql = $"SELECT COUNT(*) {FilterFromSql}";
@@ -157,7 +166,8 @@ public sealed class AccountProgressRepository(IDbConnectionFactory connectionFac
             RiskLevelName = riskLevelName,
             OwnerContains = ownerContains,
             SearchPattern = ToContainsPattern(search),
-            DeletedFilter = NormalizeDeleted(deleted)
+            DeletedFilter = NormalizeDeleted(deleted),
+            LinkedFilter = NormalizeLinked(linked)
         });
     }
 
@@ -167,7 +177,7 @@ public sealed class AccountProgressRepository(IDbConnectionFactory connectionFac
     /// the caller compares against GetFilteredCountAsync to know if there were more.
     /// </summary>
     public async Task<IReadOnlyList<long>> GetFilteredKeysAsync(
-        string? stageName, string? statusName, string? riskLevelName, string? ownerContains, string? search, int limit, string? deleted = null)
+        string? stageName, string? statusName, string? riskLevelName, string? ownerContains, string? search, int limit, string? deleted = null, string? linked = null)
     {
         using var connection = connectionFactory.Create();
         var sql = $"SELECT TOP (@Limit) fa.AccountKey {FilterFromSql} ORDER BY fa.AccountName, fa.AccountKey";
@@ -179,6 +189,7 @@ public sealed class AccountProgressRepository(IDbConnectionFactory connectionFac
             OwnerContains = ownerContains,
             SearchPattern = ToContainsPattern(search),
             DeletedFilter = NormalizeDeleted(deleted),
+            LinkedFilter = NormalizeLinked(linked),
             Limit = limit
         })).AsList();
     }
@@ -190,6 +201,10 @@ public sealed class AccountProgressRepository(IDbConnectionFactory connectionFac
         "only" => "Only",
         _ => "Hide"
     };
+
+    /// <summary>D-212: linked feed accounts are hidden ("Hide", the default) or shown too ("Show").</summary>
+    private static string NormalizeLinked(string? linked) =>
+        string.Equals(linked, "show", StringComparison.OrdinalIgnoreCase) ? "Show" : "Hide";
 
     private static string BuildOrderByClause(IReadOnlyList<(string Field, bool Descending)>? sortBy)
     {

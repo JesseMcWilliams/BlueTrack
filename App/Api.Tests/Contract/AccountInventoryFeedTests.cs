@@ -67,6 +67,7 @@ public class AccountInventoryFeedTests : IClassFixture<BlueTrackWebApplicationFa
         await using var connection = new SqlConnection(TestDatabase.ConnectionString);
         await connection.ExecuteAsync("""
             DELETE FROM web.data_feed WHERE SourceSystemKey = @sourceSystemKey;
+            DELETE r FROM dbo.account_reconciliation r JOIN dbo.fact_account fa ON fa.AccountKey = r.LegacyAccountKey WHERE fa.SourceSystemKey = @sourceSystemKey;
             DELETE p FROM dbo.fact_account_progress p JOIN dbo.fact_account fa ON fa.AccountKey = p.AccountKey WHERE fa.SourceSystemKey = @sourceSystemKey;
             DELETE FROM dbo.fact_account WHERE SourceSystemKey = @sourceSystemKey;
             DELETE FROM dbo.dim_source_system WHERE SourceSystemKey = @sourceSystemKey;
@@ -200,7 +201,7 @@ public class AccountInventoryFeedTests : IClassFixture<BlueTrackWebApplicationFa
             // Third run: root is back, restored with its old progress row.
             await File.WriteAllTextAsync(file, "UserName,Address,AccountName\r\nroot,host1.example.com,\r\nsvc_app,host2.example.com,App service (renamed)\r\n");
             var run3 = await RunAndWaitAsync(client, key);
-            Assert.StartsWith("0 created, 0 updated, 1 restored, 0 marked deleted, 1 unchanged", run3.Summary);
+            Assert.StartsWith("0 created, 0 updated, 1 restored, 0 marked deleted, 1 unchanged, 0 linked", run3.Summary);
             accounts = await AccountsAsync(source.SourceSystemKey);
             Assert.False(accounts[0].IsDeleted);
             Assert.Equal("Alice", accounts[0].OwnerName);
@@ -216,6 +217,94 @@ public class AccountInventoryFeedTests : IClassFixture<BlueTrackWebApplicationFa
         {
             await RemoveSourceAsync(source.SourceSystemKey);
             Directory.Delete(folder, recursive: true);
+        }
+    }
+
+    private sealed record CyberArkAccount(long AccountKey, string AccountName, string UserName, string Address);
+    private sealed record ListRow(long AccountKey, string? SourceSystemCode, long? LinkedToAccountKey, string? LinkedToAccountName);
+
+    /// <summary>D-212 (phase 4b): an exact match links the feed account to the CyberArk account, moves it on, and hides it.</summary>
+    [Fact]
+    public async Task Run_LinksAnExactMatchToItsCyberArkAccount_AndHidesIt()
+    {
+        var client = AdminClient();
+        // The test seed has no CyberArk account with an address, so the test adds one (tests run one at a time).
+        CyberArkAccount cyberArk;
+        await using (var connection = new SqlConnection(TestDatabase.ConnectionString))
+        {
+            var id = Guid.NewGuid().ToString("N")[..12];
+            cyberArk = await connection.QuerySingleAsync<CyberArkAccount>("""
+                INSERT INTO dbo.fact_account (SourceSystemKey, SourceAccountId, AccountName, UserName, Address)
+                OUTPUT inserted.AccountKey, inserted.AccountName, inserted.UserName, inserted.Address
+                SELECT SourceSystemKey, @id, 'CT linked ' + @id, 'ct_user_' + @id, 'ct-host-' + @id + '.example.com'
+                FROM dbo.dim_source_system WHERE SourceSystemCode = 'PRIVCLOUD'
+                """, new { id });
+            await connection.ExecuteAsync("""
+                INSERT INTO dbo.fact_account_progress (AccountKey, CurrentStageKey, CurrentStatusKey)
+                SELECT @AccountKey, (SELECT StageKey FROM dbo.dim_blueprint_stage WHERE StageName = 'Onboarded to Vault'),
+                       (SELECT StatusKey FROM dbo.dim_progress_status WHERE StatusName = 'In Progress')
+                """, new { cyberArk.AccountKey });
+        }
+        var source = await CreateSourceAsync(client);
+        var folder = Directory.CreateTempSubdirectory("BlueTrackAccountFeed_").FullName;
+        try
+        {
+            var created = await client.PostAsJsonAsync("/api/admin/data-feeds", Feed($"CT_{Guid.NewGuid():N}", folder, source.SourceSystemKey));
+            var key = (await created.Content.ReadFromJsonAsync<KeyResponse>())!.DataFeedKey;
+            // The same account, in different case and with spaces; and one CyberArk doesn't have.
+            await File.WriteAllTextAsync(Path.Combine(folder, "accounts.csv"),
+                $"UserName,Address\r\n {cyberArk.UserName.ToUpperInvariant()} ,{cyberArk.Address.ToUpperInvariant()}\r\nnot_in_cyberark_ct,nowhere.example.com\r\n");
+
+            var run = await RunAndWaitAsync(client, key);
+            Assert.Contains("2 created", run.Summary);
+            Assert.Contains("1 linked to CyberArk", run.Summary);
+
+            var accounts = await AccountsAsync(source.SourceSystemKey);
+            var linkedAccount = accounts.Single(a => a.SourceAccountId != "not_in_cyberark_ct@nowhere.example.com");
+            Assert.Equal("Onboarded to Vault", linkedAccount.StageName);
+            Assert.Equal("Discovered", accounts.Single(a => a.SourceAccountId == "not_in_cyberark_ct@nowhere.example.com").StageName);
+
+            long feedAccountKey;
+            await using (var connection = new SqlConnection(TestDatabase.ConnectionString))
+            {
+                feedAccountKey = await connection.QuerySingleAsync<long>(
+                    "SELECT AccountKey FROM dbo.fact_account WHERE SourceSystemKey = @SourceSystemKey AND SourceAccountId = @SourceAccountId",
+                    new { source.SourceSystemKey, linkedAccount.SourceAccountId });
+                var link = await connection.QuerySingleAsync<long>(
+                    "SELECT LinkedAccountKey FROM dbo.vw_linked_feed_account WHERE AccountKey = @feedAccountKey", new { feedAccountKey });
+                Assert.Equal(cyberArk.AccountKey, link);
+                var stageChange = await connection.QuerySingleAsync<int>("""
+                    SELECT COUNT(*) FROM web.audit_event e JOIN web.audit_field_change c ON c.AuditEventKey = e.AuditEventKey
+                    WHERE e.EntityName = 'fact_account_progress' AND e.EntityKey = @entityKey AND c.FieldName = 'CurrentStageKey'
+                      AND e.Detail LIKE 'Linked to CyberArk account%'
+                    """, new { entityKey = feedAccountKey.ToString() });
+                Assert.Equal(1, stageChange);
+            }
+
+            // Hidden from Account Progress by default; shown, with its link, on request.
+            var search = Uri.EscapeDataString(cyberArk.UserName);
+            var hidden = (await client.GetFromJsonAsync<List<ListRow>>($"/api/account-progress?search={search}&pageSize=200"))!;
+            Assert.DoesNotContain(hidden, r => r.AccountKey == feedAccountKey);
+            Assert.Contains(hidden, r => r.AccountKey == cyberArk.AccountKey);
+            var shown = (await client.GetFromJsonAsync<List<ListRow>>($"/api/account-progress?search={search}&pageSize=200&linked=Show"))!;
+            var row = Assert.Single(shown, r => r.AccountKey == feedAccountKey);
+            Assert.Equal(cyberArk.AccountKey, row.LinkedToAccountKey);
+            Assert.Equal(source.SourceSystemCode, row.SourceSystemCode);
+
+            // A second run doesn't link it again.
+            var again = await RunAndWaitAsync(client, key);
+            Assert.Contains("0 linked to CyberArk", again.Summary);
+        }
+        finally
+        {
+            await RemoveSourceAsync(source.SourceSystemKey);
+            Directory.Delete(folder, recursive: true);
+            await using var connection = new SqlConnection(TestDatabase.ConnectionString);
+            await connection.ExecuteAsync("""
+                DELETE FROM dbo.account_reconciliation WHERE CurrentAccountKey = @AccountKey;
+                DELETE FROM dbo.fact_account_progress WHERE AccountKey = @AccountKey;
+                DELETE FROM dbo.fact_account WHERE AccountKey = @AccountKey;
+                """, new { cyberArk.AccountKey });
         }
     }
 }

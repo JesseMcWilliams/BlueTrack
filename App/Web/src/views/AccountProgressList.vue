@@ -68,8 +68,16 @@ function deletedNote(account) {
   if (!account.isDeleted) return ''
   const parts = []
   if (account.deletedByName) parts.push(`Deleted in BlueTrack by ${account.deletedByName}${account.deletionReason ? `: ${account.deletionReason}` : ''}`)
-  if (account.isDeletedInSource) parts.push(account.isInIgnoredSafe ? 'Not imported (ignored safe)' : 'Deleted in CyberArk')
+  if (account.isDeletedInSource) {
+    parts.push(account.isInIgnoredSafe ? 'Not imported (ignored safe)' : `Deleted in ${isFeedAccount(account) ? account.sourceSystemName : 'CyberArk'}`)
+  }
   return parts.join('. ')
+}
+
+// D-212: accounts from a data feed (another system), as opposed to CyberArk or AD Account Discovery.
+const nonFeedSources = ['PRIVCLOUD', 'SELFHOSTED', 'DISCOVERY']
+function isFeedAccount(account) {
+  return !!account.sourceSystemCode && !nonFeedSources.includes(account.sourceSystemCode)
 }
 const pageKeys = computed(() => accounts.value.map(a => a.accountKey))
 
@@ -83,6 +91,7 @@ function currentFilterParams() {
   if (ownerFilter.value) params.set('owner', ownerFilter.value)
   if (searchFilter.value.trim()) params.set('search', searchFilter.value.trim())
   if (deletedFilter.value !== 'Hide') params.set('deleted', deletedFilter.value)
+  if (linkedFilter.value !== 'Hide') params.set('linked', linkedFilter.value)
   return params
 }
 
@@ -118,6 +127,8 @@ const ownerFilter = ref('')
 const searchFilter = ref('')
 // D-185: deleted accounts are hidden unless shown here.
 const deletedFilter = ref('Hide')
+// D-212: a feed account linked to a CyberArk account is hidden unless shown here.
+const linkedFilter = ref('Hide')
 
 // Each entry: { field, descending }. Order in this array IS sort priority.
 const sortColumns = ref([])
@@ -211,7 +222,7 @@ onMounted(async () => {
 
 // D-124 Phase 3: a filter/sort change resets to page 1 -- see Targets.vue's
 // identical comment for why page-size/Prev/Next changes are handled separately.
-watch([stageFilter, statusFilter, riskLevelFilter, ownerFilter, searchFilter, deletedFilter, sortQueryParam], () => {
+watch([stageFilter, statusFilter, riskLevelFilter, ownerFilter, searchFilter, deletedFilter, linkedFilter, sortQueryParam], () => {
   page.value = 1
   load()
 })
@@ -246,6 +257,12 @@ watch([stageFilter, statusFilter, riskLevelFilter, ownerFilter, searchFilter, de
           <option value="Hide">Hide</option>
           <option value="Show">Show</option>
           <option value="Only">Only deleted</option>
+        </select>
+      </label>
+      <label class="field-label"><span class="field-label-text">Linked feed accounts:</span>
+        <select v-model="linkedFilter">
+          <option value="Hide">Hide</option>
+          <option value="Show">Show</option>
         </select>
       </label>
     </p>
@@ -297,6 +314,9 @@ watch([stageFilter, statusFilter, riskLevelFilter, ownerFilter, searchFilter, de
               <span v-if="!account.userName" class="no-username"> (no username)</span>
               <span v-if="decomNote(account)" class="decom-marker" :title="decomNote(account)"><span aria-hidden="true">⚠</span><span class="visually-hidden">Flagged for deletion: {{ decomNote(account) }}</span></span>
               <span v-if="account.isDeleted" class="deleted-badge" :title="deletedNote(account)">Deleted<span class="visually-hidden">: {{ deletedNote(account) }}</span></span>
+              <span v-if="isFeedAccount(account)" class="source-badge">from {{ account.sourceSystemName }}</span>
+              <router-link v-if="account.linkedToAccountKey" class="linked-badge" :to="{ name: 'account-progress-detail', params: { accountKey: account.linkedToAccountKey } }"
+                :title="`Linked to CyberArk account ${account.linkedToAccountName}`">Linked<span class="visually-hidden">: to CyberArk account {{ account.linkedToAccountName }}</span></router-link>
             </td>
             <td>{{ account.address }}</td>
             <td>{{ account.stageName }}</td>
@@ -330,6 +350,12 @@ watch([stageFilter, statusFilter, riskLevelFilter, ownerFilter, searchFilter, de
   border: 1px solid currentColor;
   border-radius: 0.25rem;
   font-size: 0.85em;
+}
+.source-badge,
+.linked-badge {
+  margin-left: 0.5rem;
+  font-size: 0.85em;
+  opacity: 0.8;
 }
 .deletion-form {
   margin: 0.5rem 0;
