@@ -31,12 +31,16 @@ function Backup-BlueTrackForRollback {
         [Parameter(Mandatory)] [string]$DatabaseName,
         [Parameter(Mandatory)] [string]$BackupFolder,
         [switch]$IncludeMsdb,
-        [string]$RepoRoot
+        [string]$RepoRoot,
+        # D-203: besides the SQL Server service account, who may write here (the App Pool's account).
+        [string[]]$BackupFolderAccount = @()
     )
 
     if (-not (Test-Path $BackupFolder)) {
         New-Item -ItemType Directory -Path $BackupFolder | Out-Null
     }
+    $folderAccounts = @(Get-BlueTrackSqlServiceAccount -ConnectionString $ConnectionString) + $BackupFolderAccount | Where-Object { $_ }
+    Set-BlueTrackBackupFolderAccess -Path $BackupFolder -Account $folderAccounts
 
     $timestamp = Get-Date -Format 'yyyyMMdd-HHmmss'
     $databaseBackupPath = Join-Path $BackupFolder "$DatabaseName`_$timestamp.bak"
@@ -130,6 +134,112 @@ function Restore-BlueTrackFromRollback {
     }
 
     Write-Host "`nReminder: this only restored the database. Also redeploy the application build that matches this backup's manifest (GitCommit), if one was recorded, so the app and database versions stay in sync."
+}
+
+function Get-BlueTrackSqlServiceAccount {
+    <#
+    .SYNOPSIS
+        The account the SQL Server service runs as (it writes the backup files), or $null if it can't be read.
+    #>
+    [CmdletBinding()]
+    [OutputType([string])]
+    param([Parameter(Mandatory)] [string]$ConnectionString)
+
+    $builder = New-Object System.Data.SqlClient.SqlConnectionStringBuilder $ConnectionString
+    $builder['Database'] = 'master'
+    $connection = New-Object System.Data.SqlClient.SqlConnection $builder.ConnectionString
+    try {
+        $connection.Open()
+        $command = $connection.CreateCommand()
+        $command.CommandText = "SELECT TOP (1) service_account FROM sys.dm_server_services WHERE servicename LIKE N'SQL Server (%'"
+        $account = $command.ExecuteScalar()
+        if ($account -is [DBNull]) { return $null }
+        return [string]$account
+    } catch {
+        Write-Warning "Couldn't read the SQL Server service account (needs VIEW SERVER STATE): $($_.Exception.Message)"
+        return $null
+    } finally {
+        $connection.Close()
+    }
+}
+
+function Test-BlueTrackBroadGroupSid {
+    # D-203: the same broad groups BlueTrack's BackupFolderAccess removes (App/Api/Backups/BackupFolderAccess.cs).
+    param([Parameter(Mandatory)] [System.Security.Principal.SecurityIdentifier]$Sid)
+    $value = $Sid.Value
+    if ($value -in 'S-1-1-0', 'S-1-5-32-545', 'S-1-5-11', 'S-1-5-32-546', 'S-1-5-4', 'S-1-5-7') { return $true }
+    return ($value -like 'S-1-5-21-*-513') -or ($value -like 'S-1-5-21-*-514')
+}
+
+function Set-BlueTrackBackupFolderAccess {
+    <#
+    .SYNOPSIS
+        Limits a backup folder, and the backups already in it, to specific accounts (D-203).
+    .DESCRIPTION
+        A backup is a full copy of the database, including credentials that any
+        local process can decrypt while they're Machine-scope DPAPI (D-116). A
+        folder created under C:\ inherits "Users: Read", so this turns
+        inheritance off (keeping the other entries), removes broad groups
+        (Everyone, Users, Authenticated Users, Guests, Domain Users, Domain
+        Guests) and gives each of -Account Modify. BlueTrack checks the same
+        thing before every backup it takes (BackupFolderAccess). Skips a folder
+        this machine can't see (SQL Server on another machine).
+    .PARAMETER Path
+        The backup folder.
+    .PARAMETER Account
+        Accounts to give Modify: the SQL Server service account (writes the
+        backups) and the App Pool's account (deletes old scheduled backups, D-200).
+    #>
+    [CmdletBinding(SupportsShouldProcess)]
+    param(
+        [Parameter(Mandatory)] [string]$Path,
+        [string[]]$Account = @()
+    )
+
+    if (-not (Test-Path -LiteralPath $Path -PathType Container)) {
+        Write-Warning "Backup folder '$Path' isn't visible from this machine; its permissions weren't changed."
+        return
+    }
+    if (-not $PSCmdlet.ShouldProcess($Path, 'Limit backup folder access to specific accounts')) { return }
+
+    $sidType = [System.Security.Principal.SecurityIdentifier]
+    $acl = Get-Acl -LiteralPath $Path
+    $acl.SetAccessRuleProtection($true, $true)
+    Set-Acl -LiteralPath $Path -AclObject $acl
+
+    $acl = Get-Acl -LiteralPath $Path
+    foreach ($rule in @($acl.GetAccessRules($true, $false, $sidType))) {
+        if ($rule.AccessControlType -eq 'Allow' -and (Test-BlueTrackBroadGroupSid -Sid $rule.IdentityReference)) {
+            $acl.RemoveAccessRuleSpecific($rule) | Out-Null
+        }
+    }
+    foreach ($name in $Account | Where-Object { $_ }) {
+        try {
+            $sid = ([System.Security.Principal.NTAccount]$name).Translate($sidType)
+        } catch {
+            Write-Warning "Couldn't find account '$name'; it wasn't given access to the backup folder."
+            continue
+        }
+        $acl.AddAccessRule((New-Object System.Security.AccessControl.FileSystemAccessRule($sid, 'Modify', 'ContainerInherit, ObjectInherit', 'None', 'Allow')))
+    }
+    Set-Acl -LiteralPath $Path -AclObject $acl
+
+    # Backups taken before this kept their own copy of the old inherited entries.
+    foreach ($file in Get-ChildItem -LiteralPath $Path -File | Where-Object { $_.Extension -in '.bak', '.json' }) {
+        $fileAcl = Get-Acl -LiteralPath $file.FullName
+        $broad = @($fileAcl.GetAccessRules($true, $true, $sidType) | Where-Object { $_.AccessControlType -eq 'Allow' -and (Test-BlueTrackBroadGroupSid -Sid $_.IdentityReference) })
+        if ($broad.Count -eq 0) { continue }
+        $fileAcl.SetAccessRuleProtection($true, $true)
+        Set-Acl -LiteralPath $file.FullName -AclObject $fileAcl
+        $fileAcl = Get-Acl -LiteralPath $file.FullName
+        foreach ($rule in @($fileAcl.GetAccessRules($true, $false, $sidType))) {
+            if ($rule.AccessControlType -eq 'Allow' -and (Test-BlueTrackBroadGroupSid -Sid $rule.IdentityReference)) {
+                $fileAcl.RemoveAccessRuleSpecific($rule) | Out-Null
+            }
+        }
+        Set-Acl -LiteralPath $file.FullName -AclObject $fileAcl
+    }
+    Write-Information "Backup folder access limited: $Path" -InformationAction Continue
 }
 
 function Invoke-BlueTrackBackupDatabase {
@@ -267,4 +377,4 @@ function Test-BlueTrackDatabaseHasExistingSchema {
     }
 }
 
-Export-ModuleMember -Function Backup-BlueTrackForRollback, Restore-BlueTrackFromRollback, Test-BlueTrackDatabaseHasExistingSchema
+Export-ModuleMember -Function Backup-BlueTrackForRollback, Restore-BlueTrackFromRollback, Test-BlueTrackDatabaseHasExistingSchema, Set-BlueTrackBackupFolderAccess, Get-BlueTrackSqlServiceAccount

@@ -4,6 +4,7 @@
 
 | Date | Change | User doc / section it affects |
 |---|---|---|
+| 2026-10-12 | Backups: the backup folder is limited to specific accounts (installer, `Backup-BlueTrack.ps1`); BlueTrack removes broad groups' access before each backup, or refuses the backup and says why on the Deployment page; new **Backup Folder** health check (D-203). | `User_Docs/Admin_OperationsGuide.md` (backups); `User_Docs/Admin_Installation.md`; Installation `.docx` at next release |
 | 2026-10-12 | Secrets Store: CCP, Conjur and Azure Key Vault URLs must start with `https://` (D-202). When CyberArk is briefly unreachable, the last value fetched in the past 24 hours is used. | `User_Docs/Admin_Configuration.md` (Secrets Store) |
 | 2026-10-12 | SAML: the SP signing certificate needs a private key the App Pool account can read (don't reuse the IIS TLS certificate); worked example with Authentik (OIDC and SAML apps, `groups` claim, IdP certificate into `LocalMachine\My`). | `User_Docs/Admin_Configuration.md` (identity providers); Installation `.docx` at next release |
 | 2026-10-12 | Account Progress Lock Timeout must be 1 to 720 minutes (12 hours), default 30 on new installs (D-201). Re-saving a secrets backend without retyping its credential now keeps the stored credential. | `User_Docs/Admin_Configuration.md` (Global Application Configuration; Secrets Store) |

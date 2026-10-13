@@ -446,7 +446,14 @@ $StepActions = @{
             Register-InstallAnswer BackupFolder (Read-BlueTrackRequiredValue 'Existing database detected. Backup folder for the pre-deployment rollback point (local to the SQL Server service account)')
             Save-InstallAnswer
         }
-        Backup-BlueTrackForRollback -ConnectionString $cs -DatabaseName $DatabaseName -BackupFolder $script:BackupFolder -RepoRoot $RepoRoot | Out-Null
+        # D-203: the folder is limited to specific accounts; the App Pool's needs Modify to clean up scheduled backups (D-200).
+        [string[]]$poolAccount = @()
+        if ($AppPoolSqlLogin) { $poolAccount = @($AppPoolSqlLogin) }
+        else {
+            try { Import-IisModule; $poolAccount = @(Get-BlueTrackAppPoolSqlLogin -AppPoolName "$SiteName-AppPool" -SqlServerInstance $SqlServerInstance) }
+            catch { Write-Verbose "App Pool account not known yet ($($_.Exception.Message)); the backup folder gets the SQL Server service account only." }
+        }
+        Backup-BlueTrackForRollback -ConnectionString $cs -DatabaseName $DatabaseName -BackupFolder $script:BackupFolder -RepoRoot $RepoRoot -BackupFolderAccount $poolAccount | Out-Null
         return @{ Status = 'Completed'; Message = "Backup taken in $($script:BackupFolder)" }
     }
     'Db.Migrate'      = {

@@ -144,3 +144,4 @@ Open items from the same review stay in `Testing_Audit-Findings.md`.
 - [x] **Low -- a CCP timeout returned a 500 and skipped the cache fallback.** Timeouts are VaultConnectivity and fall back; bad JSON is a classified error (D-202).
 - [x] **Low -- the secrets HTTP clients followed redirects.** CCP and Conjur clients no longer do, and time out after 30 seconds (D-202).
 - [x] **Moved to `Planning_Backlog.md` at the user's request:** Machine-scope DPAPI for the Azure/AWS/Conjur bootstrap credentials, Azure/AWS timeouts, and the Conjur token format.
+- [x] **Medium -- backup files readable by every local user** (`C:\Data\Backups` inherited `Users: Read` from `C:\`). Fixed by D-203: the deploy scripts limit the folder to specific accounts, and the API fixes the folder before each backup or refuses. Applied to the dev host's `C:\Data\Backups` on 2026-10-12.
