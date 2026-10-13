@@ -7,7 +7,8 @@
 
 ## Built, but never proven against a real live service
 - **Azure Key Vault, AWS Secrets Manager, CyberArk Conjur** secrets backends: tested only against unreachable placeholder endpoints (error handling, not a real secret round-trip). CyberArk CP, CCP and Windows DPAPI are verified live.
-- **SAML and OIDC**: working code, pointed only at placeholder IdP config. SAML Single Logout isn't built.
+- **SAML and OIDC**: configured on the dev host against the lab Authentik (2026-10-12). Both send a valid request that Authentik accepts and forwards to its sign-in page. A full browser sign-in with a test user, and the group-to-role result, still need to be checked. SAML Single Logout isn't built.
+- **No admin path for OIDC/SAML group-to-role mappings.** `GroupRoleMappingsController.Create` resolves every name to a Windows SID and always uses the WindowsIntegrated provider, and the UI has no provider choice. Sign-in does match OIDC/SAML group claims against `identity_group_role_map` by provider, so the dev host's mappings were inserted with SQL (not audit-logged). Needed: a provider choice, with the group name stored as-is for OIDC/SAML.
 - **Break-glass**: exists only as a decision (credential in CyberArk, logon triggers an alert). No distinct code path exists.
 - **Installer on a fresh server**: `Db.AppPoolAccess` (D-171) and `Iis.Reset` (D-175) have only run by hand or with `-WhatIf`; the new `Iis.SiteRestart` (D-188) ran on the dev host only. DCACYBSQL01's app pool SQL login was granted by hand. Check all three on the next real install.
 - **AD Account Discovery multi-domain**: code loops over every enabled domain, but only one real domain exists to test against.

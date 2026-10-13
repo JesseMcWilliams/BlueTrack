@@ -23,6 +23,7 @@ instead.
 | 06 | `06_BlueTrack_Baseline_WebLogic.sql` | Risk scoring procedures and functions, the audit-log purge procedure, the decommissioning views, Targets and links from account addresses (D-123, D-193), and **`usp_RunFullLoad`**, the nightly orchestrator. |
 
 | 07 | `07_BlueTrack_ScheduledBackups.sql` | D-200: `web.app_config.ScheduledBackupTime` / `ScheduledBackupRetentionDays` and the `web.backup_run` history table. |
+| 08 | `08_BlueTrack_LockTimeoutDefault.sql` | D-201: `LockTimeoutMinutes` defaults to 30 (new installs only; an install where someone has signed in keeps its value). |
 
 ## The baseline (D-195)
 
@@ -47,7 +48,7 @@ scripts but not up to `51` is refused; upgrade it first from the
 
 ## Adding a script
 
-1. Name it `NN_BlueTrack_<Topic>.sql`, with `NN` the next number (`08` is next).
+1. Name it `NN_BlueTrack_<Topic>.sql`, with `NN` the next number (`09` is next).
 2. Start with a header comment: the file name, `RUN THIS AFTER 01-NN.`, what
    it changes and why (with the `D-n` decision), and whether it's safe to
    re-run.

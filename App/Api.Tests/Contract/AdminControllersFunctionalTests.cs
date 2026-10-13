@@ -268,6 +268,30 @@ public class AdminControllersFunctionalTests : IClassFixture<BlueTrackWebApplica
         Assert.Equal(HttpStatusCode.NoContent, restoreResponse.StatusCode);
     }
 
+    [Theory]
+    [InlineData(0)]
+    [InlineData(721)]
+    public async Task GlobalApplicationConfig_Update_RejectsALockTimeoutOutside1To720(int lockTimeoutMinutes)
+    {
+        var client = AdminClient();
+        var before = await client.GetFromJsonAsync<ConfigResponse>("/api/admin/configuration");
+
+        var response = await client.PutAsJsonAsync("/api/admin/configuration", new
+        {
+            idleTimeoutMinutes = before!.IdleTimeoutMinutes,
+            breadcrumbPosition = before.BreadcrumbPosition,
+            exceptionIdPattern = before.ExceptionIdPattern,
+            lockTimeoutMinutes,
+            retentionDays = before.RetentionDays,
+            logReadEvents = before.LogReadEvents,
+            activeRiskAlgorithm = before.ActiveRiskAlgorithm
+        });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var after = await client.GetFromJsonAsync<ConfigResponse>("/api/admin/configuration");
+        Assert.Equal(before.LockTimeoutMinutes, after!.LockTimeoutMinutes);
+    }
+
     [Fact]
     public async Task Application_CreateThenUpdate_RoundTrips()
     {

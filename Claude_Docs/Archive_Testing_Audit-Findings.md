@@ -134,3 +134,8 @@ Open items from the same review stay in `Testing_Audit-Findings.md`.
 - [x] **Found while fixing -- `sqlcmd -C` splatting (D-197) broke `Db.AppPoolAccess` and `Db.NightlyJob`.** Fixed; see `Reference_Lessons-Learned.md`.
 - [x] **Found while checking -- the Deployment page's "Backup App" couldn't work under the least-privilege grant** (no `BACKUP DATABASE`). Chosen: `Manual/02` adds `db_backupoperator`; verified on the dev host (BACKUP DATABASE allowed, audit DELETE still refused).
 - [x] **Low -- `Update-BlueTrack.ps1` trusted TLS only for what it downloads.** Fixed by D-199: releases must be signed annotated tags GitHub verifies, downloaded by commit; branches need `-AllowUnsignedBranch`.
+
+## Security review follow-up 2026-10-12 (fixed)
+
+- [x] **Medium -- re-saving a secrets backend overwrote its stored credential.** The admin page sends back the redacted settings (`"ProtectedCredential":"***"`), and with no new credential `SecretsStoreRepository.SetActiveAsync` saved them as-is, so editing e.g. Azure Key Vault's VaultUri without retyping the secret broke the backend. The stored value now replaces the placeholder (test: `SetActiveAsync_ResavingTheRedactedSettings_KeepsTheStoredCredential`).
+- [x] **Found while fixing a flaky test -- a lock timeout of 0 broke edit locks at random.** `LockTimeoutMinutes` had no range check; at 0 a lock reads as abandoned the moment it's taken. Now 1-720 in the API and the form (D-201).

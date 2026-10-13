@@ -72,6 +72,12 @@ public sealed class GlobalApplicationConfigController(
                 return Problem(title: "Invalid name pattern", detail: $"{label}: {patternError}", statusCode: StatusCodes.Status400BadRequest);
             }
         }
+        // At 0 every edit lock reads as abandoned the moment it's taken, so locks
+        // fail at random (seen as AccountDeletionTests' intermittent "1 of 2").
+        if (request.LockTimeoutMinutes is < 1 or > 720)
+        {
+            return Problem(title: "Invalid lock timeout", detail: "LockTimeoutMinutes must be between 1 and 720.", statusCode: StatusCodes.Status400BadRequest);
+        }
         if (request.BulkEditMaxAccounts is < 1 or > 10000)
         {
             return Problem(title: "Invalid bulk edit limit", detail: "BulkEditMaxAccounts must be between 1 and 10000.", statusCode: StatusCodes.Status400BadRequest);

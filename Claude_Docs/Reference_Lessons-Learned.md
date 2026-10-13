@@ -197,3 +197,21 @@ While tracking down a batch of E2E failures that looked like the already-documen
 **What happened:** `$trustArgs = if ($trust) { @('-C') } else { @() }` then `& sqlcmd ... @trustArgs ...` failed with `Sqlcmd: ' ': Unknown Option`. PowerShell unrolls a one-element array returned from an `if` block, so `$trustArgs` held the string `-C`, and splatting a string to a native command doesn't pass it as one argument. The D-197 change shipped this into `Db.AppPoolAccess` and `Db.NightlyJob`; the deploy test hadn't run those steps.
 
 **Lesson:** type the variable, `[string[]]$args = if (...) { @('-C') } else { @() }`, and run every installer step a change touches, not only the ones the feature is about.
+
+## 2026-10-12 -- An intermittent "1 of 2 accounts changed" was a lock timeout of 0
+
+`AccountDeletionTests.DeleteThenUndelete_...` once changed 1 of 2 accounts, then passed on every rerun. Nothing ran beside it: xUnit parallelism is off, no CI run overlapped, and the hosted services don't touch locks or accounts. With `web.app_config.LockTimeoutMinutes = 0` it failed 11 of 15 runs with the same message. `TryAcquireAsync` inserts the lock with `SYSUTCDATETIME()`, then reads it back with a separate `SYSUTCDATETIME()`. At 0 minutes, the lock counts as abandoned whenever the clock ticked between the two statements, so the account is skipped as "being edited". Nothing stopped 0 from being saved.
+
+**Lesson:** a setting that feeds a time window needs a lower bound in the API, not only in the form. When a bulk-result test fails on a count, assert on the skipped list first so the failure says why.
+
+## 2026-10-12 -- Windows PowerShell pipes a JSON array from `Invoke-RestMethod` as one object
+
+In Windows PowerShell 5.1, `Invoke-RestMethod -Uri $api | Where-Object providerType -eq 'SAML'` fails with "The input name 'providerType' cannot be resolved to a property": the parsed JSON array goes down the pipeline as a single object, not one item per element. Assigning it first (`$rows = Invoke-RestMethod ...`) or wrapping the call in parentheses unrolls it.
+
+**Lesson:** in `Deploy/` scripts and lab helpers, write `(Invoke-RestMethod ...) | Where-Object ...`.
+
+## 2026-10-12 -- API tests read the live database at startup
+
+`BlueTrackWebApplicationFactory` set `ConnectionStrings:BlueTrackDb` with `ConfigureAppConfiguration`, which applies only after `Program.cs` has run its top-level code. `AddBlueTrackAuthentication` reads the OIDC row while the host is being built, so in tests that read went to `appsettings.json`'s live `BlueTrack` database. Enabling OIDC on the dev site made `LoginOidc_NotConfigured_ReturnsServiceUnavailable` fail. The factory now also sets it with `builder.UseSetting(...)`, which `Program.cs` sees.
+
+**Lesson:** any setting `Program.cs` reads before `Build()` must be overridden in tests with `UseSetting`, not `ConfigureAppConfiguration`.
