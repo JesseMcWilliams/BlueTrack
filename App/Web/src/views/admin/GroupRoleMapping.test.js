@@ -26,6 +26,15 @@ function blobResponse(text, { ok = true, status = 200, fileName = 'Grant-db_back
   }
 }
 
+// D-204: the page loads the mappings and the mappable providers together.
+const windowsProvider = { providerKey: 1, providerType: 'WindowsIntegrated', displayName: 'Windows Integrated', isEnabled: true, groupClaimType: null }
+const samlProvider = { providerKey: 4, providerType: 'SAML', displayName: 'Authentik (SAML)', isEnabled: true, groupClaimType: 'http://schemas.xmlsoap.org/claims/Group' }
+
+function queueLoad(mappings, providers = [windowsProvider]) {
+  globalThis.fetch.mockResolvedValueOnce(jsonResponse(mappings))
+  globalThis.fetch.mockResolvedValueOnce(jsonResponse(providers))
+}
+
 function makeRouter() {
   return createRouter({
     history: createMemoryHistory(),
@@ -53,11 +62,11 @@ describe('GroupRoleMapping.vue', () => {
   // D-179: Windows mappings show the resolved group name, with the stored
   // SID beneath; an unresolvable SID says so; other providers are unchanged.
   it('shows each Windows group by name with its SID, and says when a SID could not be resolved', async () => {
-    globalThis.fetch.mockResolvedValueOnce(jsonResponse([
-      { mappingKey: 1, providerType: 'WindowsIntegrated', identityGroupName: 'S-1-5-32-544', roleName: 'Admin', groupDisplayName: 'BUILTIN\\Administrators' },
-      { mappingKey: 2, providerType: 'WindowsIntegrated', identityGroupName: 'S-1-5-21-1-2-3-4567', roleName: 'Viewer', groupDisplayName: null },
-      { mappingKey: 3, providerType: 'OIDC', identityGroupName: 'bluetrack-analysts', roleName: 'Analyst', groupDisplayName: null }
-    ]))
+    queueLoad([
+      { mappingKey: 1, providerKey: 1, providerType: 'WindowsIntegrated', providerDisplayName: 'Windows Integrated', identityGroupName: 'S-1-5-32-544', roleName: 'Admin', groupDisplayName: 'BUILTIN\\Administrators' },
+      { mappingKey: 2, providerKey: 1, providerType: 'WindowsIntegrated', providerDisplayName: 'Windows Integrated', identityGroupName: 'S-1-5-21-1-2-3-4567', roleName: 'Viewer', groupDisplayName: null },
+      { mappingKey: 3, providerKey: 3, providerType: 'OIDC', providerDisplayName: 'Authentik (OIDC)', identityGroupName: 'bluetrack-analysts', roleName: 'Analyst', groupDisplayName: null }
+    ])
 
     const wrapper = mount(GroupRoleMapping, { global: { plugins: [makeRouter()] } })
     await flushPromises()
@@ -68,10 +77,11 @@ describe('GroupRoleMapping.vue', () => {
     expect(groupCells[1]).toContain('S-1-5-21-1-2-3-4567')
     expect(groupCells[1]).toContain('(name could not be resolved)')
     expect(groupCells[2]).toBe('bluetrack-analysts')
+    expect(wrapper.findAll('tbody tr')[2].findAll('td')[0].text()).toContain('Authentik (OIDC)')
   })
 
   it('does not show the script-generator button before a lookup succeeds', async () => {
-    globalThis.fetch.mockResolvedValueOnce(jsonResponse([]))
+    queueLoad([])
 
     const wrapper = mount(GroupRoleMapping, { global: { plugins: [makeRouter()] } })
     await flushPromises()
@@ -80,7 +90,7 @@ describe('GroupRoleMapping.vue', () => {
   })
 
   it('shows the script-generator button once a group is resolved', async () => {
-    globalThis.fetch.mockResolvedValueOnce(jsonResponse([]))
+    queueLoad([])
     const wrapper = mount(GroupRoleMapping, { global: { plugins: [makeRouter()] } })
     await flushPromises()
 
@@ -98,7 +108,7 @@ describe('GroupRoleMapping.vue', () => {
   })
 
   it('clicking the script-generator button downloads the generated script', async () => {
-    globalThis.fetch.mockResolvedValueOnce(jsonResponse([]))
+    queueLoad([])
     const wrapper = mount(GroupRoleMapping, { global: { plugins: [makeRouter()] } })
     await flushPromises()
 
@@ -127,7 +137,7 @@ describe('GroupRoleMapping.vue', () => {
   })
 
   it('shows an error if the group can no longer be resolved when generating the script', async () => {
-    globalThis.fetch.mockResolvedValueOnce(jsonResponse([]))
+    queueLoad([])
     const wrapper = mount(GroupRoleMapping, { global: { plugins: [makeRouter()] } })
     await flushPromises()
 
@@ -147,5 +157,27 @@ describe('GroupRoleMapping.vue', () => {
     await flushPromises()
 
     expect(wrapper.find('[role="alert"]').text()).toContain('Could not resolve')
+  })
+
+  // D-204: an OIDC/SAML group is looked up as the claim value, with no SQL script option.
+  it('looks up a SAML group by its claim value and offers no script for it', async () => {
+    queueLoad([], [windowsProvider, samlProvider])
+    const wrapper = mount(GroupRoleMapping, { global: { plugins: [makeRouter()] } })
+    await flushPromises()
+
+    await wrapper.findAll('option').find(o => o.text().includes('(SAML)')).setSelected()
+    globalThis.fetch.mockResolvedValueOnce(jsonResponse({
+      resolvedAccountName: 'BlueTrack-Admin', sid: 'BlueTrack-Admin', currentRoleNames: ['Admin'], currentPermissionNames: ['ViewDashboard']
+    }))
+    await wrapper.get('input').setValue('BlueTrack-Admin')
+    await wrapper.get('form').trigger('submit.prevent')
+    await flushPromises()
+
+    expect(globalThis.fetch).toHaveBeenLastCalledWith('/api/admin/group-role-mappings/resolve-group', expect.objectContaining({
+      body: JSON.stringify({ groupName: 'BlueTrack-Admin', providerKey: 4 })
+    }))
+    expect(wrapper.text()).toContain('Group claim value: BlueTrack-Admin')
+    expect(wrapper.text()).toContain('Current role(s): Admin')
+    expect(wrapper.findAll('button').some(b => b.text() === 'Generate db_backupstatus_reader Script')).toBe(false)
   })
 })

@@ -16,11 +16,11 @@ public sealed class GroupRoleMappingRepository(IDbConnectionFactory connectionFa
     {
         using var connection = connectionFactory.Create();
         const string sql = """
-            SELECT igrm.MappingKey, ipc.ProviderType, igrm.IdentityGroupName, r.RoleName
+            SELECT igrm.MappingKey, igrm.ProviderKey, ipc.ProviderType, ipc.DisplayName AS ProviderDisplayName, igrm.IdentityGroupName, r.RoleName
             FROM web.identity_group_role_map igrm
             JOIN web.identity_provider_config ipc ON ipc.ProviderKey = igrm.ProviderKey
             JOIN web.app_role r                    ON r.AppRoleKey = igrm.AppRoleKey
-            ORDER BY ipc.ProviderType, r.RoleName
+            ORDER BY ipc.DisplayOrder, ipc.ProviderType, r.RoleName
             """;
         var rows = await connection.QueryAsync<GroupRoleMappingSummary>(sql);
         return rows.AsList();
