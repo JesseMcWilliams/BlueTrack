@@ -106,6 +106,22 @@ function New-BlueTrackSite {
                 Set-ItemProperty -Path "IIS:\Sites\$SiteName" -Name physicalPath -Value $SpaPhysicalPath
                 Write-Host "Site '$SiteName' now serves $SpaPhysicalPath (was $($existingSite.PhysicalPath))."
             }
+            # Found 2026-10-13: a new CertificateThumbprint never reached an existing site,
+            # so replacing the certificate needed a hand-made netsh/IIS change.
+            if ($CertificateThumbprint) {
+                $httpsBinding = Get-WebBinding -Name $SiteName -Protocol https -Port $HttpsPort -HostHeader $Hostname
+                if (-not $httpsBinding) {
+                    if ($PSCmdlet.ShouldProcess($SiteName, "Add the https binding for ${Hostname}:$HttpsPort")) {
+                        New-WebBinding -Name $SiteName -Protocol https -Port $HttpsPort -HostHeader $Hostname -SslFlags 1
+                        (Get-WebBinding -Name $SiteName -Protocol https -Port $HttpsPort -HostHeader $Hostname).AddSslCertificate($CertificateThumbprint, 'My')
+                    }
+                } elseif ("$($httpsBinding.certificateHash)" -ne $CertificateThumbprint -and
+                          $PSCmdlet.ShouldProcess("${Hostname}:$HttpsPort", "Bind certificate $CertificateThumbprint (was $($httpsBinding.certificateHash))")) {
+                    $httpsBinding.RemoveSslCertificate()
+                    $httpsBinding.AddSslCertificate($CertificateThumbprint, 'My')
+                    Write-Host "Site '$SiteName' now uses certificate $CertificateThumbprint for ${Hostname}:$HttpsPort."
+                }
+            }
         } else {
             if ($PSCmdlet.ShouldProcess($SiteName, 'Remove existing site')) {
                 Remove-Website -Name $SiteName

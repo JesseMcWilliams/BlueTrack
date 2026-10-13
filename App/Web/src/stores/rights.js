@@ -44,10 +44,15 @@ export const useRightsStore = defineStore('rights', {
         // browser answer the Windows challenge silently, so only call it when
         // there's already a session, or Windows sign-in is wanted (the default,
         // or chosen via /login/windows). Otherwise the sign-in page takes over.
+        // On a direct SSO address (/login/oidc, /login/saml) never try Windows either:
+        // App.vue loads rights on every page, and a browser that doesn't sign in to
+        // this site silently showed a Windows prompt over the SSO redirect (found live
+        // 2026-10-13).
+        const ssoAddress = /^\/login\/(oidc|saml)\/?$/i.test(window.location.pathname)
         const sessionResponse = await fetch('/api/auth/session')
         if (sessionResponse.ok) {
           const session = await sessionResponse.json()
-          if (!session.authenticated && !session.windows) {
+          if (!session.authenticated && (!session.windows || ssoAddress)) {
             this.authenticated = false
             this.loaded = true
             return

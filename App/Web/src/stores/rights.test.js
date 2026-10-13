@@ -184,6 +184,20 @@ describe('rights store', () => {
       expect(fetchMock).not.toHaveBeenCalled()
     })
 
+    it('on a direct SSO address, skips /api/me even when Windows is the default', async () => {
+      window.history.pushState({}, '', '/login/saml')
+      try {
+        session = { authenticated: false, windows: true }
+        const store = useRightsStore()
+        await store.ensureLoaded()
+
+        expect(store.authenticated).toBe(false)
+        expect(fetchMock).not.toHaveBeenCalled()
+      } finally {
+        window.history.pushState({}, '', '/')
+      }
+    })
+
     it('calls /api/me when there is already a session, even if Windows is not wanted', async () => {
       session = { authenticated: true, windows: false }
       fetchMock.mockResolvedValueOnce(jsonResponse({ userKey: 7, displayName: 'SAML User', roleNames: ['Analyst'], permissionNames: [], preferences: {} }))
