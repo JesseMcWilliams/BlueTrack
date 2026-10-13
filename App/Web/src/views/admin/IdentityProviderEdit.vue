@@ -135,7 +135,7 @@ function cancel() {
         <p><label class="field-label"><span class="field-label-text">SP Entity ID:</span> <input v-model="configFields.spEntityId" /></label></p>
         <p>
           <label class="field-label"><span class="field-label-text">SP Certificate Thumbprint:</span> <input v-model="configFields.spCertificateThumbprint" /></label>
-          <small>This app's own signing/decryption certificate, by thumbprint in the Windows Certificate Store (LocalMachine\My) -- not a certificate file or blob.</small>
+          <small>This app's own signing/decryption certificate, by thumbprint in the Windows Certificate Store -- the App Pool account's own store first, then LocalMachine\My -- not a certificate file or blob. Its private key must be readable by the App Pool account.</small>
         </p>
         <p><label class="field-label"><span class="field-label-text">IdP Entity ID:</span> <input v-model="configFields.idpEntityId" /></label></p>
         <p><label class="field-label"><span class="field-label-text">IdP Single Sign-On Destination:</span> <input v-model="configFields.idpSingleSignOnDestination" /></label></p>

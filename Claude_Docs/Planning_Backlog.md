@@ -7,6 +7,9 @@
 
 - **SAML SP certificate requested by the App Pool account** (requested 2026-10-12): an installer step that has the App Pool's account request the SP signing certificate from the CA into its own store (`CurrentUser\My`), so only that account holds the key. BlueTrack already looks there first (D-205); the step itself isn't built. Needs the pool's Load User Profile, and a template the account may enroll in.
 
+- **No sign-out in the web pages** (found 2026-10-13 while writing the user docs): `POST /api/auth/logout` and SAML's `GET /api/auth/saml/logout` exist, but no page offers them. Needed: a sign-out link (e.g. by My Profile) that ends the session and lands on `/login`.
+- **A field's Required Permission can't be set in the UI** (found 2026-10-13): it's enforced (D-198), but the Edit Field page doesn't show it, so it's set with SQL on `web.account_progress_field_metadata.RequiredPermission`.
+
 ## Built, but never proven against a real live service
 - **Azure Key Vault, AWS Secrets Manager, CyberArk Conjur** secrets backends: tested only against unreachable placeholder endpoints (error handling, not a real secret round-trip). CyberArk CP, CCP and Windows DPAPI are verified live. Before using them for real (from the 2026-10-12 review):
   - Their bootstrap credentials (`ProtectedCredential`) stay Machine-scope DPAPI with a constant entropy (`WindowsDpapiProtector.cs`), never upgraded to User scope as D-116 does for stored credentials, so any local process that can read `web.secrets_store` or a backup can decrypt them.

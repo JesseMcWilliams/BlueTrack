@@ -8,7 +8,7 @@ An admin (or whoever holds elevated SQL Server access) handling the recurring, d
 
 ## 1. Confirm the nightly Import + Load job ran
 
-The Import+Load SQL Agent job runs at 2:00 AM, refreshing staging data from your CyberArk exports and then recalculating risk scores and running AD Account Discovery. There's no in-app UI showing whether last night's run succeeded — check via SQL directly. See `Admin_OperationsGuide.md`'s "The Nightly Import + Load Job" section for the exact query.
+The Import+Load SQL Agent job runs at 2:00 AM, refreshing staging data from your CyberArk exports (Privilege Cloud, Self-Hosted, or both, as chosen at install) and then recalculating risk scores and running AD Account Discovery. Each run also creates an *Other*-type Target (risk score 0, discovery source *CyberArk ETL*) for any account address that has no Target yet, and links each account to the Targets matching its address. Those placeholder Targets haven't been reviewed, so check the **Targets** page for new ones now and then. There's no in-app UI showing whether last night's run succeeded — check via SQL directly. See `Admin_OperationsGuide.md`'s "The Nightly Import + Load Job" section for the exact query.
 
 ## 2. Work the Target Match Review queue
 
@@ -22,19 +22,24 @@ Weak import matches (e.g. an identifier that's only an IP address) land in **Adm
 
 If a data source's export format doesn't match this app's own generated CSV templates, define a reusable profile under **Admin > Import Mapping Profiles** rather than reshaping the source file by hand every time.
 
-## 5. Back up before risky changes
+## 5. Check backups, and back up before risky changes
 
-BlueTrack's rollback mechanism is full-database backup/restore, not per-script undo. Before a risky schema or configuration change, take a backup:
+BlueTrack's rollback mechanism is full-database backup/restore, not per-script undo.
 
-```powershell
-.\Backup-BlueTrack.ps1 -SqlServerInstance "SQLSERVER01" -DatabaseName BlueTrack -BackupFolder "D:\Backups\BlueTrack"
-```
+- **Scheduled backups:** set a **Scheduled backup time** and **Keep scheduled backups (days)** on **Admin > Global Application Configuration** (a blank time means none). Check the **Recent backups** table on **Admin > Deployment** now and then; a failed run gives its reason in the Note column.
+- **Before a risky schema or configuration change**, take a backup on demand: the Deployment page's **Backup App** button (needs `TriggerBackup`), or from PowerShell:
 
-The Admin **Deployment** page's **Backup App** button does the same on demand, from the UI, if you'd rather not use PowerShell directly. See `Admin_OperationsGuide.md`'s "Rollback" section for the restore procedure if you ever need it — restoring is destructive and requires explicit confirmation by design.
+  ```powershell
+  .\Backup-BlueTrack.ps1 -SqlServerInstance "SQLSERVER01" -DatabaseName BlueTrack -BackupFolder "D:\Backups\BlueTrack"
+  ```
+
+- **If a backup is refused**, a broad group (such as Users or Everyone) can read the Backup Folder and BlueTrack wasn't allowed to remove that access. The Deployment page's **Backup Folder** health check shows this ahead of time. Fix the folder's permissions, or let the App Pool's account change them.
+
+See `Admin_OperationsGuide.md`'s "Rollback" section for what the Backup Folder needs, and for the restore procedure if you ever need it — restoring is destructive and requires explicit confirmation by design.
 
 ## 6. Grant `db_backupstatus_reader` (one-time, per environment)
 
-If the Deployment page's SQL Server Backup Status section shows an error instead of real backup history, a SQL Server account needs to be a member of `db_backupstatus_reader` in `msdb` — something BlueTrack can never grant itself. Resolve the target group on **Admin > Group / Role Mapping**'s Lookup / Test Tool, click **Generate db_backupstatus_reader Script**, and hand the downloaded `.sql` file to whoever administers the SQL Server instance to run manually via `sqlcmd`. See `Admin_OperationsGuide.md` for the exact command and the two real prerequisites (a SQL Server login, and an `msdb` database user for that login).
+If the Deployment page's SQL Server Backup Status section shows an error instead of real backup history, a SQL Server account needs to be a member of `db_backupstatus_reader` in `msdb` — something BlueTrack can never grant itself. Resolve the target group on **Admin > Group → Role Mapping**'s Lookup / Test Tool, click **Generate db_backupstatus_reader Script**, and hand the downloaded `.sql` file to whoever administers the SQL Server instance to run manually via `sqlcmd`. See `Admin_OperationsGuide.md` for the exact command and the two real prerequisites (a SQL Server login, and an `msdb` database user for that login).
 
 ## 7. Review the audit log
 
@@ -43,6 +48,10 @@ If the Deployment page's SQL Server Backup Status section shows an error instead
 ## 8. Review Risk Exception segregation-of-duties cases
 
 **Reports > Risk Exception SoD** lists every historical case where the same person both approved a Risk Exception and later linked it to an account — regardless of whether the segregation-of-duties checkbox (`Admin > Global Application Configuration`) was on at the time. Worth a periodic look even with enforcement off, since it's a detective control, not just a preventive one.
+
+## 9. Update to a new version
+
+From an elevated PowerShell session, run `Deploy\Update-BlueTrack.ps1` to download the latest signed release and redeploy from it; the redeploy takes a pre-deployment backup first. See `Admin_OperationsGuide.md`'s "Updating to a New Version" section.
 
 ## See also
 

@@ -14,9 +14,11 @@
 
 **Where**: **Exceptions** in the top nav (`/exceptions`).
 
-- **The list** — filter by Status (Active/Expired/Revoked) and Scope (Account/Application). Use **+ New Exception** to create one.
+- **The list** — filter by Status (Active/Expired/Revoked) and Scope (Account/Application). Use **+ New Exception** to create one. The **Source** column shows where an imported exception came from.
 - **Creating one** — choose Account or Application scope, fill in Justification, Review Date, and an optional External Ticket Reference, then **Create Exception**.
-- **Managing an existing one** — while Active, **Re-approve** extends the Review Date; **Revoke** ends it immediately.
+- **Managing an existing one** — while Active, **Extend Review Date** re-approves it with a new Review Date; **Revoke Exception** ends it immediately and needs a **Reason to revoke**. An exception that's no longer Active can't be re-approved or revoked.
+- **Bulk actions** — tick **Select exceptions for bulk actions**, select exceptions, then **Extend review…** (a new review date for all of them) or **Revoke…** (needs a reason). Exceptions that aren't Active are skipped and listed.
+- **Importing from another tool** — **Bulk Actions** opens a CSV import for exceptions approved elsewhere: **Download template**, fill it, then **Import**. Each row gets a new BlueTrack Exception ID and keeps its source tool, ID and link; it can also link an account exception to its account. See `User_Guide.md`, "Importing exceptions approved in another tool".
 - **Approval Worklist** (`Exceptions > Approval Worklist`) — every currently-Active exception.
 - **Overdue Reviews** (`Exceptions > Overdue Reviews`) — Active exceptions past their Review Date.
 

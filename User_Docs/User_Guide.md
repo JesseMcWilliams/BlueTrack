@@ -6,11 +6,28 @@
 
 This is a task-oriented, "how do I use this" guide for BlueTrack administrators working in the web UI — distinct from the `Design_*.md` documents in `Claude_Docs/`, which record *why* something was built a particular way, not how to operate it day to day.
 
-**Scope note (updated 2026-09-21)**: this guide now covers every page in the application inventory (`Claude_Docs/Design_Application-Structure.md`) — the core analyst workflow (Dashboard, Account Progress, Risk Exceptions, Reports), Targets/Access Groups, and the full 14-section Admin hub. Each section was written from the actual Vue component source, not guessed. Kept up to date feature by feature as the app changes, rather than a one-time snapshot — if a page's UI changes, its section here should be revisited.
+**Scope note**: this guide now covers every page in the application inventory (`Claude_Docs/Design_Application-Structure.md`) — the core analyst workflow (Dashboard, Account Progress, Risk Exceptions, Reports), Targets/Access Groups, and the full 14-section Admin hub. Each section was written from the actual Vue component source, not guessed. Kept up to date feature by feature as the app changes, rather than a one-time snapshot — if a page's UI changes, its section here should be revisited.
 
 ## Getting Around
 
-The top navigation is permission-gated — you only see the entries you actually have rights for. A signed-in user with every permission sees: **Dashboard | Accounts | Exceptions | Reports | Targets | Access Groups | Admin** (Targets/Access Groups/Admin only appear if you hold their gating permission), plus a user menu for your profile, reloading your rights, and logging out. Every page shows a breadcrumb trail at the top so you always know where you are.
+The top navigation reads **Dashboard | Access Groups | Accounts | Admin | Exceptions | Reports | Targets**, with **My Profile** on the right. **Access Groups** appears only with `ManageAccessGroups`, and **Targets** only with `ManageTargets`. Inside **Admin**, the sidebar lists only the sections you hold permission for. Every page shows a breadcrumb trail at the top so you always know where you are.
+
+Seeing tracked data (the Dashboard, Accounts, Exceptions and most reports) needs a role with `ViewDashboard`. Without it, those pages show an error (such as "Request failed: 403") instead of data. An administrator's changes to roles or group mappings apply straight away. A change to your own group membership (for example, being added to an AD group) can take up to 15 minutes; **Reload My Rights** on My Profile picks it up straight away.
+
+When BlueTrack refuses a save or delete, the page says why: for example, a name, identifier or score range that's already used, something still in use by other records, or a record someone else changed first.
+
+## Signing in
+
+**Where**: the **Sign in** page (`/login`), which opens on its own when you aren't signed in.
+
+How it behaves depends on the **Default sign-in method** your administrator sets (Admin > Identity Providers):
+- **Windows** is the default: you're signed in silently and land on the page you asked for (the Dashboard by default). If that doesn't finish, the page lists the methods; choose **Continue** next to Windows. If it still fails, the page says "Windows sign-in didn't complete"; check any credentials your browser asked for and choose **Continue** again.
+- **OIDC or SAML** is the default: you go straight to your organization's identity provider, sign in there, and come back to BlueTrack.
+- **No default**: the page says "Choose a sign-in method:" and lists every enabled method. The default, if there is one, is marked *(default)*.
+
+Each method also has its own direct address, which uses that method whatever the default is: `/login/windows`, `/login/oidc` and `/login/saml` (after the site's address, e.g. `https://<server>/login/saml`; the Identity Providers page shows the full addresses). Your administrator may give you one of these, or use it as the launch link of an app tile in your identity provider. A direct OIDC or SAML address goes to the identity provider without a Windows prompt first. If that method isn't enabled, the page says "That sign-in method isn't enabled. Choose one below."
+
+If you sign in with OIDC or SAML and your identity provider sends no full name, BlueTrack shows your username instead.
 
 ## Dashboard
 
@@ -18,7 +35,7 @@ The top navigation is permission-gated — you only see the entries you actually
 
 Four at-a-glance summary cards, each linking into the full report/worklist behind it:
 - **Accounts by Stage** — a table plus a small pie chart of how many accounts sit at each Blueprint stage, with a count of how many are Complete. Links to the full Stage/Status Summary report.
-- **Key Progress Indicators** (added 2026-09-22) — the four KPI Summary ratios (In Scope vs. All Accounts, Onboarded vs. In Scope, Managed vs. Onboarded, Compliant vs. Managed) as percentages, plus a pie chart breaking every account into exactly one of five buckets: Out of Scope, In Scope-Not Onboarded, Onboarded-Not Managed, Managed-Not Compliant, or Compliant. Links to the full KPI Summary report.
+- **Key Progress Indicators** — the four KPI Summary ratios (In Scope vs. All Accounts, Onboarded vs. In Scope, Managed vs. Onboarded, Compliant vs. Managed) as percentages, plus a pie chart breaking every account into exactly one of five buckets: Out of Scope, In Scope-Not Onboarded, Onboarded-Not Managed, Managed-Not Compliant, or Compliant. Links to the full KPI Summary report.
 - **Overdue / At-Risk Accounts** — a count of accounts past their target remediation date. Links to that worklist.
 - **Risk Exceptions Needing Attention** — a count of exceptions past their review date (everyone sees this). If you hold `ApproveExceptions`, you also see a count of Active exceptions awaiting approval.
 
@@ -54,7 +71,9 @@ With `DeleteAccounts`, an account's page has **Delete account…** (or **Undelet
 
 ### Editing an account
 
-Opening an account tries to acquire an edit lock automatically if you hold `EditAccountProgress`. If someone else already has it locked, you see who and since when, with a **Force Release Lock** button if you need to take over. Without a lock (or without `EditAccountProgress`), you get a read-only view instead.
+Opening an account tries to acquire an edit lock automatically if you hold `EditAccountProgress`. If someone else already has it locked, you see "Currently being edited by" with who and since when, and a **Force Release Lock** button if you need to take over. Without a lock (or without `EditAccountProgress`), you get a read-only view instead.
+- An account you already have open elsewhere (another tab, or a visit you left without saving) opens for editing as usual; your own lock never blocks you.
+- While the page is open it keeps the lock alive. A lock with no activity for the **Account Progress Lock Timeout** (Global Application Configuration; 30 minutes on a new install) is treated as abandoned: the next person to open the account gets the lock, with no force-release needed.
 
 The edit form is split into up to three tabs:
 - **Details** — the governed set of editable fields (stage, status, risk level, owner, business unit, dates, notes, etc.). A **Reason** field at the bottom of the form is only required if you're regressing the account to an earlier Blueprint stage than it's currently at.
@@ -71,7 +90,21 @@ Saving (or Cancel) returns you to the Accounts list.
 
 Filter by Status (Active/Expired/Revoked) and Scope (Account/Application). If you hold `ApproveExceptions`, a **+ New Exception** button appears above the filters. Click an Exception ID to open it.
 
+Columns: Exception ID, Scope, Approved By, Approval Date, Review Date, Status, Justification and **Source**. Source names the tool and ID an imported exception came from, as a link when the import gave one; it's blank for exceptions created in BlueTrack.
+
 With `ApproveExceptions`, tick **Select exceptions for bulk actions** for checkboxes and the selection bar (see Account Progress, "Selecting accounts for bulk actions"): **Extend review…** sets a new review date on every selected Active exception (a re-approval), and **Revoke…** revokes them after you give a reason. Exceptions that aren't Active are skipped and listed.
+
+### Importing exceptions approved in another tool
+
+With `ApproveExceptions`, **Bulk Actions** (next to **+ New Exception**) opens the import page. **Download template**, fill one row per exception, choose the file and click **Import**.
+- Each row gets a new BlueTrack Exception ID; the result lists the new IDs next to the source IDs.
+- **SourceTool** and **SourceExceptionId** are required; the same tool and ID imported twice is an error. **SourceUrl** (optional) is a link to it in that tool.
+- The exception covers either an account (**AccountUserName** + **AccountAddress**, both required, an exact match, so an account without an address can't be matched) or an application (**ApplicationCode**).
+- **Justification**, **ApprovedByName** (the approver in the other tool), **ApprovalDate** and **ReviewDate** are required, with dates as yyyy-MM-dd. **Status** (Active, Expired or Revoked) is optional and blank means Active; **ExternalTicketReference** is optional.
+- **LinkToAccountProgress** = Yes also sets the account to Risk Accepted / Excluded, linked to the exception (Active account exceptions only).
+- A bad row is reported with its row number; the other rows still import.
+
+An imported exception's page shows its **Approved By** (the other tool's approver), **Source**, and **Imported** (when and by whom).
 
 ### Creating one
 
@@ -80,8 +113,10 @@ Choose Account or Application scope. Account scope takes a raw Account Key (ther
 ### Managing an existing exception
 
 While an exception is Active, its edit page offers:
-- **Re-approve** — extend the Review Date without changing anything else.
-- **Revoke** — end the exception immediately. A reason is required; it's recorded in the Audit Log.
+- **Re-approve** — pick a new date and click **Extend Review Date**; nothing else changes.
+- **Revoke** — enter a **Reason to revoke** (required) and click **Revoke Exception** to end it immediately. The reason is recorded in the Audit Log.
+
+An exception that's no longer Active can't be re-approved or revoked; if someone else changed it first, the page says why.
 
 ### Worklists
 
@@ -90,22 +125,22 @@ While an exception is Active, its edit page offers:
 
 ## Reports
 
-**Where**: **Reports** in the top nav (`/reports`) — a hub with sub-navigation. Each link only appears if you hold that report's gating permission; a few have none and are visible to anyone signed in.
+**Where**: **Reports** in the top nav (`/reports`) — a hub with sub-navigation. A report marked with a permission below appears only if you hold it; the others are listed for everyone but need `ViewDashboard` to show data.
 
-- **Overdue / At-Risk** — accounts past their target remediation date that aren't yet Complete (no permission required).
-- **Stage/Status Summary** — an account count per Stage × Status cell, with row totals (no permission required).
+- **Overdue / At-Risk** — accounts past their target remediation date that aren't yet Complete.
+- **Stage/Status Summary** — an account count per Stage × Status cell, with row totals.
 - **Reconciliation Review** (requires `ConfirmReconciliation`) — unconfirmed cross-source account matches; currently read-only, no confirm/reject action wired up yet.
-- **Unresolved Entitlement Members** — Safe entitlements granted to a member this app can't resolve to a known user or group (no permission required).
+- **Unresolved Entitlement Members** — Safe entitlements granted to a member this app can't resolve to a known user or group.
 - **Risk Score** (requires `ViewRiskReport`) — every account's Computed/Override/Effective risk score and Risk Band, sortable, with a **Recalculate Now** button and a per-account click-to-expand drill-down showing the real Targets/Access Groups behind that score.
-- **Discovered Accounts** (requires `ViewDiscoveredAccounts`) — real AD accounts not yet onboarded into CyberArk, found nightly and risk-scored the same way as tracked accounts. If you hold `ManageDiscoveredAccounts`, **Accept**/**Dismiss** buttons let you move a candidate into real Blueprint tracking or resolve it as a false positive.
+- **Discovered Accounts** (requires `ViewDiscoveredAccounts`) — real AD accounts not yet onboarded into CyberArk, found nightly and risk-scored the same way as tracked accounts. If you hold `ManageDiscoveredAccounts`, **Accept**/**Dismiss** buttons let you move a candidate into real Blueprint tracking or resolve it as a false positive. An account that's already been accepted can't be dismissed; the page says so.
 - **Risk Exception SoD** (requires `ViewRiskExceptionSodReport`) — see "Reviewing past cases" below.
-- **Safes Flagged for Deletion** (no permission required) — safes whose name matches the *safe decommission pattern* (Global Application Configuration), with how many of their accounts aren't deleted yet. Ignored safes aren't listed.
-- **Accounts Flagged for Deletion** (no permission required) — accounts in those safes, or whose own name matches the *account decommission pattern*. Accounts still active are marked **Not deleted yet**; **Also in** names any other safe holding an account with the same username and address, which usually means it has moved there. Tick *Only accounts not yet deleted* to hide the rest.
-- **KPI Summary** (added 2026-09-22, no permission required) — the four progress ratios (In Scope vs. All Accounts, Onboarded vs. In Scope, Managed vs. Onboarded, Compliant vs. Managed) as counts and percentages. "In scope" means not currently excluded via an active Risk Accepted / Excluded exception. The same four ratios, plus a summary pie chart, also appear on the Dashboard's Key Progress Indicators card.
+- **Safes Flagged for Deletion** — safes whose name matches the *safe decommission pattern* (Global Application Configuration), with how many of their accounts aren't deleted yet. Ignored safes aren't listed.
+- **Accounts Flagged for Deletion** — accounts in those safes, or whose own name matches the *account decommission pattern*. Accounts still active are marked **Not deleted yet**; **Also in** names any other safe holding an account with the same username and address, which usually means it has moved there. Tick *Only accounts not yet deleted* to hide the rest.
+- **KPI Summary** — the four progress ratios (In Scope vs. All Accounts, Onboarded vs. In Scope, Managed vs. Onboarded, Compliant vs. Managed) as counts and percentages. "In scope" means not currently excluded via an active Risk Accepted / Excluded exception. The same four ratios, plus a summary pie chart, also appear on the Dashboard's Key Progress Indicators card.
 
 ## My Profile
 
-**Where**: the user menu (`/profile`).
+**Where**: **My Profile** at the right of the top nav (`/profile`).
 
 Shows your display name, mapped role(s), and full permission list. Click **Reload My Rights** to re-check your current group membership immediately, without waiting for anything to expire — useful right after you know you've been added to a new group. Also where you pick a display theme: Light, Dark, or High Visibility.
 
@@ -145,27 +180,38 @@ Deleting either a Target or an Access Group still referenced by a mapping fails 
 
 ### Identity Providers
 
-Manages how people sign in. The list shows Type, Display Name, Enabled, and Order; **+ New Provider** and each row's **Edit** link open a form for one provider. Provider Type is WindowsIntegrated, OIDC, SAML, or DevFakeAuth. OIDC gets structured fields (Authority, Client ID, Callback Path, Groups Claim Type); SAML gets its own set (SP/IdP Entity IDs, SSO/SLO destinations, certificate thumbprints — these refer to certificates already installed in the Windows Certificate Store, not a file you upload). A write-only Secret field shows `(already set — leave blank to keep)` once one exists; the stored value is never shown back to you. **Enabling/disabling OIDC or changing its Authority/Client ID/secret needs an app restart to take effect** — SAML settings are read fresh on every request, no restart needed. Setting up a real external IdP (Okta, Entra ID, Ping, Authentik) also requires giving that IdP BlueTrack's own redirect URI/ACS URL/metadata endpoint — see `Claude_Docs/Design_Admin-Deployment-Management.md` for the exact values and how they map onto each vendor's own terminology, not repeated here.
+Manages how people sign in. The list shows Type, Display Name, Enabled, and Order; **+ New Provider** opens a blank form; click a provider's **Display Name** to edit it. Provider Type is WindowsIntegrated, OIDC, SAML, or DevFakeAuth. OIDC gets structured fields (Authority, Client ID, Callback Path, Groups Claim Type); SAML gets its own set (SP/IdP Entity IDs, SSO/SLO destinations, certificate thumbprints — these refer to certificates already installed in the Windows Certificate Store, not a file you upload). A write-only Secret field shows `(already set — leave blank to keep)` once one exists; the stored value is never shown back to you. **Enabling/disabling OIDC or changing its Authority/Client ID/secret needs an app restart to take effect** — SAML settings are read fresh on every request, no restart needed. Setting up a real external IdP (Okta, Entra ID, Ping, Authentik) also requires giving that IdP BlueTrack's own redirect URI/ACS URL/metadata endpoint — see `Claude_Docs/Design_Admin-Deployment-Management.md` for the exact values and how they map onto each vendor's own terminology, not repeated here.
 
-### Group / Role Mapping
+**Sign-in** (below the list) sets the **Default sign-in method**: one of the provider types, or **None (the sign-in page lists the methods)**. A disabled type is marked *(disabled)*. Click **Save**; it applies the next time someone signs in. With a default, people without a session go straight to it (Windows signs in silently; OIDC and SAML go to the identity provider). The section also lists each method's direct address (`/login/windows`, `/login/oidc`, `/login/saml`), which always uses its own method: use it as an identity provider's launch URL or a link you hand out. See "Signing in" above for what users see.
 
-Maps an AD security group to one of this app's own roles. The list shows Provider, Group (the stored identifier), and Role, with Delete per row; **+ Add Mapping** opens its own form to pick a group and role.
+### Group → Role Mapping
 
-The **Lookup / Test Tool** section lets you resolve a group name and see what it currently grants, without saving anything — type a name, click **Resolve**, and see the resolved account, its SID, and its current role(s)/permission(s).
+Maps a group from a sign-in provider to one of this app's own roles. The list shows Provider, Group, and Role, with Delete per row. A Windows group shows its name (`DOMAIN\Group`) with the stored SID beneath, or the SID with "(name could not be resolved)" if the group was deleted or its domain can't be reached.
+
+**+ Add Mapping** opens a form: pick the **Provider**, then the group and the **Role**, and click **Add**.
+- **Windows**: enter the group name (e.g. `BUILTIN\Administrators` or `DOMAIN\GroupName`); it's resolved to its SID when saved.
+- **OIDC or SAML**: enter the group name exactly as the identity provider sends it (up to 300 characters). It's matched against the groups claim set on that provider's Identity Providers page, and isn't checked against the identity provider when saved.
+- Adding a mapping that already exists shows a message.
+
+The **Lookup / Test Tool** section lets you check a group name and see what it currently grants, without saving anything. Pick the **Provider** (shown when there's more than one), type a **Group name** and click **Resolve**. A Windows group shows the resolved account and its SID; an OIDC or SAML group shows the group claim value. Both show the current role(s) and permission(s).
 
 #### Generating a `db_backupstatus_reader` Grant Script
 
-The Deployment page's SQL Server backup-status check needs a SQL Server account to be a member of a `db_backupstatus_reader` role in `msdb` before it can report anything — a permission this application can never grant itself (see `Admin_OperationsGuide.md` for why). Once you've resolved a group in the Lookup / Test Tool above, a **Generate db_backupstatus_reader Script** button appears below the result.
+The Deployment page's SQL Server backup-status check needs a SQL Server account to be a member of a `db_backupstatus_reader` role in `msdb` before it can report anything — a permission this application can never grant itself (see `Admin_OperationsGuide.md` for why). Once you've resolved a Windows group in the Lookup / Test Tool above, a **Generate db_backupstatus_reader Script** button appears below the result.
 
 **Steps**: resolve the target group (above), click **Generate db_backupstatus_reader Script**, and your browser downloads a `.sql` file already targeted at that group. Send it to whoever administers the SQL Server instance — **this application never runs the script itself**; it must be run manually via `sqlcmd` against `msdb`. See `Admin_OperationsGuide.md` for the exact command.
 
 ### Roles & Permissions
 
-Manages this app's own roles and which permissions each one bundles. The list shows Role, Description, Notification Email, and a comma-joined list of that role's permissions; Delete is blocked (with an explanation) if the role is still mapped to a group. **+ New Role** and each row's **Edit** open a form: Role Name, Description, Notification Email, and a checklist of every permission in the (fixed, not editable here) permission catalog, each with its own description.
+Manages this app's own roles and which permissions each one bundles. The list shows Role, Description, Notification Email, and a comma-joined list of that role's permissions; Delete is blocked (with an explanation) if the role is still mapped to a group. **+ New Role** opens a blank form, and clicking a role's name opens it for editing: Role Name, Description, Notification Email, and a checklist of every permission in the (fixed, not editable here) permission catalog, each with its own description.
 
 ### Application ↔ Safe Mapping
 
-Two sections on one page. **Applications**: Code/Name/Owner, with an **Edit** link per row (no Delete here) and **+ New Application** opening a form (Code, Name, Description, Owner Name/Email, Technical Contact Name/Email, Notes). **Safes**: each Safe gets a per-row dropdown assigning it to an Application — changing the dropdown saves immediately, there's no separate Save button for this section.
+Two sections on one page. **Applications**: Code/Name/Owner; click an application's **Name** to edit it (no Delete here), and **+ New Application** opens a blank form (Code, Name, Description, Owner Name/Email, Technical Contact Name/Email, Notes). **Safes**: each Safe gets a per-row dropdown assigning it to an Application — changing the dropdown saves immediately, there's no separate Save button for this section.
+
+**Bulk Actions** (next to **+ New Application**) opens a page with two CSV imports. Each has a **Download template** link, a file picker and an **Import** button, and reports per-row errors without failing the rest.
+- **Applications**: one row per application, matched by ApplicationCode. A new code creates the application; an existing code updates it, and a blank cell leaves that field as it is. A name already used by another application is a row error. The result counts created, updated and unchanged rows.
+- **Safe → Application Assignments**: one row per safe: SafeName, Application (its code or name; it must already exist) and an optional Source (PrivilegeCloud or SelfHosted). Without a Source, every safe with that name is assigned. An existing assignment is replaced; safes not in the file are left alone. Every change is recorded in the Audit Log, as on the page.
 
 ### Secrets Store Configuration
 
@@ -175,7 +221,7 @@ Exactly one backend is active at a time — this is the vault backend used to re
 
 ### Field Metadata Management
 
-The governed list of fields the Account Progress edit form actually renders. List columns: Field Name, Display Label, Type, Required, Order. **+ New Field** / **Edit** open a form: Field Name, Display Label, Field Type (a plain text value, not a dropdown), Reference Table, Required, Display Order.
+The governed list of fields the Account Progress edit form actually renders. List columns: Field Name, Display Label, Type, Required, Order. **+ New Field** opens a blank form, and clicking a field's **Field Name** opens it for editing: Field Name, Display Label, Field Type (a plain text value, not a dropdown), Reference Table, Required, Display Order.
 
 ### Audit Log Viewer
 
@@ -183,7 +229,22 @@ Read-only — no add/edit/delete. Filter by Event Type, Entity, and a From/To da
 
 ### Global Application Configuration
 
-Every admin-wide setting on one form, saved together with a single **Save** button: Idle Timeout (minutes), Breadcrumb Position (Top Left/Top Right), Exception ID Pattern, Account Progress Lock Timeout (minutes), Audit Retention in days (blank = keep forever), a "Log read/view events" checkbox, Backup Folder (where the Deployment page's Backup App button writes to), and the Risk Score Algorithm (Dominant Plus Tail / Combined Exposure — see `Design_Risk-Scoring.md`).
+Every admin-wide setting on one form, saved together with a single **Save** button:
+- Idle Timeout (minutes), Breadcrumb Position (Top Left/Top Right) and Exception ID Pattern.
+- **Account Progress Lock Timeout (minutes)**: 1 to 720 (12 hours); 30 on a new install. An edit lock with no activity for this long is treated as abandoned (see Account Progress, "Editing an account").
+- Audit Retention in days (blank = keep forever) and a "Log read/view events" checkbox.
+- **Backup Folder**: where the Deployment page's **Backup App** button and scheduled backups write the database backup file.
+- **Scheduled backup time**: a daily backup of the BlueTrack database into the Backup Folder, at this server-local time. Leave blank for none (the default).
+- **Keep scheduled backups (days)**: 1 to 3650. After each scheduled backup, older scheduled backup files are deleted; backups made with **Backup App** are never deleted.
+- The Risk Score Algorithm (Dominant Plus Tail / Combined Exposure — see `Design_Risk-Scoring.md`) and the segregation-of-duties checkbox (below).
+- **Bulk edit limit (accounts)**: 1 to 10000; the most accounts one Account Progress bulk action may change.
+
+#### Data feeds
+
+Settings for the scheduled feeds on **Admin > Data Sources** (see `Admin_Configuration.md`, "Data Sources"):
+- **Nightly run time**: server local time; default 04:00, after the 02:00 Import and Load job.
+- **Keep run history (days)**: 1 to 365.
+- **Business hours start**, **Business hours end** and **Business days**: **Run now** asks for confirmation inside these hours, since an import changes data people are working with.
 
 #### Decommissioned and ignored safes
 
@@ -209,7 +270,7 @@ A checkbox, **"Enforce segregation of duties on Risk Exception approval"**, cont
 Read-only environment/version info, health checks, and SQL Server backup status.
 - **Environment**: Environment name, Version, and build timestamp (UTC).
 - **Health Checks**: a table of Component / Status / Description — checks SQL Server connectivity, the active Secrets Store backend, and configured identity providers.
-- **SQL Server Backup Status**: a table of Backup Type / Last Backup Finish Date, read from SQL Server's own native backup history — or an alert explaining why it's unavailable (typically a missing `db_backupstatus_reader` grant; see `Admin_OperationsGuide.md`). A **Backup App** button (gated separately by `TriggerBackup`, distinct from just viewing this page) triggers a real on-demand database backup and downloads a zip of the app's own config files.
+- **SQL Server Backup Status**: a table of Backup Type / Last Backup Finish Date, read from SQL Server's own native backup history — or an alert explaining why it's unavailable (typically a missing `db_backupstatus_reader` grant; see `Admin_OperationsGuide.md`). A **Backup App** button (gated separately by `TriggerBackup`, distinct from just viewing this page) triggers a real on-demand database backup and downloads a zip of the app's own config files. **Recent backups** lists recent backups, scheduled or manual: Started (UTC), Type, Outcome, File, Old files deleted, and Note.
 
 ### Notifications
 
@@ -227,19 +288,19 @@ Two independent sections. **Credentials** is a generic named-credential store (d
 
 ### Target Match Review
 
-A queue of weak import matches (e.g. an identifier that's only an IP address, which can be reassigned by DHCP/NAT) that didn't get auto-merged during an import and need a human decision. Each row shows the identifier, the candidate Target it weakly matched, and the source file, with an editable "Merge Into" target key (pre-filled with the candidate, but you can redirect it to a different target before deciding) and three buttons: **Merge**, **New Target**, **Ignore** — no confirmation dialog, since none of the three destroys data.
+A queue of weak import matches (e.g. an identifier that's only an IP address, which can be reassigned by DHCP/NAT) that didn't get auto-merged during an import and need a human decision. Each row shows the identifier, the candidate Target it weakly matched, and the source file, with an editable "Merge Into" target key (pre-filled with the candidate, but you can redirect it to a different target before deciding) and three buttons: **Merge**, **New Target**, **Ignore** — no confirmation dialog, since none of the three destroys data. A match someone else has already resolved is refused with a message.
 
 ### Import Mapping Profiles
 
-One named profile per distinct source file shape for the risk-scoring import feeds — not needed at all for this app's own generated CSV templates, only for uploading an existing external export as-is. List shows Feed Type, Name, Active, and a flattened summary of every mapped field. **+ New Profile** / **Edit** open a form: Feed Type, Profile Name, Active, Description, and a repeatable Fields list (Source Column, Internal Field, Required, Default value, each removable, plus **+ Add Field**).
+One named profile per distinct source file shape for the risk-scoring import feeds — not needed at all for this app's own generated CSV templates, only for uploading an existing external export as-is. List shows Feed Type, Name, Active, and a flattened summary of every mapped field. **+ New Profile** opens a blank form, and clicking a profile's **Name** opens it for editing: Feed Type, Profile Name, Active, Description, and a repeatable Fields list (Source Column, Internal Field, Required, Default value, each removable, plus **+ Add Field**).
 
 ### Risk Score Bands
 
-Named ranges over the computed risk score (e.g. Low/Medium/High/Critical) — the resulting band name is what shows up on the Account Progress list and the Risk Score report. List shows Name/Min Score/Max Score/Order. **+ New Band** / **Edit** open a form (Name, Min Score, Max Score, Risk Order); **a new or edited range can't overlap any other existing band** — saving an overlapping range shows the specific validation error from the server rather than a generic failure message.
+Named ranges over the computed risk score (e.g. Low/Medium/High/Critical) — the resulting band name is what shows up on the Account Progress list and the Risk Score report. List shows Name/Min Score/Max Score/Order. **+ New Band** opens a blank form, and clicking a band's **Name** opens it for editing (Name, Min Score, Max Score, Risk Order); **a new or edited range can't overlap any other existing band** — saving an overlapping range shows a message saying why rather than a generic failure.
 
 ## See also
 
-- `README.md` (this folder, added 2026-09-23) — the index of short, linear, role-based walkthroughs (Admin_Installation/Configuration/DataManagement, User_Viewer/Analyst/Approver/Auditor) that supplement this page's field-by-field reference rather than duplicate it.
+- `README.md` (this folder) — the index of short, linear, role-based walkthroughs (Admin_Installation/Configuration/DataManagement, User_Viewer/Analyst/Approver/Auditor) that supplement this page's field-by-field reference rather than duplicate it.
 - `Admin_OperationsGuide.md` — the DBA/operator-facing side of everything with no UI of its own (rollback backup/restore scripts) or that a DBA has to act on once this app hands it over (the generated `db_backupstatus_reader` script).
 - `Claude_Docs/Design_Application-Structure.md` — the authoritative full page inventory and navigation conventions this guide is organized around.
 - `Claude_Docs/Design_Risk-Exception-Tracking.md` — the full Risk Exception approval workflow, including the segregation-of-duties check.

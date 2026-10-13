@@ -8,7 +8,7 @@ A read-only role: `ViewDashboard` only, no editing anywhere in the app.
 
 ## Signing in
 
-Use whichever identity provider your organization has configured.
+Open BlueTrack and sign in with the method your organization has set up: Windows signs you in silently, and OIDC or SAML takes you to your identity provider and back. If the page lists several methods, pick yours (for Windows, choose **Continue**). Your administrator may also give you a direct sign-in link. See `User_Guide.md`, "Signing in".
 
 ## The Dashboard
 
@@ -25,9 +25,9 @@ Click any card to open the full report or worklist behind it.
 
 ## Your profile
 
-**Where**: the user menu (`/profile`).
+**Where**: **My Profile** at the right of the top nav (`/profile`).
 
-Shows your display name, role, and permission list. Click **Reload My Rights** if you've just been added to a new group. Pick a display theme (Light, Dark, High Visibility) here too.
+Shows your display name, role, and permission list. Click **Reload My Rights** if you've just been added to a new group (otherwise it can take up to 15 minutes). Pick a display theme (Light, Dark, High Visibility) here too.
 
 ## See also
 
