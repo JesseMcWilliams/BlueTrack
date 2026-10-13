@@ -53,6 +53,27 @@ public class BackupFolderAccessTests
         }
     }
 
+    /// <summary>
+    /// Found in CI 2026-10-13: the runner (not an admin) can't read the permissions on
+    /// SQL Server's default backup folder, and Enforce threw (a 500 from Backup App).
+    /// </summary>
+    [Fact]
+    public void Enforce_AFolderWhosePermissionsCantBeRead_BacksUpWithANote()
+    {
+        var folder = Directory.CreateDirectory(Path.Combine(Path.GetTempPath(), "BlueTrackBackupAclTest_" + Guid.NewGuid().ToString("N")));
+        try
+        {
+            var outcome = BackupFolderAccess.Enforce(folder.FullName, _ => throw new UnauthorizedAccessException("Attempted to perform an unauthorized operation."));
+
+            Assert.True(outcome.MayBackUp);
+            Assert.Contains("can't read them", outcome.Note);
+        }
+        finally
+        {
+            folder.Delete(recursive: true);
+        }
+    }
+
     [Fact]
     public void Enforce_AFolderThisServerCantSee_BacksUpWithANote()
     {

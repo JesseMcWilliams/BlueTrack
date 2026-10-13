@@ -52,7 +52,9 @@ public static class BackupFolderAccess
             .Distinct()
             .ToList();
 
-    public static Outcome Enforce(string folder)
+    /// <param name="readFolderSecurity">How the folder's permissions are read; tests replace it to
+    /// act as an account that can't read them.</param>
+    public static Outcome Enforce(string folder, Func<DirectoryInfo, DirectorySecurity>? readFolderSecurity = null)
     {
         var directory = new DirectoryInfo(folder);
         if (!directory.Exists)
@@ -61,16 +63,33 @@ public static class BackupFolderAccess
             return new Outcome(true, "The backup folder's permissions weren't checked: this server can't see the folder (is SQL Server on another machine?).");
         }
 
+        // Found in CI 2026-10-13: an account that can't read the folder's permissions (SQL Server's
+        // own default backup folder, for a non-admin) can't check them either -- back up with a note.
+        DirectorySecurity folderSecurity;
+        List<FileInfo> files;
+        try
+        {
+            folderSecurity = (readFolderSecurity ?? (d => d.GetAccessControl()))(directory);
+            files = directory.EnumerateFiles().Where(f => f.Extension is ".bak" or ".json").ToList();
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return new Outcome(true, "The backup folder's permissions weren't checked: the App Pool's account can't read them.");
+        }
+
         var fixedItems = new List<string>();
         try
         {
-            if (Restrict(directory.GetAccessControl(), s => directory.SetAccessControl((DirectorySecurity)s), () => directory.GetAccessControl()) is { } folderGroups)
+            if (Restrict(folderSecurity, s => directory.SetAccessControl((DirectorySecurity)s), () => directory.GetAccessControl()) is { } folderGroups)
             {
                 fixedItems.Add($"the folder ({string.Join(", ", folderGroups)})");
             }
-            foreach (var file in directory.EnumerateFiles().Where(f => f.Extension is ".bak" or ".json"))
+            foreach (var file in files)
             {
-                if (Restrict(file.GetAccessControl(), s => file.SetAccessControl((FileSecurity)s), () => file.GetAccessControl()) is not null)
+                FileSecurity fileSecurity;
+                try { fileSecurity = file.GetAccessControl(); }
+                catch (UnauthorizedAccessException) { continue; } // can't read it, so can't judge it
+                if (Restrict(fileSecurity, s => file.SetAccessControl((FileSecurity)s), () => file.GetAccessControl()) is not null)
                 {
                     fixedItems.Add(file.Name);
                 }
@@ -78,9 +97,11 @@ public static class BackupFolderAccess
         }
         catch (Exception ex) when (ex is UnauthorizedAccessException or PrivilegeNotHeldException or InvalidOperationException)
         {
-            var readers = BroadReaders(directory.GetAccessControl());
+            IReadOnlyList<string> readers;
+            try { readers = BroadReaders(directory.GetAccessControl()); }
+            catch (UnauthorizedAccessException) { readers = []; }
             return new Outcome(false,
-                $"Backup refused: {string.Join(", ", readers.DefaultIfEmpty("a broad group"))} can read the backup folder, and BlueTrack couldn't remove that access ({ex.Message}). " +
+                $"Backup refused: {string.Join(", ", readers.DefaultIfEmpty("a broad group"))} can read the backup folder or a backup in it, and BlueTrack couldn't remove that access ({ex.Message}). " +
                 "Re-run the installer's backup step or Backup-BlueTrack.ps1 as an administrator, or remove that access from the folder yourself.");
         }
 
