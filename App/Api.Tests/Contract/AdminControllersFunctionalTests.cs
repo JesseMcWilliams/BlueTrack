@@ -489,12 +489,13 @@ public class AdminControllersFunctionalTests : IClassFixture<BlueTrackWebApplica
         // that gap is exactly what D-118 closed). Object names a
         // web.credential row directly; Safe/Folder are accepted but ignored.
         var client = AdminClient();
+        var objectName = $"NoSuchCredential_{Guid.NewGuid():N}";
 
         var response = await client.PostAsJsonAsync("/api/admin/secrets-store/test", new
         {
             safe = "TestSafe01",
             folder = "Root",
-            @object = $"NoSuchCredential_{Guid.NewGuid():N}"
+            @object = objectName
         });
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -502,6 +503,12 @@ public class AdminControllersFunctionalTests : IClassFixture<BlueTrackWebApplica
         Assert.NotNull(result);
         Assert.False(result!.Success);
         Assert.Equal("NotFound", result.ErrorCategory);
+
+        // D-210: the test is audit-logged with what was asked and the outcome.
+        var detail = await ConnectionTestAudit.LatestDetailAsync("secrets_store", objectName);
+        Assert.NotNull(detail);
+        Assert.Contains("Safe 'TestSafe01', Folder 'Root'", detail);
+        Assert.Contains("failed (NotFound)", detail);
     }
 
     [Fact]

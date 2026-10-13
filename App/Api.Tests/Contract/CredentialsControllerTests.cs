@@ -109,6 +109,9 @@ public class CredentialsControllerTests : IClassFixture<BlueTrackWebApplicationF
             var testResult = await testResponse.Content.ReadFromJsonAsync<CredentialTestResponse>();
             Assert.True(testResult!.Success);
             Assert.Equal("scope-test-user", testResult.Username);
+            // D-210: the test is audit-logged against the credential.
+            Assert.Equal("Credential test succeeded (username 'scope-test-user')",
+                await ConnectionTestAudit.LatestDetailAsync("credential", created.CredentialKey.ToString()));
 
             var afterTest = await client.GetFromJsonAsync<List<CredentialResponse>>("/api/admin/credentials");
             var afterRow = Assert.Single(afterTest!, c => c.CredentialKey == created.CredentialKey);
@@ -135,6 +138,7 @@ public class CredentialsControllerTests : IClassFixture<BlueTrackWebApplicationF
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var result = await response.Content.ReadFromJsonAsync<CredentialTestResponse>();
         Assert.False(result!.Success);
+        Assert.StartsWith("Credential test failed", await ConnectionTestAudit.LatestDetailAsync("credential", "999999"));
     }
 
     [Fact]

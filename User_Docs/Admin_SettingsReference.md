@@ -226,7 +226,7 @@ Recommendations:
 
 ### Secrets Store Configuration
 
-**Admin > Secrets Store Configuration** (permission `ManageSecretsStore`). Exactly one backend is active at a time; Windows DPAPI is active on a new install. Click **Make Active** to switch, or **Save** on the active backend. **Test Connection** fetches one secret from the active backend and reports success with the user name and address, never the secret itself.
+**Admin > Secrets Store Configuration** (permission `ManageSecretsStore`). Exactly one backend is active at a time; Windows DPAPI is active on a new install. Click **Make Active** to switch, or **Save** on the active backend. **Test Connection** fetches one secret from the active backend and reports success with the user name and address, never the secret itself. Each test is recorded in the Audit Log as a `ConnectionTest` event, as is each credential **Test** on the Credentials & LDAP page.
 
 | Backend | Settings | Credential column | Recommended when | Why |
 |---|---|---|---|---|
@@ -367,7 +367,7 @@ A file in the template's own format needs no profile.
 |---|---|---|---|
 | SQL Server | BlueTrack connected to its database. | Unhealthy: the connection failed. | Check SQL Server is running and the App Pool's account has its login. |
 | Secrets Store | The active backend has an implementation in this build. | Unhealthy: no implementation, for example CyberArkCP without the SDK. | Make another backend active. This check doesn't fetch a secret; use **Test Connection** for that. |
-| Identity Providers | At least one provider is enabled, and enabled OIDC and SAML rows have their required fields. | Unhealthy: nothing is enabled. Degraded: OIDC lacks Authority or Client ID, or SAML lacks SP Entity ID, IdP Entity ID or sign-on destination. | Fill in the fields or disable the provider. The check doesn't test a real sign-in or an OIDC secret: always test one by hand. |
+| Identity Providers | At least one provider is enabled, and enabled OIDC and SAML rows have their required fields. | Unhealthy: nothing is enabled. Degraded: OIDC lacks Authority or Client ID; SAML lacks SP Entity ID, IdP Entity ID or sign-on destination; or the SAML SP certificate isn't installed or the App Pool's account can't use its private key. | Fill in the fields or disable the provider; for the SP key, see `Admin_Installation.md`, "SAML signing certificate". The check doesn't test a real sign-in or an OIDC secret: always test one by hand. |
 | Backup Folder | No folder is set, the folder can't be seen from this server, or only specific accounts can read it. | Degraded: a broad group can read the folder, or the App Pool's account can't read its permissions. | The next backup removes broad access, or is refused if it can't. Fix the permissions so backups aren't refused. |
 
 **Backup App** writes an immediate full backup to the Backup Folder; it is never deleted automatically. Recommended: run it before any configuration change you might want to undo, and copy important backups off the server.

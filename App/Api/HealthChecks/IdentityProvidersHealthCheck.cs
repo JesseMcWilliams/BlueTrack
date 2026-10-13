@@ -41,6 +41,12 @@ public sealed class IdentityProvidersHealthCheck(IdentityProviderRepository repo
                 {
                     problems.Add($"{provider.DisplayName} (SAML) is missing required fields.");
                 }
+                // D-210: an SP key the App Pool account can't read breaks every sign-in.
+                else if (!string.IsNullOrWhiteSpace(settings.SpCertificateThumbprint)
+                    && Saml2ConfigurationFactory.SpKeyProblem(settings.SpCertificateThumbprint) is { } keyProblem)
+                {
+                    problems.Add($"{provider.DisplayName} (SAML): {keyProblem}");
+                }
             }
         }
 

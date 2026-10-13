@@ -69,17 +69,27 @@ public sealed class CredentialsController(
         return NoContent();
     }
 
-    /// <summary>Resolves the credential for real (decrypt/vault lookup) and reports success/failure -- never returns the password itself.</summary>
+    /// <summary>
+    /// Resolves the credential for real (decrypt/vault lookup) and reports success/failure -- never returns the password itself.
+    /// D-210: every test is audit-logged (ConnectionTest) with the outcome.
+    /// </summary>
     [HttpPost("{credentialKey:int}/test")]
     public async Task<IActionResult> Test(int credentialKey)
     {
+        var user = await currentUserResolver.ResolveAsync(User);
+        if (user is null) return Unauthorized();
+
         try
         {
             var (username, _) = await repository.ResolveForUseAsync(credentialKey);
+            await auditLogger.LogAsync("ConnectionTest", user.UserKey, "credential", credentialKey.ToString(),
+                detail: AuditLogger.ClipDetail($"Credential test succeeded (username '{username}')"));
             return Ok(new { success = true, username });
         }
         catch (Exception ex)
         {
+            await auditLogger.LogAsync("ConnectionTest", user.UserKey, "credential", credentialKey.ToString(),
+                detail: AuditLogger.ClipDetail($"Credential test failed: {ex.Message}"));
             return Ok(new { success = false, error = ex.Message });
         }
     }

@@ -78,6 +78,44 @@ public sealed class Saml2ConfigurationFactory(IdentityProviderRepository identit
         return config;
     }
 
+    /// <summary>
+    /// D-210: null when the SP certificate with this thumbprint is installed and
+    /// this process (the App Pool account) can sign with its private key;
+    /// otherwise why not. An unreadable key otherwise surfaces only when an
+    /// AuthnRequest is signed ("Keyset does not exist").
+    /// </summary>
+    public static string? SpKeyProblem(string thumbprint)
+    {
+        var certificate = FindCertificate(thumbprint);
+        return certificate is null
+            ? "The SP certificate isn't installed in the App Pool account's store or LocalMachine\\My."
+            : KeyProblem(certificate);
+    }
+
+    /// <summary>D-210: the signing check behind SpKeyProblem, by certificate.</summary>
+    public static string? KeyProblem(X509Certificate2 certificate)
+    {
+        if (!certificate.HasPrivateKey)
+        {
+            return "The SP certificate has no private key.";
+        }
+
+        try
+        {
+            using var key = certificate.GetRSAPrivateKey();
+            if (key is null)
+            {
+                return "The SP certificate's key isn't an RSA key.";
+            }
+            key.SignData([0], System.Security.Cryptography.HashAlgorithmName.SHA256, System.Security.Cryptography.RSASignaturePadding.Pkcs1);
+            return null;
+        }
+        catch (System.Security.Cryptography.CryptographicException ex)
+        {
+            return $"The App Pool account can't use the SP certificate's private key ({ex.Message}).";
+        }
+    }
+
     /// <summary>D-25/D-34: LocalMachine\My, matching where an IIS app pool identity can read a certificate's private key without extra ACL setup.</summary>
     /// <summary>
     /// D-205: the App Pool account's own store (CurrentUser\My) first, so an SP

@@ -83,6 +83,8 @@ No output means it has no SAN; request a new one that includes the hostname as a
 
 The step reports the thumbprint the site now uses and saves it to the site's saved answers, so later installer runs keep it. Remove the old certificate from the store once the site is confirmed working with the new one.
 
+**SAML signing certificate** (only if you'll use SAML sign-in): this is a separate certificate, not the HTTPS one. The App Pool's account must be able to read its private key. For a certificate in `LocalMachine\My`: open `certlm.msc`, right-click the certificate, choose **All Tasks > Manage Private Keys**, and give the App Pool's account **Read**. If it can't read the key, SAML sign-in returns "SAML sign-in is not available" and the Identity Providers health check reports it. Choosing the certificate: `Admin_Configuration.md`, "SAML".
+
 ### Backup folder access
 
 A backup is a full copy of the database, including stored credentials, so the backup folder is limited to specific accounts. When the installer takes the pre-deployment backup, and whenever `Deploy/Backup-BlueTrack.ps1` runs, the folder (and the backups already in it) has inheritance turned off and broad groups removed: Everyone, Users, Authenticated Users, Guests, Domain Users and Domain Guests. Other existing entries are kept.
