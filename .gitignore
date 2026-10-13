@@ -20,6 +20,8 @@ App/E2E/blob-report/
 *.cred
 *.clixml
 Secrets/
+# ...but not the API's secrets-provider source (new files there went uncommitted, 2026-10-12).
+!App/Api/Secrets/
 TestResults.xml
 .vscode/
 Thumbs.db
