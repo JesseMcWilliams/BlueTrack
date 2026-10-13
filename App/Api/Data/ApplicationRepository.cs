@@ -22,17 +22,27 @@ public sealed class ApplicationRepository(IDbConnectionFactory connectionFactory
         return rows.AsList();
     }
 
-    public async Task<IReadOnlyList<ApplicationDetail>> GetAllDetailedAsync()
+    /// <summary>Every application by name; one page of them when <paramref name="page"/> is given (D-213).</summary>
+    public async Task<IReadOnlyList<ApplicationDetail>> GetAllDetailedAsync(int? page = null, int? pageSize = null)
     {
         using var connection = connectionFactory.Create();
-        const string sql = """
+        var (normalizedPage, normalizedPageSize) = PagingParams.Normalize(page, pageSize);
+        var sql = $"""
             SELECT ApplicationKey, ApplicationGUID, ApplicationCode, ApplicationName, Description,
                    OwnerName, OwnerEmail, TechnicalName, TechnicalEmail, Notes
             FROM web.dim_application
-            ORDER BY ApplicationName
+            ORDER BY ApplicationName, ApplicationKey
+            {(page is null ? "" : "OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY")}
             """;
-        var rows = await connection.QueryAsync<ApplicationDetail>(sql);
+        var rows = await connection.QueryAsync<ApplicationDetail>(sql,
+            new { Offset = PagingParams.Offset(normalizedPage, normalizedPageSize), PageSize = normalizedPageSize });
         return rows.AsList();
+    }
+
+    public async Task<int> GetCountAsync()
+    {
+        using var connection = connectionFactory.Create();
+        return await connection.QuerySingleAsync<int>("SELECT COUNT(*) FROM web.dim_application");
     }
 
     public async Task<int> CreateAsync(SaveApplicationRequest request)
@@ -71,17 +81,27 @@ public sealed class ApplicationRepository(IDbConnectionFactory connectionFactory
         });
     }
 
-    public async Task<IReadOnlyList<SafeSummary>> GetAllSafesAsync()
+    /// <summary>Every safe by name; one page of them when <paramref name="page"/> is given (D-213).</summary>
+    public async Task<IReadOnlyList<SafeSummary>> GetAllSafesAsync(int? page = null, int? pageSize = null)
     {
         using var connection = connectionFactory.Create();
-        const string sql = """
+        var (normalizedPage, normalizedPageSize) = PagingParams.Normalize(page, pageSize);
+        var sql = $"""
             SELECT s.SafeKey, s.SafeName, s.ApplicationKey, a.ApplicationName
             FROM dbo.dim_safe s
             LEFT JOIN web.dim_application a ON a.ApplicationKey = s.ApplicationKey
-            ORDER BY s.SafeName
+            ORDER BY s.SafeName, s.SafeKey
+            {(page is null ? "" : "OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY")}
             """;
-        var rows = await connection.QueryAsync<SafeSummary>(sql);
+        var rows = await connection.QueryAsync<SafeSummary>(sql,
+            new { Offset = PagingParams.Offset(normalizedPage, normalizedPageSize), PageSize = normalizedPageSize });
         return rows.AsList();
+    }
+
+    public async Task<int> GetSafeCountAsync()
+    {
+        using var connection = connectionFactory.Create();
+        return await connection.QuerySingleAsync<int>("SELECT COUNT(*) FROM dbo.dim_safe");
     }
 
     /// <summary>D-180: every safe with its source, for the assignments CSV import's name matching.</summary>

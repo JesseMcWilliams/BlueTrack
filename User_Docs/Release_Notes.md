@@ -11,6 +11,10 @@ What changed in each BlueTrack release, newest first, for users and administrato
 
 ### Changed
 
+- **Navigation:** Reports and Admin are now at the end of the top navigation, with Admin last.
+- **About:** the menu with your name has a new **About** item that shows BlueTrack's version.
+- **Application ↔ Safe Mapping** shows the applications and the safes a page at a time, like Accounts, at your page size.
+
 - **Test buttons are audit-logged.** Each Test on the Secrets Store Configuration and Credentials & LDAP pages is recorded in the Audit Log as a `ConnectionTest` event, with what was looked up and whether it worked. The Secrets Store test no longer shows the password's length.
 
 ### Fixed

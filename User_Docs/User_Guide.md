@@ -10,7 +10,7 @@ This is a task-oriented, "how do I use this" guide for BlueTrack administrators 
 
 ## Getting Around
 
-The top navigation reads **Dashboard | Access Groups | Accounts | Admin | Exceptions | Reports | Targets**, with a menu showing your name on the right: **Profile & Preferences** and **Sign out**. **Access Groups** appears only with `ManageAccessGroups`, and **Targets** only with `ManageTargets`. Inside **Admin**, the sidebar lists only the sections you hold permission for. Every page shows a breadcrumb trail at the top so you always know where you are.
+The top navigation reads **Dashboard | Access Groups | Accounts | Exceptions | Targets | Reports | Admin**, with a menu showing your name on the right: **Profile & Preferences**, **About** (shows BlueTrack's version) and **Sign out**. **Access Groups** appears only with `ManageAccessGroups`, and **Targets** only with `ManageTargets`. Inside **Admin**, the sidebar lists only the sections you hold permission for. Every page shows a breadcrumb trail at the top so you always know where you are.
 
 Seeing tracked data (the Dashboard, Accounts, Exceptions and most reports) needs a role with `ViewDashboard`. Without it, those pages show an error (such as "Request failed: 403") instead of data. An administrator's changes to roles or group mappings apply straight away. A change to your own group membership (for example, being added to an AD group) can take up to 15 minutes; **Reload My Rights** on **Profile & Preferences** picks it up straight away.
 
@@ -219,7 +219,7 @@ Manages this app's own roles and which permissions each one bundles. The list sh
 
 ### Application ↔ Safe Mapping
 
-Two sections on one page. **Applications**: Code/Name/Owner; click an application's **Name** to edit it (no Delete here), and **+ New Application** opens a blank form (Code, Name, Description, Owner Name/Email, Technical Contact Name/Email, Notes). **Safes**: each Safe gets a per-row dropdown assigning it to an Application — changing the dropdown saves immediately, there's no separate Save button for this section.
+Two sections on one page. **Applications**: Code/Name/Owner; click an application's **Name** to edit it (no Delete here), and **+ New Application** opens a blank form (Code, Name, Description, Owner Name/Email, Technical Contact Name/Email, Notes). **Safes**: each Safe gets a per-row dropdown assigning it to an Application — changing the dropdown saves immediately, there's no separate Save button for this section. Both tables show a page at a time, at your page size (**Profile & Preferences**; choose 25, 50, 100 or 250 under either table), with their own Previous/Next.
 
 **Bulk Actions** (next to **+ New Application**) opens a page with two CSV imports. Each has a **Download template** link, a file picker and an **Import** button, and reports per-row errors without failing the rest.
 - **Applications**: one row per application, matched by ApplicationCode. A new code creates the application; an existing code updates it, and a blank cell leaves that field as it is. A name already used by another application is a row error. The result counts created, updated and unchanged rows.

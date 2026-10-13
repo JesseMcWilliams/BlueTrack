@@ -92,7 +92,9 @@ EXEC usp_RunFullLoad;
 
 ### Making a signed release
 
-For whoever publishes BlueTrack releases, not the server administrator. Register a signing key on GitHub (your account's SSH and GPG keys settings; for an SSH key choose the *Signing Key* type), and tell git to use it: `git config --global gpg.format ssh` and `git config --global user.signingkey <path to the .pub>` for SSH, or `git config --global user.signingkey <GPG key id>` for GPG. Then:
+For whoever publishes BlueTrack releases, not the server administrator. Register a signing key on GitHub (your account's SSH and GPG keys settings; for an SSH key choose the *Signing Key* type), and tell git to use it: `git config --global gpg.format ssh` and `git config --global user.signingkey <path to the .pub>` for SSH, or `git config --global user.signingkey <GPG key id>` for GPG.
+
+Before tagging, set `<Version>` in `App/Api/BlueTrack.Api.csproj` to the release's version (for tag `v1.2.0`, `1.2.0`) and merge that change to `main`. The **About** item in the user menu and the Deployment page show this value, so a release left at the old number reports the wrong version. Then:
 
 ```powershell
 git tag -s v1.0.0 -m "BlueTrack v1.0.0"

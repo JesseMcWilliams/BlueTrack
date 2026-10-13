@@ -66,3 +66,21 @@ test.describe('User menu', () => {
     expect((await (await page.request.get('/api/auth/session')).json()).authenticated).toBe(false)
   })
 })
+
+// D-213: About in the user menu, and the top navigation's order.
+test.describe('Top navigation (D-213)', () => {
+  test('About shows the version; Reports and then Admin are the last nav items', async ({ page }) => {
+    await signInAs(page, 'TestUser.Admin')
+    await page.goto('/')
+
+    const links = await page.locator('nav.top-nav > a').allTextContents()
+    expect(links.map(l => l.trim())).toEqual(['Dashboard', 'Access Groups', 'Accounts', 'Exceptions', 'Targets', 'Reports', 'Admin'])
+
+    await page.locator('button.user-menu__button').click()
+    await page.getByRole('button', { name: 'About' }).click()
+    const dialog = page.getByRole('dialog', { name: 'About BlueTrack' })
+    await expect(dialog).toContainText(/Version \d+\.\d+\.\d+/)
+    await dialog.getByRole('button', { name: 'Close' }).click()
+    await expect(dialog).toHaveCount(0)
+  })
+})

@@ -1,9 +1,9 @@
 # BlueTrack: Handoff, 2026-10-13
 
-> **Stage: Planning.** Point-in-time snapshot for the next Claude session, covering 2026-10-12 to 2026-10-13. Supersedes `Archive_Planning_Handoff-2026-10-11.md` (its open items are carried into the list below). Once every item below is closed, rename to `Archive_Planning_Handoff-2026-10-13.md` with `git mv`.
+> **Stage: Planning.** Point-in-time snapshot for the next Claude session, covering 2026-10-12 to 2026-10-13 (updated at the end of 2026-10-13). Supersedes `Archive_Planning_Handoff-2026-10-11.md` (its open items are carried into the list below). Once every item below is closed, rename to `Archive_Planning_Handoff-2026-10-13.md` with `git mv`.
 
 ## What was done
-SSO went live against the lab Authentik, two rounds of fixes shipped, the user docs and published guides were brought up to date, and **v1.0.0 was released** (signed tag, verified by GitHub). Everything is merged to `main`.
+SSO went live against the lab Authentik, the user docs and published guides were brought up to date, and **v1.0.0 was released** (signed tag, verified by GitHub). Later on 2026-10-13: two audit findings closed, **Data Sources finished** (phases 3-4), and three UI requests (About, nav order, mapping paging). Everything through #114 is merged to `main` and deployed on the dev site.
 
 | PR | Decisions | What |
 |---|---|---|
@@ -19,33 +19,38 @@ SSO went live against the lab Authentik, two rounds of fixes shipped, the user d
 | #105 | (none) | Every `User_Docs/` guide brought up to date (36 backlog rows); SP certificate help text. |
 | #106 | D-206 | User menu (the user's name; Profile & Preferences, formerly My Profile; Sign out). |
 | #107 | (none) | `Published_Docs/build_published_docs.py` builds the `.docx` guides from `User_Docs/`; new `Developer_HostSetup.md`. |
-| #108 | D-207, D-208, D-209 | Getting Started and Administrator Settings guides; `Release_Notes.md`; no mapping profile chosen now means the template's columns, with a profile choice on Bulk Actions; Analysts get `ViewRiskReport` (script 10); Idle Timeout signs people out (SPA timer, and idle OIDC/SAML sessions refused on the server; 5-720 min). |
+| #108 | D-207, D-208, D-209 | Getting Started and Administrator Settings guides; `Release_Notes.md`; mapping profile choice on Bulk Actions; Analysts get `ViewRiskReport` (script 10); Idle Timeout signs people out. |
+| #109 | (none) | This handoff's first version; open findings moved to the backlog. |
+| #110 | D-210 | Secrets Store and Credentials Test buttons audit-logged as `ConnectionTest` (script 11), password length no longer returned; an unreadable SAML SP key gives a 503 and a Degraded health check instead of a 500. |
+| #111 | D-211 | Data Sources phase 3: CyberArk source settings on the page (`web.cyberark_source_config`, script 12); the nightly job runs `EXEC usp_Import_Configured;`; the installer seeds the row only when none exists. |
+| #112 | D-212 | Phase 4a: Account inventory feeds (script 13): other systems' accounts at Discovered under a source system; auto-advance only for CyberArk accounts. |
+| #113 | D-212 | Phase 4b: exact user name + address matches link feed accounts to CyberArk accounts (script 14), move them to Onboarded, hide them (Linked feed accounts filter). |
+| #114 | D-212 | Phase 4c: Reports > Possible Account Matches (short name / DNS), Link and Dismiss; `Planning_Data-Sources.md` became `Design_Data-Sources.md`. |
+| #115 | D-213 | About in the user menu (version), nav order (Reports, then Admin last), Application ↔ Safe Mapping paged; note to set `<Version>` at each release; this update of the handoff. |
 
 ## State
-- `main` at `d5492cb`, tagged **v1.0.0** (signed with the user's SSH key; GitHub `verified=true`). Release: https://github.com/JesseMcWilliams/BlueTrack/releases/tag/v1.0.0, with the five `.docx` guides attached. Last CI on `main` passed.
-- **Open PR: #109** (this doc and the findings-to-backlog move, docs only, CI passed), branch `2026-10-13-handoff-and-backlog`, checked out locally. Waiting for the user to approve the merge; then `gh pr merge 109 --merge --delete-branch` and `git fetch origin main:main` (or switch to `main`).
-- **The host was rebooted** after this was written (requested 2026-10-13). After it's back: CI runner, `ssh-agent`, IIS and SQL Server all start automatically (checked). Confirm with `Get-Service 'actions.runner.*', ssh-agent, W3SVC, MSSQLSERVER`, check the dev site answers (`Invoke-RestMethod -UseDefaultCredentials https://bluetrack.company.com/BlueTrack/api/me`), and that the signing key is still in the agent (`C:\Windows\System32\OpenSSH\ssh-add.exe -l`; the Windows agent keeps keys across reboots). A CI run stuck "queued" after the reboot is the runner wedge below.
-- `Update-BlueTrack.ps1 -Release v1.0.0` was run on the dev host: it verified the signed tag and downloaded it to `C:\Data\BlueTrack_Download\BlueTrack-v1.0.0` (not redeployed; the dev site already runs this code). Other installs can now update without `-AllowUnsignedBranch`.
-- Suites at the last run: xUnit 614/614, Vitest 193/193, Playwright 71/71, PSScriptAnalyzer 0.
-- **Dev site** (`https://bluetrack.company.com`, SPA at the root, API at `/BlueTrack`): v1.0.0 code, scripts 08-10 applied, default sign-in method Windows, Idle Timeout 30. TLS certificate from this host's CA (SAN `bluetrack.company.com`, RSA 3072, thumbprint `28DC0E33...`); the old one is unbound but still in `LocalMachine\My`. `C:\Data\Backups` limited to Administrators, SYSTEM, the SQL Server service account and `BlueTrackSvc$`.
-- **Authentik** (lab details in `Live-Testing.local.md`): apps `bluetrack-saml` and `bluetrack-oidc`, groups `BlueTrack-Admin`/`-Analyst`/`-Approver`/`-Auditor`/`-Viewer`. Verified: SAML and OIDC round trips, the user's own MFA sign-in as `adm.jesse`, no Windows challenge on the SSO addresses, sign-out, and an idle SAML session refused on the server.
-- **Release notes:** `User_Docs/Release_Notes.md` has an empty **Unreleased** section; CLAUDE.md asks for a line there with every user-visible change.
-- **Open findings** were moved to `Planning_Backlog.md` ("From the audit findings") at the user's request; `Testing_Audit-Findings.md` is empty and still takes new findings.
+- `main` at the #114 merge (`31f94a0`); #115 open on `2026-10-13-nav-about-mapping-paging` until merged. Last CI on `main` passed. v1.0.0 is the latest release; everything since is under **Unreleased** in `User_Docs/Release_Notes.md`.
+- **Dev site** (`https://bluetrack.company.com`, API at `/BlueTrack`): #114's code, scripts 08-14 applied. The nightly job (`BlueTrack (BlueTrack) - Import and Load`, 02:00) was recreated by `Db.NightlyJob`: its Import step is `EXEC usp_Import_Configured;`. CyberArk sources saved: both on, `C:\Data\PrivCloud`, EVD `CyberArkSH`; the file names were since changed on the page to undated ones (e.g. `Export Entitlements.csv`). The user put the exports in the folder on 2026-10-13, and the page's Test passes for all of them.
+- **Not yet proven:** a real import through `usp_Import_Configured` (the first is tonight's 02:00 run; check its history in `msdb.dbo.sysjobhistory`), and an account inventory feed against real files (none is set up on the dev site).
+- Suites at the last run: xUnit 649/649, Vitest 208/208, Playwright 73/73, PSScriptAnalyzer 0.
+- **Authentik** (lab details in `Live-Testing.local.md`): apps `bluetrack-saml` and `bluetrack-oidc`, groups `BlueTrack-Admin`/`-Analyst`/`-Approver`/`-Auditor`/`-Viewer`; SAML and OIDC verified end to end.
+- A stray SQL Agent job named literally `BlueTrack ($(DatabaseName)) - Audit Log Purge` exists on this instance (the purge script run once without `sqlcmd` variables). Left alone; ask the user before deleting it.
 
 ## Open items
-1. **LDAPS from DCACYBSQL01** (backlog, "From the audit findings"): the user will run it later. DCACYBSQL01 is in a different domain with no trust, so the check binds with an account in the DC's domain, not a trusted connection. The step-by-step (certificate export and import, a bind test outside BlueTrack, the BlueTrack LDAP settings, and what a pass looks like) is in `Live-Testing.local.md`, "Pending check". The user will send back the bind test's output or the discovery warning.
-2. **Data Sources phases 3-4**: the next batch, per the user (`Design_Data-Sources.md`).
-3. **Backlog** (`Planning_Backlog.md`): SP key 500, Test buttons not audit-logged, `ApplicationPoolIdentity` with remote SQL, SP certificate enrolled by the App Pool account, Required Permission not editable in the UI, Azure/AWS/Conjur hardening, SAML Single Logout, break-glass, multi-domain AD.
-
-## Suggested order
-2 is the next batch. 1 whenever the user can reach DCACYBSQL01. Take items from 3 as they fit, starting with the two small Lows (SP key 500, Test-button audit).
+1. **Check tonight's nightly import** (02:00 2026-10-14): the first run through `usp_Import_Configured`. A failure names the file or database.
+2. **LDAPS from DCACYBSQL01** (backlog, "From the audit findings"): the user will run it later; steps in `Live-Testing.local.md`, "Pending check".
+3. **Next release:** set `<Version>` in `App/Api/BlueTrack.Api.csproj` to the release's version before tagging, turn Unreleased into the version's section, rebuild `Published_Docs/`. Upgrade step for existing installs: `-Step Db.NightlyJob` once (in the release notes).
+4. **Backlog** (`Planning_Backlog.md`): Power BI views double-count linked feed accounts, `ApplicationPoolIdentity` with remote SQL, SP certificate enrolled by the App Pool account, Required Permission not editable in the UI, Azure/AWS/Conjur hardening, SAML Single Logout, break-glass, multi-domain AD.
 
 ## Gotchas for the next session
-- **Release notes:** every user-visible change gets a line under Unreleased in `User_Docs/Release_Notes.md`; at a release that becomes the version's section, `python Published_Docs/build_published_docs.py` rebuilds the `.docx` guides, and the release attaches them.
-- **Stacked PRs:** merging one with `--delete-branch` closed the next. Retarget the next PR to `main` first; a retarget alone doesn't start CI (push, or close and reopen). See `Reference_Lessons-Learned.md`.
-- **CI runner wedge** happened twice (queued, runner idle, broker errors in `C:\actions-runner\_diag`); restarting the runner service fixed it (ask the user first).
+- **Release notes:** every user-visible change gets a line under Unreleased in `User_Docs/Release_Notes.md`; at a release that becomes the version's section, `<Version>` is set, and `python Published_Docs/build_published_docs.py` rebuilds the `.docx` guides.
+- **Installer partial runs from Bash:** pass the steps through `powershell -Command "& ./Install-BlueTrack.ps1 -Step A,B"`; with `-File` the comma list arrives as one string ("Unknown step(s)"). The installer builds from the working copy, so redeploy from a clean `main` (stash or commit other work first). `-Step Db.Backup,Db.Migrate,Build.Api,Build.Web,Iis.SiteRestart` applies new scripts without an `iisreset` (which also restarts PVWA on this host).
+- **POSTs to the live API** need `X-Requested-With: XMLHttpRequest` (D-197 CSRF check); without it they're 403.
+- **BlueTrackTest has no CyberArk accounts with an address** (its seed is `DISCOVERY` accounts), so feed-linking tests add a temporary `PRIVCLOUD` account and remove it; xUnit runs one test at a time, so that's safe.
+- **Stacked PRs:** merging one with `--delete-branch` closed the next; retarget first, or (as on 2026-10-13) open the next PR only after the previous one merges.
+- **CI runner wedge** (queued, runner idle, broker errors in `C:\actions-runner\_diag`): restart the runner service (ask the user first). A run queued behind `main`'s own run is normal: there's one runner.
 - **Check new files are tracked:** `git status --short --ignored` after adding files under a folder named like a secrets folder.
 - **Rights cache lives in SQL Server** and outlasts a test run: a test that depends on a new grant must clear it first (`UserRightsCache.InvalidateAllAsync`).
-- **Live sign-in tests:** headless Chromium from `App/E2E/node_modules/playwright`, with `--auth-server-allowlist=*.company.com` for Windows auth. Make requests from a page in the browser: Playwright's own request client uses Node's TLS, which doesn't trust the company CA. The lab Authentik account's password comes from the Credential Provider and is passed only through the process environment; keep Playwright error dumps out of the output (they print cookies).
-- **Installer partial runs:** `-Step Build.Api,Build.Web,Iis.SiteRestart` redeploys without an `iisreset` (which also restarts PVWA on this host); add `Db.Backup,Db.Migrate` for a new SQL script.
-- **Backslashes through Bash** still mangle heredocs and inline Python; write such text with the Write/Edit tools or a script file.
+- **Live sign-in tests:** headless Chromium from `App/E2E/node_modules/playwright`, with `--auth-server-allowlist=*.company.com` for Windows auth; make requests from a page in the browser (Node's TLS doesn't trust the company CA). Keep Playwright error dumps out of the output (they print cookies).
+- **Backslashes through Bash** mangle heredocs and inline Python (`\r\n` became real line breaks, `\04` an octal character, several times on 2026-10-13); write such text with the Write/Edit tools, then grep for control characters.
+- **One-off E2E flake:** "Admin deletes an account ... undeletes it in bulk" failed once in a full run (5.7 s) and passed on re-run, alone and in the full suite.
