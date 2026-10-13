@@ -16,6 +16,9 @@ public sealed class DataFeedSummary
     public string? ImportMappingProfileName { get; init; }
     public bool IsEnabled { get; init; }
     public int DisplayOrder { get; init; }
+    /// <summary>D-212: AccountInventory feeds only -- the system the accounts come from.</summary>
+    public int? SourceSystemKey { get; init; }
+    public string? SourceSystemName { get; init; }
     public DataFeedRunSummary? LastRun { get; set; }
 }
 
@@ -28,6 +31,22 @@ public sealed class SaveDataFeedRequest
     public int? ImportMappingProfileKey { get; init; }
     public bool IsEnabled { get; init; } = true;
     public int DisplayOrder { get; init; }
+    /// <summary>D-212: required for AccountInventory, empty for every other feed type.</summary>
+    public int? SourceSystemKey { get; init; }
+}
+
+/// <summary>D-212: a dim_source_system row an AccountInventory feed can use.</summary>
+public sealed class FeedSourceSystem
+{
+    public int SourceSystemKey { get; init; }
+    public required string SourceSystemCode { get; init; }
+    public required string SourceSystemName { get; init; }
+}
+
+public sealed class CreateSourceSystemRequest
+{
+    public required string SourceSystemCode { get; init; }
+    public required string SourceSystemName { get; init; }
 }
 
 /// <summary>One web.data_feed_run row, without the (possibly large) ResultJson.</summary>

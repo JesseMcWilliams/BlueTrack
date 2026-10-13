@@ -212,6 +212,8 @@ builder.Services.AddHostedService<AdAccountDiscoveryBackgroundService>();
 builder.Services.TryAddSingleton(TimeProvider.System);
 builder.Services.AddScoped<DataFeedRepository>();
 builder.Services.AddScoped<CyberArkSourceConfigRepository>();   // D-211
+builder.Services.AddScoped<AccountInventoryRepository>();   // D-212
+builder.Services.AddScoped<BlueTrack.Api.Imports.AccountInventoryImportService>();
 builder.Services.AddSingleton<BlueTrack.Api.DataFeeds.DataFeedRunner>();
 builder.Services.AddHostedService<BlueTrack.Api.DataFeeds.DataFeedBackgroundService>();
 // D-200: scheduled database backups.

@@ -305,7 +305,8 @@ Changing the host, port, STARTTLS, "Ignore all SSL errors", authentication metho
 | Setting | What it does | Default | Recommended | Why |
 |---|---|---|---|---|
 | Name | The feed's name, up to 200 characters. | Blank | Say what the file is and where it comes from | Makes run history easy to read. |
-| Import | What the file holds: Target inventory, Access group inventory, Access group → target map, Account → access group membership, Account → target map, Applications, or Safe → application assignments. | None | The import the file matches | The file must have the columns of that import's Bulk Actions template, or match a mapping profile. |
+| Import | What the file holds: Target inventory, Access group inventory, Access group → target map, Account → access group membership, Account → target map, Applications, Safe → application assignments, or Account inventory (accounts from another system). | None | The import the file matches | The file must have the columns of that import's Bulk Actions template, or match a mapping profile. Account inventory has no template: see below. |
+| Source system | Account inventory only: the system the accounts come from. **+ New source system** adds one (a name, and a short code of letters, digits and underscores). | None | One source system per system you import from | Each source system can have only one account inventory feed, because its accounts missing from the file are marked deleted. |
 | Mapping profile | For the five risk-scoring imports: which Import Mapping Profile translates the file's column names. | None | Choose the profile when the file isn't in template format | None means the file uses the template's own column names. |
 | Folder path | A full local or UNC path, up to 500 characters. | Blank | A dedicated feed folder inside the server's allowed folders | The App Pool's account reads it, so it needs read access. Network shares need to be in the allowed folders. |
 | File name pattern | The file to pick, up to 260 characters. A date format in braces, such as `{yyyy-MM-dd}`, becomes today's date; `*` and `?` are wildcards. | Blank | Include the date, for example `targets_{yyyy-MM-dd}.csv` | A dated name stops yesterday's file being imported again by mistake. |
@@ -313,6 +314,8 @@ Changing the host, port, STARTTLS, "Ignore all SSL errors", authentication metho
 | Enabled (runs nightly) | Whether the feed runs at the nightly run time. | On | On once **Test** passes | Test shows the file a run would pick and any missing required columns. |
 
 The matched file is left in place after import. Only one run happens at a time.
+
+**Account inventory feeds** add another system's accounts to Account Progress, at **Discovered**, under the feed's source system. The file needs `UserName` and `Address`; `AccountName` (default `username@address`), `PlatformName` (a CyberArk platform's name or ID, used to suggest the account type), `OwnerName` and `Notes` are optional. An account is identified by its user name and address (ignoring case) within the source system. On later runs, the account's name, address and platform are updated from the file; its owner, notes and stage are BlueTrack's and aren't overwritten. An account missing from the file is marked deleted, and comes back if it reappears. A file with no valid rows fails the run and changes nothing. These accounts never move past Discovered on their own.
 
 ### CyberArk sources
 

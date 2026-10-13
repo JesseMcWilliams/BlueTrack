@@ -17,6 +17,10 @@ const saving = ref(false)
 const loadError = ref(null)
 const saveError = ref(null)
 const feedTypes = ref([])
+// D-212: the source systems an account inventory feed can use; a new one can be added here.
+const sourceSystems = ref([])
+const newSource = ref(null)
+const newSourceError = ref(null)
 const testResult = ref(null)
 const testError = ref(null)
 const testing = ref(false)
@@ -30,7 +34,8 @@ const editing = ref({
   fileNamePattern: '',
   importMappingProfileKey: null,
   isEnabled: true,
-  displayOrder: 0
+  displayOrder: 0,
+  sourceSystemKey: null
 })
 
 const selectedType = computed(() => feedTypes.value.find(t => t.value === editing.value.feedType))
@@ -48,7 +53,9 @@ onMounted(async () => {
   try {
     const optionsResponse = await fetch('/api/admin/data-feeds/options')
     if (!optionsResponse.ok) throw new Error(`Request failed: ${optionsResponse.status}`)
-    feedTypes.value = (await optionsResponse.json()).feedTypes
+    const options = await optionsResponse.json()
+    feedTypes.value = options.feedTypes
+    sourceSystems.value = options.sourceSystems ?? []
 
     if (isEditMode.value) {
       const response = await fetch(`/api/admin/data-feeds/${props.dataFeedKey}`)
@@ -61,7 +68,8 @@ onMounted(async () => {
         fileNamePattern: feed.fileNamePattern,
         importMappingProfileKey: feed.importMappingProfileKey,
         isEnabled: feed.isEnabled,
-        displayOrder: feed.displayOrder
+        displayOrder: feed.displayOrder,
+        sourceSystemKey: feed.sourceSystemKey ?? null
       }
       await loadRuns()
     }
@@ -77,8 +85,26 @@ async function loadRuns() {
 }
 
 function onFeedTypeChanged() {
-  // A profile belongs to one feed type; don't carry it over.
+  // A profile belongs to one feed type; don't carry it over. Only an account inventory feed has a source system.
   editing.value.importMappingProfileKey = null
+  if (!selectedType.value?.usesSourceSystem) editing.value.sourceSystemKey = null
+}
+
+async function addSourceSystem() {
+  newSourceError.value = null
+  const response = await fetch('/api/admin/data-feeds/source-systems', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(newSource.value)
+  })
+  const body = await response.json().catch(() => null)
+  if (!response.ok) {
+    newSourceError.value = body?.detail ?? `Could not add the source system: ${response.status}`
+    return
+  }
+  sourceSystems.value = [...sourceSystems.value, body].sort((a, b) => a.sourceSystemName.localeCompare(b.sourceSystemName))
+  editing.value.sourceSystemKey = body.sourceSystemKey
+  newSource.value = null
 }
 
 async function test() {
@@ -159,7 +185,8 @@ function cancel() {
               <option v-for="t in feedTypes" :key="t.value" :value="t.value">{{ t.label }}</option>
             </select>
           </label>
-          <small>The file must have the same columns as that import's Bulk Actions template, or match the mapping profile. Test checks the required ones.</small>
+          <small v-if="selectedType?.usesSourceSystem">Columns: UserName and Address (required); AccountName, PlatformName, OwnerName and Notes (optional). Test checks the required ones.</small>
+          <small v-else>The file must have the same columns as that import's Bulk Actions template, or match the mapping profile. Test checks the required ones.</small>
         </p>
         <p v-if="selectedType?.usesMappingProfile">
           <label class="field-label">
@@ -172,6 +199,28 @@ function cancel() {
             </select>
           </label>
         </p>
+        <template v-if="selectedType?.usesSourceSystem">
+          <p>
+            <label class="field-label">
+              <span class="field-label-text">Source system:</span>
+              <select v-model="editing.sourceSystemKey" required>
+                <option :value="null" disabled>Choose the system the accounts come from</option>
+                <option v-for="s in sourceSystems" :key="s.sourceSystemKey" :value="s.sourceSystemKey">{{ s.sourceSystemName }}</option>
+              </select>
+            </label>
+            <button v-if="!newSource" type="button" @click="newSource = { sourceSystemCode: '', sourceSystemName: '' }">+ New source system</button>
+            <small>Accounts are identified by UserName and Address within this system. Accounts of this system missing from the file are marked deleted.</small>
+          </p>
+          <div v-if="newSource" class="new-source">
+            <p><label class="field-label"><span class="field-label-text">Source name:</span> <input v-model="newSource.sourceSystemName" maxlength="200" placeholder="Linux servers (CMDB)" /></label></p>
+            <p><label class="field-label"><span class="field-label-text">Source code:</span> <input v-model="newSource.sourceSystemCode" maxlength="50" placeholder="LINUX_CMDB" /></label></p>
+            <p v-if="newSourceError" role="alert">{{ newSourceError }}</p>
+            <p>
+              <button type="button" @click="addSourceSystem">Add source system</button>
+              <button type="button" @click="newSource = null; newSourceError = null">Cancel</button>
+            </p>
+          </div>
+        </template>
         <p>
           <label class="field-label"><span class="field-label-text">Folder path:</span> <input v-model="editing.folderPath" maxlength="500" placeholder="D:\Feeds\BlueTrack" required /></label>
           <small>A full local or UNC path that the application pool's account can read.</small>

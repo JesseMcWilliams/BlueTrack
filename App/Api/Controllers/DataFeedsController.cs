@@ -37,8 +37,11 @@ public sealed class DataFeedsController(
         ["AccountAccessGroupMembership"] = "Account → access group membership",
         ["AccountTargetMap"] = "Account → target map",
         ["Applications"] = "Applications",
-        ["SafeAssignments"] = "Safe → application assignments"
+        ["SafeAssignments"] = "Safe → application assignments",
+        ["AccountInventory"] = "Account inventory (accounts from another system)"   // D-212
     };
+
+    private const string AccountInventoryFeedType = "AccountInventory";
 
     // Feed types whose import takes a D-105 mapping profile (the risk-scoring ones).
     private static readonly HashSet<string> MappedFeedTypes =
@@ -54,11 +57,13 @@ public sealed class DataFeedsController(
         var profiles = await mappingProfileRepository.GetAllAsync();
         return Ok(new
         {
+            SourceSystems = await repository.GetFeedSourceSystemsAsync(),   // D-212
             FeedTypes = FeedTypes.Select(t => new
             {
                 Value = t.Key,
                 Label = t.Value,
                 UsesMappingProfile = MappedFeedTypes.Contains(t.Key),
+                UsesSourceSystem = t.Key == AccountInventoryFeedType,
                 MappingProfiles = profiles.Where(p => p.FeedType == t.Key)
                     .Select(p => new { p.ImportMappingProfileKey, p.ProfileName, p.IsActive })
             })
@@ -120,11 +125,37 @@ public sealed class DataFeedsController(
         Track("ImportMappingProfileKey", before.ImportMappingProfileKey?.ToString(), request.ImportMappingProfileKey?.ToString());
         Track("IsEnabled", before.IsEnabled.ToString(), request.IsEnabled.ToString());
         Track("DisplayOrder", before.DisplayOrder.ToString(), request.DisplayOrder.ToString());
+        Track("SourceSystemKey", before.SourceSystemKey?.ToString(), request.SourceSystemKey?.ToString());
         if (changes.Count > 0)
         {
             await auditLogger.LogAsync("FieldEdit", user.UserKey, "data_feed", dataFeedKey.ToString(), fieldChanges: changes);
         }
         return NoContent();
+    }
+
+    /// <summary>
+    /// D-212: adds a source system for AccountInventory feeds (dim_source_system).
+    /// The code is a short identifier (letters, digits, underscores); the
+    /// name is what Account Progress shows as the account's source.
+    /// </summary>
+    [HttpPost("source-systems")]
+    public async Task<IActionResult> CreateSourceSystem([FromBody] CreateSourceSystemRequest request)
+    {
+        var user = await currentUserResolver.ResolveAsync(User);
+        if (user is null) return Unauthorized();
+
+        var code = (request.SourceSystemCode ?? "").Trim().ToUpperInvariant();
+        var name = (request.SourceSystemName ?? "").Trim();
+        var errors = new List<string>();
+        if (!System.Text.RegularExpressions.Regex.IsMatch(code, "^[A-Z0-9_]{1,50}$")) errors.Add("Code must be 1 to 50 letters, digits or underscores.");
+        if (name.Length is 0 or > 200) errors.Add("Name is required, 200 characters at most.");
+        if (errors.Count > 0) return Problem(title: "Invalid source system", detail: string.Join(" ", errors), statusCode: StatusCodes.Status400BadRequest);
+        if (await repository.SourceSystemExistsAsync(code, name))
+            return Problem(title: "Source system already exists", detail: $"A source system with code '{code}' or name '{name}' already exists.", statusCode: StatusCodes.Status409Conflict);
+
+        var key = await repository.CreateSourceSystemAsync(code, name);
+        await auditLogger.LogAsync("FieldEdit", user.UserKey, "dim_source_system", key.ToString(), detail: $"Source system '{name}' ({code}) created");
+        return Created($"/api/admin/data-feeds/options", new FeedSourceSystem { SourceSystemKey = key, SourceSystemCode = code, SourceSystemName = name });
     }
 
     [HttpDelete("{dataFeedKey:int}")]
@@ -256,6 +287,20 @@ public sealed class DataFeedsController(
         else if (allowedFileRoots.Check(request.FolderPath) is { } folderError) errors.Add(folderError);   // D-197
         if (FeedFileResolver.ValidatePattern(request.FileNamePattern) is { } patternError) errors.Add(patternError);
         else if (request.FileNamePattern.Length > 260) errors.Add("File name pattern must be 260 characters or fewer.");
+
+        // D-212: an AccountInventory feed names its source system, one feed per
+        // source (a second feed would mark the first one's accounts deleted).
+        if (request.FeedType == AccountInventoryFeedType)
+        {
+            if (request.SourceSystemKey is not { } sourceKey) errors.Add("Source system is required for an account inventory feed.");
+            else if ((await repository.GetFeedSourceSystemsAsync()).All(s => s.SourceSystemKey != sourceKey)) errors.Add("Source system isn't one a feed can use.");
+            else if (await repository.AccountInventoryFeedForSourceAsync(sourceKey, dataFeedKey) is { } other)
+                errors.Add($"Data feed '{other}' already imports accounts for this source system.");
+        }
+        else if (request.SourceSystemKey is not null)
+        {
+            errors.Add("Only an account inventory feed has a source system.");
+        }
 
         if (request.ImportMappingProfileKey is { } profileKey)
         {
