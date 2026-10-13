@@ -3,8 +3,6 @@
 > **Stage: Planning.** Work that isn't built or proven yet. Carried forward from the 2026-09-16 survey (`Archive_Planning_Outstanding-Work-Survey-2026-09-16.md`); items that survey listed but the audit tracker records as resolved were left in the archive. Items tagged *(verify)* may already be done; confirm before starting. When an item ships, delete it here and record it in the relevant `Design_` doc.
 
 ## Requested, not started
-- **Data Sources admin page** (requested 2026-10-08; design agreed 2026-10-09; phases 1-2 built 2026-10-09, phase 3 2026-10-13 (D-211), phase 4a 2026-10-13 (D-212), 4b-4c not started): scheduled CSV feeds over the existing import pipelines (groups, servers, applications, account links), an account inventory feed that adds other systems' accounts as Discovered with their source and links them to CyberArk accounts on an exact username + address match, a possible-match remediation report, and the CyberArk sources' settings editable on the page. Design, decisions and phasing: `Planning_Data-Sources.md`.
-
 - **SAML SP certificate requested by the App Pool account** (requested 2026-10-12): an installer step that has the App Pool's account request the SP signing certificate from the CA into its own store (`CurrentUser\My`), so only that account holds the key. BlueTrack already looks there first (D-205); the step itself isn't built. Needs the pool's Load User Profile, and a template the account may enroll in.
 
 - **Power BI views don't know about linked feed accounts** (found 2026-10-13, D-212): `vw_powerbi_*` and `vw_export_account_progress` still list a linked feed account alongside its CyberArk account, so a Power BI report counts it twice. Exclude `dbo.vw_linked_feed_account` there too, if those views are in use.

@@ -20,6 +20,9 @@ const rights = useRightsStore()
       <router-link v-if="rights.hasPermission('ConfirmReconciliation')" :to="{ name: 'reports-reconciliation-review' }">
         Reconciliation Review
       </router-link>
+      <router-link v-if="rights.hasPermission('ConfirmReconciliation')" :to="{ name: 'reports-possible-matches' }">
+        Possible Account Matches
+      </router-link>
       <router-link :to="{ name: 'reports-unresolved-entitlement-members' }">
         Unresolved Entitlement Members
       </router-link>

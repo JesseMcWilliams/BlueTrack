@@ -21,11 +21,16 @@ namespace BlueTrack.Api.Imports;
 ///     has (same user name and address) is linked to the CyberArk account and
 ///     moved to Onboarded to Vault (dbo.usp_Link_FeedAccounts). Feeds run after
 ///     the nightly CyberArk load, so an account onboarded today links tonight.
+///   - Phase 4c: then the still-unlinked accounts are compared more loosely
+///     (PossibleMatchFinder: same user name, address by short name or DNS),
+///     and new pairs are proposed on the Possible Account Matches report.
 /// PlatformName is optional; one that matches no CyberArk platform (by name
 /// or ID) still imports the account, without a platform, and is reported.
 /// </summary>
 public sealed class AccountInventoryImportService(
     AccountInventoryRepository repository,
+    PossibleMatchRepository possibleMatchRepository,
+    DataFeeds.IHostResolver hostResolver,
     AuditLogger auditLogger,
     ILogger<AccountInventoryImportService> logger)
 {
@@ -122,6 +127,11 @@ public sealed class AccountInventoryImportService(
         await repository.ApplyAsync(sourceSystemKey, creates, updates, deletes);
         var (linked, _) = await repository.LinkAsync(sourceSystemKey, userKey);
 
+        var unlinked = await possibleMatchRepository.GetUnlinkedFeedAccountsAsync(sourceSystemKey);
+        var cyberArk = await possibleMatchRepository.GetCyberArkAccountsAsync(unlinked.Select(a => a.UserName));
+        var proposed = await possibleMatchRepository.AddAsync(
+            await new DataFeeds.PossibleMatchFinder(hostResolver).FindAsync(unlinked, cyberArk));
+
         var restored = updates.Count(u => u.Restore);
         var result = new AccountInventoryImportResult
         {
@@ -132,6 +142,7 @@ public sealed class AccountInventoryImportService(
             DeletedCount = deletes.Count,
             UnchangedCount = unchanged,
             LinkedCount = linked,
+            PossibleMatchCount = proposed,
             Errors = errors.OrderBy(e => e.RowNumber).ToList()
         };
         if (creates.Count + updates.Count + deletes.Count > 0)

@@ -9,7 +9,7 @@ using BlueTrack.Api.Models;
 namespace BlueTrack.Api.Controllers;
 
 /// <summary>
-/// D-211 (Data Sources phase 3, Planning_Data-Sources.md): the CyberArk
+/// D-211 (Data Sources phase 3, Design_Data-Sources.md): the CyberArk
 /// sources on Admin > Data Sources. The settings are read each night by
 /// dbo.usp_Import_Configured, the Agent job's Import step; there is no Run
 /// now for these sources (decided 2026-10-09).

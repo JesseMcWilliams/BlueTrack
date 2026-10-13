@@ -34,7 +34,7 @@ SSO went live against the lab Authentik, two rounds of fixes shipped, the user d
 
 ## Open items
 1. **LDAPS from DCACYBSQL01** (backlog, "From the audit findings"): the user will run it later. DCACYBSQL01 is in a different domain with no trust, so the check binds with an account in the DC's domain, not a trusted connection. The step-by-step (certificate export and import, a bind test outside BlueTrack, the BlueTrack LDAP settings, and what a pass looks like) is in `Live-Testing.local.md`, "Pending check". The user will send back the bind test's output or the discovery warning.
-2. **Data Sources phases 3-4**: the next batch, per the user (`Planning_Data-Sources.md`).
+2. **Data Sources phases 3-4**: the next batch, per the user (`Design_Data-Sources.md`).
 3. **Backlog** (`Planning_Backlog.md`): SP key 500, Test buttons not audit-logged, `ApplicationPoolIdentity` with remote SQL, SP certificate enrolled by the App Pool account, Required Permission not editable in the UI, Azure/AWS/Conjur hardening, SAML Single Logout, break-glass, multi-domain AD.
 
 ## Suggested order

@@ -127,6 +127,13 @@ const routes = [
         meta: { breadcrumb: 'Reconciliation Review', breadcrumbParent: 'reports' },
         component: () => import('../views/reports/ReconciliationReviewQueue.vue')
       },
+      // D-212 (Data Sources phase 4c): feed accounts that may be CyberArk accounts.
+      {
+        path: 'possible-matches',
+        name: 'reports-possible-matches',
+        meta: { breadcrumb: 'Possible Account Matches', breadcrumbParent: 'reports' },
+        component: () => import('../views/reports/PossibleAccountMatches.vue')
+      },
       // D-186: safes and accounts flagged for deletion by the name patterns.
       {
         path: 'decom-safes',

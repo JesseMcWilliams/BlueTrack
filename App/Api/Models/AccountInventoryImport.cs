@@ -14,8 +14,10 @@ public sealed class AccountInventoryImportResult
     public int UnchangedCount { get; init; }
     /// <summary>Phase 4b: feed accounts newly linked to a CyberArk account by this run.</summary>
     public int LinkedCount { get; init; }
+    /// <summary>Phase 4c: new possible matches proposed for the Possible Account Matches report.</summary>
+    public int PossibleMatchCount { get; init; }
     public required IReadOnlyList<ImportRowError> Errors { get; init; }
 
     public string Summary =>
-        $"{CreatedCount} created, {UpdatedCount} updated, {RestoredCount} restored, {DeletedCount} marked deleted, {UnchangedCount} unchanged, {LinkedCount} linked to CyberArk, {Errors.Count} errors";
+        $"{CreatedCount} created, {UpdatedCount} updated, {RestoredCount} restored, {DeletedCount} marked deleted, {UnchangedCount} unchanged, {LinkedCount} linked to CyberArk, {PossibleMatchCount} possible matches, {Errors.Count} errors";
 }

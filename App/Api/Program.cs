@@ -67,7 +67,7 @@ builder.Services.AddScoped<RiskScoreBandRepository>();
 builder.Services.AddScoped<TargetMatchingService>();
 builder.Services.AddScoped<ImportMappingService>();
 // Data Sources phase 1: the CSV import logic, shared by the Bulk Actions
-// uploads and the scheduled data feeds (Planning_Data-Sources.md).
+// uploads and the scheduled data feeds (Design_Data-Sources.md).
 builder.Services.AddScoped<BlueTrack.Api.Imports.RiskScoringImportService>();
 builder.Services.AddScoped<BlueTrack.Api.Imports.ApplicationMappingImportService>();
 builder.Services.AddScoped<BlueTrack.Api.AccountProgress.AccountProgressSaveService>();
@@ -213,6 +213,8 @@ builder.Services.TryAddSingleton(TimeProvider.System);
 builder.Services.AddScoped<DataFeedRepository>();
 builder.Services.AddScoped<CyberArkSourceConfigRepository>();   // D-211
 builder.Services.AddScoped<AccountInventoryRepository>();   // D-212
+builder.Services.AddScoped<PossibleMatchRepository>();
+builder.Services.AddSingleton<BlueTrack.Api.DataFeeds.IHostResolver, BlueTrack.Api.DataFeeds.DnsHostResolver>();
 builder.Services.AddScoped<BlueTrack.Api.Imports.AccountInventoryImportService>();
 builder.Services.AddSingleton<BlueTrack.Api.DataFeeds.DataFeedRunner>();
 builder.Services.AddHostedService<BlueTrack.Api.DataFeeds.DataFeedBackgroundService>();

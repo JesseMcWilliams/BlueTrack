@@ -34,6 +34,17 @@ If your organization has segregation of duties turned on (`Admin > Global Applic
 
 Unconfirmed cross-source account matches — currently read-only.
 
+## Possible Account Matches
+
+**Where**: **Reports > Possible Account Matches**.
+
+Accounts from other systems (account inventory data feeds) that may be the same as a CyberArk account, but didn't match it exactly: the user name is the same, and the addresses agree by host name (`web01` and `web01.corp.example.com`) or by DNS. Each row shows both accounts and why they were paired.
+
+- **Link** treats them as one account, as an exact match would: the other system's account is hidden from Accounts and the reports, and moves to **Onboarded to Vault**. You're asked to confirm first.
+- **Dismiss** means they're different accounts; the pair isn't suggested again.
+
+Both are recorded in the Audit Log.
+
 ## See also
 
 - `User_Guide.md` — the full reference guide for every page.
