@@ -83,7 +83,7 @@ Preview without changing anything:
 | `-SiteName` | IIS site name | `BlueTrack` |
 | `-Hostname` | Site host header / binding hostname | prompted |
 | `-HttpPort` / `-HttpsPort` | IIS bindings | `80` / `443` |
-| `-CertificateThumbprint` | Existing certificate to bind (`Cert:\LocalMachine\My`) | prompted; generates a self-signed cert if left blank |
+| `-CertificateThumbprint` | Existing certificate to bind (`Cert:\LocalMachine\My`). On an existing site, `-Step Iis.Site -CertificateThumbprint <new>` switches the HTTPS binding to it (to replace a certificate). It needs a Subject Alternative Name for the hostname; Chrome and Edge reject a certificate without one. | prompted; generates a self-signed cert if left blank |
 | `-GenerateSelfSignedCert` | Generate a self-signed certificate instead of using an existing one — **Dev/Test only** | off |
 | `-Force` | Recreate IIS Application Pool/Site/Application even if they already exist | off |
 | `-SkipPrerequisiteInstall` | Report missing prerequisites but don't offer to install them | off |

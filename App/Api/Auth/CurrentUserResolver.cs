@@ -34,18 +34,30 @@ public sealed class CurrentUserResolver(
             return null;
         }
 
-        // For WindowsIdentity, Identity.Name is a friendly DOMAIN\user name.
-        // For OIDC/SAML, Identity.Name deliberately holds the raw
-        // sub/NameID (ExternalIdentifierReader's contract) rather than a
-        // friendly name, so a friendlier claim is preferred here if the
-        // provider supplied one -- falling back to the identifier itself.
-        var displayName = principal.Identity is System.Security.Principal.WindowsIdentity
-            ? principal.Identity.Name
-            : principal.FindFirst("name")?.Value
-                ?? principal.FindFirst(ClaimTypes.GivenName)?.Value
-                ?? externalIdentifier;
+        var displayName = DisplayNameFor(principal, externalIdentifier);
 
         return await appUserRepository.UpsertOnLoginAsync(
             provider.ProviderKey, externalIdentifier, displayName, email: principal.FindFirst(ClaimTypes.Email)?.Value);
+    }
+
+    /// <summary>
+    /// For WindowsIdentity, Identity.Name is a friendly DOMAIN\user name.
+    /// For OIDC/SAML, Identity.Name deliberately holds the raw sub/NameID
+    /// (ExternalIdentifierReader's contract) rather than a friendly name, so a
+    /// friendlier claim is preferred if the provider supplied one -- falling
+    /// back to the identifier itself. Blank claims are skipped: Authentik sends
+    /// "name": "" for a user with no full name, which left the name empty
+    /// (found live 2026-10-13).
+    /// </summary>
+    public static string DisplayNameFor(ClaimsPrincipal principal, string externalIdentifier)
+    {
+        if (principal.Identity is System.Security.Principal.WindowsIdentity && !string.IsNullOrWhiteSpace(principal.Identity.Name))
+        {
+            return principal.Identity.Name;
+        }
+        return new[] { "name", ClaimTypes.GivenName, "preferred_username" }
+            .Select(type => principal.FindFirst(type)?.Value)
+            .FirstOrDefault(value => !string.IsNullOrWhiteSpace(value))
+            ?? externalIdentifier;
     }
 }

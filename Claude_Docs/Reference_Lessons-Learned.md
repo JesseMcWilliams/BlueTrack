@@ -226,3 +226,11 @@ In Windows PowerShell 5.1, `Invoke-RestMethod -Uri $api | Where-Object providerT
 After `POST /api/auth/logout` cleared every BlueTrack cookie, the next `/api/auth/session` on the same keep-alive connection was still authenticated as the Windows user, with no `Authorization` header: IIS ties Windows authentication (NTLM, and Kerberos by default) to the TCP connection. The app can't sign a Windows user out of that connection, only stop treating it as a session: `GetSession` now counts a `WindowsIdentity` only while Windows sign-in is wanted (D-205).
 
 **Lesson:** test sign-out in a real browser against IIS, not with a fresh client per request; Kestrel tests and new connections hide this.
+
+## 2026-10-13 -- First real SSO round trip: three bugs the placeholder tests couldn't see
+
+- **ITfoxtec's ACS needs the form.** `Request.ToGenericHttpRequestAsync(readBodyAsString: true)` leaves `Form` empty, and `Saml2PostBinding.Read` then throws a `NullReferenceException` looking for `SAMLResponse`: a 500 after every SAML sign-in. Use `ToGenericHttpRequestAsync(validate: true)` for the POST binding. A malformed or failing response now returns a 400.
+- **Don't load rights on a direct SSO address.** `App.vue` loads rights on every page; with Windows as the default, `/login/saml` called `/api/me`, whose 401 made a browser outside the intranet zone show a Windows prompt over the SSO redirect. The rights store skips `/api/me` on `/login/oidc` and `/login/saml`.
+- **Skip blank claims.** Authentik sends `"name": ""` for a user with no full name; BlueTrack stored an empty display name. `CurrentUserResolver.DisplayNameFor` takes the first non-blank of `name`, given name, `preferred_username`, then the identifier.
+
+**Lesson:** an SSO integration isn't proven until a real browser completes a sign-in against the real IdP; metadata and request checks passed while the ACS always failed. Automating the round trip with a lab account (password from the Credential Provider, never printed) found two of these in minutes.

@@ -29,7 +29,7 @@ namespace BlueTrack.Api.Controllers;
 /// </summary>
 [ApiController]
 [Route("api/auth/saml")]
-public sealed class Saml2Controller(Saml2ConfigurationFactory configFactory) : ControllerBase
+public sealed class Saml2Controller(Saml2ConfigurationFactory configFactory, ILogger<Saml2Controller> logger) : ControllerBase
 {
     private const string ReturnUrlKey = "ReturnUrl";
 
@@ -71,11 +71,23 @@ public sealed class Saml2Controller(Saml2ConfigurationFactory configFactory) : C
             return NotConfigured();
         }
 
-        var genericRequest = await Request.ToGenericHttpRequestAsync(readBodyAsString: true, validate: true);
+        // The POST binding reads SAMLResponse from the form; readBodyAsString: true left Form
+        // empty and Saml2PostBinding.Read threw (a 500 after every sign-in, found live 2026-10-13).
+        var genericRequest = await Request.ToGenericHttpRequestAsync(validate: true);
         var binding = new Saml2PostBinding();
         var saml2AuthnResponse = new Saml2AuthnResponse(config);
 
-        binding.ReadSamlResponse(genericRequest, saml2AuthnResponse);
+        // A response the IdP (or anyone) POSTs here is untrusted input: one that can't be
+        // read or doesn't validate is a 400 with no internals, logged in full here.
+        try
+        {
+            binding.ReadSamlResponse(genericRequest, saml2AuthnResponse);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "SAML response could not be read.");
+            return Rejected("The identity provider's response could not be read.");
+        }
         if (saml2AuthnResponse.Status != Saml2StatusCodes.Success)
         {
             // D-26: a rejected assertion is worth surfacing distinctly, not
@@ -88,7 +100,15 @@ public sealed class Saml2Controller(Saml2ConfigurationFactory configFactory) : C
         }
 
         // Validates the signature/conditions (D-26) and populates ClaimsIdentity -- only reached on Status.Success above.
-        binding.Unbind(genericRequest, saml2AuthnResponse);
+        try
+        {
+            binding.Unbind(genericRequest, saml2AuthnResponse);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "SAML response failed validation.");
+            return Rejected("The identity provider's response failed validation (signature, audience, time or replay).");
+        }
 
         await saml2AuthnResponse.CreateSession(HttpContext, claimsTransform: principal =>
         {
@@ -147,6 +167,9 @@ public sealed class Saml2Controller(Saml2ConfigurationFactory configFactory) : C
         AuthController.ClearSignInChoice(HttpContext); // D-205
         return Redirect("/");
     }
+
+    private ObjectResult Rejected(string detail) =>
+        Problem(title: "SAML sign-in was rejected", detail: detail, statusCode: StatusCodes.Status400BadRequest);
 
     private ObjectResult NotConfigured() => Problem(
         title: "SAML is not configured",
