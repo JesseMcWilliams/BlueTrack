@@ -4,4 +4,3 @@
 
 | Date | Change | User doc / section it affects |
 |---|---|---|
-| 2026-10-13 | `User_Docs/` brought up to date with every change through 2026-10-13. At the release, refresh `Published_Docs/Installation_Guide.docx` from `User_Docs/Admin_Installation.md` (it still describes the pre-baseline scripts) and `Development_Host_Setup_Guide.docx` (CyberArk SDK now optional for building). | `Published_Docs/` at the release |

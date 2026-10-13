@@ -2,7 +2,7 @@
 
 Short, linear, role-based walkthroughs — "what do I do first, then next" — as opposed to the field-by-field reference material in `Claude_Docs/`, which these guides link out to rather than duplicate.
 
-These guides live in `User_Docs/` (they were in `Guides/` before; update any bookmark or link to the old path). The Word deliverables, the Installation Guide and the Development Host Setup Guide, are in `Published_Docs/` and are refreshed from these guides when a release is made, so between releases the guides here are the more current.
+These guides live in `User_Docs/` (they were in `Guides/` before; update any bookmark or link to the old path). The Word deliverables, the Installation Guide and the Development Host Setup Guide, are in `Published_Docs/`. They're built from `Admin_Installation.md` and `Developer_HostSetup.md` when a release is made (`python Published_Docs/build_published_docs.py`, needs python-docx), so between releases the guides here are the more current.
 
 ## Admin guides (read in order, for a new environment)
 
@@ -12,7 +12,7 @@ These guides live in `User_Docs/` (they were in `Guides/` before; update any boo
 
 ## User guides (by role)
 
-Each covers one BlueTrack role in isolation. The roles are siblings built on a shared `ViewDashboard` base, not a strict ladder — check the permission list in each guide against your own role (**your profile menu > Reload My Rights** shows exactly what you hold).
+Each covers one BlueTrack role in isolation. The roles are siblings built on a shared `ViewDashboard` base, not a strict ladder — check the permission list in each guide against your own role (**Profile & Preferences > Reload My Rights**, in the menu with your name, shows exactly what you hold).
 
 - [User_Viewer.md](User_Viewer.md) — `ViewDashboard` only.
 - [User_Analyst.md](User_Analyst.md) — `ViewDashboard` + `EditAccountProgress` + `ManageAccessGroups` + `ManageTargets`.
@@ -24,4 +24,5 @@ Each covers one BlueTrack role in isolation. The roles are siblings built on a s
 - `User_Guide.md` — the full reference guide covering every page in the application, for every role at once.
 - `Admin_OperationsGuide.md` — the DBA/operator-facing tasks with no UI of their own: backups and restore, updating to a new version, SQL Server grants, the nightly jobs.
 - `Admin_DeploymentRunbook.md` — the step-by-step procedure for standing up or rebuilding an environment.
+- [Developer_HostSetup.md](Developer_HostSetup.md) — setting up a machine to develop BlueTrack and run its tests.
 - `Claude_Docs/Design_Application-Structure.md` — the authoritative page inventory and navigation conventions.
