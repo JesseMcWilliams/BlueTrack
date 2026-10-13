@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using System.Text.Json;
 using CyberArk.AAM.NetStandardPasswordSDK;
 using CyberArk.AAM.NetStandardPasswordSDK.Exceptions;
@@ -11,7 +10,7 @@ namespace BlueTrack.Api.Secrets;
 /// Calls the local NetStandardPasswordSDK directly (CP is installed on the
 /// app server itself, D-09) -- no network/REST call.
 /// </summary>
-public sealed class CyberArkCpSecretsProvider(SecretsStoreRepository secretsStoreRepository) : IVaultSecretProvider
+public sealed class CyberArkCpSecretsProvider(SecretsStoreRepository secretsStoreRepository, SecretFallbackCache fallbackCache) : IVaultSecretProvider
 {
     public string BackendType => "CyberArkCP";
 
@@ -19,10 +18,10 @@ public sealed class CyberArkCpSecretsProvider(SecretsStoreRepository secretsStor
     // call first (favoring freshness), and only fall back to the last
     // successfully-fetched value if that call fails with a transient error
     // (D-48: Vault/CP connectivity or a password change in progress).
-    // In-memory only, per-process, cleared on app restart -- matches the
-    // design's own note that a live secret held in memory "needs the same
-    // care as any in-memory credential handling," so this doesn't persist it.
-    private static readonly ConcurrentDictionary<string, SecretResult> Cache = new();
+    // In-memory only, per-process, at most a day old, keyed on AppID too
+    // (SecretFallbackCache, D-202) -- matches the design's own note that a
+    // live secret held in memory "needs the same care as any in-memory
+    // credential handling," so this doesn't persist it.
 
     // Case-insensitive: BackendSettings is free-form JSON an admin types into
     // a plain textarea (SecretsStoreConfiguration.vue) -- requiring exact
@@ -33,8 +32,6 @@ public sealed class CyberArkCpSecretsProvider(SecretsStoreRepository secretsStor
 
     public async Task<SecretResult> GetSecretAsync(SecretQuery query)
     {
-        var cacheKey = $"{query.Safe}|{query.Folder}|{query.Object}";
-
         var backend = await secretsStoreRepository.GetByTypeAsync("CyberArkCP");
         if (string.IsNullOrEmpty(backend?.BackendSettings))
         {
@@ -54,6 +51,7 @@ public sealed class CyberArkCpSecretsProvider(SecretsStoreRepository secretsStor
             throw new SecretRetrievalException("CyberArk CP BackendSettings could not be parsed as JSON.", CyberArkErrorCategory.Other, ex);
         }
 
+        var cacheKey = SecretFallbackCache.Key(BackendType, settings.AppId, null, query);
         var request = new PSDKPasswordRequest
         {
             AppID = settings.AppId,
@@ -68,16 +66,16 @@ public sealed class CyberArkCpSecretsProvider(SecretsStoreRepository secretsStor
             var password = PasswordSDK.GetPassword(request);
 
             var result = new SecretResult(password.Content ?? [], password.UserName, password.Address, FromFallbackCache: false);
-            Cache[cacheKey] = result;
+            fallbackCache.Store(cacheKey, result);
             return await Task.FromResult(result);
         }
         catch (PSDKException ex)
         {
             var category = CyberArkErrorClassifier.Classify(ex.Reason ?? ex.Message);
 
-            if (CyberArkErrorClassifier.IsTransient(category) && Cache.TryGetValue(cacheKey, out var cached))
+            if (CyberArkErrorClassifier.IsTransient(category) && fallbackCache.TryGetFallback(cacheKey, out var cached))
             {
-                return cached with { FromFallbackCache = true };
+                return cached;
             }
 
             throw new SecretRetrievalException($"CyberArk CP request failed ({category}): {ex.Message}", category, ex);

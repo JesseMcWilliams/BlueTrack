@@ -139,3 +139,8 @@ Open items from the same review stay in `Testing_Audit-Findings.md`.
 
 - [x] **Medium -- re-saving a secrets backend overwrote its stored credential.** The admin page sends back the redacted settings (`"ProtectedCredential":"***"`), and with no new credential `SecretsStoreRepository.SetActiveAsync` saved them as-is, so editing e.g. Azure Key Vault's VaultUri without retyping the secret broke the backend. The stored value now replaces the placeholder (test: `SetActiveAsync_ResavingTheRedactedSettings_KeepsTheStoredCredential`).
 - [x] **Found while fixing a flaky test -- a lock timeout of 0 broke edit locks at random.** `LockTimeoutMinutes` had no range check; at 0 a lock reads as abandoned the moment it's taken. Now 1-720 in the API and the form (D-201).
+- [x] **Medium -- secrets backends accepted `http://` URLs** (a CCP password or Conjur API key in clear text). Now `https://` only, on save (400) and in each provider (D-202).
+- [x] **Medium -- the CP/CCP fallback cache never expired and was keyed on Safe/Folder/Object only.** Now at most 24 hours old, keyed on backend, AppID and URL too, and cleared when the backend is saved (D-202).
+- [x] **Low -- a CCP timeout returned a 500 and skipped the cache fallback.** Timeouts are VaultConnectivity and fall back; bad JSON is a classified error (D-202).
+- [x] **Low -- the secrets HTTP clients followed redirects.** CCP and Conjur clients no longer do, and time out after 30 seconds (D-202).
+- [x] **Moved to `Planning_Backlog.md` at the user's request:** Machine-scope DPAPI for the Azure/AWS/Conjur bootstrap credentials, Azure/AWS timeouts, and the Conjur token format.

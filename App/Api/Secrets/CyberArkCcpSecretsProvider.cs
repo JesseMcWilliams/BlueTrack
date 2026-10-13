@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using System.Net.Http.Json;
 using System.Text.Json;
 using BlueTrack.Api.Data;
@@ -20,20 +19,19 @@ namespace BlueTrack.Api.Secrets;
 /// </summary>
 public sealed class CyberArkCcpSecretsProvider(
     IHttpClientFactory httpClientFactory,
-    SecretsStoreRepository secretsStoreRepository) : IVaultSecretProvider
+    SecretsStoreRepository secretsStoreRepository,
+    SecretFallbackCache fallbackCache) : IVaultSecretProvider
 {
     public string BackendType => "CyberArkCCP";
 
-    // D-49's fetch-first/cache-as-fallback pattern, same as CyberArkCpSecretsProvider --
-    // arguably even more relevant here since this is a network call, not a local one.
-    private static readonly ConcurrentDictionary<string, SecretResult> Cache = new();
+    // D-49's fetch-first/cache-as-fallback pattern (SecretFallbackCache, D-202),
+    // same as CyberArkCpSecretsProvider -- arguably even more relevant here
+    // since this is a network call, not a local one.
 
     private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNameCaseInsensitive = true };
 
     public async Task<SecretResult> GetSecretAsync(SecretQuery query)
     {
-        var cacheKey = $"{query.Safe}|{query.Folder}|{query.Object}";
-
         var backend = await secretsStoreRepository.GetByTypeAsync("CyberArkCCP");
         if (string.IsNullOrEmpty(backend?.BackendSettings))
         {
@@ -53,6 +51,13 @@ public sealed class CyberArkCcpSecretsProvider(
             throw new SecretRetrievalException("CyberArk CCP BackendSettings could not be parsed as JSON.", CyberArkErrorCategory.Other, ex);
         }
 
+        // D-202: HTTPS only -- also refuses a row saved before the save-time check.
+        if (SecretsBackendUrls.HttpsError("BaseUrl", settings.BaseUrl) is { } urlError)
+        {
+            throw new SecretRetrievalException($"CyberArk CCP: {urlError}", CyberArkErrorCategory.Other);
+        }
+
+        var cacheKey = SecretFallbackCache.Key(BackendType, settings.AppId, settings.BaseUrl, query);
         var url = $"{settings.BaseUrl.TrimEnd('/')}/AIMWebService/api/Accounts" +
                   $"?AppID={Uri.EscapeDataString(settings.AppId)}" +
                   $"&Safe={Uri.EscapeDataString(query.Safe)}" +
@@ -66,40 +71,53 @@ public sealed class CyberArkCcpSecretsProvider(
         {
             response = await client.GetAsync(url);
         }
-        catch (HttpRequestException ex)
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
         {
-            // A real connection failure (host unreachable, TLS handshake, etc.)
-            // -- always transient/VaultConnectivity-shaped, so it's worth
-            // falling back to cache the same as an APPBC007E from the body would be.
-            if (Cache.TryGetValue(cacheKey, out var cachedOnConnFailure))
+            // A real connection failure (host unreachable, TLS handshake, or the
+            // client's timeout, which throws TaskCanceledException) -- always
+            // transient/VaultConnectivity-shaped, so it's worth falling back to
+            // cache the same as an APPBC007E from the body would be.
+            if (fallbackCache.TryGetFallback(cacheKey, out var cachedOnConnFailure))
             {
-                return cachedOnConnFailure with { FromFallbackCache = true };
+                return cachedOnConnFailure;
             }
             throw new SecretRetrievalException($"CyberArk CCP connection failed: {ex.Message}", CyberArkErrorCategory.VaultConnectivity, ex);
         }
+        using var _ = response;
 
         if (!response.IsSuccessStatusCode)
         {
             var errorBody = await response.Content.ReadAsStringAsync();
             var category = CyberArkErrorClassifier.Classify(errorBody);
 
-            if (CyberArkErrorClassifier.IsTransient(category) && Cache.TryGetValue(cacheKey, out var cached))
+            if (CyberArkErrorClassifier.IsTransient(category) && fallbackCache.TryGetFallback(cacheKey, out var cached))
             {
-                return cached with { FromFallbackCache = true };
+                return cached;
             }
 
             throw new SecretRetrievalException($"CyberArk CCP request failed ({category}): {errorBody}", category);
         }
 
-        var body = await response.Content.ReadFromJsonAsync<CcpAccountResponse>(JsonOptions)
-            ?? throw new SecretRetrievalException("CyberArk CCP returned an empty response body.", CyberArkErrorCategory.Other);
+        CcpAccountResponse? body;
+        try
+        {
+            body = await response.Content.ReadFromJsonAsync<CcpAccountResponse>(JsonOptions);
+        }
+        catch (JsonException ex)
+        {
+            throw new SecretRetrievalException("CyberArk CCP returned a response that isn't valid JSON.", CyberArkErrorCategory.Other, ex);
+        }
+        if (body is null)
+        {
+            throw new SecretRetrievalException("CyberArk CCP returned an empty response body.", CyberArkErrorCategory.Other);
+        }
 
         var result = new SecretResult(
             (body.Content ?? "").ToCharArray(),
             body.UserName,
             body.Address,
             FromFallbackCache: false);
-        Cache[cacheKey] = result;
+        fallbackCache.Store(cacheKey, result);
         return result;
     }
 

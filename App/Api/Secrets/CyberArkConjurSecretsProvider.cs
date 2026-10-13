@@ -70,6 +70,12 @@ public sealed class CyberArkConjurSecretsProvider(
             throw new SecretRetrievalException("CyberArk Conjur is not configured -- ApplianceUrl, Account, and Login are all required.", CyberArkErrorCategory.Other);
         }
 
+        // D-202: HTTPS only -- the API key is POSTed to this URL.
+        if (SecretsBackendUrls.HttpsError("ApplianceUrl", settings.ApplianceUrl) is { } urlError)
+        {
+            throw new SecretRetrievalException($"CyberArk Conjur: {urlError}", CyberArkErrorCategory.Other);
+        }
+
         if (string.IsNullOrWhiteSpace(settings.ProtectedCredential))
         {
             throw new SecretRetrievalException("CyberArk Conjur has no stored API key configured.", CyberArkErrorCategory.Other);

@@ -31,7 +31,7 @@ public class SecretsProviderMisconfigurationTests
     public async Task CyberArkCp_EmptyBackendSettings_ThrowsNotConfigured()
     {
         await SetBackendSettingsAsync("CyberArkCP", null);
-        var provider = new CyberArkCpSecretsProvider(new SecretsStoreRepository(new TestDbConnectionFactory(), new WindowsDpapiProtector()));
+        var provider = new CyberArkCpSecretsProvider(new SecretsStoreRepository(new TestDbConnectionFactory(), new WindowsDpapiProtector()), new SecretFallbackCache(TimeProvider.System));
 
         var ex = await Assert.ThrowsAsync<SecretRetrievalException>(() => provider.GetSecretAsync(new SecretQuery("Safe", "Root", "Object")));
 
@@ -43,7 +43,7 @@ public class SecretsProviderMisconfigurationTests
     public async Task CyberArkCp_MalformedJson_ThrowsWithClearMessage()
     {
         await SetBackendSettingsAsync("CyberArkCP", "{not valid json");
-        var provider = new CyberArkCpSecretsProvider(new SecretsStoreRepository(new TestDbConnectionFactory(), new WindowsDpapiProtector()));
+        var provider = new CyberArkCpSecretsProvider(new SecretsStoreRepository(new TestDbConnectionFactory(), new WindowsDpapiProtector()), new SecretFallbackCache(TimeProvider.System));
 
         var ex = await Assert.ThrowsAsync<SecretRetrievalException>(() => provider.GetSecretAsync(new SecretQuery("Safe", "Root", "Object")));
 
@@ -57,7 +57,7 @@ public class SecretsProviderMisconfigurationTests
     public async Task CyberArkCcp_EmptyBackendSettings_ThrowsNotConfigured()
     {
         await SetBackendSettingsAsync("CyberArkCCP", null);
-        var provider = new CyberArkCcpSecretsProvider(new NoOpHttpClientFactory(), new SecretsStoreRepository(new TestDbConnectionFactory(), new WindowsDpapiProtector()));
+        var provider = new CyberArkCcpSecretsProvider(new NoOpHttpClientFactory(), new SecretsStoreRepository(new TestDbConnectionFactory(), new WindowsDpapiProtector()), new SecretFallbackCache(TimeProvider.System));
 
         var ex = await Assert.ThrowsAsync<SecretRetrievalException>(() => provider.GetSecretAsync(new SecretQuery("Safe", "Root", "Object")));
 
@@ -69,7 +69,7 @@ public class SecretsProviderMisconfigurationTests
     public async Task CyberArkCcp_MalformedJson_ThrowsWithClearMessage()
     {
         await SetBackendSettingsAsync("CyberArkCCP", "{not valid json");
-        var provider = new CyberArkCcpSecretsProvider(new NoOpHttpClientFactory(), new SecretsStoreRepository(new TestDbConnectionFactory(), new WindowsDpapiProtector()));
+        var provider = new CyberArkCcpSecretsProvider(new NoOpHttpClientFactory(), new SecretsStoreRepository(new TestDbConnectionFactory(), new WindowsDpapiProtector()), new SecretFallbackCache(TimeProvider.System));
 
         var ex = await Assert.ThrowsAsync<SecretRetrievalException>(() => provider.GetSecretAsync(new SecretQuery("Safe", "Root", "Object")));
 
