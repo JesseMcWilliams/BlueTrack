@@ -66,6 +66,13 @@ public sealed class BlueTrackWebApplicationFactory : WebApplicationFactory<Progr
     {
         builder.UseEnvironment("Development");
 
+        // Program.cs reads the database while it builds the host (OIDC's startup
+        // registration, AuthenticationExtensions.TryLoadOidcStartupSettings), before
+        // ConfigureAppConfiguration below applies. UseSetting is visible then; without
+        // it that read went to appsettings.json's live BlueTrack database, and enabling
+        // OIDC on the dev site broke LoginOidc_NotConfigured_ReturnsServiceUnavailable.
+        builder.UseSetting("ConnectionStrings:BlueTrackDb", TestDatabase.ConnectionString);
+
         builder.ConfigureAppConfiguration((_, config) =>
         {
             config.AddInMemoryCollection(new Dictionary<string, string?>

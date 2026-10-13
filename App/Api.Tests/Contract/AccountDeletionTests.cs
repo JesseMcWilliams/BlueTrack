@@ -55,7 +55,8 @@ public class AccountDeletionTests : IClassFixture<BlueTrackWebApplicationFactory
         {
             var deleted = await (await client.PostAsJsonAsync("/api/account-progress/delete", new { accountKeys = keys, reason }))
                 .Content.ReadFromJsonAsync<Result>();
-            Assert.Equal(2, deleted!.Changed);
+            Assert.Empty(deleted!.Skipped); // on failure, shows why each account was skipped
+            Assert.Equal(2, deleted.Changed);
 
             // Hidden by default; shown with deleted=Only, with who and why.
             var visible = await client.GetFromJsonAsync<JsonArray>("/api/account-progress?search=TestAccount0&pageSize=100");

@@ -75,6 +75,38 @@ public class SecretsStoreRepositoryTests
     }
 
     [Fact]
+    public async Task SetActiveAsync_ResavingTheRedactedSettings_KeepsTheStoredCredential()
+    {
+        var repository = CreateRepository();
+
+        try
+        {
+            await repository.SetActiveAsync(new SetActiveSecretsStoreRequest
+            {
+                BackendType = "AzureKeyVault",
+                BackendSettings = """{"VaultUri":"https://integration-test.vault.azure.net/"}""",
+                PlaintextCredential = "integration-test-client-secret"
+            });
+
+            // What the admin page does: edit a field of the redacted settings, leave the credential blank.
+            var redacted = Assert.Single(await repository.GetAllAsync(), b => b.BackendType == "AzureKeyVault");
+            await repository.SetActiveAsync(new SetActiveSecretsStoreRequest
+            {
+                BackendType = "AzureKeyVault",
+                BackendSettings = redacted.BackendSettings!.Replace("integration-test.vault", "integration-test-2.vault")
+            });
+
+            var settingsNode = System.Text.Json.Nodes.JsonNode.Parse((await repository.GetByTypeAsync("AzureKeyVault"))!.BackendSettings!)!.AsObject();
+            Assert.Equal("https://integration-test-2.vault.azure.net/", settingsNode["VaultUri"]!.GetValue<string>());
+            Assert.Equal("integration-test-client-secret", new WindowsDpapiProtector().Unprotect(settingsNode["ProtectedCredential"]!.GetValue<string>()));
+        }
+        finally
+        {
+            await repository.SetActiveAsync(new SetActiveSecretsStoreRequest { BackendType = "WindowsDpapi", BackendSettings = null });
+        }
+    }
+
+    [Fact]
     public async Task SetActiveAsync_WithoutPlaintextCredential_ActivatesWithPlainBackendSettings()
     {
         var repository = CreateRepository();

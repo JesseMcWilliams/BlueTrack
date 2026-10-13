@@ -17,9 +17,8 @@
 // known fields are edited -- any other key already present (in practice
 // just "ProtectedCredential", written server-side from PlaintextCredential
 // and returned redacted as "***" by SecretsStoreRepository.Redact) is left
-// untouched and still round-trips on save, since SetActiveAsync replaces
-// BackendSettings wholesale with whatever this page sends when no new
-// PlaintextCredential is supplied.
+// untouched and sent back on save. With no new PlaintextCredential,
+// SetActiveAsync swaps that "***" for the stored credential.
 import { ref, computed, onMounted } from 'vue'
 
 const backends = ref([])

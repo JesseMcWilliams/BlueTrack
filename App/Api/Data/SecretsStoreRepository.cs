@@ -60,6 +60,10 @@ public sealed class SecretsStoreRepository(IDbConnectionFactory connectionFactor
             settingsNode[ProtectedCredentialKey] = localSecretProtector.Protect(request.PlaintextCredential);
             backendSettings = settingsNode.ToJsonString();
         }
+        else
+        {
+            backendSettings = await KeepStoredCredentialAsync(request.BackendType, backendSettings);
+        }
 
         using var connection = connectionFactory.Create();
         connection.Open();
@@ -72,6 +76,37 @@ public sealed class SecretsStoreRepository(IDbConnectionFactory connectionFactor
             new { request.BackendType, BackendSettings = backendSettings }, transaction);
 
         transaction.Commit();
+    }
+
+    /// <summary>
+    /// The admin page sends back the settings GetAllAsync gave it, with
+    /// ProtectedCredential redacted to "***". Saved as-is, that overwrote the
+    /// real credential, so re-saving a backend without retyping its secret
+    /// broke it. Puts the stored value back in place of the placeholder.
+    /// </summary>
+    private async Task<string?> KeepStoredCredentialAsync(string backendType, string? backendSettings)
+    {
+        if (string.IsNullOrWhiteSpace(backendSettings)) return backendSettings;
+        JsonObject? settingsNode;
+        try
+        {
+            settingsNode = JsonNode.Parse(backendSettings)?.AsObject();
+        }
+        catch (System.Text.Json.JsonException)
+        {
+            return backendSettings;
+        }
+        if (settingsNode?[ProtectedCredentialKey]?.GetValueKind() != System.Text.Json.JsonValueKind.String
+            || settingsNode[ProtectedCredentialKey]!.GetValue<string>() != RedactedPlaceholder)
+        {
+            return backendSettings;
+        }
+
+        var stored = (await GetByTypeAsync(backendType))?.BackendSettings;
+        var storedCredential = string.IsNullOrWhiteSpace(stored) ? null : JsonNode.Parse(stored)?[ProtectedCredentialKey]?.DeepClone();
+        if (storedCredential is null) settingsNode.Remove(ProtectedCredentialKey);
+        else settingsNode[ProtectedCredentialKey] = storedCredential;
+        return settingsNode.ToJsonString();
     }
 
     private static SecretsStoreBackend Redact(SecretsStoreBackend backend)
