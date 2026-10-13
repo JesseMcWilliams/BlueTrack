@@ -27,6 +27,7 @@ instead.
 | 09 | `09_BlueTrack_DefaultSignInProvider.sql` | D-205: `web.app_config.DefaultSignInProvider`, the explicit default sign-in method (set to the old implied default on first run). |
 | 10 | `10_BlueTrack_AnalystRiskReport.sql` | D-208: the Analyst role gets `ViewRiskReport` (the Risk Score report), on existing installs too. |
 | 11 | `11_BlueTrack_ConnectionTestAudit.sql` | D-210: the `ConnectionTest` audit event type, logged by the Secrets Store and Credentials Test buttons. |
+| 12 | `12_BlueTrack_CyberArkSourceConfig.sql` | D-211: `web.cyberark_source_config` (the CyberArk sources' settings, edited on Admin > Data Sources), `fn_ExpandDateTokens` and `usp_Import_Configured`, the nightly job's Import step. |
 
 ## The baseline (D-195)
 
@@ -51,7 +52,7 @@ scripts but not up to `51` is refused; upgrade it first from the
 
 ## Adding a script
 
-1. Name it `NN_BlueTrack_<Topic>.sql`, with `NN` the next number (`12` is next).
+1. Name it `NN_BlueTrack_<Topic>.sql`, with `NN` the next number (`13` is next).
 2. Start with a header comment: the file name, `RUN THIS AFTER 01-NN.`, what
    it changes and why (with the `D-n` decision), and whether it's safe to
    re-run.
@@ -87,7 +88,7 @@ Numbered in the order they're run; run only the ones that apply.
 | `01_BlueTrack_CreateDatabase.sql` | Optional, before the first Migrator run. Connects to `master`, which DbUp can't. Replace `$DatabaseName$` by hand first. |
 | `02_BlueTrack_GrantAppServiceAccountAccess.sql` | Gives the App Pool's Windows account its database permissions (D-30, D-171). The installer's `Db.AppPoolAccess` step runs a filled-in copy; by hand, replace `__TARGET_ACCOUNT__` first. |
 | `03_BlueTrack_GrantBackupStatusReaderRole.sql` | When the Deployment page's backup-status check should work: lets the app's account read `msdb` backup history (D-107). Replace `__TARGET_ACCOUNT__`, or download a filled-in copy from the Group / Role Mapping page. |
-| `04_BlueTrack_ScheduleImportLoadJob.sql` | Real environments, once Import and Load have each been run by hand and work: creates the nightly 2:00 AM Import + Load SQL Agent job in `msdb`. `sqlcmd -S <server> -C -v DatabaseName="BlueTrack" -i Database/Manual/04_BlueTrack_ScheduleImportLoadJob.sql`. The installer's nightly-job option runs a filled-in copy. |
+| `04_BlueTrack_ScheduleImportLoadJob.sql` | Real environments, once Import and Load have each been run by hand and work: creates the nightly 2:00 AM Import + Load SQL Agent job in `msdb`. `sqlcmd -S <server> -C -v DatabaseName="BlueTrack" -i Database/Manual/04_BlueTrack_ScheduleImportLoadJob.sql`, on a copy with its four `__TOKENS__` replaced. The job reads its source settings from `web.cyberark_source_config` (Admin > Data Sources); the script writes that row only when none exists (D-211). The installer's nightly-job option runs a filled-in copy. |
 | `05_BlueTrack_ScheduleAuditLogPurgeJob.sql` | Real environments, once `RetentionDays` is set on Global Application Configuration: the 3:00 AM job calling `usp_PurgeAuditLog`. Same `sqlcmd` form. |
 | `06_BlueTrack_DevFakeAuthUserMapping.sql` | Development only: maps your Windows username to Admin through DevFakeAuth. Replace `@DevFakeAuthUsername` first. |
 

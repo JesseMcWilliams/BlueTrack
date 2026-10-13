@@ -184,21 +184,20 @@ function Test-BlueTrackSqlInstanceIsThisMachine {
 function Install-BlueTrackNightlyJob {
     <#
     .SYNOPSIS
-        Installs the nightly Import+Load SQL Agent job by generating a temp
-        copy of Database/Manual/04_BlueTrack_ScheduleImportLoadJob.sql with the two
-        hardcoded literals (export folder, EVD database name) substituted for
-        this environment's real values, then running it via sqlcmd.
+        Installs the nightly Import+Load SQL Agent job by running a temp copy
+        of Database/Manual/04_BlueTrack_ScheduleImportLoadJob.sql with its
+        four __TOKENS__ filled in from this environment's answers.
     .DESCRIPTION
         The tracked script file is never modified -- only a generated temp copy is.
-        Confirmed directly against the script's own source: @Folder and the EVD
-        database name are literal T-SQL inside the job step's @command text, not
-        sqlcmd -v variables (only $(DatabaseName) is a real substitutable variable).
 
-        D-176: -ImportSources sets the step's @ImportPrivilegeCloud /
-        @ImportSelfHosted flags the same way. The export folder is only
+        D-211: the job's Import step is EXEC usp_Import_Configured;, which reads
+        the sources from web.cyberark_source_config. The script writes that row
+        from these answers only when none exists; once it does, Admin > Data
+        Sources owns it, and the script prints a WARNING if the answers differ.
+
+        D-176: -ImportSources picks the sources. The export folder is only
         needed for Privilege Cloud and the EVD database only for Self-Hosted;
-        a source that's off keeps the script's placeholder value, which
-        usp_Import_All then ignores.
+        a source that's off is saved without its value.
     #>
     [CmdletBinding(SupportsShouldProcess)]
     param(
@@ -211,8 +210,8 @@ function Install-BlueTrackNightlyJob {
         [bool]$TrustServerCertificate = $true
     )
 
-    # D-197: both values are pasted into T-SQL string literals inside the
-    # job's command text, so refuse characters that would end the literal.
+    # D-197: both values are pasted into T-SQL string literals, so refuse
+    # characters that would end the literal.
     if ($ExportFolderPath -and $ExportFolderPath.Contains("'")) { throw "The export folder path can't contain an apostrophe: $ExportFolderPath" }
     if ($EvdDatabaseName -and $EvdDatabaseName -notmatch '^[A-Za-z0-9_]+$') { throw "The EVD database name may contain only letters, digits and underscores: $EvdDatabaseName" }
 
@@ -228,49 +227,33 @@ function Install-BlueTrackNightlyJob {
 
     $content = Get-Content -Path $sourceScript -Raw
 
-    # These are the exact two literals confirmed in the script's own Step 1
-    # @command text -- substituted as plain string replacements, not regex,
-    # so a change to either literal's exact text upstream fails loudly here
-    # (via -replace simply not matching, followed by the "unchanged" guard
-    # below) rather than silently producing a job pointed at the wrong data.
-    $originalFolderLiteral = "N''C:\Code\aPePAS\Output''"
-    $originalEvdLiteral = "N''CyberArkSH''"
-
-    if ($content -notmatch [regex]::Escape($originalFolderLiteral)) {
-        throw "Did not find the expected export-folder literal in 04_BlueTrack_ScheduleImportLoadJob.sql -- the script may have changed upstream. Update this function's substitution logic before continuing."
+    # Plain string replacements; a token missing upstream fails loudly here
+    # rather than producing a job with the wrong settings.
+    $folderValue = if ($importPrivilegeCloud) { $ExportFolderPath.TrimEnd('\') } else { '' }
+    $evdValue = if ($importSelfHosted) { $EvdDatabaseName } else { '' }
+    $tokens = [ordered]@{
+        '__IMPORT_PC__'     = [string][int]$importPrivilegeCloud
+        '__IMPORT_SH__'     = [string][int]$importSelfHosted
+        '__EXPORT_FOLDER__' = $folderValue
+        '__EVD_DB__'        = $evdValue
     }
-    if ($content -notmatch [regex]::Escape($originalEvdLiteral)) {
-        throw "Did not find the expected EVD-database-name literal in 04_BlueTrack_ScheduleImportLoadJob.sql -- the script may have changed upstream. Update this function's substitution logic before continuing."
+    foreach ($token in $tokens.Keys) {
+        if (-not $content.Contains($token)) {
+            throw "Did not find $token in 04_BlueTrack_ScheduleImportLoadJob.sql -- the script may have changed upstream. Update this function before continuing."
+        }
+        $content = $content.Replace($token, $tokens[$token])
     }
-
-    # The two source flags, exact text in Step 1 (D-176).
-    $originalPcFlag = '@ImportPrivilegeCloud = 1,'
-    $originalShFlag = '@ImportSelfHosted = 1;'
-    if (-not $content.Contains($originalPcFlag) -or -not $content.Contains($originalShFlag)) {
-        throw "Did not find the expected @ImportPrivilegeCloud / @ImportSelfHosted lines in 04_BlueTrack_ScheduleImportLoadJob.sql -- the script may have changed upstream. Update this function's substitution logic before continuing."
-    }
-
-    $normalizedFolder = '(not used)'
-    if ($importPrivilegeCloud) {
-        $normalizedFolder = $ExportFolderPath.TrimEnd('\')
-        $content = $content.Replace($originalFolderLiteral, "N''$normalizedFolder''")
-    }
-    $evdShown = '(not used)'
-    if ($importSelfHosted) {
-        $evdShown = $EvdDatabaseName
-        $content = $content.Replace($originalEvdLiteral, "N''$EvdDatabaseName''")
-    }
-    $content = $content.Replace($originalPcFlag, "@ImportPrivilegeCloud = $([int]$importPrivilegeCloud),")
-    $content = $content.Replace($originalShFlag, "@ImportSelfHosted = $([int]$importSelfHosted);")
 
     $tempScript = Join-Path $env:TEMP "04_BlueTrack_ScheduleImportLoadJob.$([guid]::NewGuid()).sql"
     Set-Content -Path $tempScript -Value $content -Encoding UTF8
 
     try {
-        Write-Host "Generated a temp copy of the nightly job script with:`n  Sources:       $ImportSources`n  Export folder: $normalizedFolder`n  EVD database:  $evdShown`n(the tracked repo file was not modified)"
+        $folderShown = if ($folderValue) { $folderValue } else { '(not used)' }
+        $evdShown = if ($evdValue) { $evdValue } else { '(not used)' }
+        Write-Host "Generated a temp copy of the nightly job script with:`n  Sources:       $ImportSources`n  Export folder: $folderShown`n  EVD database:  $evdShown`n(saved as the CyberArk source settings only if none exist yet; the tracked repo file was not modified)"
         if ($PSCmdlet.ShouldProcess("$SqlServerInstance / $DatabaseName", 'Install nightly Import+Load SQL Agent job via sqlcmd')) {
             [string[]]$trustArgs = if ($TrustServerCertificate) { @("-C") } else { @() }
-            & sqlcmd -S $SqlServerInstance @trustArgs -v DatabaseName="$DatabaseName" -i $tempScript | Out-Host
+            & sqlcmd -S $SqlServerInstance @trustArgs -b -v DatabaseName="$DatabaseName" -i $tempScript | Out-Host
             if ($LASTEXITCODE -ne 0) {
                 throw "sqlcmd failed installing the nightly job (exit code $LASTEXITCODE)."
             }

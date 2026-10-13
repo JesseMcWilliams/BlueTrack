@@ -143,7 +143,7 @@ public sealed class DataFeedRepository(IDbConnectionFactory connectionFactory)
             new { retentionDays });
     }
 
-    /// <summary>The 'BlueTrack Data Feeds (system)' user that scheduled runs are attributed to; null if script 43 hasn't created it.</summary>
+    /// <summary>The 'BlueTrack Data Feeds (system)' user that scheduled runs are attributed to; null if it's missing (05_BlueTrack_Baseline_WebSeed.sql seeds it).</summary>
     public async Task<int?> GetSystemUserKeyAsync()
     {
         using var connection = connectionFactory.Create();

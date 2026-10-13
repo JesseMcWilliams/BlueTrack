@@ -659,6 +659,24 @@ test.describe('Data Sources admin page (D-181)', () => {
     }
   })
 
+  // D-211: Test only, then Cancel -- E2E can't put the single settings row back, so it saves nothing.
+  test('Admin opens the CyberArk sources and tests a Self-Hosted EVD database', async ({ page }) => {
+    await signInAs(page, 'TestUser.Admin')
+    await page.goto('/admin/data-sources')
+    await page.getByRole('button', { name: 'Edit CyberArk sources' }).click()
+    await expect(page).toHaveURL(/\/admin\/data-sources\/cyberark$/)
+    await expect(page.getByRole('heading', { name: 'CyberArk Sources' })).toBeVisible()
+
+    await page.getByLabel('Import Privilege Cloud').uncheck()
+    await page.getByLabel('Import Self-Hosted').check()
+    await page.getByLabel('EVD database:').fill('NoSuchEvdDatabase')
+    await page.getByRole('button', { name: 'Test', exact: true }).click()
+    await expect(page.getByText('Problem: EVD database: No database named NoSuchEvdDatabase')).toBeVisible()
+
+    await page.getByRole('button', { name: 'Cancel' }).click()
+    await expect(page).toHaveURL(/\/admin\/data-sources$/)
+  })
+
   test('A user without ManageDataSources is denied with a plain error', async ({ page }) => {
     await signInAs(page, 'TestUser.Viewer')
     await page.goto('/admin/data-sources')

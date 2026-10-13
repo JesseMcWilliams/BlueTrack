@@ -78,8 +78,8 @@ Preview without changing anything:
 | `-TrustServerCertificate` | Skip validating SQL Server's TLS certificate (`TrustServerCertificate=True`, and `sqlcmd -C`). Leave it unset: the default trusts it only when SQL Server is on this machine; for a remote server the certificate must then be trusted here (D-197) | worked out |
 | `-AllowedFileRoots` | The only folders data feeds may read and the Deployment page's backups may be written to (`FileAccess:AllowedRoots`). Unset: any local folder, no network shares. List a share here to use it, e.g. `-AllowedFileRoots 'D:\Feeds','\\fileserver\bluetrack'` (D-197) | none |
 | `-ResetIis` | Run `iisreset` after the IIS steps (`Iis.Reset`), before the smoke test. Briefly stops **every** site on the server | prompted |
-| `-ImportSources` | Which CyberArk sources the nightly job imports: `Both`, `PrivilegeCloud` or `SelfHosted` (D-176) | prompted, if `-InstallNightlyJob` |
-| `-ExportFolderPath` / `-EvdDatabaseName` | Privilege Cloud export folder / Self-Hosted EVD database; each only needed when `-ImportSources` includes that source — see below | prompted, if needed |
+| `-ImportSources` | Which CyberArk sources the nightly job imports: `Both`, `PrivilegeCloud` or `SelfHosted` (D-176). Seeds the CyberArk source settings on first install only; after that, Admin > Data Sources owns them (D-211) | prompted, if `-InstallNightlyJob` |
+| `-ExportFolderPath` / `-EvdDatabaseName` | Privilege Cloud export folder / Self-Hosted EVD database; each only needed when `-ImportSources` includes that source. First install only, like `-ImportSources` — see below | prompted, if needed |
 | `-SiteName` | IIS site name | `BlueTrack` |
 | `-Hostname` | Site host header / binding hostname | prompted |
 | `-HttpPort` / `-HttpsPort` | IIS bindings | `80` / `443` |
@@ -228,7 +228,9 @@ dotnet run --project ..\App\Migrator -- "Server=localhost;Database=BlueTrackRefe
 
 ### A note on the nightly Import+Load job
 
-`Database/Manual/04_BlueTrack_ScheduleImportLoadJob.sql` has its export-folder path and Self-Hosted EVD database name hardcoded as literal T-SQL — they aren't `sqlcmd` variables the way the target database name is. `Install-BlueTrackNightlyJob` (in `Modules/BlueTrack.Database.psm1`) generates a **temporary copy** of that script with your `-ExportFolderPath`/`-EvdDatabaseName` substituted in before running it via `sqlcmd` — the tracked file in `Database/` is never modified. It also sets the job's `@ImportPrivilegeCloud`/`@ImportSelfHosted` flags from `-ImportSources` (D-176). For a Privilege-Cloud-only or Self-Hosted-only implementation, the job imports just that source and empties the other's staging tables each night. A missing export for a source that's switched on still fails the job, with a message naming the file or database.
+The job holds no source settings (D-211). Its Import step is `EXEC usp_Import_Configured;`, which reads the single row in `web.cyberark_source_config` (Admin > Data Sources, "CyberArk sources") and calls `usp_Import_All`. `Database/Manual/04_BlueTrack_ScheduleImportLoadJob.sql` writes that row from four tokens (`__IMPORT_PC__`, `__IMPORT_SH__`, `__EXPORT_FOLDER__`, `__EVD_DB__`) **only when no row exists**. If one exists, the saved settings are kept, and a WARNING is printed when they differ from the installer's answers. `Install-BlueTrackNightlyJob` (in `Modules/BlueTrack.Database.psm1`) fills the tokens in a **temporary copy** from `-ImportSources`, `-ExportFolderPath` and `-EvdDatabaseName` and runs it via `sqlcmd`; the tracked file is never modified. So those answers only seed the settings on first install; change them on the page afterwards. For a Privilege-Cloud-only or Self-Hosted-only implementation, the job imports just that source and empties the other's staging tables each night. A missing export for a source that's switched on still fails the job, with a message naming the file or database.
+
+**Upgrading an install from before D-211:** once the Migrator has applied `Database/12_BlueTrack_CyberArkSourceConfig.sql`, the old job keeps working with the values written into it, but edits on the page have no effect until the job is recreated. Re-run the installer with `-Step Db.NightlyJob`: it uses the saved answers, writes the row (none exists yet) and recreates the job.
 
 ## Structure
 
