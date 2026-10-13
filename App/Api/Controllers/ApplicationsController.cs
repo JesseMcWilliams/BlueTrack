@@ -24,9 +24,19 @@ public sealed class ApplicationsController(
     [HttpGet]
     public async Task<IActionResult> GetList() => Ok(await repository.GetAllAsync());
 
+    /// <summary>Every application, or (D-213) one page of them with the X-Total-Count / X-Filtered-Count headers when page is given.</summary>
     [HttpGet("detailed")]
     [Authorize(Policy = Permissions.CurateApplicationMapping)]
-    public async Task<IActionResult> GetAllDetailed() => Ok(await repository.GetAllDetailedAsync());
+    public async Task<IActionResult> GetAllDetailed([FromQuery] int? page = null, [FromQuery] int? pageSize = null)
+    {
+        if (page is not null)
+        {
+            var count = (await repository.GetCountAsync()).ToString();
+            Response.Headers["X-Total-Count"] = count;
+            Response.Headers["X-Filtered-Count"] = count;
+        }
+        return Ok(await repository.GetAllDetailedAsync(page, pageSize));
+    }
 
     [HttpPost]
     [Authorize(Policy = Permissions.CurateApplicationMapping)]

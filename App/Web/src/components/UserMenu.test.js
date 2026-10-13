@@ -109,4 +109,25 @@ describe('UserMenu.vue', () => {
     expect(router.currentRoute.value.name).toBe('dashboard')
     wrapper.unmount()
   })
+
+  // D-213: About shows the version in a dialog; Escape closes it and focus returns to the menu button.
+  it('About shows the version, and Escape closes it', async () => {
+    globalThis.fetch = vi.fn(() => Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({ version: '1.2.3' }) }))
+    const { wrapper } = await mountMenu()
+    const button = wrapper.get('button.user-menu__button')
+    await button.trigger('click')
+
+    await wrapper.findAll('button').find(b => b.text() === 'About').trigger('click')
+    await flushPromises()
+
+    expect(globalThis.fetch).toHaveBeenCalledWith('/api/about')
+    const dialog = wrapper.get('[role="dialog"]')
+    expect(dialog.text()).toContain('Version 1.2.3')
+    expect(button.attributes('aria-expanded')).toBe('false')
+
+    await dialog.trigger('keydown', { key: 'Escape' })
+    expect(wrapper.find('[role="dialog"]').exists()).toBe(false)
+    expect(document.activeElement).toBe(button.element)
+    wrapper.unmount()
+  })
 })

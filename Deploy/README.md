@@ -192,7 +192,7 @@ Whenever a smoke check fails, the output ends with the two URLs it checks, so yo
 ```
 
 - **Signed releases only (D-199):** a release's tag must be an annotated tag signed with a key GitHub verifies; otherwise the script refuses it. It then downloads the exact commit the tag points to. A branch isn't a signed release, so it needs `-AllowUnsignedBranch` (with a warning), including the choice offered when there's no release yet.
-- **Making a signed release:** register a signing key on GitHub (your account's SSH and GPG keys settings; for an SSH key choose the *Signing Key* type), tell git to use it (`git config --global gpg.format ssh` and `git config --global user.signingkey <path to the .pub>` for SSH, or `user.signingkey <GPG key id>` for GPG), then:
+- **Making a signed release:** register a signing key on GitHub (your account's SSH and GPG keys settings; for an SSH key choose the *Signing Key* type), tell git to use it (`git config --global gpg.format ssh` and `git config --global user.signingkey <path to the .pub>` for SSH, or `user.signingkey <GPG key id>` for GPG). First set `<Version>` in `App/Api/BlueTrack.Api.csproj` to the release's version (tag `v1.2.0` → `1.2.0`) and merge it to `main`: About and the Deployment page show it. Then:
   ```powershell
   git tag -s v1.0.0 -m "BlueTrack v1.0.0"
   git push origin v1.0.0

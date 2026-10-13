@@ -91,11 +91,11 @@ onMounted(async () => {
 <template>
   <div id="layout">
     <a href="#main-content" class="skip-link visually-hidden">Skip to main content</a>
-    <!-- D-124: Dashboard always leftmost, every other item alphabetical by
-         label (Access Groups, Accounts, Admin, Exceptions, Reports, Targets)
-         -- confirmed directly. The user menu (D-206: the signed-in user's
-         name, with Profile & Preferences and Sign out) stays pinned right,
-         outside the alphabetical ordering. -->
+    <!-- D-124: Dashboard always leftmost, the working pages alphabetical by
+         label (Access Groups, Accounts, Exceptions, Targets); D-213: then
+         Reports, and Admin always last. The user menu (D-206: the signed-in
+         user's name, with Profile & Preferences, About and Sign out) stays
+         pinned right. -->
     <nav class="top-nav" aria-label="Primary">
       <router-link :to="{ name: 'dashboard' }">Dashboard</router-link>
       <!-- D-121: Targets/Access Groups gated per-permission here (unlike
@@ -104,10 +104,10 @@ onMounted(async () => {
            sidebar already uses for each of its sections. -->
       <router-link v-if="rights.hasPermission('ManageAccessGroups')" :to="{ name: 'access-groups' }">Access Groups</router-link>
       <router-link :to="{ name: 'account-progress-list' }">Accounts</router-link>
-      <router-link :to="{ name: 'admin' }">Admin</router-link>
       <router-link :to="{ name: 'risk-exceptions-list' }">Exceptions</router-link>
-      <router-link :to="{ name: 'reports' }">Reports</router-link>
       <router-link v-if="rights.hasPermission('ManageTargets')" :to="{ name: 'targets' }">Targets</router-link>
+      <router-link :to="{ name: 'reports' }">Reports</router-link>
+      <router-link :to="{ name: 'admin' }">Admin</router-link>
       <UserMenu v-if="rights.authenticated" />
     </nav>
     <Breadcrumbs />

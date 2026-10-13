@@ -14,8 +14,18 @@ public sealed class SafesController(
     CurrentUserResolver currentUserResolver,
     AuditLogger auditLogger) : ControllerBase
 {
+    /// <summary>Every safe, or (D-213) one page of them with the X-Total-Count / X-Filtered-Count headers when page is given.</summary>
     [HttpGet]
-    public async Task<IActionResult> GetAll() => Ok(await repository.GetAllSafesAsync());
+    public async Task<IActionResult> GetAll([FromQuery] int? page = null, [FromQuery] int? pageSize = null)
+    {
+        if (page is not null)
+        {
+            var count = (await repository.GetSafeCountAsync()).ToString();
+            Response.Headers["X-Total-Count"] = count;
+            Response.Headers["X-Filtered-Count"] = count;
+        }
+        return Ok(await repository.GetAllSafesAsync(page, pageSize));
+    }
 
     [HttpPut("{safeKey:int}/application")]
     public async Task<IActionResult> AssignApplication(int safeKey, [FromBody] int? applicationKey)

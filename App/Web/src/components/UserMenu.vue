@@ -5,11 +5,12 @@
 // button (aria-expanded) rather than an ARIA menu: a list of a link and a
 // button needs no menu keyboard model, and screen readers handle it plainly.
 // Closes on Escape (focus back on the button), on a click outside, and when
-// the route changes.
+// the route changes. D-213: About opens a small dialog with the version.
 import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
 import { useRoute } from 'vue-router'
 import { useRightsStore } from '../stores/rights'
 import { useSignOut } from '../composables/useSignOut'
+import AboutDialog from './AboutDialog.vue'
 
 const rights = useRightsStore()
 const route = useRoute()
@@ -19,6 +20,17 @@ const signingOut = ref(false)
 const error = ref(null)
 const root = ref(null)
 const button = ref(null)
+const aboutOpen = ref(false)
+
+function openAbout() {
+  close()
+  aboutOpen.value = true
+}
+
+function closeAbout() {
+  aboutOpen.value = false
+  button.value?.focus()
+}
 
 const label = computed(() => rights.displayName || 'Account')
 
@@ -67,9 +79,11 @@ async function signOut() {
     </button>
     <ul v-show="open" id="user-menu-list" class="user-menu__list">
       <li><router-link :to="{ name: 'my-profile' }">Profile &amp; Preferences</router-link></li>
+      <li><button type="button" @click="openAbout">About</button></li>
       <li><button type="button" :disabled="signingOut" @click="signOut">{{ signingOut ? 'Signing out...' : 'Sign out' }}</button></li>
     </ul>
     <p v-if="error" role="alert" class="user-menu__error">{{ error }}</p>
+    <AboutDialog v-if="aboutOpen" @close="closeAbout" />
   </div>
 </template>
 

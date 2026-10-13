@@ -50,7 +50,7 @@ The usual flow looks like this:
 
 Open the BlueTrack address your administrator gave you, such as `https://<server>/`. Depending on how your organization set it up, you're signed in with your Windows account straight away, or sent to your organization's sign-in page and back. If the **Sign in** page lists several methods, choose yours.
 
-The top navigation has **Dashboard**, **Access Groups**, **Accounts**, **Admin**, **Exceptions**, **Reports** and **Targets**. Your name is on the right. Its menu has **Profile & Preferences** and **Sign out**.
+The top navigation has **Dashboard**, **Access Groups**, **Accounts**, **Exceptions**, **Targets**, **Reports** and **Admin**. Your name is on the right. Its menu has **Profile & Preferences**, **About** (BlueTrack's version) and **Sign out**.
 
 ### Roles decide what you see
 
