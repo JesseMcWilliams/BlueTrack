@@ -60,6 +60,8 @@ A **⚠** next to a username means the account is flagged for deletion: it's in 
 
 **Deleted accounts** are hidden. The **Deleted accounts** filter shows them alongside the others (**Show**) or on their own (**Only deleted**). A deleted account is marked **Deleted**; point at the mark to see who deleted it and why, whether CyberArk deleted it, or **Not imported (ignored safe)** for an account in a safe matching the ignored safe pattern.
 
+**Accounts from other systems.** An account an administrator imports from another system (an account inventory data feed) is marked **from** and the system's name. When CyberArk has the same account (the same user name and address), BlueTrack links the two: the other system's account moves to **Onboarded to Vault** and is hidden, so the list and the reports count the account once, as its CyberArk account. Set the **Linked feed accounts** filter to **Show** to see them; each is marked **Linked**, and the mark opens its CyberArk account.
+
 ### Selecting accounts for bulk actions
 
 Tick **Select accounts for bulk actions** above the list (you need `EditAccountProgress` or `DeleteAccounts`) to add a checkbox to every row. The bar shows how many accounts are selected (and how many of those are on this page), with:

@@ -40,6 +40,7 @@ public sealed class RiskScoreReportRepository(IDbConnectionFactory connectionFac
             LEFT JOIN web.account_risk_score ars ON ars.AccountKey = fa.AccountKey
             LEFT JOIN web.dim_risk_score_band band ON ars.EffectiveRiskScore BETWEEN band.MinScore AND band.MaxScore
             WHERE fa.IsDeleted = 0
+              AND NOT EXISTS (SELECT 1 FROM dbo.vw_linked_feed_account l WHERE l.AccountKey = fa.AccountKey)   -- D-212: a linked feed account counts as its CyberArk account
             ORDER BY {BuildOrderByClause(sortBy)}
             OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY
             """;
@@ -56,14 +57,14 @@ public sealed class RiskScoreReportRepository(IDbConnectionFactory connectionFac
     public async Task<int> GetTotalCountAsync()
     {
         using var connection = connectionFactory.Create();
-        return await connection.QuerySingleAsync<int>("SELECT COUNT(*) FROM dbo.fact_account fa WHERE fa.IsDeleted = 0");
+        return await connection.QuerySingleAsync<int>("SELECT COUNT(*) FROM dbo.fact_account fa WHERE fa.IsDeleted = 0 AND NOT EXISTS (SELECT 1 FROM dbo.vw_linked_feed_account l WHERE l.AccountKey = fa.AccountKey)");
     }
 
     /// <summary>D-124 Phase 3: backs the new X-Filtered-Count header. This report takes no filter params, so it's always equal to GetTotalCountAsync -- kept as its own method for consistency with the other five paginated endpoints, all of which have a real filter/unfiltered distinction.</summary>
     public async Task<int> GetFilteredCountAsync()
     {
         using var connection = connectionFactory.Create();
-        return await connection.QuerySingleAsync<int>("SELECT COUNT(*) FROM dbo.fact_account fa WHERE fa.IsDeleted = 0");
+        return await connection.QuerySingleAsync<int>("SELECT COUNT(*) FROM dbo.fact_account fa WHERE fa.IsDeleted = 0 AND NOT EXISTS (SELECT 1 FROM dbo.vw_linked_feed_account l WHERE l.AccountKey = fa.AccountKey)");
     }
 
     private static string BuildOrderByClause(IReadOnlyList<(string Field, bool Descending)>? sortBy)

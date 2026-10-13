@@ -7,6 +7,8 @@
 
 - **SAML SP certificate requested by the App Pool account** (requested 2026-10-12): an installer step that has the App Pool's account request the SP signing certificate from the CA into its own store (`CurrentUser\My`), so only that account holds the key. BlueTrack already looks there first (D-205); the step itself isn't built. Needs the pool's Load User Profile, and a template the account may enroll in.
 
+- **Power BI views don't know about linked feed accounts** (found 2026-10-13, D-212): `vw_powerbi_*` and `vw_export_account_progress` still list a linked feed account alongside its CyberArk account, so a Power BI report counts it twice. Exclude `dbo.vw_linked_feed_account` there too, if those views are in use.
+
 - **A field's Required Permission can't be set in the UI** (found 2026-10-13): it's enforced (D-198), but the Edit Field page doesn't show it, so it's set with SQL on `web.account_progress_field_metadata.RequiredPermission`.
 
 ## From the audit findings (moved here 2026-10-13, at the user's request)

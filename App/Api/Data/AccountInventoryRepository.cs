@@ -99,6 +99,20 @@ public sealed class AccountInventoryRepository(IDbConnectionFactory connectionFa
         transaction.Commit();
     }
 
+    /// <summary>
+    /// D-212 (phase 4b): dbo.usp_Link_FeedAccounts for this source -- links each
+    /// feed account CyberArk also has (same user name and address) and moves it
+    /// from Discovered to Onboarded to Vault, audit-logged as <paramref name="userKey"/>.
+    /// </summary>
+    public async Task<(int Linked, int Moved)> LinkAsync(int sourceSystemKey, int userKey)
+    {
+        using var connection = connectionFactory.Create();
+        var counts = await connection.QuerySingleAsync<(int LinkedCount, int MovedCount)>(
+            "dbo.usp_Link_FeedAccounts", new { PerformedByUserKey = userKey, SourceSystemKey = sourceSystemKey },
+            commandType: System.Data.CommandType.StoredProcedure);
+        return (counts.LinkedCount, counts.MovedCount);
+    }
+
     // Only when the account has none (a restored account keeps its old row).
     private static Task InsertProgressAsync(System.Data.IDbConnection connection, System.Data.IDbTransaction transaction, long accountKey, string? ownerName, string? notes) =>
         connection.ExecuteAsync("""

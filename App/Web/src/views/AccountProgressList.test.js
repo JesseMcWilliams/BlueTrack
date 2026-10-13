@@ -194,4 +194,30 @@ describe('AccountProgressList.vue', () => {
     expect(link.attributes('href')).toBe('/account-progress/1')
     expect(wrapper.find('.no-username').text()).toBe('(no username)')
   })
+  // D-212: a feed account shows its source; a linked one (shown on request) links to its CyberArk account.
+  it('marks feed accounts with their source, and sends linked=Show when linked feed accounts are shown', async () => {
+    mockInitialLoad({
+      accounts: [
+        { ...sampleAccount, sourceSystemCode: 'PRIVCLOUD', sourceSystemName: 'CyberArk Privilege Cloud (SaaS)' },
+        { ...sampleAccount, accountKey: 2, sourceSystemCode: 'CMDB', sourceSystemName: 'CMDB', linkedToAccountKey: 1, linkedToAccountName: 'svc-web01',
+          isDeleted: true, isDeletedInSource: true }
+      ]
+    })
+    const wrapper = mount(AccountProgressList, { global: { plugins: [makeRouter()] } })
+    await flushPromises()
+
+    const badges = wrapper.findAll('.source-badge')
+    expect(badges).toHaveLength(1)
+    expect(badges[0].text()).toBe('from CMDB')
+    expect(wrapper.findAll('.deleted-badge').at(-1).attributes('title')).toBe('Deleted in CMDB')
+    const linked = wrapper.find('.linked-badge')
+    expect(linked.attributes('href')).toBe('/account-progress/1')
+    expect(linked.attributes('title')).toBe('Linked to CyberArk account svc-web01')
+
+    const linkedSelect = wrapper.findAll('select').find(sel => sel.findAll('option').some(o => o.text() === 'Show') && !sel.findAll('option').some(o => o.text() === 'Only deleted'))
+    await linkedSelect.setValue('Show')
+    await flushPromises()
+    const calls = globalThis.fetch.mock.calls.map(c => c[0]).filter(u => u.startsWith('/api/account-progress?'))
+    expect(calls.at(-1)).toContain('linked=Show')
+  })
 })
