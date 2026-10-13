@@ -133,11 +133,19 @@ public sealed class AuthController(IdentityProviderRepository identityProviderRe
         return Challenge(new AuthenticationProperties { RedirectUri = redirectUri }, "OIDC");
     }
 
+    /// <summary>
+    /// D-206: the web pages' Sign out. Ends every BlueTrack session the browser
+    /// may hold -- the OIDC/DevFakeAuth cookie, the SAML session, and the
+    /// Windows choice (D-205). It doesn't sign the user out of the IdP (no
+    /// Single Logout yet), and a Windows user is signed straight back in once
+    /// they leave the sign-in page while Windows is the default.
+    /// </summary>
     [HttpPost("logout")]
     [Authorize]
     public async Task<IActionResult> Logout()
     {
         await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+        await HttpContext.SignOutAsync(ITfoxtec.Identity.Saml2.Schemas.Saml2Constants.AuthenticationScheme);
         ClearSignInChoice(HttpContext); // D-205
         return NoContent();
     }

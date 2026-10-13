@@ -39,6 +39,7 @@ const router = useRouter()
 const rights = useRightsStore()
 
 const requestedType = computed(() => PROVIDER_BY_PATH[route.params.provider] ?? null)
+const signedOut = computed(() => route.query.signedOut === '1')
 
 function returnUrl() {
   const value = route.query.returnUrl
@@ -107,6 +108,9 @@ async function load() {
       return
     }
 
+    // D-206: just signed out -- list the methods; don't start the default again.
+    if (signedOut.value) return
+
     const defaultProvider = providers.value.find(p => p.providerType === defaultProviderType.value)
     if (defaultProvider && externalRedirectUrl(defaultProvider)) {
       start(defaultProvider)
@@ -127,6 +131,7 @@ onMounted(load)
 <template>
   <div>
     <h1>Sign in</h1>
+    <p v-if="signedOut" role="status">You're signed out.</p>
     <p v-if="error" role="alert">{{ error }}</p>
     <p v-if="loading" role="status">Loading...</p>
     <p v-if="windowsFailed && !signingIn" role="alert">

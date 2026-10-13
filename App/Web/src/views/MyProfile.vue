@@ -16,7 +16,7 @@ onMounted(() => rights.ensureLoaded())
 
 <template>
   <div>
-    <h1>My Profile</h1>
+    <h1>Profile &amp; Preferences</h1>
     <p v-if="rights.loading" role="status">Loading...</p>
     <p v-else-if="rights.error" role="alert">{{ rights.error }}</p>
     <template v-else>

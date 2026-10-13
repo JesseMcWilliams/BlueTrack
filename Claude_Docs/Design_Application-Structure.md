@@ -25,7 +25,7 @@ Confirmed 2026-08-27 as a first pass — revise here as screens are added or spl
 - Risk Exceptions — approval worklist (requires `ApproveExceptions`). **Resolved 2026-09-01 (D-70):** shows every currently-Active exception — the schema has no separate "pending approval" state, so this is the permission-gated overview of what's in effect right now, distinct from the plain list (every status) and the overdue-review worklist below (only past-`ReviewDate` ones).
 - Risk Exceptions — overdue-review worklist (D-19 — specifically exceptions past their `ReviewDate`, not the same as the Reports overdue worklist below)
 - Reports (in-app analyst reporting, D-22 — distinct from Power BI) — see sub-navigation, D-56
-- My Profile — self-service "Reload My Rights" (D-14)
+- Profile & Preferences (formerly My Profile) — self-service "Reload My Rights" (D-14), theme and page size. D-206: reached from the user menu at the right of the top nav (the signed-in user's name), which also has **Sign out**.
 - **Targets / Access Groups** — the Risk Scoring inventory admin pages, promoted out of the Admin hub to their own top-level nav entries (D-121), gated by `ManageTargets`/`ManageAccessGroups` respectively. Analyst now holds both permissions (full parity with Admin, D-121), so these are reachable outside the strict Admin-only set despite still being permission-gated. Access Groups also carries a SOR Type/SOR Address pair (D-121) alongside the existing D-119 `GroupScope`/`FoundOnTargetKey`.
 
 ### Admin-Facing (gated per-permission, per the D-05 permission model)

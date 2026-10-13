@@ -22,7 +22,7 @@ The Dashboard, **Accounts**, **Exceptions** and most **Reports** need `ViewDashb
 
 ## Your profile
 
-**Where**: **My Profile** at the right of the top nav (`/profile`). Shows your display name, role, and permission list, and lets you pick a display theme.
+**Where**: open the menu with your name at the right of the top nav and choose **Profile & Preferences** (`/profile`). Shows your display name, role, and permission list, and lets you pick a display theme.
 
 ## See also
 

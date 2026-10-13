@@ -7,7 +7,6 @@
 
 - **SAML SP certificate requested by the App Pool account** (requested 2026-10-12): an installer step that has the App Pool's account request the SP signing certificate from the CA into its own store (`CurrentUser\My`), so only that account holds the key. BlueTrack already looks there first (D-205); the step itself isn't built. Needs the pool's Load User Profile, and a template the account may enroll in.
 
-- **No sign-out in the web pages** (found 2026-10-13 while writing the user docs): `POST /api/auth/logout` and SAML's `GET /api/auth/saml/logout` exist, but no page offers them. Needed: a sign-out link (e.g. by My Profile) that ends the session and lands on `/login`.
 - **A field's Required Permission can't be set in the UI** (found 2026-10-13): it's enforced (D-198), but the Edit Field page doesn't show it, so it's set with SQL on `web.account_progress_field_metadata.RequiredPermission`.
 
 ## Built, but never proven against a real live service
