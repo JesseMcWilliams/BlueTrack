@@ -7,7 +7,7 @@ namespace BlueTrack.Api.Imports;
 /// <summary>
 /// D-180's two CSV imports for Application ↔ Safe Mapping, moved out of
 /// ApplicationMappingImportController unchanged (Data Sources phase 1,
-/// Planning_Data-Sources.md) so the Bulk Actions uploads and the scheduled
+/// Design_Data-Sources.md) so the Bulk Actions uploads and the scheduled
 /// data feeds (phase 2) run the same code. Each method takes already-parsed
 /// CSV rows (CsvFileReader).
 ///   - Applications: ApplicationCode identifies the row. A new code creates

@@ -39,6 +39,10 @@ Used only for BlueTrack's own operational credentials (e.g. an SMTP or LDAP bind
 
 Exactly one backend is active at a time (admin-selectable via the Secrets Store Configuration page); switching backends never requires a code change, only configuration.
 
+### 2.3a DNS (the app server's resolver)
+
+D-212 (Data Sources phase 4c): after each account inventory feed import, `DnsHostResolver` (`App/Api/DataFeeds/PossibleMatchFinder.cs`) looks up host names and IP addresses with .NET's `System.Net.Dns`, as the App Pool's account, to suggest possible account matches (forward and reverse lookups, 3 seconds each, cached for the run). Only addresses of accounts whose user name matches a CyberArk account are looked up. A failed lookup just means no suggestion.
+
 ### 2.4 Authentication providers
 
 | Provider | Status | Mechanism |

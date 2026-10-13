@@ -10,7 +10,7 @@ using BlueTrack.Api.RiskScoring;
 namespace BlueTrack.Api.Controllers;
 
 /// <summary>
-/// D-181 (Data Sources phase 2, Planning_Data-Sources.md): the Data Sources
+/// D-181 (Data Sources phase 2, Design_Data-Sources.md): the Data Sources
 /// admin page -- data feeds (CSV files in a folder, imported nightly by the
 /// existing import pipelines), their Test and Run now buttons, and run history.
 /// </summary>

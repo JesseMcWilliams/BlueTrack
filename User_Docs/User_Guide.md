@@ -141,6 +141,7 @@ An exception that's no longer Active can't be re-approved or revoked; if someone
 - **Overdue / At-Risk** — accounts past their target remediation date that aren't yet Complete.
 - **Stage/Status Summary** — an account count per Stage × Status cell, with row totals.
 - **Reconciliation Review** (requires `ConfirmReconciliation`) — unconfirmed cross-source account matches; currently read-only, no confirm/reject action wired up yet.
+- **Possible Account Matches** (requires `ConfirmReconciliation`) — accounts from other systems that may be a CyberArk account (same user name; the addresses agree by host name or DNS). **Link** treats them as one account, as an exact match would; **Dismiss** means they're different, and the pair isn't suggested again.
 - **Unresolved Entitlement Members** — Safe entitlements granted to a member this app can't resolve to a known user or group.
 - **Risk Score** (requires `ViewRiskReport`) — every account's Computed/Override/Effective risk score and Risk Band, sortable, with a **Recalculate Now** button and a per-account click-to-expand drill-down showing the real Targets/Access Groups behind that score.
 - **Discovered Accounts** (requires `ViewDiscoveredAccounts`) — real AD accounts not yet onboarded into CyberArk, found nightly and risk-scored the same way as tracked accounts. If you hold `ManageDiscoveredAccounts`, **Accept**/**Dismiss** buttons let you move a candidate into real Blueprint tracking or resolve it as a false positive. An account that's already been accepted can't be dismissed; the page says so.

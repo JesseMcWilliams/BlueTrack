@@ -330,6 +330,7 @@ These pages hold the information behind risk scores and ownership. You won't use
 | Reports > Accounts Flagged for Deletion | Which accounts are due to be removed, and have any already moved to another safe? |
 | Reports > Unresolved Entitlement Members | Which safe permissions belong to someone BlueTrack can't identify? |
 | Reports > Reconciliation Review | Which accounts might be the same account in both Privilege Cloud and Self-Hosted? (Read-only for now.) |
+| Reports > Possible Account Matches | Which accounts from other systems might be CyberArk accounts we haven't linked yet? |
 | Reports > Risk Exception SoD | Who both approved an exception and linked it to an account? |
 | Exceptions > Overdue Reviews | Which exceptions are past their review date? |
 

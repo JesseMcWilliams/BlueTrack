@@ -229,22 +229,8 @@ public class AccountInventoryFeedTests : IClassFixture<BlueTrackWebApplicationFa
     {
         var client = AdminClient();
         // The test seed has no CyberArk account with an address, so the test adds one (tests run one at a time).
-        CyberArkAccount cyberArk;
-        await using (var connection = new SqlConnection(TestDatabase.ConnectionString))
-        {
-            var id = Guid.NewGuid().ToString("N")[..12];
-            cyberArk = await connection.QuerySingleAsync<CyberArkAccount>("""
-                INSERT INTO dbo.fact_account (SourceSystemKey, SourceAccountId, AccountName, UserName, Address)
-                OUTPUT inserted.AccountKey, inserted.AccountName, inserted.UserName, inserted.Address
-                SELECT SourceSystemKey, @id, 'CT linked ' + @id, 'ct_user_' + @id, 'ct-host-' + @id + '.example.com'
-                FROM dbo.dim_source_system WHERE SourceSystemCode = 'PRIVCLOUD'
-                """, new { id });
-            await connection.ExecuteAsync("""
-                INSERT INTO dbo.fact_account_progress (AccountKey, CurrentStageKey, CurrentStatusKey)
-                SELECT @AccountKey, (SELECT StageKey FROM dbo.dim_blueprint_stage WHERE StageName = 'Onboarded to Vault'),
-                       (SELECT StatusKey FROM dbo.dim_progress_status WHERE StatusName = 'In Progress')
-                """, new { cyberArk.AccountKey });
-        }
+        var id = Guid.NewGuid().ToString("N")[..12];
+        var cyberArk = await AddCyberArkAccountAsync($"ct_user_{id}", $"ct-host-{id}.example.com");
         var source = await CreateSourceAsync(client);
         var folder = Directory.CreateTempSubdirectory("BlueTrackAccountFeed_").FullName;
         try
@@ -299,12 +285,95 @@ public class AccountInventoryFeedTests : IClassFixture<BlueTrackWebApplicationFa
         {
             await RemoveSourceAsync(source.SourceSystemKey);
             Directory.Delete(folder, recursive: true);
-            await using var connection = new SqlConnection(TestDatabase.ConnectionString);
-            await connection.ExecuteAsync("""
-                DELETE FROM dbo.account_reconciliation WHERE CurrentAccountKey = @AccountKey;
-                DELETE FROM dbo.fact_account_progress WHERE AccountKey = @AccountKey;
-                DELETE FROM dbo.fact_account WHERE AccountKey = @AccountKey;
-                """, new { cyberArk.AccountKey });
+            await RemoveCyberArkAccountsAsync(cyberArk.AccountKey);
         }
+    }
+
+    private sealed record MatchRow(long ReconciliationKey, string MatchMethod, long FeedAccountKey, long CyberArkAccountKey);
+
+    private static async Task<CyberArkAccount> AddCyberArkAccountAsync(string userName, string address)
+    {
+        await using var connection = new SqlConnection(TestDatabase.ConnectionString);
+        var account = await connection.QuerySingleAsync<CyberArkAccount>("""
+            INSERT INTO dbo.fact_account (SourceSystemKey, SourceAccountId, AccountName, UserName, Address)
+            OUTPUT inserted.AccountKey, inserted.AccountName, inserted.UserName, inserted.Address
+            SELECT SourceSystemKey, @id, 'CT ' + @id, @userName, @address FROM dbo.dim_source_system WHERE SourceSystemCode = 'PRIVCLOUD'
+            """, new { id = Guid.NewGuid().ToString("N")[..20], userName, address });
+        await connection.ExecuteAsync("""
+            INSERT INTO dbo.fact_account_progress (AccountKey, CurrentStageKey, CurrentStatusKey)
+            SELECT @AccountKey, (SELECT StageKey FROM dbo.dim_blueprint_stage WHERE StageName = 'Onboarded to Vault'),
+                   (SELECT StatusKey FROM dbo.dim_progress_status WHERE StatusName = 'In Progress')
+            """, new { account.AccountKey });
+        return account;
+    }
+
+    private static async Task RemoveCyberArkAccountsAsync(params long[] accountKeys)
+    {
+        await using var connection = new SqlConnection(TestDatabase.ConnectionString);
+        await connection.ExecuteAsync("""
+            DELETE FROM dbo.account_reconciliation WHERE CurrentAccountKey IN @accountKeys;
+            DELETE FROM dbo.fact_account_progress WHERE AccountKey IN @accountKeys;
+            DELETE FROM dbo.fact_account WHERE AccountKey IN @accountKeys;
+            """, new { accountKeys });
+    }
+
+    /// <summary>D-212 (phase 4c): a loose match is proposed, not linked; Link and Dismiss settle it, and a dismissed pair stays dismissed.</summary>
+    [Fact]
+    public async Task PossibleMatches_AreProposed_ThenLinkedOrDismissed()
+    {
+        var client = AdminClient();
+        var id = Guid.NewGuid().ToString("N")[..10];
+        var first = await AddCyberArkAccountAsync($"ct_a_{id}", $"ct-a-{id}.corp.example.com");
+        var second = await AddCyberArkAccountAsync($"ct_b_{id}", $"ct-b-{id}.corp.example.com");
+        var source = await CreateSourceAsync(client);
+        var folder = Directory.CreateTempSubdirectory("BlueTrackAccountFeed_").FullName;
+        try
+        {
+            var created = await client.PostAsJsonAsync("/api/admin/data-feeds", Feed($"CT_{Guid.NewGuid():N}", folder, source.SourceSystemKey));
+            var key = (await created.Content.ReadFromJsonAsync<KeyResponse>())!.DataFeedKey;
+            // Short host names: the same accounts, but not an exact match.
+            await File.WriteAllTextAsync(Path.Combine(folder, "accounts.csv"), $"UserName,Address\r\nct_a_{id},ct-a-{id}\r\nct_b_{id},ct-b-{id}\r\n");
+
+            var run = await RunAndWaitAsync(client, key);
+            Assert.Contains("0 linked to CyberArk, 2 possible matches", run.Summary);
+
+            Assert.Equal(HttpStatusCode.Forbidden, (await Client("TestUser.Viewer").GetAsync("/api/reports/possible-matches")).StatusCode);
+            var rows = (await client.GetFromJsonAsync<List<MatchRow>>("/api/reports/possible-matches?pageSize=200"))!;
+            var linkRow = rows.Single(r => r.CyberArkAccountKey == first.AccountKey);
+            var dismissRow = rows.Single(r => r.CyberArkAccountKey == second.AccountKey);
+            Assert.Equal("FeedShortName", linkRow.MatchMethod);
+
+            Assert.Equal(HttpStatusCode.NoContent, (await client.PostAsync($"/api/reports/possible-matches/{linkRow.ReconciliationKey}/link", null)).StatusCode);
+            Assert.Equal(HttpStatusCode.NoContent, (await client.PostAsync($"/api/reports/possible-matches/{dismissRow.ReconciliationKey}/dismiss", null)).StatusCode);
+            Assert.Equal(HttpStatusCode.Conflict, (await client.PostAsync($"/api/reports/possible-matches/{linkRow.ReconciliationKey}/link", null)).StatusCode);
+
+            var accounts = await AccountsAsync(source.SourceSystemKey);
+            Assert.Equal("Onboarded to Vault", accounts.Single(a => a.SourceAccountId == $"ct_a_{id}@ct-a-{id}").StageName);
+            Assert.Equal("Discovered", accounts.Single(a => a.SourceAccountId == $"ct_b_{id}@ct-b-{id}").StageName);
+            await using (var connection = new SqlConnection(TestDatabase.ConnectionString))
+            {
+                Assert.Equal(first.AccountKey, await connection.QuerySingleAsync<long>(
+                    "SELECT LinkedAccountKey FROM dbo.vw_linked_feed_account WHERE AccountKey = @FeedAccountKey", new { linkRow.FeedAccountKey }));
+            }
+
+            // Neither is open now; the next run proposes nothing again (the dismissed pair stays dismissed).
+            rows = (await client.GetFromJsonAsync<List<MatchRow>>("/api/reports/possible-matches?pageSize=200"))!;
+            Assert.DoesNotContain(rows, r => r.ReconciliationKey == linkRow.ReconciliationKey || r.ReconciliationKey == dismissRow.ReconciliationKey);
+            var again = await RunAndWaitAsync(client, key);
+            Assert.Contains("0 possible matches", again.Summary);
+        }
+        finally
+        {
+            await RemoveSourceAsync(source.SourceSystemKey);
+            await RemoveCyberArkAccountsAsync(first.AccountKey, second.AccountKey);
+            Directory.Delete(folder, recursive: true);
+        }
+    }
+
+    private HttpClient Client(string user)
+    {
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Add(TestAuthHandler.TestUserHeaderName, user);
+        return client;
     }
 }

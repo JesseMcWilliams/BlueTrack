@@ -1,5 +1,5 @@
 <script setup>
-// D-181 (Data Sources phase 2, Planning_Data-Sources.md): data feeds -- CSV
+// D-181 (Data Sources phase 2, Design_Data-Sources.md): data feeds -- CSV
 // files in a folder that the API imports nightly, through the same imports
 // as the Bulk Actions uploads. Run now / Run all start a run in the
 // background (the API answers 202, or 409 if a run is already going); this

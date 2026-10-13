@@ -7,7 +7,7 @@ namespace BlueTrack.Api.Imports;
 /// <summary>
 /// The five risk-scoring CSV imports (D-101-105, D-119 Phase B), moved out of
 /// RiskScoringImportController unchanged (Data Sources phase 1,
-/// Planning_Data-Sources.md) so the Bulk Actions uploads and the scheduled
+/// Design_Data-Sources.md) so the Bulk Actions uploads and the scheduled
 /// data feeds (phase 2) run the same code. Each method takes already-parsed
 /// CSV rows (CsvFileReader) and validates row by row: a bad row is reported,
 /// it doesn't fail the batch.
