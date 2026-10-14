@@ -5,6 +5,7 @@ using BlueTrack.Api.Auth;
 using BlueTrack.Api.Data;
 using BlueTrack.Api.Models;
 using BlueTrack.Api.Notifications;
+using BlueTrack.Api.Notifications.OAuth;
 
 namespace BlueTrack.Api.Controllers;
 
@@ -30,8 +31,16 @@ public sealed class NotificationsController(
         var user = await currentUserResolver.ResolveAsync(User);
         if (user is null) return Unauthorized();
 
+        // D-223: the auth mode and each OAuth2 mode's own required fields.
+        var errors = SmtpAuthMethods.Validate(request);
+        if (errors.Count > 0)
+        {
+            return Problem(title: "Invalid SMTP settings", detail: string.Join(" ", errors), statusCode: StatusCodes.Status400BadRequest);
+        }
+
         // D-198: a stored credential's password is only ever sent over TLS.
-        var sendsCredential = request.AuthMethod == "Basic" && request.SmtpCredentialKey is not null;
+        var isOAuth = SmtpAuthMethods.IsOAuth(request.AuthMethod);
+        var sendsCredential = (request.AuthMethod == SmtpAuthMethods.Basic || isOAuth) && request.SmtpCredentialKey is not null;
         if (sendsCredential && !request.EnableStartTls)
         {
             return Problem(title: "STARTTLS required", statusCode: StatusCodes.Status400BadRequest,
@@ -49,7 +58,17 @@ public sealed class NotificationsController(
             || before.EnableStartTls != request.EnableStartTls
             || before.IgnoreSslErrors != request.IgnoreSslErrors
             || before.AuthMethod != request.AuthMethod
-            || before.SmtpCredentialKey != request.SmtpCredentialKey;
+            || before.SmtpCredentialKey != request.SmtpCredentialKey
+            // D-223: where an OAuth2 secret is posted (the tenant's or the
+            // generic token endpoint), what token it buys, and whose mailbox
+            // it signs in as (Google impersonates it) are destinations too.
+            || !string.Equals(before.OAuthTenantId, request.OAuthTenantId, StringComparison.OrdinalIgnoreCase)
+            || !string.Equals(before.OAuthClientId, request.OAuthClientId, StringComparison.Ordinal)
+            || !string.Equals(before.OAuthTokenUrl, request.OAuthTokenUrl, StringComparison.Ordinal)
+            || !string.Equals(before.OAuthScope, request.OAuthScope, StringComparison.Ordinal)
+            || !string.Equals(before.OAuthAudience, request.OAuthAudience, StringComparison.Ordinal)
+            || !string.Equals(before.OAuthUsername, request.OAuthUsername, StringComparison.OrdinalIgnoreCase)
+            || (isOAuth && !string.Equals(before.FromAddress, request.FromAddress, StringComparison.OrdinalIgnoreCase));
         if (sendsCredential && destinationChanged
             && !User.HasClaim(PermissionClaimsTransformation.PermissionClaimType, Permissions.ManageCredentials))
         {
@@ -73,6 +92,15 @@ public sealed class NotificationsController(
         Track("FromDisplayName", before?.FromDisplayName, request.FromDisplayName);
         Track("IgnoreCrlErrors", before?.IgnoreCrlErrors, request.IgnoreCrlErrors);
         Track("IgnoreSslErrors", before?.IgnoreSslErrors, request.IgnoreSslErrors);
+        // D-223: none of these is a secret (the secret stays in the credential).
+        Track("OAuthTenantId", before?.OAuthTenantId, request.OAuthTenantId);
+        Track("OAuthClientId", before?.OAuthClientId, request.OAuthClientId);
+        Track("OAuthClientCredentialType", before?.OAuthClientCredentialType, request.OAuthClientCredentialType);
+        Track("OAuthTokenUrl", before?.OAuthTokenUrl, request.OAuthTokenUrl);
+        Track("OAuthScope", before?.OAuthScope, request.OAuthScope);
+        Track("OAuthAudience", before?.OAuthAudience, request.OAuthAudience);
+        Track("OAuthClientAuthStyle", before?.OAuthClientAuthStyle, request.OAuthClientAuthStyle);
+        Track("OAuthUsername", before?.OAuthUsername, request.OAuthUsername);
         if (changes.Count > 0)
         {
             await auditLogger.LogAsync("FieldEdit", user.UserKey, "notification_config", before?.NotificationConfigKey.ToString(),
@@ -186,6 +214,8 @@ public sealed class NotificationsController(
     [HttpPost("test")]
     public async Task<IActionResult> SendTestEmail()
     {
+        var user = await currentUserResolver.ResolveAsync(User);
+        if (user is null) return Unauthorized();
         var recipients = await repository.GetActiveRecipientEmailsAsync();
         if (recipients.Count == 0)
         {
@@ -193,14 +223,22 @@ public sealed class NotificationsController(
                 statusCode: StatusCodes.Status400BadRequest);
         }
 
+        // D-223: like D-210's Test buttons, the test send resolves the stored
+        // credential (and, for OAuth2, gets a token) for real, so it is
+        // audit-logged as a ConnectionTest. Messages never hold a secret.
+        var authMethod = (await repository.GetConfigAsync()).AuthMethod;
         try
         {
             await sender.SendAsync(recipients, "BlueTrack: test notification",
                 "This is a test message from BlueTrack's Notifications admin page. If you received this, SMTP is configured correctly.");
+            await auditLogger.LogAsync("ConnectionTest", user.UserKey, "notification_config", null,
+                detail: AuditLogger.ClipDetail($"Test email ({authMethod}) sent to {recipients.Count} recipient(s)"));
             return Ok(new { success = true, recipientCount = recipients.Count });
         }
         catch (Exception ex)
         {
+            await auditLogger.LogAsync("ConnectionTest", user.UserKey, "notification_config", null,
+                detail: AuditLogger.ClipDetail($"Test email ({authMethod}) failed: {ex.Message}"));
             return Ok(new { success = false, error = ex.Message });
         }
     }

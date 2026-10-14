@@ -29,7 +29,7 @@ Singleton settings row, kept separate from `web.app_config` the same way `web.au
 | SmtpHost | nvarchar(255) | |
 | SmtpPort | int | |
 | EnableStartTls | bit | |
-| AuthMethod | nvarchar(20) | `None` / `Basic` / `OAuth2` -- see Open Question below |
+| AuthMethod | nvarchar(20) | `None` / `Basic`; D-223 adds `Microsoft365` / `GoogleWorkspace` / `GenericOAuth2` (see that section) |
 | Username | nvarchar(255), nullable | |
 | PasswordSecretReference | nvarchar(500), nullable | Protected via whichever Secrets Store backend is active, same pattern as every other credential in this app -- never a plaintext column |
 | FromAddress | nvarchar(320) | |
@@ -129,6 +129,42 @@ Three more types, seeded by `19_BlueTrack_MoreNotifications.sql`, each an `INoti
 
 **Not built: `ApprovalsWaiting`** (a per-approver daily digest of exceptions waiting for approval). No exception ever waits: one is approved as it's created (D-70; statuses are Active, Expired, Revoked), and D-140's segregation of duties is about who links an approved exception, not who approves. And nothing stored says who holds `ApproveExceptions` now: rights are resolved at sign-in and cached for at most 15 minutes (D-197), and group memberships aren't stored. The weekly summary leaves out "exceptions waiting approval" for the same reason.
 
+## D-223 (2026-10-13): OAuth2 (XOAUTH2) sign-in for SMTP
+
+Chosen by the user: three more **Auth Method** values beside `None` and `Basic`, for mailboxes where username/password SMTP AUTH is off. Each gets an access token, then signs in with SASL XOAUTH2 (`base64("user=" + mailbox + "^Aauth=Bearer " + token + "^A^A")`), which MailKit 4.17.0 sends as `new SaslMechanismOAuth2(userName, auth_token)` passed to `SmtpClient.AuthenticateAsync(SaslMechanism, CancellationToken)` (both confirmed in the package's own `MailKit.xml`).
+
+| Mode | Settings (script 20, none secret) | The credential's password holds | Token request |
+|---|---|---|---|
+| `Microsoft365` | Tenant ID (GUID or domain), Client ID, `Secret` or `Certificate`, sign-in mailbox | The client secret, or a PEM certificate and its unencrypted RSA private key | Client credentials to `https://login.microsoftonline.com/{tenant}/oauth2/v2.0/token`, scope `https://outlook.office365.com/.default`; a certificate signs a `client_assertion` JWT (PS256, `x5t#S256` header; `aud` = token endpoint, `iss` = `sub` = client ID, `jti`, `nbf`, `iat`, `exp` 10 minutes on) |
+| `GoogleWorkspace` | Sign-in mailbox (impersonated) | The service account's whole JSON key file | An RS256 JWT (`kid` = `private_key_id`; `iss` = `client_email`, `scope` = `https://mail.google.com/`, `aud` = `https://oauth2.googleapis.com/token`, `sub` = mailbox, `exp` = `iat` + 1 hour) posted as `grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer` |
+| `GenericOAuth2` | Token URL (https only), Client ID, client authentication `Basic` (RFC 6749 2.3.1, the method every server must support) or `Body`, optional scope and `audience`, XOAUTH2 username | The client secret | RFC 6749 4.4 client credentials |
+
+The sign-in mailbox defaults to the From address. The Notifications page shows only the selected mode's fields and fills the documented host (`smtp.office365.com` / `smtp.gmail.com`), port 587 and STARTTLS when a mode is first picked; the save clears other modes' fields.
+
+**Prerequisites, per the sources below.** Microsoft 365: an Entra app with the **Office 365 Exchange Online > SMTP.SendAsApp** application permission and admin consent; its service principal registered in Exchange Online (`New-ServicePrincipal -AppId <APPLICATION_ID> -ObjectId <OBJECT_ID>`, the Enterprise Application's Object ID, not the App Registration's); `Add-MailboxPermission -Identity <mailbox> -User <SERVICE_PRINCIPAL_ID> -AccessRights FullAccess`; SMTP AUTH on for the mailbox (`Set-CASMailbox -Identity <mailbox> -SmtpClientAuthenticationDisabled $false`; it is off for tenants created after January 2020, and unavailable while Entra security defaults are on); `Add-RecipientPermission` (Send As) if the From address differs from the mailbox. Google Workspace: a service account with a JSON key; a super administrator adds its numeric client ID under **Security > Access and data control > API Controls > Domain wide delegation** with scope `https://mail.google.com/` (Google says propagation can take up to 24 hours); the mailbox is a user in the domain. Google documents the service-account JWT flow and the SMTP XOAUTH2 scope separately, not as one worked SMTP example, so this combination is the least certain of the three.
+
+**Microsoft's deprecation status.** Microsoft is retiring *Basic* authentication for SMTP AUTH client submission and recommends OAuth; app-only (client credentials) OAuth for SMTP is documented as supported on the OAuth page below (updated 2025-10-17). Nothing found marks it deprecated, so it was built; Graph `sendMail` was not needed.
+
+**Secrets.** Kept only in the `web.credential` row (`SmtpCredentialKey`), through its existing backends (DPAPI or a vault); `credential.ProtectedPassword` became `NVARCHAR(MAX)` so a key file fits. The Credentials page's password box is one line, so line breaks may be lost: JSON doesn't need them, and the PEM reader (`OAuthKeyMaterial`) ignores whitespace, or its absence, inside a block. No API response, log or audit row holds a secret, assertion or token: token errors read "Token endpoint returned invalid_client: <first line of error_description>", with the secret masked should a provider echo it.
+
+**Tokens** (`SmtpOAuthTokenService`, Singleton): cached in memory, keyed by a SHA-256 of the settings and secret (a new secret or setting gets a new token), until 5 minutes before `expires_in` (half its life if shorter; not cached without one). 10 seconds a try, 2 retries on a network failure, timeout, 429 or 5xx, none on a 4xx (D-215); no redirects (D-202). The token is got before connecting to SMTP, so a token problem is reported on its own. If the server refuses the token, a new one is fetched and the sign-in retried once, with a provider-specific hint if that fails too. An OAuth2 mode needs STARTTLS (save-time 400, and the sender refuses to send a token over an unencrypted connection, as D-198 does for Basic).
+
+**Saving** (`SmtpAuthMethods.Validate`): 400 with the reasons for an unknown mode or a missing or bad field. Changing the tenant, client ID, token URL, scope, audience, sign-in mailbox (or From, in an OAuth2 mode) counts as a new destination for D-198, so it also needs `ManageCredentials`. Every new field is in the `FieldEdit` audit. **Send Test Email** is now audit-logged as a `ConnectionTest` (D-210's rule for actions that use a secret for real), with the mode and the outcome.
+
+**Status: built, unproven live** for all three providers (no tenant, Workspace domain or OAuth2 provider here). Tests cover the token requests (form fields, scopes, JWT claims and signatures verified with keys made in the test), caching, refresh-once, retries, the sign-in each mode uses (`ISmtpTransport` fake), validation, the script-20 round trip and secrets kept out of responses and the audit log, all against fakes. Sovereign clouds (other Entra hosts) aren't supported.
+
+**D-223 sources** (read 2026-10-13):
+- Microsoft, OAuth for IMAP/POP/SMTP (XOAUTH2 format, client credentials, `SMTP.SendAsApp`, `New-ServicePrincipal`, `Add-MailboxPermission`, scope): https://learn.microsoft.com/en-us/exchange/client-developer/legacy-protocols/how-to-authenticate-an-imap-pop-smtp-application-by-using-oauth
+- Microsoft, client credentials flow (token endpoint, form fields, error body): https://learn.microsoft.com/en-us/entra/identity-platform/v2-oauth2-client-creds-grant-flow
+- Microsoft, certificate credentials (assertion header and claims, PS256): https://learn.microsoft.com/en-us/entra/identity-platform/certificate-credentials
+- Microsoft, SMTP AUTH per mailbox (`Set-CASMailbox`, security defaults): https://learn.microsoft.com/en-us/exchange/clients-and-mobile-in-exchange-online/authenticated-client-smtp-submission
+- Microsoft, client SMTP submission settings (`smtp.office365.com`, 587, TLS 1.2+, Basic auth deprecation note): https://learn.microsoft.com/en-us/exchange/mail-flow-best-practices/how-to-set-up-a-multifunction-device-or-application-to-send-email-using-microsoft-365-or-office-365
+- Google, service account OAuth (JWT header and claims, token endpoint, errors, domain-wide delegation): https://developers.google.com/identity/protocols/oauth2/service-account
+- Google, XOAUTH2 protocol (format, scope `https://mail.google.com/`): https://developers.google.com/workspace/gmail/imap/xoauth2-protocol
+- Google, Gmail SMTP server (`smtp.gmail.com`, 587 TLS / 465 SSL): https://knowledge.workspace.google.com/admin/gmail/send-email-from-a-printer-scanner-or-app
+- IETF RFC 6749 (2.3.1 client password, 4.4 client credentials, 5.2 errors): https://datatracker.ietf.org/doc/html/rfc6749
+- MailKit 4.17.0 `SaslMechanismOAuth2` and `AuthenticateAsync(SaslMechanism, ...)`: the package's `MailKit.xml`; Exchange client-credentials example: https://github.com/jstedfast/MailKit/blob/master/ExchangeOAuth2.md
+
 ## Implementation Status
 
 **Implemented, D-115 (2026-09-06).** All four open questions resolved (dedicated admin-managed recipient list; .NET background service + MailKit, not Database Mail; STARTTLS + username/password only, not OAuth2; the general extensible framework, not a DevFakeAuth-only build) -- see the Decision Register entry for the full resolution and verification detail.
@@ -137,4 +173,4 @@ Built as proposed above, with no changes to the data model: `04_BlueTrack_Baseli
 
 Verified against the real `BlueTrack` database: config/recipient CRUD, the password column holding genuine DPAPI ciphertext (not plaintext), and a real MailKit connection attempt against an unreachable host failing gracefully (`200 OK`, `{success:false, error:...}`) rather than a 500. No real SMTP server was available in this environment to confirm an actual delivered email end to end. `dotnet test` 253/253, Vitest 18/18 (unaffected -- purely additive, no existing code path changed).
 
-Not built, deliberately out of scope per the resolved questions above: OAuth2/XOAUTH2 (a direct M365/Google Workspace mailbox with Basic Auth disabled would need it).
+OAuth2/XOAUTH2, out of scope at D-115, was built by D-223 (above).

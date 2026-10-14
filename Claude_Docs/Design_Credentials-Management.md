@@ -18,7 +18,7 @@ This is a deliberately different concept from `web.secrets_store` (Design_Secret
 | CredentialName | nvarchar(100), unique | e.g. "SMTP Relay", "LDAP Bind Account" |
 | BackendType | nvarchar(50) | `WindowsDpapi` \| `CyberArkCP` \| `CyberArkCCP` \| `CyberArkConjur` \| `AzureKeyVault` \| `AwsSecretsManager` |
 | Username | nvarchar(255), nullable | DPAPI only |
-| ProtectedPassword | nvarchar(2000), nullable | DPAPI only -- ciphertext |
+| ProtectedPassword | nvarchar(max), nullable | DPAPI only -- ciphertext (nvarchar(2000) until script 20, D-223, widened it for OAuth2 key files) |
 | ScopePreference | nvarchar(10), nullable | DPAPI only -- `Machine` \| `User`, the admin's choice |
 | CurrentScope | nvarchar(10), nullable | DPAPI only -- what `ProtectedPassword` is actually protected with *right now* (see below) |
 | VaultSafe / VaultFolder / VaultObject | nvarchar, nullable | Vault backends only -- reuses `IVaultSecretProvider.SecretQuery`'s own Safe/Folder/Object shape, already how CyberArk CP/CCP/Conjur and (with different field meanings) Azure Key Vault/AWS Secrets Manager all interpret a reference |

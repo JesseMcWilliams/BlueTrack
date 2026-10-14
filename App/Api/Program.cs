@@ -198,6 +198,12 @@ builder.Services.AddSingleton<SamlTokenReplayCache>();   // D-198
 // AddScoped<INotificationCheck, ...> line, not a change to the background
 // service itself.
 builder.Services.AddScoped<INotificationSender, SmtpNotificationSender>();
+// D-223: OAuth2 (XOAUTH2) SMTP sign-in. The token service is a Singleton so
+// its in-memory token cache is shared; its HttpClient doesn't follow
+// redirects (D-202) and each try has its own 10-second limit (D-215).
+builder.Services.AddSingleton<ISmtpTransportFactory, MailKitSmtpTransportFactory>();
+ConfigureSecretsHttpClient(builder.Services.AddHttpClient(BlueTrack.Api.Notifications.OAuth.SmtpOAuthTokenService.HttpClientName));
+builder.Services.AddSingleton<BlueTrack.Api.Notifications.OAuth.SmtpOAuthTokenService>();
 builder.Services.AddScoped<NotificationRecipientResolver>();   // D-216
 builder.Services.AddScoped<BreakGlassAccountRepository>();
 builder.Services.AddSingleton<BreakGlassAlerter>();
