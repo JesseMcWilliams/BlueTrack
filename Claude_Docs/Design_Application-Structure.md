@@ -73,16 +73,16 @@ More report types can be added the same way later; this isn't meant to be exhaus
 
 **New 2026-08-27 (D-60).** A gap found on review: `audit_config` (`Design_Audit-Logging.md`) only holds audit-specific settings (`RetentionDays`, `LogReadEvents`), but the Global Application Configuration page also needs to hold settings that have nothing to do with auditing. Kept as a separate table rather than folding into `audit_config`, so audit-specific and general settings stay cleanly separated as more global settings get added later.
 
-**Updated 2026-09-05 (documentation audit)** — this listing had drifted from the real table as more global settings landed piecemeal (`ExceptionIdPattern`/`LockTimeoutMinutes` via `Database/12`/`15`); refreshed to match:
+`web.app_config` is created in `Database/04_BlueTrack_Baseline_WebSchema.sql` and extended by later scripts (`07` scheduled backups, `08` lock-timeout default, `09` default sign-in provider); read those for the full column list. The core settings:
 
 | Field | Type | Purpose |
 |---|---|---|
-| AppConfigKey | int, PK | Surrogate key (fixed singleton row, same pattern as `audit_config`) |
+| AppConfigKey | int, PK | Surrogate key (single settings row, same pattern as `audit_config`) |
 | IdleTimeoutMinutes | int, default 30 | Session idle timeout (D-28) |
-| BreadcrumbPosition | text, controlled list, default 'TopLeft' | Breadcrumb position (D-45/D-57) |
-| ExceptionIdPattern | text | Risk Exception ID display format (D-71, `Database/12_BlueTrack_ExceptionIdNumbering.sql`) |
+| BreadcrumbPosition | text, default 'TopLeft' | Breadcrumb position (D-45/D-57) |
+| ExceptionIdPattern | text, default 'EXC-{yyyy}-{seq:0000}' | Risk Exception ID display format (D-17, D-71) |
 | ExceptionIdSequenceYear / ExceptionIdNextSequence | int / int | Backing counter for the above, resets per calendar year |
-| LockTimeoutMinutes | int | Account Progress edit-lock expiry (`Database/15_BlueTrack_LockTimeoutConfig.sql`) |
+| LockTimeoutMinutes | int, default 30 | Account Progress edit-lock expiry (D-50; default set by `08`, D-201) |
 | ModifiedBy / ModifiedDate | FK to app_user / datetime | Change tracking (D-59) |
 
 **Note on step-up MFA scope (D-29):** this is **not** included here. D-29 reads as a fixed architectural policy ("configuration settings and security settings require step-up, general workflow actions don't") rather than something an admin tunes at runtime the way idle timeout or breadcrumb position is — it's enforced by tagging which actions/endpoints are security-sensitive in code, not a config row. Flagging this reading explicitly in case that's wrong — if step-up scope is actually meant to be admin-adjustable, it belongs here too.

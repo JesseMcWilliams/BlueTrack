@@ -27,7 +27,7 @@ A new, computed risk score for prioritizing work — requested by the user 2026-
 
 Every ETL-sourced relationship above needs the same import-batch tracking already used everywhere else in this app's ETL layer (`ImportBatchId`/`SourceFileName`/`LoadTimestamp` per staging row, one `import_log` row per run) — this satisfies "track when and where they were imported from" using an established pattern rather than a new one. A new `dim_source_system` row (e.g. `ACCESSINVENTORY`) is proposed for this feed, following the existing `PRIVCLOUD`/`SELFHOSTED`/`DISCOVERY` pattern. Distinct from that file-level provenance, `dim_access_group` also needs to record *where a group was found* (confirmed 2026-09-05) — see `DiscoverySource`/`FoundOnTargetKey`/`GroupScope` below, since "which import run loaded this row" and "where in the managed environment this group actually lives" are two different facts.
 
-## Proposed Schema (draft — not yet applied as a migration)
+## Schema (built: `Database/04_BlueTrack_Baseline_WebSchema.sql`)
 
 All new tables live in the `web` schema (this is operational data the web app itself manages and reports on, distinct from the `dbo` CyberArk-warehouse layer), except where noted.
 
@@ -206,11 +206,11 @@ CREATE TABLE web.target_match_review (
 
 4. No match on anything → new Target row, plus a `target_identifier` row for every identifier value the import supplied.
 
-The review queue needs its own small admin page (e.g. `admin/TargetMatchReview.vue`) for an analyst to resolve each pending row — not yet scoped in detail below; added to Admin & Report Pages as a placeholder.
+Analysts resolve each pending row on the Target Match Review admin page (`App/Web/src/views/admin/TargetMatchReview.vue`; Admin & Report Pages, below).
 
 **Staleness/recalculation, per the user's own suggestion (2026-09-05):** `IsRiskScoreStale` is set to `1` whenever a Target's `RiskScore`, an Access Group's `BaseRiskScore`, or any of the three mapping tables change (via ETL load or a manual admin edit). A new `usp_RecalculateRiskScores` procedure recomputes every stale Access Group's `ComputedRiskScore` first, then every stale Account's `ComputedRiskScore` (which depends on its groups' now-current scores) — called both from `usp_RunFullLoad` (so ETL-driven changes are picked up automatically on the normal load cycle) and from a new "Recalculate Now" action in the admin UI, for a manual edit made between load runs. Recalculation never touches `OverrideRiskScore` — an analyst override stays put until an analyst changes or clears it, regardless of how often the underlying computed value refreshes.
 
-## Algorithm — open, needs a decision
+## Algorithm
 
 The user flagged this directly as "the difficult part." Both candidates below start from the same first step: resolve an entity's (an Account's, or an Access Group's) full set of reachable Targets, **deduplicated** — this matters because if an account reaches the same high-risk domain controller through two different group memberships, that target's risk must count once, not twice.
 
@@ -240,7 +240,7 @@ BEGIN
 END
 ```
 
-`ActiveRiskAlgorithm NVARCHAR(50) NOT NULL DEFAULT 'DominantPlusTail'` is proposed as a new column on the existing `web.app_config` singleton (surfaced on the existing Global Application Configuration admin page — no new settings page needed for just this one switch), so comparing the two candidates is an admin-configurable choice, not a deployment.
+Built: both candidates and the dispatcher are in `Database/06_BlueTrack_Baseline_WebLogic.sql`. `ActiveRiskAlgorithm NVARCHAR(50) NOT NULL DEFAULT 'DominantPlusTail'` (Candidate A is the default) is a column on the `web.app_config` singleton (`04`) (surfaced on the existing Global Application Configuration admin page — no new settings page needed for just this one switch), so comparing the two candidates is an admin-configurable choice, not a deployment.
 
 ## Import Mechanics and Field Mapping
 
@@ -248,17 +248,17 @@ END
 
 ## Admin & Report Pages (new)
 
-- **Targets** admin page (`admin/Targets.vue`) — list/create/edit/delete, plus bulk CSV upload + template download. Editing a target's identifiers manages its `target_identifier` rows underneath. New permission: `ManageTargets`.
-- **Access Groups** admin page (`admin/AccessGroups.vue`) — same shape, for Access Groups and their base risk score. New permission: `ManageAccessGroups`.
-- **Target Match Review** admin page (`admin/TargetMatchReview.vue`) — a queue of pending `target_match_review` rows (weak/IP-only matches) for an analyst to resolve as Merged/NewTarget/Ignored. Likely gated by the same `ManageTargets` permission rather than a new one, unless a narrower gate is wanted.
+- **Targets** page (`App/Web/src/views/Targets.vue`) — list/create/edit/delete, plus bulk CSV upload + template download. Editing a target's identifiers manages its `target_identifier` rows underneath. New permission: `ManageTargets`.
+- **Access Groups** page (`App/Web/src/views/AccessGroups.vue`) — same shape, for Access Groups and their base risk score. New permission: `ManageAccessGroups`.
+- **Target Match Review** admin page (`App/Web/src/views/admin/TargetMatchReview.vue`) — a queue of pending `target_match_review` rows (weak/IP-only matches) for an analyst to resolve as Merged/NewTarget/Ignored. Likely gated by the same `ManageTargets` permission rather than a new one, unless a narrower gate is wanted.
 - **Risk Score report** — accounts sorted/filtered by computed risk score, with drill-down into which Access Groups/Targets are driving a given account's score. New permission: `ViewRiskReport`.
 - **Account Progress list** gets two new columns (confirmed 2026-09-05): `EffectiveRiskScore` (sortable, the computed value or the override if one is set) and Risk Band. Editing the override needs `EditAccountProgress` (the existing permission already gating edits on this page), not a new one. **Documentation audit correction, 2026-09-10 (D-127):** the override action itself was originally built as an inline per-row "Edit Override" on this list (Phase E below) but was later moved off the list entirely, onto the Account Progress edit screen's own Risk Score tab (D-130) as a labeled Override Score/Reason field alongside the read-only Calculated Risk/Risk Band — the list itself only ever displays `EffectiveRiskScore`/Risk Band now, it doesn't offer an edit action of its own. See `Design_Decision-Register.md` D-127/D-130/D-131/D-132 for the full detail (a per-account Recalculate action and an Effective Risk Score display were added to that same screen afterward, D-131/D-132).
 - **Import Mapping Profiles** admin page (`admin/ImportMappingProfiles.vue`) — create/edit a named field-mapping profile per `FeedType`, listing that feed's fixed internal fields and letting the admin type in the corresponding source column name for each. Likely gated by the same `ManageTargets`/`ManageAccessGroups` permissions (scoped to whichever `FeedType` a profile belongs to) rather than one new permission covering all four feeds. See `Design_Risk-Scoring-Import.md` for the full design of the mapping mechanism this page manages.
 
 ## Open Questions
 
-- **Algorithm choice** — Candidate A vs. B above, or a third; needs either a decision or a small prototype-and-compare pass against sample data before this is locked in. The dispatcher design means both can be built and compared live rather than picked blind.
-- **`fact_account.Address` reconciliation** — `Address` is a raw, unnormalized string already on `fact_account`; once Targets have real identifier values, is there a need to backfill/link existing accounts' `Address` values to a matching Target (for accounts imported before this feature existed), or does that happen naturally once the Account→Target/Account→Group ETL feeds start running?
+- ~~**Algorithm choice**~~ **Resolved (D-119):** both candidates are built behind the dispatcher; `DominantPlusTail` (Candidate A) is the default, switchable on Global Application Configuration.
+- ~~**`fact_account.Address` reconciliation**~~ **Resolved (D-123, D-193):** during the load, `usp_DeriveTargetsFromAccountAddress` creates a Target from each account's address and `usp_DeriveAccountTargetMap_FromAddress` links the account to every Target matching it (both in `06`).
 - **Server/Desktop/Database Target subtypes** — does v1 need type-specific extra fields (e.g. environment tier, OS), or is the current generic shape sufficient to start?
 - **`web.target_match_review`'s resolution actions** — sketched as Merged/NewTarget/Ignored, but the exact admin workflow for "Merged" (pick which existing Target to merge into, if `CandidateTargetKey` is wrong) isn't designed yet.
 - **Import-mapping open questions** (ETL feed file shapes, interactive mapping UX, mapping a risk score directly on import) moved to `Design_Risk-Scoring-Import.md`'s own Open Questions section.
@@ -327,8 +327,4 @@ New xUnit coverage across `TargetsAndAccessGroupsControllerTests`/`TargetAndAcce
 
 **Verified live against the real `BlueTrack` database**: ran the Migrator to apply script 26 -- `dim_sor_type` seeded with exactly 3 rows, `dim_access_group` gained both new nullable columns, and the real Analyst role now holds `ManageTargets`/`ManageAccessGroups` (4 permissions total). Unlike D-120's blocked attempt, authenticated HTTP verification against real `BlueTrack` succeeded this time (`Invoke-WebRequest -UseDefaultCredentials -UseBasicParsing` against a freshly started API instance pointed at the real connection string): a Target and an Access Group (with SOR Type/SOR Address/Discovery Source) were created, round-tripped correctly, confirmed against `X-Total-Count` (including that a `groupScope` filter narrows the body without changing the header), then deleted -- both tables confirmed back at 0 rows afterward. All four retrofitted endpoints confirmed live against real data, `X-Total-Count` matching the body's own row count in every unfiltered case. The API process was stopped afterward by its specific PID, not any blanket kill.
 
-**AD Account Discovery (2026-09-16, D-137) — a related but separate feature, not a phase of D-119.** Extends this scoring engine to real AD accounts that aren't onboarded into CyberArk yet (no `dbo.fact_account` row), by matching their live AD group membership against `dim_access_group` and scoring the matched set directly (`Database/32`'s `usp_CalculateRiskScoreForAccessGroupSet`, since the existing account-scoped path requires a real `fact_account` row this candidate doesn't have). See `Design_Decision-Register.md` D-137 for the full four-phase build (multi-domain LDAP config, the new scoring path, the discovery schema/nightly job, and the new Discovered Accounts report) — not detailed here to avoid the two documents drifting out of sync with each other.
-
----
-*New document added 2026-09-05, following the user's request for a computed risk-scoring system to help prioritize work. Schema/algorithm above are a first-draft proposal for review — implementation began 2026-09-09 (D-119), in progress; see Implementation Status above for what's actually built so far.*
-*Split 2026-09-21: this document had grown to 375 lines, more than 2x any other document in this folder (`Testing_Audit-Findings.md`'s own long-flagged concern). The import-mapping/ETL half moved to `Design_Risk-Scoring-Import.md` — data model, matching, algorithm, admin pages, and the full Implementation Status build history stay here.*
+**AD Account Discovery (2026-09-16, D-137) — a related but separate feature, not a phase of D-119.** Extends this scoring engine to real AD accounts that aren't onboarded into CyberArk yet (no `dbo.fact_account` row), by matching their live AD group membership against `dim_access_group` and scoring the matched set directly (`usp_CalculateRiskScoreForAccessGroupSet` in `06_BlueTrack_Baseline_WebLogic.sql`, since the existing account-scoped path requires a real `fact_account` row this candidate doesn't have). See `Design_Decision-Register.md` D-137 for the full four-phase build (multi-domain LDAP config, the new scoring path, the discovery schema/nightly job, and the new Discovered Accounts report) — not detailed here to avoid the two documents drifting out of sync with each other.
