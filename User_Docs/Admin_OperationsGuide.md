@@ -217,6 +217,17 @@ Every fresh install maps `BUILTIN\Administrators` (SID `S-1-5-32-544`) to the Ad
 2. Only then delete the `BUILTIN\Administrators` → Admin mapping (same page). It applies on everyone's next request.
 3. If something goes wrong before step 2 is confirmed working, the local machine's own `BUILTIN\Administrators` membership is still your way back in — don't remove local admin rights from your own operator account as part of this same change.
 
+## Checking a Running Install
+
+`Tools\` in the BlueTrack folder holds read-only PowerShell checks (`Tools\README.md` has examples and limits):
+
+- `Test-BlueTrackHealth.ps1`: after an install, an update or a reboot. Services (including SQL Server Agent, which runs the nightly jobs), the site, the version, the health checks and the nightly jobs' last runs.
+- `Test-BlueTrackSso.ps1`: SAML and OIDC sign-in and sign-out with a test account (written for authentik).
+- `Test-BlueTrackLdaps.ps1`: from a host that will bind to a domain controller, before you add the domain on Credentials & LDAP.
+- `Test-BlueTrackIntegrations.ps1`: the Test buttons (Secrets Store, CyberArk sources, data feeds) and the break-glass alert setup.
+
+Each prints PASS / FAIL / WARN / INFO lines and exits with 1 if anything failed.
+
 ## See also
 
 - `Admin_DeploymentRunbook.md` — the full step-by-step procedure for building or rebuilding an environment, including the nightly job's own initial creation (step 5) and the environment-specific items an initial identity provider/secrets store/admin group setup must not skip.

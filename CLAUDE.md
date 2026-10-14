@@ -7,6 +7,7 @@ CyberArk PAM Blueprint progress tracking: a SQL Server warehouse (ETL from Cyber
 - `Database/`: numbered SQL scripts; `Database/Test/` holds test-only seeds (never run against a real environment). Script order and purpose: `Database/README.md`.
 - `Database/01_BlueTrack_Baseline_CoreSchema.sql` is over 1,000 lines: grep for the object and read a line range; don't read the whole file.
 - `Deploy/`: `Install-`/`Backup-`/`Restore-BlueTrack.ps1` plus `Modules/`. Details: `Deploy/README.md`.
+- `Tools/`: `Test-BlueTrack*.ps1` checks against a real install (health, SSO sign-in/out, LDAPS, the Test buttons). Details: `Tools/README.md`.
 - Don't read gitignored runtime output: `Logs/`, `Deploy/Logs/`, `App/**/bin|obj/`, `node_modules/`, `App/Web/dist/`, `App/E2E/test-results|playwright-report|blob-report/`. `Reference/` is gitignored sample CyberArk exports; read only a named file.
 - External references are in `C:\Code\References\`. Check there before guessing at API behavior.
 
@@ -24,7 +25,7 @@ CyberArk PAM Blueprint progress tracking: a SQL Server warehouse (ETL from Cyber
 - New SQL goes in the next numbered `Database/NN_BlueTrack_*.sql` (after the `01`-`06` baseline, D-195); follow `Database/README.md` ("Adding a script"). Never edit a script that has already run. `Database/Manual/` (Agent jobs, grants) is run by hand, never by the Migrator.
 - After touching `App/Api/Auth/AuthenticationExtensions.cs`, regression-test Windows Integrated auth: `Claude_Docs/Design_Authentication-Architecture.md`.
 - List/grid, breadcrumb and delete-confirm UI patterns: `Claude_Docs/Design_Application-Structure.md` ("Cross-Cutting UI Conventions").
-- PowerShell in `Deploy/` must pass `Deploy/PSScriptAnalyzerSettings.psd1`.
+- PowerShell in `Deploy/` and `Tools/` must pass `Deploy/PSScriptAnalyzerSettings.psd1`.
 
 ## Documentation layout
 - `README.md` (root): an **overview only**. It covers purpose, requirements, a quick start and a short feature list, and links to `User_Docs/` and `Claude_Docs/` for everything else. Put detail in a doc and link to it rather than adding it to the README.

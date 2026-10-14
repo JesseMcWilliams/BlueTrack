@@ -15,6 +15,7 @@ App/
 Database/        SQL scripts run by App/Migrator: the 01-06 baseline (D-195) and later numbered changes;
                  Manual/ (run by hand: SQL Agent jobs, grants), Test/ (test-only seeds) -- see Database/README.md
 Deploy/          Install/Backup/Restore PowerShell scripts and modules -- see Deploy/README.md
+Tools/           Test-BlueTrack*.ps1 checks against a real install (D-219) -- see Tools/README.md
 Claude_Docs/     Design_ (one per subsystem, plus the Decision Register), Planning_, Testing_,
                  Reference_ (lessons learned) and Archive_ docs
 User_Docs/       Short, linear, role-based walkthroughs (Admin_*/User_*)

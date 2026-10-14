@@ -15,3 +15,4 @@
 | 2026-10-13 | D-216: break-glass accounts on Identity Providers; BreakGlassLogon audit event and notification. Written into `User_Docs/`. | `Admin_SettingsReference.md` (Identity Providers, Notifications) |
 | 2026-10-13 | D-217: SAML Single Logout (Sign out at the IdP too; IdP sign-out ends BlueTrack). Written into `User_Docs/`. | `Admin_Configuration.md` (SAML; Authentik), `Admin_SettingsReference.md` (IdP Single Logout Destination) |
 | 2026-10-13 | D-218: counts on the pages use the browser language's number format. Release notes only. | `Release_Notes.md` |
+| 2026-10-13 | D-219: `Tools/` command-line checks (health, SSO, LDAPS, Test buttons). Written into `User_Docs/` and `Tools/README.md`. | `Admin_OperationsGuide.md` (Checking a Running Install) |
