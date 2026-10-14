@@ -209,6 +209,14 @@ public sealed class Saml2Controller(Saml2ConfigurationFactory configFactory, ILo
     [AllowAnonymous]
     public async Task<IActionResult> SingleLogout()
     {
+        // Not a SAML message at all: a plain 400, with nothing sent back to the IdP.
+        var form = Request.HasFormContentType ? await Request.ReadFormAsync() : null;
+        bool Has(string name) => Request.Query.ContainsKey(name) || form?.ContainsKey(name) == true;
+        if (!Has("SAMLRequest") && !Has("SAMLResponse"))
+        {
+            return Problem(title: "Not a SAML logout message", detail: "Expected a SAMLRequest or SAMLResponse.", statusCode: StatusCodes.Status400BadRequest);
+        }
+
         var config = await configFactory.BuildAsync();
         if (config is null)
         {

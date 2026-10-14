@@ -81,6 +81,15 @@ public class Saml2ControllerTests : IClassFixture<BlueTrackWebApplicationFactory
     }
 
     [Fact]
+    public async Task SingleLogoutService_WithoutASamlMessage_IsABadRequest()
+    {
+        var client = _factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+
+        Assert.Equal(HttpStatusCode.BadRequest, (await client.GetAsync("/api/auth/saml/slo")).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await client.PostAsync("/api/auth/saml/slo", new FormUrlEncodedContent(new Dictionary<string, string> { ["other"] = "x" }))).StatusCode);
+    }
+
+    [Fact]
     public async Task SingleLogoutService_NotConfigured_ReturnsServiceUnavailable()
     {
         var client = _factory.CreateClient();
