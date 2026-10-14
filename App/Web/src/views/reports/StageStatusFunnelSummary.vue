@@ -4,6 +4,7 @@
 // stage with a column per status.
 import { ref, computed, onMounted } from 'vue'
 import { formatCount } from '../../utils/formatCount'
+import ReportExportButtons from '../../components/ReportExportButtons.vue'
 
 const rows = ref([])
 const error = ref(null)
@@ -43,6 +44,7 @@ function stageTotal(stageName) {
 <template>
   <div>
     <h2>Stage/Status Funnel Summary</h2>
+    <ReportExportButtons path="/api/reports/stage-status-summary/export" />
     <p v-if="loading" role="status">Loading...</p>
     <p v-else-if="error" role="alert">Could not load summary: {{ error }}</p>
     <p v-else-if="rows.length === 0">No account progress data yet.</p>

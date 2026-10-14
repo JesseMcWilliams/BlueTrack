@@ -6,6 +6,7 @@
 // display name to show (D-107/D-108). Read-only, no permission gate.
 import { ref, onMounted } from 'vue'
 import { formatDate } from '../../utils/formatDate'
+import ReportExportButtons from '../../components/ReportExportButtons.vue'
 
 const items = ref([])
 const error = ref(null)
@@ -35,6 +36,7 @@ onMounted(async () => {
       principal that doesn't appear in the standard Users/Groups exports. The raw identifier is shown
       below since this app has no display name to resolve it to.
     </p>
+    <ReportExportButtons path="/api/reports/unresolved-entitlement-members/export" />
     <p v-if="loading" role="status">Loading...</p>
     <p v-else-if="error" role="alert">Could not load unresolved entitlement members: {{ error }}</p>
     <p v-else-if="items.length === 0">No unresolved entitlement members found.</p>

@@ -150,6 +150,10 @@ async function save() {
         <label class="field-label"><span class="field-label-text">Bulk edit limit (accounts):</span> <input v-model.number="config.bulkEditMaxAccounts" type="number" min="1" max="10000" required /></label>
         <small>The most accounts one Account Progress bulk edit may change (D-182).</small>
       </p>
+      <p>
+        <label class="field-label"><span class="field-label-text">Export Max Rows:</span> <input v-model.number="config.exportMaxRows" type="number" min="1" max="1000000" required /></label>
+        <small>The most rows one report export (Export CSV / Export Excel) may hold, from 1 to 1,000,000. When more rows match, the export is refused with the count instead of being cut short (D-220).</small>
+      </p>
       <fieldset class="patterns">
         <legend>Decommissioned and ignored safes</legend>
         <div class="pattern-helper">

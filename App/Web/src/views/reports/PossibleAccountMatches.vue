@@ -12,6 +12,7 @@ import { usePageSizeStore } from '../../stores/pageSize'
 import { confirmDelete } from '../../composables/useConfirmDialog'
 import FilterCountSummary from '../../components/FilterCountSummary.vue'
 import Pager from '../../components/Pager.vue'
+import ReportExportButtons from '../../components/ReportExportButtons.vue'
 
 const { totalCount, filteredCount, readTotalCount } = useTotalCount()
 const pageSizeStore = usePageSizeStore()
@@ -87,6 +88,7 @@ onMounted(load)
       <strong>Link</strong> treats them as one account, as an exact match would: the other system's account is hidden
       and moves to Onboarded to Vault. <strong>Dismiss</strong> means they're different accounts; the pair isn't suggested again.
     </p>
+    <ReportExportButtons path="/api/reports/possible-matches/export" />
     <FilterCountSummary :shown="rows.length" :filtered-count="filteredCount" :total="totalCount" :page="page" :page-size="pageSizeStore.current" />
     <Pager :page="page" :page-count="pageCount" @update:page="onPageChange" @page-size-change="onPageSizeChange" />
     <p v-if="actionError" role="alert">{{ actionError }}</p>

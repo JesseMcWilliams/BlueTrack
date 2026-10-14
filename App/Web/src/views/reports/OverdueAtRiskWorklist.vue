@@ -3,6 +3,7 @@
 // past TargetRemediationDate that aren't yet complete (D-56).
 import { ref, onMounted } from 'vue'
 import { formatDate } from '../../utils/formatDate'
+import ReportExportButtons from '../../components/ReportExportButtons.vue'
 
 const accounts = ref([])
 const error = ref(null)
@@ -26,6 +27,7 @@ onMounted(async () => {
 <template>
   <div>
     <h2>Overdue / At-Risk Worklist</h2>
+    <ReportExportButtons path="/api/reports/overdue-at-risk/export" />
     <p v-if="loading" role="status">Loading...</p>
     <p v-else-if="error" role="alert">Could not load accounts: {{ error }}</p>
     <p v-else-if="accounts.length === 0">No accounts are past their target remediation date.</p>

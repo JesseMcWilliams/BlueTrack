@@ -48,6 +48,9 @@ public sealed class GlobalApplicationConfig
     /// <summary>D-182: the most accounts one Account Progress bulk edit may change.</summary>
     public int BulkEditMaxAccounts { get; init; }
 
+    /// <summary>D-220: the most rows one report export (CSV or Excel) may hold.</summary>
+    public int ExportMaxRows { get; init; }
+
     // D-186: decommission and ignored-safe name patterns (Mode: Off / Prefix
     // / Suffix / Regex). RegexSupported is read-only: whether this SQL
     // Server can run Regex patterns (2025, compatibility level 170).
@@ -89,6 +92,9 @@ public sealed class SaveGlobalApplicationConfigRequest
 
     /// <summary>D-182: null = unchanged.</summary>
     public int? BulkEditMaxAccounts { get; init; }
+
+    /// <summary>D-220: null = unchanged.</summary>
+    public int? ExportMaxRows { get; init; }
 
     /// <summary>D-186: each pattern's Mode and Value; a null Mode leaves that pattern unchanged.</summary>
     public string? SafeDecomMode { get; init; }

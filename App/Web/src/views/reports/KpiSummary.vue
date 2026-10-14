@@ -7,6 +7,7 @@
 // requires both the final stage and status Complete specifically.
 import { ref, computed, onMounted } from 'vue'
 import { formatCount } from '../../utils/formatCount'
+import ReportExportButtons from '../../components/ReportExportButtons.vue'
 
 const summary = ref(null)
 const error = ref(null)
@@ -46,6 +47,7 @@ const kpis = computed(() => {
 <template>
   <div>
     <h2>KPI Summary</h2>
+    <ReportExportButtons path="/api/reports/kpi-summary/export" />
     <p v-if="loading" role="status">Loading...</p>
     <p v-else-if="error" role="alert">Could not load KPI summary: {{ error }}</p>
     <template v-else>

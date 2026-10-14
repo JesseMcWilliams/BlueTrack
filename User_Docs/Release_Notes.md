@@ -12,12 +12,15 @@ What changed in each BlueTrack release, newest first, for users and administrato
 - **Break-glass sign-in alerts.** On Identity Providers, list your emergency accounts (for example the server's local Administrator). Each time one signs in, BlueTrack records it in the Audit Log and emails the recipients of the new **BreakGlassLogon** notification. See the Administrator Settings Guide, "Identity Providers".
 - **SAML Single Logout.** With the identity provider's logout address set (Identity Providers, SAML, **IdP Single Logout Destination**), **Sign out** of a SAML session also signs you out at the identity provider, and signing out at the identity provider ends your BlueTrack session too. The identity provider needs BlueTrack's logout address; see the Configuration Guide, "SAML".
 
+- **Export reports.** Every report under **Reports** has **Export CSV** and **Export Excel** buttons. The file holds every row that matches the report's current filters and sort, not just the page you see, with the same columns as on the page. If more rows match than the new **Export Max Rows** setting allows (100,000 unless an administrator changes it), the export is refused with the number of rows, so narrow the filters first. Administrators set that limit with the new **Export Max Rows** setting on **Global Application Configuration** (1 to 1,000,000). Each export is recorded in the Audit Log as a `ReportExport` event.
+
 - **Command-line checks** in the new `Tools` folder: the install's health, SAML/OIDC sign-in and sign-out, an LDAPS bind before adding a domain, and the Test buttons. See the Operations Guide, "Checking a Running Install", and `Tools\README.md`.
 
 ### Changed
 
 - **Numbers:** counts on the pages (totals, pages, selections, import results, dashboard and report figures) use your browser language's number format, for example 1,234 or 1.234.
 - **Navigation:** Reports and Admin are now at the end of the top navigation, with Admin last.
+- **Reports** are listed in a column on the left, like the Admin pages, with the report you open beside the list.
 - **About:** the menu with your name has a new **About** item that shows BlueTrack's version.
 - **Application ↔ Safe Mapping** shows the applications and the safes a page at a time, like Accounts, at your page size.
 - **Required Permission** for a field is now set on the **Edit Field** page (Admin > Field Metadata Management) and shown in the field list, instead of with SQL.
@@ -33,7 +36,7 @@ What changed in each BlueTrack release, newest first, for users and administrato
 
 ### Upgrading
 
-- Run the installer as usual; it applies the new database scripts (`11_BlueTrack_ConnectionTestAudit.sql`, `12_BlueTrack_CyberArkSourceConfig.sql`, `13_BlueTrack_AccountInventoryFeed.sql`, `14_BlueTrack_FeedAccountLinking.sql`, `15_BlueTrack_ReportingViewsSkipLinkedFeedAccounts.sql`).
+- Run the installer as usual; it applies the new database scripts (`11_BlueTrack_ConnectionTestAudit.sql`, `12_BlueTrack_CyberArkSourceConfig.sql`, `13_BlueTrack_AccountInventoryFeed.sql`, `14_BlueTrack_FeedAccountLinking.sql`, `15_BlueTrack_ReportingViewsSkipLinkedFeedAccounts.sql`, `16_BlueTrack_BreakGlassAccounts.sql`, `17_BlueTrack_ReportExport.sql`).
 - **If you use Azure Key Vault, AWS Secrets Manager or CyberArk Conjur** in the Secrets Store, enter the stored secret again and save, so it's re-encrypted the new way (the old form still works until then).
 - **Break-glass alerts:** after upgrading, add your break-glass accounts on Identity Providers and give the BreakGlassLogon notification a target role (Notifications).
 - **If you use the nightly import job**, also run the installer with `-Step Db.NightlyJob`. It saves your current CyberArk source settings for the Data Sources page and recreates the job to read them. Until you do, the job keeps working with its old settings, and changes made on the page have no effect.

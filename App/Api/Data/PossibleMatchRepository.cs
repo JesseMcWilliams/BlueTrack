@@ -69,6 +69,14 @@ public sealed class PossibleMatchRepository(IDbConnectionFactory connectionFacto
     public async Task<IReadOnlyList<PossibleMatchRow>> GetOpenAsync(int? page, int? pageSize)
     {
         var (normalizedPage, normalizedPageSize) = PagingParams.Normalize(page, pageSize);
+        return await QueryOpenAsync(PagingParams.Offset(normalizedPage, normalizedPageSize), normalizedPageSize);
+    }
+
+    /// <summary>D-220: every open match in the report's order (all pages), up to maxRows -- for the export.</summary>
+    public Task<IReadOnlyList<PossibleMatchRow>> GetOpenExportRowsAsync(int maxRows) => QueryOpenAsync(0, maxRows);
+
+    private async Task<IReadOnlyList<PossibleMatchRow>> QueryOpenAsync(int offset, int fetch)
+    {
         using var connection = connectionFactory.Create();
         return (await connection.QueryAsync<PossibleMatchRow>($"""
             SELECT r.ReconciliationKey, r.MatchMethod, r.Notes AS Reason, r.MatchedDate,
@@ -78,7 +86,7 @@ public sealed class PossibleMatchRepository(IDbConnectionFactory connectionFacto
             {OpenMatchesSql}
             ORDER BY r.MatchedDate DESC, r.ReconciliationKey DESC
             OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY
-            """, new { Offset = PagingParams.Offset(normalizedPage, normalizedPageSize), PageSize = normalizedPageSize })).ToList();
+            """, new { Offset = offset, PageSize = fetch })).ToList();
     }
 
     public async Task<int> GetOpenCountAsync()
