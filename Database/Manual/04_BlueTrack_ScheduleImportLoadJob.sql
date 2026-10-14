@@ -6,9 +6,16 @@
    (sqlcmd or SSMS) or by Deploy/Install-BlueTrack.ps1.
 
    Creates the SQL Server Agent job "BlueTrack (<database>) - Import and
-   Load": Step 1 Import (EXEC usp_Import_Configured;), Step 2 Load (EXEC
-   usp_RunFullLoad;), nightly at 2:00 AM. Drops and recreates the job if it
-   exists, so it can be re-run.
+   Load": one step, EXEC usp_RunNightlyImportLoad; (D-224, script 21): the
+   Import (usp_Import_Configured), then the Load (usp_RunFullLoad) if the
+   Import succeeded, then the daily snapshot for Reports > Trends
+   (usp_RunDailySnapshot) whether or not they succeeded. A failure is still
+   re-raised, so the job reports it. Each part has its own dbo.etl_run_log
+   row. Nightly at 2:00 AM. Drops and recreates the job if it exists, so it
+   can be re-run: re-running it (the installer's -Step Db.NightlyJob) is how
+   an existing install gets the D-224 job. Before D-224 the job had two
+   steps, Import and Load; that job keeps working after script 21 (the Load
+   still takes the snapshot), but takes no snapshot when the Import fails.
 
    D-211 (Data Sources phase 3): the job no longer holds any source setting.
    usp_Import_Configured (Database/12_BlueTrack_CyberArkSourceConfig.sql)
@@ -74,30 +81,19 @@ DECLARE @JobId BINARY(16);
 EXEC msdb.dbo.sp_add_job
     @job_name = 'BlueTrack ($(DatabaseName)) - Import and Load',
     @enabled = 1,
-    @description = 'Nightly Import (usp_Import_Configured: the CyberArk sources set on Admin > Data Sources) followed by Load (usp_RunFullLoad).',
+    @description = 'Nightly usp_RunNightlyImportLoad: Import (usp_Import_Configured: the CyberArk sources set on Admin > Data Sources), then Load (usp_RunFullLoad), then the daily snapshot (usp_RunDailySnapshot) even when the Import or Load failed (D-224).',
     @job_id = @JobId OUTPUT;
 
--- Step 1: Import. D-211: every setting is read from web.cyberark_source_config.
+-- The one step (D-224). D-211: every source setting is read from web.cyberark_source_config.
 EXEC msdb.dbo.sp_add_jobstep
     @job_id = @JobId,
     @step_id = 1,
-    @step_name = 'Import',
-    @subsystem = 'TSQL',
-    @database_name = N'$(DatabaseName)',
-    @on_success_action = 3,   -- go to next step
-    @on_fail_action = 2,      -- quit the job, reporting failure
-    @command = N'EXEC usp_Import_Configured;';
-
--- Step 2: Load.
-EXEC msdb.dbo.sp_add_jobstep
-    @job_id = @JobId,
-    @step_id = 2,
-    @step_name = 'Load',
+    @step_name = 'Import, Load and Snapshot',
     @subsystem = 'TSQL',
     @database_name = N'$(DatabaseName)',
     @on_success_action = 1,   -- quit the job, reporting success
     @on_fail_action = 2,      -- quit the job, reporting failure
-    @command = N'EXEC usp_RunFullLoad;';
+    @command = N'EXEC usp_RunNightlyImportLoad;';
 
 -- Schedule: nightly at 2:00 AM.
 EXEC msdb.dbo.sp_add_schedule
@@ -115,4 +111,4 @@ EXEC msdb.dbo.sp_add_jobserver
     @server_name = N'(local)';
 GO
 
-PRINT 'SQL Agent job "BlueTrack ($(DatabaseName)) - Import and Load" created: Import (Step 1) then Load (Step 2), nightly at 2:00 AM.';
+PRINT 'SQL Agent job "BlueTrack ($(DatabaseName)) - Import and Load" created: usp_RunNightlyImportLoad (Import, Load, then the daily snapshot), nightly at 2:00 AM.';

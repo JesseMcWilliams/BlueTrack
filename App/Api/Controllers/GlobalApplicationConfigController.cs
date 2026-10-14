@@ -112,6 +112,15 @@ public sealed class GlobalApplicationConfigController(
         {
             return Problem(title: "Invalid backup folder", detail: backupFolderError, statusCode: StatusCodes.Status400BadRequest);
         }
+        // D-224: the address the emails link to. Stored normalized; "" = not set.
+        if (request.SiteUrl is not null)
+        {
+            if (!Notifications.SiteLinks.TryNormalize(request.SiteUrl, out var siteUrl, out var siteUrlError))
+            {
+                return Problem(title: "Invalid site URL", detail: siteUrlError, statusCode: StatusCodes.Status400BadRequest);
+            }
+            request.SiteUrl = siteUrl ?? "";
+        }
         if (scheduleErrors.Count > 0)
         {
             return Problem(title: "Invalid data feed schedule settings", detail: string.Join(" ", scheduleErrors), statusCode: StatusCodes.Status400BadRequest);
@@ -153,6 +162,7 @@ public sealed class GlobalApplicationConfigController(
         TrackIfSent("BusinessDays", before.BusinessDays, request.BusinessDays);
         TrackIfSent("BulkEditMaxAccounts", before.BulkEditMaxAccounts.ToString(), request.BulkEditMaxAccounts?.ToString());
         TrackIfSent("ExportMaxRows", before.ExportMaxRows.ToString(), request.ExportMaxRows?.ToString());
+        TrackIfSent("SiteUrl", before.SiteUrl ?? "", request.SiteUrl);   // D-224
         static string? Pattern(string? mode, string? value) => mode is null ? null : mode == "Off" ? "Off" : $"{mode}: {value}";
         TrackIfSent("SafeDecomPattern", Pattern(before.SafeDecomMode, before.SafeDecomValue), Pattern(request.SafeDecomMode, request.SafeDecomValue));
         TrackIfSent("AccountDecomPattern", Pattern(before.AccountDecomMode, before.AccountDecomValue), Pattern(request.AccountDecomMode, request.AccountDecomValue));

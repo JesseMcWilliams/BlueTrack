@@ -6,7 +6,8 @@ namespace BlueTrack.Api.Notifications;
 
 /// <summary>
 /// D-222: an Import or Load run (dbo.etl_run_log, written by
-/// usp_Import_Configured and usp_RunFullLoad since script 19) that failed,
+/// usp_Import_Configured and usp_RunFullLoad since script 19), or since
+/// D-224 (script 21) a daily Snapshot run (usp_RunDailySnapshot), that failed,
 /// or that started more than StuckAfter ago and never finished (a stopped
 /// job or a killed session leaves the row at Started). One email per run:
 /// the DedupKey is the run. The SQL Agent job can't call the API, so this
@@ -15,7 +16,7 @@ namespace BlueTrack.Api.Notifications;
 /// Runs older than Lookback are ignored, so an outage of the mail server
 /// longer than that drops the alert rather than sending a stale one.
 /// </summary>
-public sealed class NightlyImportFailedCheck(IDbConnectionFactory connectionFactory, TimeProvider timeProvider) : INotificationCheck
+public sealed class NightlyImportFailedCheck(IDbConnectionFactory connectionFactory, AppConfigRepository appConfigRepository, TimeProvider timeProvider) : INotificationCheck
 {
     public const string TypeName = "NightlyImportFailed";
     public static readonly TimeSpan StuckAfter = TimeSpan.FromHours(4);
@@ -89,18 +90,28 @@ public sealed class NightlyImportFailedCheck(IDbConnectionFactory connectionFact
         var runs = (await grid.ReadAsync<RunRow>()).AsList();
         var files = (await grid.ReadAsync<FileRow>()).AsList();
 
-        return runs.Select(run => Build(run, files.Where(f => f.EtlRunKey == run.EtlRunKey).ToList())).ToList();
+        if (runs.Count == 0) return [];
+        var siteUrl = await appConfigRepository.GetSiteUrlAsync();   // D-224
+        return runs.Select(run => Build(run, files.Where(f => f.EtlRunKey == run.EtlRunKey).ToList(), siteUrl)).ToList();
     }
 
-    private NotificationCheckResult Build(RunRow run, IReadOnlyList<FileRow> failedFiles)
+    private static string StepDescription(string stepName) => stepName switch
+    {
+        "Import" => "Import (usp_Import_Configured)",
+        "Load" => "Load (usp_RunFullLoad)",
+        "Snapshot" => "Snapshot (usp_RunDailySnapshot, the daily snapshot behind Reports > Trends)",
+        _ => stepName
+    };
+
+    private NotificationCheckResult Build(RunRow run, IReadOnlyList<FileRow> failedFiles, string? siteUrl)
     {
         var unfinished = run.Status == "Started";
         var what = unfinished ? $"{run.StepName} has not finished" : $"{run.StepName} failed";
-        var email = new NotificationEmail($"BlueTrack: the {run.StepName} step of the Import and Load {(unfinished ? "has not finished" : "failed")}");
+        var email = new NotificationEmail($"BlueTrack: the {run.StepName} step of the Import and Load {(unfinished ? "has not finished" : "failed")}", siteUrl);
 
         var facts = new List<(string, string)>
         {
-            ("Step", run.StepName == "Import" ? "Import (usp_Import_Configured)" : "Load (usp_RunFullLoad)"),
+            ("Step", StepDescription(run.StepName)),
             ("Started (server time)", NotificationEmail.ServerTime(run.StartedAt, timeProvider)),
             (unfinished ? "Finished" : "Failed (server time)",
                 unfinished ? $"not after {StuckAfter.TotalHours:0} hours" : NotificationEmail.ServerTime(run.CompletedAt ?? run.StartedAt, timeProvider)),
@@ -125,10 +136,20 @@ public sealed class NightlyImportFailedCheck(IDbConnectionFactory connectionFact
 
         email.Paragraph(unfinished
             ? "The run may have been stopped or may still be running. Check the SQL Server Agent job \"BlueTrack (<database>) - Import and Load\" and its history."
-            : run.StepName == "Import"
-                ? "When the nightly job's Import step fails, its Load step doesn't run, so BlueTrack keeps showing the previous load's data."
-                : "The Load runs in one transaction and was rolled back, so BlueTrack keeps showing the previous load's data.");
-        email.SeePage("Admin > Data Sources to check the CyberArk source settings");
+            : run.StepName switch
+            {
+                "Import" => "When the nightly job's Import step fails, its Load step doesn't run, so BlueTrack keeps showing the previous load's data. The daily snapshot for Reports > Trends is still taken, of that unchanged data.",
+                "Snapshot" => "Today's snapshot for Reports > Trends wasn't saved (any earlier one today is kept), so Trends shows a gap for today unless it is run again today: EXEC dbo.usp_RunDailySnapshot. The account data itself is unaffected.",
+                _ => "The Load runs in one transaction and was rolled back, so BlueTrack keeps showing the previous load's data. The daily snapshot for Reports > Trends is still taken, of that unchanged data."
+            });
+        if (run.StepName == "Snapshot")
+        {
+            email.SeePage(SiteLinks.Trends);
+        }
+        else
+        {
+            email.SeePage(SiteLinks.CyberArkSources, "to check the CyberArk source settings");
+        }
 
         var detail = $"{what}: run {run.EtlRunKey}" + (run.ErrorMessage is null ? "" : $": {run.ErrorMessage}");
         return new NotificationCheckResult(
