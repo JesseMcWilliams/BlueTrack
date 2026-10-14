@@ -148,6 +148,14 @@ Each method also has a direct sign-in address (`/login/windows`, `/login/oidc`, 
 
 **DevFakeAuth.** This provider simulates users for development and automated testing. Its sign-in works only when BlueTrack runs in the Development environment. Keep it disabled in every other environment. BlueTrack sends a "DevFakeAuth enabled too long" alert if it stays enabled for more than 7 days.
 
+**Break-glass accounts** (at the bottom of the page). Emergency accounts, such as the server's local Administrator, whose credential you keep in CyberArk. They sign in like any other account; BlueTrack adds no separate sign-in. Each sign-in by one is recorded in the Audit Log as **BreakGlassLogon** and emailed to the **BreakGlassLogon** notification's recipients, every time, with no cooldown.
+
+| Setting | What it does | Default | Recommended | Why |
+|---|---|---|---|---|
+| Account | The account: `DOMAIN\name`, or `.\name` for a local account on the BlueTrack server (both stored as the account's SID), a SID, or an OIDC/SAML user identifier. | None | The accounts in your emergency procedure | Only these accounts' sign-ins alert. |
+| Display name | How the account appears in the list and the alert. | The account as entered | A name people recognize | The alert email names it. |
+| Notes | Free text. | Blank | Where the credential is kept in CyberArk | Helps whoever responds to the alert. |
+
 ### Group → Role Mapping
 
 **Admin > Group → Role Mapping** (permission `ManageGroupRoleMapping`). Users get roles only through their groups; BlueTrack ignores any permissions an identity provider sends in its tokens.
@@ -288,7 +296,7 @@ On the same page: one row per Active Directory domain or forest BlueTrack querie
 | Ignore CRL issues | Skip only the certificate revocation check. Host name and chain are still checked. | Off | Off | Turn it on only if your relay's revocation list can't be reached from the server. |
 | Ignore all SSL errors | Skip all certificate checks. | Off | Off | It removes the protection TLS gives. Fix the certificate instead. |
 
-**Notification types.** Each alert type can have a **Target Role**. The alert then also goes to that role's Notification Email and, if LDAP is set up, to members of the role's mapped AD groups, in addition to the recipient list. One type exists: **DevFakeAuthEnabledTooLong**, checked once a day; it fires when DevFakeAuth has been enabled for more than 7 days and repeats at most every 7 days. Recommended: set its target role to your Admin role.
+**Notification types.** Each alert type can have a **Target Role**. The alert then also goes to that role's Notification Email and, if LDAP is set up, to members of the role's mapped AD groups, in addition to the recipient list. Two types exist. **DevFakeAuthEnabledTooLong**, checked once a day, fires when DevFakeAuth has been enabled for more than 7 days and repeats at most every 7 days. **BreakGlassLogon** is sent at once, every time a designated break-glass account signs in (Identity Providers, "Break-glass accounts"). Recommended: set both target roles to your Admin role.
 
 **Recipients.** Each recipient has an **Email**, an optional **Display Name** and an **Active** flag. Add at least one monitored mailbox; with no recipients, alerts go nowhere.
 

@@ -54,4 +54,5 @@ SSO went live against the lab Authentik, the user docs and published guides were
 - **Rights cache lives in SQL Server** and outlasts a test run: a test that depends on a new grant must clear it first (`UserRightsCache.InvalidateAllAsync`).
 - **Live sign-in tests:** headless Chromium from `App/E2E/node_modules/playwright`, with `--auth-server-allowlist=*.company.com` for Windows auth; make requests from a page in the browser (Node's TLS doesn't trust the company CA). Keep Playwright error dumps out of the output (they print cookies).
 - **Backslashes through Bash** mangle heredocs and inline Python (`\r\n` became real line breaks, `\04` an octal character, several times on 2026-10-13); write such text with the Write/Edit tools, then grep for control characters.
+- **Another one-off E2E flake** (PR C's run): "Identity Providers admin page > Admin can create, edit, and delete a provider" stayed on `/new` after Save once; passed alone and in a full re-run.
 - **One-off E2E flake:** "Admin deletes an account ... undeletes it in bulk" failed once in a full run (5.7 s) and passed on re-run, alone and in the full suite.

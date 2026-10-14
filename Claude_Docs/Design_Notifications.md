@@ -53,7 +53,7 @@ Extensible catalog, same pattern as `web.dim_audit_event_type` -- new alert kind
 | Field | Type | Purpose |
 |---|---|---|
 | NotificationTypeKey | int, PK | |
-| NotificationTypeName | nvarchar(100), unique | e.g. `DevFakeAuthEnabledTooLong` |
+| NotificationTypeName | nvarchar(100), unique | e.g. `DevFakeAuthEnabledTooLong`; `BreakGlassLogon` (D-216, sent at sign-in by `BreakGlassAlerter`, not by a periodic check; recipients from the shared `NotificationRecipientResolver`) |
 | Description | nvarchar(500), nullable | |
 
 ### web.notification_log
