@@ -35,11 +35,21 @@ If your organization has segregation of duties turned on, you can't link an exce
 - **Access Groups** — privileged-access groups in the managed environment, each with a Base Risk Score and a derived Computed Risk Score. Click a group's name to edit it. Use **Bulk Actions** here too. The same local group can be added once per server.
 - **Bulk edit and delete** — tick **Select targets for bulk actions** (or **Select access groups for bulk actions**), select rows, then **Bulk edit…** to set fields on all of them or **Delete…** to delete them. A bulk delete needs a reason. Items that can't be changed (for example, still in use) are skipped and listed.
 
+- **Linked targets** — a target linked to another (its primary) counts once, at the primary's risk score. Linked targets are hidden on **Targets** unless **Linked targets:** is set to **Show**; **Unlink** on the target's page separates them. See `User_Guide.md`, Targets.
+
 If a save or delete is refused (a duplicate name or identifier, or a row still in use), the page says why.
+
+## Target Match Review
+
+**Where**: **Admin > Target Match Review** (your `ManageTargets` permission shows it).
+
+Imported targets that only weakly match an existing one (for example, by IP address alone). For each row choose **Link** (keep it as its own target, linked to the candidate or to a target you find in the **Link To** search box by typing at least 2 characters), **New Target** (keep it separate), or **Ignore** (dismiss it and skip it in later imports). See `User_Guide.md`, Target Match Review.
 
 ## Reports you'll likely use
 
-**Reports** in the top nav — Risk Score, KPI Summary, Stage/Status Summary, and Overdue/At-Risk.
+**Reports** in the top nav (listed in a column on the left) — Risk Score, KPI Summary, Stage/Status Summary, Overdue/At-Risk, and **Trends** (stages, % complete and risk levels over time, from the nightly snapshot, filtered by Application or Safe).
+
+Every report you can view you can also export with **Export CSV** or **Export Excel**: all rows matching the current filters and sort, up to the administrator's **Export Max Rows** limit. Each export is recorded in the Audit Log.
 
 ## See also
 

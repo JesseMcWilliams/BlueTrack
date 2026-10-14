@@ -32,7 +32,7 @@ BlueTrack itself can back up its database, on a schedule or on demand. Both writ
 
 - **Scheduled backup time** — a daily backup at this server-local time. Blank (the default) means no scheduled backup.
 - **Keep scheduled backups (days)** — after each scheduled backup, BlueTrack deletes its own scheduled backup files older than this (files named `<database>_scheduled_<UTC time>.bak`). Backups made with **Backup App** are never deleted.
-- **Backup App** (**Admin > Deployment**, needs `TriggerBackup`) — backs up the database into the Backup Folder now, and downloads a zip of the API's `appsettings` files with a note of where the database backup went.
+- **Backup App** (**Admin > Deployment**, needs `TriggerBackup`) — backs up the database into the Backup Folder now, and downloads a zip of the API's settings files (`appsettings.json`, the installer's `appsettings.Site.json`, and `appsettings.Production.json` if an older install left one) with a note of where the database backup went. With SQL authentication, `appsettings.Site.json` holds the SQL password, so keep the zip as safe as the backup.
 
 The Deployment page's **Recent backups** table lists every scheduled and manual backup: when it started (UTC), whether it was scheduled or manual (and by whom), the outcome, the file, how many old files were deleted, and a note. A failed run's reason is in the note.
 
@@ -78,7 +78,11 @@ There are still no down-scripts for the `Database/*.sql` files — full-database
 4. **Redeploy.** The script copies the saved answers into the new copy's `Deploy\State` and asks whether to run that copy's `Install-BlueTrack.ps1` with them: a full install run, including the pre-deployment backup. `-RunInstaller` skips the question; otherwise it prints the command to run later.
 5. **Afterwards**, use the new copy's `Deploy` folder for further installer runs and the next update, since its `State` folder now holds this site's answers and progress.
 
-Upgrading a database built from older versions of the database scripts needs nothing extra: the installer's migration step recognizes them. A database that wasn't fully up to date with those older scripts is refused; update it from the `pre-sql-baseline` tag first. How to publish a signed release is in `Deploy/README.md` ("Updating to a new version").
+Upgrading a database built from older versions of the database scripts needs nothing extra: the installer's migration step recognizes them. A database that wasn't fully up to date with those older scripts is refused; update it from the `pre-sql-baseline` tag first. What to do after an upgrade, such as re-running a step, is in `Admin_DeploymentRunbook.md` ("After upgrading") and the release notes.
+
+**Check the version afterwards** on **Admin > Deployment** or **About** (in the menu with your name): a release shows its number, for example `1.2.0`. A version such as `1.2.0-dev.12+abc1234` is a build made between releases, not a release. Releases are made with `Tools/New-BlueTrackRelease.ps1` (`Admin_DeploymentRunbook.md`, "Making a signed release").
+
+The installer keeps a transcript of each run in `Deploy\Logs`, and removes transcripts older than 90 days at the start of each run.
 
 ## Granting `db_backupstatus_reader`
 
@@ -137,7 +141,7 @@ sqlcmd -S <server> -C -d BlueTrack -i 02_BlueTrack_GrantAppServiceAccountAccess.
 BlueTrack's server reads data feed folders (**Admin > Data Sources**) and writes the Backup Folder as itself, so which folders it may use is set at install time, not on a web page:
 
 - **By default**, any local folder is allowed and network (UNC) shares are refused.
-- **To allow a share, or to restrict BlueTrack to specific folders**, list them with the installer's `-AllowedFileRoots`, e.g. `-AllowedFileRoots 'D:\Feeds','\\fileserver\bluetrack'`. Once any folder is listed, only folders inside the listed ones are allowed. The installer writes this to the API's `appsettings.<Environment>.json` (`FileAccess:AllowedRoots`); on an existing install, re-run `.\Install-BlueTrack.ps1 -Step Db.AppSettings,Iis.WebConfig -AllowedFileRoots ...` to change it (the API reads the list when it starts; `Iis.WebConfig` recycles the App Pool so the new list applies).
+- **To allow a share, or to restrict BlueTrack to specific folders**, list them with the installer's `-AllowedFileRoots`, e.g. `-AllowedFileRoots 'D:\Feeds','\\fileserver\bluetrack'`. Once any folder is listed, only folders inside the listed ones are allowed. The installer writes this to the API's `appsettings.Site.json` (`FileAccess:AllowedRoots`), which BlueTrack always reads; on an existing install, re-run `.\Install-BlueTrack.ps1 -Step Db.AppSettings,Iis.WebConfig -AllowedFileRoots ...` to change it (the API reads the list when it starts; `Iis.WebConfig` recycles the App Pool so the new list applies).
 - A folder outside the list is refused when you save it, and again each time it's used (the list may have changed since).
 - **Folder permissions are yours to set.** The installer doesn't grant access to feed folders: the App Pool's account needs read access to each one (`IIS APPPOOL\<pool>` for a local folder, the computer account `DOMAIN\HOSTNAME$` for a share on another machine, or the gMSA). The Data Sources page's **Test** button checks access as that account. For the Backup Folder, see "Scheduled backups and the Deployment page" above.
 
@@ -145,8 +149,8 @@ BlueTrack's server reads data feed folders (**Admin > Data Sources**) and writes
 
 A few admin settings carry an extra check. These are the ones an operator is most likely to run into:
 
-1. **SMTP with Basic authentication needs STARTTLS** (**Admin > Notifications**). With **Auth Method** set to **Basic (username/password)** and a **Credential** chosen, **Enable STARTTLS** must be on, or the save is refused, since the credential's password is sent to the SMTP server.
-2. **Pointing a stored credential at an SMTP server needs `ManageCredentials`** as well as `ManageNotifications`. With Basic authentication and a credential chosen, changing the credential or any connection setting (host, port, STARTTLS, Auth Method, Ignore all SSL errors) is refused without it, so a stored password can't be sent to a server of someone's choosing.
+1. **SMTP with Basic authentication needs STARTTLS** (**Admin > Notifications**). With **Auth Method** set to **Basic (username/password)** and a **Credential** chosen, **Enable STARTTLS** must be on, or the save is refused, since the credential's password is sent to the SMTP server. The same applies to the three OAuth2 methods (Microsoft 365, Google Workspace, Generic OAuth2), which send an access token.
+2. **Pointing a stored credential at an SMTP server needs `ManageCredentials`** as well as `ManageNotifications`. With Basic authentication and a credential chosen, changing the credential or any connection setting (host, port, STARTTLS, Auth Method, Ignore all SSL errors) is refused without it, so a stored password can't be sent to a server of someone's choosing. With an OAuth2 method, so is changing the tenant, client ID, token URL, scope, audience, sign-in mailbox or From Address.
 3. **A field's Required Permission is enforced.** A field in Field Metadata that names a Required Permission can only be changed by someone holding that permission, on the Account Progress edit page, in bulk edit and through the Risk Exception import; otherwise the save is refused, naming the permission. Set it with **Required Permission** on the **Edit Field** page (Admin > Field Metadata Management); every change is recorded in the Audit Log.
 4. **Risk Score's Recalculate Now needs `ManageTargets`**, since it changes stored scores. Viewing the Risk Score report doesn't.
 5. **CSV limits.** A CSV file may have at most **250,000 rows**, and an uploaded file at most **30 MB**. A larger file is refused; split it and import each part.
@@ -157,9 +161,21 @@ Unlike the grants above, `EnforceRiskExceptionSegregationOfDuties` (Global Appli
 
 ## The Nightly Import + Load Job
 
-The Import+Load SQL Agent job (`Database/Manual/04_BlueTrack_ScheduleImportLoadJob.sql`, created once per environment per `Admin_DeploymentRunbook.md` step 5, or by the installer's nightly-job option) runs at 2:00 AM, two steps — Import (refreshes staging from the Privilege Cloud/Self-Hosted exports), then Load (`usp_RunFullLoad`, which also drives the risk-scoring recalculation and the AD Account Discovery nightly pass). It lives entirely in `msdb`, like `db_backupstatus_reader` above — there's no in-app UI showing whether last night's run succeeded.
+The Import+Load SQL Agent job (`Database/Manual/04_BlueTrack_ScheduleImportLoadJob.sql`, created once per environment per `Admin_DeploymentRunbook.md` step 5, or by the installer's `Db.NightlyJob` step) runs at 2:00 AM. It has one step, **Import, Load and Snapshot**, which runs `usp_RunNightlyImportLoad`:
+
+1. **Import** (`usp_Import_Configured`) refreshes staging from the Privilege Cloud/Self-Hosted exports.
+2. **Load** (`usp_RunFullLoad`), only if the Import succeeded. It also drives the risk-scoring recalculation and the AD Account Discovery nightly pass.
+3. **Daily snapshot** (`usp_RunDailySnapshot`), the data behind **Reports > Trends**, taken **whether or not the Import and Load succeeded**, so Trends has no gap after a failed night (it then records the unchanged data).
+
+If the Import or Load failed, the step still fails afterwards, so SQL Server Agent's history shows the failure. The job lives entirely in `msdb`, like `db_backupstatus_reader` above.
+
+**Being told it failed:** turn on the **NightlyImportFailed** notification (**Admin > Notifications**, `Admin_SettingsReference_Notifications.md`). Within about 5 minutes of an Import, Load or snapshot failing, or of a run still unfinished after 4 hours, it emails the step, the error and the files that failed. It can't see a job that never starts (SQL Server Agent stopped, or the job disabled); `Tools\Test-BlueTrackHealth.ps1` and the query below show those.
+
+**Upgrading from the two-step job:** an install whose job was created before this change still has separate Import and Load steps and takes the snapshot only when both succeed, so a failed night leaves a gap in Trends. Recreate the job once with `.\Install-BlueTrack.ps1 -Step Db.NightlyJob`.
 
 **Where the Import step gets its settings:** the job's Import step runs `usp_Import_Configured`, which reads the CyberArk sources saved on **Admin > Data Sources** (which sources to import, the export folder and file names, the EVD database). Changes there apply from the next nightly run; the job itself doesn't need changing. If nothing has been saved, the Import step fails with a message saying where to set them.
+
+**Privilege Cloud columns are read by name:** each export's columns are found by their header, so a change in column order, or a column BlueTrack doesn't use, doesn't break the import, and both the older and the current Users and Groups export layouts load. If an export lacks a column the import needs, the Import fails with a message naming the file and the missing columns (in the job history and the NightlyImportFailed email). Fix the export, or check it first with **Test** on **Edit CyberArk sources**, which reads each file's header row and lists the missing columns.
 
 **Privilege Cloud only, Self-Hosted only, or both:** set with **Import Privilege Cloud** and **Import Self-Hosted** on Admin > Data Sources. On first install the installer's answer (`-ImportSources`: `Both`, `PrivilegeCloud` or `SelfHosted`) sets them. A source that's switched off has its staging tables emptied each night; a missing export for a source that's switched on fails the job, with a message naming the file or database. `usp_Import_All` takes the same choice for a manual import, as `@ImportPrivilegeCloud` and `@ImportSelfHosted` (both default to `1`; at least one must be on). For a Privilege-Cloud-only implementation pass `@ImportSelfHosted = 0` (no `@EVDDatabaseName` needed); for a Self-Hosted-only one pass `@ImportPrivilegeCloud = 0` (no export file parameters needed).
 
@@ -179,7 +195,7 @@ ORDER BY h.instance_id DESC;
 ```
 `run_status`: `0` = Failed, `1` = Succeeded, `2` = Retry, `3` = Canceled, `4` = In progress (standard `sysjobhistory` semantics, not BlueTrack-specific). The job name embeds the database name (`BlueTrack (BlueTrack) - Import and Load` for a database named `BlueTrack`), so jobs for two databases can coexist on the same SQL Server instance without colliding.
 
-**Re-running it manually** (e.g. after fixing a bad export file): either restart the job through SQL Server Agent (`EXEC msdb.dbo.sp_start_job @job_name = 'BlueTrack (BlueTrack) - Import and Load';`), or run the same two steps directly against the target database for more control/visibility — see `Admin_DeploymentRunbook.md`'s "First Data Load" section for the exact `usp_Import_All`/`usp_RunFullLoad` call shape and its real prerequisites (for Self-Hosted, the EVD database must be reachable on the same instance; for Privilege Cloud, the SQL Server *service account*, not your own login, needs read access to the export folder).
+**Re-running it manually** (e.g. after fixing a bad export file): either restart the job through SQL Server Agent (`EXEC msdb.dbo.sp_start_job @job_name = 'BlueTrack (BlueTrack) - Import and Load';`), or run `EXEC usp_RunNightlyImportLoad;` against the target database, which does exactly what the job does. Running a snapshot again the same day replaces that day's snapshot. For more control, run the Import and Load yourself — see `Admin_DeploymentRunbook.md`'s "First Data Load" section for the exact `usp_Import_All`/`usp_RunFullLoad` call shape and its real prerequisites (for Self-Hosted, the EVD database must be reachable on the same instance; for Privilege Cloud, the SQL Server *service account*, not your own login, needs read access to the export folder).
 
 **Never edit `Database/Manual/04_BlueTrack_ScheduleImportLoadJob.sql` for a routine change.** Change the export folder, file names, EVD database or sources on Admin > Data Sources. To change the 2:00 AM run time, use `sp_update_schedule` against the existing job's schedule; there's no need to touch the script at all.
 

@@ -8,7 +8,9 @@ Whoever is standing up a brand-new BlueTrack environment for the first time. Thi
 
 ## 1. Prerequisites
 
-You need: the .NET 10 SDK, Node.js, SQL Server reachable from this host, and (for a real environment) IIS with its Windows Authentication role service, the ASP.NET Core Hosting Bundle and the IIS URL Rewrite Module. `Deploy/Install-BlueTrack.ps1` checks for all of these and offers to install what's missing, except SQL Server itself (see `Deploy/README.md`, "What it deliberately does NOT do").
+You need: the .NET 10 SDK, Node.js, SQL Server reachable from this host, and (for a real environment) IIS with its Windows Authentication role service, the ASP.NET Core Hosting Bundle **10.0.13 or later** and the IIS URL Rewrite Module. `Deploy/Install-BlueTrack.ps1` checks for all of these and offers to install what's missing, except SQL Server itself (see `Deploy/README.md`, "What it deliberately does NOT do").
+
+- **Hosting Bundle version**: some security fixes BlueTrack relies on are in .NET itself, so the server must run .NET 10.0.13 or later. The installer's check only confirms that a Hosting Bundle is installed, not its version. Check with `dotnet --list-runtimes` (it should list `Microsoft.AspNetCore.App 10.0.13` or higher), and install the current Hosting Bundle from Microsoft's .NET download page if it's older. Installing it restarts IIS.
 
 - **Where the prerequisite installers come from**: `-PrerequisiteSource` is `Auto` (the default), `Offline`, `Winget` or `Download`. `Auto` uses a folder of pre-downloaded installers when you give `-InstallerSourcePath`, otherwise winget where it's available (.NET SDK and Node.js only), otherwise the vendor's own download. For a server without internet access, download the installers on another machine and copy them into one folder; the file names the installer looks for are listed in `Deploy/README.md`, "Offline prerequisites". Every installer must carry a valid signature from its vendor, or it's refused.
 - **CyberArk Application Password SDK (optional)**: needed only if CyberArk Credential Provider (CP) will be the secrets backend. The installer checks for it at `C:\Program Files\CyberArk\ApplicationPasswordSdk\NetStandardPasswordSDK.dll` but never installs it. Without it, BlueTrack still builds and installs normally; only the CyberArk CP secrets backend is unavailable on that server. Windows DPAPI, the default backend, doesn't need it.
@@ -27,7 +29,7 @@ From an elevated PowerShell session, in the `Deploy` folder:
     -GenerateSelfSignedCert
 ```
 
-This one script builds the API and SPA, creates and migrates the database, provisions the IIS site, and smoke-tests the result. Anything you leave out, it asks for. Add `-WhatIf` first to preview what it will do without changing anything. See `Deploy/README.md` for the full option list and `Admin_DeploymentRunbook.md` for the manual procedure it automates.
+This one script builds the API and SPA, creates and migrates the database, writes the site's settings file (`appsettings.Site.json`: the database connection, HSTS, the allowed folders and the environment name), sets the Site URL that notification emails link to, provisions the IIS site, and smoke-tests the result. `-Environment` is a label shown on **Admin > Deployment** and used in the default install folders; under IIS, BlueTrack always runs as Production, so development-only sign-in stays off whatever you choose. Anything you leave out, it asks for. Add `-WhatIf` first to preview what it will do without changing anything. See `Deploy/README.md` for the full option list and `Admin_DeploymentRunbook.md` for the manual procedure it automates.
 
 ### Using an answer file
 

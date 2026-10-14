@@ -16,13 +16,15 @@ Open BlueTrack and sign in with the method your organization has set up: Windows
 
 Read-only — no add/edit/delete. Filter by Event Type, Entity, and a From/To date range, then click **Filter**. The list shows Occurred At, Event Type, By, Entity, and Detail. Click **Occurred At** on any row to expand the recorded Reason (if any) and a Field / Old Value / New Value table.
 
+Every report export (**Export CSV** / **Export Excel** on a report) is recorded as a `ReportExport` event, with who exported which report, the format, the number of rows and the filters used.
+
 ## The Dashboard and tracked data
 
 The Dashboard, **Accounts**, **Exceptions** and most **Reports** need `ViewDashboard`, which this role doesn't include. You still see those entries in the top nav, but their pages show an error (such as "Request failed: 403") instead of data. If you need them, ask an administrator to add a role with `ViewDashboard` (for example Viewer) to your group.
 
 ## Your profile
 
-**Where**: open the menu with your name at the right of the top nav and choose **Profile & Preferences** (`/profile`). Shows your display name, role, and permission list, and lets you pick a display theme.
+**Where**: open the menu with your name at the right of the top nav and choose **Profile & Preferences** (`/profile`). Shows your display name, role, and permission list, and lets you pick a display theme and a **Language** (English for now; your browser's language until you choose).
 
 ## See also
 

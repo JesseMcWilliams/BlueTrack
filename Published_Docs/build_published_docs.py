@@ -19,14 +19,16 @@ from docx.shared import Pt, RGBColor
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 DOCS = [
-    # (Markdown source, .docx output, title, subtitle)
+    # (Markdown source or list of sources, .docx output, title, subtitle)
     ('User_Docs/Admin_Installation.md', 'Published_Docs/Installation_Guide.docx',
      'Installation Guide', 'BlueTrack: CyberArk PAM Blueprint progress tracking'),
     ('User_Docs/Developer_HostSetup.md', 'Published_Docs/Development_Host_Setup_Guide.docx',
      'Development Host Setup Guide', 'BlueTrack: CyberArk PAM Blueprint progress tracking'),
     ('User_Docs/User_GettingStarted.md', 'Published_Docs/Getting_Started_Guide.docx',
      'Getting Started with BlueTrack', 'BlueTrack: CyberArk PAM Blueprint progress tracking'),
-    ('User_Docs/Admin_SettingsReference.md', 'Published_Docs/Administrator_Settings_Guide.docx',
+    # A list of sources is one guide: later parts start at their first '## ' heading.
+    (['User_Docs/Admin_SettingsReference.md', 'User_Docs/Admin_SettingsReference_Notifications.md'],
+     'Published_Docs/Administrator_Settings_Guide.docx',
      'Administrator Settings Guide', 'BlueTrack: CyberArk PAM Blueprint progress tracking'),
     ('User_Docs/Release_Notes.md', 'Published_Docs/Release_Notes.docx',
      'Release Notes', 'BlueTrack: CyberArk PAM Blueprint progress tracking'),
@@ -57,8 +59,23 @@ def list_style(document, numbered, level):
     return document.styles[name]
 
 
+def read_lines(source):
+    """One source's lines, or several sources joined: each later part drops its own
+    title and introduction, everything before its first '## ' heading."""
+    sources = source if isinstance(source, list) else [source]
+    lines = []
+    for index, path in enumerate(sources):
+        part = open(os.path.join(ROOT, path), encoding='utf-8').read().splitlines()
+        if index > 0:
+            first = next((n for n, line in enumerate(part) if line.startswith('## ')), len(part))
+            part = part[first:]
+            lines.append('')
+        lines.extend(part)
+    return lines
+
+
 def build(source, output, title, subtitle):
-    lines = open(os.path.join(ROOT, source), encoding='utf-8').read().splitlines()
+    lines = read_lines(source)
     document = Document()
     document.styles['Normal'].font.name = 'Calibri'
     document.styles['Normal'].font.size = Pt(11)
@@ -144,7 +161,7 @@ def build(source, output, title, subtitle):
         i += 1
 
     document.save(os.path.join(ROOT, output))
-    print(f'{source} -> {output}')
+    print(f"{' + '.join(source) if isinstance(source, list) else source} -> {output}")
 
 
 if __name__ == '__main__':

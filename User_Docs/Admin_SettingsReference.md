@@ -24,6 +24,8 @@ Allowed values and ranges are given in the "What it does" column or in the notes
 
 Every Admin page needs its own permission (see "Roles & Permissions"). A user sees only the Admin pages their roles allow.
 
+This guide has two parts. This file covers sections 1 to 5. Sections 6 (Secrets Store and Credentials, including LDAP) and 7 (Notifications) are in [Admin_SettingsReference_Notifications.md](Admin_SettingsReference_Notifications.md). Both are published together as the Administrator Settings Guide.
+
 ## 1. Global Application Configuration
 
 **Admin > Global Application Configuration** (permission `ManageApplicationConfiguration`). The page is one form with one **Save** button. Every change is recorded in the audit log with the old and new values.
@@ -32,12 +34,14 @@ Every Admin page needs its own permission (see "Roles & Permissions"). A user se
 
 | Setting | What it does | Default | Recommended | Why |
 |---|---|---|---|---|
+| Site URL | The address people open BlueTrack at, for example `https://bluetrack.company.com`. Notification emails link to the pages they mention under it; blank means they name the pages instead. Must start with `https://` (`http://` only for localhost), with no user name, query or `#` part. | Filled in by the installer (`https://<Hostname>`, plus `:<HttpsPort>` when that isn't 443) when blank | The address users type, matching the certificate | Links in emails only work if they point where users can reach the site. The installer never changes a value you've set; blank it here to clear it. |
 | Idle Timeout (minutes) | Signs a user out after this many minutes without activity in any BlueTrack tab. OIDC and SAML sessions also end on the server after this long without a request, even if the tab was closed. | 30 | 15 to 30 | Short enough that an unattended screen doesn't stay signed in to privileged-access data, long enough not to interrupt normal work. Allowed: 5 to 720. |
 | Breadcrumb Position | Where the breadcrumb trail appears on every page: Top Left or Top Right. Applies to all users. | Top Left | Top Left | A matter of taste; Top Left is the usual place for breadcrumbs. |
 | Exception ID Pattern | The format of new Risk Exception IDs. Tokens: `{yyyy}` (year), `{yy}` (two-digit year), `{seq:0000}` (running number, padded to the number of zeros). | `EXC-{yyyy}-{seq:0000}` | Keep the default, or your own prefix with a year token and `{seq:...}` | The running number restarts at 1 each year, so a pattern without a year token, or without `{seq:...}`, produces duplicate IDs, which are refused. |
 | Account Progress Lock Timeout (minutes) | How long an Account Progress edit lock survives after the editor's page stops renewing it, for example when a browser is closed. Allowed: 1 to 720. | 30 | 30 (10 to 30 suits most teams) | An open edit page renews its lock every minute, so this only controls how long an abandoned lock blocks others. Keep it well above 1 minute. |
 | Enforce segregation of duties on Risk Exception approval | When on, the person who approved a Risk Exception cannot also be the one who links it to an account. | Off | On, if you have separate staff | Stops one person both approving and applying an exception. Leave it off for a small team, and review the Risk Exception segregation-of-duties report instead. |
 | Bulk edit limit (accounts) | The most accounts one bulk edit, bulk action, delete or undelete may change. Allowed: 1 to 10,000. | 500 | 500 | Large enough for normal work, small enough that a mistaken bulk change is limited. Raise it only for planned clean-ups. |
+| Export Max Rows | The most rows one report export (**Export CSV** or **Export Excel** on any report) may hold. When more rows match the report's filters, the export is refused with the number of rows, never cut short. Allowed: 1 to 1,000,000. | 100,000 | 100,000 | Large enough for any normal report, small enough that one export can't tie up the server. Users narrow the filters when they hit it. |
 
 **Idle timeout.** In the browser, BlueTrack signs the user out after this many minutes with no mouse, keyboard or touch activity in any of its tabs, and the sign-in page says why. OIDC and SAML sessions are also ended on the server once no request has arrived for this long, so a closed tab doesn't leave a usable session behind; each OIDC session also ends after 8 hours regardless. Windows sign-in has no session to end: if Windows Integrated is the default method, the user is signed in again as soon as they leave the sign-in page. Separately, a user's cached roles and permissions last at most 15 minutes, and any change to a role, group mapping or identity provider clears every user's cache.
 
@@ -46,7 +50,7 @@ Every Admin page needs its own permission (see "Roles & Permissions"). A user se
 | Setting | What it does | Default | Recommended | Why |
 |---|---|---|---|---|
 | Audit Retention (days, blank = keep forever) | How many days of audit log to keep. Older entries are deleted by the nightly Audit Log Purge job. | Blank (keep forever) | Depends: your audit retention policy, for example 365 or more | Keeping the log forever is safest for investigations but grows the database. Set it to the period your policy requires. |
-| Log read/view events | Also records a "viewed" event each time someone opens an Account Progress record or a Risk Exception. List pages and reports are never logged. | Off | Off, unless your policy requires read auditing | Write, approval and logon events are always logged. Read logging adds an entry for every record opened, which makes the log much larger. |
+| Log read/view events | Also records a "viewed" event each time someone opens an Account Progress record or a Risk Exception. List pages and reports are never logged. | Off | Off, unless your policy requires read auditing | Write, approval and logon events are always logged. Read logging adds an entry for every record opened, which makes the log much larger. Report exports are always logged (event type `ReportExport`), whatever this setting says. |
 
 **Audit retention needs the purge job.** Nothing is deleted until the SQL Server Agent job "Audit Log Purge" is installed. The installer does not install it: run `Database/Manual/05_BlueTrack_ScheduleAuditLogPurgeJob.sql` by hand (it runs nightly at 03:00). Until a retention value is set, the job deletes nothing. The application's own database account cannot delete audit entries; only the job can.
 
@@ -146,7 +150,7 @@ SAML changes take effect without a restart. Certificates are referenced by thumb
 
 Each method also has a direct sign-in address (`/login/windows`, `/login/oidc`, `/login/saml`) that always uses that method. Use the OIDC or SAML address as the launch URL of the BlueTrack tile in your identity provider's portal, so users arriving from the tile aren't signed in with Windows instead.
 
-**DevFakeAuth.** This provider simulates users for development and automated testing. Its sign-in works only when BlueTrack runs in the Development environment. Keep it disabled in every other environment. BlueTrack sends a "DevFakeAuth enabled too long" alert if it stays enabled for more than 7 days.
+**DevFakeAuth.** This provider simulates users for development and automated testing. Its sign-in works only when BlueTrack runs as the ASP.NET Core Development environment, which happens only on a developer's machine (`dotnet run` and the automated tests). A site installed on IIS always runs as Production, whatever the installer's `-Environment` answer, so DevFakeAuth sign-in never works there. Keep it disabled on every installed site. BlueTrack sends a "DevFakeAuth enabled too long" alert if it stays enabled for more than 7 days.
 
 **Break-glass accounts** (at the bottom of the page). Emergency accounts, such as the server's local Administrator, whose credential you keep in CyberArk. They sign in like any other account; BlueTrack adds no separate sign-in. Each sign-in by one is recorded in the Audit Log as **BreakGlassLogon** and emailed to the **BreakGlassLogon** notification's recipients, every time, with no cooldown.
 
@@ -230,81 +234,7 @@ Recommendations:
 - **Sending a stored credential to a new SMTP server** needs `ManageCredentials` as well as `ManageNotifications`, so keep `ManageCredentials` with security administrators.
 - A role still mapped to a group can't be deleted. Permission changes apply to every user on their next request.
 
-## 3. Secrets Store and Credentials
-
-### Secrets Store Configuration
-
-**Admin > Secrets Store Configuration** (permission `ManageSecretsStore`). Exactly one backend is active at a time; Windows DPAPI is active on a new install. Click **Make Active** to switch, or **Save** on the active backend. **Test Connection** fetches one secret from the active backend and reports success with the user name and address, never the secret itself. Each test is recorded in the Audit Log as a `ConnectionTest` event, as is each credential **Test** on the Credentials & LDAP page.
-
-| Backend | Settings | Credential column | Recommended when | Why |
-|---|---|---|---|---|
-| WindowsDpapi | None | Not used | You have no central vault, or for a single server | Built in, no dependency. Secrets are tied to this server and can't be shared with another. |
-| CyberArkCP | App ID | Not used | The CyberArk Credential Provider is installed on the server | Retrieval from the local CyberArk agent. Works only if BlueTrack was built with the CyberArk Application Password SDK. |
-| CyberArkCCP | Base URL (`https://`), App ID | Not used | You use the CyberArk Central Credential Provider | No local agent needed. |
-| CyberArkConjur | Appliance URL (`https://`), Account, Login | The Conjur API key | You use Conjur | The API key is stored encrypted on the server. |
-| AzureKeyVault | Vault URI (`https://`), Auth Method (ManagedIdentity or ServicePrincipal), Tenant ID and Client ID for a service principal, Client ID for a user-assigned managed identity | The client secret, for ServicePrincipal only | BlueTrack runs in Azure | Prefer **ManagedIdentity** (the default): no secret is stored at all. |
-| AwsSecretsManager | Region, Auth Method (IamRole or AccessKey), Access Key ID for AccessKey | The secret access key, for AccessKey only | BlueTrack runs in AWS | Prefer **IamRole** (the default): no key is stored at all. |
-
-Notes:
-
-- **HTTPS only.** The CCP Base URL, Conjur Appliance URL and Azure Vault URI must start with `https://`; an `http://` address is refused.
-- **Credentials are write-only.** A stored credential shows "(already set -- leave blank to keep)". Saving again without retyping keeps it.
-- **Short CyberArk outages.** For CyberArk CP and CCP, BlueTrack tries a live fetch first and, if CyberArk is briefly unreachable, uses the last value fetched for that secret within the past 24 hours. Saving the backend clears these kept values.
-- Recommended: use your organization's existing vault where you have one, so secrets are managed, rotated and audited in one place. Prefer authentication methods that store nothing on the BlueTrack server (CP, managed identity, IAM role).
-
-### Credentials
-
-**Admin > Credentials & LDAP** (permission `ManageCredentials`). Named credentials that BlueTrack itself signs in with: the SMTP account and LDAP bind accounts.
-
-| Setting | What it does | Default | Recommended | Why |
-|---|---|---|---|---|
-| Name | The credential's name, chosen on the SMTP and LDAP settings. | Blank | Say what it is for, for example "SMTP relay account" | Clear names avoid using the wrong account. |
-| Backend | Where the password is kept: WindowsDpapi (on this server) or one of the vault backends. | WindowsDpapi | A vault backend if you have one | The password is then managed and rotated in the vault. |
-| Username and Password (WindowsDpapi) | The account and its password, encrypted on this server. Leave the password blank to keep it. | Blank | A dedicated service account | A dedicated account limits what a leaked password can do. |
-| DPAPI Scope (WindowsDpapi) | Machine: any process on this server can decrypt it. User: only the App Pool's account can. | Machine | User | User scope keeps other processes on the server, and anyone holding a database backup, from decrypting it. |
-| Safe, Folder, Object / Secret Name (vault backends) | Where the credential is found in the vault, using that backend's settings from the Secrets Store page. | Blank | As named in your vault | BlueTrack fetches the current password each time it's used. |
-
-A new User-scope credential is stored at Machine scope until the application decrypts it once, then upgrades itself. As with any DPAPI secret, a credential can't be decrypted on a different server, and a User-scope one can't be decrypted after the App Pool's account changes: re-enter the password in those cases. Use **Test** to check a credential.
-
-### LDAP Configuration
-
-On the same page: one row per Active Directory domain or forest BlueTrack queries (notification recipient lookup and AD account discovery).
-
-| Setting | What it does | Default | Recommended | Why |
-|---|---|---|---|---|
-| Domain Name | The domain this row is for. | `Default` | Your domain's DNS name | Identifies the row. |
-| Enabled | Whether this domain is queried. | Off | On for domains you use | Unused rows do nothing. |
-| Domain Controller | A specific domain controller. Blank uses the default domain. | Blank | Blank, unless you need a specific controller | Windows then finds an available controller itself. |
-| Search Base | Where searches start, for example `DC=company,DC=local`. | Blank | The narrowest container that holds the users and groups needed | Smaller searches are faster and expose less. |
-| Use SSL | Connect with LDAP over SSL. | Off | On | Protects directory queries and the bind password in transit. Needs a trusted certificate on the domain controllers. |
-| Use trusted connection | Bind as the App Pool's account (or the server's computer account) instead of a stored credential. | Off | On, with a gMSA App Pool identity | No password to store or rotate. |
-| Bind Account Credential | The credential to bind with, when not using a trusted connection. | None | A read-only service account | Least privilege. |
-
-## 4. Notifications
-
-**Admin > Notifications** (permission `ManageNotifications`). SMTP settings, notification types and recipients for BlueTrack's alerts.
-
-| Setting | What it does | Default | Recommended | Why |
-|---|---|---|---|---|
-| SMTP Host | The mail server. | Blank | Your internal mail relay | Alerts are sent through it. |
-| SMTP Port | The mail server port. | 587 | 587 | The standard submission port, used with STARTTLS. |
-| Enable STARTTLS | Upgrade the connection to TLS before sending. When off, mail is sent unencrypted. | On | On | Required when a credential is used: saving Basic authentication with a credential and STARTTLS off is refused. |
-| Auth Method | None (relay without sign-in) or Basic (user name and password). | Basic | Basic, with a dedicated credential | The relay knows who is sending. Use None only for a relay that accepts only this server. |
-| Credential | The credential to sign in with (from Credentials & LDAP). | None | A dedicated mail account | Least privilege. |
-| From Address | The sender address. | Blank | A no-reply or team address, for example `bluetrack@<your-domain>` | Recipients recognise the sender, and replies don't go to a person. |
-| From Display Name | The sender name. | Blank | `BlueTrack` | Recipients recognise the alert. |
-| Ignore CRL issues | Skip only the certificate revocation check. Host name and chain are still checked. | Off | Off | Turn it on only if your relay's revocation list can't be reached from the server. |
-| Ignore all SSL errors | Skip all certificate checks. | Off | Off | It removes the protection TLS gives. Fix the certificate instead. |
-
-**Notification types.** Each alert type can have a **Target Role**. The alert then also goes to that role's Notification Email and, if LDAP is set up, to members of the role's mapped AD groups, in addition to the recipient list. Two types exist. **DevFakeAuthEnabledTooLong**, checked once a day, fires when DevFakeAuth has been enabled for more than 7 days and repeats at most every 7 days. **BreakGlassLogon** is sent at once, every time a designated break-glass account signs in (Identity Providers, "Break-glass accounts"). Recommended: set both target roles to your Admin role.
-
-**Recipients.** Each recipient has an **Email**, an optional **Display Name** and an **Active** flag. Add at least one monitored mailbox; with no recipients, alerts go nowhere.
-
-**Send Test Email** sends a real message to every active recipient using the saved settings. Use it after every SMTP change.
-
-Changing the host, port, STARTTLS, "Ignore all SSL errors", authentication method or credential while a credential is in use also needs `ManageCredentials`.
-
-## 5. Data and risk scoring
+## 3. Data and risk scoring
 
 ### Data Sources (feeds)
 
@@ -327,7 +257,7 @@ The matched file is left in place after import. Only one run happens at a time.
 
 ### CyberArk sources
 
-**Admin > Data Sources**, the "CyberArk sources" section at the top, then **Edit CyberArk sources** (permission `ManageDataSources`). These settings are read by the nightly Import+Load job's Import step (02:00); changes apply from the next nightly run. There is no Run now for them. The installer sets them on first install (section 7, "Nightly import"); until they're saved, the page shows "Not set up yet" and the nightly import fails.
+**Admin > Data Sources**, the "CyberArk sources" section at the top, then **Edit CyberArk sources** (permission `ManageDataSources`). These settings are read by the nightly Import+Load job's Import step (02:00); changes apply from the next nightly run. There is no Run now for them. The installer sets them on first install (section 5, "Nightly import"); until they're saved, the page shows "Not set up yet" and the nightly import fails.
 
 | Setting | What it does | Default | Recommended | Why |
 |---|---|---|---|---|
@@ -337,7 +267,9 @@ The matched file is left in place after import. Only one run happens at a time.
 | Import Self-Hosted | Import from the Self-Hosted EVD database. | Installer's answer | On if you have Self-Hosted | As above. |
 | EVD database | The EVD database on BlueTrack's SQL Server instance: letters, digits and underscores only. | Installer's answer | Your EVD database | Read with a cross-database query, so it must be on the same instance. |
 
-**Test** checks the values on the page, saved or not: that the EVD database exists on BlueTrack's SQL Server, and that the export folder and today's seven files exist as the App Pool's account sees them. During the import it's SQL Server's service account that reads the files, so it needs read access too. Every save is recorded in the audit log, with each changed field.
+**Test** checks the values on the page, saved or not: that the EVD database exists on BlueTrack's SQL Server, and that the export folder and today's seven files exist as the App Pool's account sees them. It also reads the header row of each Privilege Cloud file and reports any column the import needs that the file lacks ("the import would fail"), and lists optional columns that will import as empty. During the import it's SQL Server's service account that reads the files, so it needs read access too. Every save is recorded in the audit log, with each changed field.
+
+**Columns are read by name.** The Privilege Cloud import finds each column by its header, so the order of the columns doesn't matter, columns BlueTrack doesn't use are ignored, and both the older and the current Users and Groups export layouts load. A missing optional column loads as empty. A missing required column fails the nightly import with a message naming the file and the columns; the **NightlyImportFailed** email (section 7) carries that message. The Self-Hosted import is unchanged.
 
 ### Import Mapping Profiles
 
@@ -355,6 +287,20 @@ The matched file is left in place after import. Only one run happens at a time.
 | Default | The value used when the column is blank or missing and not required. | Blank | Only where a sensible default exists | A default fills gaps silently, so use it sparingly. |
 
 A file in the template's own format needs no profile.
+
+**Fill a profile from a sample file.** Under **Detect from a sample file** on the profile's edit page, pick a **Sample CSV file**. Only its header row is read, in your browser; the file isn't uploaded. Each field is matched to a column with the same name (ignoring case, spaces, underscores and punctuation), then to a common alternative name, and the page lists what it filled in, what it couldn't match and the columns it didn't use. A field you've already mapped to a different column is changed only if you choose **Replace with the file's columns** (**Keep my mappings** leaves it). Check the result before you save.
+
+**Bulk Actions column check.** On the Targets and Access Groups **Bulk Actions** pages, with no mapping profile chosen, picking a file lists the columns read by name and any required ones missing. **Create a mapping profile from these columns** opens a new profile filled in from the file's headers.
+
+### Target Match Review
+
+**Admin > Target Match Review** (permission `ManageTargets`) has no settings. When an imported target matches an existing one only weakly (for example by IP address alone, which DHCP or NAT can reuse), the row waits here instead of being merged. Each row shows the identifier, the candidate target and the imported target (its name, source and risk score). Resolve it with:
+
+- **Link**: keeps the imported row as its own target, linked to the candidate, or to another target found by typing at least 2 characters of its name or any identifier in **Link To**. The IP address stays on the existing target. Anything that reaches either target counts once, at the risk score of the target it's linked to.
+- **New Target**: keeps it as a separate, unlinked target.
+- **Ignore**: creates nothing.
+
+Every choice is remembered. A later import of the same row (the same name and discovery source) goes straight to the target that Link or New Target made, and an ignored row is skipped (the Bulk Actions result says how many). Linked targets are hidden on **Targets** unless **Linked targets** is set to **Show**. The **Edit Target** page shows the target a linked target belongs to, or a target's **Linked Targets**, with **Unlink**: an unlinked target counts at its own risk score again and isn't linked again automatically. Every resolution, link and unlink is recorded in the audit log.
 
 ### Field Metadata
 
@@ -384,9 +330,11 @@ A file in the template's own format needs no profile.
 
 **Admin > Application ↔ Safe Mapping** (permission `CurateApplicationMapping`) has no settings. It holds data: each application's code, name, description, owner and technical contact, and which application each safe belongs to. Keep it current, because the risk reports group accounts by application.
 
-## 6. Deployment page and health checks
+## 4. Deployment page and health checks
 
-**Admin > Deployment** (permission `ViewDeploymentInfo`; **Backup App** also needs `TriggerBackup`) shows the environment name, version and build time, the health checks, SQL Server's last backup times and recent BlueTrack backups.
+**Admin > Deployment** (permission `ViewDeploymentInfo`; **Backup App** also needs `TriggerBackup`) shows the environment name (the installer's `-Environment` answer), the version and build time, the health checks, SQL Server's last backup times and recent BlueTrack backups.
+
+**Version.** The Deployment page and **About** (in the menu with your name) show the same version. A release shows its number, for example `1.1.0`. A build made between releases shows the release it follows, how many changes came after it and which one, for example `1.1.0-dev.12+abc1234`, ending `.dirty` if it was built with uncommitted changes. A copy downloaded by `Update-BlueTrack.ps1` shows the plain version number.
 
 | Health check | Healthy means | A problem means | What to do |
 |---|---|---|---|
@@ -397,7 +345,7 @@ A file in the template's own format needs no profile.
 
 **Backup App** writes an immediate full backup to the Backup Folder; it is never deleted automatically. Recommended: run it before any configuration change you might want to undo, and copy important backups off the server.
 
-## 7. Installer and server settings
+## 5. Installer and server settings
 
 These are chosen when running `Deploy\Install-BlueTrack.ps1`. Each can be a parameter, a value in an answer file (`-ConfigFile`, see `Deploy\answers.sample.json`), or answered at a prompt. Never put a password in an answer file; the SQL credential is always prompted.
 
@@ -405,7 +353,7 @@ These are chosen when running `Deploy\Install-BlueTrack.ps1`. Each can be a para
 
 | Setting | What it does | Default | Recommended | Why |
 |---|---|---|---|---|
-| `-Environment` | Development, Test, Staging or Production. Names the settings file and turns development-only features on or off. | Prompted | Production for live use | Development enables test-only sign-in features. Never run a live install as Development. |
+| `-Environment` | Development, Test, Staging or Production. A label: it names the default install folders and is shown on the Deployment page, and a Production install is never offered test data. It doesn't change how BlueTrack runs: on IIS it always runs as Production, with development-only sign-in off. | Prompted | Production for live use; Test or Staging for others | The label tells people which environment they're looking at. |
 | `-SqlServerInstance` | The SQL Server instance. | Prompted | The local instance on the BlueTrack server | BlueTrack is designed for a single server. |
 | `-DatabaseName` | The database name. | `BlueTrack` | `BlueTrack` | Scripts and jobs name the database; keep the default unless you host several environments on one instance. |
 | `-UseWindowsAuth` | Connect to SQL Server with Windows authentication. | `$true` | `$true` | No password is stored. With SQL authentication the password sits in the settings file. |
@@ -424,7 +372,7 @@ These are chosen when running `Deploy\Install-BlueTrack.ps1`. Each can be a para
 | `-ExportFolderPath` | The Privilege Cloud export folder, as seen by the SQL Server service account. First install only. | Prompted if needed | A local folder on the SQL Server | SQL Server reads it directly. |
 | `-EvdDatabaseName` | The Self-Hosted EVD database, on the same SQL Server instance. First install only. | Prompted if needed | Your EVD database | Needed for the Self-Hosted import. |
 
-After the first install, these three are changed on **Admin > Data Sources** ("CyberArk sources", in section 5); re-running the installer doesn't overwrite what's saved there.
+After the first install, these three are changed on **Admin > Data Sources** ("CyberArk sources", in section 3); re-running the installer doesn't overwrite what's saved there.
 
 ### IIS and certificate
 
@@ -451,7 +399,11 @@ To replace a certificate later, run the installer with `-Step Iis.Site -Certific
 | `-SkipSmokeTest` / `-SkipPrerequisiteInstall` | Skip the post-install check, or only report missing prerequisites. | Off | Off | The smoke test confirms the site works before users arrive. |
 | `-PrerequisiteSource` / `-InstallerSourcePath` | Where prerequisite installers come from: Auto, Offline, Winget or Download, and an offline folder. | Auto | Offline, from a folder you've checked, for servers without internet | Every installer must also carry a valid vendor signature, whichever source is used. |
 
-**Settings file.** The installer writes `appsettings.<Environment>.json` into the API folder with three settings: the database connection string, `Security:EnableHsts` (on only when the certificate isn't self-signed) and `FileAccess:AllowedRoots`. The web pages can't change any of them. To change allowed folders later, re-run the installer with the new `-AllowedFileRoots` (step `Db.AppSettings`) rather than editing the file by hand, so the saved answers stay in step. When the connection string holds a SQL password, the installer limits the file to Administrators, SYSTEM and IIS worker processes.
+**Settings file.** The installer's `Db.AppSettings` step writes `appsettings.Site.json` into the API folder with four settings: the database connection string, `Security:EnableHsts` (on only when the certificate isn't self-signed), `FileAccess:AllowedRoots` and `BlueTrack:EnvironmentName` (the `-Environment` answer, shown on the Deployment page). BlueTrack always reads this file, whatever the environment. The web pages can't change any of it. To change allowed folders later, re-run the installer with the new `-AllowedFileRoots` (steps `Db.AppSettings,Iis.WebConfig`: the API reads the file when it starts, and `Iis.WebConfig` recycles the App Pool) rather than editing the file by hand, so the saved answers stay in step. When the connection string holds a SQL password, the installer limits the file to Administrators, SYSTEM and IIS worker processes.
+
+Earlier installers wrote `appsettings.<Environment>.json` instead, which BlueTrack read only on a Production install. `Db.AppSettings` removes that old file. An old `appsettings.Production.json` that holds settings the installer didn't write is kept, with a warning naming them: move those settings into `appsettings.Site.json` by hand, then delete it. After this upgrade, a site with a trusted certificate starts sending HSTS.
+
+**Site URL.** The installer's `Db.SiteUrl` step sets the Site URL on Global Application Configuration to `https://<Hostname>` (with `:<HttpsPort>` when that isn't 443), only when it's blank.
 
 ### App Pool identity
 
@@ -476,5 +428,5 @@ These values are built in. They are listed so you know what to expect.
 | CyberArk CP and CCP fallback to last fetched value | Up to 24 hours |
 | Nightly Import and Load job | 02:00 (when installed) |
 | Audit Log Purge job | 03:00 (when installed by hand) |
-| Alert checks | Once a day |
+| Notification checks | Every 5 minutes (DevFakeAuthEnabledTooLong repeats at most every 7 days) |
 | OIDC changes | Need an application restart |

@@ -8,11 +8,19 @@ An admin (or whoever holds elevated SQL Server access) handling the recurring, d
 
 ## 1. Confirm the nightly Import + Load job ran
 
-The Import+Load SQL Agent job runs at 2:00 AM, refreshing staging data from your CyberArk exports (Privilege Cloud, Self-Hosted, or both, as chosen at install) and then recalculating risk scores and running AD Account Discovery. Each run also creates an *Other*-type Target (risk score 0, discovery source *CyberArk ETL*) for any account address that has no Target yet, and links each account to the Targets matching its address. Those placeholder Targets haven't been reviewed, so check the **Targets** page for new ones now and then. There's no in-app UI showing whether last night's run succeeded — check via SQL directly. See `Admin_OperationsGuide.md`'s "The Nightly Import + Load Job" section for the exact query.
+The Import+Load SQL Agent job runs at 2:00 AM, refreshing staging data from your CyberArk exports (Privilege Cloud, Self-Hosted, or both, as chosen at install) and then recalculating risk scores and running AD Account Discovery. Each run also creates an *Other*-type Target (risk score 0, discovery source *CyberArk ETL*) for any account address that has no Target yet, and links each account to the Targets matching its address. Those placeholder Targets haven't been reviewed, so check the **Targets** page for new ones now and then. The same job then takes the daily snapshot behind **Reports > Trends**, even on a night the Import or Load fails.
+
+To hear about a failure without checking, turn on the **NightlyImportFailed** notification on **Admin > Notifications** (off on a new install): it emails the failing step, the error and the files that failed, within about 5 minutes. A Privilege Cloud export missing a column the import needs fails the run with the file and column named; **Test** on **Admin > Data Sources > Edit CyberArk sources** checks the files' columns ahead of time. To check by hand, see `Admin_OperationsGuide.md`'s "The Nightly Import + Load Job" section for the query.
 
 ## 2. Work the Target Match Review queue
 
-Weak import matches (e.g. an identifier that's only an IP address) land in **Admin > Target Match Review** for a human decision — **Merge**, **New Target**, or **Ignore**. Check this periodically so ambiguous imports don't sit unresolved.
+Weak import matches (e.g. an identifier that's only an IP address) land in **Admin > Target Match Review** for a human decision. Each row shows the imported target (name, source and risk score) beside the existing candidate:
+
+- **Link** keeps the imported row as its own target, linked to the candidate, or to another target you find by typing in **Link To** (at least 2 characters of a name or identifier). The IP address stays where it is, and the pair counts once, at the risk score of the target it's linked to.
+- **New Target** keeps it as a separate target.
+- **Ignore** creates nothing, and later imports skip the same row.
+
+Later imports of a row you've linked or kept go straight to that target, so each row is asked about once. Linked targets are hidden on **Targets** unless **Linked targets** is set to **Show**; open one with **Edit Target** to see what it's linked to, and **Unlink** it if the link was wrong. Check the queue periodically so ambiguous imports don't sit unresolved. Details: `Admin_SettingsReference.md`, "Target Match Review".
 
 ## 3. Review Discovered Accounts
 
@@ -20,7 +28,7 @@ Weak import matches (e.g. an identifier that's only an IP address) land in **Adm
 
 ## 4. Maintain Import Mapping Profiles
 
-If a data source's export format doesn't match this app's own generated CSV templates, define a reusable profile under **Admin > Import Mapping Profiles** rather than reshaping the source file by hand every time.
+If a data source's export format doesn't match this app's own generated CSV templates, define a reusable profile under **Admin > Import Mapping Profiles** rather than reshaping the source file by hand every time. On the profile's page, pick a **Sample CSV file** to fill in the columns from its header row (read in your browser, not uploaded). On the Targets and Access Groups **Bulk Actions** pages, a file without a profile shows which required columns are missing, and **Create a mapping profile from these columns** starts a profile from it.
 
 ## 5. Check backups, and back up before risky changes
 
@@ -51,7 +59,7 @@ If the Deployment page's SQL Server Backup Status section shows an error instead
 
 ## 9. Update to a new version
 
-From an elevated PowerShell session, run `Deploy\Update-BlueTrack.ps1` to download the latest signed release and redeploy from it; the redeploy takes a pre-deployment backup first. See `Admin_OperationsGuide.md`'s "Updating to a New Version" section.
+From an elevated PowerShell session, run `Deploy\Update-BlueTrack.ps1` to download the latest signed release and redeploy from it; the redeploy takes a pre-deployment backup first. Afterwards, **Admin > Deployment** (or **About**, in the menu with your name) shows the version now running. See `Admin_OperationsGuide.md`'s "Updating to a New Version" section, and `Admin_DeploymentRunbook.md`, "After upgrading", for steps a particular upgrade needs.
 
 ## See also
 
