@@ -161,6 +161,9 @@ public sealed class SiemForwardingRepository(IDbConnectionFactory connectionFact
     /// The next rows after the watermark, in WriteVersion order, only below MIN_ACTIVE_ROWVERSION() (every row
     /// there is committed), with their type's setting and field changes. Includes types that aren't forwarded,
     /// so the watermark can move past them. LOCK_TIMEOUT: a read that would wait more than 5 s fails and is retried.
+    /// The WriteVersion index is forced: a scan of the clustered index would stop at an uncommitted row's lock (its
+    /// WriteVersion is at or above @Below, so a seek on the range never reaches it). READPAST isn't used: it could skip
+    /// a committed row another statement has locked, and the watermark would then pass it.
     /// </summary>
     public async Task<IReadOnlyList<SiemAuditRow>> ReadBatchAsync(long watermark, int batchSize)
     {
@@ -173,7 +176,7 @@ public sealed class SiemForwardingRepository(IDbConnectionFactory connectionFact
                 t.Description AS EventTypeDescription, u.DisplayName AS UserDisplayName, u.ExternalIdentifier AS UserExternalIdentifier,
                 ae.EntityName, ae.EntityKey, ae.SourceIpAddress, ae.Detail, ae.Reason,
                 ISNULL(s.IsForwarded, CAST(1 AS BIT)) AS IsForwarded, CAST(ISNULL(s.CefSeverity, 5) AS INT) AS CefSeverity
-            FROM web.audit_event ae
+            FROM web.audit_event ae WITH (INDEX(IX_audit_event_WriteVersion))
             JOIN web.dim_audit_event_type t ON t.AuditEventTypeKey = ae.AuditEventTypeKey
             LEFT JOIN web.app_user u ON u.UserKey = ae.PerformedByUserKey
             LEFT JOIN web.siem_event_type_setting s ON s.AuditEventTypeKey = ae.AuditEventTypeKey

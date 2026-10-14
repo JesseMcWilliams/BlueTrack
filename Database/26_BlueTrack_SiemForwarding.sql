@@ -51,6 +51,12 @@ IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_audit_event_WriteVersi
     CREATE UNIQUE INDEX IX_audit_event_WriteVersion ON web.audit_event (WriteVersion) INCLUDE (AuditEventTypeKey, OccurredAt);
 GO
 
+-- The sender reads a batch's field changes by AuditEventKey; without this index that read scans the table and
+-- waits on the field changes of an audit transaction that is still open.
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_audit_field_change_AuditEventKey' AND object_id = OBJECT_ID('web.audit_field_change'))
+    CREATE INDEX IX_audit_field_change_AuditEventKey ON web.audit_field_change (AuditEventKey);
+GO
+
 IF OBJECT_ID('web.siem_forwarding_config') IS NULL
 BEGIN
     CREATE TABLE web.siem_forwarding_config (
