@@ -29,7 +29,7 @@ This is distinct from two things already in the schema:
 | Field | Type | Purpose |
 |---|---|---|
 | AuditEventTypeKey | int, PK | Surrogate key |
-| EventTypeName | text, unique | Logon, LogonFailed, FieldEdit, ExceptionApproved, ProviderConfigChanged, ReloadRights, plus **ExceptionReviewExtended** and **ExceptionRevoked** (added 2026-09-01, D-73 — the original catalog covered exception creation but not the workflow's other two actions, found while wiring real audit logging into the Risk Exceptions pages); later RecordViewed, BulkEdit, ExceptionImported, AccountDeleted/Undeleted, **ConnectionTest** (D-210, script 11: a Secrets Store or Credentials Test button retrieved a secret; Detail says what was asked and the outcome), and **BreakGlassLogon** (D-216, script 16: a designated break-glass account signed in) |
+| EventTypeName | text, unique | Logon, LogonFailed, FieldEdit, ExceptionApproved, ProviderConfigChanged, ReloadRights, plus **ExceptionReviewExtended** and **ExceptionRevoked** (added 2026-09-01, D-73 — the original catalog covered exception creation but not the workflow's other two actions, found while wiring real audit logging into the Risk Exceptions pages); later RecordViewed, BulkEdit, ExceptionImported, AccountDeleted/Undeleted, **ConnectionTest** (D-210, script 11: a Secrets Store or Credentials Test button retrieved a secret; Detail says what was asked and the outcome), **BreakGlassLogon** (D-216, script 16: a designated break-glass account signed in), and **ReportExport** (D-220, script 17: a report was exported; EntityName `report`, EntityKey the report, e.g. `risk-score`; Detail the format, row count and filter/sort parameters) |
 | Description | text | What this event type represents, for the admin screen |
 
 ### audit_event

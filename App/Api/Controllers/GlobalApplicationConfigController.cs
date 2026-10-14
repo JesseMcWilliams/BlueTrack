@@ -87,6 +87,11 @@ public sealed class GlobalApplicationConfigController(
         {
             return Problem(title: "Invalid bulk edit limit", detail: "BulkEditMaxAccounts must be between 1 and 10000.", statusCode: StatusCodes.Status400BadRequest);
         }
+        // D-220: an .xlsx sheet holds 1,048,576 rows; the column's CHECK matches this range.
+        if (request.ExportMaxRows is < 1 or > 1000000)
+        {
+            return Problem(title: "Invalid export limit", detail: "ExportMaxRows must be between 1 and 1000000.", statusCode: StatusCodes.Status400BadRequest);
+        }
         // D-200: scheduled backups -- a valid time (or "" for off) and 1..3650 days.
         if (!string.IsNullOrEmpty(request.ScheduledBackupTime) && !DataFeeds.FeedSchedule.TryParseTime(request.ScheduledBackupTime, out _))
         {
@@ -147,6 +152,7 @@ public sealed class GlobalApplicationConfigController(
         TrackIfSent("BusinessHoursEnd", before.BusinessHoursEnd, request.BusinessHoursEnd);
         TrackIfSent("BusinessDays", before.BusinessDays, request.BusinessDays);
         TrackIfSent("BulkEditMaxAccounts", before.BulkEditMaxAccounts.ToString(), request.BulkEditMaxAccounts?.ToString());
+        TrackIfSent("ExportMaxRows", before.ExportMaxRows.ToString(), request.ExportMaxRows?.ToString());
         static string? Pattern(string? mode, string? value) => mode is null ? null : mode == "Off" ? "Off" : $"{mode}: {value}";
         TrackIfSent("SafeDecomPattern", Pattern(before.SafeDecomMode, before.SafeDecomValue), Pattern(request.SafeDecomMode, request.SafeDecomValue));
         TrackIfSent("AccountDecomPattern", Pattern(before.AccountDecomMode, before.AccountDecomValue), Pattern(request.AccountDecomMode, request.AccountDecomValue));

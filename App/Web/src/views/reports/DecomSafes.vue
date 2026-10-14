@@ -4,6 +4,7 @@
 // Configuration. Ignored safes aren't listed. Read-only, no permission gate.
 import { ref, onMounted } from 'vue'
 import { formatCount } from '../../utils/formatCount'
+import ReportExportButtons from '../../components/ReportExportButtons.vue'
 
 const items = ref([])
 const error = ref(null)
@@ -31,6 +32,7 @@ onMounted(async () => {
       keeps the safe, or while its accounts move to another safe. Accounts still in these safes are on
       <router-link :to="{ name: 'reports-decom-accounts' }">Accounts Flagged for Deletion</router-link>.
     </p>
+    <ReportExportButtons path="/api/reports/decom-safes/export" />
     <p v-if="loading" role="status">Loading...</p>
     <p v-else-if="error" role="alert">Could not load the report: {{ error }}</p>
     <p v-else-if="items.length === 0">No safes are flagged for deletion. If you expected some, check the safe decommission pattern.</p>

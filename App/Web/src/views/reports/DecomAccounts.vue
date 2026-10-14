@@ -6,6 +6,7 @@
 // safe, the note names it -- it has probably moved there. Read-only, no
 // permission gate.
 import { ref, computed, onMounted } from 'vue'
+import ReportExportButtons from '../../components/ReportExportButtons.vue'
 
 const items = ref([])
 const error = ref(null)
@@ -43,6 +44,7 @@ onMounted(async () => {
       <strong>Not deleted yet</strong> marks accounts still active in CyberArk; <strong>Also in</strong> lists other safes
       holding an account with the same username and address.
     </p>
+    <ReportExportButtons path="/api/reports/decom-accounts/export" :params="{ notDeletedOnly: hideDeleted }" />
     <p v-if="loading" role="status">Loading...</p>
     <p v-else-if="error" role="alert">Could not load the report: {{ error }}</p>
     <template v-else>

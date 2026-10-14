@@ -23,8 +23,17 @@ public sealed class RiskScoreReportRepository(IDbConnectionFactory connectionFac
         int? page = null,
         int? pageSize = null)
     {
-        using var connection = connectionFactory.Create();
         var (normalizedPage, normalizedPageSize) = PagingParams.Normalize(page, pageSize);
+        return await QueryAsync(sortBy, PagingParams.Offset(normalizedPage, normalizedPageSize), normalizedPageSize);
+    }
+
+    /// <summary>D-220: every row in the same order as the report (all pages), up to maxRows -- for the export.</summary>
+    public Task<IReadOnlyList<RiskScoreReportRow>> GetExportRowsAsync(IReadOnlyList<(string Field, bool Descending)>? sortBy, int maxRows) =>
+        QueryAsync(sortBy, 0, maxRows);
+
+    private async Task<IReadOnlyList<RiskScoreReportRow>> QueryAsync(IReadOnlyList<(string Field, bool Descending)>? sortBy, int offset, int fetch)
+    {
+        using var connection = connectionFactory.Create();
 
         var sql = $"""
             SELECT
@@ -45,11 +54,7 @@ public sealed class RiskScoreReportRepository(IDbConnectionFactory connectionFac
             OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY
             """;
 
-        var rows = await connection.QueryAsync<RiskScoreReportRow>(sql, new
-        {
-            Offset = PagingParams.Offset(normalizedPage, normalizedPageSize),
-            PageSize = normalizedPageSize
-        });
+        var rows = await connection.QueryAsync<RiskScoreReportRow>(sql, new { Offset = offset, PageSize = fetch });
         return rows.AsList();
     }
 

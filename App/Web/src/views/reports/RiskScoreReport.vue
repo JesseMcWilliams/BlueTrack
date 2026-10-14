@@ -12,6 +12,7 @@ import { usePageSizeStore } from '../../stores/pageSize'
 import { useRightsStore } from '../../stores/rights'
 import FilterCountSummary from '../../components/FilterCountSummary.vue'
 import Pager from '../../components/Pager.vue'
+import ReportExportButtons from '../../components/ReportExportButtons.vue'
 
 const { totalCount, filteredCount, readTotalCount } = useTotalCount()
 const pageSizeStore = usePageSizeStore()
@@ -172,6 +173,7 @@ onMounted(load)
       <span v-if="recalculated" role="status"> Recalculated.</span>
       <span v-if="recalculateError" role="alert"> {{ recalculateError }}</span>
     </p>
+    <ReportExportButtons path="/api/reports/risk-score/export" :params="{ sort: sortQueryParam }" />
     <FilterCountSummary :shown="rows.length" :filtered-count="filteredCount" :total="totalCount" :page="page" :page-size="pageSizeStore.current" />
     <Pager :page="page" :page-count="pageCount" @update:page="onPageChange" @page-size-change="onPageSizeChange" />
     <p v-if="loading" role="status">Loading...</p>

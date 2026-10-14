@@ -7,6 +7,7 @@
 // Application Configuration page is (or ever was) on.
 import { ref, onMounted } from 'vue'
 import { formatDate } from '../../utils/formatDate'
+import ReportExportButtons from '../../components/ReportExportButtons.vue'
 
 const items = ref([])
 const error = ref(null)
@@ -35,6 +36,7 @@ onMounted(async () => {
       progress record. Shown here regardless of whether "Enforce segregation of duties on Risk Exception
       approval" is currently enabled on Global Application Configuration.
     </p>
+    <ReportExportButtons path="/api/reports/risk-exception-sod/export" />
     <p v-if="loading" role="status">Loading...</p>
     <p v-else-if="error" role="alert">Could not load the report: {{ error }}</p>
     <p v-else-if="items.length === 0">No same-person cases found.</p>

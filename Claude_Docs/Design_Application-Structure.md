@@ -65,6 +65,8 @@ Dashboard | Accounts | Exceptions | Reports | Admin (groups the admin-facing pag
 - **Risk Exception SoD** (added 2026-09-16) — every historical case where the same person both approved a Risk Exception and later linked it to an account, built entirely from the existing audit trail. Gated by `ViewRiskExceptionSodReport`. Shown regardless of whether the segregation-of-duties enforcement toggle (Global Application Configuration) is or ever was on — a detective control, not tied to the enforcement setting. See `User_Docs/User_Guide.md`.
 - **KPI Summary** (added 2026-09-22, D-143) — four nested progress ratios: In Scope vs. All Accounts, Onboarded vs. In Scope, Managed vs. Onboarded, and Compliant vs. Managed. "In scope" reuses the existing Risk Accepted / Excluded status (D-19/D-59) rather than a new exception type — an account leaves scope only through that same, already-enforced accepted-exception mechanism. Onboarded/Managed are `dim_blueprint_stage` thresholds (StageOrder >= 3 / >= 4); Compliant requires both the final stage and status Complete specifically. No permission gate, read-only, matching Overdue/At-Risk and Stage/Status Summary above. The same five underlying counts also back a new "Key Progress Indicators" section on the Dashboard (below), including a pie chart of five mutually-exclusive funnel buckets summing to the total account count.
 
+**Updated 2026-10-13 (D-220):** the hub (`ReportsHub.vue`) lists the reports in a column on the left with the open report beside it, the same layout as the Admin hub, in a `<nav aria-label="Reports">`. Gating is unchanged: Reconciliation Review and Possible Account Matches need `ConfirmReconciliation`, Risk Score `ViewRiskReport`, Risk Exception SoD `ViewRiskExceptionSodReport`, Discovered Accounts `ViewDiscoveredAccounts`; the rest (including Safes/Accounts Flagged for Deletion, D-186) need only `ViewDashboard`. Every report can be exported (Report Export, below).
+
 More report types can be added the same way later; this isn't meant to be exhaustive. **Documentation audit correction, 2026-09-09**: this list only had the original three as of 2026-08-27 — the last two were added since (D-145/D-147, D-119) but never made it back into this list. **Documentation audit correction, 2026-09-21**: same gap recurred — Risk Exception SoD (added the same day as Discovered Accounts) was missing from this list too, found while doing a broader documentation-completeness pass.
 
 ## Data Model
@@ -83,6 +85,7 @@ More report types can be added the same way later; this isn't meant to be exhaus
 | ExceptionIdPattern | text | Risk Exception ID display format (D-71, `Database/12_BlueTrack_ExceptionIdNumbering.sql`) |
 | ExceptionIdSequenceYear / ExceptionIdNextSequence | int / int | Backing counter for the above, resets per calendar year |
 | LockTimeoutMinutes | int | Account Progress edit-lock expiry (`Database/15_BlueTrack_LockTimeoutConfig.sql`) |
+| ExportMaxRows | int, default 100000 (1 to 1,000,000) | The most rows one report export may hold (D-220, script 17) |
 | ModifiedBy / ModifiedDate | FK to app_user / datetime | Change tracking (D-59) |
 
 **Note on step-up MFA scope (D-29):** this is **not** included here. D-29 reads as a fixed architectural policy ("configuration settings and security settings require step-up, general workflow actions don't") rather than something an admin tunes at runtime the way idle timeout or breadcrumb position is — it's enforced by tagging which actions/endpoints are security-sensitive in code, not a config row. Flagging this reading explicitly in case that's wrong — if step-up scope is actually meant to be admin-adjustable, it belongs here too.
@@ -105,6 +108,16 @@ More report types can be added the same way later; this isn't meant to be exhaus
 ### Numbers
 
 **D-218 (2026-10-13):** every count shown on the pages (list and report totals, pager, selection, import and bulk results, dashboard and KPI counts) goes through `formatCount` (`App/Web/src/utils/formatCount.js`), which uses `Intl.NumberFormat` with the browser's language: 1,234 / 1.234 / 1 234. Not counts, so left as they are: risk scores and band limits, percentages, IDs and row numbers, form inputs, and text the server writes (feed run summaries, emails, audit details).
+
+### Report Export
+
+**D-220 (2026-10-13):** every report page has the shared `ReportExportButtons.vue` (**Export CSV**, **Export Excel**), given its export endpoint and the page's current filters and sort (Risk Score and Discovered Accounts: `sort`; Accounts Flagged for Deletion: `notDeletedOnly`). A new report adds:
+
+- `GET /api/reports/<report>/export?format=csv|xlsx` beside the report's GET, with the **same `[Authorize]` policy** and the same filter/sort parameters, calling `ReportExportService` (`App/Api/Reports/`).
+- Its columns in `ReportExports.cs`: the grid's headers in the grid's order, written out per report (no reflection over the DTO). Combined grid cells are combined the same way; action columns are left out. Dates are `yyyy-MM-dd`, as `formatDate` shows them.
+- The buttons on the page, below the description.
+
+The export holds every row the filters match (all pages). More than `app_config.ExportMaxRows` is refused (400, ProblemDetails `detail` with the count and the limit), and the buttons show that message. CSV is UTF-8 with a BOM and RFC 4180 quoting, with a `'` added before text starting `=`, `+`, `-`, `@`, tab or CR; Excel stores text as text (never a formula), numbers and dates as typed cells, with a bold, frozen, auto-filtered header row. The file is `BlueTrack_<Report>_<yyyyMMdd-HHmm>.csv|.xlsx` (server local time) and each export writes a `ReportExport` audit event. The download uses `fetch` and a blob, so it goes through the app's API base and headers; the buttons are disabled while it runs.
 
 ### Breadcrumbs
 

@@ -1,54 +1,59 @@
 <script setup>
-// Reports hub with sub-navigation (D-56) -- mirrors the Admin hub pattern
-// (D-47). Reconciliation Review (ConfirmReconciliation, D-56), Risk
-// Score (ViewRiskReport, D-101-105 Phase E), and Discovered Accounts
-// (ViewDiscoveredAccounts, AD Account Discovery feature) are gated by a
-// permission -- Overdue/At-Risk, Stage/Status Summary, Unresolved
-// Entitlement Members (D-107/D-108), and KPI Summary (D-143) have no
-// [Authorize(Policy = ...)] on their API endpoints, so they stay
-// unconditionally visible here too.
+// Reports hub with sub-navigation (D-56) -- mirrors the Admin hub (D-47):
+// D-220, the reports are listed in a column on the left, the report itself
+// on the right. Reconciliation Review and Possible Account Matches
+// (ConfirmReconciliation, D-56/D-212), Risk Score (ViewRiskReport,
+// D-101-105 Phase E), Risk Exception SoD (ViewRiskExceptionSodReport) and
+// Discovered Accounts (ViewDiscoveredAccounts) are shown only to holders of
+// that permission. The rest stay unconditionally visible, as before: their
+// API endpoints need only ViewDashboard (D-197), which every role has.
+import { computed } from 'vue'
 import { useRightsStore } from '../../stores/rights'
 
 const rights = useRightsStore()
+
+const reports = [
+  { name: 'reports-overdue-worklist', label: 'Overdue / At-Risk' },
+  { name: 'reports-stage-status-summary', label: 'Stage/Status Summary' },
+  { name: 'reports-reconciliation-review', label: 'Reconciliation Review', permission: 'ConfirmReconciliation' },
+  { name: 'reports-possible-matches', label: 'Possible Account Matches', permission: 'ConfirmReconciliation' },
+  { name: 'reports-unresolved-entitlement-members', label: 'Unresolved Entitlement Members' },
+  { name: 'reports-risk-score', label: 'Risk Score', permission: 'ViewRiskReport' },
+  { name: 'reports-risk-exception-sod', label: 'Risk Exception SoD', permission: 'ViewRiskExceptionSodReport' },
+  { name: 'reports-discovered-accounts', label: 'Discovered Accounts', permission: 'ViewDiscoveredAccounts' },
+  { name: 'reports-decom-safes', label: 'Safes Flagged for Deletion' },
+  { name: 'reports-decom-accounts', label: 'Accounts Flagged for Deletion' },
+  { name: 'reports-kpi-summary', label: 'KPI Summary' }
+]
+
+const visibleReports = computed(() => reports.filter(r => !r.permission || rights.hasPermission(r.permission)))
 </script>
 
 <template>
-  <div>
-    <nav class="reports-subnav">
-      <router-link :to="{ name: 'reports-overdue-worklist' }">Overdue / At-Risk</router-link>
-      <router-link :to="{ name: 'reports-stage-status-summary' }">Stage/Status Summary</router-link>
-      <router-link v-if="rights.hasPermission('ConfirmReconciliation')" :to="{ name: 'reports-reconciliation-review' }">
-        Reconciliation Review
-      </router-link>
-      <router-link v-if="rights.hasPermission('ConfirmReconciliation')" :to="{ name: 'reports-possible-matches' }">
-        Possible Account Matches
-      </router-link>
-      <router-link :to="{ name: 'reports-unresolved-entitlement-members' }">
-        Unresolved Entitlement Members
-      </router-link>
-      <router-link v-if="rights.hasPermission('ViewRiskReport')" :to="{ name: 'reports-risk-score' }">
-        Risk Score
-      </router-link>
-      <router-link v-if="rights.hasPermission('ViewRiskExceptionSodReport')" :to="{ name: 'reports-risk-exception-sod' }">
-        Risk Exception SoD
-      </router-link>
-      <router-link v-if="rights.hasPermission('ViewDiscoveredAccounts')" :to="{ name: 'reports-discovered-accounts' }">
-        Discovered Accounts
-      </router-link>
-      <router-link :to="{ name: 'reports-decom-safes' }">Safes Flagged for Deletion</router-link>
-      <router-link :to="{ name: 'reports-decom-accounts' }">Accounts Flagged for Deletion</router-link>
-      <router-link :to="{ name: 'reports-kpi-summary' }">
-        KPI Summary
-      </router-link>
+  <div class="reports-layout">
+    <nav class="reports-subnav" aria-label="Reports">
+      <router-link v-for="r in visibleReports" :key="r.name" :to="{ name: r.name }">{{ r.label }}</router-link>
     </nav>
-    <router-view />
+    <div class="reports-content">
+      <router-view />
+    </div>
   </div>
 </template>
 
 <style scoped>
+.reports-layout {
+  display: flex;
+  gap: 2rem;
+}
 .reports-subnav {
   display: flex;
-  gap: 1rem;
-  padding-bottom: 1rem;
+  flex-direction: column;
+  gap: 0.5rem;
+  min-width: 220px;
+}
+/* No overflow here: a scroll container would stop the tables' sticky headers (D-136) following the page. */
+.reports-content {
+  flex: 1;
+  min-width: 0;
 }
 </style>

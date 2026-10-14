@@ -74,6 +74,7 @@ builder.Services.AddScoped<BlueTrack.Api.AccountProgress.AccountProgressSaveServ
 builder.Services.AddScoped<BlueTrack.Api.AccountProgress.AccountProgressBulkEditService>();
 builder.Services.AddScoped<AccountDeletionRepository>();
 builder.Services.AddScoped<DecommissionRepository>();
+builder.Services.AddScoped<BlueTrack.Api.Reports.ReportExportService>();   // D-220
 builder.Services.AddScoped<BlueTrack.Api.BulkActions.BulkActionRunner>();
 builder.Services.AddScoped<BlueTrack.Api.AccountProgress.AccountDeletionService>();
 builder.Services.AddScoped<BlueTrack.Api.Imports.RiskExceptionImportService>();

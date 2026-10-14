@@ -253,8 +253,17 @@ public sealed class DiscoveredAccountRepository(IDbConnectionFactory connectionF
         int? pageSize = null,
         string? status = "New")
     {
-        using var connection = connectionFactory.Create();
         var (normalizedPage, normalizedPageSize) = PagingParams.Normalize(page, pageSize);
+        return await QueryListAsync(sortBy, status, PagingParams.Offset(normalizedPage, normalizedPageSize), normalizedPageSize);
+    }
+
+    /// <summary>D-220: every row of the report (all pages, same order and Status filter), up to maxRows -- for the export.</summary>
+    public Task<IReadOnlyList<DiscoveredAccount>> GetExportRowsAsync(IReadOnlyList<(string Field, bool Descending)>? sortBy, int maxRows, string? status = "New") =>
+        QueryListAsync(sortBy, status, 0, maxRows);
+
+    private async Task<IReadOnlyList<DiscoveredAccount>> QueryListAsync(IReadOnlyList<(string Field, bool Descending)>? sortBy, string? status, int offset, int fetch)
+    {
+        using var connection = connectionFactory.Create();
         var sql = $"""
             {SelectSql}
             WHERE (@Status IS NULL OR da.Status = @Status)
@@ -264,8 +273,8 @@ public sealed class DiscoveredAccountRepository(IDbConnectionFactory connectionF
         var rows = await connection.QueryAsync<DiscoveredAccount>(sql, new
         {
             Status = status,
-            Offset = PagingParams.Offset(normalizedPage, normalizedPageSize),
-            PageSize = normalizedPageSize
+            Offset = offset,
+            PageSize = fetch
         });
         return rows.AsList();
     }

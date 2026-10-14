@@ -23,6 +23,7 @@ import { useRightsStore } from '../../stores/rights'
 import { confirmDelete } from '../../composables/useConfirmDialog'
 import FilterCountSummary from '../../components/FilterCountSummary.vue'
 import Pager from '../../components/Pager.vue'
+import ReportExportButtons from '../../components/ReportExportButtons.vue'
 
 const { totalCount, filteredCount, readTotalCount } = useTotalCount()
 const pageSizeStore = usePageSizeStore()
@@ -191,6 +192,7 @@ onMounted(load)
       already-onboarded match without creating a tracked account. Neither talks to CyberArk directly -- actual
       Vault onboarding still happens there.
     </p>
+    <ReportExportButtons path="/api/reports/discovered-accounts/export" :params="{ sort: sortQueryParam }" />
     <FilterCountSummary :shown="rows.length" :filtered-count="filteredCount" :total="totalCount" :page="page" :page-size="pageSizeStore.current" />
     <Pager :page="page" :page-count="pageCount" @update:page="onPageChange" @page-size-change="onPageSizeChange" />
     <p v-if="actionError" role="alert">{{ actionError }}</p>

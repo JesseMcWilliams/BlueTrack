@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using BlueTrack.Api.Audit;
 using BlueTrack.Api.Auth;
 using BlueTrack.Api.Data;
+using BlueTrack.Api.Reports;
 
 namespace BlueTrack.Api.Controllers;
 
@@ -27,6 +28,13 @@ public sealed class PossibleMatchesController(
         Response.Headers["X-Filtered-Count"] = count;
         return Ok(await repository.GetOpenAsync(page, pageSize));
     }
+
+    /// <summary>D-220: every open match (all pages), under the class's ConfirmReconciliation policy like the report.</summary>
+    [HttpGet("export")]
+    public async Task<IActionResult> Export([FromQuery] string? format, [FromServices] ReportExportService exportService) =>
+        await exportService.ExportAsync(this, ReportExports.PossibleMatches, format, ReportExportService.NoParameters,
+            await repository.GetOpenCountAsync(),
+            async limit => ReportTable.From(ReportExports.PossibleMatchesColumns, await repository.GetOpenExportRowsAsync(limit)));
 
     /// <summary>Links the pair, as an exact match would: the feed account is hidden and, at Discovered, moves to Onboarded to Vault.</summary>
     [HttpPost("{reconciliationKey:long}/link")]

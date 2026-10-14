@@ -77,6 +77,7 @@ Both share `LdapContextFactory` for binding and read `web.ldap_config` — now a
 | AWSSDK.SecretsManager | 4.0.100.11 | AWS Secrets Manager backend (2.3) |
 | Azure.Identity | 1.21.0 | Azure AD credential flow for Key Vault access |
 | Azure.Security.KeyVault.Secrets | 4.11.1 | Azure Key Vault backend (2.3) |
+| ClosedXML | 0.105.1 | Report export as Excel `.xlsx` (D-220, `App/Api/Reports/XlsxReportWriter.cs`). MIT licence. CSV export is written by hand (`CsvReportWriter`), not CsvHelper |
 | CsvHelper | 33.1.0 | Risk Scoring bulk CSV import/parsing (Targets, Access Groups, mapping tables) |
 | Dapper | 2.1.79 | All SQL data access — no ORM beyond this |
 | ITfoxtec.Identity.Saml2.MvcCore | 4.20.1 | SAML2 authentication (2.4) |
@@ -92,6 +93,8 @@ Both share `LdapContextFactory` for binding and read `web.ldap_config` — now a
 | *NetStandardPasswordSDK* (local reference, not NuGet) | n/a | CyberArk Credential Provider (2.2) |
 
 **Security note (2026-09-23, D-153):** `ITfoxtec.Identity.Saml2` (the SAML2 library, 2.4) transitively pulls `System.Security.Cryptography.Xml` at a 10.0.7 floor, which carries 5 high-severity advisories (GHSA-23rf-6693-g89p, GHSA-8q5v-6pqq-x66h, GHSA-cvvh-rhrc-wg4q, GHSA-g8r8-53c2-pm3f, GHSA-mmjf-rqrv-855v) -- all the same class of .NET 10 XML-encryption denial-of-service issue, CVSS 7.5, network-exploitable with no user interaction. Relevant here specifically because SAML processes externally-supplied XML (assertions/responses) over the network whenever that provider is enabled -- not just a theoretical transitive warning. Fixed by adding the explicit `System.Security.Cryptography.Xml` 10.0.10 reference in the table above, overriding the vulnerable floor. **`dotnet build` will show a `NU1510` warning suggesting this reference be removed as "automatically available and not needed"** -- do not remove it: the "automatically available" version is exactly the vulnerable 10.0.7 this override exists to replace. Re-check `dotnet list package --vulnerable --include-transitive` after any future `ITfoxtec.Identity.Saml2` upgrade to see whether its own floor has finally moved past 10.0.10, at which point this explicit override (and this note) can be removed.
+
+**ClosedXML (D-220, 2026-10-13):** version and licence confirmed from nuget.org (`dotnet package search ClosedXML --exact-match`, newest stable 0.105.1; its nuspec's licence expression is `MIT`). It brings, as resolved: `DocumentFormat.OpenXml` 3.1.1, `ClosedXML.Parser` 2.0.0, `ExcelNumberFormat` 1.1.0 and `RBush.Signed` 4.0.0 (all MIT), and `SixLabors.Fonts` 1.0.0 (Apache-2.0; ClosedXML allows up to 3.0, and later SixLabors.Fonts versions carry a different licence, so check it before letting it float up). The export never measures fonts (no `AdjustToContents`), so the server needs none installed. The API tests open the exported files with the same package; the E2E spec reads an `.xlsx` header row with a small zip/XML reader (`App/E2E/tests/xlsx.js`) instead of adding an npm package.
 
 ## 4. NuGet packages — `App/Migrator` and `App/Api.Tests`
 
@@ -133,6 +136,7 @@ Not external dependencies, but the top-level internal modules a change is likely
 | `Ldap/` | `LdapGroupMemberResolver`, `LdapContextFactory` (2.5) |
 | `AdDiscovery/` | `AdAccountDiscoveryService`/`AdAccountDiscoveryBackgroundService` (2.5) — AD Account Discovery feature |
 | `Notifications/` | Notification framework — checks, senders, background service (2.6) |
+| `Reports/` | Report export (D-220): `ReportExportService`, the CSV/.xlsx writers, the per-report columns |
 | `RiskScoring/` | Target/Access Group matching, CSV import, staleness propagation, band overlap validation |
 | `Secrets/` | `IVaultSecretProvider`/`ILocalSecretProtector` implementations (2.2/2.3) |
 

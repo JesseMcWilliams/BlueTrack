@@ -6,6 +6,7 @@
 // yet, matching this scaffold's overall maturity level.
 import { ref, onMounted } from 'vue'
 import { formatDate } from '../../utils/formatDate'
+import ReportExportButtons from '../../components/ReportExportButtons.vue'
 
 const items = ref([])
 const error = ref(null)
@@ -29,6 +30,7 @@ onMounted(async () => {
 <template>
   <div>
     <h2>Reconciliation Review Queue</h2>
+    <ReportExportButtons path="/api/reports/reconciliation-review-queue/export" />
     <p v-if="loading" role="status">Loading...</p>
     <p v-else-if="error" role="alert">Could not load queue: {{ error }}</p>
     <p v-else-if="items.length === 0">Nothing awaiting reconciliation review.</p>
