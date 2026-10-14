@@ -519,6 +519,12 @@ const routes = [
         meta: { breadcrumb: 'shell.routes.adminAccountClassificationRuleEdit', breadcrumbParent: 'admin-account-classification' },
         component: () => import('../views/admin/AccountClassificationRuleEdit.vue'),
         props: true
+      },
+      {
+        path: 'siem-forwarding',
+        name: 'admin-siem-forwarding',
+        meta: { breadcrumb: 'shell.routes.adminSiemForwarding', breadcrumbParent: 'admin' },
+        component: () => import('../views/admin/SiemForwarding.vue')
       }
     ]
   },

@@ -104,7 +104,77 @@ Real audit logging is now wired in: `AuditLogger` writes to `audit_event`/`audit
 
 **`LogReadEvents` enforcement: resolved 2026-09-04 (D-83).** Scoped to **detail views only** — GET-by-key endpoints for governed entities (Account Progress detail, Risk Exception detail), not list/search/report endpoints, to avoid flooding the log on every page load. A new `RecordViewed` event type (`04_BlueTrack_Baseline_WebSchema.sql`) is logged via `AuditLogger.LogReadIfEnabledAsync`, checked against `audit_config.LogReadEvents` on each call. If a future page adds another detail-view endpoint, it needs to call the same method explicitly — nothing enforces that automatically across new endpoints. Verified: with the flag off, no event is logged; with it on, each detail-view GET logs exactly one `RecordViewed` event, and list endpoints log nothing.
 
-**Retention/purge: actually built 2026-09-21, roughly a month after `web.audit_purge_log` was created alongside it.** `usp_PurgeAuditLog` (`Database/06_BlueTrack_Baseline_WebLogic.sql`) was, until this pass, only ever mentioned in that table's own schema comment — a real, confirmed gap found while writing `User_Docs/Admin_OperationsGuide.md`'s day-2 content, not something this document itself had been tracking as open. Deletes `audit_field_change` rows before their parent `audit_event` rows (FK dependency) older than `RetentionDays` days, records the run in `audit_purge_log`, and no-ops with a logged `'Skipped'` status if `RetentionDays` is still unset — matching this document's own original design exactly, just built a month later than the schema that anticipated it. `Database/Manual/05_BlueTrack_ScheduleAuditLogPurgeJob.sql` schedules it nightly at 3:00 AM, following the same "never through `App/Migrator`, msdb-only" convention as `14`/`38` — see `User_Docs/Admin_OperationsGuide.md` for the operational side (checking whether it ran, what `'Skipped'` means, re-running manually).
+**Retention/purge: actually built 2026-09-21, roughly a month after `web.audit_purge_log` was created alongside it.** `usp_PurgeAuditLog` (`Database/06_BlueTrack_Baseline_WebLogic.sql`) was, until this pass, only ever mentioned in that table's own schema comment — a real, confirmed gap found while writing `User_Docs/Admin_OperationsGuide.md`'s day-2 content, not something this document itself had been tracking as open. Deletes `audit_field_change` rows before their parent `audit_event` rows (FK dependency) older than `RetentionDays` days (since D-234, not rows still waiting to be forwarded to the SIEM while forwarding is on; see "SIEM forwarding"), records the run in `audit_purge_log`, and no-ops with a logged `'Skipped'` status if `RetentionDays` is still unset — matching this document's own original design exactly, just built a month later than the schema that anticipated it. `Database/Manual/05_BlueTrack_ScheduleAuditLogPurgeJob.sql` schedules it nightly at 3:00 AM, following the same "never through `App/Migrator`, msdb-only" convention as `14`/`38` — see `User_Docs/Admin_OperationsGuide.md` for the operational side (checking whether it ran, what `'Skipped'` means, re-running manually).
+
+## SIEM forwarding (D-234)
+
+Every new audit row can be sent to a SIEM as **CEF inside RFC 5424 syslog**, over **TCP or TLS**, configured on **Admin > SIEM Forwarding** (`ManageApplicationConfiguration`, the permission over the audit log's other settings). Script `26_BlueTrack_SiemForwarding.sql`. Code: `App/Api/Siem/` (`CefFormatter`, `SyslogFormatter`, `SyslogTransport`, `SiemForwarder`, `SiemForwardingBackgroundService`), `Data/SiemForwardingRepository.cs`, `Controllers/SiemForwardingController.cs`, `HealthChecks/SiemForwardingHealthCheck.cs`, `Web/src/views/admin/SiemForwarding.vue`.
+
+### Message
+
+`<PRI>1 TIMESTAMP HOSTNAME APP-NAME - MSGID - CEF:0|BlueTrack|BlueTrack|<version>|<Signature ID>|<Name>|<Severity>|<extension>`
+
+| Part | Value |
+|---|---|
+| PRI | facility (setting, default 20 = local4) × 8 + syslog severity from the CEF severity: 0-3 Informational (6), 4-6 Notice (5), 7-8 Warning (4), 9-10 Critical (2) |
+| TIMESTAMP | `OccurredAt`, UTC, milliseconds (`2026-10-14T19:05:03.120Z`) |
+| HOSTNAME | setting; blank = this server's FQDN (RFC 5424's first choice). Printable ASCII, max 255 |
+| APP-NAME | setting, default `BlueTrack` (max 48). PROCID and STRUCTURED-DATA are `-` |
+| MSGID | the event type name (max 32) |
+| MSG | the CEF text, UTF-8 **without a BOM** (RFC 5424's MSG-ANY), so it starts with `CEF:` |
+| Device Vendor / Product | `BlueTrack` / `BlueTrack` |
+| Device Version | `AboutController.ProductVersion()` (the D-226 stamp), max 31 |
+| Signature ID | `dim_audit_event_type.EventTypeName` |
+| Name | `dim_audit_event_type.Description` (the type name if none), max 512 |
+| Severity | `web.siem_event_type_setting.CefSeverity` (0-10; no row = 5) |
+
+| Extension key (CEF dictionary) | From |
+|---|---|
+| `rt` | `OccurredAt`, milliseconds since the epoch |
+| `externalId` | `AuditEventKey` (lets the SIEM drop a repeat) |
+| `suser` / `suid` | `app_user.DisplayName` (else `ExternalIdentifier`) / `ExternalIdentifier` (SID, `sub` or NameID) |
+| `src` | `SourceIpAddress` when IPv4 (IPv4-mapped IPv6 converted); an IPv6 address goes in `c6a1` with `c6a1Label=Source IPv6 Address` (`src` is typed IPv4 in the dictionary) |
+| `cs1` / `cs1Label` | `EntityName` / `Entity` |
+| `cs2` / `cs2Label` | `EntityKey` / `Entity Key` |
+| `cs3` / `cs3Label` | `audit_field_change` summary / `Field Changes`: `Field: "old" -> "new"; ...` (values clipped to 100), only if at most 1,000 characters; else `N fields changed: names`; else `N fields changed` |
+| `reason` | `Reason` (max 1,023) |
+| `msg` | `Detail` (max 1,023, the dictionary length) |
+
+Empty fields are left out. `act` and `outcome` aren't sent: an audit row has no separate action or outcome field (a Test button's outcome is in its Detail). Escaping, per the CEF guide: header `\` and `|` with a backslash (a line break there becomes a space); extension `\` and `=` with a backslash, line breaks as `\n`/`\r`; other control characters become spaces. Values are clipped before escaping.
+
+**Default severities** (seeded for every type that existed in script 26): Logon 3, LogonFailed 6 (no code writes it yet), FieldEdit 3, BulkEdit 4, RecordViewed 1, ExceptionApproved/ReviewExtended/Revoked/Imported 5, ProviderConfigChanged 5, ReloadRights 5, AccountDeleted/Undeleted 5, ConnectionTest 5, ReportExport 5, BreakGlassLogon 8, EntitlementMemberResolution 3, AccountClassification 3. Admin settings changes are logged as `FieldEdit`, so they share its severity; raise it if that matters more than routine edits.
+
+**Size.** Largest message is a setting (default 8,192 bytes, which RFC 5425 says receivers SHOULD accept; minimum 2,048, which they MUST). Over it: the field-change summary becomes `(omitted: too long)`, then `msg` and `reason` are clipped to 256, then 64 characters.
+
+### Transport and framing
+
+- **TCP** (RFC 6587) or **TLS** (RFC 5425); no UDP. Default ports 514 and 6514 (the page switches between them).
+- **Framing:** octet counting (`MSG-LEN SP SYSLOG-MSG`) by default, the only framing RFC 5425 defines and the one RFC 6587 calls reliable; **LF** (non-transparent) as a setting for collectors that want it. No message contains a raw line break (CEF escapes them), so LF framing can't split one.
+- One connection per batch (up to 100 events): connect, write, close our side (TLS close_notify, then TCP FIN), wait up to 2 s for the collector to close. A refused, timed-out or reset connection fails the batch. Syslog has no acknowledgement, so data written just before a collector dies can still be lost; a failed batch is sent again whole (at least once).
+- **TLS trust:** the Windows trust store with the host name checked (default); a pinned **fingerprint** of the collector's certificate, SHA-256 or SHA-1 (RFC 5425 4.2.2 end-entity matching, for a self-signed collector; written `sha-256:AB:CD...`, plain hex also accepted); or a **CA certificate** pasted as PEM, the only trust anchor (chain and host name checked). Revocation is checked online unless the box is cleared (not offered with a pin). TLS version: the operating system's (1.2 or later). There is **no "ignore certificate errors" option**, unlike SMTP's D-116 checkboxes: the pin covers the self-signed case without turning checking off.
+
+### Delivery, ordering and the lease
+
+- `SiemForwardingBackgroundService` runs a pass every 5 seconds, straight on while batches come back full; after a failure it waits 5 s, doubling to 5 minutes. Progress is in `web.siem_forwarding_state`, so an API restart resumes where it stopped.
+- **Watermark and out-of-order commits.** `AuditEventKey` is an IDENTITY: a transaction can commit key 10 after key 11 was read, so "highest key sent" can skip 10 for good. Instead `audit_event` has a **`WriteVersion` ROWVERSION**, and the forwarder reads only rows with `WriteVersion` above the watermark and **below `MIN_ACTIVE_ROWVERSION()`**, the lowest rowversion any open transaction holds (Microsoft documents it for this kind of synchronization). Every row below it is committed and nothing new can appear below it, so the watermark (the last row handled) never passes a row still being written; the forwarder waits for it. A rolled-back row leaves no gap to wait on. Rows go out in WriteVersion order, which is key order except in that case. Cost: a long transaction that wrote audit rows (`usp_Link_FeedAccounts` inside the nightly load) holds back everything after it until it commits. `AuditLogger` now inserts an event and its field changes in one transaction, so the event never goes out before its field changes exist. Tested: `SiemForwarderTests.ARowCommittedAfterALaterOneWasWritten_IsNotSkipped`.
+- **One sender.** A single-row lease (`LeaseOwner`, `LeaseExpiresAt`; at least 60 s, or 3 × timeout + 10 s) taken or renewed at the start of each pass and released on shutdown, so two app pool workers or an overlapped recycle never both send. The watermark moves only while the lease is still held and the watermark unchanged; if a send outlives the lease, the next holder may send the batch again, never skip it. Each process's owner ID is `machine:pid:guid`.
+- **Per-type filter.** Types switched off are read and skipped (the watermark moves past them). All types are on by default; a type added later is forwarded at severity 5 until set. `RecordViewed` rows exist only when Log read/view events is on.
+- **New events only.** Turning forwarding on (off before) sets the watermark to `MIN_ACTIVE_ROWVERSION() - 1`: everything committed then is skipped. Off then on starts again from then; nothing written while it was off is sent. Rows written by SQL (`usp_Link_FeedAccounts`) are covered, because the forwarder reads the table.
+- **Retention.** `usp_PurgeAuditLog` (redefined in script 26) keeps rows above the watermark, with their field changes, while forwarding is on, however old; once forwarded, the next run deletes them. With forwarding off it behaves as before.
+- **Health check** "SIEM Forwarding" (Deployment page, `Tools\Test-BlueTrackHealth.ps1`): Healthy when off; Degraded when on and the last send failed, or the oldest unsent row of a forwarded type is over 15 minutes old.
+- **Test** (**Send Test Event**) sends one CEF event (Signature ID `SiemForwardingTest`, severity 1) with the saved settings, on or off, and is logged as `ConnectionTest`. Saves are logged as `FieldEdit` on `siem_forwarding_config` (the CA as subject and fingerprint, not the PEM).
+
+### Sources
+
+- RFC 5424, The Syslog Protocol: https://www.rfc-editor.org/rfc/rfc5424.html
+- RFC 6587, Transmission of Syslog Messages over TCP: https://www.rfc-editor.org/rfc/rfc6587.html
+- RFC 5425, TLS Transport Mapping for Syslog: https://www.rfc-editor.org/rfc/rfc5425.html
+- Implementing ArcSight Common Event Format (CEF), chapter 1 (header, escaping, encoding): https://www.microfocus.com/documentation/arcsight/arcsight-smartconnectors-8.3/cef-implementation-standard/Content/CEF/Chapter%201%20What%20is%20CEF.htm
+- Same guide, chapter 2 (extension dictionary: key names, types, lengths): https://www.microfocus.com/documentation/arcsight/arcsight-smartconnectors-8.3/cef-implementation-standard/Content/CEF/Chapter%202%20ArcSight%20Extension.htm
+- The guide as PDF (version 27, SmartConnectors 24.1): https://www.microfocus.com/documentation/arcsight/arcsight-smartconnectors-24.1/pdfdoc/cef-implementation-standard/cef-implementation-standard.pdf
+- MIN_ACTIVE_ROWVERSION: https://learn.microsoft.com/en-us/sql/t-sql/functions/min-active-rowversion-transact-sql
+
+**Not verified against a real SIEM yet**: whether the collector accepts octet counting (or needs LF), parses CEF without a BOM inside RFC 5424, takes `c6a1` for IPv6 sources, and maps `suser`, `externalId`, `cs1`-`cs3` and `rt` as expected; and the TLS trust mode with the real collector's certificate.
 
 ## Open Questions
 

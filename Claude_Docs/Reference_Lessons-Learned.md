@@ -274,3 +274,9 @@ D-145 read the unresolved entitlement members' GUIDs and role-style IDs as a sep
 ## 2026-10-14 -- A `<label>` wrapping a `<select>` doesn't match `getByLabel` exactly (D-233)
 
 On the account classification E2E spec, `page.getByLabel('Class', { exact: true }).selectOption(...)` waited until the test timed out: the form's pattern is `<label><span>Class</span> <select>...</select></label>`, and Playwright's label text for that is the whole label's text, options included ("Class Admin Secondary Primary"), so the exact match found nothing (a non-exact `getByLabel('Operator')` only worked as a substring). Use `getByRole('combobox', { name: 'Class', exact: true })`: the select's accessible name is just the label text. Separately, happy-dom (Vitest) rejects an attribute selector with escaped quotes (`button[aria-label="Delete \"x\""]`); find the button by `attributes('aria-label')` instead.
+
+## 2026-10-14 -- An IDENTITY key isn't a safe "sent up to here" watermark (D-234)
+
+For SIEM forwarding, "send every `audit_event` row with a key above the last one sent" would lose rows: IDENTITY values are handed out at insert, not commit, so a transaction holding key 10 can commit after key 11 was read and sent, and 10 is never looked at again (`usp_Link_FeedAccounts` writes audit rows inside the nightly load's long transaction). A settle delay on `OccurredAt` doesn't fix it either, since that's also set at insert.
+
+**Lesson:** to read a table incrementally, add a `ROWVERSION` column and read only rows below `MIN_ACTIVE_ROWVERSION()`; every row there is committed and nothing new can appear below it. Write a parent row and its child rows in one transaction, or the reader can see the parent first. Tested by `SiemForwarderTests.ARowCommittedAfterALaterOneWasWritten_IsNotSkipped` (an open transaction on another connection).

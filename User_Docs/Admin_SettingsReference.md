@@ -24,7 +24,7 @@ Allowed values and ranges are given in the "What it does" column or in the notes
 
 Every Admin page needs its own permission (see "Roles & Permissions"). A user sees only the Admin pages their roles allow.
 
-This guide has two parts. This file covers sections 1 to 5. Sections 6 (Secrets Store and Credentials, including LDAP) and 7 (Notifications) are in [Admin_SettingsReference_Notifications.md](Admin_SettingsReference_Notifications.md). Both are published together as the Administrator Settings Guide.
+This guide has two parts. This file covers sections 1 to 5. Sections 6 (Secrets Store and Credentials, including LDAP), 7 (Notifications) and 8 (SIEM Forwarding) are in [Admin_SettingsReference_Notifications.md](Admin_SettingsReference_Notifications.md). Both are published together as the Administrator Settings Guide.
 
 ## 1. Global Application Configuration
 
@@ -52,7 +52,7 @@ This guide has two parts. This file covers sections 1 to 5. Sections 6 (Secrets 
 | Audit Retention (days, blank = keep forever) | How many days of audit log to keep. Older entries are deleted by the nightly Audit Log Purge job. | Blank (keep forever) | Depends: your audit retention policy, for example 365 or more | Keeping the log forever is safest for investigations but grows the database. Set it to the period your policy requires. |
 | Log read/view events | Also records a "viewed" event each time someone opens an Account Progress record or a Risk Exception. List pages and reports are never logged. | Off | Off, unless your policy requires read auditing | Write, approval and logon events are always logged. Read logging adds an entry for every record opened, which makes the log much larger. Report exports are always logged (event type `ReportExport`), whatever this setting says. |
 
-**Audit retention needs the purge job.** Nothing is deleted until the SQL Server Agent job "Audit Log Purge" is installed. The installer does not install it: run `Database/Manual/05_BlueTrack_ScheduleAuditLogPurgeJob.sql` by hand (it runs nightly at 03:00). Until a retention value is set, the job deletes nothing. The application's own database account cannot delete audit entries; only the job can.
+**Audit retention needs the purge job.** Nothing is deleted until the SQL Server Agent job "Audit Log Purge" is installed. The installer does not install it: run `Database/Manual/05_BlueTrack_ScheduleAuditLogPurgeJob.sql` by hand (it runs nightly at 03:00). Until a retention value is set, the job deletes nothing. The application's own database account cannot delete audit entries; only the job can. While SIEM forwarding is on (section 8), the job keeps events not yet forwarded, however old.
 
 ### Backups
 
@@ -365,6 +365,7 @@ Saving the settings, or adding, changing, moving or deleting a rule, reclassifie
 | Secrets Store | The active backend has an implementation in this build. | Unhealthy: no implementation, for example CyberArkCP without the SDK. | Make another backend active. This check doesn't fetch a secret; use **Test Connection** for that. |
 | Identity Providers | At least one provider is enabled, and enabled OIDC and SAML rows have their required fields. | Unhealthy: nothing is enabled. Degraded: OIDC lacks Authority or Client ID; SAML lacks SP Entity ID, IdP Entity ID or sign-on destination; or the SAML SP certificate isn't installed or the App Pool's account can't use its private key. | Fill in the fields or disable the provider; for the SP key, see `Admin_Installation.md`, "SAML signing certificate". The check doesn't test a real sign-in or an OIDC secret: always test one by hand. |
 | Backup Folder | No folder is set, the folder can't be seen from this server, or only specific accounts can read it. | Degraded: a broad group can read the folder, or the App Pool's account can't read its permissions. | The next backup removes broad access, or is refused if it can't. Fix the permissions so backups aren't refused. |
+| SIEM Forwarding | Forwarding is off, or on and keeping up. | Degraded: the last send to the collector failed, or the oldest event waiting to be sent is more than 15 minutes old. | Check the error on **Admin > SIEM Forwarding** and use **Send Test Event**; check the collector is running and the firewall allows the server out to it. Waiting events are sent once it's reachable. |
 
 **Backup App** writes an immediate full backup to the Backup Folder; it is never deleted automatically. Recommended: run it before any configuration change you might want to undo, and copy important backups off the server.
 

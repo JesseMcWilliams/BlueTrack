@@ -23,6 +23,10 @@ public sealed class AuditLogger(IDbConnectionFactory connectionFactory, IHttpCon
         IReadOnlyList<FieldChange>? fieldChanges = null)
     {
         using var connection = connectionFactory.Create();
+        connection.Open();
+        // D-234: the event and its field changes commit together, so the SIEM forwarder (which reads only
+        // committed rows, below MIN_ACTIVE_ROWVERSION()) never sends an event before its field changes exist.
+        using var transaction = connection.BeginTransaction();
 
         var sourceIpAddress = httpContextAccessor.HttpContext?.Connection.RemoteIpAddress?.ToString();
 
@@ -43,28 +47,28 @@ public sealed class AuditLogger(IDbConnectionFactory connectionFactory, IHttpCon
             SourceIpAddress = sourceIpAddress,
             Detail = detail,
             Reason = reason
-        });
+        }, transaction);
 
-        if (fieldChanges is not { Count: > 0 })
+        if (fieldChanges is { Count: > 0 })
         {
-            return;
-        }
+            const string insertFieldChangeSql = """
+                INSERT INTO web.audit_field_change (AuditEventKey, FieldName, OldValue, NewValue)
+                VALUES (@AuditEventKey, @FieldName, @OldValue, @NewValue)
+                """;
 
-        const string insertFieldChangeSql = """
-            INSERT INTO web.audit_field_change (AuditEventKey, FieldName, OldValue, NewValue)
-            VALUES (@AuditEventKey, @FieldName, @OldValue, @NewValue)
-            """;
-
-        foreach (var change in fieldChanges)
-        {
-            await connection.ExecuteAsync(insertFieldChangeSql, new
+            foreach (var change in fieldChanges)
             {
-                AuditEventKey = auditEventKey,
-                change.FieldName,
-                change.OldValue,
-                change.NewValue
-            });
+                await connection.ExecuteAsync(insertFieldChangeSql, new
+                {
+                    AuditEventKey = auditEventKey,
+                    change.FieldName,
+                    change.OldValue,
+                    change.NewValue
+                }, transaction);
+            }
         }
+
+        transaction.Commit();
     }
 
     /// <summary>

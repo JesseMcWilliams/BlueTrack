@@ -203,7 +203,7 @@ ORDER BY h.instance_id DESC;
 
 `RetentionDays` (Global Application Configuration) is backed by a real nightly purge — the `usp_PurgeAuditLog` procedure (from `Database/06_BlueTrack_Baseline_WebLogic.sql`, applied by the Migrator like every other `Database/*.sql` script) and `Database/Manual/05_BlueTrack_ScheduleAuditLogPurgeJob.sql` (the SQL Agent job scheduling it, which you run by hand with `sqlcmd`, like the Import+Load job above).
 
-Runs nightly at **3:00 AM**, one hour after Import+Load, so a long ETL run never overlaps the purge. Each run deletes `web.audit_field_change` rows before their parent `web.audit_event` rows (FK dependency) older than `RetentionDays` days, and records exactly one row in `web.audit_purge_log` either way:
+Runs nightly at **3:00 AM**, one hour after Import+Load, so a long ETL run never overlaps the purge. Each run deletes `web.audit_field_change` rows before their parent `web.audit_event` rows (FK dependency) older than `RetentionDays` days (while SIEM forwarding is on, not events still waiting to be forwarded; see "Monitoring SIEM Forwarding"), and records exactly one row in `web.audit_purge_log` either way:
 
 - **`Status = 'Succeeded'`**, with `RowsPurged` = how many `audit_event` rows were deleted (`0` is a valid, real outcome — nothing was old enough yet).
 - **`Status = 'Skipped'`**, `RowsPurged = NULL`, `ErrorMessage` explaining why — this is what happens every night until an admin sets a real `RetentionDays` value on Global Application Configuration. **Installing the job does not, by itself, start deleting anything** — `RetentionDays` is empty by design on a fresh install, so nothing purges until a human picks a real number.
@@ -232,6 +232,27 @@ Every fresh install maps `BUILTIN\Administrators` (SID `S-1-5-32-544`) to the Ad
 1. On the **Group → Role Mapping** admin page, resolve and add the *real* AD/Entra group that should hold Admin — **before** touching the `BUILTIN\Administrators` mapping. Confirm at least one real person is actually a member of that group and can sign in and reach the Admin hub.
 2. Only then delete the `BUILTIN\Administrators` → Admin mapping (same page). It applies on everyone's next request.
 3. If something goes wrong before step 2 is confirmed working, the local machine's own `BUILTIN\Administrators` membership is still your way back in — don't remove local admin rights from your own operator account as part of this same change.
+
+## Monitoring SIEM Forwarding
+
+When **Admin > SIEM Forwarding** is on, a background task in the API sends new audit events to the SIEM every few seconds. Its progress is kept in the database (`web.siem_forwarding_state`), so nothing is lost while the collector is down or BlueTrack restarts: waiting events go out, oldest first, when it's reachable again. Retries back off from 5 seconds to every 5 minutes. Only one API process sends at a time (a lease in the same table), so an app pool recycle never sends events twice; after a failed send a batch can be sent again, so the SIEM may occasionally see an event twice with the same `externalId`.
+
+**Where to look:**
+
+- The **SIEM Forwarding** health check on **Admin > Deployment** (and `Tools\Test-BlueTrackHealth.ps1`) is Degraded when the last send failed or the oldest waiting event is more than 15 minutes old.
+- The page's **Status** shows the last send, the number waiting and since when, and the last error.
+- Or in SQL:
+
+```sql
+SELECT Watermark, LastSuccessAt, LastSentAuditEventKey, EventsSent, LastError, LastErrorAt, ConsecutiveFailures, LeaseOwner, LeaseExpiresAt
+FROM web.siem_forwarding_state;
+```
+
+**When it's Degraded:** read the error, then **Send Test Event**. "Connection refused" or a timeout: the collector is down, or a firewall blocks the server's outbound connection to its port. A certificate error: the collector's certificate changed (update the pinned fingerprint, or paste the new CA), it doesn't name the Host, or its revocation list can't be reached. Fix it and the waiting events go out on their own.
+
+**Long outages and the purge:** while forwarding is on, the Audit Log Purge job keeps every event not yet forwarded, however old, so the database grows until the collector is back. If the SIEM will be gone for good, turn forwarding off; the next purge deletes old events as before. Turning it on again starts from then and doesn't send what was written while it was off.
+
+**Delays you may see:** an event is sent only once the transaction that wrote it has finished. Events written by the nightly Import + Load (feed account links) go out when that run commits, and events written after it start wait for it too.
 
 ## Checking a Running Install
 

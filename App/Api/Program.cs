@@ -245,6 +245,15 @@ builder.Services.AddHostedService<BlueTrack.Api.DataFeeds.DataFeedBackgroundServ
 // D-200: scheduled database backups.
 builder.Services.AddScoped<BackupRunRepository>();
 builder.Services.AddHostedService<BlueTrack.Api.Backups.ScheduledBackupService>();
+// D-234: SIEM forwarding (audit log as CEF over syslog, TCP or TLS). The forwarder is a Singleton so its
+// owner ID (the lease) is one per process; it makes its own short-lived connections.
+builder.Services.AddScoped<SiemForwardingRepository>();
+builder.Services.AddSingleton<BlueTrack.Api.Siem.ISyslogTransport, BlueTrack.Api.Siem.SyslogTransport>();
+builder.Services.AddSingleton(sp => new BlueTrack.Api.Siem.SiemForwarder(
+    sp.GetRequiredService<IDbConnectionFactory>(),
+    sp.GetRequiredService<BlueTrack.Api.Siem.ISyslogTransport>(),
+    sp.GetRequiredService<ILogger<BlueTrack.Api.Siem.SiemForwarder>>()));
+builder.Services.AddHostedService<BlueTrack.Api.Siem.SiemForwardingBackgroundService>();
 
 // D-96 Part 3.2: real, custom IHealthCheck implementations (this app's own
 // checks, not third-party health-check packages) -- consumed via
@@ -254,7 +263,8 @@ builder.Services.AddHealthChecks()
     .AddCheck<BlueTrack.Api.HealthChecks.SqlServerHealthCheck>("SQL Server")
     .AddCheck<BlueTrack.Api.HealthChecks.SecretsStoreHealthCheck>("Secrets Store")
     .AddCheck<BlueTrack.Api.HealthChecks.IdentityProvidersHealthCheck>("Identity Providers")
-    .AddCheck<BlueTrack.Api.HealthChecks.BackupFolderHealthCheck>("Backup Folder");
+    .AddCheck<BlueTrack.Api.HealthChecks.BackupFolderHealthCheck>("Backup Folder")
+    .AddCheck<BlueTrack.Api.HealthChecks.SiemForwardingHealthCheck>("SIEM Forwarding");   // D-234
 
 // One authorization policy per permission (D-05/D-61) -- see
 // AuthorizationExtensions for how [Authorize(Policy = Permissions.X)] maps

@@ -335,6 +335,10 @@ Named ranges over the computed risk score (e.g. Low/Medium/High/Critical) — th
 
 Requires `ManageDiscoveredAccounts`. The settings and rules (AD attribute, name prefix/suffix/pattern, OU, shared employee ID) behind the Account Class and Owner columns on Reports > Discovered Accounts. Off, with no rules, until set up; every change reclassifies all discovered accounts at once and is recorded in the Audit Log. Each setting and rule type is described in the Settings Reference ("Account Classification").
 
+### SIEM Forwarding
+
+Requires `ManageApplicationConfiguration`. Sends every new audit log event to your SIEM's syslog collector as CEF, over TLS or TCP: the collector, how its TLS certificate is trusted, the message settings, which event types are sent and at what severity, the forwarding status, and **Send Test Event**. Details: `Admin_SettingsReference_Notifications.md`, "SIEM Forwarding".
+
 ## See also
 
 - `README.md` (this folder) — the index of short, linear, role-based walkthroughs (Admin_Installation/Configuration/DataManagement, User_Viewer/Analyst/Approver/Auditor) that supplement this page's field-by-field reference rather than duplicate it.

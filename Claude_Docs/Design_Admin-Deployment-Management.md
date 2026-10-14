@@ -91,6 +91,7 @@ Built on ASP.NET Core's built-in health checks middleware (`Microsoft.Extensions
 - **SQL Server**: a real, trivial query (`SELECT 1`) through the existing `IDbConnectionFactory` — a real connectivity check, not a stub.
 - **Active Secrets Store backend**: resolve it via the existing `VaultSecretProviderResolver` and confirm a provider implementation exists for whichever backend is active — this does **not** attempt a live secret retrieval (that stays explicitly out of automated scope, same reasoning as `Design_Testing-Strategy.md`'s "Explicitly not automated" section), it only confirms the dispatch succeeds.
 - **Configured identity providers**: confirm at least one provider row is enabled and, for OIDC/SAML specifically, that its required settings fields are actually populated (not a live IdP reachability check — reaching a real IdP over the network is a bigger, separate scope, consistent with this project's existing "real external IdP stays manually verified" stance).
+- **SIEM Forwarding** (D-234, added later, as was Backup Folder, D-203): Healthy when forwarding is off; Degraded when it's on and the last send failed or the oldest unsent audit row is over 15 minutes old (`SiemForwardingHealthCheck`; reads `web.siem_forwarding_state`, not the collector).
 
 ### 3.3 SQL Server backup status
 

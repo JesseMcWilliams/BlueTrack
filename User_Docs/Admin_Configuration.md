@@ -111,6 +111,18 @@ Define your Low/Medium/High/Critical (or however you name them) bands under **Ad
 - **CyberArk sources**, at the top of the page, are the settings the nightly 02:00 Import+Load job uses: whether to import Privilege Cloud (its export folder and the seven export file names, which may contain date tokens such as `{yyyy-MM-dd}` but not wildcards) and Self-Hosted (its EVD database). Click **Edit CyberArk sources** to change them; **Test** checks that the EVD database, the folder and today's files exist, and that each Privilege Cloud file has the columns the import needs (the SQL Server service account also needs read access to the folder). Changes apply from the next nightly run; there's no Run now. The installer sets them on first install. Each field is described in [Admin_SettingsReference.md](Admin_SettingsReference.md), "CyberArk sources".
 - After an upgrade that adds this page, an Admin who was already signed in needs **Reload My Rights** (**Profile & Preferences**, in the menu with their name) to see it.
 
+## 9. SIEM Forwarding (optional)
+
+**Admin > SIEM Forwarding** (permission `ManageApplicationConfiguration`) sends every new audit log event to your SIEM's syslog collector as CEF, over TLS (port 6514) or TCP (port 514), within a few seconds. To set it up:
+
+1. Ask the SIEM team for the collector's host name, port, transport and framing, and how its TLS certificate is issued.
+2. Open the firewall from the BlueTrack server to the collector's port.
+3. Enter the **Host**, **Transport**, **Port** and, for TLS, how to trust the certificate (the Windows trust store, the certificate's fingerprint, or your CA's certificate). Leave forwarding off and **Save**.
+4. **Send Test Event**, and ask the SIEM team to confirm it arrived and was read as CEF.
+5. Tick **Forward the audit log to the SIEM** and **Save**. Events written from then on are forwarded; older ones aren't.
+
+Each event type can be left out and given its own severity. Every setting is described in [Admin_SettingsReference_Notifications.md](Admin_SettingsReference_Notifications.md), "SIEM Forwarding".
+
 ## What's next
 
 Once these are set, regular use can begin. Ongoing operational tasks — data imports, backup status, audit review — are covered in [Admin_DataManagement.md](Admin_DataManagement.md).
@@ -120,6 +132,6 @@ Once these are set, regular use can begin. Ongoing operational tasks — data im
 - `User_Guide.md` — the full field-by-field reference for every Admin hub section.
 - `Claude_Docs/Design_Admin-Deployment-Management.md` — the Identity Providers/Secrets Store design rationale and IdP-setup detail.
 - `Claude_Docs/Design_Risk-Scoring.md` — the model behind Risk Score Bands, Targets, and Access Groups.
-- [Admin_SettingsReference_Notifications.md](Admin_SettingsReference_Notifications.md) — every Secrets Store, credential, LDAP and notification setting.
+- [Admin_SettingsReference_Notifications.md](Admin_SettingsReference_Notifications.md) — every Secrets Store, credential, LDAP, notification and SIEM forwarding setting.
 - `Claude_Docs/Design_Notifications.md` — the Notifications page's design rationale.
 - `Claude_Docs/Design_Credentials-Management.md` — the Credentials & LDAP page's design rationale.

@@ -41,6 +41,7 @@ instead.
 | 23 | `23_BlueTrack_TargetLinking.sql` | D-229: linked targets. `web.target_link` and `web.vw_linked_target`; `target_match_review` stores the imported row (`TargetName`, `TargetTypeKey`, `RiskScore`, `Description`, `DiscoverySource`, `ResolvedTargetKey`, the `NameMatchKey`/`SourceMatchKey` match keys) and gets the `Linked` resolution and a filtered unique index on pending rows (pending duplicates deleted, oldest kept); `web.target_match_review_identifier` holds the row's identifiers. `ufn_ReachableRiskValues` and `ufn_ReachableRiskValues_ForAccessGroupSet` redefined so a linked target counts as its primary -- later changes to them must keep that. |
 | 24 | `24_BlueTrack_EntitlementMemberResolution.sql` | D-232: `fact_safe_entitlement.MemberName` and `ResolutionMethod` (checks replaced so a resolved row can keep `UnresolvedMemberId`), `web.entitlement_member_resolution` (manual resolutions), `usp_Resolve_EntitlementMembers` (manual, then ID, then unique exact name), `usp_Apply_EntitlementMemberResolution`, the `EntitlementMemberResolution` audit event type; `usp_Load_FactSafeEntitlement` and `vw_unresolved_entitlement_members` redefined -- later changes to the load must keep the resolution order. |
 | 25 | `25_BlueTrack_AccountClassification.sql` | D-233: account classification on Discovered Accounts. `web.account_classification_config` (one row, off by default), `web.account_classification_rule` (Attribute / Name / OU rules; none seeded); `web.discovered_account` gains the attributes discovery reads (`UserPrincipalName`, `EmployeeId`, `EmployeeNumber`, `DirectoryAttributes` JSON), the result (`AccountClass`, `ClassSource`, `ClassRuleKey`, `OwnerSamAccountName`, `OwnerDisplayName`, `OwnerSource`) and the manual override (`ClassOverride`, `OwnerOverrideSamAccountName`, `OverrideBy`, `OverrideDate`); `web.ad_owner_lookup` (owners read from AD only as owners); the `AccountClassification` audit event type. |
+| 26 | `26_BlueTrack_SiemForwarding.sql` | D-234: SIEM forwarding. `web.audit_event.WriteVersion` (ROWVERSION, unique index; the forwarder's watermark, read only below `MIN_ACTIVE_ROWVERSION()` so a late-committing row is never skipped); `web.siem_forwarding_config` (one row, off by default), `web.siem_event_type_setting` (forwarded and CEF severity per audit event type, seeded for every existing type), `web.siem_forwarding_state` (watermark, last send/error, the single-sender lease); `usp_PurgeAuditLog` redefined to keep rows not yet forwarded while forwarding is on -- later changes to it must keep that. |
 
 ## The baseline (D-195)
 
@@ -65,7 +66,7 @@ scripts but not up to `51` is refused; upgrade it first from the
 
 ## Adding a script
 
-1. Name it `NN_BlueTrack_<Topic>.sql`, with `NN` the next number (`26` is next).
+1. Name it `NN_BlueTrack_<Topic>.sql`, with `NN` the next number (`27` is next).
 2. Start with a header comment: the file name, `RUN THIS AFTER 01-NN.`, what
    it changes and why (with the `D-n` decision), and whether it's safe to
    re-run.

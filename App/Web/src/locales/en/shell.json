@@ -89,7 +89,8 @@
     "notFound": "Not Found",
     "adminAccountClassification": "Account Classification",
     "adminAccountClassificationRuleCreate": "New Rule",
-    "adminAccountClassificationRuleEdit": "Edit Rule"
+    "adminAccountClassificationRuleEdit": "Edit Rule",
+    "adminSiemForwarding": "SIEM Forwarding"
   },
   "userMenu": {
     "account": "Account",
