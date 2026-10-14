@@ -78,16 +78,16 @@ More report types can be added the same way later; this isn't meant to be exhaus
 
 **New 2026-08-27 (D-60).** A gap found on review: `audit_config` (`Design_Audit-Logging.md`) only holds audit-specific settings (`RetentionDays`, `LogReadEvents`), but the Global Application Configuration page also needs to hold settings that have nothing to do with auditing. Kept as a separate table rather than folding into `audit_config`, so audit-specific and general settings stay cleanly separated as more global settings get added later.
 
-**Updated 2026-09-05 (documentation audit)** — this listing had drifted from the real table as more global settings landed piecemeal (`ExceptionIdPattern`/`LockTimeoutMinutes` via `Database/12`/`15`); refreshed to match:
+`web.app_config` is created in `Database/04_BlueTrack_Baseline_WebSchema.sql` and extended by later scripts (`07` scheduled backups, `08` lock-timeout default, `09` default sign-in provider); read those for the full column list. The core settings:
 
 | Field | Type | Purpose |
 |---|---|---|
-| AppConfigKey | int, PK | Surrogate key (fixed singleton row, same pattern as `audit_config`) |
+| AppConfigKey | int, PK | Surrogate key (single settings row, same pattern as `audit_config`) |
 | IdleTimeoutMinutes | int, default 30 | Session idle timeout (D-28) |
-| BreadcrumbPosition | text, controlled list, default 'TopLeft' | Breadcrumb position (D-45/D-57) |
-| ExceptionIdPattern | text | Risk Exception ID display format (D-71, `Database/12_BlueTrack_ExceptionIdNumbering.sql`) |
+| BreadcrumbPosition | text, default 'TopLeft' | Breadcrumb position (D-45/D-57) |
+| ExceptionIdPattern | text, default 'EXC-{yyyy}-{seq:0000}' | Risk Exception ID display format (D-17, D-71) |
 | ExceptionIdSequenceYear / ExceptionIdNextSequence | int / int | Backing counter for the above, resets per calendar year |
-| LockTimeoutMinutes | int | Account Progress edit-lock expiry (`Database/15_BlueTrack_LockTimeoutConfig.sql`) |
+| LockTimeoutMinutes | int, default 30 | Account Progress edit-lock expiry (D-50; default set by `08`, D-201) |
 | ExportMaxRows | int, default 100000 (1 to 1,000,000) | The most rows one report export may hold (D-220, script 17) |
 | SiteUrl | nvarchar(500), null | The address people open BlueTrack at; emails link to pages under it (D-224, script 21). Absolute `https://` URL, `http://` only for localhost, no user name, query or fragment; stored without the trailing `/` or a default port. Blank = not set (emails name pages instead). Audited as a `FieldEdit`; the installer's `Db.SiteUrl` step fills it only when empty. |
 | ModifiedBy / ModifiedDate | FK to app_user / datetime | Change tracking (D-59) |
