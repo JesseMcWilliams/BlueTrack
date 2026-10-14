@@ -4,6 +4,7 @@
 // Emits apply({ fields: [...names], <name>: value, ... }) with only the
 // ticked fields; the API leaves every other field as it is on each item.
 import { ref, computed } from 'vue'
+import { formatCount } from '../utils/formatCount'
 
 const props = defineProps({
   /** [{ field, label, type: 'select' | 'number' | 'text', options?: [{ value, label }], required?: bool }] */
@@ -29,7 +30,7 @@ function apply() {
 
 <template>
   <form class="bulk-panel" @submit.prevent="apply">
-    <p>Tick <em>Change</em> for each field to set on the {{ count }} selected; other fields stay as they are.</p>
+    <p>Tick <em>Change</em> for each field to set on the {{ formatCount(count) }} selected; other fields stay as they are.</p>
     <table>
       <thead><tr><th>Change</th><th>Field</th><th>New value</th></tr></thead>
       <tbody>
@@ -47,7 +48,7 @@ function apply() {
         </tr>
       </tbody>
     </table>
-    <button type="submit" class="btn-primary" :disabled="saving || chosen.length === 0">Apply to {{ count }}</button>
+    <button type="submit" class="btn-primary" :disabled="saving || chosen.length === 0">Apply to {{ formatCount(count) }}</button>
     <button type="button" @click="emit('cancel')">Cancel</button>
   </form>
 </template>

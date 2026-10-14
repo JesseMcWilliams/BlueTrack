@@ -15,6 +15,7 @@ import { apiUrl } from '../utils/apiBase'
 // (a single-record form, not a CSV/file-upload import) is NOT a bulk-import
 // section and stays on Targets.vue untouched.
 import { ref } from 'vue'
+import { formatCount } from '../utils/formatCount'
 import MappingProfileSelect from '../components/MappingProfileSelect.vue'
 
 const inventoryFile = ref(null)
@@ -72,7 +73,7 @@ async function importAccountTargetMap() {
       <button :disabled="!inventoryFile || inventoryImporting" @click="importInventory">{{ inventoryImporting ? 'Importing...' : 'Import' }}</button>
     </p>
     <p v-if="inventoryImportResult">
-      {{ inventoryImportResult.totalRows }} rows -- {{ inventoryImportResult.createdCount }} created, {{ inventoryImportResult.mergedCount }} merged, {{ inventoryImportResult.pendingReviewCount }} pending review, {{ inventoryImportResult.errors?.length ?? 0 }} errors.
+      {{ formatCount(inventoryImportResult.totalRows) }} rows -- {{ formatCount(inventoryImportResult.createdCount) }} created, {{ formatCount(inventoryImportResult.mergedCount) }} merged, {{ formatCount(inventoryImportResult.pendingReviewCount) }} pending review, {{ formatCount(inventoryImportResult.errors?.length ?? 0) }} errors.
       <span v-if="inventoryImportResult.errors?.length"><br />{{ inventoryImportResult.errors.map(e => `Row ${e.rowNumber}: ${e.error}`).join('; ') }}</span>
     </p>
 
@@ -84,7 +85,7 @@ async function importAccountTargetMap() {
       <button :disabled="!accountTargetFile || accountTargetImporting" @click="importAccountTargetMap">{{ accountTargetImporting ? 'Importing...' : 'Import' }}</button>
     </p>
     <p v-if="accountTargetImportResult">
-      {{ accountTargetImportResult.totalRows }} rows -- {{ accountTargetImportResult.createdCount }} created, {{ accountTargetImportResult.mergedCount }} already linked, {{ accountTargetImportResult.errors?.length ?? 0 }} errors.
+      {{ formatCount(accountTargetImportResult.totalRows) }} rows -- {{ formatCount(accountTargetImportResult.createdCount) }} created, {{ formatCount(accountTargetImportResult.mergedCount) }} already linked, {{ formatCount(accountTargetImportResult.errors?.length ?? 0) }} errors.
       <span v-if="accountTargetImportResult.errors?.length"><br />{{ accountTargetImportResult.errors.map(e => `Row ${e.rowNumber}: ${e.error}`).join('; ') }}</span>
     </p>
   </div>

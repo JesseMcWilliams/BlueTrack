@@ -7,6 +7,7 @@
 // page's own read-only ViewDeploymentInfo) -- triggers a real BACKUP
 // DATABASE server-side and downloads a zip of appsettings*.json.
 import { ref, onMounted } from 'vue'
+import { formatCount } from '../../utils/formatCount'
 
 const info = ref(null)
 const error = ref(null)
@@ -129,7 +130,7 @@ async function backupApp() {
               <td>{{ run.triggerType === 'Schedule' ? 'Scheduled' : `Manual${run.triggeredByName ? ` (${run.triggeredByName})` : ''}` }}</td>
               <td>{{ run.outcome }}</td>
               <td>{{ run.filePath ?? '' }}</td>
-              <td>{{ run.filesDeleted ?? '' }}</td>
+              <td>{{ formatCount(run.filesDeleted) }}</td>
               <td>{{ run.errorMessage ?? '' }}</td>
             </tr>
           </tbody>

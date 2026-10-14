@@ -7,6 +7,7 @@ import { useRouter } from 'vue-router'
 import { useRightsStore } from '../stores/rights'
 import { formatDate } from '../utils/formatDate'
 import { decomNote } from '../utils/decomNote'
+import { formatCount } from '../utils/formatCount'
 
 const props = defineProps({ accountKey: { type: [String, Number], required: true } })
 const router = useRouter()
@@ -505,7 +506,7 @@ onUnmounted(releaseLock)
         </form>
       </div>
       <details v-if="deletionHistory.length" class="deletion-history">
-        <summary>Delete / undelete history ({{ deletionHistory.length }})</summary>
+        <summary>Delete / undelete history ({{ formatCount(deletionHistory.length) }})</summary>
         <ul>
           <li v-for="h in deletionHistory" :key="`${h.performedAt}-${h.action}`">
             {{ formatDate(h.performedAt) }}: {{ h.action === 'Delete' ? 'Deleted' : 'Undeleted' }} by {{ h.performedByName }} -- {{ h.reason }}

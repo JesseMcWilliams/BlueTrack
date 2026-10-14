@@ -16,6 +16,7 @@ import BulkReasonForm from '../components/BulkReasonForm.vue'
 import BulkResultSummary from '../components/BulkResultSummary.vue'
 import { useListSelectionStore } from '../stores/listSelection'
 import { useBulkAction } from '../composables/useBulkAction'
+import { formatCount } from '../utils/formatCount'
 
 const router = useRouter()
 const rights = useRightsStore()
@@ -183,12 +184,12 @@ watch([statusFilter, scopeTypeFilter, sortQueryParam], () => {
         <button type="button" :disabled="selection.count === 0" @click="bulkPanel = 'revoke'">Revoke…</button>
       </SelectionBar>
       <form v-if="bulkPanel === 'extend'" class="bulk-panel" @submit.prevent="bulkExtend">
-        <label class="field-label"><span class="field-label-text">New review date for {{ selection.count }} exception(s):</span> <input v-model="newReviewDate" type="date" required /></label>
+        <label class="field-label"><span class="field-label-text">New review date for {{ formatCount(selection.count) }} exception(s):</span> <input v-model="newReviewDate" type="date" required /></label>
         <button type="submit" class="btn-primary" :disabled="bulkSaving || !newReviewDate">Extend review</button>
         <button type="button" @click="bulkPanel = null">Cancel</button>
         <br /><small>Only Active exceptions are re-approved; others are skipped.</small>
       </form>
-      <BulkReasonForm v-if="bulkPanel === 'revoke'" :action="`revoke ${selection.count} exception(s)`" button-label="Revoke" :saving="bulkSaving" @submit="bulkRevoke" @cancel="bulkPanel = null" />
+      <BulkReasonForm v-if="bulkPanel === 'revoke'" :action="`revoke ${formatCount(selection.count)} exception(s)`" button-label="Revoke" :saving="bulkSaving" @submit="bulkRevoke" @cancel="bulkPanel = null" />
       <p v-if="bulkError" role="alert">{{ bulkError }}</p>
       <BulkResultSummary v-if="bulkResult" :result="bulkResult" />
     </template>

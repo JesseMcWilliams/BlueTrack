@@ -10,6 +10,7 @@
 // applies identically the next time any of the six pages loads.
 import { computed } from 'vue'
 import { usePageSizeStore, PAGE_SIZE_OPTIONS } from '../stores/pageSize'
+import { formatCount } from '../utils/formatCount'
 
 const props = defineProps({
   page: { type: Number, required: true },
@@ -43,12 +44,12 @@ async function onPageSizeChange(event) {
 <template>
   <p class="pager">
     <button type="button" :disabled="isFirstPage" @click="goPrev">&laquo; Prev</button>
-    <span>Page {{ page }} of {{ pageCount }}</span>
+    <span>Page {{ formatCount(page) }} of {{ formatCount(pageCount) }}</span>
     <button type="button" :disabled="isLastPage" @click="goNext">Next &raquo;</button>
     <label class="field-label">
       <span class="field-label-text">Rows per page:</span>
       <select :value="pageSizeStore.current" @change="onPageSizeChange">
-        <option v-for="size in PAGE_SIZE_OPTIONS" :key="size" :value="size">{{ size }}</option>
+        <option v-for="size in PAGE_SIZE_OPTIONS" :key="size" :value="size">{{ formatCount(size) }}</option>
       </select>
     </label>
   </p>

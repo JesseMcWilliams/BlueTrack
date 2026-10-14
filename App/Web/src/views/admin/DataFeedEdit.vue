@@ -7,6 +7,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { formatRunTime } from './dataFeedFormat'
+import { formatCount } from '../../utils/formatCount'
 
 const props = defineProps({ dataFeedKey: { type: [String, Number], required: false, default: null } })
 const router = useRouter()
@@ -263,7 +264,7 @@ function cancel() {
                 <td>{{ run.triggeredByName }}</td>
                 <td>{{ run.outcome }}</td>
                 <td>{{ run.fileName }}</td>
-                <td>{{ run.totalRows ?? '' }}<template v-if="run.errorRows"> ({{ run.errorRows }} errors)</template></td>
+                <td>{{ formatCount(run.totalRows) }}<template v-if="run.errorRows"> ({{ formatCount(run.errorRows) }} errors)</template></td>
                 <td>{{ run.summary ?? run.errorMessage }}</td>
               </tr>
               <tr v-if="selectedRun?.dataFeedRunKey === run.dataFeedRunKey">

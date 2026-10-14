@@ -5,6 +5,7 @@ import { apiUrl } from '../utils/apiBase'
 // / result-summary pattern as ApplicationSafeMappingBulkImport.vue. Each
 // row gets a BlueTrack ExceptionID and keeps its source tool, ID and link.
 import { ref } from 'vue'
+import { formatCount } from '../utils/formatCount'
 
 const file = ref(null)
 const result = ref(null)
@@ -46,7 +47,7 @@ async function importFile() {
     <div v-if="result" data-testid="exceptions-result" role="status">
       <p v-if="result.error">{{ result.error }}</p>
       <template v-else>
-        <p>{{ result.totalRows }} rows -- {{ result.createdCount }} imported, {{ result.linkedCount }} linked to Account Progress, {{ result.errors.length }} errors</p>
+        <p>{{ formatCount(result.totalRows) }} rows -- {{ formatCount(result.createdCount) }} imported, {{ formatCount(result.linkedCount) }} linked to Account Progress, {{ formatCount(result.errors.length) }} errors</p>
         <ul v-if="result.errors.length">
           <li v-for="e in result.errors" :key="`${e.rowNumber}-${e.error}`">Row {{ e.rowNumber }}: {{ e.error }}</li>
         </ul>

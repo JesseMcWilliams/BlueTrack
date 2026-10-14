@@ -45,6 +45,7 @@ import BulkReasonForm from '../components/BulkReasonForm.vue'
 import BulkResultSummary from '../components/BulkResultSummary.vue'
 import { useListSelectionStore } from '../stores/listSelection'
 import { useBulkAction } from '../composables/useBulkAction'
+import { formatCount } from '../utils/formatCount'
 
 const router = useRouter()
 
@@ -286,7 +287,7 @@ async function remove(item) {
       <button type="button" :disabled="selection.count === 0" @click="bulkPanel = 'delete'">Delete…</button>
     </SelectionBar>
     <BulkFieldEditor v-if="bulkPanel === 'edit'" :fields="bulkFields" :count="selection.count" :saving="bulkSaving" @apply="bulkEdit" @cancel="bulkPanel = null" />
-    <BulkReasonForm v-if="bulkPanel === 'delete'" :action="`delete ${selection.count} target(s)`" button-label="Delete" :saving="bulkSaving" @submit="bulkDelete" @cancel="bulkPanel = null" />
+    <BulkReasonForm v-if="bulkPanel === 'delete'" :action="`delete ${formatCount(selection.count)} target(s)`" button-label="Delete" :saving="bulkSaving" @submit="bulkDelete" @cancel="bulkPanel = null" />
     <p v-if="bulkError" role="alert">{{ bulkError }}</p>
     <BulkResultSummary v-if="bulkResult" :result="bulkResult" />
     <FilterCountSummary :shown="items.length" :filtered-count="filteredCount" :total="totalCount" :page="page" :page-size="pageSizeStore.current" />

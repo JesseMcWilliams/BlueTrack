@@ -6,6 +6,7 @@
 // (D-19/D-59); Onboarded/Managed are Blueprint stage thresholds; Compliant
 // requires both the final stage and status Complete specifically.
 import { ref, computed, onMounted } from 'vue'
+import { formatCount } from '../../utils/formatCount'
 
 const summary = ref(null)
 const error = ref(null)
@@ -59,12 +60,12 @@ const kpis = computed(() => {
         <tbody>
           <tr v-for="kpi in kpis" :key="kpi.label">
             <td>{{ kpi.label }}</td>
-            <td>{{ kpi.numerator }} / {{ kpi.denominator }}</td>
+            <td>{{ formatCount(kpi.numerator) }} / {{ formatCount(kpi.denominator) }}</td>
             <td>{{ pct(kpi.numerator, kpi.denominator) === null ? 'N/A' : `${pct(kpi.numerator, kpi.denominator)}%` }}</td>
           </tr>
         </tbody>
       </table>
-      <p>{{ summary.totalAccounts }} account(s) total.</p>
+      <p>{{ formatCount(summary.totalAccounts) }} account(s) total.</p>
     </template>
   </div>
 </template>

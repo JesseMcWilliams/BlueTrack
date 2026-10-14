@@ -17,6 +17,7 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { confirmDelete } from '../../composables/useConfirmDialog'
+import { formatCount } from '../../utils/formatCount'
 
 const router = useRouter()
 
@@ -209,7 +210,7 @@ async function sendTestEmail() {
       <h3>Test Connection</h3>
       <p>Sends a real test email to every active recipient below, using the saved SMTP configuration.</p>
       <button :disabled="testing" @click="sendTestEmail">Send Test Email</button>
-      <p v-if="testResult?.success" role="status">Sent successfully to {{ testResult.recipientCount }} recipient(s).</p>
+      <p v-if="testResult?.success" role="status">Sent successfully to {{ formatCount(testResult.recipientCount) }} recipient(s).</p>
       <p v-else-if="testResult" role="alert">Failed: {{ testResult.error }}</p>
 
       <h3>Recipients</h3>

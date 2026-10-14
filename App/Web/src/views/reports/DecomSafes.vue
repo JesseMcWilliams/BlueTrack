@@ -3,6 +3,7 @@
 // name matches the safe decommission pattern on Global Application
 // Configuration. Ignored safes aren't listed. Read-only, no permission gate.
 import { ref, onMounted } from 'vue'
+import { formatCount } from '../../utils/formatCount'
 
 const items = ref([])
 const error = ref(null)
@@ -42,8 +43,8 @@ onMounted(async () => {
           <td>{{ item.safeName }}</td>
           <td>{{ item.sourceSystemName }}</td>
           <td>{{ item.applicationName }}</td>
-          <td>{{ item.activeAccountCount }}</td>
-          <td>{{ item.deletedAccountCount }}</td>
+          <td>{{ formatCount(item.activeAccountCount) }}</td>
+          <td>{{ formatCount(item.deletedAccountCount) }}</td>
         </tr>
       </tbody>
     </table>

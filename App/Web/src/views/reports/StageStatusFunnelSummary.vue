@@ -3,6 +3,7 @@
 // account count per (Stage, Status) cell (D-56), rendered as one row per
 // stage with a column per status.
 import { ref, computed, onMounted } from 'vue'
+import { formatCount } from '../../utils/formatCount'
 
 const rows = ref([])
 const error = ref(null)
@@ -56,8 +57,8 @@ function stageTotal(stageName) {
       <tbody>
         <tr v-for="stage in stages" :key="stage">
           <td>{{ stage }}</td>
-          <td v-for="status in statuses" :key="status">{{ countFor(stage, status) }}</td>
-          <td>{{ stageTotal(stage) }}</td>
+          <td v-for="status in statuses" :key="status">{{ formatCount(countFor(stage, status)) }}</td>
+          <td>{{ formatCount(stageTotal(stage)) }}</td>
         </tr>
       </tbody>
     </table>
