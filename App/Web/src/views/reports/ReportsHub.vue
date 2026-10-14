@@ -23,7 +23,8 @@ const reports = [
   { name: 'reports-discovered-accounts', label: 'Discovered Accounts', permission: 'ViewDiscoveredAccounts' },
   { name: 'reports-decom-safes', label: 'Safes Flagged for Deletion' },
   { name: 'reports-decom-accounts', label: 'Accounts Flagged for Deletion' },
-  { name: 'reports-kpi-summary', label: 'KPI Summary' }
+  { name: 'reports-kpi-summary', label: 'KPI Summary' },
+  { name: 'reports-trends', label: 'Trends' }   // D-221
 ]
 
 const visibleReports = computed(() => reports.filter(r => !r.permission || rights.hasPermission(r.permission)))

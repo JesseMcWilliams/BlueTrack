@@ -176,6 +176,13 @@ const routes = [
         name: 'reports-kpi-summary',
         meta: { breadcrumb: 'KPI Summary', breadcrumbParent: 'reports' },
         component: () => import('../views/reports/KpiSummary.vue')
+      },
+      // D-221: stage, % complete and risk level over time, from the daily snapshot.
+      {
+        path: 'trends',
+        name: 'reports-trends',
+        meta: { breadcrumb: 'Trends', breadcrumbParent: 'reports' },
+        component: () => import('../views/reports/Trends.vue')
       }
     ]
   },

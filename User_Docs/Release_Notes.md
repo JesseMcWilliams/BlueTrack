@@ -14,6 +14,8 @@ What changed in each BlueTrack release, newest first, for users and administrato
 
 - **Export reports.** Every report under **Reports** has **Export CSV** and **Export Excel** buttons. The file holds every row that matches the report's current filters and sort, not just the page you see, with the same columns as on the page. If more rows match than the new **Export Max Rows** setting allows (100,000 unless an administrator changes it), the export is refused with the number of rows, so narrow the filters first. Administrators set that limit with the new **Export Max Rows** setting on **Global Application Configuration** (1 to 1,000,000). Each export is recorded in the Audit Log as a `ReportExport` event.
 
+- **Trends report.** **Reports > Trends** shows how accounts have moved over time: accounts at each Blueprint stage, % complete (the KPI Summary's rule: accounts at the final stage with status Complete, out of those in scope) and accounts by risk level. Choose the dates (the last 90 days unless you change them), by day or by week, and narrow it to one Application or Safe. Each chart has a **Show data table** button, and the report can be exported like the others. It draws on the nightly progress snapshot, so it starts filling from the first night after installing. The upgrade adds a database index (script 18).
+
 - **Command-line checks** in the new `Tools` folder: the install's health, SAML/OIDC sign-in and sign-out, an LDAPS bind before adding a domain, and the Test buttons. See the Operations Guide, "Checking a Running Install", and `Tools\README.md`.
 
 ### Changed

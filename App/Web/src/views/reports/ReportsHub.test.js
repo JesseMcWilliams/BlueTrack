@@ -12,7 +12,7 @@ const names = [
   'reports-overdue-worklist', 'reports-stage-status-summary', 'reports-reconciliation-review',
   'reports-possible-matches', 'reports-unresolved-entitlement-members', 'reports-risk-score',
   'reports-risk-exception-sod', 'reports-discovered-accounts', 'reports-decom-safes',
-  'reports-decom-accounts', 'reports-kpi-summary'
+  'reports-decom-accounts', 'reports-kpi-summary', 'reports-trends'
 ]
 
 async function mountHub(permissionNames) {
@@ -45,7 +45,7 @@ describe('ReportsHub.vue', () => {
     expect(links(wrapper)).toEqual([
       'Overdue / At-Risk', 'Stage/Status Summary', 'Reconciliation Review', 'Possible Account Matches',
       'Unresolved Entitlement Members', 'Risk Score', 'Risk Exception SoD', 'Discovered Accounts',
-      'Safes Flagged for Deletion', 'Accounts Flagged for Deletion', 'KPI Summary'
+      'Safes Flagged for Deletion', 'Accounts Flagged for Deletion', 'KPI Summary', 'Trends'
     ])
     // The column and the report sit side by side, as on the Admin hub.
     expect(wrapper.get('.reports-layout').element.children[0]).toBe(nav.element)
@@ -57,7 +57,7 @@ describe('ReportsHub.vue', () => {
 
     expect(links(wrapper)).toEqual([
       'Overdue / At-Risk', 'Stage/Status Summary', 'Unresolved Entitlement Members',
-      'Safes Flagged for Deletion', 'Accounts Flagged for Deletion', 'KPI Summary'
+      'Safes Flagged for Deletion', 'Accounts Flagged for Deletion', 'KPI Summary', 'Trends'
     ])
   })
 
