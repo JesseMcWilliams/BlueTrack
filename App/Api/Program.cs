@@ -196,6 +196,9 @@ builder.Services.AddSingleton<SamlTokenReplayCache>();   // D-198
 // overdue Risk Exceptions) is a new AddScoped<INotificationCheck, ...>
 // line, not a change to the background service itself.
 builder.Services.AddScoped<INotificationSender, SmtpNotificationSender>();
+builder.Services.AddScoped<NotificationRecipientResolver>();   // D-216
+builder.Services.AddScoped<BreakGlassAccountRepository>();
+builder.Services.AddSingleton<BreakGlassAlerter>();
 builder.Services.AddScoped<INotificationCheck, DevFakeAuthEnabledCheck>();
 builder.Services.AddHostedService<NotificationCheckBackgroundService>();
 

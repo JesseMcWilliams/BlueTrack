@@ -25,6 +25,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { confirmDelete } from '../../composables/useConfirmDialog'
+import BreakGlassAccounts from './BreakGlassAccounts.vue'
 
 const router = useRouter()
 
@@ -143,6 +144,8 @@ async function remove(provider) {
       <ul>
         <li v-for="type in signInTypes" :key="type"><code>{{ directAddress(type) }}</code> {{ type }}{{ isEnabledType(type) ? '' : ' (disabled)' }}</li>
       </ul>
+      <!-- D-216 -->
+      <BreakGlassAccounts />
     </template>
   </div>
 </template>

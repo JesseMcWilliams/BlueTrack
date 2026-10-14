@@ -9,6 +9,8 @@ What changed in each BlueTrack release, newest first, for users and administrato
 - **CyberArk sources on the Data Sources page.** Admin > Data Sources now shows which CyberArk sources the nightly import uses, and **Edit CyberArk sources** changes them: the Privilege Cloud export folder and file names, and the Self-Hosted EVD database. **Test** checks them first. Until now they could only be changed by re-running the installer. See the Administrator Settings Guide, "Data Sources".
 - **Accounts from other systems.** A new data feed import, **Account inventory**, adds the accounts another system has (a CSV of user names and addresses) to Account Progress at Discovered, with the system they came from. Accounts that disappear from the file are marked deleted. When CyberArk has the same account, the two are linked: the account moves to Onboarded to Vault and is counted once, as its CyberArk account. The new **Linked feed accounts** filter on **Accounts** shows the linked ones. Accounts that only nearly match (the same user name, with addresses that agree by host name or DNS) are suggested on the new **Reports > Possible Account Matches**, where Approvers and Admins link or dismiss them. See the Administrator Settings Guide, "Data Sources (feeds)".
 
+- **Break-glass sign-in alerts.** On Identity Providers, list your emergency accounts (for example the server's local Administrator). Each time one signs in, BlueTrack records it in the Audit Log and emails the recipients of the new **BreakGlassLogon** notification. See the Administrator Settings Guide, "Identity Providers".
+
 ### Changed
 
 - **Navigation:** Reports and Admin are now at the end of the top navigation, with Admin last.
@@ -29,6 +31,7 @@ What changed in each BlueTrack release, newest first, for users and administrato
 
 - Run the installer as usual; it applies the new database scripts (`11_BlueTrack_ConnectionTestAudit.sql`, `12_BlueTrack_CyberArkSourceConfig.sql`, `13_BlueTrack_AccountInventoryFeed.sql`, `14_BlueTrack_FeedAccountLinking.sql`, `15_BlueTrack_ReportingViewsSkipLinkedFeedAccounts.sql`).
 - **If you use Azure Key Vault, AWS Secrets Manager or CyberArk Conjur** in the Secrets Store, enter the stored secret again and save, so it's re-encrypted the new way (the old form still works until then).
+- **Break-glass alerts:** after upgrading, add your break-glass accounts on Identity Providers and give the BreakGlassLogon notification a target role (Notifications).
 - **If you use the nightly import job**, also run the installer with `-Step Db.NightlyJob`. It saves your current CyberArk source settings for the Data Sources page and recreates the job to read them. Until you do, the job keeps working with its old settings, and changes made on the page have no effect.
 
 ## 1.0.0

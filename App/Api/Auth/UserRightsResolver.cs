@@ -21,7 +21,10 @@ public sealed class UserRightsResolver(
     NegotiateProviderResolver negotiateProviderResolver,
     UserRightsCache rightsCache,
     CurrentUserResolver currentUserResolver,
-    AuditLogger auditLogger)
+    AuditLogger auditLogger,
+    BreakGlassAccountRepository breakGlassAccountRepository,
+    Notifications.BreakGlassAlerter breakGlassAlerter,
+    IHttpContextAccessor httpContextAccessor)
 {
     private static readonly UserRights None = new([], []);
 
@@ -55,6 +58,16 @@ public sealed class UserRightsResolver(
         if (user is not null)
         {
             await auditLogger.LogAsync("Logon", user.UserKey, detail: $"Session established via {provider.ProviderType}");
+
+            // D-216: a designated break-glass account's sign-in is audited on its own and alerts by email.
+            if (await breakGlassAccountRepository.IsBreakGlassAsync(externalIdentifier))
+            {
+                var accountName = user.DisplayName ?? externalIdentifier;
+                await auditLogger.LogAsync("BreakGlassLogon", user.UserKey, "app_user", user.UserKey.ToString(),
+                    detail: $"Break-glass account {accountName} signed in via {provider.ProviderType}");
+                _ = breakGlassAlerter.SendInBackground(accountName, provider.ProviderType,
+                    httpContextAccessor.HttpContext?.Connection.RemoteIpAddress?.ToString(), DateTime.UtcNow);
+            }
         }
 
         return rights;
