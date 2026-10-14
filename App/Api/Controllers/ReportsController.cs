@@ -103,24 +103,25 @@ public sealed class ReportsController(
             await repository.GetReconciliationReviewQueueAsync(), ReportExports.ReconciliationReviewColumns);
 
     /// <summary>
-    /// D-107/D-108: Safe entitlements granted to a member this app can't
-    /// resolve to a known user/group. No specific permission required --
-    /// read-only, informational, matching Overdue/At-Risk and Stage/Status
-    /// Summary above.
+    /// D-145/D-147: Safe entitlements whose member ID matched no known user or
+    /// group. D-232: only the unresolved ones unless showResolved, which adds
+    /// those resolved by name, by hand or labelled external. Resolve/Undo are
+    /// in EntitlementMemberResolutionController (ConfirmReconciliation).
     /// </summary>
     [Authorize(Policy = Permissions.ViewDashboard)]   // D-197: reading tracked data needs ViewDashboard, not just a sign-in
     [HttpGet("unresolved-entitlement-members")]
-    public async Task<IActionResult> GetUnresolvedEntitlementMembers()
+    public async Task<IActionResult> GetUnresolvedEntitlementMembers([FromQuery] bool showResolved = false)
     {
-        var results = await repository.GetUnresolvedEntitlementMembersAsync();
+        var results = await repository.GetUnresolvedEntitlementMembersAsync(showResolved);
         return Ok(results);
     }
 
     [Authorize(Policy = Permissions.ViewDashboard)]
     [HttpGet("unresolved-entitlement-members/export")]
-    public async Task<IActionResult> ExportUnresolvedEntitlementMembers([FromQuery] string? format) =>
-        await exportService.ExportAsync(this, ReportExports.UnresolvedEntitlementMembers, format, ReportExportService.NoParameters,
-            await repository.GetUnresolvedEntitlementMembersAsync(), ReportExports.UnresolvedEntitlementMembersColumns);
+    public async Task<IActionResult> ExportUnresolvedEntitlementMembers([FromQuery] string? format, [FromQuery] bool showResolved = false) =>
+        await exportService.ExportAsync(this, ReportExports.UnresolvedEntitlementMembers, format,
+            Params(("showResolved", showResolved ? "true" : null)),
+            await repository.GetUnresolvedEntitlementMembersAsync(showResolved), ReportExports.UnresolvedEntitlementMembersColumns);
 
     /// <summary>D-143: Total/In Scope/Onboarded/Managed/Compliant account counts. No specific permission required, matching Overdue/At-Risk and Stage/Status Summary above -- read-only, aggregate counts only, no account-level detail.</summary>
     [Authorize(Policy = Permissions.ViewDashboard)]   // D-197: reading tracked data needs ViewDashboard, not just a sign-in

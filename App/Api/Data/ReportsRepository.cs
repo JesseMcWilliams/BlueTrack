@@ -93,16 +93,21 @@ public sealed class ReportsRepository(IDbConnectionFactory connectionFactory)
         return rows.AsList();
     }
 
-    public async Task<IReadOnlyList<UnresolvedEntitlementMember>> GetUnresolvedEntitlementMembersAsync()
+    /// <summary>D-232: unresolved rows only (ResolutionMethod null), or with showResolved also those resolved by name, by hand or labelled external.</summary>
+    public async Task<IReadOnlyList<UnresolvedEntitlementMember>> GetUnresolvedEntitlementMembersAsync(bool showResolved = false)
     {
         using var connection = connectionFactory.Create();
 
         const string sql = """
-            SELECT * FROM dbo.vw_unresolved_entitlement_members
-            ORDER BY SafeName, MemberType, UnresolvedMemberId
+            SELECT EntitlementKey, SafeKey, SafeName, MemberType, UnresolvedMemberId, MemberName, ResolutionMethod,
+                   UserKey, GroupKey, ResolvedToName, ResolutionNote, ResolvedByName, ResolvedDate,
+                   MembershipExpirationDate, SnapshotDate
+            FROM dbo.vw_unresolved_entitlement_members
+            WHERE @ShowResolved = 1 OR ResolutionMethod IS NULL
+            ORDER BY SafeName, MemberType, MemberName, UnresolvedMemberId
             """;
 
-        var rows = await connection.QueryAsync<UnresolvedEntitlementMember>(sql);
+        var rows = await connection.QueryAsync<UnresolvedEntitlementMember>(sql, new { ShowResolved = showResolved });
         return rows.AsList();
     }
 
