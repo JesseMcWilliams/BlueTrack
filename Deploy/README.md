@@ -192,13 +192,7 @@ Whenever a smoke check fails, the output ends with the two URLs it checks, so yo
 ```
 
 - **Signed releases only (D-199):** a release's tag must be an annotated tag signed with a key GitHub verifies; otherwise the script refuses it. It then downloads the exact commit the tag points to. A branch isn't a signed release, so it needs `-AllowUnsignedBranch` (with a warning), including the choice offered when there's no release yet.
-- **Making a signed release:** register a signing key on GitHub (your account's SSH and GPG keys settings; for an SSH key choose the *Signing Key* type), tell git to use it (`git config --global gpg.format ssh` and `git config --global user.signingkey <path to the .pub>` for SSH, or `user.signingkey <GPG key id>` for GPG). First set `<Version>` in `App/Api/BlueTrack.Api.csproj` to the release's version (tag `v1.2.0` → `1.2.0`) and merge it to `main`: About and the Deployment page show it. Then:
-  ```powershell
-  git tag -s v1.0.0 -m "BlueTrack v1.0.0"
-  git push origin v1.0.0
-  gh release create v1.0.0 --verify-tag --notes "..."
-  ```
-  `gh api repos/<owner>/<repo>/git/tags/<tag object sha>` shows `verification.verified`; it must be `true`. Confirm the GitHub settings wording when you first do this.
+- **Making a signed release:** register a signing key on GitHub (your account's SSH and GPG keys settings; for an SSH key choose the *Signing Key* type), tell git to use it (`git config --global gpg.format ssh` and `git config --global user.signingkey <path to the .pub>` for SSH, or `user.signingkey <GPG key id>` for GPG). Then make the release with `Tools/New-BlueTrackRelease.ps1` (D-226, `Tools/README.md`, "Making a release"): it sets `<Version>` and the release notes on a release branch and pull request, and after the merge `-Tag -Push` signs the tag (`git tag -s`), pushes it, creates the GitHub release and checks `verification.verified` (`gh api repos/<owner>/<repo>/git/tags/<tag object sha>`), which must be `true`. Confirm the GitHub settings wording when you first do this.
 
 - **Where:** each download is extracted to its own folder in the **download folder**, e.g. `BlueTrack-v1.2.0` or `BlueTrack-main-20261009-2030`, with a `download.json` recording the branch or tag and commit. Earlier versions stay for rollback; delete old ones yourself.
 - **Run it elevated.** Its downloads are later run as an administrator, so on every run the script makes Administrators the download folder's owner and limits access to Administrators and SYSTEM, contents included (D-197); a folder made under `C:\` otherwise lets any signed-in user change it.

@@ -31,6 +31,7 @@ What changed in each BlueTrack release, newest first, for users and administrato
 - **Navigation:** Reports and Admin are now at the end of the top navigation, with Admin last.
 - **Reports** are listed in a column on the left, like the Admin pages, with the report you open beside the list.
 - **About:** the menu with your name has a new **About** item that shows BlueTrack's version.
+- **Version on About and the Deployment page:** both now show the same version. A release shows its number (for example `1.1.0`); a build made between releases shows the release it follows, how many changes came after it and which one (for example `1.0.0-dev.12+abc1234`, ending `.dirty` if built with uncommitted changes), so a test build can't be mistaken for a release. The Deployment page no longer adds a fourth number (`1.0.0.0`).
 - **Application ↔ Safe Mapping** shows the applications and the safes a page at a time, like Accounts, at your page size.
 - **Required Permission** for a field is now set on the **Edit Field** page (Admin > Field Metadata Management) and shown in the field list, instead of with SQL.
 - **Reporting views:** the CSV export view, the Power BI accounts view and the daily progress snapshot count an account from another system that's linked to a CyberArk account once, as the app does.

@@ -44,7 +44,8 @@ public sealed class DeploymentController(
         var backupStatus = await repository.GetBackupStatusAsync();
 
         var assembly = Assembly.GetExecutingAssembly();
-        var version = assembly.GetName().Version?.ToString() ?? "unknown";
+        // D-226: the same build-stamped version About shows.
+        var version = AboutController.ProductVersion();
         var buildTimestampUtc = string.IsNullOrEmpty(assembly.Location)
             ? (DateTime?)null
             : System.IO.File.GetLastWriteTimeUtc(assembly.Location);
