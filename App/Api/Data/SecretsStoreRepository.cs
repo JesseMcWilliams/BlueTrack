@@ -57,7 +57,7 @@ public sealed class SecretsStoreRepository(IDbConnectionFactory connectionFactor
             var settingsNode = string.IsNullOrWhiteSpace(backendSettings)
                 ? new JsonObject()
                 : JsonNode.Parse(backendSettings)?.AsObject() ?? new JsonObject();
-            settingsNode[ProtectedCredentialKey] = localSecretProtector.Protect(request.PlaintextCredential);
+            settingsNode[ProtectedCredentialKey] = localSecretProtector.ProtectStored(request.PlaintextCredential);   // D-215
             backendSettings = settingsNode.ToJsonString();
         }
         else

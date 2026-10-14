@@ -6,8 +6,9 @@ namespace BlueTrack.Api.Secrets;
 
 /// <summary>
 /// CyberArk Conjur integration (D-84) -- a placeholder framework, built
-/// structurally against Conjur's publicly documented REST Authn API (no
-/// official .NET SDK exists, unlike CP/CCP), not against a real running
+/// structurally against Conjur's publicly documented REST Authn API (CyberArk
+/// publishes a .NET client, cyberark/conjur-api-dotnet, but it isn't used
+/// here), not against a real running
 /// Conjur instance. D-33 explicitly deferred Conjur's contract
 /// "indefinitely, no timeline" -- this does NOT resolve that deferral or
 /// claim the contract is confirmed; it's scaffolding built at the user's
@@ -22,8 +23,12 @@ namespace BlueTrack.Api.Secrets;
 ///    raw API key, Content-Type text/plain -- returns a short-lived signed
 ///    token (base64, in the raw response body).
 /// 2. GET {ApplianceUrl}/secrets/{Account}/variable/{url-encoded variable
-///    id}, header Authorization: Token token="{token from step 1}" --
-///    returns the secret value as the raw response body.
+///    id}, header Authorization: Token token="{Base64 of the token from
+///    step 1}" -- returns the secret value as the raw response body.
+///    D-215: the token is Base64-encoded (UTF-8) for the header, as
+///    CyberArk's own .NET client does (conjur-api-dotnet, Client.cs
+///    ApplyAuthentication); it used to be sent raw. Still unverified
+///    against a real appliance.
 ///
 /// SecretQuery's Safe/Folder/Object shape is reinterpreted as: Object = the
 /// Conjur variable ID (Conjur's own identifiers already look like paths,
@@ -84,7 +89,7 @@ public sealed class CyberArkConjurSecretsProvider(
         string apiKey;
         try
         {
-            apiKey = localSecretProtector.Unprotect(settings.ProtectedCredential);
+            apiKey = localSecretProtector.UnprotectStored(settings.ProtectedCredential);
         }
         catch (System.Security.Cryptography.CryptographicException ex)
         {
@@ -131,7 +136,7 @@ public sealed class CyberArkConjurSecretsProvider(
         {
             var secretUrl = $"{applianceUrl}/secrets/{Uri.EscapeDataString(settings.Account)}/variable/{Uri.EscapeDataString(query.Object)}";
             using var secretRequest = new HttpRequestMessage(HttpMethod.Get, secretUrl);
-            secretRequest.Headers.TryAddWithoutValidation("Authorization", $"Token token=\"{token}\"");
+            secretRequest.Headers.TryAddWithoutValidation("Authorization", AuthorizationHeaderValue(token));
 
             var secretResponse = await client.SendAsync(secretRequest);
             if (!secretResponse.IsSuccessStatusCode)
@@ -150,6 +155,10 @@ public sealed class CyberArkConjurSecretsProvider(
             throw new SecretRetrievalException($"CyberArk Conjur connection failed: {ex.Message}", CyberArkErrorCategory.VaultConnectivity, ex);
         }
     }
+
+    /// <summary>D-215: the Authorization header for a raw authenticate response -- Token token="{Base64 of its UTF-8 bytes}".</summary>
+    public static string AuthorizationHeaderValue(string rawToken) =>
+        $"Token token=\"{Convert.ToBase64String(Encoding.UTF8.GetBytes(rawToken))}\"";
 
     private static CyberArkErrorCategory ClassifyStatus(System.Net.HttpStatusCode statusCode) => statusCode switch
     {

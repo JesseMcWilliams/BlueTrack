@@ -22,6 +22,13 @@ namespace BlueTrack.Api.Secrets;
 /// enables. Consistent with D-09's single-server assumption either way --
 /// DPAPI ciphertext is bound to this one machine regardless of scope (see
 /// D-65's own note on the resulting disaster-recovery gap).
+///
+/// D-215 adds ProtectStored/UnprotectStored for the secrets backends'
+/// stored credentials: "dpapi:user:v1:{entropy}:{ciphertext}" (or
+/// "dpapi:machine:v1:..." when User scope isn't available), both Base64,
+/// with a fresh random entropy per value. A value without the prefix is an
+/// older Machine-scope one and still decrypts; it's re-protected the next
+/// time an admin saves that backend.
 /// </summary>
 public sealed class WindowsDpapiProtector : ILocalSecretProtector
 {
@@ -42,6 +49,43 @@ public sealed class WindowsDpapiProtector : ILocalSecretProtector
     {
         var protectedBytes = Convert.FromBase64String(protectedValue);
         var plainBytes = ProtectedData.Unprotect(protectedBytes, Entropy, ToDataProtectionScope(scope));
+        return Encoding.UTF8.GetString(plainBytes);
+    }
+
+    private const string StoredPrefix = "dpapi:";
+
+    public string ProtectStored(string plaintext)
+    {
+        var entropy = RandomNumberGenerator.GetBytes(16);
+        var plainBytes = Encoding.UTF8.GetBytes(plaintext);
+        foreach (var scope in new[] { CredentialScope.User, CredentialScope.Machine })
+        {
+            try
+            {
+                var protectedBytes = ProtectedData.Protect(plainBytes, entropy, ToDataProtectionScope(scope));
+                return $"{StoredPrefix}{scope.ToString().ToLowerInvariant()}:v1:{Convert.ToBase64String(entropy)}:{Convert.ToBase64String(protectedBytes)}";
+            }
+            catch (CryptographicException) when (scope == CredentialScope.User)
+            {
+                // No user profile loaded for the App Pool's account: Machine scope instead.
+            }
+        }
+        throw new InvalidOperationException("Unreachable: Machine-scope DPAPI either succeeds or throws.");
+    }
+
+    public string UnprotectStored(string protectedValue)
+    {
+        if (!protectedValue.StartsWith(StoredPrefix, StringComparison.Ordinal))
+        {
+            return Unprotect(protectedValue);
+        }
+
+        var parts = protectedValue.Split(':');
+        if (parts.Length != 5 || parts[2] != "v1" || !Enum.TryParse<CredentialScope>(parts[1], ignoreCase: true, out var scope))
+        {
+            throw new CryptographicException("The stored credential isn't in a format this version of BlueTrack can read.");
+        }
+        var plainBytes = ProtectedData.Unprotect(Convert.FromBase64String(parts[4]), Convert.FromBase64String(parts[3]), ToDataProtectionScope(scope));
         return Encoding.UTF8.GetString(plainBytes);
     }
 
