@@ -4,6 +4,8 @@ import { createRouter, createMemoryHistory } from 'vue-router'
 import { createPinia, setActivePinia } from 'pinia'
 import UserMenu from './UserMenu.vue'
 import { useRightsStore } from '../stores/rights'
+vi.mock('../utils/navigateAway', () => ({ navigateAway: vi.fn() }))
+import { navigateAway } from '../utils/navigateAway'
 
 // D-206: the top nav's user menu.
 function makeRouter() {
@@ -128,6 +130,21 @@ describe('UserMenu.vue', () => {
     await dialog.trigger('keydown', { key: 'Escape' })
     expect(wrapper.find('[role="dialog"]').exists()).toBe(false)
     expect(document.activeElement).toBe(button.element)
+    wrapper.unmount()
+  })
+
+  // D-217: a SAML session's sign-out continues at the identity provider (Single Logout).
+  it('Sign out of a SAML session goes to the Single Logout address the API gives', async () => {
+    globalThis.fetch = vi.fn(() => Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({ singleLogoutUrl: '/BlueTrack/api/auth/saml/logout' }) }))
+    const { wrapper, router, rights } = await mountMenu()
+    await wrapper.get('button.user-menu__button').trigger('click')
+
+    await wrapper.findAll('button').find(b => b.text() === 'Sign out').trigger('click')
+    await flushPromises()
+
+    expect(navigateAway).toHaveBeenCalledWith('/BlueTrack/api/auth/saml/logout')
+    expect(rights.authenticated).toBeFalsy()   // reset before leaving
+    expect(router.currentRoute.value.name).toBe('dashboard')   // no SPA navigation: the browser leaves
     wrapper.unmount()
   })
 })

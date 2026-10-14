@@ -165,6 +165,14 @@ While tracking down a batch of E2E failures that looked like the already-documen
 
 **Lesson:** when JSON is read case-insensitively, every writer must use one spelling. Check stored settings for duplicate names (`SELECT [key] FROM OPENJSON(...)`) before assuming a value is really missing.
 
+## 2026-10-13 — Two test failures that came from other tests, not from the code under test (fixed same day, D-217)
+
+**What happened:** (1) After the break-glass section (D-216) was added to the Identity Providers list page, the provider E2E tests sometimes saved an empty new provider: `getByLabel('Display Name:')` is case-insensitive, so when the fill ran before navigation to `/new` finished, it went into the list page's break-glass "Display name:" field. (2) API tests on `DevFakeAuthEnabledTooLong` failed with its target role set to 1: the Notifications E2E test changed the role twice without waiting, so the "clear" PUT could reach the server before the "assign" PUT, and CI's E2E run left the role set in the shared `BlueTrackTest`.
+
+**Fixed:** the provider tests wait for the "New Provider" heading before filling; the Notifications test waits for each target-role PUT (`page.waitForResponse`).
+
+**Lesson:** after a navigation, wait for something only the new page has before filling by label; labels repeat across pages. A UI test that changes shared data and then undoes it must wait for each save, or it leaks state into whatever runs next on the same database.
+
 ## Process notes
 
 - **Check the Decision Register first.** `Claude_Docs/Design_Decision-Register.md` is the index of every design decision made so far, resolved and open. Don't re-derive or re-litigate something it already answers.

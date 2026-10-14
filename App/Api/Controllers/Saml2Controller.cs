@@ -169,18 +169,100 @@ public sealed class Saml2Controller(Saml2ConfigurationFactory configFactory, ILo
         return new Saml2Metadata(entityDescriptor).CreateMetadata().ToActionResult();
     }
 
+    /// <summary>
+    /// D-217: SP-initiated Single Logout. With the IdP's logout address set and a
+    /// SAML session (it carries the IdP's SessionIndex), BlueTrack's session ends
+    /// and the browser goes to the IdP with a (signed) LogoutRequest; the IdP
+    /// answers at SingleLogout below. Otherwise only BlueTrack's session ends.
+    /// Either way the browser ends on the sign-in page; reason=idle keeps the
+    /// idle sign-out's message (D-209).
+    /// </summary>
     [HttpGet("logout")]
     [Authorize]
-    public async Task<IActionResult> Logout()
+    public async Task<IActionResult> Logout([FromQuery] string? reason = null)
     {
-        // D-84 placeholder scope: signs out of this app's own SAML session
-        // only. A real SP-initiated Single Logout round trip to the IdP
-        // (Saml2LogoutRequest/Response) is a follow-up once a real IdP
-        // exists to test the flow against.
-        await HttpContext.SignOutAsync(Saml2Constants.AuthenticationScheme);
         AuthController.ClearSignInChoice(HttpContext); // D-205
-        return Redirect("/");
+        var config = await configFactory.BuildAsync();
+        var saml = await HttpContext.AuthenticateAsync(Saml2Constants.AuthenticationScheme);
+        if (config?.SingleLogoutDestination is not null && saml.Succeeded && HasSessionIndex(saml.Principal))
+        {
+            var binding = new Saml2RedirectBinding();
+            binding.SetRelayStateQuery(new Dictionary<string, string> { [ReasonKey] = IsIdle(reason) ? "idle" : "" });
+            var logoutRequest = await new Saml2LogoutRequest(config, saml.Principal).DeleteSession(HttpContext);
+            return binding.Bind(logoutRequest).ToActionResult();
+        }
+
+        await HttpContext.SignOutAsync(Saml2Constants.AuthenticationScheme);
+        return Redirect(SignedOutUrl(IsIdle(reason)));
     }
+
+    /// <summary>
+    /// D-217: the SP's Single Logout Service (the IdP's "SLS URL"), Redirect or
+    /// POST binding. A LogoutResponse finishes an SP-initiated logout; a
+    /// LogoutRequest is the IdP signing the user out (front-channel, so the
+    /// browser brings BlueTrack's cookie): the session ends and a LogoutResponse
+    /// goes back to the IdP. A message that fails validation is logged; for a
+    /// response, BlueTrack's session has already ended anyway.
+    /// </summary>
+    [HttpGet("slo")]
+    [HttpPost("slo")]
+    [AllowAnonymous]
+    public async Task<IActionResult> SingleLogout()
+    {
+        var config = await configFactory.BuildAsync();
+        if (config is null)
+        {
+            return NotConfigured();
+        }
+
+        var genericRequest = await Request.ToGenericHttpRequestAsync(validate: true);
+        Saml2Binding binding = HttpMethods.IsPost(Request.Method) ? new Saml2PostBinding() : new Saml2RedirectBinding();
+        var isResponse = genericRequest.Query?["SAMLResponse"] is not null || genericRequest.Form?["SAMLResponse"] is not null;
+
+        if (isResponse)
+        {
+            try
+            {
+                binding.Unbind(genericRequest, new Saml2LogoutResponse(config));
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "SAML logout response could not be validated; BlueTrack's session had already ended.");
+            }
+            await HttpContext.SignOutAsync(Saml2Constants.AuthenticationScheme);
+            var idle = binding.GetRelayStateQuery().TryGetValue(ReasonKey, out var reason) && reason == "idle";
+            return Redirect(SignedOutUrl(idle));
+        }
+
+        var logoutRequest = new Saml2LogoutRequest(config, User);
+        Saml2StatusCodes status;
+        try
+        {
+            binding.Unbind(genericRequest, logoutRequest);
+            await logoutRequest.DeleteSession(HttpContext);
+            AuthController.ClearSignInChoice(HttpContext);
+            status = Saml2StatusCodes.Success;
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "SAML logout request from the identity provider could not be validated.");
+            status = Saml2StatusCodes.RequestDenied;
+        }
+
+        var responseBinding = new Saml2RedirectBinding { RelayState = binding.RelayState };
+        var logoutResponse = new Saml2LogoutResponse(config) { InResponseToAsString = logoutRequest.IdAsString, Status = status };
+        return responseBinding.Bind(logoutResponse).ToActionResult();
+    }
+
+    private const string ReasonKey = "reason";
+
+    private static bool IsIdle(string? reason) => string.Equals(reason, "idle", StringComparison.Ordinal);
+
+    // The SPA's sign-in page (at the site root, outside this /BlueTrack app), as the user menu's Sign out ends.
+    private static string SignedOutUrl(bool idle) => idle ? "/login?signedOut=1&reason=idle" : "/login?signedOut=1";
+
+    public static bool HasSessionIndex(System.Security.Claims.ClaimsPrincipal? principal) =>
+        principal?.HasClaim(c => c.Type == ITfoxtec.Identity.Saml2.Claims.Saml2ClaimTypes.SessionIndex) == true;
 
     private ObjectResult Rejected(string detail) =>
         Problem(title: "SAML sign-in was rejected", detail: detail, statusCode: StatusCodes.Status400BadRequest);
