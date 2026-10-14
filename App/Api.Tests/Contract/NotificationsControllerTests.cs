@@ -151,6 +151,59 @@ public class NotificationsControllerTests : IClassFixture<BlueTrackWebApplicatio
     }
 
     [Fact]
+    public async Task NotificationTypes_ListTheD222Types_OffByDefault_AndEnabledRoundTrips()
+    {
+        var client = AdminClient();
+        var types = await client.GetFromJsonAsync<List<NotificationTypeResponse>>("/api/admin/notifications/types");
+        foreach (var name in new[] { "NightlyImportFailed", "OverdueRiskExceptions", "WeeklySummary" })
+        {
+            Assert.False(Assert.Single(types!, t => t.NotificationTypeName == name).IsEnabled);
+        }
+
+        // Toggle a type that's on by default, so nothing new can send meanwhile.
+        var devFakeAuth = Assert.Single(types!, t => t.NotificationTypeName == "DevFakeAuthEnabledTooLong");
+        Assert.True(devFakeAuth.IsEnabled);
+        try
+        {
+            var response = await client.PutAsJsonAsync($"/api/admin/notifications/types/{devFakeAuth.NotificationTypeKey}/enabled", new { isEnabled = false });
+            Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+            var after = await client.GetFromJsonAsync<List<NotificationTypeResponse>>("/api/admin/notifications/types");
+            Assert.False(Assert.Single(after!, t => t.NotificationTypeKey == devFakeAuth.NotificationTypeKey).IsEnabled);
+        }
+        finally
+        {
+            await client.PutAsJsonAsync($"/api/admin/notifications/types/{devFakeAuth.NotificationTypeKey}/enabled", new { isEnabled = true });
+        }
+
+        var missing = await client.PutAsJsonAsync("/api/admin/notifications/types/999999/enabled", new { isEnabled = true });
+        Assert.Equal(HttpStatusCode.NotFound, missing.StatusCode);
+    }
+
+    [Fact]
+    public async Task Schedule_SaveRoundTrips_AndRejectsABadDayOrTime()
+    {
+        var client = AdminClient();
+        var original = await client.GetFromJsonAsync<ScheduleResponse>("/api/admin/notifications/schedule");
+        Assert.NotNull(original);
+        try
+        {
+            var save = await client.PutAsJsonAsync("/api/admin/notifications/schedule",
+                new { dailyDigestTime = "06:15", weeklySummaryDay = "Fri", weeklySummaryTime = "16:45" });
+            Assert.Equal(HttpStatusCode.NoContent, save.StatusCode);
+            var saved = await client.GetFromJsonAsync<ScheduleResponse>("/api/admin/notifications/schedule");
+            Assert.Equal(("06:15", "Fri", "16:45"), (saved!.DailyDigestTime, saved.WeeklySummaryDay, saved.WeeklySummaryTime));
+
+            var bad = await client.PutAsJsonAsync("/api/admin/notifications/schedule",
+                new { dailyDigestTime = "6am", weeklySummaryDay = "Friday", weeklySummaryTime = "16:45" });
+            Assert.Equal(HttpStatusCode.BadRequest, bad.StatusCode);
+        }
+        finally
+        {
+            await client.PutAsJsonAsync("/api/admin/notifications/schedule", original);
+        }
+    }
+
+    [Fact]
     public async Task SendTestEmail_NoActiveRecipients_ReturnsBadRequest()
     {
         // Relies on there being no active recipients in BlueTrackTest by
@@ -230,6 +283,14 @@ public class NotificationsControllerTests : IClassFixture<BlueTrackWebApplicatio
         public string NotificationTypeName { get; set; } = "";
         public int? TargetRoleKey { get; set; }
         public string? TargetRoleName { get; set; }
+        public bool IsEnabled { get; set; }
+    }
+
+    private sealed class ScheduleResponse
+    {
+        public string DailyDigestTime { get; set; } = "";
+        public string WeeklySummaryDay { get; set; } = "";
+        public string WeeklySummaryTime { get; set; } = "";
     }
 
     private sealed class RoleResponse

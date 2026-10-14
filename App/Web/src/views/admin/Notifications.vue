@@ -14,6 +14,11 @@
 // inline form. Recipients otherwise still only toggle active/delete in
 // place here, untouched, and the SMTP config / notification types / test
 // email sections are all untouched too.
+//
+// D-222: each notification type can be turned on or off (the three new
+// ones -- NightlyImportFailed, OverdueRiskExceptions, WeeklySummary -- start
+// off), and a Schedule section sets the daily digest time and the weekly
+// summary's day and time (server local time), saved by its own PUT.
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { confirmDelete } from '../../composables/useConfirmDialog'
@@ -33,6 +38,11 @@ const notificationTypes = ref([])
 const roles = ref([])
 const typesError = ref(null)
 
+const schedule = ref(null)
+const scheduleError = ref(null)
+const scheduleSaved = ref(false)
+const weekDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+
 const testResult = ref(null)
 const testing = ref(false)
 
@@ -43,12 +53,13 @@ async function load() {
   loading.value = true
   loadError.value = null
   try {
-    const [configResponse, recipientsResponse, credentialsResponse, typesResponse, rolesResponse] = await Promise.all([
+    const [configResponse, recipientsResponse, credentialsResponse, typesResponse, rolesResponse, scheduleResponse] = await Promise.all([
       fetch('/api/admin/notifications/config'),
       fetch('/api/admin/notifications/recipients'),
       fetch('/api/admin/credentials'),
       fetch('/api/admin/notifications/types'),
-      fetch('/api/admin/roles')
+      fetch('/api/admin/roles'),
+      fetch('/api/admin/notifications/schedule')
     ])
     if (!configResponse.ok) throw new Error(`Config request failed: ${configResponse.status}`)
     if (!recipientsResponse.ok) throw new Error(`Recipients request failed: ${recipientsResponse.status}`)
@@ -57,6 +68,7 @@ async function load() {
     credentials.value = credentialsResponse.ok ? await credentialsResponse.json() : []
     notificationTypes.value = typesResponse.ok ? await typesResponse.json() : []
     roles.value = rolesResponse.ok ? await rolesResponse.json() : []
+    schedule.value = scheduleResponse.ok ? await scheduleResponse.json() : null
   } catch (err) {
     loadError.value = err.message
   } finally {
@@ -106,6 +118,41 @@ async function setTargetRole(type) {
   await load()
 }
 
+async function setTypeEnabled(type, isEnabled) {
+  typesError.value = null
+  const response = await fetch(`/api/admin/notifications/types/${type.notificationTypeKey}/enabled`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ isEnabled })
+  })
+  if (!response.ok) {
+    typesError.value = `Save failed: ${response.status}`
+    return
+  }
+  await load()
+}
+
+async function saveSchedule() {
+  scheduleError.value = null
+  scheduleSaved.value = false
+  const response = await fetch('/api/admin/notifications/schedule', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      dailyDigestTime: schedule.value.dailyDigestTime,
+      weeklySummaryDay: schedule.value.weeklySummaryDay,
+      weeklySummaryTime: schedule.value.weeklySummaryTime
+    })
+  })
+  if (!response.ok) {
+    let detail = ''
+    try { detail = (await response.json())?.detail ?? '' } catch { /* not JSON */ }
+    scheduleError.value = `Save failed: ${response.status}${detail ? ` -- ${detail}` : ''}`
+    return
+  }
+  scheduleSaved.value = true
+}
+
 async function toggleRecipientActive(recipient) {
   recipientsError.value = null
   const response = await fetch(`/api/admin/notifications/recipients/${recipient.recipientKey}`, {
@@ -146,7 +193,7 @@ async function sendTestEmail() {
 <template>
   <div>
     <h2>Notifications</h2>
-    <p>SMTP settings and the recipient list for BlueTrack's automated alerts (e.g. DevFakeAuth left enabled too long, D-114).</p>
+    <p>SMTP settings, the recipient list and the schedule for BlueTrack's automated alerts (e.g. a failed nightly Import and Load, overdue Risk Exceptions, the weekly summary).</p>
     <p v-if="loading" role="status">Loading...</p>
     <p v-else-if="loadError" role="alert">{{ loadError }}</p>
 
@@ -187,16 +234,24 @@ async function sendTestEmail() {
       </form>
 
       <h3>Notification Types</h3>
-      <p>An optional target role for each alert kind -- additive to the recipient list above: the role's own email plus, if LDAP is configured, every member of its mapped AD groups.</p>
+      <p>Turn each alert kind on or off, and optionally pick a target role -- additive to the recipient list below: the role's own email plus, if LDAP is configured, every member of its mapped AD groups.</p>
       <p v-if="typesError" role="alert">{{ typesError }}</p>
       <table v-if="notificationTypes.length > 0">
         <thead>
-          <tr><th>Type</th><th>Description</th><th>Target Role</th></tr>
+          <tr><th>Type</th><th>Description</th><th>Enabled</th><th>Target Role</th></tr>
         </thead>
         <tbody>
           <tr v-for="type in notificationTypes" :key="type.notificationTypeKey">
             <td>{{ type.notificationTypeName }}</td>
             <td>{{ type.description }}</td>
+            <td>
+              <input
+                type="checkbox"
+                :checked="type.isEnabled"
+                :aria-label="`${type.notificationTypeName} enabled`"
+                @change="setTypeEnabled(type, $event.target.checked)"
+              />
+            </td>
             <td>
               <select v-model="type.targetRoleKey" @change="setTargetRole(type)">
                 <option :value="null">(none -- flat list only)</option>
@@ -206,6 +261,26 @@ async function sendTestEmail() {
           </tr>
         </tbody>
       </table>
+
+      <template v-if="schedule">
+        <h3>Schedule</h3>
+        <p>When the scheduled emails go out, in the server's local time. Each goes out once: the daily digest once a day, the weekly summary once a week.</p>
+        <p v-if="scheduleError" role="alert">{{ scheduleError }}</p>
+        <p v-if="scheduleSaved" role="status">Schedule saved.</p>
+        <form @submit.prevent="saveSchedule">
+          <p><label class="field-label"><span class="field-label-text">Daily digest time:</span> <input v-model="schedule.dailyDigestTime" type="time" required /></label></p>
+          <p>
+            <label class="field-label">
+              <span class="field-label-text">Weekly summary day:</span>
+              <select v-model="schedule.weeklySummaryDay">
+                <option v-for="day in weekDays" :key="day" :value="day">{{ day }}</option>
+              </select>
+            </label>
+          </p>
+          <p><label class="field-label"><span class="field-label-text">Weekly summary time:</span> <input v-model="schedule.weeklySummaryTime" type="time" required /></label></p>
+          <button type="submit" class="btn-primary">Save Schedule</button>
+        </form>
+      </template>
 
       <h3>Test Connection</h3>
       <p>Sends a real test email to every active recipient below, using the saved SMTP configuration.</p>

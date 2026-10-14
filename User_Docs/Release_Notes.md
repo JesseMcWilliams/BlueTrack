@@ -16,6 +16,8 @@ What changed in each BlueTrack release, newest first, for users and administrato
 
 - **Trends report.** **Reports > Trends** shows how accounts have moved over time: accounts at each Blueprint stage, % complete (the KPI Summary's rule: accounts at the final stage with status Complete, out of those in scope) and accounts by risk level. Choose the dates (the last 90 days unless you change them), by day or by week, and narrow it to one Application or Safe. Each chart has a **Show data table** button, and the report can be exported like the others. It draws on the nightly progress snapshot, so it starts filling from the first night after installing. The upgrade adds a database index (script 18).
 
+- **More email notifications.** Three new notifications on **Admin > Notifications**: **NightlyImportFailed** (within about 5 minutes of the nightly Import and Load failing, or not finishing within 4 hours, naming the step, file and error), **OverdueRiskExceptions** (a daily list of Risk Exceptions past their review date) and **WeeklySummary** (KPIs, the change since last week, overdue counts and the last import). They start turned off: tick **Enabled** for each one you want, and set when the digests go out in the new **Schedule** section (server time; 07:00 daily and Monday 07:00 unless you change them). Every notification type can now be turned off the same way. The upgrade (script 19) also makes the Import and Load record each run in the database; no other step is needed.
+
 - **Command-line checks** in the new `Tools` folder: the install's health, SAML/OIDC sign-in and sign-out, an LDAPS bind before adding a domain, and the Test buttons. See the Operations Guide, "Checking a Running Install", and `Tools\README.md`.
 
 ### Changed

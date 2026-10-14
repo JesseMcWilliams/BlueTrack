@@ -26,7 +26,7 @@ public sealed class DevFakeAuthEnabledCheck(IDbConnectionFactory connectionFacto
         public DateTime? ModifiedDate { get; init; }
     }
 
-    public async Task<NotificationCheckResult?> EvaluateAsync()
+    public async Task<IReadOnlyList<NotificationCheckResult>> EvaluateAsync()
     {
         using var connection = connectionFactory.Create();
         const string sql = """
@@ -38,18 +38,18 @@ public sealed class DevFakeAuthEnabledCheck(IDbConnectionFactory connectionFacto
 
         if (row is null || !row.IsEnabled || row.ModifiedDate is null)
         {
-            return null;
+            return [];
         }
 
         var enabledFor = DateTime.UtcNow - row.ModifiedDate.Value;
         if (enabledFor < StaleAfter)
         {
-            return null;
+            return [];
         }
 
         var since = row.ModifiedDate.Value.ToString("yyyy-MM-dd");
         var body = $"DevFakeAuth has been enabled on this BlueTrack environment for over {StaleAfter.Days} days (since {since}). " +
             "It bypasses real authentication and should only be left on briefly during local development.";
-        return new NotificationCheckResult(Subject: "BlueTrack: DevFakeAuth enabled too long", Body: body, Detail: $"ModifiedDate={since}");
+        return [new NotificationCheckResult(Subject: "BlueTrack: DevFakeAuth enabled too long", Body: body, Detail: $"ModifiedDate={since}")];
     }
 }

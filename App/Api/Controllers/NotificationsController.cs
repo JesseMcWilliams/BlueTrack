@@ -129,6 +129,54 @@ public sealed class NotificationsController(
         return NoContent();
     }
 
+    /// <summary>D-222: turns a notification type on or off; a disabled type is never evaluated or sent.</summary>
+    [HttpPut("types/{notificationTypeKey:int}/enabled")]
+    public async Task<IActionResult> SetNotificationTypeEnabled(int notificationTypeKey, [FromBody] SetNotificationTypeEnabledRequest request)
+    {
+        var user = await currentUserResolver.ResolveAsync(User);
+        if (user is null) return Unauthorized();
+        var type = (await repository.GetNotificationTypesAsync()).FirstOrDefault(t => t.NotificationTypeKey == notificationTypeKey);
+        if (type is null) return NotFound();
+        await repository.SetNotificationTypeEnabledAsync(notificationTypeKey, request.IsEnabled);
+        if (type.IsEnabled != request.IsEnabled)
+        {
+            await auditLogger.LogAsync("FieldEdit", user.UserKey, "dim_notification_type", notificationTypeKey.ToString(),
+                detail: $"{type.NotificationTypeName} {(request.IsEnabled ? "enabled" : "disabled")}",
+                fieldChanges: [new FieldChange("IsEnabled", type.IsEnabled.ToString(), request.IsEnabled.ToString())]);
+        }
+        return NoContent();
+    }
+
+    /// <summary>D-222: when the daily digests and the weekly summary go out (server local time).</summary>
+    [HttpGet("schedule")]
+    public async Task<IActionResult> GetSchedule() => Ok(await repository.GetScheduleAsync());
+
+    [HttpPut("schedule")]
+    public async Task<IActionResult> SaveSchedule([FromBody] NotificationSchedule request)
+    {
+        var user = await currentUserResolver.ResolveAsync(User);
+        if (user is null) return Unauthorized();
+        var errors = DigestSchedule.Validate(request);
+        if (errors.Count > 0)
+        {
+            return Problem(title: "Invalid schedule", detail: string.Join(" ", errors), statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        var before = await repository.GetScheduleAsync();
+        await repository.SaveScheduleAsync(request, user.UserKey);
+
+        List<FieldChange> changes = [];
+        if (before.DailyDigestTime != request.DailyDigestTime) changes.Add(new FieldChange("DailyDigestTime", before.DailyDigestTime, request.DailyDigestTime));
+        if (before.WeeklySummaryDay != request.WeeklySummaryDay) changes.Add(new FieldChange("WeeklySummaryDay", before.WeeklySummaryDay, request.WeeklySummaryDay));
+        if (before.WeeklySummaryTime != request.WeeklySummaryTime) changes.Add(new FieldChange("WeeklySummaryTime", before.WeeklySummaryTime, request.WeeklySummaryTime));
+        if (changes.Count > 0)
+        {
+            await auditLogger.LogAsync("FieldEdit", user.UserKey, "notification_config", null,
+                detail: "Notification schedule changed", fieldChanges: changes);
+        }
+        return NoContent();
+    }
+
     /// <summary>
     /// Sends a real test email to every active recipient using the
     /// currently-saved config -- lets an admin verify SMTP settings work

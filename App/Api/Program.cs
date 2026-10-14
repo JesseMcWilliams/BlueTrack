@@ -194,14 +194,17 @@ builder.Services.AddSingleton<SamlTokenReplayCache>();   // D-198
 // itself Scoped) -- NotificationCheckBackgroundService, a Singleton,
 // creates its own scope per check cycle rather than depending on these
 // directly. INotificationCheck has multiple registrations, same pattern
-// as IVaultSecretProvider -- adding a future trigger (e.g. D-19's
-// overdue Risk Exceptions) is a new AddScoped<INotificationCheck, ...>
-// line, not a change to the background service itself.
+// as IVaultSecretProvider -- adding a trigger is a new
+// AddScoped<INotificationCheck, ...> line, not a change to the background
+// service itself.
 builder.Services.AddScoped<INotificationSender, SmtpNotificationSender>();
 builder.Services.AddScoped<NotificationRecipientResolver>();   // D-216
 builder.Services.AddScoped<BreakGlassAccountRepository>();
 builder.Services.AddSingleton<BreakGlassAlerter>();
 builder.Services.AddScoped<INotificationCheck, DevFakeAuthEnabledCheck>();
+builder.Services.AddScoped<INotificationCheck, NightlyImportFailedCheck>();     // D-222
+builder.Services.AddScoped<INotificationCheck, OverdueRiskExceptionsCheck>();   // D-222
+builder.Services.AddScoped<INotificationCheck, WeeklySummaryCheck>();           // D-222
 builder.Services.AddHostedService<NotificationCheckBackgroundService>();
 
 // AD Account Discovery (2026-09-16): same same-process-BackgroundService
