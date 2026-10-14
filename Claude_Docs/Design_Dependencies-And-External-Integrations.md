@@ -90,17 +90,20 @@ Both share `LdapContextFactory` for binding and read `web.ldap_config` — now a
 | Dapper | 2.1.79 | All SQL data access — no ORM beyond this |
 | ITfoxtec.Identity.Saml2.MvcCore | 4.20.1 | SAML2 authentication (2.4) |
 | MailKit | 4.17.0 | SMTP notification sending (2.6) |
-| Microsoft.AspNetCore.Authentication.Negotiate | 10.0.11 | Windows Integrated authentication (2.4) |
-| Microsoft.AspNetCore.Authentication.OpenIdConnect | 10.0.11 | OIDC authentication (2.4) |
-| Microsoft.AspNetCore.OpenApi | 10.0.11 | OpenAPI/Swagger document generation |
+| Microsoft.AspNetCore.Authentication.Negotiate | 10.0.13 | Windows Integrated authentication (2.4) |
+| Microsoft.AspNetCore.Authentication.OpenIdConnect | 10.0.13 | OIDC authentication (2.4) |
+| Microsoft.AspNetCore.OpenApi | 10.0.13 | OpenAPI/Swagger document generation |
 | Microsoft.Data.SqlClient | 7.0.2 | SQL Server connectivity |
-| Microsoft.Extensions.Caching.SqlServer | 10.0.11 | SQL-Server-backed distributed cache (2.7) |
-| System.DirectoryServices.AccountManagement | 10.0.11 | LDAP/AD group-membership resolution (2.5) |
-| System.Security.Cryptography.ProtectedData | 10.0.11 | Windows DPAPI secrets backend (2.3) |
-| System.Security.Cryptography.Xml | 10.0.10 | Not called directly -- pins a transitive dependency of `ITfoxtec.Identity.Saml2` past a vulnerable floor (see note below) |
+| Microsoft.Extensions.Caching.SqlServer | 10.0.13 | SQL-Server-backed distributed cache (2.7) |
+| System.DirectoryServices.AccountManagement | 10.0.13 | LDAP/AD group-membership resolution (2.5) |
+| System.Security.Cryptography.ProtectedData | 10.0.13 | Windows DPAPI secrets backend (2.3) |
+| System.Security.Cryptography.Xml | 10.0.13 | Not called directly -- pins a transitive dependency of `ITfoxtec.Identity.Saml2` past a vulnerable floor (see notes below; on .NET 10 the runtime's own copy is what runs) |
+| System.Security.Cryptography.Pkcs | 10.0.13 | Not called directly -- pins a transitive dependency (MailKit/MimeKit, Microsoft.Data.SqlClient, Caching.SqlServer) past GHSA-846f-f764-76mx and GHSA-2fmv-rv2c-59x7; also pinned in `App/Migrator` (via SqlClient) |
 | *NetStandardPasswordSDK* (local reference, not NuGet) | n/a | CyberArk Credential Provider (2.2) |
 
 **Security note (2026-09-23, D-153):** `ITfoxtec.Identity.Saml2` (the SAML2 library, 2.4) transitively pulls `System.Security.Cryptography.Xml` at a 10.0.7 floor, which carries 5 high-severity advisories (GHSA-23rf-6693-g89p, GHSA-8q5v-6pqq-x66h, GHSA-cvvh-rhrc-wg4q, GHSA-g8r8-53c2-pm3f, GHSA-mmjf-rqrv-855v) -- all the same class of .NET 10 XML-encryption denial-of-service issue, CVSS 7.5, network-exploitable with no user interaction. Relevant here specifically because SAML processes externally-supplied XML (assertions/responses) over the network whenever that provider is enabled -- not just a theoretical transitive warning. Fixed by adding the explicit `System.Security.Cryptography.Xml` 10.0.10 reference in the table above, overriding the vulnerable floor. **`dotnet build` will show a `NU1510` warning suggesting this reference be removed as "automatically available and not needed"** -- do not remove it: the "automatically available" version is exactly the vulnerable 10.0.7 this override exists to replace. Re-check `dotnet list package --vulnerable --include-transitive` after any future `ITfoxtec.Identity.Saml2` upgrade to see whether its own floor has finally moved past 10.0.10, at which point this explicit override (and this note) can be removed.
+
+**Security update (2026-10-14):** `dotnet list package --vulnerable --include-transitive` flagged Negotiate 10.0.11 (GHSA-vrrp-6v32-2p8g), Cryptography.Xml 10.0.10 (GHSA-7hqp-7c5m-4vq6, GHSA-c399-9853-6jmj, GHSA-r955-8q5j-3h83) and Cryptography.Pkcs 10.0.10 (GHSA-846f-f764-76mx, GHSA-2fmv-rv2c-59x7); all fixed in 10.0.13 (versions confirmed from the advisories and NuGet). The Microsoft 10.0.x packages above moved to 10.0.13 together. **On .NET 10, `System.Security.Cryptography.Xml` resolves to the shared runtime (`lib/net10.0/_._`: no DLL in bin), so the package version only quietens the audit; the fix that actually runs is the .NET runtime 10.0.13 (ASP.NET Core Hosting Bundle 10.0.13 on the server).** The reference is kept so the audit still flags it when it goes stale. Pkcs 10.0.13 does ship in bin and wins over the runtime copy. The web app's `npm audit --omit=dev` fix for `source-map-js` (GHSA-68fv-2mgg-jv7q) was a lockfile patch bump.
 
 **ClosedXML (D-220, 2026-10-13):** version and licence confirmed from nuget.org (`dotnet package search ClosedXML --exact-match`, newest stable 0.105.1; its nuspec's licence expression is `MIT`). It brings, as resolved: `DocumentFormat.OpenXml` 3.1.1, `ClosedXML.Parser` 2.0.0, `ExcelNumberFormat` 1.1.0 and `RBush.Signed` 4.0.0 (all MIT), and `SixLabors.Fonts` 1.0.0 (Apache-2.0; ClosedXML allows up to 3.0, and later SixLabors.Fonts versions carry a different licence, so check it before letting it float up). The export never measures fonts (no `AdjustToContents`), so the server needs none installed. The API tests open the exported files with the same package; the E2E spec reads an `.xlsx` header row with a small zip/XML reader (`App/E2E/tests/xlsx.js`) instead of adding an npm package.
 

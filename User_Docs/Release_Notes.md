@@ -46,12 +46,14 @@ What changed in each BlueTrack release, newest first, for users and administrato
 
 ### Fixed
 
+- **Security updates.** Updated components that had published security advisories: Windows sign-in (Negotiate), the XML signature and certificate libraries used by SAML and email, and one web build library. See Upgrading for the matching .NET update on the server.
 - **The nightly Privilege Cloud import works with the new export layout.** CyberArk changed the Users export (Email removed; Enabled, Suspended and Location added) and the Groups export (Directory added), and the import failed with "Cannot obtain the required interface ("IID_IColumnsInfo")". The import now reads each file's columns by their header names, so the old and the new layouts both load and columns it doesn't use are ignored. If a file lacks a column the import needs, the run fails with a message naming the file and the column, which the NightlyImportFailed email shows. **Test** on **Edit CyberArk sources** now opens each file and lists any columns the import needs that are missing, instead of only checking that the file exists. BlueTrack also keeps the users' Enabled, Suspended and Location and the groups' Directory, for later use.
 - **Trends no longer has a gap after a failed nightly import.** The daily snapshot behind Reports > Trends is now taken every night, even when the Import or Load fails (it then records the unchanged data). A failed snapshot is reported by the NightlyImportFailed email, and the weekly summary lists the last snapshot run.
 - **SAML sign-in with an unreadable signing key** now says "SAML sign-in is not available" instead of a server error, and the Identity Providers health check reports the problem. The Installation Guide says how to give the App Pool's account read access to the key.
 
 ### Upgrading
 
+- **Install the .NET 10.0.13 Hosting Bundle on the server** (from Microsoft's .NET download page) before or with this upgrade. Some of the security fixes are in .NET itself, not in BlueTrack, so they only take effect once the server runs .NET 10.0.13 or later. Installing it restarts IIS.
 - Run the installer as usual; it applies the new database scripts (`11_BlueTrack_ConnectionTestAudit.sql`, `12_BlueTrack_CyberArkSourceConfig.sql`, `13_BlueTrack_AccountInventoryFeed.sql`, `14_BlueTrack_FeedAccountLinking.sql`, `15_BlueTrack_ReportingViewsSkipLinkedFeedAccounts.sql`, `16_BlueTrack_BreakGlassAccounts.sql`, `17_BlueTrack_ReportExport.sql`).
 - **If you use Azure Key Vault, AWS Secrets Manager or CyberArk Conjur** in the Secrets Store, enter the stored secret again and save, so it's re-encrypted the new way (the old form still works until then).
 - **Break-glass alerts:** after upgrading, add your break-glass accounts on Identity Providers and give the BreakGlassLogon notification a target role (Notifications).
