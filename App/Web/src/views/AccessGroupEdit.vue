@@ -14,6 +14,9 @@
 // identical reasoning -- Create/Update/Delete are otherwise unchanged.
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const props = defineProps({ accessGroupKey: { type: [String, Number], required: false, default: null } })
 const router = useRouter()
@@ -46,7 +49,7 @@ onMounted(async () => {
   if (isEditMode.value) {
     try {
       const response = await fetch(`/api/admin/access-groups/${props.accessGroupKey}`)
-      if (!response.ok) throw new Error(`Request failed: ${response.status}`)
+      if (!response.ok) throw new Error(t('common.requestFailed', { status: response.status }))
       editing.value = await response.json()
     } catch (err) {
       loadError.value = err.message
@@ -71,7 +74,7 @@ async function save() {
       // D-122: a duplicate (name, identifier, found-on target) comes back as
       // a 409 with a message -- show it rather than a bare status code.
       const problem = await response.json().catch(() => null)
-      saveError.value = problem?.message ?? `Save failed: ${response.status}`
+      saveError.value = problem?.message ?? t('common.saveFailed', { status: response.status })
       return
     }
     router.push({ name: 'access-groups' })
@@ -87,47 +90,47 @@ function cancel() {
 
 <template>
   <div>
-    <h1>{{ isEditMode ? 'Edit Access Group' : 'New Access Group' }}</h1>
-    <p v-if="loading" role="status">Loading...</p>
+    <h1>{{ isEditMode ? t('pages.accessGroupEdit.titleEdit') : t('pages.accessGroupEdit.titleNew') }}</h1>
+    <p v-if="loading" role="status">{{ t('common.loading') }}</p>
     <p v-else-if="loadError" role="alert">{{ loadError }}</p>
 
     <form v-else @submit.prevent="save">
-      <p><label class="field-label"><span class="field-label-text">Name:</span> <input v-model="editing.groupName" required /></label></p>
-      <p><label class="field-label"><span class="field-label-text">Identifier (e.g. AD SID/DN):</span> <input v-model="editing.groupIdentifier" required /></label></p>
+      <p><label class="field-label"><span class="field-label-text">{{ t('pages.accessGroupEdit.name') }}</span> <input v-model="editing.groupName" required /></label></p>
+      <p><label class="field-label"><span class="field-label-text">{{ t('pages.accessGroupEdit.identifier') }}</span> <input v-model="editing.groupIdentifier" required /></label></p>
       <p>
         <label class="field-label">
-          <span class="field-label-text">Scope:</span>
+          <span class="field-label-text">{{ t('pages.accessGroupEdit.scope') }}</span>
           <select v-model="editing.groupScope">
-            <option value="Domain">Domain</option>
-            <option value="Local">Local</option>
+            <option value="Domain">{{ t('pages.accessGroupEdit.domain') }}</option>
+            <option value="Local">{{ t('pages.accessGroupEdit.local') }}</option>
           </select>
         </label>
       </p>
       <p v-if="editing.groupScope === 'Local'">
         <label class="field-label">
-          <span class="field-label-text">Found On Target:</span>
+          <span class="field-label-text">{{ t('pages.accessGroupEdit.foundOnTarget') }}</span>
           <select v-model="editing.foundOnTargetKey">
-            <option :value="null">(none)</option>
+            <option :value="null">{{ t('common.none') }}</option>
             <option v-for="target in targets" :key="target.targetKey" :value="target.targetKey">{{ target.targetName }}</option>
           </select>
         </label>
       </p>
       <p>
         <label class="field-label">
-          <span class="field-label-text">SOR Type:</span>
+          <span class="field-label-text">{{ t('pages.accessGroupEdit.sorType') }}</span>
           <select v-model="editing.sorTypeKey">
-            <option :value="null">(none)</option>
+            <option :value="null">{{ t('common.none') }}</option>
             <option v-for="type in sorTypes" :key="type.sorTypeKey" :value="type.sorTypeKey">{{ type.sorTypeName }}</option>
           </select>
         </label>
       </p>
-      <p><label class="field-label"><span class="field-label-text">SOR Address:</span> <input v-model="editing.sorAddress" placeholder="e.g. company.com or 192.168.1.1" /></label></p>
-      <p><label class="field-label"><span class="field-label-text">Base Risk Score (0-1000):</span> <input v-model.number="editing.baseRiskScore" type="number" min="0" max="1000" required /></label></p>
-      <p><label class="field-label"><span class="field-label-text">Description:</span> <input v-model="editing.description" /></label></p>
-      <p><label class="field-label"><span class="field-label-text">Discovery Source:</span> <input v-model="editing.discoverySource" placeholder="Manual" /></label></p>
+      <p><label class="field-label"><span class="field-label-text">{{ t('pages.accessGroupEdit.sorAddress') }}</span> <input v-model="editing.sorAddress" :placeholder="t('pages.accessGroupEdit.sorAddressPlaceholder')" /></label></p>
+      <p><label class="field-label"><span class="field-label-text">{{ t('pages.accessGroupEdit.baseRiskScore') }}</span> <input v-model.number="editing.baseRiskScore" type="number" min="0" max="1000" required /></label></p>
+      <p><label class="field-label"><span class="field-label-text">{{ t('pages.accessGroupEdit.description') }}</span> <input v-model="editing.description" /></label></p>
+      <p><label class="field-label"><span class="field-label-text">{{ t('pages.accessGroupEdit.discoverySource') }}</span> <input v-model="editing.discoverySource" :placeholder="t('pages.accessGroupEdit.discoverySourcePlaceholder')" /></label></p>
       <p v-if="saveError" role="alert">{{ saveError }}</p>
-      <button type="submit" class="btn-primary" :disabled="saving">Save</button>
-      <button type="button" @click="cancel">Cancel</button>
+      <button type="submit" class="btn-primary" :disabled="saving">{{ t('common.save') }}</button>
+      <button type="button" @click="cancel">{{ t('common.cancel') }}</button>
     </form>
   </div>
 </template>

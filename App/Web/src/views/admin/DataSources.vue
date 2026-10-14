@@ -10,6 +10,9 @@ import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import { confirmDelete } from '../../composables/useConfirmDialog'
 import { feedTypeLabel, formatRunTime } from './dataFeedFormat'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const router = useRouter()
 
@@ -23,20 +26,20 @@ let pollTimer = null
 
 async function loadFeeds() {
   const response = await fetch('/api/admin/data-feeds')
-  if (!response.ok) throw new Error(`Request failed: ${response.status}`)
+  if (!response.ok) throw new Error(t('common.requestFailed', { status: response.status }))
   feeds.value = await response.json()
 }
 
 async function loadStatus() {
   const response = await fetch('/api/admin/data-feeds/status')
-  if (!response.ok) throw new Error(`Request failed: ${response.status}`)
+  if (!response.ok) throw new Error(t('common.requestFailed', { status: response.status }))
   status.value = await response.json()
 }
 
 // D-211: the CyberArk sources' settings, summarized; edited on their own page.
 async function loadCyberArk() {
   const response = await fetch('/api/admin/cyberark-sources')
-  if (!response.ok) throw new Error(`Request failed: ${response.status}`)
+  if (!response.ok) throw new Error(t('common.requestFailed', { status: response.status }))
   cyberArk.value = await response.json()
 }
 
@@ -63,7 +66,7 @@ function startPolling() {
       if (!status.value.isRunning) {
         stopPolling()
         await loadFeeds()
-        message.value = 'Run finished.'
+        message.value = t('admin.dataSources.runFinished')
       }
     } catch (err) {
       stopPolling()
@@ -81,9 +84,11 @@ async function run(feed) {
   error.value = null
   message.value = null
   await loadStatus()
-  const what = feed ? `"${feed.displayName}"` : 'all enabled feeds'
+  const question = feed
+    ? t('admin.dataSources.confirmRunFeed', { name: feed.displayName })
+    : t('admin.dataSources.confirmRunAll')
   if (status.value.withinBusinessHours &&
-      !(await confirmDelete(`It is business hours. Run ${what} now? Imports change data people may be working with.`, 'Run now'))) {
+      !(await confirmDelete(question, t('admin.dataSources.runNow')))) {
     return
   }
   const response = await fetch('/api/admin/data-feeds/run', {
@@ -93,22 +98,22 @@ async function run(feed) {
   })
   if (response.status === 409) {
     const problem = await response.json().catch(() => null)
-    error.value = `A run is already in progress. ${problem?.detail ?? ''}`.trim()
+    error.value = t('admin.dataSources.alreadyRunning', { detail: problem?.detail ?? '' }).trim()
   } else if (!response.ok) {
-    error.value = `Run failed to start: ${response.status}`
+    error.value = t('admin.dataSources.runFailedToStart', { status: response.status })
     return
   } else {
-    message.value = `Started: ${what}.`
+    message.value = feed ? t('admin.dataSources.startedFeed', { name: feed.displayName }) : t('admin.dataSources.startedAll')
   }
   await loadStatus()
   startPolling()
 }
 
 async function remove(feed) {
-  if (!(await confirmDelete(`Delete data feed "${feed.displayName}" and its run history? The file itself is not touched.`))) return
+  if (!(await confirmDelete(t('admin.dataSources.confirmDelete', { name: feed.displayName })))) return
   const response = await fetch(`/api/admin/data-feeds/${feed.dataFeedKey}`, { method: 'DELETE' })
   if (!response.ok) {
-    error.value = `Delete failed: ${response.status}`
+    error.value = t('common.deleteFailed', { status: response.status })
     return
   }
   await loadFeeds()
@@ -117,71 +122,71 @@ async function remove(feed) {
 
 <template>
   <div>
-    <h2>Data Sources</h2>
-    <p v-if="loading" role="status">Loading...</p>
+    <h2>{{ t('admin.dataSources.title') }}</h2>
+    <p v-if="loading" role="status">{{ t('common.loading') }}</p>
 
     <template v-else>
-      <h3>CyberArk sources</h3>
-      <p>Imported by the nightly SQL Agent job, before the data feeds. They don't have Run now.</p>
+      <h3>{{ t('admin.dataSources.cyberArkHeading') }}</h3>
+      <p>{{ t('admin.dataSources.cyberArkIntro') }}</p>
       <template v-if="cyberArk">
-        <p v-if="!cyberArk.isConfigured" role="alert">Not set up yet: the nightly import fails until these settings are saved.</p>
+        <p v-if="!cyberArk.isConfigured" role="alert">{{ t('admin.dataSources.notConfigured') }}</p>
         <ul v-else class="cyberark-summary">
           <li>
-            Privilege Cloud:
-            <template v-if="cyberArk.settings.importPrivilegeCloud">on, from <code>{{ cyberArk.settings.exportFolderPath }}</code></template>
-            <template v-else>off</template>
+            <i18n-t v-if="cyberArk.settings.importPrivilegeCloud" keypath="admin.dataSources.privilegeCloudOn" scope="global">
+              <template #folder><code>{{ cyberArk.settings.exportFolderPath }}</code></template>
+            </i18n-t>
+            <template v-else>{{ t('admin.dataSources.privilegeCloudOff') }}</template>
           </li>
           <li>
-            Self-Hosted:
-            <template v-if="cyberArk.settings.importSelfHosted">on, from the <code>{{ cyberArk.settings.evdDatabaseName }}</code> database</template>
-            <template v-else>off</template>
+            <i18n-t v-if="cyberArk.settings.importSelfHosted" keypath="admin.dataSources.selfHostedOn" scope="global">
+              <template #database><code>{{ cyberArk.settings.evdDatabaseName }}</code></template>
+            </i18n-t>
+            <template v-else>{{ t('admin.dataSources.selfHostedOff') }}</template>
           </li>
         </ul>
       </template>
-      <p><button type="button" @click="router.push({ name: 'admin-cyberark-sources-edit' })">Edit CyberArk sources</button></p>
+      <p><button type="button" @click="router.push({ name: 'admin-cyberark-sources-edit' })">{{ t('admin.dataSources.editCyberArk') }}</button></p>
 
-      <h3>Data feeds</h3>
+      <h3>{{ t('admin.dataSources.dataFeedsHeading') }}</h3>
       <p>
-        Data feeds import a CSV file from a folder, using the same imports as the Bulk Actions uploads.
-        Enabled feeds run every night, in the order shown; the newest file matching the pattern is imported and left in place.
-        The application pool's account needs read access to each folder.
+        {{ t('admin.dataSources.dataFeedsIntro') }}
       </p>
       <p v-if="status" class="feed-status" role="status">
-        <template v-if="status.isRunning">Running{{ status.runningFeed ? `: ${status.runningFeed}` : '' }}…</template>
-        <template v-else>Next nightly run: {{ formatRunTime(status.nextScheduledRun, true) }}.</template>
-        <template v-if="status.withinBusinessHours"> It is business hours.</template>
+        <template v-if="status.isRunning">{{ status.runningFeed ? t('admin.dataSources.runningFeed', { feed: status.runningFeed }) : t('admin.dataSources.running') }}</template>
+        <template v-else>{{ t('admin.dataSources.nextRun', { time: formatRunTime(status.nextScheduledRun, true) }) }}</template>
+        <template v-if="status.withinBusinessHours">{{ ' ' + t('admin.dataSources.businessHours') }}</template>
       </p>
       <p v-if="message" role="status">{{ message }}</p>
       <p v-if="error" role="alert">{{ error }}</p>
 
       <p>
-        <button type="button" class="btn-primary" @click="router.push({ name: 'admin-data-feed-create' })">+ New Feed</button>
-        <button type="button" :disabled="status?.isRunning || feeds.every(f => !f.isEnabled)" @click="run(null)">Run all</button>
+        <button type="button" class="btn-primary" @click="router.push({ name: 'admin-data-feed-create' })">{{ t('admin.dataSources.newFeed') }}</button>
+        <button type="button" :disabled="status?.isRunning || feeds.every(f => !f.isEnabled)" @click="run(null)">{{ t('admin.dataSources.runAll') }}</button>
       </p>
 
-      <p v-if="feeds.length === 0">No data feeds yet.</p>
+      <p v-if="feeds.length === 0">{{ t('admin.dataSources.noFeeds') }}</p>
       <table v-else>
         <thead>
-          <tr><th>Order</th><th>Name</th><th>Import</th><th>File</th><th>Enabled</th><th>Last run</th><th></th></tr>
+          <tr><th>{{ t('admin.dataSources.order') }}</th><th>{{ t('common.name') }}</th><th>{{ t('admin.dataSources.import') }}</th><th>{{ t('admin.dataSources.file') }}</th><th>{{ t('common.enabled') }}</th><th>{{ t('admin.dataSources.lastRun') }}</th><th></th></tr>
         </thead>
         <tbody>
           <tr v-for="feed in feeds" :key="feed.dataFeedKey">
             <td>{{ feed.displayOrder }}</td>
             <td><router-link :to="{ name: 'admin-data-feed-edit', params: { dataFeedKey: feed.dataFeedKey } }">{{ feed.displayName }}</router-link></td>
-            <td>{{ feedTypeLabel(feed.feedType) }}<template v-if="feed.importMappingProfileName"> ({{ feed.importMappingProfileName }})</template></td>
+            <td>{{ feedTypeLabel(feed.feedType) }}<template v-if="feed.importMappingProfileName">{{ ' ' + t('admin.dataSources.profileName', { name: feed.importMappingProfileName }) }}</template></td>
             <td><code>{{ feed.folderPath }}\{{ feed.fileNamePattern }}</code></td>
-            <td>{{ feed.isEnabled ? 'Yes' : 'No' }}</td>
+            <td>{{ feed.isEnabled ? t('admin.dataSources.yes') : t('admin.dataSources.no') }}</td>
             <td>
               <template v-if="feed.lastRun">
                 <strong :class="`outcome-${feed.lastRun.outcome}`">{{ feed.lastRun.outcome }}</strong>
                 {{ formatRunTime(feed.lastRun.startedAt) }}
                 <br /><small>{{ feed.lastRun.summary ?? feed.lastRun.errorMessage }}</small>
               </template>
-              <template v-else>Never run</template>
+              <template v-else>{{ t('admin.dataSources.neverRun') }}</template>
             </td>
             <td>
-              <button type="button" :disabled="status?.isRunning" @click="run(feed)">Run now</button>
-              <button type="button" @click="remove(feed)">Delete</button>
+              <button type="button" :disabled="status?.isRunning" @click="run(feed)">{{ t('admin.dataSources.runNow') }}</button>
+              <button type="button" @click="remove(feed)">{{ t('common.delete') }}</button>
             </td>
           </tr>
         </tbody>

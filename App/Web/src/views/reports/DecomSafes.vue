@@ -5,6 +5,9 @@
 import { ref, onMounted } from 'vue'
 import { formatCount } from '../../utils/formatCount'
 import ReportExportButtons from '../../components/ReportExportButtons.vue'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const items = ref([])
 const error = ref(null)
@@ -13,7 +16,7 @@ const loading = ref(true)
 onMounted(async () => {
   try {
     const response = await fetch('/api/reports/decom-safes')
-    if (!response.ok) throw new Error(`Request failed: ${response.status}`)
+    if (!response.ok) throw new Error(t('common.requestFailed', { status: response.status }))
     items.value = await response.json()
   } catch (err) {
     error.value = err.message
@@ -25,20 +28,20 @@ onMounted(async () => {
 
 <template>
   <div>
-    <h2>Safes Flagged for Deletion</h2>
-    <p class="hint">
-      Safes whose name matches the <strong>safe decommission pattern</strong> (Admin &gt; Global Application Configuration),
-      typically a prefix or suffix such as <code>DEL_</code> or <code>_DECOM</code> added while CyberArk's retention policy
-      keeps the safe, or while its accounts move to another safe. Accounts still in these safes are on
-      <router-link :to="{ name: 'reports-decom-accounts' }">Accounts Flagged for Deletion</router-link>.
-    </p>
+    <h2>{{ t('reports.decomSafes.title') }}</h2>
+    <i18n-t keypath="reports.decomSafes.hint" tag="p" class="hint" scope="global">
+      <template #pattern><strong>{{ t('reports.decomSafes.hintPattern') }}</strong></template>
+      <template #prefix><code>{{ 'DEL_' }}</code></template>
+      <template #suffix><code>{{ '_DECOM' }}</code></template>
+      <template #accountsLink><router-link :to="{ name: 'reports-decom-accounts' }">{{ t('reports.decomSafes.hintAccountsLink') }}</router-link></template>
+    </i18n-t>
     <ReportExportButtons path="/api/reports/decom-safes/export" />
-    <p v-if="loading" role="status">Loading...</p>
-    <p v-else-if="error" role="alert">Could not load the report: {{ error }}</p>
-    <p v-else-if="items.length === 0">No safes are flagged for deletion. If you expected some, check the safe decommission pattern.</p>
+    <p v-if="loading" role="status">{{ t('common.loading') }}</p>
+    <p v-else-if="error" role="alert">{{ t('reports.decomSafes.loadFailed', { error }) }}</p>
+    <p v-else-if="items.length === 0">{{ t('reports.decomSafes.empty') }}</p>
     <table v-else>
       <thead>
-        <tr><th>Safe</th><th>Source</th><th>Application</th><th>Accounts not yet deleted</th><th>Deleted accounts</th></tr>
+        <tr><th>{{ t('reports.decomSafes.colSafe') }}</th><th>{{ t('reports.decomSafes.colSource') }}</th><th>{{ t('reports.decomSafes.colApplication') }}</th><th>{{ t('reports.decomSafes.colActiveAccounts') }}</th><th>{{ t('reports.decomSafes.colDeletedAccounts') }}</th></tr>
       </thead>
       <tbody>
         <tr v-for="item in items" :key="item.safeKey">

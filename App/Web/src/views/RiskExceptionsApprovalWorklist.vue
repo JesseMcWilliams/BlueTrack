@@ -8,6 +8,9 @@
 // other permission-gated pages).
 import { ref, onMounted } from 'vue'
 import { formatDate } from '../utils/formatDate'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const exceptions = ref([])
 const error = ref(null)
@@ -18,8 +21,8 @@ onMounted(async () => {
     const response = await fetch('/api/risk-exceptions/active')
     if (!response.ok) {
       throw new Error(response.status === 403
-        ? 'You do not have the ApproveExceptions permission.'
-        : `Request failed: ${response.status}`)
+        ? t('pages.riskExceptionsApprovalWorklist.noPermission')
+        : t('common.requestFailed', { status: response.status }))
     }
     exceptions.value = await response.json()
   } catch (err) {
@@ -32,19 +35,19 @@ onMounted(async () => {
 
 <template>
   <div>
-    <h2>Exception Approval Worklist</h2>
-    <p>Every currently-Active exception.</p>
-    <p v-if="loading" role="status">Loading...</p>
+    <h2>{{ t('pages.riskExceptionsApprovalWorklist.title') }}</h2>
+    <p>{{ t('pages.riskExceptionsApprovalWorklist.intro') }}</p>
+    <p v-if="loading" role="status">{{ t('common.loading') }}</p>
     <p v-else-if="error" role="alert">{{ error }}</p>
-    <p v-else-if="exceptions.length === 0">No Active exceptions.</p>
+    <p v-else-if="exceptions.length === 0">{{ t('pages.riskExceptionsApprovalWorklist.none') }}</p>
     <table v-else>
       <thead>
         <tr>
-          <th>Exception ID</th>
-          <th>Scope</th>
-          <th>Justification</th>
-          <th>Approved By</th>
-          <th>Review Date</th>
+          <th>{{ t('pages.riskExceptionsApprovalWorklist.colExceptionId') }}</th>
+          <th>{{ t('pages.riskExceptionsApprovalWorklist.colScope') }}</th>
+          <th>{{ t('pages.riskExceptionsApprovalWorklist.colJustification') }}</th>
+          <th>{{ t('pages.riskExceptionsApprovalWorklist.colApprovedBy') }}</th>
+          <th>{{ t('pages.riskExceptionsApprovalWorklist.colReviewDate') }}</th>
         </tr>
       </thead>
       <tbody>

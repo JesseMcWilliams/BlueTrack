@@ -7,6 +7,9 @@ import { useTotalCount } from '../../composables/useTotalCount'
 import { usePageSizeStore } from '../../stores/pageSize'
 import FilterCountSummary from '../../components/FilterCountSummary.vue'
 import Pager from '../../components/Pager.vue'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const { totalCount, filteredCount, readTotalCount } = useTotalCount()
 const pageSizeStore = usePageSizeStore()
@@ -50,10 +53,10 @@ const fieldChanges = ref([])
 // Progress List and the Risk Exceptions list.
 const sortColumns = ref([])
 const columns = [
-  { field: 'occurredAt', label: 'Occurred At' },
-  { field: 'eventTypeName', label: 'Event Type' },
-  { field: 'performedByName', label: 'By' },
-  { field: 'entityName', label: 'Entity' }
+  { field: 'occurredAt', labelKey: 'admin.auditLogViewer.occurredAt' },
+  { field: 'eventTypeName', labelKey: 'admin.auditLogViewer.eventType' },
+  { field: 'performedByName', labelKey: 'admin.auditLogViewer.by' },
+  { field: 'entityName', labelKey: 'admin.auditLogViewer.entity' }
 ]
 
 function sortIndicator(field) {
@@ -108,7 +111,7 @@ async function load() {
     params.set('pageSize', pageSizeStore.current)
 
     const response = await fetch(`/api/audit-log?${params.toString()}`)
-    if (!response.ok) throw new Error(`Request failed: ${response.status}`)
+    if (!response.ok) throw new Error(t('common.requestFailed', { status: response.status }))
     readTotalCount(response)
     events.value = await response.json()
   } catch (err) {
@@ -139,31 +142,31 @@ async function toggleFieldChanges(event) {
 
 <template>
   <div>
-    <h2>Audit Log Viewer</h2>
+    <h2>{{ t('admin.auditLogViewer.title') }}</h2>
 
     <form class="filter-row" @submit.prevent="loadFiltered">
-      <label class="field-label"><span class="field-label-text">Event Type:</span> <input v-model="eventTypeFilter" placeholder="e.g. FieldEdit" /></label>
-      <label class="field-label"><span class="field-label-text">Entity:</span> <input v-model="entityNameFilter" placeholder="e.g. risk_exception" /></label>
-      <label class="field-label"><span class="field-label-text">From:</span> <input v-model="fromDateFilter" type="date" /></label>
-      <label class="field-label"><span class="field-label-text">To:</span> <input v-model="toDateFilter" type="date" /></label>
-      <button type="submit" class="btn-primary">Filter</button>
+      <label class="field-label"><span class="field-label-text">{{ t('admin.auditLogViewer.eventTypeLabel') }}</span> <input v-model="eventTypeFilter" :placeholder="t('admin.auditLogViewer.eventTypePlaceholder')" /></label>
+      <label class="field-label"><span class="field-label-text">{{ t('admin.auditLogViewer.entityLabel') }}</span> <input v-model="entityNameFilter" :placeholder="t('admin.auditLogViewer.entityPlaceholder')" /></label>
+      <label class="field-label"><span class="field-label-text">{{ t('admin.auditLogViewer.fromLabel') }}</span> <input v-model="fromDateFilter" type="date" /></label>
+      <label class="field-label"><span class="field-label-text">{{ t('admin.auditLogViewer.toLabel') }}</span> <input v-model="toDateFilter" type="date" /></label>
+      <button type="submit" class="btn-primary">{{ t('admin.auditLogViewer.filter') }}</button>
     </form>
 
     <FilterCountSummary :shown="events.length" :filtered-count="filteredCount" :total="totalCount" :page="page" :page-size="pageSizeStore.current" />
     <Pager :page="page" :page-count="pageCount" @update:page="onPageChange" @page-size-change="onPageSizeChange" />
     <p v-if="error" role="alert">{{ error }}</p>
-    <p v-if="loading" role="status">Loading...</p>
-    <p v-else-if="events.length === 0">No matching audit events.</p>
+    <p v-if="loading" role="status">{{ t('common.loading') }}</p>
+    <p v-else-if="events.length === 0">{{ t('admin.auditLogViewer.noEvents') }}</p>
 
     <table v-else>
       <thead>
         <tr>
           <th v-for="col in columns" :key="col.field" :aria-sort="ariaSortFor(col.field)">
             <button type="button" @click="toggleSort(col.field, $event)">
-              {{ col.label }} <span aria-hidden="true">{{ sortIndicator(col.field) }}</span>
+              {{ t(col.labelKey) }} <span aria-hidden="true">{{ sortIndicator(col.field) }}</span>
             </button>
           </th>
-          <th>Detail</th>
+          <th>{{ t('admin.auditLogViewer.detail') }}</th>
         </tr>
       </thead>
       <tbody>
@@ -186,10 +189,10 @@ async function toggleFieldChanges(event) {
           </tr>
           <tr v-if="expandedEventKey === event.auditEventKey" :id="`audit-detail-${event.auditEventKey}`">
             <td colspan="5">
-              <p v-if="event.reason"><strong>Reason:</strong> {{ event.reason }}</p>
-              <p v-if="fieldChanges.length === 0">No field-level changes recorded for this event.</p>
+              <p v-if="event.reason"><strong>{{ t('admin.auditLogViewer.reason') }}</strong> {{ event.reason }}</p>
+              <p v-if="fieldChanges.length === 0">{{ t('admin.auditLogViewer.noFieldChanges') }}</p>
               <table v-else>
-                <thead><tr><th>Field</th><th>Old Value</th><th>New Value</th></tr></thead>
+                <thead><tr><th>{{ t('admin.auditLogViewer.field') }}</th><th>{{ t('admin.auditLogViewer.oldValue') }}</th><th>{{ t('admin.auditLogViewer.newValue') }}</th></tr></thead>
                 <tbody>
                   <tr v-for="change in fieldChanges" :key="change.fieldName">
                     <td>{{ change.fieldName }}</td>

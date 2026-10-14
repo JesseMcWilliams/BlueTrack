@@ -26,6 +26,9 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { confirmDelete } from '../../composables/useConfirmDialog'
 import BreakGlassAccounts from './BreakGlassAccounts.vue'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const router = useRouter()
 
@@ -56,7 +59,7 @@ async function load() {
       fetch('/api/admin/identity-providers'),
       fetch('/api/admin/identity-providers/default')
     ])
-    if (!response.ok) throw new Error(`Request failed: ${response.status}`)
+    if (!response.ok) throw new Error(t('common.requestFailed', { status: response.status }))
     providers.value = await response.json()
     if (defaultResponse.ok) defaultProviderType.value = (await defaultResponse.json()).providerType ?? ''
   } catch (err) {
@@ -79,7 +82,7 @@ async function saveDefault() {
       body: JSON.stringify({ providerType: defaultProviderType.value || null })
     })
     if (!response.ok) {
-      error.value = `Saving the default sign-in method failed: ${response.status}`
+      error.value = t('admin.identityProviders.saveDefaultFailed', { status: response.status })
       return
     }
     defaultSaved.value = true
@@ -89,10 +92,10 @@ async function saveDefault() {
 }
 
 async function remove(provider) {
-  if (!(await confirmDelete(`Delete Identity Provider "${provider.displayName}"? This cannot be undone.`))) return
+  if (!(await confirmDelete(t('admin.identityProviders.confirmDelete', { name: provider.displayName })))) return
   const response = await fetch(`/api/admin/identity-providers/${provider.providerKey}`, { method: 'DELETE' })
   if (!response.ok) {
-    error.value = `Delete failed: ${response.status}`
+    error.value = t('common.deleteFailed', { status: response.status })
     return
   }
   await load()
@@ -101,16 +104,16 @@ async function remove(provider) {
 
 <template>
   <div>
-    <h2>Identity Providers</h2>
+    <h2>{{ t('admin.identityProviders.title') }}</h2>
     <p v-if="error" role="alert">{{ error }}</p>
-    <p v-if="loading" role="status">Loading...</p>
+    <p v-if="loading" role="status">{{ t('common.loading') }}</p>
 
     <template v-else>
-      <p><button type="button" class="btn-primary" @click="router.push({ name: 'admin-identity-provider-create' })">+ New Provider</button></p>
+      <p><button type="button" class="btn-primary" @click="router.push({ name: 'admin-identity-provider-create' })">{{ t('admin.identityProviders.newProvider') }}</button></p>
 
       <table>
         <thead>
-          <tr><th>Type</th><th>Display Name</th><th>Enabled</th><th>Order</th><th></th></tr>
+          <tr><th>{{ t('admin.identityProviders.type') }}</th><th>{{ t('admin.identityProviders.displayName') }}</th><th>{{ t('common.enabled') }}</th><th>{{ t('admin.identityProviders.order') }}</th><th></th></tr>
         </thead>
         <tbody>
           <tr v-for="provider in providers" :key="provider.providerKey">
@@ -119,30 +122,29 @@ async function remove(provider) {
             <td>{{ provider.isEnabled }}</td>
             <td>{{ provider.displayOrder }}</td>
             <td>
-              <button @click="remove(provider)">Delete</button>
+              <button @click="remove(provider)">{{ t('common.delete') }}</button>
             </td>
           </tr>
         </tbody>
       </table>
 
-      <h3>Sign-in</h3>
+      <h3>{{ t('admin.identityProviders.signInHeading') }}</h3>
       <form class="filter-row" @submit.prevent="saveDefault">
         <label class="field-label">
-          <span class="field-label-text">Default sign-in method</span>
+          <span class="field-label-text">{{ t('admin.identityProviders.defaultMethod') }}</span>
           <select v-model="defaultProviderType" @change="defaultSaved = false">
-            <option value="">None (the sign-in page lists the methods)</option>
-            <option v-for="type in signInTypes" :key="type" :value="type">{{ type }}{{ isEnabledType(type) ? '' : ' (disabled)' }}</option>
+            <option value="">{{ t('admin.identityProviders.noDefault') }}</option>
+            <option v-for="type in signInTypes" :key="type" :value="type">{{ type }}{{ isEnabledType(type) ? '' : ' ' + t('admin.identityProviders.disabled') }}</option>
           </select>
         </label>
-        <button type="submit" :disabled="savingDefault">Save</button>
+        <button type="submit" :disabled="savingDefault">{{ t('common.save') }}</button>
       </form>
-      <p v-if="defaultSaved" role="status">Saved. It applies the next time someone signs in.</p>
+      <p v-if="defaultSaved" role="status">{{ t('admin.identityProviders.defaultSaved') }}</p>
       <p>
-        With a default, people without a session go straight to it: Windows signs in silently, OIDC and SAML go to the identity provider.
-        A direct address always uses its own method, so it suits an identity provider's launch URL or a link you hand out:
+        {{ t('admin.identityProviders.defaultHint') }}
       </p>
       <ul>
-        <li v-for="type in signInTypes" :key="type"><code>{{ directAddress(type) }}</code> {{ type }}{{ isEnabledType(type) ? '' : ' (disabled)' }}</li>
+        <li v-for="type in signInTypes" :key="type"><code>{{ directAddress(type) }}</code> {{ type }}{{ isEnabledType(type) ? '' : ' ' + t('admin.identityProviders.disabled') }}</li>
       </ul>
       <!-- D-216 -->
       <BreakGlassAccounts />

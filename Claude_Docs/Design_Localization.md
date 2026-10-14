@@ -1,6 +1,6 @@
 # Web Interface Design Document — Localization
 
-How the SPA's text is localized (D-227), and the convention guide for converting a page. Phase 1 (done) built the framework and converted the app shell and every shared component; phase 2 converts `views/admin/*`, `views/reports/*` and the remaining `views/*`.
+How the SPA's text is localized (D-227), and the conventions for adding or changing text. Every page, component, composable and store is converted; English is the only language so far.
 
 ## Scope
 
@@ -28,17 +28,17 @@ How the SPA's text is localized (D-227), and the convention guide for converting
 
 ## File ownership
 
-Each area is one JSON file, and each converter edits **only its own file**:
+Each area is one JSON file; a page's text goes in its area's file:
 
-| File | Owner | Covers |
-|---|---|---|
-| `locales/en/common.json` | phase 1 (frozen during phase 2) | shared words, see below |
-| `locales/en/shell.json` | phase 1 | `App.vue`, nav, breadcrumbs (`shell.routes.*`), user menu, About, Login, Profile & Preferences, Access Denied/Not Found, everything in `components/`, `composables/`, stores |
-| `locales/en/admin.json` | phase 2, admin | `views/admin/*` (incl. `dataFeedFormat.js`) |
-| `locales/en/reports.json` | phase 2, reports | `views/reports/*` |
-| `locales/en/pages.json` | phase 2, pages | the rest of `views/*` (Dashboard, Accounts, Exceptions, Targets, Access Groups, bulk pages) |
+| File | Covers |
+|---|---|
+| `locales/en/common.json` | shared words, see below |
+| `locales/en/shell.json` | `App.vue`, nav, breadcrumbs (`shell.routes.*`), user menu, About, Login, Profile & Preferences, Access Denied/Not Found, everything in `components/`, `composables/`, stores |
+| `locales/en/admin.json` | `views/admin/*` (incl. `dataFeedFormat.js`) |
+| `locales/en/reports.json` | `views/reports/*` |
+| `locales/en/pages.json` | the rest of `views/*` (Dashboard, Accounts, Exceptions, Targets, Access Groups, bulk pages) |
 
-Don't edit `common.json`, `shell.json`, `src/i18n/*`, `src/test/*` or `keyCoverage.test.js` in phase 2. If a word you need isn't in `common`, add it to your own file under your page (`admin.dataSources.refresh`), and list it in your report as a candidate for `common`.
+When parallel work converts several areas at once, each worker edits only its own area's file. A word needed by one page that isn't in `common` goes under that page (`admin.dataSources.refresh`). Candidates noted during the conversion for moving into `common` later: Yes/No, All, Selected, Import, Total, N/A, Dismiss, "Row {row}: {error}", "This cannot be undone."
 
 `common` holds: `save`, `cancel`, `delete`, `edit`, `add`, `remove`, `close`, `clear`, `continue`, `name`, `description`, `status`, `enabled`, `active`, `none` "(none)", `blank` "(blank)", `loading` "Loading...", `importing` "Importing...", `saved` "Saved.", `downloadTemplate`, `exportCsv`, `exportExcel`, `requestFailed` "Request failed: {status}", `saveFailed`, `deleteFailed`, `importFailed`, `exportFailed` (each "… failed: {status}"). Use one only when the English is exactly the same.
 
@@ -93,7 +93,7 @@ Outside a component (a store, composable or `.js` helper): `import { t } from '.
 
 - `src/test/setup.js` installs the app's i18n instance on every `mount()` and resets English before each test, so existing tests need no change: keep `mount(X, { global: { plugins: [router] } })` and don't add i18n to `plugins` again.
 - `src/test/i18n.js`: `tt(key, params)` gives a message's English text for an assertion (prefer asserting the literal English, as E2E does); `resetI18n()` puts the language and format locale back after a test changes them; `i18n` is the instance.
-- The guard (`npx vitest run src/i18n`) fails when: a key used in code is missing from English; an English key is unused (except `RESERVED` common words); a key is built at run time; a registered locale lacks a key English has; a message doesn't compile to its own text (an unescaped `@` or `|`); or a `.vue` file that calls `useI18n(` still has letters in its template outside `{{ }}` and tags, or a static `aria-label`/`title`/`placeholder`/`alt`. Fully convert a file once you add `useI18n` to it. The hard-coded-text check only reads templates; strings in `<script>` are on you.
+- The guard (`npx vitest run src/i18n`) fails when: a key used in code is missing from English; an English key is unused (except keys listed in `RESERVED`, empty today); a key is built at run time; a registered locale lacks a key English has; a message doesn't compile to its own text (an unescaped `@` or `|`); or a `.vue` file that calls `useI18n(` still has letters in its template outside `{{ }}` and tags, or a static `aria-label`/`title`/`placeholder`/`alt`. Fully convert a file once you add `useI18n` to it. The hard-coded-text check only reads templates; strings in `<script>` are on you.
 
 ## Adding a language
 

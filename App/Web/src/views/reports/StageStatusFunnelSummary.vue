@@ -5,6 +5,9 @@
 import { ref, computed, onMounted } from 'vue'
 import { formatCount } from '../../utils/formatCount'
 import ReportExportButtons from '../../components/ReportExportButtons.vue'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const rows = ref([])
 const error = ref(null)
@@ -14,7 +17,7 @@ onMounted(async () => {
   try {
     const response = await fetch('/api/reports/stage-status-summary')
     if (!response.ok) {
-      throw new Error(`Request failed: ${response.status}`)
+      throw new Error(t('common.requestFailed', { status: response.status }))
     }
     rows.value = await response.json()
   } catch (err) {
@@ -43,17 +46,17 @@ function stageTotal(stageName) {
 
 <template>
   <div>
-    <h2>Stage/Status Funnel Summary</h2>
+    <h2>{{ t('reports.stageStatusFunnelSummary.title') }}</h2>
     <ReportExportButtons path="/api/reports/stage-status-summary/export" />
-    <p v-if="loading" role="status">Loading...</p>
-    <p v-else-if="error" role="alert">Could not load summary: {{ error }}</p>
-    <p v-else-if="rows.length === 0">No account progress data yet.</p>
+    <p v-if="loading" role="status">{{ t('common.loading') }}</p>
+    <p v-else-if="error" role="alert">{{ t('reports.stageStatusFunnelSummary.loadFailed', { error }) }}</p>
+    <p v-else-if="rows.length === 0">{{ t('reports.stageStatusFunnelSummary.empty') }}</p>
     <table v-else>
       <thead>
         <tr>
-          <th>Stage</th>
+          <th>{{ t('reports.stageStatusFunnelSummary.colStage') }}</th>
           <th v-for="status in statuses" :key="status">{{ status }}</th>
-          <th>Total</th>
+          <th>{{ t('reports.stageStatusFunnelSummary.colTotal') }}</th>
         </tr>
       </thead>
       <tbody>

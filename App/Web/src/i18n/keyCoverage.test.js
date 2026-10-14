@@ -19,14 +19,10 @@ const SRC = join(dirname(fileURLToPath(import.meta.url)), '..')
 const AREAS = ['common', 'shell', 'admin', 'reports', 'pages']
 const KEY_PATTERN = new RegExp(`['"\`]((?:${AREAS.join('|')})(?:\\.[A-Za-z0-9_]+)+)['"\`]`, 'g')
 
-// Shared words added to common.json ahead of the phase-2 page conversions.
-// Leaving one here once it's used is harmless; a key that is neither used
+// English keys allowed to be unused (e.g. added ahead of the page that will
+// use them). Empty once every page is converted; a key that is neither used
 // nor listed here fails test 2.
-const RESERVED = new Set([
-  'common.save', 'common.edit', 'common.add', 'common.remove', 'common.description',
-  'common.status', 'common.enabled', 'common.active', 'common.importing', 'common.saved',
-  'common.downloadTemplate', 'common.saveFailed', 'common.deleteFailed', 'common.importFailed'
-])
+const RESERVED = new Set([])
 
 function sourceFiles(dir = SRC) {
   const files = []

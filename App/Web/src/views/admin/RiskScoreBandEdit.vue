@@ -7,6 +7,9 @@
 // new GET-by-id endpoint -- no API contract change for this page.
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const props = defineProps({ riskScoreBandKey: { type: [String, Number], required: false, default: null } })
 const router = useRouter()
@@ -23,10 +26,10 @@ onMounted(async () => {
   if (isEditMode.value) {
     try {
       const response = await fetch('/api/admin/risk-score-bands')
-      if (!response.ok) throw new Error(`Request failed: ${response.status}`)
+      if (!response.ok) throw new Error(t('common.requestFailed', { status: response.status }))
       const items = await response.json()
       const match = items.find(item => String(item.riskScoreBandKey) === String(props.riskScoreBandKey))
-      if (!match) throw new Error('Band not found.')
+      if (!match) throw new Error(t('admin.riskScoreBandEdit.notFound'))
       editing.value = { ...match }
     } catch (err) {
       loadError.value = err.message
@@ -47,7 +50,7 @@ async function save() {
     })
     if (!response.ok) {
       const problem = await response.json().catch(() => null)
-      saveError.value = problem?.detail ?? problem?.message ?? `Save failed: ${response.status}`
+      saveError.value = problem?.detail ?? problem?.message ?? t('common.saveFailed', { status: response.status })
       return
     }
     router.push({ name: 'admin-risk-score-bands' })
@@ -63,18 +66,18 @@ function cancel() {
 
 <template>
   <div>
-    <h2>{{ isEditMode ? 'Edit Band' : 'New Band' }}</h2>
-    <p v-if="loading" role="status">Loading...</p>
+    <h2>{{ isEditMode ? t('admin.riskScoreBandEdit.editTitle') : t('admin.riskScoreBandEdit.newTitle') }}</h2>
+    <p v-if="loading" role="status">{{ t('common.loading') }}</p>
     <p v-else-if="loadError" role="alert">{{ loadError }}</p>
 
     <form v-else @submit.prevent="save">
-      <p><label class="field-label"><span class="field-label-text">Name:</span> <input v-model="editing.bandName" required /></label></p>
-      <p><label class="field-label"><span class="field-label-text">Min Score:</span> <input v-model.number="editing.minScore" type="number" required /></label></p>
-      <p><label class="field-label"><span class="field-label-text">Max Score:</span> <input v-model.number="editing.maxScore" type="number" required /></label></p>
-      <p><label class="field-label"><span class="field-label-text">Risk Order:</span> <input v-model.number="editing.riskOrder" type="number" required /></label></p>
+      <p><label class="field-label"><span class="field-label-text">{{ t('admin.riskScoreBandEdit.name') }}</span> <input v-model="editing.bandName" required /></label></p>
+      <p><label class="field-label"><span class="field-label-text">{{ t('admin.riskScoreBandEdit.minScore') }}</span> <input v-model.number="editing.minScore" type="number" required /></label></p>
+      <p><label class="field-label"><span class="field-label-text">{{ t('admin.riskScoreBandEdit.maxScore') }}</span> <input v-model.number="editing.maxScore" type="number" required /></label></p>
+      <p><label class="field-label"><span class="field-label-text">{{ t('admin.riskScoreBandEdit.riskOrder') }}</span> <input v-model.number="editing.riskOrder" type="number" required /></label></p>
       <p v-if="saveError" role="alert">{{ saveError }}</p>
-      <button type="submit" class="btn-primary" :disabled="saving">Save</button>
-      <button type="button" @click="cancel">Cancel</button>
+      <button type="submit" class="btn-primary" :disabled="saving">{{ t('common.save') }}</button>
+      <button type="button" @click="cancel">{{ t('common.cancel') }}</button>
     </form>
   </div>
 </template>

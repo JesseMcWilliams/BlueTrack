@@ -4,6 +4,9 @@
 import { ref, onMounted } from 'vue'
 import { formatDate } from '../../utils/formatDate'
 import ReportExportButtons from '../../components/ReportExportButtons.vue'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const accounts = ref([])
 const error = ref(null)
@@ -13,7 +16,7 @@ onMounted(async () => {
   try {
     const response = await fetch('/api/reports/overdue-at-risk')
     if (!response.ok) {
-      throw new Error(`Request failed: ${response.status}`)
+      throw new Error(t('common.requestFailed', { status: response.status }))
     }
     accounts.value = await response.json()
   } catch (err) {
@@ -26,20 +29,20 @@ onMounted(async () => {
 
 <template>
   <div>
-    <h2>Overdue / At-Risk Worklist</h2>
+    <h2>{{ t('reports.overdueAtRiskWorklist.title') }}</h2>
     <ReportExportButtons path="/api/reports/overdue-at-risk/export" />
-    <p v-if="loading" role="status">Loading...</p>
-    <p v-else-if="error" role="alert">Could not load accounts: {{ error }}</p>
-    <p v-else-if="accounts.length === 0">No accounts are past their target remediation date.</p>
+    <p v-if="loading" role="status">{{ t('common.loading') }}</p>
+    <p v-else-if="error" role="alert">{{ t('reports.overdueAtRiskWorklist.loadFailed', { error }) }}</p>
+    <p v-else-if="accounts.length === 0">{{ t('reports.overdueAtRiskWorklist.empty') }}</p>
     <table v-else>
       <thead>
         <tr>
-          <th>Account</th>
-          <th>Stage</th>
-          <th>Status</th>
-          <th>Risk Level</th>
-          <th>Owner</th>
-          <th>Target Remediation Date</th>
+          <th>{{ t('reports.overdueAtRiskWorklist.colAccount') }}</th>
+          <th>{{ t('reports.overdueAtRiskWorklist.colStage') }}</th>
+          <th>{{ t('reports.overdueAtRiskWorklist.colStatus') }}</th>
+          <th>{{ t('reports.overdueAtRiskWorklist.colRiskLevel') }}</th>
+          <th>{{ t('reports.overdueAtRiskWorklist.colOwner') }}</th>
+          <th>{{ t('reports.overdueAtRiskWorklist.colTargetDate') }}</th>
         </tr>
       </thead>
       <tbody>

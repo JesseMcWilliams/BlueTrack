@@ -7,6 +7,9 @@
 // endpoint -- no API contract change for this page.
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const props = defineProps({ appRoleKey: { type: [String, Number], required: false, default: null } })
 const router = useRouter()
@@ -35,10 +38,10 @@ onMounted(async () => {
   if (isEditMode.value) {
     try {
       const response = await fetch('/api/admin/roles')
-      if (!response.ok) throw new Error(`Request failed: ${response.status}`)
+      if (!response.ok) throw new Error(t('common.requestFailed', { status: response.status }))
       const roles = await response.json()
       const match = roles.find(role => String(role.appRoleKey) === String(props.appRoleKey))
-      if (!match) throw new Error('Role not found.')
+      if (!match) throw new Error(t('admin.roleEdit.notFound'))
       editing.value = { ...match, permissionNames: [...match.permissionNames] }
     } catch (err) {
       loadError.value = err.message
@@ -60,7 +63,7 @@ async function save() {
       body: JSON.stringify(editing.value)
     })
     if (!response.ok) {
-      saveError.value = `Save failed: ${response.status}`
+      saveError.value = t('common.saveFailed', { status: response.status })
       return
     }
     router.push({ name: 'admin-roles-permissions' })
@@ -76,16 +79,16 @@ function cancel() {
 
 <template>
   <div>
-    <h2>{{ isEditMode ? 'Edit Role' : 'New Role' }}</h2>
-    <p v-if="loading" role="status">Loading...</p>
+    <h2>{{ isEditMode ? t('admin.roleEdit.editTitle') : t('admin.roleEdit.newTitle') }}</h2>
+    <p v-if="loading" role="status">{{ t('common.loading') }}</p>
     <p v-else-if="loadError" role="alert">{{ loadError }}</p>
 
     <form v-else @submit.prevent="save">
-      <p><label class="field-label"><span class="field-label-text">Role Name:</span> <input v-model="editing.roleName" required /></label></p>
-      <p><label class="field-label"><span class="field-label-text">Description:</span> <input v-model="editing.description" /></label></p>
-      <p><label class="field-label"><span class="field-label-text">Notification Email:</span> <input v-model="editing.notificationEmail" type="email" placeholder="ops-team@company.com" /></label></p>
+      <p><label class="field-label"><span class="field-label-text">{{ t('admin.roleEdit.roleName') }}</span> <input v-model="editing.roleName" required /></label></p>
+      <p><label class="field-label"><span class="field-label-text">{{ t('admin.roleEdit.description') }}</span> <input v-model="editing.description" /></label></p>
+      <p><label class="field-label"><span class="field-label-text">{{ t('admin.roleEdit.notificationEmail') }}</span> <input v-model="editing.notificationEmail" type="email" :placeholder="t('admin.roleEdit.notificationEmailPlaceholder')" /></label></p>
       <p>
-        Permissions:
+        {{ t('admin.roleEdit.permissions') }}
         <label v-for="perm in catalog" :key="perm.permissionKey" style="display: block">
           <input
             type="checkbox"
@@ -96,8 +99,8 @@ function cancel() {
         </label>
       </p>
       <p v-if="saveError" role="alert">{{ saveError }}</p>
-      <button type="submit" class="btn-primary" :disabled="saving">Save</button>
-      <button type="button" @click="cancel">Cancel</button>
+      <button type="submit" class="btn-primary" :disabled="saving">{{ t('common.save') }}</button>
+      <button type="button" @click="cancel">{{ t('common.cancel') }}</button>
     </form>
   </div>
 </template>

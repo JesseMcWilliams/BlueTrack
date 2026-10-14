@@ -6,6 +6,9 @@ import { apiUrl } from '../utils/apiBase'
 // row gets a BlueTrack ExceptionID and keeps its source tool, ID and link.
 import { ref } from 'vue'
 import { formatCount } from '../utils/formatCount'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const file = ref(null)
 const result = ref(null)
@@ -19,7 +22,7 @@ async function importFile() {
     const formData = new FormData()
     formData.append('file', file.value)
     const response = await fetch('/api/risk-exceptions/import', { method: 'POST', body: formData })
-    result.value = response.ok ? await response.json() : { error: `Import failed: ${response.status}` }
+    result.value = response.ok ? await response.json() : { error: t('common.importFailed', { status: response.status }) }
   } finally {
     importing.value = false
   }
@@ -28,30 +31,30 @@ async function importFile() {
 
 <template>
   <div>
-    <h1>Risk Exceptions: Bulk Actions</h1>
+    <h1>{{ t('pages.riskExceptionsBulkImport.title') }}</h1>
 
-    <h3>Bulk Import: Exceptions from another tool</h3>
-    <p><a :href="apiUrl('/api/risk-exceptions/import/template')">Download template</a> -- one row per exception. Each gets a new BlueTrack Exception ID.</p>
+    <h3>{{ t('pages.riskExceptionsBulkImport.importHeading') }}</h3>
+    <p><a :href="apiUrl('/api/risk-exceptions/import/template')">{{ t('common.downloadTemplate') }}</a> {{ t('pages.riskExceptionsBulkImport.templateIntro') }}</p>
     <ul>
-      <li><strong>SourceTool</strong>, <strong>SourceExceptionId</strong> (required): where it came from. The same tool and ID already imported is an error.</li>
-      <li><strong>SourceUrl</strong>: a link to it in that tool (http:// or https://).</li>
-      <li>What it covers, exactly one of: <strong>AccountUserName</strong> + <strong>AccountAddress</strong> (both required, an exact match; an account without an address can't be matched), or <strong>ApplicationCode</strong>.</li>
-      <li><strong>Justification</strong>, <strong>ApprovedByName</strong> (the approver in that tool), <strong>ApprovalDate</strong>, <strong>ReviewDate</strong> (required; dates as yyyy-MM-dd).</li>
-      <li><strong>Status</strong>: Active, Expired or Revoked (blank means Active). <strong>ExternalTicketReference</strong> is optional.</li>
-      <li><strong>LinkToAccountProgress</strong>: Yes also sets an Active account exception's account to Risk Accepted / Excluded, linked to it (blank means No).</li>
+      <i18n-t keypath="pages.riskExceptionsBulkImport.ruleSource" tag="li" scope="global"><template #sourceTool><strong>{{ 'SourceTool' }}</strong></template><template #sourceExceptionId><strong>{{ 'SourceExceptionId' }}</strong></template></i18n-t>
+      <i18n-t keypath="pages.riskExceptionsBulkImport.ruleSourceUrl" tag="li" scope="global"><template #sourceUrl><strong>{{ 'SourceUrl' }}</strong></template></i18n-t>
+      <i18n-t keypath="pages.riskExceptionsBulkImport.ruleScope" tag="li" scope="global"><template #accountUserName><strong>{{ 'AccountUserName' }}</strong></template><template #accountAddress><strong>{{ 'AccountAddress' }}</strong></template><template #applicationCode><strong>{{ 'ApplicationCode' }}</strong></template></i18n-t>
+      <i18n-t keypath="pages.riskExceptionsBulkImport.ruleApproval" tag="li" scope="global"><template #justification><strong>{{ 'Justification' }}</strong></template><template #approvedByName><strong>{{ 'ApprovedByName' }}</strong></template><template #approvalDate><strong>{{ 'ApprovalDate' }}</strong></template><template #reviewDate><strong>{{ 'ReviewDate' }}</strong></template></i18n-t>
+      <i18n-t keypath="pages.riskExceptionsBulkImport.ruleStatus" tag="li" scope="global"><template #status><strong>{{ 'Status' }}</strong></template><template #externalTicketReference><strong>{{ 'ExternalTicketReference' }}</strong></template></i18n-t>
+      <i18n-t keypath="pages.riskExceptionsBulkImport.ruleLink" tag="li" scope="global"><template #linkToAccountProgress><strong>{{ 'LinkToAccountProgress' }}</strong></template></i18n-t>
     </ul>
     <p class="filter-row">
-      <input type="file" accept=".csv" aria-label="Risk exceptions CSV file" @change="file = $event.target.files[0] ?? null" />
-      <button :disabled="!file || importing" @click="importFile">{{ importing ? 'Importing...' : 'Import' }}</button>
+      <input type="file" accept=".csv" :aria-label="t('pages.riskExceptionsBulkImport.fileLabel')" @change="file = $event.target.files[0] ?? null" />
+      <button :disabled="!file || importing" @click="importFile">{{ importing ? t('common.importing') : t('pages.riskExceptionsBulkImport.import') }}</button>
     </p>
     <div v-if="result" data-testid="exceptions-result" role="status">
       <p v-if="result.error">{{ result.error }}</p>
       <template v-else>
-        <p>{{ formatCount(result.totalRows) }} rows -- {{ formatCount(result.createdCount) }} imported, {{ formatCount(result.linkedCount) }} linked to Account Progress, {{ formatCount(result.errors.length) }} errors</p>
+        <p>{{ t('pages.riskExceptionsBulkImport.summary', { total: formatCount(result.totalRows), created: formatCount(result.createdCount), linked: formatCount(result.linkedCount), errors: formatCount(result.errors.length) }) }}</p>
         <ul v-if="result.errors.length">
-          <li v-for="e in result.errors" :key="`${e.rowNumber}-${e.error}`">Row {{ e.rowNumber }}: {{ e.error }}</li>
+          <li v-for="e in result.errors" :key="`${e.rowNumber}-${e.error}`">{{ t('pages.riskExceptionsBulkImport.rowError', { row: e.rowNumber, error: e.error }) }}</li>
         </ul>
-        <p v-if="result.created.length"><small>New IDs: {{ result.created.map(c => `${c.sourceExceptionId} → ${c.exceptionId}`).join(', ') }}</small></p>
+        <p v-if="result.created.length"><small>{{ t('pages.riskExceptionsBulkImport.newIds', { ids: result.created.map(c => `${c.sourceExceptionId} → ${c.exceptionId}`).join(', ') }) }}</small></p>
       </template>
     </div>
   </div>

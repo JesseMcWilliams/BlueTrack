@@ -5,17 +5,20 @@
 // them, the export folder and today's files.
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const router = useRouter()
 
 const fileFields = [
-  { field: 'platformsFileName', label: 'Platforms' },
-  { field: 'usersFileName', label: 'Users' },
-  { field: 'groupsFileName', label: 'Groups' },
-  { field: 'groupMembersFileName', label: 'Local group members' },
-  { field: 'safesFileName', label: 'Safes' },
-  { field: 'accountsFileName', label: 'Accounts' },
-  { field: 'entitlementsFileName', label: 'Entitlements' }
+  { field: 'platformsFileName', labelKey: 'admin.cyberArkSourcesEdit.platformsFile' },
+  { field: 'usersFileName', labelKey: 'admin.cyberArkSourcesEdit.usersFile' },
+  { field: 'groupsFileName', labelKey: 'admin.cyberArkSourcesEdit.groupsFile' },
+  { field: 'groupMembersFileName', labelKey: 'admin.cyberArkSourcesEdit.groupMembersFile' },
+  { field: 'safesFileName', labelKey: 'admin.cyberArkSourcesEdit.safesFile' },
+  { field: 'accountsFileName', labelKey: 'admin.cyberArkSourcesEdit.accountsFile' },
+  { field: 'entitlementsFileName', labelKey: 'admin.cyberArkSourcesEdit.entitlementsFile' }
 ]
 
 const loading = ref(true)
@@ -31,7 +34,7 @@ const editing = ref(null)
 onMounted(async () => {
   try {
     const response = await fetch('/api/admin/cyberark-sources')
-    if (!response.ok) throw new Error(`Request failed: ${response.status}`)
+    if (!response.ok) throw new Error(t('common.requestFailed', { status: response.status }))
     const body = await response.json()
     isConfigured.value = body.isConfigured
     editing.value = { ...body.settings, exportFolderPath: body.settings.exportFolderPath ?? '', evdDatabaseName: body.settings.evdDatabaseName ?? '' }
@@ -53,7 +56,7 @@ async function test() {
     })
     const body = await response.json().catch(() => null)
     if (!response.ok) {
-      testError.value = body?.error ?? `Test failed: ${response.status}`
+      testError.value = body?.error ?? t('admin.cyberArkSourcesEdit.testFailed', { status: response.status })
       return
     }
     testChecks.value = body
@@ -73,7 +76,7 @@ async function save() {
     })
     if (!response.ok) {
       const problem = await response.json().catch(() => null)
-      saveError.value = problem?.detail ?? `Save failed: ${response.status}`
+      saveError.value = problem?.detail ?? t('common.saveFailed', { status: response.status })
       return
     }
     router.push({ name: 'admin-data-sources' })
@@ -89,57 +92,56 @@ function cancel() {
 
 <template>
   <div>
-    <h2>CyberArk Sources</h2>
-    <p v-if="loading" role="status">Loading...</p>
+    <h2>{{ t('admin.cyberArkSourcesEdit.title') }}</h2>
+    <p v-if="loading" role="status">{{ t('common.loading') }}</p>
     <p v-else-if="loadError" role="alert">{{ loadError }}</p>
 
     <template v-else>
       <p>
-        The nightly SQL Agent job imports these sources, then loads them. They don't have Run now.
-        Changes apply from the next nightly run.
+        {{ t('admin.cyberArkSourcesEdit.intro') }}
       </p>
       <p v-if="!isConfigured" role="status">
-        Not set up yet: the nightly import fails until these settings are saved. Re-running the installer's nightly job step also saves them.
+        {{ t('admin.cyberArkSourcesEdit.notConfigured') }}
       </p>
 
       <form @submit.prevent="save">
         <fieldset>
-          <legend><label><input v-model="editing.importPrivilegeCloud" type="checkbox" /> Import Privilege Cloud</label></legend>
+          <legend><label><input v-model="editing.importPrivilegeCloud" type="checkbox" /> {{ t('admin.cyberArkSourcesEdit.importPrivilegeCloud') }}</label></legend>
           <template v-if="editing.importPrivilegeCloud">
             <p>
-              <label class="field-label"><span class="field-label-text">Export folder:</span> <input v-model="editing.exportFolderPath" maxlength="400" placeholder="D:\CyberArk\Exports" required /></label>
-              <small>SQL Server's service account reads the files, so it needs read access to this folder.</small>
+              <label class="field-label"><span class="field-label-text">{{ t('admin.cyberArkSourcesEdit.exportFolderLabel') }}</span> <input v-model="editing.exportFolderPath" maxlength="400" :placeholder="t('admin.cyberArkSourcesEdit.exportFolderPlaceholder')" required /></label>
+              <small>{{ t('admin.cyberArkSourcesEdit.exportFolderHint') }}</small>
             </p>
             <p v-for="f in fileFields" :key="f.field">
-              <label class="field-label"><span class="field-label-text">{{ f.label }} file:</span> <input v-model="editing[f.field]" maxlength="200" required /></label>
+              <label class="field-label"><span class="field-label-text">{{ t(f.labelKey) }}</span> <input v-model="editing[f.field]" maxlength="200" required /></label>
             </p>
-            <p><small>{yyyy-MM-dd} (or another date format in braces) is replaced with the run's date. Wildcards aren't allowed.</small></p>
+            <p><small>{{ t('admin.cyberArkSourcesEdit.dateTokenHint') }}</small></p>
           </template>
         </fieldset>
 
         <fieldset>
-          <legend><label><input v-model="editing.importSelfHosted" type="checkbox" /> Import Self-Hosted</label></legend>
+          <legend><label><input v-model="editing.importSelfHosted" type="checkbox" /> {{ t('admin.cyberArkSourcesEdit.importSelfHosted') }}</label></legend>
           <p v-if="editing.importSelfHosted">
-            <label class="field-label"><span class="field-label-text">EVD database:</span> <input v-model="editing.evdDatabaseName" maxlength="128" placeholder="CyberArkEVD" required /></label>
-            <small>A database on BlueTrack's SQL Server.</small>
+            <label class="field-label"><span class="field-label-text">{{ t('admin.cyberArkSourcesEdit.evdDatabaseLabel') }}</span> <input v-model="editing.evdDatabaseName" maxlength="128" :placeholder="t('admin.cyberArkSourcesEdit.evdDatabasePlaceholder')" required /></label>
+            <small>{{ t('admin.cyberArkSourcesEdit.evdDatabaseHint') }}</small>
           </p>
         </fieldset>
 
         <p>
-          <button type="button" :disabled="testing" @click="test">Test</button>
-          <span v-if="testing" role="status"> Testing...</span>
+          <button type="button" :disabled="testing" @click="test">{{ t('admin.cyberArkSourcesEdit.test') }}</button>
+          <span v-if="testing" role="status">{{ ' ' + t('admin.cyberArkSourcesEdit.testing') }}</span>
         </p>
         <p v-if="testError" role="alert">{{ testError }}</p>
         <div v-if="testChecks" class="test-result" role="status">
           <ul>
-            <li v-for="c in testChecks" :key="c.item" :class="c.ok ? 'check-ok' : 'check-failed'">{{ c.ok ? 'OK' : 'Problem' }}: {{ c.item }}: {{ c.message }}</li>
+            <li v-for="c in testChecks" :key="c.item" :class="c.ok ? 'check-ok' : 'check-failed'">{{ c.ok ? t('admin.cyberArkSourcesEdit.checkOk', { item: c.item, message: c.message }) : t('admin.cyberArkSourcesEdit.checkProblem', { item: c.item, message: c.message }) }}</li>
           </ul>
-          <p v-if="editing.importPrivilegeCloud"><small>Files were checked as the application pool's account sees them; SQL Server reads them as its own service account.</small></p>
+          <p v-if="editing.importPrivilegeCloud"><small>{{ t('admin.cyberArkSourcesEdit.testFilesHint') }}</small></p>
         </div>
 
         <p v-if="saveError" role="alert">{{ saveError }}</p>
-        <button type="submit" class="btn-primary" :disabled="saving">Save</button>
-        <button type="button" @click="cancel">Cancel</button>
+        <button type="submit" class="btn-primary" :disabled="saving">{{ t('common.save') }}</button>
+        <button type="button" @click="cancel">{{ t('common.cancel') }}</button>
       </form>
     </template>
   </div>

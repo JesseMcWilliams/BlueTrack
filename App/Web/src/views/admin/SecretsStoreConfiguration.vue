@@ -20,6 +20,13 @@
 // untouched and sent back on save. With no new PlaintextCredential,
 // SetActiveAsync swaps that "***" for the stored credential.
 import { ref, computed, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
+
+// Auth method identifiers, shown as they are (not translated).
+const AZURE_AUTH_METHODS = ['ManagedIdentity', 'ServicePrincipal']
+const AWS_AUTH_METHODS = ['IamRole', 'AccessKey']
 
 const backends = ref([])
 const error = ref(null)
@@ -55,7 +62,7 @@ async function load() {
   loading.value = true
   try {
     const response = await fetch('/api/admin/secrets-store')
-    if (!response.ok) throw new Error(`Request failed: ${response.status}`)
+    if (!response.ok) throw new Error(t('common.requestFailed', { status: response.status }))
     backends.value = await response.json()
     for (const backend of backends.value) {
       settingsObjects.value[backend.backendType] = parseSettings(backend.backendType, backend.backendSettings)
@@ -86,7 +93,7 @@ async function activate(backend) {
     })
   })
   if (!response.ok) {
-    error.value = `Save failed: ${response.status}`
+    error.value = t('common.saveFailed', { status: response.status })
     return
   }
   credentialDraft.value[backend.backendType] = ''
@@ -102,7 +109,7 @@ async function testConnection() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ safe: testSafe.value, folder: testFolder.value, object: testObject.value })
     })
-    testResult.value = response.ok ? await response.json() : { success: false, error: `Request failed: ${response.status}` }
+    testResult.value = response.ok ? await response.json() : { success: false, error: t('common.requestFailed', { status: response.status }) }
   } finally {
     testing.value = false
   }
@@ -111,97 +118,97 @@ async function testConnection() {
 
 <template>
   <div>
-    <h2>Secrets Store Configuration</h2>
-    <p>Exactly one backend is active at a time.</p>
+    <h2>{{ t('admin.secretsStoreConfiguration.title') }}</h2>
+    <p>{{ t('admin.secretsStoreConfiguration.intro') }}</p>
     <p v-if="error" role="alert">{{ error }}</p>
-    <p v-if="loading" role="status">Loading...</p>
+    <p v-if="loading" role="status">{{ t('common.loading') }}</p>
 
     <table v-else>
       <thead>
-        <tr><th>Backend</th><th>Active</th><th>Settings</th><th>Credential</th><th></th></tr>
+        <tr><th>{{ t('admin.secretsStoreConfiguration.backend') }}</th><th>{{ t('common.active') }}</th><th>{{ t('admin.secretsStoreConfiguration.settings') }}</th><th>{{ t('admin.secretsStoreConfiguration.credential') }}</th><th></th></tr>
       </thead>
       <tbody>
         <tr v-for="backend in backends" :key="backend.secretStoreKey">
           <td>{{ backend.backendType }}</td>
-          <td>{{ backend.isActive ? 'Yes' : '' }}</td>
+          <td>{{ backend.isActive ? t('admin.secretsStoreConfiguration.yes') : '' }}</td>
           <td>
             <template v-if="backend.backendType === 'CyberArkCP'">
-              <p><label class="field-label"><span class="field-label-text">App ID:</span> <input v-model="settingsObjects[backend.backendType].AppId" /></label></p>
+              <p><label class="field-label"><span class="field-label-text">{{ t('admin.secretsStoreConfiguration.appId') }}</span> <input v-model="settingsObjects[backend.backendType].AppId" /></label></p>
             </template>
             <template v-else-if="backend.backendType === 'CyberArkCCP'">
-              <p><label class="field-label"><span class="field-label-text">Base URL:</span> <input v-model="settingsObjects[backend.backendType].BaseUrl" placeholder="https://pvwa.company.com" /></label></p>
-              <p><label class="field-label"><span class="field-label-text">App ID:</span> <input v-model="settingsObjects[backend.backendType].AppId" /></label></p>
+              <p><label class="field-label"><span class="field-label-text">{{ t('admin.secretsStoreConfiguration.baseUrl') }}</span> <input v-model="settingsObjects[backend.backendType].BaseUrl" :placeholder="t('admin.secretsStoreConfiguration.baseUrlPlaceholder')" /></label></p>
+              <p><label class="field-label"><span class="field-label-text">{{ t('admin.secretsStoreConfiguration.appId') }}</span> <input v-model="settingsObjects[backend.backendType].AppId" /></label></p>
             </template>
             <template v-else-if="backend.backendType === 'CyberArkConjur'">
-              <p><label class="field-label"><span class="field-label-text">Appliance URL:</span> <input v-model="settingsObjects[backend.backendType].ApplianceUrl" /></label></p>
-              <p><label class="field-label"><span class="field-label-text">Account:</span> <input v-model="settingsObjects[backend.backendType].Account" /></label></p>
-              <p><label class="field-label"><span class="field-label-text">Login:</span> <input v-model="settingsObjects[backend.backendType].Login" /></label></p>
+              <p><label class="field-label"><span class="field-label-text">{{ t('admin.secretsStoreConfiguration.applianceUrl') }}</span> <input v-model="settingsObjects[backend.backendType].ApplianceUrl" /></label></p>
+              <p><label class="field-label"><span class="field-label-text">{{ t('admin.secretsStoreConfiguration.account') }}</span> <input v-model="settingsObjects[backend.backendType].Account" /></label></p>
+              <p><label class="field-label"><span class="field-label-text">{{ t('admin.secretsStoreConfiguration.login') }}</span> <input v-model="settingsObjects[backend.backendType].Login" /></label></p>
             </template>
             <template v-else-if="backend.backendType === 'AzureKeyVault'">
-              <p><label class="field-label"><span class="field-label-text">Vault URI:</span> <input v-model="settingsObjects[backend.backendType].VaultUri" /></label></p>
+              <p><label class="field-label"><span class="field-label-text">{{ t('admin.secretsStoreConfiguration.vaultUri') }}</span> <input v-model="settingsObjects[backend.backendType].VaultUri" /></label></p>
               <p>
                 <label class="field-label">
-                  <span class="field-label-text">Auth Method:</span>
+                  <span class="field-label-text">{{ t('admin.secretsStoreConfiguration.authMethod') }}</span>
                   <select v-model="settingsObjects[backend.backendType].AuthMethod">
-                    <option value="ManagedIdentity">ManagedIdentity</option>
-                    <option value="ServicePrincipal">ServicePrincipal</option>
+                    <option v-for="method in AZURE_AUTH_METHODS" :key="method" :value="method">{{ method }}</option>
                   </select>
                 </label>
               </p>
               <template v-if="settingsObjects[backend.backendType].AuthMethod === 'ServicePrincipal'">
-                <p><label class="field-label"><span class="field-label-text">Tenant ID:</span> <input v-model="settingsObjects[backend.backendType].TenantId" /></label></p>
-                <p><label class="field-label"><span class="field-label-text">Client ID:</span> <input v-model="settingsObjects[backend.backendType].ClientId" /></label></p>
+                <p><label class="field-label"><span class="field-label-text">{{ t('admin.secretsStoreConfiguration.tenantId') }}</span> <input v-model="settingsObjects[backend.backendType].TenantId" /></label></p>
+                <p><label class="field-label"><span class="field-label-text">{{ t('admin.secretsStoreConfiguration.clientId') }}</span> <input v-model="settingsObjects[backend.backendType].ClientId" /></label></p>
               </template>
               <template v-else>
-                <p><label class="field-label"><span class="field-label-text">Client ID (only if using a user-assigned managed identity):</span> <input v-model="settingsObjects[backend.backendType].ClientId" /></label></p>
+                <p><label class="field-label"><span class="field-label-text">{{ t('admin.secretsStoreConfiguration.clientIdManagedIdentity') }}</span> <input v-model="settingsObjects[backend.backendType].ClientId" /></label></p>
               </template>
             </template>
             <template v-else-if="backend.backendType === 'AwsSecretsManager'">
-              <p><label class="field-label"><span class="field-label-text">Region:</span> <input v-model="settingsObjects[backend.backendType].Region" placeholder="us-east-1" /></label></p>
+              <p><label class="field-label"><span class="field-label-text">{{ t('admin.secretsStoreConfiguration.region') }}</span> <input v-model="settingsObjects[backend.backendType].Region" :placeholder="t('admin.secretsStoreConfiguration.regionPlaceholder')" /></label></p>
               <p>
                 <label class="field-label">
-                  <span class="field-label-text">Auth Method:</span>
+                  <span class="field-label-text">{{ t('admin.secretsStoreConfiguration.authMethod') }}</span>
                   <select v-model="settingsObjects[backend.backendType].AuthMethod">
-                    <option value="IamRole">IamRole</option>
-                    <option value="AccessKey">AccessKey</option>
+                    <option v-for="method in AWS_AUTH_METHODS" :key="method" :value="method">{{ method }}</option>
                   </select>
                 </label>
               </p>
               <template v-if="settingsObjects[backend.backendType].AuthMethod === 'AccessKey'">
-                <p><label class="field-label"><span class="field-label-text">Access Key ID:</span> <input v-model="settingsObjects[backend.backendType].AccessKeyId" /></label></p>
+                <p><label class="field-label"><span class="field-label-text">{{ t('admin.secretsStoreConfiguration.accessKeyId') }}</span> <input v-model="settingsObjects[backend.backendType].AccessKeyId" /></label></p>
               </template>
             </template>
             <template v-else>
-              <em>(no settings)</em>
+              <em>{{ t('admin.secretsStoreConfiguration.noSettings') }}</em>
             </template>
           </td>
           <td>
             <input
               v-model="credentialDraft[backend.backendType]"
               type="password"
-              :placeholder="backend.backendSettings?.includes('ProtectedCredential') ? '(already set -- leave blank to keep)' : '(none set)'"
+              :placeholder="backend.backendSettings?.includes('ProtectedCredential') ? t('admin.secretsStoreConfiguration.alreadySet') : t('admin.secretsStoreConfiguration.noneSet')"
             />
           </td>
-          <td><button class="btn-primary" @click="activate(backend)">{{ backend.isActive ? 'Save' : 'Make Active' }}</button></td>
+          <td><button class="btn-primary" @click="activate(backend)">{{ backend.isActive ? t('common.save') : t('admin.secretsStoreConfiguration.makeActive') }}</button></td>
         </tr>
       </tbody>
     </table>
 
-    <h3>Test Connection</h3>
-    <p>Attempts a real retrieval against the active backend. Never shows the retrieved secret -- only whether it succeeded and non-secret metadata (username/address).</p>
-    <p v-if="activeBackendIsDpapi">WindowsDpapi is a local, flat store -- enter a <router-link :to="{ name: 'admin-credentials' }">Credentials</router-link> page credential's name as Object; Safe/Folder are ignored.</p>
+    <h3>{{ t('admin.secretsStoreConfiguration.testHeading') }}</h3>
+    <p>{{ t('admin.secretsStoreConfiguration.testIntro') }}</p>
+    <i18n-t v-if="activeBackendIsDpapi" keypath="admin.secretsStoreConfiguration.dpapiHint" tag="p" scope="global">
+      <template #link><router-link :to="{ name: 'admin-credentials' }">{{ t('admin.secretsStoreConfiguration.credentialsLink') }}</router-link></template>
+    </i18n-t>
     <form class="filter-row" @submit.prevent="testConnection">
-      <label class="field-label"><span class="field-label-text">Safe:</span> <input v-model="testSafe" required /></label>
-      <label class="field-label"><span class="field-label-text">Folder:</span> <input v-model="testFolder" required /></label>
-      <label class="field-label"><span class="field-label-text">Object:</span> <input v-model="testObject" required /></label>
-      <button type="submit" class="btn-primary" :disabled="testing">Test</button>
+      <label class="field-label"><span class="field-label-text">{{ t('admin.secretsStoreConfiguration.safe') }}</span> <input v-model="testSafe" required /></label>
+      <label class="field-label"><span class="field-label-text">{{ t('admin.secretsStoreConfiguration.folder') }}</span> <input v-model="testFolder" required /></label>
+      <label class="field-label"><span class="field-label-text">{{ t('admin.secretsStoreConfiguration.object') }}</span> <input v-model="testObject" required /></label>
+      <button type="submit" class="btn-primary" :disabled="testing">{{ t('admin.secretsStoreConfiguration.test') }}</button>
     </form>
     <div v-if="testResult">
       <p v-if="testResult.success" role="status">
-        Success. UserName: {{ testResult.userName }}, Address: {{ testResult.address }}
-        <span v-if="testResult.fromFallbackCache"> (served from fallback cache, D-49)</span>
+        {{ t('admin.secretsStoreConfiguration.testSuccess', { userName: testResult.userName, address: testResult.address }) }}
+        <span v-if="testResult.fromFallbackCache">{{ ' ' + t('admin.secretsStoreConfiguration.fromFallbackCache') }}</span>
       </p>
-      <p v-else role="alert">Failed{{ testResult.errorCategory ? ` (${testResult.errorCategory})` : '' }}: {{ testResult.error }}</p>
+      <p v-else role="alert">{{ testResult.errorCategory ? t('admin.secretsStoreConfiguration.testFailedCategory', { category: testResult.errorCategory, error: testResult.error }) : t('admin.secretsStoreConfiguration.testFailed', { error: testResult.error }) }}</p>
     </div>
   </div>
 </template>

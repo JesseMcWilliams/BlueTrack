@@ -7,6 +7,9 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { confirmDelete } from '../../composables/useConfirmDialog'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const router = useRouter()
 
@@ -18,7 +21,7 @@ async function load() {
   loading.value = true
   try {
     const response = await fetch('/api/admin/field-metadata')
-    if (!response.ok) throw new Error(`Request failed: ${response.status}`)
+    if (!response.ok) throw new Error(t('common.requestFailed', { status: response.status }))
     items.value = await response.json()
   } catch (err) {
     error.value = err.message
@@ -30,10 +33,10 @@ async function load() {
 onMounted(load)
 
 async function remove(item) {
-  if (!(await confirmDelete(`Delete field "${item.displayLabel}"? This cannot be undone.`))) return
+  if (!(await confirmDelete(t('admin.fieldMetadataManagement.confirmDelete', { name: item.displayLabel })))) return
   const response = await fetch(`/api/admin/field-metadata/${item.fieldMetadataKey}`, { method: 'DELETE' })
   if (!response.ok) {
-    error.value = `Delete failed: ${response.status}`
+    error.value = t('common.deleteFailed', { status: response.status })
     return
   }
   await load()
@@ -42,18 +45,18 @@ async function remove(item) {
 
 <template>
   <div>
-    <h2>Field Metadata Management</h2>
-    <p>Governed field-definition list backing the Account Progress edit form (Design_Interface-Extensibility.md).</p>
+    <h2>{{ t('admin.fieldMetadataManagement.title') }}</h2>
+    <p>{{ t('admin.fieldMetadataManagement.intro') }}</p>
     <p v-if="error" role="alert">{{ error }}</p>
-    <p v-if="loading" role="status">Loading...</p>
+    <p v-if="loading" role="status">{{ t('common.loading') }}</p>
 
     <template v-else>
-      <p><button type="button" class="btn-primary" @click="router.push({ name: 'admin-field-metadata-create' })">+ New Field</button></p>
+      <p><button type="button" class="btn-primary" @click="router.push({ name: 'admin-field-metadata-create' })">{{ t('admin.fieldMetadataManagement.newField') }}</button></p>
 
       <table>
         <thead>
           <tr>
-            <th>Field Name</th><th>Display Label</th><th>Type</th><th>Required</th><th>Required Permission</th><th>Order</th><th></th>
+            <th>{{ t('admin.fieldMetadataManagement.fieldName') }}</th><th>{{ t('admin.fieldMetadataManagement.displayLabel') }}</th><th>{{ t('admin.fieldMetadataManagement.type') }}</th><th>{{ t('admin.fieldMetadataManagement.required') }}</th><th>{{ t('admin.fieldMetadataManagement.requiredPermission') }}</th><th>{{ t('admin.fieldMetadataManagement.order') }}</th><th></th>
           </tr>
         </thead>
         <tbody>
@@ -65,7 +68,7 @@ async function remove(item) {
             <td>{{ item.requiredPermissionName ?? '' }}</td>
             <td>{{ item.displayOrder }}</td>
             <td>
-              <button @click="remove(item)">Delete</button>
+              <button @click="remove(item)">{{ t('common.delete') }}</button>
             </td>
           </tr>
         </tbody>

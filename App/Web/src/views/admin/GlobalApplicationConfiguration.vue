@@ -6,22 +6,43 @@
 // (AuditLogger's own comment on why) -- this page manages the setting,
 // not the enforcement.
 import { ref, computed, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 // D-181: data feed schedule settings. BusinessDays is stored as
 // "Mon,Tue,..."; the page edits it as one checkbox per day.
 const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+// The checkbox labels; the stored values above stay English.
+const DAY_KEYS = {
+  Mon: 'admin.globalApplicationConfiguration.dayMon',
+  Tue: 'admin.globalApplicationConfiguration.dayTue',
+  Wed: 'admin.globalApplicationConfiguration.dayWed',
+  Thu: 'admin.globalApplicationConfiguration.dayThu',
+  Fri: 'admin.globalApplicationConfiguration.dayFri',
+  Sat: 'admin.globalApplicationConfiguration.daySat',
+  Sun: 'admin.globalApplicationConfiguration.daySun'
+}
 
 // D-186: decommission / ignored-safe name patterns, with one helper that
 // shows which sample names each (unsaved) pattern matches, evaluated by
 // the API with the same SQL function the reports and the import use.
 const patterns = [
-  { key: 'safeDecom', label: 'Safe decommission pattern', hint: 'Safes being retired (e.g. a DEL_ prefix or _DECOM suffix): listed on the "flagged for deletion" reports; their accounts are marked.' },
-  { key: 'accountDecom', label: 'Account decommission pattern', hint: 'Accounts whose own name marks them for deletion.' },
-  { key: 'safeIgnore', label: 'Ignored safe pattern', hint: 'Safes left out of the nightly import (e.g. a ZZ_ prefix); accounts already imported from them are flagged deleted.' }
+  { key: 'safeDecom', labelKey: 'admin.globalApplicationConfiguration.safeDecomLabel', hintKey: 'admin.globalApplicationConfiguration.safeDecomHint' },
+  { key: 'accountDecom', labelKey: 'admin.globalApplicationConfiguration.accountDecomLabel', hintKey: 'admin.globalApplicationConfiguration.accountDecomHint' },
+  { key: 'safeIgnore', labelKey: 'admin.globalApplicationConfiguration.safeIgnoreLabel', hintKey: 'admin.globalApplicationConfiguration.safeIgnoreHint' }
 ]
+// The regex example in the pattern helper's text -- sample data, not translated.
+const REGEX_EXAMPLE = '^(DEL|ZZ)_|_DECOM$'
 const sampleNames = ref('DEL_Finance\nFinance_DECOM\nZZ_Archive\nFinance')
 const patternTest = ref(null)
 const patternTesting = ref(false)
+
+// The API's error keys are the pattern keys in PascalCase.
+function patternLabel(errorKey) {
+  const pattern = patterns.find(x => x.key === errorKey.charAt(0).toLowerCase() + errorKey.slice(1))
+  return pattern ? t(pattern.labelKey) : ''
+}
 
 function patternOf(key) {
   return { mode: config.value[`${key}Mode`], value: config.value[`${key}Value`] }
@@ -40,7 +61,7 @@ async function testPatterns() {
         safeIgnore: patternOf('safeIgnore')
       })
     })
-    patternTest.value = response.ok ? await response.json() : { error: `Test failed: ${response.status}` }
+    patternTest.value = response.ok ? await response.json() : { error: t('admin.globalApplicationConfiguration.testFailed', { status: response.status }) }
   } finally {
     patternTesting.value = false
   }
@@ -55,7 +76,7 @@ async function load() {
   loading.value = true
   try {
     const response = await fetch('/api/admin/configuration')
-    if (!response.ok) throw new Error(`Request failed: ${response.status}`)
+    if (!response.ok) throw new Error(t('common.requestFailed', { status: response.status }))
     config.value = await response.json()
   } catch (err) {
     error.value = err.message
@@ -87,7 +108,7 @@ async function save() {
   })
   if (!response.ok) {
     const problem = response.status === 400 ? await response.json().catch(() => null) : null
-    error.value = problem?.detail ? `Save failed: ${problem.detail}` : `Save failed: ${response.status}`
+    error.value = problem?.detail ? t('admin.globalApplicationConfiguration.saveFailedDetail', { detail: problem.detail }) : t('common.saveFailed', { status: response.status })
     return
   }
   saved.value = true
@@ -100,98 +121,105 @@ async function save() {
 
 <template>
   <div>
-    <h2>Global Application Configuration</h2>
-    <p v-if="loading" role="status">Loading...</p>
+    <h2>{{ t('admin.globalApplicationConfiguration.title') }}</h2>
+    <p v-if="loading" role="status">{{ t('common.loading') }}</p>
     <p v-else-if="error && !config" role="alert">{{ error }}</p>
     <form v-else @submit.prevent="save">
       <p>
-        <label class="field-label"><span class="field-label-text">Site URL:</span> <input v-model="config.siteUrl" type="url" maxlength="500" placeholder="https://bluetrack.company.com" /></label>
-        <small>The address people open BlueTrack at. Emails link to pages under it; leave blank and they name the pages instead. Must start with https:// (http:// only for localhost). The installer fills it in when it's blank (D-224).</small>
+        <label class="field-label"><span class="field-label-text">{{ t('admin.globalApplicationConfiguration.siteUrlLabel') }}</span> <input v-model="config.siteUrl" type="url" maxlength="500" :placeholder="t('admin.globalApplicationConfiguration.siteUrlPlaceholder')" /></label>
+        <small>{{ t('admin.globalApplicationConfiguration.siteUrlHint') }}</small>
       </p>
       <p>
-        <label class="field-label"><span class="field-label-text">Idle Timeout (minutes):</span> <input v-model.number="config.idleTimeoutMinutes" type="number" min="5" max="720" required /></label>
+        <label class="field-label"><span class="field-label-text">{{ t('admin.globalApplicationConfiguration.idleTimeoutLabel') }}</span> <input v-model.number="config.idleTimeoutMinutes" type="number" min="5" max="720" required /></label>
       </p>
       <p>
         <label class="field-label">
-          <span class="field-label-text">Breadcrumb Position:</span>
+          <span class="field-label-text">{{ t('admin.globalApplicationConfiguration.breadcrumbPositionLabel') }}</span>
           <select v-model="config.breadcrumbPosition">
-            <option value="TopLeft">Top Left</option>
-            <option value="TopRight">Top Right</option>
+            <option value="TopLeft">{{ t('admin.globalApplicationConfiguration.topLeft') }}</option>
+            <option value="TopRight">{{ t('admin.globalApplicationConfiguration.topRight') }}</option>
           </select>
         </label>
       </p>
       <p>
-        <label class="field-label"><span class="field-label-text">Exception ID Pattern:</span> <input v-model="config.exceptionIdPattern" required /></label>
-        <small>Tokens: {yyyy}, {yy}, {seq:0000} (padding width from the number of zeros)</small>
+        <label class="field-label"><span class="field-label-text">{{ t('admin.globalApplicationConfiguration.exceptionIdPatternLabel') }}</span> <input v-model="config.exceptionIdPattern" required /></label>
+        <small>{{ t('admin.globalApplicationConfiguration.exceptionIdPatternHint') }}</small>
       </p>
       <p>
-        <label class="field-label"><span class="field-label-text">Account Progress Lock Timeout (minutes):</span> <input v-model.number="config.lockTimeoutMinutes" type="number" min="1" max="720" required /></label>
+        <label class="field-label"><span class="field-label-text">{{ t('admin.globalApplicationConfiguration.lockTimeoutLabel') }}</span> <input v-model.number="config.lockTimeoutMinutes" type="number" min="1" max="720" required /></label>
       </p>
       <p>
-        <label class="field-label"><span class="field-label-text">Audit Retention (days, blank = keep forever):</span> <input v-model.number="config.retentionDays" type="number" /></label>
+        <label class="field-label"><span class="field-label-text">{{ t('admin.globalApplicationConfiguration.retentionDaysLabel') }}</span> <input v-model.number="config.retentionDays" type="number" /></label>
       </p>
       <p>
-        <label><input v-model="config.logReadEvents" type="checkbox" /> Log read/view events (off by default, D-35)</label>
+        <label><input v-model="config.logReadEvents" type="checkbox" /> {{ t('admin.globalApplicationConfiguration.logReadEvents') }}</label>
       </p>
       <p>
-        <label class="field-label"><span class="field-label-text">Backup Folder:</span> <input v-model="config.backupFolder" placeholder="D:\Backups\BlueTrack" /></label>
-        <small>Where the Deployment page's "Backup App" button and scheduled backups write the database backup file.</small>
+        <label class="field-label"><span class="field-label-text">{{ t('admin.globalApplicationConfiguration.backupFolderLabel') }}</span> <input v-model="config.backupFolder" :placeholder="t('admin.globalApplicationConfiguration.backupFolderPlaceholder')" /></label>
+        <small>{{ t('admin.globalApplicationConfiguration.backupFolderHint') }}</small>
       </p>
       <p>
-        <label class="field-label"><span class="field-label-text">Scheduled backup time:</span> <input v-model="config.scheduledBackupTime" type="time" /></label>
-        <small>A daily backup of the BlueTrack database into the Backup Folder, at this server-local time. Leave blank for none.</small>
+        <label class="field-label"><span class="field-label-text">{{ t('admin.globalApplicationConfiguration.scheduledBackupTimeLabel') }}</span> <input v-model="config.scheduledBackupTime" type="time" /></label>
+        <small>{{ t('admin.globalApplicationConfiguration.scheduledBackupTimeHint') }}</small>
       </p>
       <p>
-        <label class="field-label"><span class="field-label-text">Keep scheduled backups (days):</span> <input v-model.number="config.scheduledBackupRetentionDays" type="number" min="1" max="3650" required /></label>
-        <small>After each scheduled backup, older scheduled backup files are deleted. Backups made with "Backup App" are never deleted.</small>
+        <label class="field-label"><span class="field-label-text">{{ t('admin.globalApplicationConfiguration.scheduledBackupRetentionLabel') }}</span> <input v-model.number="config.scheduledBackupRetentionDays" type="number" min="1" max="3650" required /></label>
+        <small>{{ t('admin.globalApplicationConfiguration.scheduledBackupRetentionHint') }}</small>
       </p>
       <p>
         <label class="field-label">
-          <span class="field-label-text">Risk Score Algorithm:</span>
+          <span class="field-label-text">{{ t('admin.globalApplicationConfiguration.riskAlgorithmLabel') }}</span>
           <select v-model="config.activeRiskAlgorithm">
-            <option value="DominantPlusTail">Dominant Plus Tail</option>
-            <option value="CombinedExposure">Combined Exposure</option>
+            <option value="DominantPlusTail">{{ t('admin.globalApplicationConfiguration.dominantPlusTail') }}</option>
+            <option value="CombinedExposure">{{ t('admin.globalApplicationConfiguration.combinedExposure') }}</option>
           </select>
         </label>
-        <small>Which of the two candidate algorithms usp_CalculateRiskScore uses (D-119 Phase D).</small>
+        <small>{{ t('admin.globalApplicationConfiguration.riskAlgorithmHint') }}</small>
       </p>
       <p>
-        <label><input v-model="config.enforceRiskExceptionSegregationOfDuties" type="checkbox" /> Enforce segregation of duties on Risk Exception approval</label>
-        <small>When enabled, the person who approved a Risk Exception cannot also be the one who links it to an account. Leave off if your organization doesn't have separate staff for the two roles.</small>
+        <label><input v-model="config.enforceRiskExceptionSegregationOfDuties" type="checkbox" /> {{ t('admin.globalApplicationConfiguration.enforceSod') }}</label>
+        <small>{{ t('admin.globalApplicationConfiguration.enforceSodHint') }}</small>
       </p>
       <p>
-        <label class="field-label"><span class="field-label-text">Bulk edit limit (accounts):</span> <input v-model.number="config.bulkEditMaxAccounts" type="number" min="1" max="10000" required /></label>
-        <small>The most accounts one Account Progress bulk edit may change (D-182).</small>
+        <label class="field-label"><span class="field-label-text">{{ t('admin.globalApplicationConfiguration.bulkEditLimitLabel') }}</span> <input v-model.number="config.bulkEditMaxAccounts" type="number" min="1" max="10000" required /></label>
+        <small>{{ t('admin.globalApplicationConfiguration.bulkEditLimitHint') }}</small>
       </p>
       <p>
-        <label class="field-label"><span class="field-label-text">Export Max Rows:</span> <input v-model.number="config.exportMaxRows" type="number" min="1" max="1000000" required /></label>
-        <small>The most rows one report export (Export CSV / Export Excel) may hold, from 1 to 1,000,000. When more rows match, the export is refused with the count instead of being cut short (D-220).</small>
+        <label class="field-label"><span class="field-label-text">{{ t('admin.globalApplicationConfiguration.exportMaxRowsLabel') }}</span> <input v-model.number="config.exportMaxRows" type="number" min="1" max="1000000" required /></label>
+        <small>{{ t('admin.globalApplicationConfiguration.exportMaxRowsHint') }}</small>
       </p>
       <fieldset class="patterns">
-        <legend>Decommissioned and ignored safes</legend>
+        <legend>{{ t('admin.globalApplicationConfiguration.patternsLegend') }}</legend>
         <div class="pattern-helper">
-          <p>
-            <strong>Try your patterns</strong> on sample names (one per line). <em>Prefix</em> matches the start of the name,
-            <em>Suffix</em> the end; both ignore case.
-            <template v-if="config.regexSupported">
-              <em>Regex</em> is a regular expression, also ignoring case. Example: <code>^(DEL|ZZ)_|_DECOM$</code> matches
-              <code>DEL_Finance</code>, <code>zz_Archive</code> and <code>Finance_Decom</code>, but not <code>Finance</code> or <code>MODEL_X</code>.
-            </template>
-            <template v-else>
-              <em>Regex</em> needs SQL Server 2025, so it isn't available on this server.
-            </template>
-          </p>
-          <textarea v-model="sampleNames" rows="4" cols="40" aria-label="Sample names"></textarea>
-          <p><button type="button" :disabled="patternTesting" @click="testPatterns">Test patterns</button></p>
+          <i18n-t v-if="config.regexSupported" keypath="admin.globalApplicationConfiguration.patternHelpRegex" tag="p" scope="global">
+            <template #try><strong>{{ t('admin.globalApplicationConfiguration.tryYourPatterns') }}</strong></template>
+            <template #prefix><em>{{ t('admin.globalApplicationConfiguration.modePrefix') }}</em></template>
+            <template #suffix><em>{{ t('admin.globalApplicationConfiguration.modeSuffix') }}</em></template>
+            <template #regex><em>{{ t('admin.globalApplicationConfiguration.modeRegex') }}</em></template>
+            <template #example><code>{{ REGEX_EXAMPLE }}</code></template>
+            <template #match1><code>{{ 'DEL_Finance' }}</code></template>
+            <template #match2><code>{{ 'zz_Archive' }}</code></template>
+            <template #match3><code>{{ 'Finance_Decom' }}</code></template>
+            <template #nonMatch1><code>{{ 'Finance' }}</code></template>
+            <template #nonMatch2><code>{{ 'MODEL_X' }}</code></template>
+          </i18n-t>
+          <i18n-t v-else keypath="admin.globalApplicationConfiguration.patternHelpNoRegex" tag="p" scope="global">
+            <template #try><strong>{{ t('admin.globalApplicationConfiguration.tryYourPatterns') }}</strong></template>
+            <template #prefix><em>{{ t('admin.globalApplicationConfiguration.modePrefix') }}</em></template>
+            <template #suffix><em>{{ t('admin.globalApplicationConfiguration.modeSuffix') }}</em></template>
+            <template #regex><em>{{ t('admin.globalApplicationConfiguration.modeRegex') }}</em></template>
+          </i18n-t>
+          <textarea v-model="sampleNames" rows="4" cols="40" :aria-label="t('admin.globalApplicationConfiguration.sampleNames')"></textarea>
+          <p><button type="button" :disabled="patternTesting" @click="testPatterns">{{ t('admin.globalApplicationConfiguration.testPatterns') }}</button></p>
           <p v-if="patternTest?.error" role="alert">{{ patternTest.error }}</p>
           <template v-else-if="patternTest">
-            <p v-for="(message, key) in patternTest.errors" :key="key" role="alert">{{ patterns.find(x => x.key === key.charAt(0).toLowerCase() + key.slice(1))?.label }}: {{ message }}</p>
+            <p v-for="(message, key) in patternTest.errors" :key="key" role="alert">{{ t('admin.globalApplicationConfiguration.patternError', { label: patternLabel(key), message }) }}</p>
             <table class="pattern-results">
-              <thead><tr><th>Name</th><th v-for="x in patterns" :key="x.key">{{ x.label }}</th></tr></thead>
+              <thead><tr><th>{{ t('common.name') }}</th><th v-for="x in patterns" :key="x.key">{{ t(x.labelKey) }}</th></tr></thead>
               <tbody>
                 <tr v-for="row in patternTest.rows" :key="row.name">
                   <td>{{ row.name }}</td>
-                  <td v-for="x in patterns" :key="x.key">{{ row[x.key] ? 'Matches' : '—' }}</td>
+                  <td v-for="x in patterns" :key="x.key">{{ row[x.key] ? t('admin.globalApplicationConfiguration.matches') : '—' }}</td>
                 </tr>
               </tbody>
             </table>
@@ -199,40 +227,40 @@ async function save() {
         </div>
         <p v-for="x in patterns" :key="x.key">
           <label class="field-label">
-            <span class="field-label-text">{{ x.label }}:</span>
-            <select v-model="config[`${x.key}Mode`]" :aria-label="`${x.label} type`">
-              <option value="Off">Off</option>
-              <option value="Prefix">Prefix</option>
-              <option value="Suffix">Suffix</option>
-              <option value="Regex" :disabled="!config.regexSupported">Regex{{ config.regexSupported ? '' : ' (needs SQL Server 2025)' }}</option>
+            <span class="field-label-text">{{ t('admin.globalApplicationConfiguration.patternFieldLabel', { label: t(x.labelKey) }) }}</span>
+            <select v-model="config[`${x.key}Mode`]" :aria-label="t('admin.globalApplicationConfiguration.patternTypeLabel', { label: t(x.labelKey) })">
+              <option value="Off">{{ t('admin.globalApplicationConfiguration.modeOff') }}</option>
+              <option value="Prefix">{{ t('admin.globalApplicationConfiguration.modePrefix') }}</option>
+              <option value="Suffix">{{ t('admin.globalApplicationConfiguration.modeSuffix') }}</option>
+              <option value="Regex" :disabled="!config.regexSupported">{{ config.regexSupported ? t('admin.globalApplicationConfiguration.modeRegex') : t('admin.globalApplicationConfiguration.modeRegexUnavailable') }}</option>
             </select>
           </label>
-          <input v-model="config[`${x.key}Value`]" :disabled="config[`${x.key}Mode`] === 'Off'" maxlength="200" :aria-label="`${x.label} value`" />
-          <br /><small>{{ x.hint }}</small>
+          <input v-model="config[`${x.key}Value`]" :disabled="config[`${x.key}Mode`] === 'Off'" maxlength="200" :aria-label="t('admin.globalApplicationConfiguration.patternValueLabel', { label: t(x.labelKey) })" />
+          <br /><small>{{ t(x.hintKey) }}</small>
         </p>
       </fieldset>
       <fieldset>
-        <legend>Data feeds (Admin → Data Sources)</legend>
+        <legend>{{ t('admin.globalApplicationConfiguration.dataFeedsLegend') }}</legend>
         <p>
-          <label class="field-label"><span class="field-label-text">Nightly run time:</span> <input v-model="config.dataFeedRunTime" type="time" required /></label>
-          <small>Server local time. Default 04:00, after the 02:00 Import and Load job.</small>
+          <label class="field-label"><span class="field-label-text">{{ t('admin.globalApplicationConfiguration.nightlyRunTimeLabel') }}</span> <input v-model="config.dataFeedRunTime" type="time" required /></label>
+          <small>{{ t('admin.globalApplicationConfiguration.nightlyRunTimeHint') }}</small>
         </p>
         <p>
-          <label class="field-label"><span class="field-label-text">Keep run history (days):</span> <input v-model.number="config.dataFeedRunRetentionDays" type="number" min="1" max="365" required /></label>
+          <label class="field-label"><span class="field-label-text">{{ t('admin.globalApplicationConfiguration.runRetentionLabel') }}</span> <input v-model.number="config.dataFeedRunRetentionDays" type="number" min="1" max="365" required /></label>
         </p>
         <p>
-          <label class="field-label"><span class="field-label-text">Business hours start:</span> <input v-model="config.businessHoursStart" type="time" required /></label>
-          <label class="field-label"><span class="field-label-text">Business hours end:</span> <input v-model="config.businessHoursEnd" type="time" required /></label>
+          <label class="field-label"><span class="field-label-text">{{ t('admin.globalApplicationConfiguration.businessHoursStartLabel') }}</span> <input v-model="config.businessHoursStart" type="time" required /></label>
+          <label class="field-label"><span class="field-label-text">{{ t('admin.globalApplicationConfiguration.businessHoursEndLabel') }}</span> <input v-model="config.businessHoursEnd" type="time" required /></label>
         </p>
         <p>
-          <span class="field-label-text">Business days:</span>
-          <label v-for="day in dayNames" :key="day"><input v-model="businessDays" type="checkbox" :value="day" /> {{ day }}</label>
-          <br /><small>Run now asks for confirmation inside these hours, since an import changes data people are working with.</small>
+          <span class="field-label-text">{{ t('admin.globalApplicationConfiguration.businessDaysLabel') }}</span>
+          <label v-for="day in dayNames" :key="day"><input v-model="businessDays" type="checkbox" :value="day" /> {{ t(DAY_KEYS[day]) }}</label>
+          <br /><small>{{ t('admin.globalApplicationConfiguration.businessDaysHint') }}</small>
         </p>
       </fieldset>
       <p v-if="error" role="alert">{{ error }}</p>
-      <button type="submit" class="btn-primary">Save</button>
-      <span v-if="saved" role="status"> Saved.</span>
+      <button type="submit" class="btn-primary">{{ t('common.save') }}</button>
+      <span v-if="saved" role="status">{{ ' ' + t('common.saved') }}</span>
     </form>
   </div>
 </template>

@@ -9,6 +9,9 @@
 // this field -- is chosen from GET /api/admin/field-metadata/permission-options.
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const props = defineProps({ fieldMetadataKey: { type: [String, Number], required: false, default: null } })
 const router = useRouter()
@@ -25,7 +28,7 @@ const permissions = ref([])
 onMounted(async () => {
   try {
     const response = await fetch('/api/admin/field-metadata/permission-options')
-    if (!response.ok) throw new Error(`Request failed: ${response.status}`)
+    if (!response.ok) throw new Error(t('common.requestFailed', { status: response.status }))
     permissions.value = await response.json()
   } catch (err) {
     loadError.value = err.message
@@ -33,10 +36,10 @@ onMounted(async () => {
   if (isEditMode.value && !loadError.value) {
     try {
       const response = await fetch('/api/admin/field-metadata')
-      if (!response.ok) throw new Error(`Request failed: ${response.status}`)
+      if (!response.ok) throw new Error(t('common.requestFailed', { status: response.status }))
       const items = await response.json()
       const match = items.find(item => String(item.fieldMetadataKey) === String(props.fieldMetadataKey))
-      if (!match) throw new Error('Field not found.')
+      if (!match) throw new Error(t('admin.fieldMetadataEdit.notFound'))
       editing.value = { ...match }
     } catch (err) {
       loadError.value = err.message
@@ -57,7 +60,7 @@ async function save() {
     })
     if (!response.ok) {
       const problem = await response.json().catch(() => null)
-      saveError.value = problem?.detail ?? `Save failed: ${response.status}`
+      saveError.value = problem?.detail ?? t('common.saveFailed', { status: response.status })
       return
     }
     router.push({ name: 'admin-field-metadata' })
@@ -73,30 +76,30 @@ function cancel() {
 
 <template>
   <div>
-    <h2>{{ isEditMode ? 'Edit Field' : 'New Field' }}</h2>
-    <p v-if="loading" role="status">Loading...</p>
+    <h2>{{ isEditMode ? t('admin.fieldMetadataEdit.editTitle') : t('admin.fieldMetadataEdit.newTitle') }}</h2>
+    <p v-if="loading" role="status">{{ t('common.loading') }}</p>
     <p v-else-if="loadError" role="alert">{{ loadError }}</p>
 
     <form v-else @submit.prevent="save">
-      <p><label class="field-label"><span class="field-label-text">Field Name:</span> <input v-model="editing.fieldName" required /></label></p>
-      <p><label class="field-label"><span class="field-label-text">Display Label:</span> <input v-model="editing.displayLabel" required /></label></p>
-      <p><label class="field-label"><span class="field-label-text">Field Type:</span> <input v-model="editing.fieldType" required /></label></p>
-      <p><label class="field-label"><span class="field-label-text">Reference Table:</span> <input v-model="editing.referenceTable" /></label></p>
-      <p><label><input v-model="editing.isRequired" type="checkbox" /> Required</label></p>
+      <p><label class="field-label"><span class="field-label-text">{{ t('admin.fieldMetadataEdit.fieldName') }}</span> <input v-model="editing.fieldName" required /></label></p>
+      <p><label class="field-label"><span class="field-label-text">{{ t('admin.fieldMetadataEdit.displayLabel') }}</span> <input v-model="editing.displayLabel" required /></label></p>
+      <p><label class="field-label"><span class="field-label-text">{{ t('admin.fieldMetadataEdit.fieldType') }}</span> <input v-model="editing.fieldType" required /></label></p>
+      <p><label class="field-label"><span class="field-label-text">{{ t('admin.fieldMetadataEdit.referenceTable') }}</span> <input v-model="editing.referenceTable" /></label></p>
+      <p><label><input v-model="editing.isRequired" type="checkbox" /> {{ t('admin.fieldMetadataEdit.required') }}</label></p>
       <p>
         <label class="field-label">
-          <span class="field-label-text">Required Permission:</span>
+          <span class="field-label-text">{{ t('admin.fieldMetadataEdit.requiredPermission') }}</span>
           <select v-model="editing.requiredPermission">
-            <option :value="null">None (anyone who can edit the account)</option>
+            <option :value="null">{{ t('admin.fieldMetadataEdit.noPermission') }}</option>
             <option v-for="p in permissions" :key="p.permissionKey" :value="p.permissionKey">{{ p.permissionName }}</option>
           </select>
         </label>
-        <small>Only users who also hold this permission can change this field on an account.</small>
+        <small>{{ t('admin.fieldMetadataEdit.permissionHint') }}</small>
       </p>
-      <p><label class="field-label"><span class="field-label-text">Display Order:</span> <input v-model.number="editing.displayOrder" type="number" /></label></p>
+      <p><label class="field-label"><span class="field-label-text">{{ t('admin.fieldMetadataEdit.displayOrder') }}</span> <input v-model.number="editing.displayOrder" type="number" /></label></p>
       <p v-if="saveError" role="alert">{{ saveError }}</p>
-      <button type="submit" class="btn-primary" :disabled="saving">Save</button>
-      <button type="button" @click="cancel">Cancel</button>
+      <button type="submit" class="btn-primary" :disabled="saving">{{ t('common.save') }}</button>
+      <button type="button" @click="cancel">{{ t('common.cancel') }}</button>
     </form>
   </div>
 </template>

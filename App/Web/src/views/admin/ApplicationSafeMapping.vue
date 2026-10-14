@@ -17,6 +17,9 @@ import { useTotalCount } from '../../composables/useTotalCount'
 import { usePageSizeStore } from '../../stores/pageSize'
 import FilterCountSummary from '../../components/FilterCountSummary.vue'
 import Pager from '../../components/Pager.vue'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const router = useRouter()
 const pageSizeStore = usePageSizeStore()
@@ -40,21 +43,21 @@ function pageParams(page) {
 
 async function loadApplications() {
   const response = await fetch(`/api/applications/detailed?${pageParams(appPage.value)}`)
-  if (!response.ok) throw new Error(`Applications request failed: ${response.status}`)
+  if (!response.ok) throw new Error(t('admin.applicationSafeMapping.applicationsRequestFailed', { status: response.status }))
   appCounts.readTotalCount(response)
   applications.value = await response.json()
 }
 
 async function loadSafes() {
   const response = await fetch(`/api/safes?${pageParams(safePage.value)}`)
-  if (!response.ok) throw new Error(`Safes request failed: ${response.status}`)
+  if (!response.ok) throw new Error(t('admin.applicationSafeMapping.safesRequestFailed', { status: response.status }))
   safeCounts.readTotalCount(response)
   safes.value = await response.json()
 }
 
 async function loadAllApplications() {
   const response = await fetch('/api/applications/detailed')
-  if (!response.ok) throw new Error(`Applications request failed: ${response.status}`)
+  if (!response.ok) throw new Error(t('admin.applicationSafeMapping.applicationsRequestFailed', { status: response.status }))
   allApplications.value = await response.json()
 }
 
@@ -97,7 +100,7 @@ async function assignSafe(safe, applicationKeyRaw) {
     body: JSON.stringify(applicationKey)
   })
   if (!response.ok) {
-    error.value = `Assign failed: ${response.status}`
+    error.value = t('admin.applicationSafeMapping.assignFailed', { status: response.status })
     return
   }
   await run(loadSafes)
@@ -106,20 +109,20 @@ async function assignSafe(safe, applicationKeyRaw) {
 
 <template>
   <div>
-    <h2>Application ↔ Safe Mapping</h2>
+    <h2>{{ t('admin.applicationSafeMapping.title') }}</h2>
     <p v-if="error" role="alert">{{ error }}</p>
-    <p v-if="loading" role="status">Loading...</p>
+    <p v-if="loading" role="status">{{ t('common.loading') }}</p>
 
     <template v-else>
-      <h3>Applications</h3>
+      <h3>{{ t('admin.applicationSafeMapping.applicationsHeading') }}</h3>
       <p>
-        <button type="button" class="btn-primary" @click="router.push({ name: 'admin-application-create' })">+ New Application</button>
-        <button type="button" @click="router.push({ name: 'admin-application-mapping-bulk-import' })">Bulk Actions</button>
+        <button type="button" class="btn-primary" @click="router.push({ name: 'admin-application-create' })">{{ t('admin.applicationSafeMapping.newApplication') }}</button>
+        <button type="button" @click="router.push({ name: 'admin-application-mapping-bulk-import' })">{{ t('admin.applicationSafeMapping.bulkActions') }}</button>
       </p>
       <FilterCountSummary :shown="applications.length" :filtered-count="appCounts.filteredCount.value" :total="appCounts.totalCount.value" :page="appPage" :page-size="pageSizeStore.current" />
       <table class="applications-table">
         <thead>
-          <tr><th>Code</th><th>Name</th><th>Owner</th></tr>
+          <tr><th>{{ t('admin.applicationSafeMapping.code') }}</th><th>{{ t('common.name') }}</th><th>{{ t('admin.applicationSafeMapping.owner') }}</th></tr>
         </thead>
         <tbody>
           <tr v-for="app in applications" :key="app.applicationKey">
@@ -131,18 +134,18 @@ async function assignSafe(safe, applicationKeyRaw) {
       </table>
       <Pager :page="appPage" :page-count="appPageCount" @update:page="onAppPageChange" @page-size-change="onPageSizeChange" />
 
-      <h3>Safes</h3>
+      <h3>{{ t('admin.applicationSafeMapping.safesHeading') }}</h3>
       <FilterCountSummary :shown="safes.length" :filtered-count="safeCounts.filteredCount.value" :total="safeCounts.totalCount.value" :page="safePage" :page-size="pageSizeStore.current" />
       <table class="safes-table">
         <thead>
-          <tr><th>Safe</th><th>Application</th></tr>
+          <tr><th>{{ t('admin.applicationSafeMapping.safe') }}</th><th>{{ t('admin.applicationSafeMapping.application') }}</th></tr>
         </thead>
         <tbody>
           <tr v-for="safe in safes" :key="safe.safeKey">
             <td>{{ safe.safeName }}</td>
             <td>
-              <select :value="safe.applicationKey ?? ''" :aria-label="`Application for safe ${safe.safeName}`" @change="assignSafe(safe, $event.target.value)">
-                <option value="">(none)</option>
+              <select :value="safe.applicationKey ?? ''" :aria-label="t('admin.applicationSafeMapping.applicationForSafe', { name: safe.safeName })" @change="assignSafe(safe, $event.target.value)">
+                <option value="">{{ t('common.none') }}</option>
                 <option v-for="app in allApplications" :key="app.applicationKey" :value="app.applicationKey">
                   {{ app.applicationName }}
                 </option>

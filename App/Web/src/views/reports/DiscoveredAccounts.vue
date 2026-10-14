@@ -24,6 +24,9 @@ import { confirmDelete } from '../../composables/useConfirmDialog'
 import FilterCountSummary from '../../components/FilterCountSummary.vue'
 import Pager from '../../components/Pager.vue'
 import ReportExportButtons from '../../components/ReportExportButtons.vue'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const { totalCount, filteredCount, readTotalCount } = useTotalCount()
 const pageSizeStore = usePageSizeStore()
@@ -54,12 +57,12 @@ const accessGroupsError = ref(null)
 const sortColumns = ref([])
 
 const columns = [
-  { field: 'samAccountName', label: 'Account' },
-  { field: 'domainName', label: 'Domain' },
-  { field: 'computedRiskScore', label: 'Risk Score' },
-  { field: 'riskScoreBandName', label: 'Risk Band' },
-  { field: 'discoveredDate', label: 'First Discovered' },
-  { field: 'lastSeenDate', label: 'Last Seen' }
+  { field: 'samAccountName', labelKey: 'reports.discoveredAccounts.colAccount' },
+  { field: 'domainName', labelKey: 'reports.discoveredAccounts.colDomain' },
+  { field: 'computedRiskScore', labelKey: 'reports.discoveredAccounts.colRiskScore' },
+  { field: 'riskScoreBandName', labelKey: 'reports.discoveredAccounts.colRiskBand' },
+  { field: 'discoveredDate', labelKey: 'reports.discoveredAccounts.colFirstDiscovered' },
+  { field: 'lastSeenDate', labelKey: 'reports.discoveredAccounts.colLastSeen' }
 ]
 
 function sortIndicator(field) {
@@ -111,7 +114,7 @@ async function load() {
     params.set('page', page.value)
     params.set('pageSize', pageSizeStore.current)
     const response = await fetch(`/api/reports/discovered-accounts?${params.toString()}`)
-    if (!response.ok) throw new Error(`Request failed: ${response.status}`)
+    if (!response.ok) throw new Error(t('common.requestFailed', { status: response.status }))
     readTotalCount(response)
     rows.value = await response.json()
   } catch (err) {
@@ -126,15 +129,15 @@ const busyKey = ref(null)
 
 async function accept(row) {
   if (!(await confirmDelete(
-    `Accept "${row.samAccountName}" (${row.domainName}) into onboarding tracking? This creates a real tracked account, visible immediately in the Account Progress list at the Discovered stage.`,
-    'Accept'
+    t('reports.discoveredAccounts.acceptConfirm', { account: row.samAccountName, domain: row.domainName }),
+    t('reports.discoveredAccounts.accept')
   ))) return
 
   actionError.value = null
   busyKey.value = row.discoveredAccountKey
   try {
     const response = await fetch(`/api/reports/discovered-accounts/${row.discoveredAccountKey}/accept`, { method: 'POST' })
-    if (!response.ok) throw new Error((await response.json().catch(() => null))?.detail ?? `Request failed: ${response.status}`)
+    if (!response.ok) throw new Error((await response.json().catch(() => null))?.detail ?? t('common.requestFailed', { status: response.status }))
     await load()
   } catch (err) {
     actionError.value = err.message
@@ -148,7 +151,7 @@ async function dismiss(row) {
   busyKey.value = row.discoveredAccountKey
   try {
     const response = await fetch(`/api/reports/discovered-accounts/${row.discoveredAccountKey}/dismiss`, { method: 'POST' })
-    if (!response.ok) throw new Error((await response.json().catch(() => null))?.detail ?? `Request failed: ${response.status}`)
+    if (!response.ok) throw new Error((await response.json().catch(() => null))?.detail ?? t('common.requestFailed', { status: response.status }))
     await load()
   } catch (err) {
     actionError.value = err.message
@@ -169,7 +172,7 @@ async function toggleDrilldown(discoveredAccountKey) {
   accessGroupsLoading.value = true
   try {
     const response = await fetch(`/api/reports/discovered-accounts/${discoveredAccountKey}/access-groups`)
-    if (!response.ok) throw new Error(`Request failed: ${response.status}`)
+    if (!response.ok) throw new Error(t('common.requestFailed', { status: response.status }))
     accessGroups.value = await response.json()
   } catch (err) {
     accessGroupsError.value = err.message
@@ -183,27 +186,20 @@ onMounted(load)
 
 <template>
   <div>
-    <h2>Discovered Accounts</h2>
-    <p class="hint">
-      Real Active Directory accounts not yet onboarded into CyberArk, found by matching AD group membership
-      against the Access Group inventory -- risk-scored the same way an onboarded account would be. Click a
-      row's account name to see which Access Groups it matched. Accept moves an account into onboarding
-      tracking (visible immediately in the Account Progress list); Dismiss clears a false positive or an
-      already-onboarded match without creating a tracked account. Neither talks to CyberArk directly -- actual
-      Vault onboarding still happens there.
-    </p>
+    <h2>{{ t('reports.discoveredAccounts.title') }}</h2>
+    <p class="hint">{{ t('reports.discoveredAccounts.hint') }}</p>
     <ReportExportButtons path="/api/reports/discovered-accounts/export" :params="{ sort: sortQueryParam }" />
     <FilterCountSummary :shown="rows.length" :filtered-count="filteredCount" :total="totalCount" :page="page" :page-size="pageSizeStore.current" />
     <Pager :page="page" :page-count="pageCount" @update:page="onPageChange" @page-size-change="onPageSizeChange" />
     <p v-if="actionError" role="alert">{{ actionError }}</p>
-    <p v-if="loading" role="status">Loading...</p>
-    <p v-else-if="error" role="alert">Could not load report: {{ error }}</p>
+    <p v-if="loading" role="status">{{ t('common.loading') }}</p>
+    <p v-else-if="error" role="alert">{{ t('reports.discoveredAccounts.loadFailed', { error }) }}</p>
     <table v-else>
       <thead>
         <tr>
           <th v-for="col in columns" :key="col.field" :aria-sort="ariaSortFor(col.field)">
             <button type="button" @click="toggleSort(col.field, $event)">
-              {{ col.label }} <span aria-hidden="true">{{ sortIndicator(col.field) }}</span>
+              {{ t(col.labelKey) }} <span aria-hidden="true">{{ sortIndicator(col.field) }}</span>
             </button>
           </th>
           <th v-if="rights.hasPermission('ManageDiscoveredAccounts')"></th>
@@ -217,9 +213,9 @@ onMounted(load)
                 {{ row.samAccountName }}
               </button>
               <span v-if="row.displayName"> ({{ row.displayName }})</span>
-              <span v-if="!row.isEnabled"> [disabled]</span>
+              <span v-if="!row.isEnabled">{{ ' ' + t('reports.discoveredAccounts.disabled') }}</span>
               <p v-if="row.possibleExistingAccountKey" class="possible-match" role="status">
-                Possibly already onboarded as "{{ row.possibleExistingAccountName }}"
+                {{ t('reports.discoveredAccounts.possibleMatch', { account: row.possibleExistingAccountName }) }}
               </p>
             </td>
             <td>{{ row.domainName }}</td>
@@ -228,15 +224,15 @@ onMounted(load)
             <td>{{ formatDate(row.discoveredDate) }}</td>
             <td>{{ formatDate(row.lastSeenDate) }}</td>
             <td v-if="rights.hasPermission('ManageDiscoveredAccounts')">
-              <button type="button" :disabled="busyKey === row.discoveredAccountKey" @click="accept(row)">Accept</button>
-              <button type="button" :disabled="busyKey === row.discoveredAccountKey" @click="dismiss(row)">Dismiss</button>
+              <button type="button" :disabled="busyKey === row.discoveredAccountKey" @click="accept(row)">{{ t('reports.discoveredAccounts.accept') }}</button>
+              <button type="button" :disabled="busyKey === row.discoveredAccountKey" @click="dismiss(row)">{{ t('reports.discoveredAccounts.dismiss') }}</button>
             </td>
           </tr>
           <tr v-if="expandedKey === row.discoveredAccountKey">
             <td :colspan="rights.hasPermission('ManageDiscoveredAccounts') ? 7 : 6">
-              <p v-if="accessGroupsLoading" role="status">Loading matched Access Groups...</p>
+              <p v-if="accessGroupsLoading" role="status">{{ t('reports.discoveredAccounts.loadingAccessGroups') }}</p>
               <p v-else-if="accessGroupsError" role="alert">{{ accessGroupsError }}</p>
-              <p v-else-if="accessGroups.length === 0">No matched Access Groups found.</p>
+              <p v-else-if="accessGroups.length === 0">{{ t('reports.discoveredAccounts.noAccessGroups') }}</p>
               <ul v-else class="drilldown-list">
                 <li v-for="g in accessGroups" :key="g.accessGroupKey">{{ g.groupName }}</li>
               </ul>
@@ -246,7 +242,7 @@ onMounted(load)
       </tbody>
     </table>
     <Pager :page="page" :page-count="pageCount" @update:page="onPageChange" @page-size-change="onPageSizeChange" />
-    <p><small>Click a column to sort by it; shift-click another column to add it as a secondary sort key.</small></p>
+    <p><small>{{ t('reports.discoveredAccounts.sortHelp') }}</small></p>
   </div>
 </template>
 

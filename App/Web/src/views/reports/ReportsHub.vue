@@ -9,22 +9,25 @@
 // API endpoints need only ViewDashboard (D-197), which every role has.
 import { computed } from 'vue'
 import { useRightsStore } from '../../stores/rights'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const rights = useRightsStore()
 
 const reports = [
-  { name: 'reports-overdue-worklist', label: 'Overdue / At-Risk' },
-  { name: 'reports-stage-status-summary', label: 'Stage/Status Summary' },
-  { name: 'reports-reconciliation-review', label: 'Reconciliation Review', permission: 'ConfirmReconciliation' },
-  { name: 'reports-possible-matches', label: 'Possible Account Matches', permission: 'ConfirmReconciliation' },
-  { name: 'reports-unresolved-entitlement-members', label: 'Unresolved Entitlement Members' },
-  { name: 'reports-risk-score', label: 'Risk Score', permission: 'ViewRiskReport' },
-  { name: 'reports-risk-exception-sod', label: 'Risk Exception SoD', permission: 'ViewRiskExceptionSodReport' },
-  { name: 'reports-discovered-accounts', label: 'Discovered Accounts', permission: 'ViewDiscoveredAccounts' },
-  { name: 'reports-decom-safes', label: 'Safes Flagged for Deletion' },
-  { name: 'reports-decom-accounts', label: 'Accounts Flagged for Deletion' },
-  { name: 'reports-kpi-summary', label: 'KPI Summary' },
-  { name: 'reports-trends', label: 'Trends' }   // D-221
+  { name: 'reports-overdue-worklist', labelKey: 'reports.reportsHub.overdueWorklist' },
+  { name: 'reports-stage-status-summary', labelKey: 'reports.reportsHub.stageStatusSummary' },
+  { name: 'reports-reconciliation-review', labelKey: 'reports.reportsHub.reconciliationReview', permission: 'ConfirmReconciliation' },
+  { name: 'reports-possible-matches', labelKey: 'reports.reportsHub.possibleMatches', permission: 'ConfirmReconciliation' },
+  { name: 'reports-unresolved-entitlement-members', labelKey: 'reports.reportsHub.unresolvedEntitlementMembers' },
+  { name: 'reports-risk-score', labelKey: 'reports.reportsHub.riskScore', permission: 'ViewRiskReport' },
+  { name: 'reports-risk-exception-sod', labelKey: 'reports.reportsHub.riskExceptionSod', permission: 'ViewRiskExceptionSodReport' },
+  { name: 'reports-discovered-accounts', labelKey: 'reports.reportsHub.discoveredAccounts', permission: 'ViewDiscoveredAccounts' },
+  { name: 'reports-decom-safes', labelKey: 'reports.reportsHub.decomSafes' },
+  { name: 'reports-decom-accounts', labelKey: 'reports.reportsHub.decomAccounts' },
+  { name: 'reports-kpi-summary', labelKey: 'reports.reportsHub.kpiSummary' },
+  { name: 'reports-trends', labelKey: 'reports.reportsHub.trends' }   // D-221
 ]
 
 const visibleReports = computed(() => reports.filter(r => !r.permission || rights.hasPermission(r.permission)))
@@ -32,8 +35,8 @@ const visibleReports = computed(() => reports.filter(r => !r.permission || right
 
 <template>
   <div class="reports-layout">
-    <nav class="reports-subnav" aria-label="Reports">
-      <router-link v-for="r in visibleReports" :key="r.name" :to="{ name: r.name }">{{ r.label }}</router-link>
+    <nav class="reports-subnav" :aria-label="t('reports.reportsHub.navLabel')">
+      <router-link v-for="r in visibleReports" :key="r.name" :to="{ name: r.name }">{{ t(r.labelKey) }}</router-link>
     </nav>
     <div class="reports-content">
       <router-view />
