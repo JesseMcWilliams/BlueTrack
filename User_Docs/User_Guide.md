@@ -6,7 +6,7 @@
 
 This is a task-oriented, "how do I use this" guide for BlueTrack administrators working in the web UI — distinct from the `Design_*.md` documents in `Claude_Docs/`, which record *why* something was built a particular way, not how to operate it day to day.
 
-**Scope note**: this guide now covers every page in the application inventory (`Claude_Docs/Design_Application-Structure.md`) — the core analyst workflow (Dashboard, Account Progress, Risk Exceptions, Reports), Targets/Access Groups, and the full 14-section Admin hub. Each section was written from the actual Vue component source, not guessed. Kept up to date feature by feature as the app changes, rather than a one-time snapshot — if a page's UI changes, its section here should be revisited.
+**Scope note**: this guide now covers every page in the application inventory (`Claude_Docs/Design_Application-Structure.md`) — the core analyst workflow (Dashboard, Account Progress, Risk Exceptions, Reports), Targets/Access Groups, and every section of the Admin hub. Each section was written from the actual Vue component source, not guessed. Kept up to date feature by feature as the app changes, rather than a one-time snapshot — if a page's UI changes, its section here should be revisited.
 
 ## Getting Around
 
@@ -60,7 +60,7 @@ A **⚠** next to a username means the account is flagged for deletion: it's in 
 
 **Deleted accounts** are hidden. The **Deleted accounts** filter shows them alongside the others (**Show**) or on their own (**Only deleted**). A deleted account is marked **Deleted**; point at the mark to see who deleted it and why, whether CyberArk deleted it, or **Not imported (ignored safe)** for an account in a safe matching the ignored safe pattern.
 
-**Accounts from other systems.** An account an administrator imports from another system (an account inventory data feed) is marked **from** and the system's name. When CyberArk has the same account (the same user name and address), BlueTrack links the two: the other system's account moves to **Onboarded to Vault** and is hidden, so the list and the reports count the account once, as its CyberArk account. Set the **Linked feed accounts** filter to **Show** to see them; each is marked **Linked**, and the mark opens its CyberArk account.
+**Accounts from other systems.** An account an administrator imports from another system (an account inventory data feed) is marked **from** and the system's name. When CyberArk has the same account (the same user name and address), BlueTrack links the two: the other system's account moves from **Discovered** to **Onboarded to Vault** and is hidden, so the list and the reports count the account once, as its CyberArk account. Set the **Linked feed accounts** filter to **Show** to see them; each is marked **Linked**, and the mark opens its CyberArk account.
 
 ### Selecting accounts for bulk actions
 
@@ -136,12 +136,14 @@ An exception that's no longer Active can't be re-approved or revoked; if someone
 
 ## Reports
 
-**Where**: **Reports** in the top nav (`/reports`) — a hub with sub-navigation. A report marked with a permission below appears only if you hold it; the others are listed for everyone but need `ViewDashboard` to show data.
+**Where**: **Reports** in the top nav (`/reports`). The reports are listed in a column on the left (as in the Admin hub) and the chosen report fills the right. A report marked with a permission below appears only if you hold it; the others are listed for everyone but need `ViewDashboard` to show data.
+
+**Exporting.** Every report has **Export CSV** and **Export Excel** buttons. The file holds every row that matches the report's current filters and sort, not just the page you see, with the same columns in the same order. Anyone who can view a report can export it. If more rows match than the **Export Max Rows** limit your administrator set (100,000 unless changed), the export is refused with the number of matching rows: narrow the filters and export again. Each export is recorded in the Audit Log (event type `ReportExport`). The file is named `BlueTrack_<Report>_<date-time>`.
 
 - **Overdue / At-Risk** — accounts past their target remediation date that aren't yet Complete.
 - **Stage/Status Summary** — an account count per Stage × Status cell, with row totals.
 - **Reconciliation Review** (requires `ConfirmReconciliation`) — unconfirmed cross-source account matches; currently read-only, no confirm/reject action wired up yet.
-- **Possible Account Matches** (requires `ConfirmReconciliation`) — accounts from other systems that may be a CyberArk account (same user name; the addresses agree by host name or DNS). **Link** treats them as one account, as an exact match would; **Dismiss** means they're different, and the pair isn't suggested again.
+- **Possible Account Matches** (requires `ConfirmReconciliation`) — accounts from other systems that may be a CyberArk account (same user name; the addresses agree by host name or DNS). **Link** (after a confirmation) treats them as one account, as an exact match would; **Dismiss** means they're different, and the pair isn't suggested again. Both are recorded in the Audit Log.
 - **Unresolved Entitlement Members** — Safe entitlements granted to a member this app can't resolve to a known user or group.
 - **Risk Score** (requires `ViewRiskReport`) — every account's Computed/Override/Effective risk score and Risk Band, sortable, with a **Recalculate Now** button and a per-account click-to-expand drill-down showing the real Targets/Access Groups behind that score.
 - **Discovered Accounts** (requires `ViewDiscoveredAccounts`) — real AD accounts not yet onboarded into CyberArk, found nightly and risk-scored the same way as tracked accounts. If you hold `ManageDiscoveredAccounts`, **Accept**/**Dismiss** buttons let you move a candidate into real Blueprint tracking or resolve it as a false positive. An account that's already been accepted can't be dismissed; the page says so.
@@ -149,12 +151,17 @@ An exception that's no longer Active can't be re-approved or revoked; if someone
 - **Safes Flagged for Deletion** — safes whose name matches the *safe decommission pattern* (Global Application Configuration), with how many of their accounts aren't deleted yet. Ignored safes aren't listed.
 - **Accounts Flagged for Deletion** — accounts in those safes, or whose own name matches the *account decommission pattern*. Accounts still active are marked **Not deleted yet**; **Also in** names any other safe holding an account with the same username and address, which usually means it has moved there. Tick *Only accounts not yet deleted* to hide the rest.
 - **KPI Summary** — the four progress ratios (In Scope vs. All Accounts, Onboarded vs. In Scope, Managed vs. Onboarded, Compliant vs. Managed) as counts and percentages. "In scope" means not currently excluded via an active Risk Accepted / Excluded exception. The same four ratios, plus a summary pie chart, also appear on the Dashboard's Key Progress Indicators card.
+- **Trends** — how accounts have moved over time, in three charts: **Accounts by stage** (stacked bars), **% complete** (a line, using the KPI Summary's rule: accounts at the final stage with status Complete, out of the accounts in scope) and **Accounts by risk level** (stacked bars, with a *Not set* series for accounts without a risk level). Filters: **From:** and **To:** (the last 90 days by default), **By:** **Day** or **Week** (a week shows the last snapshot taken in that week, not a sum), **Application:** and **Safe:** (an account's current safe and that safe's application). Each chart has a **Show data table** button with the numbers behind it. The export has one row per day or week, with every chart's columns. The data comes from the nightly snapshot, so there is one point per night; an empty chart means no snapshot has been taken in that range yet.
 
 ## Profile & Preferences
 
 **Where**: open the menu with your name at the right of the top nav and choose **Profile & Preferences** (`/profile`).
 
 Shows your display name, mapped role(s), and full permission list. Click **Reload My Rights** to re-check your current group membership immediately, without waiting for anything to expire — useful right after you know you've been added to a new group. Also where you pick a display theme: Light, Dark, or High Visibility.
+
+**Language** lists the languages BlueTrack has; for now that's English only. Until you pick one, BlueTrack uses your browser's language if it has it, otherwise English. Your choice is saved for you, like the theme, so it follows you to other computers.
+
+**Numbers and dates.** Counts on the pages (for example `1,234` or `1.234`) and dates use your browser's language format, unless you pick a language on this page that differs from your browser's. Emails, audit details and other text the server writes keep their own format.
 
 ## Targets and Access Groups
 
@@ -165,6 +172,8 @@ These two pages manage the Risk Scoring inventory behind every account's compute
 ### Targets
 
 A **Target** is any final destination an account's access leads to — a server, database, application, or other endpoint. The list shows Name, Type, Application, Risk Score (always analyst-set, 0-1000, regardless of how the row was created), and every recognized identifier (e.g. `ADGuid=...`, `FQDN=...`) — a Target can carry several. Filter by Type or Application; click a column header to sort (shift-click to add a secondary key). Click a Target's name to edit it, including adding/removing identifier rows; **+ New Target** opens the same form blank.
+
+**Linked targets.** A target can be *linked* to another target, its primary (made by **Link** on Target Match Review, below). Anything that reaches a linked target counts as its primary, once, at the primary's risk score. Linked targets are hidden from the list, its counts and Select all; set the **Linked targets:** filter to **Show** to see them, each marked **Linked** (the mark opens its primary). A linked target's own page shows its primary under **Linked Target**, and a primary's page lists its **Linked Targets**. **Unlink** (on either page, after a confirmation) makes the target count at its own risk score again; BlueTrack won't link it again automatically.
 
 Below the table, **Link a Single Account to a Target** creates a direct account-to-target link without going through a group — type an account name and pick a Target.
 
@@ -219,7 +228,7 @@ Manages this app's own roles and which permissions each one bundles. The list sh
 
 ### Application ↔ Safe Mapping
 
-Two sections on one page. **Applications**: Code/Name/Owner; click an application's **Name** to edit it (no Delete here), and **+ New Application** opens a blank form (Code, Name, Description, Owner Name/Email, Technical Contact Name/Email, Notes). **Safes**: each Safe gets a per-row dropdown assigning it to an Application — changing the dropdown saves immediately, there's no separate Save button for this section. Both tables show a page at a time, at your page size (**Profile & Preferences**; choose 25, 50, 100 or 250 under either table), with their own Previous/Next.
+Two sections on one page. **Applications**: Code/Name/Owner; click an application's **Name** to edit it (no Delete here), and **+ New Application** opens a blank form (Code, Name, Description, Owner Name/Email, Technical Contact Name/Email, Notes). **Safes**: each Safe gets a per-row dropdown assigning it to an Application — changing the dropdown saves immediately, there's no separate Save button for this section. Both tables show a page at a time, with their own **« Prev** / **Next »**, at your page size: **Rows per page:** under either table (25, 50, 100 or 250) is saved for you and shared with the other paged lists.
 
 **Bulk Actions** (next to **+ New Application**) opens a page with two CSV imports. Each has a **Download template** link, a file picker and an **Import** button, and reports per-row errors without failing the rest.
 - **Applications**: one row per application, matched by ApplicationCode. A new code creates the application; an existing code updates it, and a blank cell leaves that field as it is. A name already used by another application is a row error. The result counts created, updated and unchanged rows.
@@ -250,6 +259,8 @@ Every admin-wide setting on one form, saved together with a single **Save** butt
 - **Keep scheduled backups (days)**: 1 to 3650. After each scheduled backup, older scheduled backup files are deleted; backups made with **Backup App** are never deleted.
 - The Risk Score Algorithm (Dominant Plus Tail / Combined Exposure — see `Design_Risk-Scoring.md`) and the segregation-of-duties checkbox (below).
 - **Bulk edit limit (accounts)**: 1 to 10000; the most accounts one Account Progress bulk action may change.
+- **Export Max Rows**: 1 to 1,000,000 (100,000 on a new install); the most rows one report export (**Export CSV** / **Export Excel**) may hold. When more rows match, the export is refused with the count rather than cut short.
+- **Site URL**: the address people open BlueTrack at (for example `https://bluetrack.company.com`; `https://` only, or `http://` for localhost). The notification emails link to pages under it; leave it blank and they name the pages instead. The installer fills it in when it's blank.
 
 #### Data feeds
 
@@ -287,9 +298,10 @@ Read-only environment/version info, health checks, and SQL Server backup status.
 ### Notifications
 
 SMTP configuration, notification-type role targeting, and recipients, all on one page.
-- **SMTP Configuration**: Host, Port, "Enable STARTTLS," Auth Method (None or Basic — Basic reveals a Credential dropdown sourced from the Credentials & LDAP page), From Address/Display Name, and two TLS-relaxation checkboxes ("Ignore CRL issues," "Ignore all SSL errors — use with caution").
-- **Notification Types**: a table where each notification type gets an optional Target Role via a per-row dropdown that saves immediately — that role's recipients are resolved from the role's own email plus (if LDAP is configured) every member of its mapped AD groups, *additive* to the flat recipient list below.
-- **Test Connection**: a **Send Test Email** button sends a real email, using the saved SMTP config, to every active recipient.
+- **SMTP Configuration**: Host, Port, "Enable STARTTLS," Auth Method (None (open relay), Basic (username/password), Microsoft 365 (OAuth2), Google Workspace (OAuth2) or Generic OAuth2 (client credentials); each shows only the fields it needs, and the password, client secret, certificate or key file is a credential chosen from the Credentials & LDAP page — setup per provider in `Admin_SettingsReference_Notifications.md`), From Address/Display Name, and two TLS-relaxation checkboxes ("Ignore CRL issues," "Ignore all SSL errors — use with caution").
+- **Notification Types**: a table where each notification type has an **Enabled** checkbox (the newer types NightlyImportFailed, OverdueRiskExceptions and WeeklySummary start turned off) and an optional Target Role via a per-row dropdown; both save immediately — that role's recipients are resolved from the role's own email plus (if LDAP is configured) every member of its mapped AD groups, *additive* to the flat recipient list below.
+- **Schedule**: **Daily digest time:** (the OverdueRiskExceptions digest), **Weekly summary day:** and **Weekly summary time:** (the WeeklySummary), in the server's local time; **Save Schedule** saves them.
+- **Test Connection**: a **Send Test Email** button sends a real email, using the saved SMTP config, to every active recipient; it is recorded in the Audit Log as a `ConnectionTest` event.
 - **Recipients**: Email / Display Name / Active, with Deactivate-or-Activate and Delete per row; **+ Add Recipient** opens its own small form (Email, Display Name).
 
 ### Credentials & LDAP
@@ -300,7 +312,14 @@ Two independent sections. **Credentials** is a generic named-credential store (d
 
 ### Target Match Review
 
-A queue of weak import matches (e.g. an identifier that's only an IP address, which can be reassigned by DHCP/NAT) that didn't get auto-merged during an import and need a human decision. Each row shows the identifier, the candidate Target it weakly matched, and the source file, with an editable "Merge Into" target key (pre-filled with the candidate, but you can redirect it to a different target before deciding) and three buttons: **Merge**, **New Target**, **Ignore** — no confirmation dialog, since none of the three destroys data. A match someone else has already resolved is refused with a message.
+Requires `ManageTargets`. A queue of weak import matches (e.g. an identifier that's only an IP address, which can be reassigned by DHCP/NAT) that weren't merged automatically and need a human decision. Each row shows the **Identifier**, the **Imported Target** (its name and type, Source, Risk Score and any other identifiers from the file), the **Candidate Target** it weakly matched, the **Source File**, and a **Link To** search box. A row queued before the imported details were kept shows *Not stored (queued before this version). Name:* with a box for the new target's name.
+
+Three buttons, with no confirmation dialog (none of them changes an existing target's identifiers):
+- **Link** creates a target from the imported row and links it to the candidate, or to another target you choose in **Link To**: type at least 2 characters of a target's name or of any identifier, then pick from the list (up to 20 matches, each with its type and identifiers). The IP address stays where it is, and the pair counts once, at the risk score of the target it's linked to (see Targets, "Linked targets").
+- **New Target** creates a separate target from the imported row, not linked.
+- **Ignore** dismisses the row, and later imports skip the same row (same source and name).
+
+Later imports of a row you linked or made a new target from update that target instead of queueing it again; a target you **Unlink** isn't linked again. A match someone else has already resolved is refused with a message.
 
 ### Import Mapping Profiles
 

@@ -102,7 +102,7 @@ Some information doesn't come from CyberArk, such as which servers exist, which 
 
 The changes you make in BlueTrack show up straight away. Only CyberArk data waits for the nightly run. If an account you know was added or changed in CyberArk more than a day ago still isn't right:
 
-1. Check you're not hiding it. For example, the **Deleted accounts** filter on **Accounts** is set to **Hide** by default.
+1. Check you're not hiding it. For example, the **Deleted accounts** and **Linked feed accounts** filters on **Accounts** are set to **Hide** by default.
 2. Check whether its safe matches the ignored safe pattern.
 3. Tell your BlueTrack administrator. They can check whether last night's job succeeded and run it again if needed. BlueTrack doesn't show the job's result on a page.
 
@@ -292,6 +292,8 @@ These pages hold the information behind risk scores and ownership. You won't use
 
 **When you'd use it:** after a nightly load adds new *Other* targets with a score of 0, set real scores so accounts on important systems rank higher. **Link a Single Account to a Target** connects an account to a target directly.
 
+A **linked target** is one that has been linked to another target (its primary), usually from Target Match Review. It's the same system seen twice, so it counts once, at the primary's risk score. Linked targets are hidden from the list unless you set **Linked targets:** to **Show**; **Unlink** on the target's page separates them again.
+
 ### Access groups
 
 **Access Groups** (for `ManageAccessGroups`) lists privileged groups in your environment and which targets they reach. Each group has a **Base Risk Score**; its **Computed Risk Score** adds in what it can reach.
@@ -306,7 +308,13 @@ These pages hold the information behind risk scores and ownership. You won't use
 
 ### Target Match Review
 
-**Admin > Target Match Review** (also for `ManageTargets`) holds imported identifiers that only weakly match an existing target, such as a bare IP address that could have been reused. For each one choose **Merge**, **New Target** or **Ignore**.
+**Admin > Target Match Review** (also for `ManageTargets`) holds imported identifiers that only weakly match an existing target, such as a bare IP address that could have been reused. Each row shows what the import brought in and the candidate it matched. Choose:
+
+- **Link**: keep the imported row as its own target, linked to the candidate, or to another target you find by typing at least 2 characters of its name or an identifier in **Link To**. The pair counts once, at the risk score of the target it's linked to.
+- **New Target**: keep it as a separate target.
+- **Ignore**: dismiss it, and skip the same row in later imports.
+
+No identifier is moved off an existing target.
 
 **When you'd use it:** after a targets import, or every week or so.
 
@@ -332,21 +340,26 @@ These pages hold the information behind risk scores and ownership. You won't use
 | Reports > Reconciliation Review | Which accounts might be the same account in both Privilege Cloud and Self-Hosted? (Read-only for now.) |
 | Reports > Possible Account Matches | Which accounts from other systems might be CyberArk accounts we haven't linked yet? |
 | Reports > Risk Exception SoD | Who both approved an exception and linked it to an account? |
+| Reports > Trends | How have stages, % complete and risk levels changed over time, for everything or one application or safe? |
 | Exceptions > Overdue Reviews | Which exceptions are past their review date? |
 
-Some reports appear only if your role has the matching permission.
+On **Reports**, the reports are listed in a column on the left; choose one to open it on the right. Some reports appear only if your role has the matching permission.
+
+**Trends** is drawn from a snapshot BlueTrack takes every night, so it has one point per night. Choose **From:** and **To:** (the last 90 days by default), **By:** **Day** or **Week**, and optionally an **Application:** or **Safe:**. **Show data table** under each chart lists the numbers.
+
+**Exporting.** Every report has **Export CSV** and **Export Excel**. The file holds every row matching the report's current filters and sort, not just the page on screen. If you can view a report, you can export it. If more rows match than your administrator's **Export Max Rows** limit (100,000 unless changed), the export is refused and tells you how many rows matched, so narrow the filters and try again. Each export is recorded in the Audit Log.
 
 ## Your first week
 
 ### Everyone
 
-1. Sign in, open **Profile & Preferences**, and check your role and permissions. Pick a display theme (Light, Dark or High Visibility) while you're there.
+1. Sign in, open **Profile & Preferences**, and check your role and permissions. Pick a display theme (Light, Dark or High Visibility) while you're there. **Language** is English for now; until you choose, BlueTrack follows your browser's language. Counts and dates on the pages use your browser's number and date format.
 2. Look at the Dashboard and open each card's link to see the report behind it.
 3. Ask your team lead how your program defines each stage, and what a good Target Remediation Date looks like.
 
 ### Viewer or team lead
 
-1. Note the four Key Progress Indicators this week, so you can see the trend next week.
+1. Note the four Key Progress Indicators this week, and open **Reports > Trends** to see how stages, % complete and risk levels have moved night by night.
 2. Open **Reports > Overdue / At-Risk** and **Reports > Stage/Status Summary** to see where work is stuck.
 3. Check **Exceptions > Overdue Reviews** for exceptions nobody has looked at.
 

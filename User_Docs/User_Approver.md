@@ -40,10 +40,14 @@ Unconfirmed cross-source account matches — currently read-only.
 
 Accounts from other systems (account inventory data feeds) that may be the same as a CyberArk account, but didn't match it exactly: the user name is the same, and the addresses agree by host name (`web01` and `web01.corp.example.com`) or by DNS. Each row shows both accounts and why they were paired.
 
-- **Link** treats them as one account, as an exact match would: the other system's account is hidden from Accounts and the reports, and moves to **Onboarded to Vault**. You're asked to confirm first.
+- **Link** treats them as one account, as an exact match would: the other system's account is hidden from Accounts and the reports, and moves from **Discovered** to **Onboarded to Vault**. You're asked to confirm first.
 - **Dismiss** means they're different accounts; the pair isn't suggested again.
 
 Both are recorded in the Audit Log.
+
+## Exporting reports
+
+Every report you can view, including these two, has **Export CSV** and **Export Excel**: the file holds all rows matching the report's current filters and sort, up to the administrator's **Export Max Rows** limit (a larger export is refused with the row count). Each export is recorded in the Audit Log. **Reports > Trends** shows stages, % complete and risk levels over time. See `User_Guide.md`, Reports.
 
 ## See also
 

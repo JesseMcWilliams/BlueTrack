@@ -76,15 +76,22 @@ On **+ Add Mapping**, first choose the **Provider**. For Windows Integrated, ent
 
 ## 4. Global Application Configuration
 
-One form, one Save button, covering idle timeout, breadcrumb position, the Exception ID pattern, the Account Progress lock timeout, audit retention, the backup folder, the risk score algorithm, the segregation-of-duties checkbox for Risk Exception approval, the **bulk edit limit** (the most accounts one bulk edit, delete or undelete may change; default 500), the data feed schedule, and the **decommissioned and ignored safe** name patterns (agree your organization's naming convention, such as `DEL_`, `_DECOM` or `ZZ_`, and try it with **Test patterns** before saving). The **Account Progress Lock Timeout (minutes)** must be 1 to 720 (12 hours); new installs start at 30, and an upgrade keeps your existing value. Review every field here at least once — see `User_Guide.md`'s Global Application Configuration section for what each one does.
+One form, one Save button, covering the **Site URL** (the address people open BlueTrack at, which notification emails link under; the installer fills it in from the site's host name when it's blank, so check it's the address users actually type), idle timeout, breadcrumb position, the Exception ID pattern, the Account Progress lock timeout, audit retention, the backup folder, the risk score algorithm, the segregation-of-duties checkbox for Risk Exception approval, the **bulk edit limit** (the most accounts one bulk edit, delete or undelete may change; default 500), **Export Max Rows** (the most rows one report export may hold; default 100,000, refused rather than cut short above it; every export is recorded in the Audit Log as `ReportExport`), the data feed schedule, and the **decommissioned and ignored safe** name patterns (agree your organization's naming convention, such as `DEL_`, `_DECOM` or `ZZ_`, and try it with **Test patterns** before saving). The **Account Progress Lock Timeout (minutes)** must be 1 to 720 (12 hours); new installs start at 30, and an upgrade keeps your existing value. Review every field here at least once — see `User_Guide.md`'s Global Application Configuration section for what each one does.
 
 ## 5. Notifications
 
-If you want email alerts, configure SMTP under **Admin > Notifications**, assign target roles to notification types, and add recipients. Use **Send Test Email** to confirm before relying on it.
+If you want email alerts, configure SMTP under **Admin > Notifications**, then:
+
+- **Sign-in:** **Basic (username/password)** with a credential suits an internal relay. For a Microsoft 365 or Google Workspace mailbox where username and password sign-in is off, choose **Microsoft 365 (OAuth2)** or **Google Workspace (OAuth2)** (or **Generic OAuth2 (client credentials)** for another provider). These need setting up at the provider first, and are not yet proven against a live provider; the steps are in [Admin_SettingsReference_Notifications.md](Admin_SettingsReference_Notifications.md), "OAuth2 email sign-in".
+- **Notification Types:** tick **Enabled** for each alert you want. **NightlyImportFailed**, **OverdueRiskExceptions** and **WeeklySummary** start off; turn on NightlyImportFailed at least. Give each a **Target Role** if a role's mailbox or AD groups should receive it.
+- **Schedule:** set the **Daily digest time**, **Weekly summary day** and **Weekly summary time** (server local time), then **Save Schedule**.
+- **Recipients:** add at least one monitored mailbox.
+
+Use **Send Test Email** to confirm before relying on it. Each type and setting is described in [Admin_SettingsReference_Notifications.md](Admin_SettingsReference_Notifications.md), "Notifications".
 
 ## 6. Credentials & LDAP
 
-If recipient resolution or AD Account Discovery needs to query a domain, add it under **Admin > Credentials & LDAP** — each domain is independently enabled and bound with its own credential.
+If recipient resolution or AD Account Discovery needs to query a domain, add it under **Admin > Credentials & LDAP** — each domain is independently enabled and bound with its own credential. The same page holds the SMTP credential: a user name and password for Basic, or, for an OAuth2 sign-in, the client secret, certificate and key, or Google service account key in the credential's **Password**.
 
 ## 7. Risk Score Bands and Application ↔ Safe Mapping
 
@@ -101,7 +108,7 @@ Define your Low/Medium/High/Critical (or however you name them) bands under **Ad
 - **Run now / Run all** start a run straight away. Inside the **business hours** set on Global Application Configuration (default 07:00-18:00, Monday to Friday), they ask for confirmation first. Only one run happens at a time.
 - **History:** each feed's page lists its runs; click a run to see its row errors. Nightly runs are recorded as by the user "BlueTrack Data Feeds (system)", which can't be signed in as; Run now is recorded as by the person who clicked it.
 - **Folder access:** feeds are read by the App Pool's account, which needs read access to each folder ([Admin_Installation.md](Admin_Installation.md), "Data feed folders").
-- **CyberArk sources**, at the top of the page, are the settings the nightly 02:00 Import+Load job uses: whether to import Privilege Cloud (its export folder and the seven export file names, which may contain date tokens such as `{yyyy-MM-dd}` but not wildcards) and Self-Hosted (its EVD database). Click **Edit CyberArk sources** to change them; **Test** checks that the EVD database, the folder and today's files exist (the SQL Server service account also needs read access to the folder). Changes apply from the next nightly run; there's no Run now. The installer sets them on first install. Each field is described in [Admin_SettingsReference.md](Admin_SettingsReference.md), "CyberArk sources".
+- **CyberArk sources**, at the top of the page, are the settings the nightly 02:00 Import+Load job uses: whether to import Privilege Cloud (its export folder and the seven export file names, which may contain date tokens such as `{yyyy-MM-dd}` but not wildcards) and Self-Hosted (its EVD database). Click **Edit CyberArk sources** to change them; **Test** checks that the EVD database, the folder and today's files exist, and that each Privilege Cloud file has the columns the import needs (the SQL Server service account also needs read access to the folder). Changes apply from the next nightly run; there's no Run now. The installer sets them on first install. Each field is described in [Admin_SettingsReference.md](Admin_SettingsReference.md), "CyberArk sources".
 - After an upgrade that adds this page, an Admin who was already signed in needs **Reload My Rights** (**Profile & Preferences**, in the menu with their name) to see it.
 
 ## What's next
@@ -113,5 +120,6 @@ Once these are set, regular use can begin. Ongoing operational tasks — data im
 - `User_Guide.md` — the full field-by-field reference for every Admin hub section.
 - `Claude_Docs/Design_Admin-Deployment-Management.md` — the Identity Providers/Secrets Store design rationale and IdP-setup detail.
 - `Claude_Docs/Design_Risk-Scoring.md` — the model behind Risk Score Bands, Targets, and Access Groups.
+- [Admin_SettingsReference_Notifications.md](Admin_SettingsReference_Notifications.md) — every Secrets Store, credential, LDAP and notification setting.
 - `Claude_Docs/Design_Notifications.md` — the Notifications page's design rationale.
 - `Claude_Docs/Design_Credentials-Management.md` — the Credentials & LDAP page's design rationale.

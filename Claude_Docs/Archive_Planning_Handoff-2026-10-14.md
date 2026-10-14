@@ -1,6 +1,8 @@
 # BlueTrack: Handoff, 2026-10-14
 
 > **Stage: Planning.** Point-in-time snapshot for the next Claude session, written at the end of 2026-10-13 (19:30 PDT). Supersedes `Archive_Planning_Handoff-2026-10-13.md`, which covers 2026-10-12 to mid 2026-10-13 (v1.0.0, SSO go-live; its PR table runs from #96). Once every open item below is closed, rename this to `Archive_Planning_Handoff-2026-10-14.md` with `git mv`.
+>
+> **Archived 2026-10-14:** superseded by `Planning_Handoff-2026-10-15.md`, which carries its open items.
 
 ## What was done
 On 2026-10-13 after the v1.0.0 release: two audit findings closed, **Data Sources finished** (phases 3-4), UI requests (About, nav order, mapping paging, locale number format), the rest of the backlog that didn't need a real environment (D-214 to D-217, including break-glass alerts and **SAML Single Logout, proven live**), and **`Tools/`**, command-line checks against a real install. Everything is merged to `main` and deployed on the dev site. Nothing is released yet: it's all under **Unreleased** in `User_Docs/Release_Notes.md`.

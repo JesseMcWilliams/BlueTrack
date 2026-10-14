@@ -31,7 +31,7 @@ The installer runs steps 1-3 for you (`Db.Migrate`, and `Db.SeedTestData` when y
 5. **Run the manual scripts that apply**, from `Database/Manual/`, numbered in the order they're run (`Database/README.md`, "Manual scripts", has the full list):
    - `02_BlueTrack_GrantAppServiceAccountAccess.sql`: the App Pool account's database permissions (the installer's `Db.AppPoolAccess` step; `Admin_Installation.md`, section 3).
    - `03_BlueTrack_GrantBackupStatusReaderRole.sql`: optional, lets the Deployment page read SQL Server's backup history.
-   - `04_BlueTrack_ScheduleImportLoadJob.sql`: real (non-disposable) environments only, once step 4 has worked by hand at least once. Creates the nightly 2:00 AM Import+Load SQL Agent job:
+   - `04_BlueTrack_ScheduleImportLoadJob.sql`: real (non-disposable) environments only, once step 4 has worked by hand at least once. Creates the nightly 2:00 AM Import+Load SQL Agent job, one step that runs `usp_RunNightlyImportLoad` (the Import, the Load if the Import succeeded, then the daily snapshot for Reports > Trends whatever happened):
      ```
      sqlcmd -S <server> -C -v DatabaseName="BlueTrack" -i Database/Manual/04_BlueTrack_ScheduleImportLoadJob.sql
      ```
@@ -81,12 +81,17 @@ EXEC usp_RunFullLoad;
 4. **Redeploy**: the script copies the site's saved answers into the new copy and asks whether to run its installer (`-RunInstaller` skips the question). That's a full install run, including the pre-deployment backup, the database migration and the smoke test.
 5. **Afterwards**, use the new copy's `Deploy` folder for every later run (`-Step`, `-Resume`, the next update): it now holds the site's answers and progress.
 
+**Before upgrading**, check the server's ASP.NET Core Hosting Bundle is **10.0.13 or later** (`dotnet --list-runtimes` lists `Microsoft.AspNetCore.App 10.0.13` or higher), and install the current one from Microsoft's .NET download page if not. The installer's prerequisite check only confirms a Hosting Bundle is installed, not its version.
+
 **After upgrading:**
 
 - **Database changes apply themselves.** The installer's `Db.Migrate` step runs any new numbered scripts in `Database/` (for example, the edit-lock timeout default and the default sign-in method setting). An existing install keeps its current lock timeout and signs people in exactly as before; nothing extra is needed.
 - **A site built before the six-script baseline** upgrades the same way: the Migrator recognizes the older scripts and records the baseline as already applied, without running it or touching your data. It refuses a database that isn't up to date with the older scripts (through `51_BlueTrack_TargetsFromCyberArkAddress.sql`); upgrade that one from the `pre-sql-baseline` tag first, then again from the current version.
 - **Manual scripts were renumbered** into `Database/Manual/`, `01`-`06`, in the order they're run (for example, the nightly job is now `Database/Manual/04_BlueTrack_ScheduleImportLoadJob.sql`). Update any notes or scheduled commands of your own that name the old files. Jobs already created in SQL Agent keep working.
-- **Re-run `Db.NightlyJob` once** after the upgrade that adds the CyberArk sources settings (`Database/12_BlueTrack_CyberArkSourceConfig.sql`): `.\Install-BlueTrack.ps1 -Step Db.NightlyJob`. The old job keeps working with the values written into it, but changes on Admin > Data Sources have no effect until the job is recreated. The step uses your saved answers to save the settings and recreates the job.
+- **Re-run `Db.NightlyJob` once** after the upgrade that adds the CyberArk sources settings (`Database/12_BlueTrack_CyberArkSourceConfig.sql`) and the one-step nightly job (`Database/21_BlueTrack_SnapshotAndSiteUrl.sql`): `.\Install-BlueTrack.ps1 -Step Db.NightlyJob`. The old job keeps working with the values written into it, but changes on Admin > Data Sources have no effect until the job is recreated, and it takes the Trends snapshot only on nights the Import and Load succeed. The step uses your saved answers to save the settings and recreates the job as one step.
+- **The settings file is now `appsettings.Site.json`.** The installer's `Db.AppSettings` step writes it and removes the old `appsettings.<Environment>.json`, which BlueTrack read only on a Production install; until this upgrade, a Test or Staging site ignored the installer's connection string, HSTS and allowed folders. If an old `appsettings.Production.json` holds settings the installer didn't write, it's kept with a warning naming them: move them into `appsettings.Site.json`, then delete the old file. Afterwards **Admin > Deployment** shows the environment you chose in the installer, and a site with a trusted certificate starts sending HSTS. Details: `Admin_SettingsReference.md`, "Settings file".
+- **Site URL:** the installer's `Db.SiteUrl` step fills in the Site URL on Global Application Configuration from `-Hostname` and `-HttpsPort` if it's blank, so notification emails link to pages. Check it there.
+- **Check the version** on **Admin > Deployment**: a release shows its plain number.
 - **Re-run `Db.AppPoolAccess`** to pick up changed database permissions for the app's account: `.\Install-BlueTrack.ps1 -Step Db.AppPoolAccess -GrantAppPoolSqlAccess $true` (`Admin_Installation.md`, section 3).
 - **Reload open browser tabs** (Ctrl+F5). A page left open from before the upgrade may still call the API at its old address and fail.
 
@@ -94,15 +99,21 @@ EXEC usp_RunFullLoad;
 
 For whoever publishes BlueTrack releases, not the server administrator. Register a signing key on GitHub (your account's SSH and GPG keys settings; for an SSH key choose the *Signing Key* type), and tell git to use it: `git config --global gpg.format ssh` and `git config --global user.signingkey <path to the .pub>` for SSH, or `git config --global user.signingkey <GPG key id>` for GPG.
 
-Before tagging, set `<Version>` in `App/Api/BlueTrack.Api.csproj` to the release's version (for tag `v1.2.0`, `1.2.0`) and merge that change to `main`. The **About** item in the user menu and the Deployment page show this value, so a release left at the old number reports the wrong version. Then:
+Then make the release with `Tools/New-BlueTrackRelease.ps1`, in your clone of the repository (not on the server). It needs git, Python 3 with `python-docx` and, for `-Push`, the GitHub CLI signed in. It takes two runs, because `main` changes only through a pull request:
 
-```powershell
-git tag -s v1.0.0 -m "BlueTrack v1.0.0"
-git push origin v1.0.0
-gh release create v1.0.0 --verify-tag --notes "..."
-```
+1. **Prepare**, on an up-to-date, clean `main`:
+   ```powershell
+   .\Tools\New-BlueTrackRelease.ps1 -Version 1.2.0 -Push
+   ```
+   It checks the version is above the latest release and that the Unreleased section of `User_Docs/Release_Notes.md` lists something. On a new branch it sets `<Version>` in `App/Api/BlueTrack.Api.csproj`, turns Unreleased into that version's section, rebuilds `Published_Docs/`, and commits. `-Push` pushes the branch and opens the pull request; without it, the script prints the commands. Add `-WhatIf` to see what it would do.
+2. **Merge** the pull request.
+3. **Tag**:
+   ```powershell
+   .\Tools\New-BlueTrackRelease.ps1 -Version 1.2.0 -Tag -Push
+   ```
+   It signs the tag `v1.2.0` on the merged commit, pushes it, creates the GitHub release with that version's notes, and checks that GitHub verified the signature, which `Update-BlueTrack.ps1` requires.
 
-`gh api repos/<owner>/<repo>/git/tags/<tag object sha>` shows `verification.verified`; it must be `true`, or `Update-BlueTrack.ps1` refuses the release. Confirm the GitHub settings wording when you first do this.
+Don't change `<Version>` by hand. Between releases, the build adds where it came from to the version (for example `1.2.0-dev.12+abc1234`), so About and the Deployment page never show a test build as a release. Full detail: `Tools/README.md`, "Making a release". Confirm the GitHub settings wording when you first set up the signing key.
 
 ## Environment-Specific Items a Redeployment Must Not Skip
 
