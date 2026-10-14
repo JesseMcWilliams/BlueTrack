@@ -5,6 +5,8 @@
 // catalog (a small admin-curated list), so edit mode fetches the full list
 // and finds the matching row by key rather than needing a new GET-by-id
 // endpoint -- no API contract change for this page.
+// D-214: Required Permission (D-198) -- the permission a user needs to change
+// this field -- is chosen from GET /api/admin/field-metadata/permission-options.
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 
@@ -17,10 +19,18 @@ const saving = ref(false)
 const loadError = ref(null)
 const saveError = ref(null)
 
-const editing = ref({ fieldName: '', displayLabel: '', fieldType: 'text', referenceTable: '', isRequired: false, displayOrder: 0 })
+const editing = ref({ fieldName: '', displayLabel: '', fieldType: 'text', referenceTable: '', isRequired: false, requiredPermission: null, displayOrder: 0 })
+const permissions = ref([])
 
 onMounted(async () => {
-  if (isEditMode.value) {
+  try {
+    const response = await fetch('/api/admin/field-metadata/permission-options')
+    if (!response.ok) throw new Error(`Request failed: ${response.status}`)
+    permissions.value = await response.json()
+  } catch (err) {
+    loadError.value = err.message
+  }
+  if (isEditMode.value && !loadError.value) {
     try {
       const response = await fetch('/api/admin/field-metadata')
       if (!response.ok) throw new Error(`Request failed: ${response.status}`)
@@ -46,7 +56,8 @@ async function save() {
       body: JSON.stringify(editing.value)
     })
     if (!response.ok) {
-      saveError.value = `Save failed: ${response.status}`
+      const problem = await response.json().catch(() => null)
+      saveError.value = problem?.detail ?? `Save failed: ${response.status}`
       return
     }
     router.push({ name: 'admin-field-metadata' })
@@ -72,6 +83,16 @@ function cancel() {
       <p><label class="field-label"><span class="field-label-text">Field Type:</span> <input v-model="editing.fieldType" required /></label></p>
       <p><label class="field-label"><span class="field-label-text">Reference Table:</span> <input v-model="editing.referenceTable" /></label></p>
       <p><label><input v-model="editing.isRequired" type="checkbox" /> Required</label></p>
+      <p>
+        <label class="field-label">
+          <span class="field-label-text">Required Permission:</span>
+          <select v-model="editing.requiredPermission">
+            <option :value="null">None (anyone who can edit the account)</option>
+            <option v-for="p in permissions" :key="p.permissionKey" :value="p.permissionKey">{{ p.permissionName }}</option>
+          </select>
+        </label>
+        <small>Only users who also hold this permission can change this field on an account.</small>
+      </p>
       <p><label class="field-label"><span class="field-label-text">Display Order:</span> <input v-model.number="editing.displayOrder" type="number" /></label></p>
       <p v-if="saveError" role="alert">{{ saveError }}</p>
       <button type="submit" class="btn-primary" :disabled="saving">Save</button>

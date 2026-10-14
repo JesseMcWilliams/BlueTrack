@@ -597,6 +597,13 @@ try {
     #region Transcript
     $logsDir = Join-Path $DeployRoot 'Logs'
     if (-not (Test-Path $logsDir)) { New-Item -ItemType Directory -Path $logsDir -WhatIf:$false | Out-Null }
+    # D-214: transcripts older than 90 days are removed at the start of each run (nothing else cleans this folder).
+    $oldTranscripts = @(Get-ChildItem -Path $logsDir -Filter 'Install-*.log' -File |
+        Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-90) })
+    if ($oldTranscripts.Count -gt 0) {
+        $oldTranscripts | Remove-Item
+        Write-Host "Removed $($oldTranscripts.Count) installer transcript(s) older than 90 days from $logsDir."
+    }
     $transcriptPath = Join-Path $logsDir "Install-$(Get-Date -Format 'yyyyMMdd-HHmmss').log"
     Start-Transcript -Path $transcriptPath -WhatIf:$false | Out-Null
     Write-Host "Logging this run to $transcriptPath"

@@ -30,6 +30,7 @@ instead.
 | 12 | `12_BlueTrack_CyberArkSourceConfig.sql` | D-211: `web.cyberark_source_config` (the CyberArk sources' settings, edited on Admin > Data Sources), `fn_ExpandDateTokens` and `usp_Import_Configured`, the nightly job's Import step. |
 | 13 | `13_BlueTrack_AccountInventoryFeed.sql` | D-212: `web.data_feed.SourceSystemKey` and the `AccountInventory` feed type; auto-advance now only for CyberArk (`PRIVCLOUD`/`SELFHOSTED`) accounts. |
 | 14 | `14_BlueTrack_FeedAccountLinking.sql` | D-212: `vw_linked_feed_account` and `usp_Link_FeedAccounts` (a feed account CyberArk also has is linked, moved to Onboarded to Vault and audit-logged); the migration views ignore feed links. |
+| 15 | `15_BlueTrack_ReportingViewsSkipLinkedFeedAccounts.sql` | D-214: `vw_export_account_progress`, `vw_powerbi_accounts` and the daily progress snapshot skip linked feed accounts, so they count an account once, as the app does. |
 
 ## The baseline (D-195)
 
@@ -54,7 +55,7 @@ scripts but not up to `51` is refused; upgrade it first from the
 
 ## Adding a script
 
-1. Name it `NN_BlueTrack_<Topic>.sql`, with `NN` the next number (`15` is next).
+1. Name it `NN_BlueTrack_<Topic>.sql`, with `NN` the next number (`16` is next).
 2. Start with a header comment: the file name, `RUN THIS AFTER 01-NN.`, what
    it changes and why (with the `D-n` decision), and whether it's safe to
    re-run.

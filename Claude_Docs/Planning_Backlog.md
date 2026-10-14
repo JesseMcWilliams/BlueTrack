@@ -3,11 +3,7 @@
 > **Stage: Planning.** Work that isn't built or proven yet. Carried forward from the 2026-09-16 survey (`Archive_Planning_Outstanding-Work-Survey-2026-09-16.md`); items that survey listed but the audit tracker records as resolved were left in the archive. Items tagged *(verify)* may already be done; confirm before starting. When an item ships, delete it here and record it in the relevant `Design_` doc.
 
 ## Requested, not started
-- **SAML SP certificate requested by the App Pool account** (requested 2026-10-12): an installer step that has the App Pool's account request the SP signing certificate from the CA into its own store (`CurrentUser\My`), so only that account holds the key. BlueTrack already looks there first (D-205); the step itself isn't built. Needs the pool's Load User Profile, and a template the account may enroll in.
-
-- **Power BI views don't know about linked feed accounts** (found 2026-10-13, D-212): `vw_powerbi_*` and `vw_export_account_progress` still list a linked feed account alongside its CyberArk account, so a Power BI report counts it twice. Exclude `dbo.vw_linked_feed_account` there too, if those views are in use.
-
-- **A field's Required Permission can't be set in the UI** (found 2026-10-13): it's enforced (D-198), but the Edit Field page doesn't show it, so it's set with SQL on `web.account_progress_field_metadata.RequiredPermission`.
+Nothing at the moment.
 
 ## From the audit findings (moved here 2026-10-13, at the user's request)
 - **Validate LDAPS against a remote DC** (Low): BlueTrack's `UseSsl` bind can't be proven on the dev host, which is the DC itself (binds from a DC to its own LDAPS fail; Authentik's LDAPS sync from another machine works). Run the check from DCACYBSQL01 (another domain): resolve and reach the DC on 636, trust its LDAPS certificate, bind with an account in the DC's domain (no trust between the domains, so not a trusted connection), then let AD Account Discovery run.
@@ -23,7 +19,7 @@
 - **SAML and OIDC**: proven end to end on the dev host against the lab Authentik on 2026-10-13: `/login/saml` and `/login/oidc` -> Authentik sign-in -> ACS / `signin-oidc` -> a BlueTrack session (account `AI_Admin_User`, which has no BlueTrack group, so no roles). Still for the user to check: a sign-in with a mapped user (`adm.jesse`) and Authentik's MFA prompt. SAML Single Logout isn't built.
 - **Break-glass**: exists only as a decision (credential in CyberArk, logon triggers an alert). No distinct code path exists.
 - **Installer on a fresh server**: `Db.AppPoolAccess` (D-171) and `Iis.Reset` (D-175) have only run by hand or with `-WhatIf`; the new `Iis.SiteRestart` (D-188) ran on the dev host only. DCACYBSQL01's app pool SQL login was granted by hand. Check all three on the next real install.
-- **AD Account Discovery multi-domain**: code loops over every enabled domain, but only one real domain exists to test against.
+- **AD Account Discovery multi-domain**: tested with a fake two-domain directory (D-214, `AdAccountDiscoveryMultiDomainTests`); still unproven against a real second domain (DCACYBSQL01's domain could be one, once LDAPS works).
 
 ## Waiting on real external data or specs
 - Self-Hosted CyberArk pivot logic uses **placeholder property names**, unconfirmed against real `stg_sh_objectproperties` data.

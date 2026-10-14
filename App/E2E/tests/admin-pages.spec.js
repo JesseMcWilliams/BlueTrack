@@ -319,8 +319,10 @@ test.describe('Field Metadata Management admin page', () => {
     await row.getByRole('link', { name: fieldName }).click()
     await expect(page.getByLabel('Field Name:')).toHaveValue(fieldName)
     await page.getByLabel('Display Label:').fill('Updated Label')
+    await page.getByLabel('Required Permission:').selectOption({ label: 'ApproveExceptions' })   // D-214
     await page.locator('form button[type="submit"]').click()
     await expect(page.locator('tbody tr', { hasText: fieldName })).toContainText('Updated Label')
+    await expect(page.locator('tbody tr', { hasText: fieldName })).toContainText('ApproveExceptions')
 
     await page.locator('tbody tr', { hasText: fieldName }).getByRole('button', { name: 'Delete' }).click()
     await confirmDelete(page)

@@ -14,6 +14,9 @@ What changed in each BlueTrack release, newest first, for users and administrato
 - **Navigation:** Reports and Admin are now at the end of the top navigation, with Admin last.
 - **About:** the menu with your name has a new **About** item that shows BlueTrack's version.
 - **Application ↔ Safe Mapping** shows the applications and the safes a page at a time, like Accounts, at your page size.
+- **Required Permission** for a field is now set on the **Edit Field** page (Admin > Field Metadata Management) and shown in the field list, instead of with SQL.
+- **Reporting views:** the CSV export view, the Power BI accounts view and the daily progress snapshot count an account from another system that's linked to a CyberArk account once, as the app does.
+- **Installer transcripts** in `Deploy\Logs` older than 90 days are removed at the start of each installer run.
 
 - **Test buttons are audit-logged.** Each Test on the Secrets Store Configuration and Credentials & LDAP pages is recorded in the Audit Log as a `ConnectionTest` event, with what was looked up and whether it worked. The Secrets Store test no longer shows the password's length.
 
@@ -23,7 +26,7 @@ What changed in each BlueTrack release, newest first, for users and administrato
 
 ### Upgrading
 
-- Run the installer as usual; it applies the new database scripts (`11_BlueTrack_ConnectionTestAudit.sql`, `12_BlueTrack_CyberArkSourceConfig.sql`, `13_BlueTrack_AccountInventoryFeed.sql`, `14_BlueTrack_FeedAccountLinking.sql`).
+- Run the installer as usual; it applies the new database scripts (`11_BlueTrack_ConnectionTestAudit.sql`, `12_BlueTrack_CyberArkSourceConfig.sql`, `13_BlueTrack_AccountInventoryFeed.sql`, `14_BlueTrack_FeedAccountLinking.sql`, `15_BlueTrack_ReportingViewsSkipLinkedFeedAccounts.sql`).
 - **If you use the nightly import job**, also run the installer with `-Step Db.NightlyJob`. It saves your current CyberArk source settings for the Data Sources page and recreates the job to read them. Until you do, the job keeps working with its old settings, and changes made on the page have no effect.
 
 ## 1.0.0

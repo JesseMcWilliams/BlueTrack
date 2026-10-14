@@ -1,4 +1,3 @@
-using System.DirectoryServices.AccountManagement;
 using BlueTrack.Api.Data;
 using BlueTrack.Api.Ldap;
 using BlueTrack.Api.Models;
@@ -23,10 +22,13 @@ namespace BlueTrack.Api.AdDiscovery;
 /// one domain being unreachable never stops the others -- caught and logged
 /// per domain, same isolation principle as
 /// NotificationCheckBackgroundService's own per-check try/catch.
+///
+/// D-214: the directory is read through IAdDirectory (LdapAdDirectory in
+/// production), so the multi-domain handling is tested with a fake.
 /// </summary>
 public sealed class AdAccountDiscoveryService(
     LdapConfigRepository ldapConfigRepository,
-    LdapContextFactory contextFactory,
+    IAdDirectory directory,
     AccessGroupRepository accessGroupRepository,
     DiscoveredAccountRepository discoveredAccountRepository,
     ILogger<AdAccountDiscoveryService> logger)
@@ -64,82 +66,53 @@ public sealed class AdAccountDiscoveryService(
         IReadOnlyList<(int AccessGroupKey, string GroupName, string GroupIdentifier)> accessGroups,
         CancellationToken cancellationToken)
     {
-        using var context = await contextFactory.TryCreateContextAsync(config);
-        if (context is null)
+        using var session = await directory.OpenAsync(config);
+        if (session is null)
         {
             return;
         }
 
         // Aggregate across every matched Access Group before scoring -- one
         // AD user can belong to several inventoried groups, and the risk
-        // score has to reflect all of them together (Database/32's
-        // AccessGroupSet function), not one group at a time.
-        var matchedUsers = new Dictionary<string, (UserPrincipal Principal, HashSet<int> AccessGroupKeys)>(StringComparer.OrdinalIgnoreCase);
+        // score has to reflect all of them together (the AccessGroupSet
+        // scoring function), not one group at a time.
+        var matchedUsers = new Dictionary<string, (DirectoryUser User, HashSet<int> AccessGroupKeys)>(StringComparer.OrdinalIgnoreCase);
 
-        try
+        foreach (var (accessGroupKey, _, groupIdentifier) in accessGroups)
         {
-            foreach (var (accessGroupKey, _, groupIdentifier) in accessGroups)
+            cancellationToken.ThrowIfCancellationRequested();
+            foreach (var user in session.GetUserMembers(groupIdentifier) ?? [])
             {
-                cancellationToken.ThrowIfCancellationRequested();
-
-                // Expected to miss for most groups in a multi-domain setup
-                // (a group only exists in the one domain it was created in),
-                // and for any GroupIdentifier that isn't actually a real
-                // SID/name in this domain (dim_access_group.GroupIdentifier
-                // is free text, not validated -- see Design_Decision-Register.md).
-                using var group = LdapGroupMemberResolver.FindGroup(context, groupIdentifier);
-                if (group is null)
+                if (matchedUsers.TryGetValue(user.SamAccountName, out var existing))
                 {
-                    continue;
+                    existing.AccessGroupKeys.Add(accessGroupKey);
                 }
-
-                foreach (var member in group.GetMembers(recursive: true))
+                else
                 {
-                    if (member is not UserPrincipal user || string.IsNullOrWhiteSpace(user.SamAccountName))
-                    {
-                        member.Dispose();
-                        continue;
-                    }
-
-                    if (matchedUsers.TryGetValue(user.SamAccountName, out var existing))
-                    {
-                        existing.AccessGroupKeys.Add(accessGroupKey);
-                        user.Dispose(); // already tracking a principal for this SamAccountName
-                    }
-                    else
-                    {
-                        matchedUsers[user.SamAccountName] = (user, [accessGroupKey]);
-                    }
+                    matchedUsers[user.SamAccountName] = (user, [accessGroupKey]);
                 }
-            }
-
-            foreach (var (samAccountName, (principal, matchedAccessGroupKeys)) in matchedUsers)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                await ScoreAndStoreAsync(config.DomainName, samAccountName, principal, matchedAccessGroupKeys.ToList());
             }
         }
-        finally
+
+        foreach (var (user, matchedAccessGroupKeys) in matchedUsers.Values)
         {
-            foreach (var (principal, _) in matchedUsers.Values)
-            {
-                principal.Dispose();
-            }
+            cancellationToken.ThrowIfCancellationRequested();
+            await ScoreAndStoreAsync(config.DomainName, user, matchedAccessGroupKeys.ToList());
         }
     }
 
-    private async Task ScoreAndStoreAsync(string domainName, string samAccountName, UserPrincipal principal, IReadOnlyList<int> matchedAccessGroupKeys)
+    private async Task ScoreAndStoreAsync(string domainName, DirectoryUser user, IReadOnlyList<int> matchedAccessGroupKeys)
     {
-        var possibleExistingAccountKey = await discoveredAccountRepository.FindPossibleExistingAccountKeyAsync(domainName, samAccountName);
+        var possibleExistingAccountKey = await discoveredAccountRepository.FindPossibleExistingAccountKeyAsync(domainName, user.SamAccountName);
 
         var candidate = new DiscoveredAccountCandidate
         {
             DomainName = domainName,
-            SamAccountName = samAccountName,
-            DistinguishedName = principal.DistinguishedName,
-            ObjectSid = principal.Sid?.Value,
-            DisplayName = principal.DisplayName,
-            IsEnabled = principal.Enabled ?? true,
+            SamAccountName = user.SamAccountName,
+            DistinguishedName = user.DistinguishedName,
+            ObjectSid = user.ObjectSid,
+            DisplayName = user.DisplayName,
+            IsEnabled = user.IsEnabled,
             MatchedAccessGroupKeys = matchedAccessGroupKeys,
             PossibleExistingAccountKey = possibleExistingAccountKey
         };
