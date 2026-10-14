@@ -40,7 +40,7 @@ public class ReportExportTests : IClassFixture<BlueTrackWebApplicationFactory>
         { "/api/reports/stage-status-summary/export", "StageStatusSummary", null, "TestUser.DoesNotExist" },
         { "/api/reports/reconciliation-review-queue/export", "ReconciliationReview", "Self-Hosted Account,Privilege Cloud Account,Match Method,Confidence,Matched Date,Notes", "TestUser.Viewer" },
         { "/api/reports/possible-matches/export", "PossibleAccountMatches", "Other system's account,CyberArk account,Why,Found", "TestUser.Viewer" },
-        { "/api/reports/unresolved-entitlement-members/export", "UnresolvedEntitlementMembers", "Safe,Member Type,Unresolved Identifier,Membership Expiration,Snapshot Date", "TestUser.DoesNotExist" },
+        { "/api/reports/unresolved-entitlement-members/export", "UnresolvedEntitlementMembers", "Safe,Member Type,Name,Member ID,Resolution,Membership Expiration,Snapshot Date", "TestUser.DoesNotExist" },
         { "/api/reports/risk-score/export", "RiskScore", "Account,Computed,Override,Effective,Risk Band,Stale?,Last Calculated", "TestUser.Viewer" },
         { "/api/reports/risk-exception-sod/export", "RiskExceptionSoD", "Exception ID,Account,User,Linked On", "TestUser.Viewer" },
         { "/api/reports/discovered-accounts/export", "DiscoveredAccounts", "Account,Domain,Risk Score,Risk Band,First Discovered,Last Seen", "TestUser.Viewer" },

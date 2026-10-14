@@ -93,10 +93,23 @@ public static class ReportExports
     [
         new("Safe", r => r.SafeName),
         new("Member Type", r => r.MemberType),
-        new("Unresolved Identifier", r => r.UnresolvedMemberId),
+        new("Name", r => r.MemberName),
+        new("Member ID", r => r.UnresolvedMemberId),
+        new("Resolution", r => ResolutionText(r)),
         new("Membership Expiration", r => Day(r.MembershipExpirationDate)),
         new("Snapshot Date", r => Day(r.SnapshotDate))
     ];
+
+    /// <summary>D-232: the page's Resolution column, in words.</summary>
+    public static string ResolutionText(UnresolvedEntitlementMember r) => r.ResolutionMethod switch
+    {
+        null => "Unresolved",
+        EntitlementResolutionMethods.ById => $"By ID: {r.ResolvedToName}",
+        EntitlementResolutionMethods.ByName => $"Matched by name: {r.ResolvedToName}",
+        EntitlementResolutionMethods.Manual => $"Linked by {r.ResolvedByName}: {r.ResolvedToName}",
+        EntitlementResolutionMethods.External => $"External / cloud role (by {r.ResolvedByName})" + (string.IsNullOrEmpty(r.ResolutionNote) ? "" : $": {r.ResolutionNote}"),
+        var other => other
+    };
 
     public static readonly IReadOnlyList<ExportColumn<RiskScoreReportRow>> RiskScoreColumns =
     [

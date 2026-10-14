@@ -235,6 +235,7 @@ builder.Services.AddScoped<DataFeedRepository>();
 builder.Services.AddScoped<CyberArkSourceConfigRepository>();   // D-211
 builder.Services.AddScoped<AccountInventoryRepository>();   // D-212
 builder.Services.AddScoped<PossibleMatchRepository>();
+builder.Services.AddScoped<EntitlementMemberResolutionRepository>();   // D-232
 builder.Services.AddSingleton<BlueTrack.Api.DataFeeds.IHostResolver, BlueTrack.Api.DataFeeds.DnsHostResolver>();
 builder.Services.AddScoped<BlueTrack.Api.Imports.AccountInventoryImportService>();
 builder.Services.AddSingleton<BlueTrack.Api.DataFeeds.DataFeedRunner>();

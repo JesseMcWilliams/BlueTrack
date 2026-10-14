@@ -31,6 +31,8 @@ What changed in each BlueTrack release, newest first, for users and administrato
 
 - **Export the Audit Log.** **Admin > Audit Log Viewer** has **Export CSV** and **Export Excel**, like the reports: every event matching the filters you applied, with the time of each event in UTC. Anyone who can view the Audit Log can export it, up to the **Export Max Rows** limit. See the User Guide, "Audit Log Viewer".
 
+- **Resolve unresolved entitlement members.** **Reports > Unresolved Entitlement Members** now shows each member's name. The nightly load links a member to the user or group with exactly the same name (ignoring case) when there is only one, so most of them leave the report. Approvers and Admins (`ConfirmReconciliation`) can **Resolve** the rest: link the member to a user or group, or mark it as an external or cloud role with a note. A resolution applies to the member on every safe, is kept through the nightly load, and can be undone with **Undo**. Tick **Show resolved** to see resolved members and how each was resolved. Resolve and Undo are recorded in the Audit Log as `EntitlementMemberResolution` events. See the User Guide, "Reports".
+
 ### Changed
 
 - **Numbers:** counts on the pages (totals, pages, selections, import results, dashboard and report figures) use your browser language's number format, for example 1,234 or 1.234.
@@ -64,6 +66,7 @@ What changed in each BlueTrack release, newest first, for users and administrato
 - **Site URL:** a full installer run sets it. If you only apply the database scripts, set it on Global Application Configuration, or run the installer with `-Step Db.SiteUrl`.
 - **Privilege Cloud import fix:** the installer, or the Migrator on its own, applies `22_BlueTrack_PcImportByHeader.sql`. The nightly job needs no change; the next run uses the new import.
 - **Settings file:** run the installer as usual, or on its own with `.\Install-BlueTrack.ps1 -Step Db.AppSettings,Iis.WebConfig`. It writes `appsettings.Site.json` and removes the old `appsettings.<Environment>.json`; an old `appsettings.Production.json` that holds settings the installer doesn't write is kept, with a warning naming them, so you can move them into `appsettings.Site.json`. Check the database connection afterwards: a Test or Staging install now uses the database you gave the installer. **If the installer found a trusted certificate**, BlueTrack starts sending HSTS, so browsers will then refuse plain HTTP and certificate warnings for that host name.
+- **Entitlement members:** the installer, or the Migrator on its own, applies `24_BlueTrack_EntitlementMemberResolution.sql`. The report shows names at once; the next nightly Import and Load resolves members by name.
 
 ## 1.0.0
 

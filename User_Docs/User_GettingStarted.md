@@ -336,7 +336,7 @@ No identifier is moved off an existing target.
 | Reports > Discovered Accounts | Which privileged AD accounts aren't in CyberArk yet? |
 | Reports > Safes Flagged for Deletion | Which safes are being retired, and how many of their accounts are still active? |
 | Reports > Accounts Flagged for Deletion | Which accounts are due to be removed, and have any already moved to another safe? |
-| Reports > Unresolved Entitlement Members | Which safe permissions belong to someone BlueTrack can't identify? |
+| Reports > Unresolved Entitlement Members | Which safe permissions belong to someone BlueTrack can't match to a user or group, and who are they really? |
 | Reports > Reconciliation Review | Which accounts might be the same account in both Privilege Cloud and Self-Hosted? (Read-only for now.) |
 | Reports > Possible Account Matches | Which accounts from other systems might be CyberArk accounts we haven't linked yet? |
 | Reports > Risk Exception SoD | Who both approved an exception and linked it to an account? |

@@ -45,9 +45,20 @@ Accounts from other systems (account inventory data feeds) that may be the same 
 
 Both are recorded in the Audit Log.
 
+## Unresolved Entitlement Members
+
+**Where**: **Reports > Unresolved Entitlement Members**.
+
+Safe members BlueTrack couldn't match to a user or group from the Users and Groups exports, with their name and ID. Members whose exact name belongs to one user or group are matched by the nightly load and aren't listed.
+
+- **Resolve** — link the member to the right user or group (search by name; the one with exactly the member's name is filled in), or choose **External / cloud role** with an optional note. It applies to the member on every safe and is kept through the nightly load.
+- **Show resolved** — also lists resolved members and how each was resolved; **Undo** removes a resolution you or a colleague made.
+
+Both are recorded in the Audit Log.
+
 ## Exporting reports
 
-Every report you can view, including these two, has **Export CSV** and **Export Excel**: the file holds all rows matching the report's current filters and sort, up to the administrator's **Export Max Rows** limit (a larger export is refused with the row count). Each export is recorded in the Audit Log. **Reports > Trends** shows stages, % complete and risk levels over time. See `User_Guide.md`, Reports.
+Every report you can view, including these, has **Export CSV** and **Export Excel**: the file holds all rows matching the report's current filters and sort, up to the administrator's **Export Max Rows** limit (a larger export is refused with the row count). Each export is recorded in the Audit Log. **Reports > Trends** shows stages, % complete and risk levels over time. See `User_Guide.md`, Reports.
 
 ## See also
 
