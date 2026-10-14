@@ -1,0 +1,2 @@
+"SafeUrlId","SafeName","SafeNumber","Description","Location","CreatorId","Creator","OLACEnabled","ManagingCPM","VersionRetention","DayRetention","AutoPurge","Created","LastModified","IsExpiredMember"
+"FixtureSafe","FixtureSafe","9001","Synthetic safe","\","1","fixture.alpha","False","PasswordManager","5","7","False","2026-01-02","2026-01-03","False"

@@ -1,0 +1,3 @@
+"UserID","Username","UserType","Source","ComponentUser","Email","FirstName","LastName"
+"FX-U1","fixture.alpha","EPVUser","CyberArk","False","alpha@fixture.test","Alpha","Fixture"
+"FX-U2","fixture.bravo, jr","EPVUser","LDAP","True","","Bravo","Fixture"

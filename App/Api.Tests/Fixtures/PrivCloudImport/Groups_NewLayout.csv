@@ -1,0 +1,3 @@
+"GroupID","GroupName","Description","Location","GroupType","Directory","DirectoryType"
+"FX-G1","Fixture Vault Admins","Admins, all of them","\","Vault","",""
+"FX-G2","Fixture LDAP Group","From the directory","\","Directory","fixture.test","MicrosoftADProfile"

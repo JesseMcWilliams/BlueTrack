@@ -1,0 +1,6 @@
+"UserID","Username","UserType","Source","ComponentUser","FirstName","LastName","Enabled","Suspended","Location"
+"FX-U1","fixture.alpha","EPVUser","CyberArk","False","Alpha","Fixture","True","False","\"
+"FX-U2","fixture.bravo, jr","EPVUser","LDAP","True","Bravo","Fixture","false","true","\Applications, Shared"
+"FX-U3","fixture.charlie","EPVUser","LDAP","False","Charlie","Fixture","Yes","No",""
+"FX-U4","fixture.delta","EPVUser","LDAP","False","Delta","Fixture","1","0",""
+"FX-U5","fixture.echo","EPVUser","LDAP","False","Echo","Fixture","maybe","",""

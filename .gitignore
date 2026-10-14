@@ -17,6 +17,8 @@ App/E2E/blob-report/
 *.local.md
 *.log
 *.csv
+# D-228: synthetic test fixtures (never real exports) are tracked.
+!App/Api.Tests/Fixtures/**/*.csv
 *.cred
 *.clixml
 Secrets/
