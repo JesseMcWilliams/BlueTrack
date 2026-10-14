@@ -18,6 +18,12 @@
     <ProjectReference Include="..\Api\BlueTrack.Api.csproj" />
   </ItemGroup>
 
+  <!-- D-228: synthetic Privilege Cloud exports. SQL Server reads them from the
+       output folder (BULK INSERT), so they must be real files there. -->
+  <ItemGroup>
+    <None Include="Fixtures\**\*.csv" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
   <!-- Defines CYBERARK_CP when the CyberArk SDK is present, as for the API (D-169). -->
   <Import Project="..\CyberArkSdk.targets" />
 

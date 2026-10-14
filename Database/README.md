@@ -37,6 +37,7 @@ instead.
 | 19 | `19_BlueTrack_MoreNotifications.sql` | D-222: `dbo.etl_run_log` (one row per Import and Load run; `usp_Import_Configured` and `usp_RunFullLoad` redefined to write it -- later changes to them must keep it), `dim_notification_type.IsEnabled`, `notification_log.DedupKey`, the digest schedule columns on `notification_config`, and the `NightlyImportFailed`, `OverdueRiskExceptions` and `WeeklySummary` types. |
 | 20 | `20_BlueTrack_SmtpOAuth2.sql` | D-223: OAuth2 (XOAUTH2) SMTP sign-in. `notification_config` gains `OAuthTenantId`, `OAuthClientId`, `OAuthClientCredentialType`, `OAuthTokenUrl`, `OAuthScope`, `OAuthAudience`, `OAuthClientAuthStyle` and `OAuthUsername` (none secret) and a check on `AuthMethod` (an unknown value becomes `None` first); `credential.ProtectedPassword` widens to `NVARCHAR(MAX)` for key files. |
 | 21 | `21_BlueTrack_SnapshotAndSiteUrl.sql` | D-224: the daily snapshot leaves `usp_RunFullLoad`'s transaction. `usp_RunDailySnapshot` (logged in `etl_run_log` as `Snapshot`, which the step check now allows) and `usp_RunNightlyImportLoad` (Import, Load if the Import succeeded, then the snapshot whatever happened; the nightly job's one step) are new; `usp_RunFullLoad` gains `@TakeSnapshot` (default 1, so a run by hand or an old job still snapshots). `app_config.SiteUrl` (the address emails link to). |
+| 22 | `22_BlueTrack_PcImportByHeader.sql` | D-228: the seven Privilege Cloud imports read columns by header name (`usp_Import_PC_ReadCsvByHeader`), so a changed export layout no longer fails with Msg 7301; a missing required column fails naming the file and column. `web.cyberark_import_column` lists each file's columns (read by the import and the Data Sources Test). New `Enabled`, `Suspended`, `Location` on `stg_pc_users`/`dim_user` and `Directory` on `stg_pc_groups`/`dim_group`; `usp_Load_DimUser`/`usp_Load_DimGroup` redefined. |
 
 ## The baseline (D-195)
 
@@ -61,7 +62,7 @@ scripts but not up to `51` is refused; upgrade it first from the
 
 ## Adding a script
 
-1. Name it `NN_BlueTrack_<Topic>.sql`, with `NN` the next number (`22` is next).
+1. Name it `NN_BlueTrack_<Topic>.sql`, with `NN` the next number (`23` is next).
 2. Start with a header comment: the file name, `RUN THIS AFTER 01-NN.`, what
    it changes and why (with the `D-n` decision), and whether it's safe to
    re-run.

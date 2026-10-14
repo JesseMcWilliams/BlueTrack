@@ -1,0 +1,2 @@
+"AccountID","AccountName","Address","UserName","PlatformID","SafeName","SecretType","AutoManaged","CPMStatus","ManualReason","LastCPMModified","LastReconciled","LastVerified","RemoteMachines","RemoteAccessRestricted","CategoryModified","Deleted","Created","Platform_LogonDomain"
+"FX_1","Operating System-FixtureWinDomain-fixture.test-svc","fixture.test","svc.fixture","FixtureWinDomain","FixtureSafe","password","True","success","","2026-01-04","","2026-01-05","host1,host2","False","","False","2026-01-01","FIXTURE"

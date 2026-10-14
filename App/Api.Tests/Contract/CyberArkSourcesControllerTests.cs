@@ -142,4 +142,47 @@ public class CyberArkSourcesControllerTests : IClassFixture<BlueTrackWebApplicat
             Directory.Delete(folder, recursive: true);
         }
     }
+
+    /// <summary>
+    /// D-228: Test reads each file's header row and reports the required
+    /// columns it lacks (from web.cyberark_import_column, as the import does).
+    /// </summary>
+    [Fact]
+    public async Task Test_ChecksEachFilesHeader_AgainstTheImportsColumnList()
+    {
+        var client = Client("TestUser.Admin");
+        var folder = Directory.CreateTempSubdirectory("BlueTrackCyberArkHeaders_").FullName;
+        try
+        {
+            // The new Users layout: no Email (optional), extra columns; with a UTF-8 byte order mark.
+            File.WriteAllText(Path.Combine(folder, "Export_UsersList.csv"),
+                "\"UserID\",\"Username\",\"UserType\",\"Source\",\"ComponentUser\",\"FirstName\",\"LastName\",\"Enabled\",\"Suspended\",\"Location\"\r\n",
+                new System.Text.UTF8Encoding(encoderShouldEmitUTF8Identifier: true));
+            // Groups without GroupName (required).
+            File.WriteAllText(Path.Combine(folder, "Export_GroupsList.csv"), "\"GroupID\",\"Description\",\"Directory\"\r\n\"1\",\"x\",\"y\"\r\n");
+            // Accounts, empty: every required column is missing.
+            File.WriteAllText(Path.Combine(folder, "Export_AccountsList.csv"), "");
+
+            var checks = (await (await client.PostAsJsonAsync("/api/admin/cyberark-sources/test", Settings(true, folder, false, null)))
+                .Content.ReadFromJsonAsync<List<Check>>())!;
+
+            var users = checks.Single(c => c.Item == "Users");
+            Assert.True(users.Ok);
+            Assert.Equal("Export_UsersList.csv found, with the required columns. Not in the file, so imported as empty: Email.", users.Message);
+
+            var groups = checks.Single(c => c.Item == "Groups");
+            Assert.False(groups.Ok);
+            Assert.Equal("Export_GroupsList.csv is missing the required column(s): GroupName. The import would fail.", groups.Message);
+
+            var accounts = checks.Single(c => c.Item == "Accounts");
+            Assert.False(accounts.Ok);
+            Assert.Contains("missing the required column(s): AccountID, AccountName, Address, UserName, PlatformID, SafeName, Deleted.", accounts.Message);
+
+            Assert.False(checks.Single(c => c.Item == "Safes").Ok);   // not there at all
+        }
+        finally
+        {
+            Directory.Delete(folder, recursive: true);
+        }
+    }
 }

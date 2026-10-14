@@ -44,6 +44,7 @@ What changed in each BlueTrack release, newest first, for users and administrato
 
 ### Fixed
 
+- **The nightly Privilege Cloud import works with the new export layout.** CyberArk changed the Users export (Email removed; Enabled, Suspended and Location added) and the Groups export (Directory added), and the import failed with "Cannot obtain the required interface ("IID_IColumnsInfo")". The import now reads each file's columns by their header names, so the old and the new layouts both load and columns it doesn't use are ignored. If a file lacks a column the import needs, the run fails with a message naming the file and the column, which the NightlyImportFailed email shows. **Test** on **Edit CyberArk sources** now opens each file and lists any columns the import needs that are missing, instead of only checking that the file exists. BlueTrack also keeps the users' Enabled, Suspended and Location and the groups' Directory, for later use.
 - **Trends no longer has a gap after a failed nightly import.** The daily snapshot behind Reports > Trends is now taken every night, even when the Import or Load fails (it then records the unchanged data). A failed snapshot is reported by the NightlyImportFailed email, and the weekly summary lists the last snapshot run.
 - **SAML sign-in with an unreadable signing key** now says "SAML sign-in is not available" instead of a server error, and the Identity Providers health check reports the problem. The Installation Guide says how to give the App Pool's account read access to the key.
 
@@ -54,6 +55,7 @@ What changed in each BlueTrack release, newest first, for users and administrato
 - **Break-glass alerts:** after upgrading, add your break-glass accounts on Identity Providers and give the BreakGlassLogon notification a target role (Notifications).
 - **If you use the nightly import job**, also run the installer with `-Step Db.NightlyJob`. It saves your current CyberArk source settings for the Data Sources page and recreates the job to read them, as one step that also takes the daily Trends snapshot when the import fails (`21_BlueTrack_SnapshotAndSiteUrl.sql`). Until you do, the job keeps working with its old settings, changes made on the page have no effect, and a night whose import fails gets no snapshot.
 - **Site URL:** a full installer run sets it. If you only apply the database scripts, set it on Global Application Configuration, or run the installer with `-Step Db.SiteUrl`.
+- **Privilege Cloud import fix:** the installer, or the Migrator on its own, applies `22_BlueTrack_PcImportByHeader.sql`. The nightly job needs no change; the next run uses the new import.
 
 ## 1.0.0
 

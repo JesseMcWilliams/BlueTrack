@@ -87,6 +87,17 @@ public sealed class CyberArkSourceConfigRepository(IDbConnectionFactory connecti
         });
     }
 
+    /// <summary>D-228: every Privilege Cloud file's columns (web.cyberark_import_column), as the import reads them.</summary>
+    public async Task<IReadOnlyList<DataFeeds.CyberArkImportColumn>> GetImportColumnsAsync()
+    {
+        using var connection = connectionFactory.Create();
+        return (await connection.QueryAsync<DataFeeds.CyberArkImportColumn>("""
+            SELECT FileKind, ColumnName, IsRequired, ColumnOrder
+            FROM web.cyberark_import_column
+            ORDER BY FileKind, ColumnOrder
+            """)).ToList();
+    }
+
     /// <summary>Whether a database with this name exists on BlueTrack's SQL Server (DB_ID).</summary>
     public async Task<bool> DatabaseExistsAsync(string databaseName)
     {
