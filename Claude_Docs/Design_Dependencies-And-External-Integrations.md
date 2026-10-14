@@ -75,6 +75,10 @@ Both share `LdapContextFactory` for binding and read `web.ldap_config` — now a
 | Google OAuth 2.0 | `https://oauth2.googleapis.com/token` (JWT bearer, scope `https://mail.google.com/`) | Google Workspace service account token; then XOAUTH2 to `smtp.gmail.com:587` |
 | Any OAuth2 provider | The admin's https token URL (RFC 6749 client credentials) | Generic OAuth2 |
 
+### 2.6a SIEM (syslog collector, D-234)
+
+The audit log can be forwarded to the organisation's SIEM: an outbound connection from the API to the syslog collector the admin names on **Admin > SIEM Forwarding** (off by default). CEF inside RFC 5424 syslog, over TCP (RFC 6587, default port 514) or TLS (RFC 5425, default port 6514), octet-counting framing by default or LF. Built on .NET's own `TcpClient` and `SslStream` (`App/Api/Siem/SyslogTransport.cs`); **no new package**. TLS trusts the Windows store, a pinned certificate fingerprint or a given CA; no "ignore errors" option. One connection per batch, from `SiemForwardingBackgroundService`; nothing is received from the collector. The firewall must allow the API server out to the collector's port. Not yet tested against a real SIEM. Details: `Design_Audit-Logging.md`, "SIEM forwarding".
+
 ### 2.7 Database
 
 **SQL Server is the only datastore.** `Microsoft.Data.SqlClient` + `Dapper` (no ORM) back every `App/Api/Data/*Repository.cs`; `dbup-sqlserver` (`App/Migrator`) applies `Database/*.sql` in filename order. `Microsoft.Extensions.Caching.SqlServer` backs a SQL-Server-based distributed cache (`web.distributed_cache`) used for per-user permission caching (`UserRightsCache`) — not an ASP.NET Core cookie session.
@@ -158,6 +162,7 @@ Not external dependencies, but the top-level internal modules a change is likely
 | `Reports/` | Report export (D-220): `ReportExportService`, the CSV/.xlsx writers, the per-report columns |
 | `RiskScoring/` | Target/Access Group matching, CSV import, staleness propagation, band overlap validation |
 | `Secrets/` | `IVaultSecretProvider`/`ILocalSecretProtector` implementations (2.2/2.3) |
+| `Siem/` | SIEM forwarding (2.6a): CEF and syslog formatting, the TCP/TLS transport, the forwarder and its background service |
 
 ## Maintenance
 

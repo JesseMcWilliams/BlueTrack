@@ -1,8 +1,8 @@
-# BlueTrack Settings Reference: Secrets, Credentials and Notifications
+# BlueTrack Settings Reference: Secrets, Credentials, Notifications and SIEM Forwarding
 
 **For BlueTrack administrators**
 
-This is the second part of the settings reference. The first part, [Admin_SettingsReference.md](Admin_SettingsReference.md), explains how to read the tables and covers Global Application Configuration, sign-in and access, data and risk scoring, the Deployment page and the installer. This part covers the Secrets Store, the credentials BlueTrack signs in with, LDAP and email notifications. Both parts are published together as the Administrator Settings Guide.
+This is the second part of the settings reference. The first part, [Admin_SettingsReference.md](Admin_SettingsReference.md), explains how to read the tables and covers Global Application Configuration, sign-in and access, data and risk scoring, the Deployment page and the installer. This part covers the Secrets Store, the credentials BlueTrack signs in with, LDAP, email notifications and forwarding the audit log to a SIEM. Both parts are published together as the Administrator Settings Guide.
 
 ## 6. Secrets Store and Credentials
 
@@ -154,3 +154,61 @@ Click **Save Schedule** to save the schedule; it is saved separately from the SM
 **Recipients.** Each recipient has an **Email**, an optional **Display Name** and an **Active** flag. Add at least one monitored mailbox, or give each type a target role; with neither, alerts go nowhere.
 
 **Send Test Email** sends a real message to every active recipient using the saved settings. Use it after every SMTP change. Each test is recorded in the Audit Log as a `ConnectionTest` event, with the authentication method and whether it worked. A failed OAuth2 test says what went wrong, for example "Token endpoint returned invalid_client".
+
+## 8. SIEM Forwarding
+
+**Admin > SIEM Forwarding** (permission `ManageApplicationConfiguration`, the same as the audit settings on Global Application Configuration). Sends every new audit log event to your SIEM's syslog collector as a CEF (Common Event Format) message inside RFC 5424 syslog, over TLS or TCP, within a few seconds. Off on a new install.
+
+**What is sent.** Only events written after forwarding is turned on; older events aren't sent. If forwarding is turned off and on again, it starts again from then. Events wait in the database while the collector can't be reached and go out, oldest first, when it's back; after an API restart forwarding carries on where it stopped. Each event goes out at least once: after a failure a batch is sent again whole, so the SIEM may occasionally see an event twice (the same `externalId`). While forwarding is on, the Audit Log Purge job keeps events not yet sent, however old.
+
+### Collector and TLS
+
+| Setting | What it does | Default | Recommended | Why |
+|---|---|---|---|---|
+| Forward the audit log to the SIEM | Turns forwarding on or off. Needs a Host. | Off | On, once **Send Test Event** works | Keeps a copy of the audit trail outside BlueTrack's database, where BlueTrack's administrators can't change it. |
+| Host | The collector's host name or IP address. | Blank | The collector's DNS name | A name matches the certificate the collector presents over TLS. |
+| Transport | **TLS (RFC 5425)** or **TCP, not encrypted (RFC 6587)**. There is no UDP. | TLS | TLS | Audit events name users, accounts and addresses; TCP sends them in clear text. |
+| Port | 1-65535. Changing the transport switches between the default ports. | 6514 (TLS), 514 (TCP) | Your collector's port | 6514 is the registered syslog-over-TLS port. |
+| Framing | **Octet counting** (each message preceded by its length) or **Line feed** after each message. | Octet counting | Octet counting, unless your collector needs line feed | RFC 5425 specifies octet counting for TLS, and it can't be confused by the message's content. |
+| Trust the collector's certificate by | **The Windows trust store** (the certificate must chain to a CA the server trusts and name the Host); **Its fingerprint** (exactly this certificate, for a self-signed collector); **A CA certificate given here** (paste the CA's PEM; only that CA is trusted, and the certificate must name the Host). TLS only. | The Windows trust store | The trust store, or your internal CA | Fingerprint pinning works, but must be updated whenever the collector's certificate is renewed. |
+| Certificate fingerprint | The collector certificate's SHA-256 (64 hex digits) or SHA-1 (40), with or without colons, optionally starting `sha-256:` or `sha-1:`. | Blank | SHA-256 | SHA-1 is accepted because RFC 5425 requires it, but SHA-256 is stronger. |
+| CA certificate (PEM) | The CA that issued the collector's certificate, `-----BEGIN CERTIFICATE-----` to `-----END CERTIFICATE-----`. | Blank | Your issuing CA | Trusts only that CA, not everything in the Windows store. |
+| Check certificate revocation | Checks online whether the certificate was revoked (not with a fingerprint). | On | On | Turn it off only if the server can't reach the CA's revocation list and you accept the risk; a check that can't complete fails the connection. |
+
+There's no option to ignore certificate errors. For a collector with a self-signed certificate, pin its fingerprint.
+
+### Message
+
+| Setting | What it does | Default | Recommended | Why |
+|---|---|---|---|---|
+| Syslog facility | The syslog facility (0-23) in each message's priority. | 20 - local4 | What your SIEM routes on | local0-7 are meant for local use, so they don't collide with the operating system's own messages. |
+| Syslog host name | The HOSTNAME in each message. Blank uses this server's full name. | Blank | Blank, unless several servers should report as one name | The SIEM shows where the events came from. |
+| App name | The APP-NAME in each message; up to 48 characters, no spaces. | BlueTrack | BlueTrack | Lets SIEM rules pick out BlueTrack's events. |
+| Timeout (seconds) | How long to wait to connect, for the TLS handshake and for each write. 1-120. | 10 | 10 | Long enough for a remote collector; a dead one is noticed quickly. |
+| Largest message (bytes) | 2048-65535. A longer message drops its field-change summary first, then has its detail and reason shortened. | 8192 | 8192, or what your collector accepts | RFC 5425 says collectors should accept 8192 bytes and must accept 2048. |
+
+**Each message** holds: the time (UTC, to the millisecond), vendor and product `BlueTrack`, the BlueTrack version, the event type (as the CEF signature ID and the syslog MSGID), its description, the severity, and as CEF fields the audit event number (`externalId`), the user (`suser`, `suid`), the source IP address (`src`; an IPv6 address in `c6a1`), the entity and its key (`cs1`, `cs2`), a summary of the field changes (`cs3`, up to 1,000 characters), the reason and the detail (`msg`, up to 1,023 characters).
+
+### Event types
+
+Each audit event type has a **Forward** tick box and a **Severity** (CEF, 0-10: 0-3 low, 4-6 medium, 7-8 high, 9-10 very high). All are forwarded on a new install. The syslog severity follows: 0-3 Informational, 4-6 Notice, 7-8 Warning, 9-10 Critical. **Forward All** and **Forward None** tick or clear every row.
+
+| Event type | Default severity |
+|---|---|
+| BreakGlassLogon | 8 |
+| LogonFailed | 6 |
+| ExceptionApproved, ExceptionReviewExtended, ExceptionRevoked, ExceptionImported, ProviderConfigChanged, ReloadRights, AccountDeleted, AccountUndeleted, ConnectionTest, ReportExport | 5 |
+| BulkEdit | 4 |
+| Logon, FieldEdit, EntitlementMemberResolution, AccountClassification | 3 |
+| RecordViewed | 1 |
+| A type added in a later version | 5 |
+
+Recommended: forward everything and filter in the SIEM, so nothing is missing when you need it. Settings changes on the Admin pages are recorded as `FieldEdit`, like data edits; raise FieldEdit's severity if your SIEM should treat them as more important. `RecordViewed` events exist only when **Log read/view events** is on (Global Application Configuration).
+
+### Status and testing
+
+The **Status** section shows whether forwarding is on, when an event was last sent, how many have been sent, how many are waiting and since when, the last error, and the audit event forwarding started after (times in UTC).
+
+**Send Test Event** sends one test event (event type `SiemForwardingTest`, severity 1) with the **saved** settings, whether forwarding is on or off, and reports success or the error. Save first, test, then turn forwarding on. Each test is recorded in the Audit Log as a `ConnectionTest` event; every save as a `FieldEdit` on `siem_forwarding_config`.
+
+The **SIEM Forwarding** health check on **Admin > Deployment** is Degraded while forwarding is on and the last send failed, or the oldest waiting event is more than 15 minutes old. See the Operations Guide, "Monitoring SIEM forwarding".

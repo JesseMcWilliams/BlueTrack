@@ -20,6 +20,8 @@ Read-only — no add/edit/delete. Filter by Event Type, Entity, and a From/To da
 
 Every export, of a report or of the Audit Log, is recorded as a `ReportExport` event, with who exported what (the report, or `audit-log`), the format, the number of rows and the filters used.
 
+Your organization may also forward the audit log to its SIEM (**Admin > SIEM Forwarding**, set by an administrator). Each event then appears there too, with its audit event number as `externalId`. Changes to the forwarding settings are recorded as `FieldEdit` events on `siem_forwarding_config`, and each **Send Test Event** as a `ConnectionTest` event.
+
 ## The Dashboard and tracked data
 
 The Dashboard, **Accounts**, **Exceptions** and most **Reports** need `ViewDashboard`, which this role doesn't include. You still see those entries in the top nav, but their pages show an error (such as "Request failed: 403") instead of data. If you need them, ask an administrator to add a role with `ViewDashboard` (for example Viewer) to your group.
