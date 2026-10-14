@@ -6,7 +6,9 @@
 Requested 2026-10-13. Each ships on its own branch with a `D-n`; delete it here when it ships.
 - **Report export**: CSV and Excel (`.xlsx`, server-side) on every report, with all rows that match the current filters and sort, up to a configurable cap. Reports and Admin hubs get their sub-pages in a vertical list on the left.
 - **Trends page** (from `fact_account_progress_history`): accounts by stage, % complete, and risk level over time, each filterable by application or Safe.
-- **More email notifications**: nightly import failed (right after the job), approvals waiting (daily digest per approver), overdue Risk Exceptions (daily digest), and a weekly summary (day and time set on the Notifications page).
+- **More email notifications**: nightly import failed (right after the job), overdue Risk Exceptions (daily digest), and a weekly summary (day and time set on the Notifications page). An "approvals waiting" digest was dropped: exceptions are created Active (D-70), so nothing waits for approval.
+- **Daily snapshot even when the import fails**: `usp_Load_FactAccountProgressHistory` runs only inside `usp_RunFullLoad`, so a failed load leaves a gap in Trends (the dev site has only 2026-09-05). Run it as its own step that always runs.
+- **Site URL setting**: on Global Application Configuration, set by the installer from `-Hostname`/`-HttpsPort`, so emails link straight to the page instead of naming it.
 - **OAuth2 for SMTP**: Microsoft 365, Google Workspace, and a generic client-credentials provider; the client secret or key stays in the Secrets Store. Confirm each provider's supported app-only sending path from its own documentation before building.
 - **Target Match Review and CSV import mapping**: typeahead for the "Merged" target, and auto-detection of CSV headers on the mapping profile.
 - **Localization framework**: every UI string in an English resource file (vue-i18n), a language picker in My Profile; other languages later, each reviewed by a native speaker.
