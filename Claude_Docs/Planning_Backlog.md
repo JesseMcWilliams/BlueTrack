@@ -3,19 +3,12 @@
 > **Stage: Planning.** Work that isn't built or proven yet. Carried forward from the 2026-09-16 survey (`Archive_Planning_Outstanding-Work-Survey-2026-09-16.md`); items that survey listed but the audit tracker records as resolved were left in the archive. Items tagged *(verify)* may already be done; confirm before starting. When an item ships, delete it here and record it in the relevant `Design_` doc.
 
 ## Requested, not started
-Requested 2026-10-13. Each ships on its own branch with a `D-n`; delete it here when it ships.
-- **Report export**: CSV and Excel (`.xlsx`, server-side) on every report, with all rows that match the current filters and sort, up to a configurable cap. Reports and Admin hubs get their sub-pages in a vertical list on the left.
-- **Trends page** (from `fact_account_progress_history`): accounts by stage, % complete, and risk level over time, each filterable by application or Safe.
-- **More email notifications**: nightly import failed (right after the job), overdue Risk Exceptions (daily digest), and a weekly summary (day and time set on the Notifications page). An "approvals waiting" digest was dropped: exceptions are created Active (D-70), so nothing waits for approval.
-- **Daily snapshot even when the import fails**: `usp_Load_FactAccountProgressHistory` runs only inside `usp_RunFullLoad`, so a failed load leaves a gap in Trends (the dev site has only 2026-09-05). Run it as its own step that always runs.
-- **Site URL setting**: on Global Application Configuration, set by the installer from `-Hostname`/`-HttpsPort`, so emails link straight to the page instead of naming it.
-- **OAuth2 for SMTP**: Microsoft 365, Google Workspace, and a generic client-credentials provider; the client secret or key stays in the Secrets Store. Confirm each provider's supported app-only sending path from its own documentation before building.
-- **Target Match Review and CSV import mapping**: typeahead for the "Merged" target, and auto-detection of CSV headers on the mapping profile.
-- **Localization framework**: every UI string in an English resource file (vue-i18n), a language picker in My Profile; other languages later, each reviewed by a native speaker.
-- **Versioning**: a release script (`<Version>`, Unreleased to a version section, `Published_Docs/`, tag) plus a build stamp from the latest tag and commit count between releases.
+Nothing at the moment. The 2026-10-13 requests shipped as D-220 to D-229.
 
 ## Requested, deferred
 - **API access for scripts and other systems** (requested 2026-10-13): sign-in today is interactive only (Windows, SAML, OIDC). Needs a design: per-user API keys or service tokens, their permissions (a role, like a user), expiry and rotation, storage (hashed), and audit logging of their use.
+- **Localize server-side text** (requested 2026-10-14): API error messages (ProblemDetails), audit details, feed run summaries and emails are English only; D-227 covers the SPA. Needs the request's language on the API (the Language preference or `Accept-Language`) and .NET resource files.
+- **"Use browser default" in the Language picker** (requested 2026-10-14): once a language is saved, there's no way to go back to following the browser's language.
 
 ## Follow-ups found while building D-229 (2026-10-14)
 - **Link two existing targets by hand**: only Target Match Review creates links, and an unlinked pair can't be linked again from the UI. Needs a picker on Edit Target (the D-225 typeahead) and a rule for a target that has its own linked targets.
@@ -32,16 +25,17 @@ Requested 2026-10-13. Each ships on its own branch with a `D-n`; delete it here 
 - **SAML and OIDC**: proven end to end on the dev host against the lab Authentik on 2026-10-13: `/login/saml` and `/login/oidc` -> Authentik sign-in -> ACS / `signin-oidc` -> a BlueTrack session (account `AI_Admin_User`, which has no BlueTrack group, so no roles). Still for the user to check: a sign-in with a mapped user (`adm.jesse`) and Authentik's MFA prompt. SAML Single Logout built and proven against the same Authentik (D-217).
 - **Installer on a fresh server**: `Db.AppPoolAccess` (D-171) and `Iis.Reset` (D-175) have only run by hand or with `-WhatIf`; the new `Iis.SiteRestart` (D-188) ran on the dev host only. DCACYBSQL01's app pool SQL login was granted by hand. Check all three on the next real install.
 - **AD Account Discovery multi-domain**: tested with a fake two-domain directory (D-214, `AdAccountDiscoveryMultiDomainTests`); still unproven against a real second domain (DCACYBSQL01's domain could be one, once LDAPS works).
+- **OAuth2 sign-in for SMTP** (D-223): Microsoft 365, Google Workspace and Generic OAuth2 are built from each provider's documentation and tested against fakes only. Google is the least certain (its docs never show the service-account flow and SMTP together).
+- **Release script against GitHub** (D-226): `Tools/New-BlueTrackRelease.ps1` was tested on a throwaway clone with a stub `gh`; the real PR, signed tag and GitHub release are first exercised at the next release.
+- **Nightly job's single step** (D-224): installed on the dev host 2026-10-14 and `usp_RunNightlyImportLoad` run by hand (Import, Load, Snapshot succeeded); its first scheduled 02:00 run is 2026-10-15.
 
 ## Found in the real CyberArk data (checked 2026-10-13)
-Self-Hosted: EVD `CyberArkSH`, loaded 2026-10-13. Privilege Cloud: the export CSVs in the configured folder, because staging still held September data (first item).
-- **Privilege Cloud import failing** since 2026-10-10. First, `Export_PlatformsList.csv` was not found, and the configured `Export_UsersList.csv` and `Export_SafesList.csv` weren't in the folder either; the files are there now. Then (found 2026-10-14) the import failed at Users with Msg 7301. The Users export had changed from 8 columns to 10 (Email gone; Enabled, Suspended and Location added), and Groups from 6 to 7 (Directory added). The import loaded into fixed-column tables, so any change in the column count failed it. **Fixed by D-228 (script 22, ships with this PR):** the import reads columns by header name, and Test checks each file's header. After deploying, re-run the import by hand and check that `stg_pc_*` holds today's data; then delete this item.
-- **No `AddressDerived` Account→Target links** although about 2,450 active accounts' Address equals a Target identifier (D-193). Probably `usp_RunFullLoad` hasn't completed since D-193 (the Agent job has no step history); confirm after the import runs.
+Self-Hosted: EVD `CyberArkSH`, loaded 2026-10-13. Privilege Cloud: the export CSVs in the configured folder (loaded since D-228, 2026-10-14).
 - **Self-Hosted pivot property names confirmed**: `UserName`, `Address`, `PolicyID` exist with that spelling on every password object (`02_BlueTrack_Baseline_EtlLoads.sql:404`). Remove the PLACEHOLDER comment in the next script that touches `usp_Load_FactAccount`.
 - **Self-Hosted `PlatformKey` is always NULL**: there's no Self-Hosted platform list, so `PolicyID` matches nothing in `dim_platform`. Decide on a source (e.g. seed `dim_platform` from the distinct `PolicyID` values).
 - **Self-Hosted properties the pivot ignores**: `LogonDomain` (could fill `PlatformLogonDomain`), `CPMDisabled`, `DeviceType`, `CreationMethod`, and the linked logon/reconcile account properties (`ExtraPass1*`, `ExtraPass3*`). The EVD has no CPM status or last-change properties, so those stay empty for Self-Hosted.
 - **Q-27 columns never filled**: the `CAFLock*` and `CAFAccessed`/`CAFNew`/`CAFRetrieved`/`CAFModified`/`CAFIsRequestNeeded` columns on `stg_sh_files` exist, but the EVD import doesn't select them.
-- **Privilege Cloud columns always empty** in the current export: `LastReconciled`, `RemoteMachines`, `Deleted`; `LastVerified`, `Platform_LogonDomain` and `CPMStatus` are mostly empty.
+- **Privilege Cloud columns always empty** in the current export: `LastReconciled`, `RemoteMachines`, `Deleted`, and the new Users `Enabled`/`Suspended` and Groups `Directory` (stored since D-228); `LastVerified`, `Platform_LogonDomain` and `CPMStatus` are mostly empty.
 - **Privilege Cloud exports with no importer**: `Export LDAP Group Members.csv` and `Export_ApplicationsList.csv`. Decide whether either is useful.
 - **Direct Account→Target links**: neither CyberArk source lists remote machines (Privilege Cloud `RemoteMachines` is empty; Self-Hosted has no such property), so the Address-derived links (D-193) are the CyberArk side. The `AccountTargetMap` data feed exists (`App/Api/DataFeeds/FeedColumns.cs:21`); what's missing is a non-CyberArk system to supply it.
 - **Drop `dbo.stg_discovered_accounts`** in a new script: empty, and nothing references it (superseded by `web.discovered_account`).
