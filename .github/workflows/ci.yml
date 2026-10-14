@@ -36,6 +36,9 @@ jobs:
 
     steps:
       # Pinned to a commit (D-197): a moved tag can't change what runs here. v4 as of 2026-10-10.
+      # Shallow on purpose (the default fetch-depth 1, no tags): CI publishes
+      # nothing, so the D-226 build stamp here is "<Version>-dev+<sha>" rather
+      # than counting commits since the last v* tag, and the tests accept it.
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       # D-58: BlueTrackTest is dropped and recreated as its own explicit,

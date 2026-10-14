@@ -4,15 +4,75 @@
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <!-- D-96 Part 3.1: no automated versioning/CI-stamping pipeline exists yet,
-         so this is a manually-maintained starting point, bumped by hand per real
-         release, just enough for the new Deployment admin page to answer
-         "what's running now."
-         D-213: at every release, set this to the release's version (tag vX.Y.Z
-         -> X.Y.Z) before tagging; the Deployment page and the user menu's About
-         both show it. -->
+    <!-- D-226: the release version. Tools/New-BlueTrackRelease.ps1 sets it at a
+         release (tag vX.Y.Z -> X.Y.Z); don't bump it by hand. Between releases
+         the build stamps a dev version from git (BlueTrackStampVersion below);
+         About and the Deployment page show that stamp. -->
     <Version>1.0.0</Version>
+    <!-- D-226: the stamp below carries the commit itself, so the SDK's own
+         "+<full commit sha>" (SourceLink) isn't appended to InformationalVersion. -->
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
   </PropertyGroup>
+
+  <!--
+    D-226: build stamp. Runs before the SDK's GetAssemblyVersion, which only
+    defaults InformationalVersion to $(Version) when it's still empty.
+      on the release tag v$(Version), clean tree  -> 1.0.0
+      N commits after the latest v* tag            -> 1.0.0-dev.N+abc1234
+      no v* tag reachable (e.g. shallow clone)     -> 1.0.0-dev+abc1234
+      any of the dev forms with local changes      -> ...+abc1234.dirty
+      no git, no .git (source zip), or git fails   -> 1.0.0 (InformationalVersion left unset)
+    Every git call ignores its exit code and errors, so a missing or failing
+    git never fails the build. Set BlueTrackStampVersion=false to skip it.
+  -->
+  <Target Name="BlueTrackStampVersion"
+          BeforeTargets="GetAssemblyVersion"
+          Condition="'$(BlueTrackStampVersion)' != 'false' and '$(InformationalVersion)' == '' and Exists('$(MSBuildProjectDirectory)\..\..\.git')">
+    <Exec Command="git describe --tags --long --match &quot;v[0-9]*&quot;"
+          WorkingDirectory="$(MSBuildProjectDirectory)"
+          ConsoleToMSBuild="true" IgnoreExitCode="true" ContinueOnError="true" EchoOff="true"
+          IgnoreStandardErrorWarningFormat="true" StandardOutputImportance="low" StandardErrorImportance="low">
+      <Output TaskParameter="ConsoleOutput" PropertyName="_BtDescribe" />
+      <Output TaskParameter="ExitCode" PropertyName="_BtDescribeExit" />
+    </Exec>
+    <Exec Command="git rev-parse --short=7 HEAD"
+          WorkingDirectory="$(MSBuildProjectDirectory)"
+          ConsoleToMSBuild="true" IgnoreExitCode="true" ContinueOnError="true" EchoOff="true"
+          IgnoreStandardErrorWarningFormat="true" StandardOutputImportance="low" StandardErrorImportance="low">
+      <Output TaskParameter="ConsoleOutput" PropertyName="_BtSha" />
+      <Output TaskParameter="ExitCode" PropertyName="_BtShaExit" />
+    </Exec>
+    <Exec Command="git status --porcelain --untracked-files=no"
+          WorkingDirectory="$(MSBuildProjectDirectory)"
+          ConsoleToMSBuild="true" IgnoreExitCode="true" ContinueOnError="true" EchoOff="true"
+          IgnoreStandardErrorWarningFormat="true" StandardOutputImportance="low" StandardErrorImportance="low">
+      <Output TaskParameter="ConsoleOutput" PropertyName="_BtStatus" />
+      <Output TaskParameter="ExitCode" PropertyName="_BtStatusExit" />
+    </Exec>
+
+    <PropertyGroup>
+      <_BtDescribe>$(_BtDescribe.Trim())</_BtDescribe>
+      <_BtSha>$(_BtSha.Trim())</_BtSha>
+      <_BtShaOk>false</_BtShaOk>
+      <_BtShaOk Condition="'$(_BtShaExit)' == '0' and $([System.Text.RegularExpressions.Regex]::IsMatch('$(_BtSha)', '^[0-9a-f]{7,40}$'))">true</_BtShaOk>
+      <_BtDescribeOk>false</_BtDescribeOk>
+      <_BtDescribeOk Condition="'$(_BtShaOk)' == 'true' and '$(_BtDescribeExit)' == '0' and $([System.Text.RegularExpressions.Regex]::IsMatch('$(_BtDescribe)', '^v.+-\d+-g[0-9a-f]+$'))">true</_BtDescribeOk>
+      <_BtDirty></_BtDirty>
+      <_BtDirty Condition="'$(_BtStatusExit)' == '0' and '$(_BtStatus.Trim())' != ''">.dirty</_BtDirty>
+    </PropertyGroup>
+
+    <PropertyGroup Condition="'$(_BtDescribeOk)' == 'true'">
+      <_BtTag>$([System.Text.RegularExpressions.Regex]::Replace('$(_BtDescribe)', '^(v.+)-\d+-g[0-9a-f]+$', '$1'))</_BtTag>
+      <_BtHeight>$([System.Text.RegularExpressions.Regex]::Replace('$(_BtDescribe)', '^v.+-(\d+)-g[0-9a-f]+$', '$1'))</_BtHeight>
+      <InformationalVersion>$(Version)-dev.$(_BtHeight)+$(_BtSha)$(_BtDirty)</InformationalVersion>
+      <InformationalVersion Condition="'$(_BtHeight)' == '0' and '$(_BtTag)' == 'v$(Version)' and '$(_BtDirty)' == ''">$(Version)</InformationalVersion>
+    </PropertyGroup>
+    <PropertyGroup Condition="'$(_BtDescribeOk)' != 'true' and '$(_BtShaOk)' == 'true'">
+      <InformationalVersion>$(Version)-dev+$(_BtSha)$(_BtDirty)</InformationalVersion>
+    </PropertyGroup>
+
+    <Message Importance="low" Text="BlueTrackStampVersion: InformationalVersion=$(InformationalVersion) (describe '$(_BtDescribe)')" />
+  </Target>
 
   <ItemGroup>
     <PackageReference Include="AWSSDK.SecretsManager" Version="4.0.100.11" />

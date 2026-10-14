@@ -7,8 +7,13 @@ namespace BlueTrack.Api.Controllers;
 /// <summary>
 /// D-213: the user menu's About -- the application's version, for any
 /// signed-in user (the Deployment page's fuller version and build details
-/// stay behind ViewDeploymentInfo). The version is BlueTrack.Api.csproj's
-/// &lt;Version&gt;, without the "+commit" the build appends.
+/// stay behind ViewDeploymentInfo).
+///
+/// D-226: the version is the assembly's informational version, which the
+/// build stamps from git (BlueTrack.Api.csproj, BlueTrackStampVersion): the
+/// csproj &lt;Version&gt; on a release tag, "1.0.0-dev.12+abc1234" between
+/// releases, plain &lt;Version&gt; without git. The Deployment page shows the
+/// same string.
 /// </summary>
 [ApiController]
 [Route("api/about")]
@@ -21,8 +26,18 @@ public sealed class AboutController : ControllerBase
     public static string ProductVersion()
     {
         var assembly = Assembly.GetExecutingAssembly();
-        var informational = assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
-        var version = informational?.Split('+')[0];
-        return string.IsNullOrEmpty(version) ? assembly.GetName().Version?.ToString(3) ?? "unknown" : version;
+        return ProductVersion(
+            assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion,
+            assembly.GetName().Version);
+    }
+
+    /// <summary>The informational version when there is one, else the assembly version as x.y.z.</summary>
+    public static string ProductVersion(string? informationalVersion, Version? assemblyVersion)
+    {
+        if (!string.IsNullOrWhiteSpace(informationalVersion))
+            return informationalVersion.Trim();
+        if (assemblyVersion is null)
+            return "unknown";
+        return assemblyVersion.Build >= 0 ? assemblyVersion.ToString(3) : assemblyVersion.ToString();
     }
 }
