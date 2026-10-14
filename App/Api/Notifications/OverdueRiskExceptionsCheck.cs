@@ -13,6 +13,7 @@ namespace BlueTrack.Api.Notifications;
 public sealed class OverdueRiskExceptionsCheck(
     NotificationRepository notificationRepository,
     RiskExceptionRepository riskExceptionRepository,
+    AppConfigRepository appConfigRepository,
     TimeProvider timeProvider) : INotificationCheck
 {
     public const string TypeName = "OverdueRiskExceptions";
@@ -40,7 +41,7 @@ public sealed class OverdueRiskExceptionsCheck(
         var todayUtc = timeProvider.GetUtcNow().UtcDateTime.Date;
         var count = NotificationEmail.Count(overdue.Count);
         var noun = overdue.Count == 1 ? "Risk Exception is" : "Risk Exceptions are";
-        var email = new NotificationEmail($"{count} {noun} overdue for review")
+        var email = new NotificationEmail($"{count} {noun} overdue for review", await appConfigRepository.GetSiteUrlAsync())
             .Paragraph("These Active Risk Exceptions are past their review date. Review each one: extend it with a new review date, or revoke it.")
             .Table(["Exception", "Applies to", "Review date", "Days overdue", "Approved by"],
                 overdue.Take(MaxListed).Select(e => (IReadOnlyList<string>)
@@ -55,7 +56,7 @@ public sealed class OverdueRiskExceptionsCheck(
         {
             email.Paragraph($"...and {NotificationEmail.Count(overdue.Count - MaxListed)} more.");
         }
-        email.SeePage("Risk Exceptions > Overdue Reviews");
+        email.SeePage(SiteLinks.OverdueReviews);
 
         return
         [

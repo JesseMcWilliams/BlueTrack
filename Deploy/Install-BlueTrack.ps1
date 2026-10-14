@@ -170,7 +170,8 @@ $Steps = @(
     @{ Name = 'Db.SeedTestData'; Needs = @('Database', 'SeedTestData'); Description = 'Run App/Migrator against Database/Test'
         Condition = { $SeedTestData }; SkipReason = 'SeedTestData is off' }
     @{ Name = 'Db.AppSettings'; Needs = @('Environment', 'Database', 'ApiInstallPath'); Description = 'Write appsettings.<Environment>.json' }
-    @{ Name = 'Db.NightlyJob'; Needs = @('Database', 'InstallNightlyJob'); Description = 'Install the nightly Import+Load SQL Agent job'
+    @{ Name = 'Db.SiteUrl'; Needs = @('Database', 'Hostname'); Description = 'Set the Site URL the emails link to (https://<Hostname>[:<HttpsPort>]), only if it is empty' }
+    @{ Name = 'Db.NightlyJob'; Needs = @('Database', 'InstallNightlyJob'); Description = 'Install the nightly Import+Load+Snapshot SQL Agent job'
         Condition = { $InstallNightlyJob }; SkipReason = 'InstallNightlyJob is off' }
     @{ Name = 'Iis.AppPool'; Description = 'Create the Application Pool' }
     @{ Name = 'Db.AppPoolAccess'; Needs = @('Database', 'GrantAppPoolSqlAccess'); Description = 'Give the app pool''s account a SQL login + Database/Manual/02 grants'
@@ -465,6 +466,12 @@ $StepActions = @{
     'Db.AppSettings'  = {
         Set-BlueTrackEnvironmentConfig -PublishDirectory $ApiInstallPath -Environment $Environment -ConnectionString (Get-InstallConnectionString) `
             -EnableHsts (Get-InstallHstsSetting) -AllowedFileRoots @($AllowedFileRoots | Where-Object { $_ })
+    }
+    'Db.SiteUrl'      = {
+        # D-224: never overwrites a Site URL an admin set on Global Application Configuration.
+        $siteUrl = Get-BlueTrackSiteUrl -Hostname $Hostname -HttpsPort $HttpsPort
+        $message = Set-BlueTrackSiteUrl -ConnectionString (Get-InstallConnectionString) -SiteUrl $siteUrl
+        return @{ Status = 'Completed'; Message = $message }
     }
     'Db.NightlyJob'   = {
         Get-InstallConnectionString | Out-Null

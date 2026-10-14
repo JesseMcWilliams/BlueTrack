@@ -31,6 +31,7 @@ public class NotificationChecksTests : IClassFixture<BlueTrackWebApplicationFact
     private NotificationSchedule? _originalSchedule;
     private readonly DateTime _startedUtc = DateTime.UtcNow.AddMinutes(-1);
     private readonly List<long> _etlRunKeys = [];
+    private string? _originalSiteUrl;
 
     private static readonly string[] NewTypes = [NightlyImportFailedCheck.TypeName, OverdueRiskExceptionsCheck.TypeName, WeeklySummaryCheck.TypeName];
 
@@ -57,6 +58,14 @@ public class NotificationChecksTests : IClassFixture<BlueTrackWebApplicationFact
         await repository.SaveScheduleAsync(new NotificationSchedule { DailyDigestTime = "07:00", WeeklySummaryDay = "Mon", WeeklySummaryTime = "07:00" }, null);
         _recipientKey = await repository.CreateRecipientAsync(new SaveNotificationRecipientRequest { Email = _recipient, IsActive = true });
         await SetEnabledAsync(false, NewTypes);
+        _originalSiteUrl = await new AppConfigRepository(new TestDbConnectionFactory()).GetSiteUrlAsync();
+        await SetSiteUrlAsync(null);
+    }
+
+    private static async Task SetSiteUrlAsync(string? siteUrl)
+    {
+        await using var connection = new SqlConnection(TestDatabase.ConnectionString);
+        await connection.ExecuteAsync("UPDATE web.app_config SET SiteUrl = @siteUrl", new { siteUrl });
     }
 
     public async Task DisposeAsync()
@@ -65,6 +74,7 @@ public class NotificationChecksTests : IClassFixture<BlueTrackWebApplicationFact
         if (_originalSchedule is not null) await repository.SaveScheduleAsync(_originalSchedule, null);
         await repository.DeleteRecipientAsync(_recipientKey);
         await SetEnabledAsync(false, NewTypes);
+        await SetSiteUrlAsync(_originalSiteUrl);
         await using var connection = new SqlConnection(TestDatabase.ConnectionString);
         await connection.ExecuteAsync("""
             DELETE nl FROM web.notification_log nl
@@ -169,6 +179,36 @@ public class NotificationChecksTests : IClassFixture<BlueTrackWebApplicationFact
 
         await NewService().RunOnceAsync(CancellationToken.None);
         Assert.Equal("BlueTrack: Load failed", Assert.Single(MessagesFor(RunMarker(runKey))).Subject);
+    }
+
+    [Fact]
+    public async Task NightlyImportFailed_CoversAFailedSnapshot_LinkingToTrendsWhenTheSiteUrlIsSet()
+    {
+        await SetEnabledAsync(true, NightlyImportFailedCheck.TypeName);
+        await SetSiteUrlAsync("https://bluetrack-test.example.com");
+        var runKey = await InsertRunAsync("Snapshot", "Failed", 5, "dim_date has no row for today");
+
+        await NewService().RunOnceAsync(CancellationToken.None);
+
+        var message = Assert.Single(MessagesFor(RunMarker(runKey)));
+        Assert.Equal("BlueTrack: Snapshot failed", message.Subject);
+        Assert.Contains("Snapshot (usp_RunDailySnapshot", message.Body);
+        Assert.Contains("EXEC dbo.usp_RunDailySnapshot", message.Body);
+        Assert.Contains("Reports > Trends (https://bluetrack-test.example.com/reports/trends)", message.Body);
+        Assert.Contains("<a href=\"https://bluetrack-test.example.com/reports/trends\">Reports &gt; Trends</a>", message.Html);
+    }
+
+    [Fact]
+    public async Task NightlyImportFailed_WithoutASiteUrl_NamesThePage_WithNoLink()
+    {
+        await SetEnabledAsync(true, NightlyImportFailedCheck.TypeName);
+        var runKey = await InsertRunAsync("Load", "Failed", 5, "Deadlock");
+
+        await NewService().RunOnceAsync(CancellationToken.None);
+
+        var message = Assert.Single(MessagesFor(RunMarker(runKey)));
+        Assert.Contains("In BlueTrack, open Admin > Data Sources > CyberArk Sources to check the CyberArk source settings.", message.Body);
+        Assert.DoesNotContain("<a ", message.Html);
     }
 
     [Fact]

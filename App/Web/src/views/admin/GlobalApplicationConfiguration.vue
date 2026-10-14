@@ -78,7 +78,12 @@ async function save() {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     // D-200: a blank backup time means "off" (''); null would mean "unchanged".
-    body: JSON.stringify({ ...config.value, scheduledBackupTime: config.value.scheduledBackupTime || '' })
+    // D-224: likewise a blank Site URL means "not set".
+    body: JSON.stringify({
+      ...config.value,
+      scheduledBackupTime: config.value.scheduledBackupTime || '',
+      siteUrl: (config.value.siteUrl ?? '').trim()
+    })
   })
   if (!response.ok) {
     const problem = response.status === 400 ? await response.json().catch(() => null) : null
@@ -86,6 +91,10 @@ async function save() {
     return
   }
   saved.value = true
+  // D-224: the API stores the Site URL normalized (no trailing /, lower-case
+  // host); show what it kept, without reloading the rest of the form.
+  const refreshed = await fetch('/api/admin/configuration').catch(() => null)
+  if (refreshed?.ok) config.value.siteUrl = (await refreshed.json()).siteUrl
 }
 </script>
 
@@ -95,6 +104,10 @@ async function save() {
     <p v-if="loading" role="status">Loading...</p>
     <p v-else-if="error && !config" role="alert">{{ error }}</p>
     <form v-else @submit.prevent="save">
+      <p>
+        <label class="field-label"><span class="field-label-text">Site URL:</span> <input v-model="config.siteUrl" type="url" maxlength="500" placeholder="https://bluetrack.company.com" /></label>
+        <small>The address people open BlueTrack at. Emails link to pages under it; leave blank and they name the pages instead. Must start with https:// (http:// only for localhost). The installer fills it in when it's blank (D-224).</small>
+      </p>
       <p>
         <label class="field-label"><span class="field-label-text">Idle Timeout (minutes):</span> <input v-model.number="config.idleTimeoutMinutes" type="number" min="5" max="720" required /></label>
       </p>

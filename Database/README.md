@@ -36,6 +36,7 @@ instead.
 | 18 | `18_BlueTrack_TrendsHistoryIndex.sql` | D-221: an index on `fact_account_progress_history (SnapshotDateKey)`, covering the Trends report's columns, so a date range reads only those days. |
 | 19 | `19_BlueTrack_MoreNotifications.sql` | D-222: `dbo.etl_run_log` (one row per Import and Load run; `usp_Import_Configured` and `usp_RunFullLoad` redefined to write it -- later changes to them must keep it), `dim_notification_type.IsEnabled`, `notification_log.DedupKey`, the digest schedule columns on `notification_config`, and the `NightlyImportFailed`, `OverdueRiskExceptions` and `WeeklySummary` types. |
 | 20 | `20_BlueTrack_SmtpOAuth2.sql` | D-223: OAuth2 (XOAUTH2) SMTP sign-in. `notification_config` gains `OAuthTenantId`, `OAuthClientId`, `OAuthClientCredentialType`, `OAuthTokenUrl`, `OAuthScope`, `OAuthAudience`, `OAuthClientAuthStyle` and `OAuthUsername` (none secret) and a check on `AuthMethod` (an unknown value becomes `None` first); `credential.ProtectedPassword` widens to `NVARCHAR(MAX)` for key files. |
+| 21 | `21_BlueTrack_SnapshotAndSiteUrl.sql` | D-224: the daily snapshot leaves `usp_RunFullLoad`'s transaction. `usp_RunDailySnapshot` (logged in `etl_run_log` as `Snapshot`, which the step check now allows) and `usp_RunNightlyImportLoad` (Import, Load if the Import succeeded, then the snapshot whatever happened; the nightly job's one step) are new; `usp_RunFullLoad` gains `@TakeSnapshot` (default 1, so a run by hand or an old job still snapshots). `app_config.SiteUrl` (the address emails link to). |
 
 ## The baseline (D-195)
 
@@ -60,7 +61,7 @@ scripts but not up to `51` is refused; upgrade it first from the
 
 ## Adding a script
 
-1. Name it `NN_BlueTrack_<Topic>.sql`, with `NN` the next number (`21` is next).
+1. Name it `NN_BlueTrack_<Topic>.sql`, with `NN` the next number (`22` is next).
 2. Start with a header comment: the file name, `RUN THIS AFTER 01-NN.`, what
    it changes and why (with the `D-n` decision), and whether it's safe to
    re-run.
@@ -96,7 +97,7 @@ Numbered in the order they're run; run only the ones that apply.
 | `01_BlueTrack_CreateDatabase.sql` | Optional, before the first Migrator run. Connects to `master`, which DbUp can't. Replace `$DatabaseName$` by hand first. |
 | `02_BlueTrack_GrantAppServiceAccountAccess.sql` | Gives the App Pool's Windows account its database permissions (D-30, D-171). The installer's `Db.AppPoolAccess` step runs a filled-in copy; by hand, replace `__TARGET_ACCOUNT__` first. |
 | `03_BlueTrack_GrantBackupStatusReaderRole.sql` | When the Deployment page's backup-status check should work: lets the app's account read `msdb` backup history (D-107). Replace `__TARGET_ACCOUNT__`, or download a filled-in copy from the Group / Role Mapping page. |
-| `04_BlueTrack_ScheduleImportLoadJob.sql` | Real environments, once Import and Load have each been run by hand and work: creates the nightly 2:00 AM Import + Load SQL Agent job in `msdb`. `sqlcmd -S <server> -C -v DatabaseName="BlueTrack" -i Database/Manual/04_BlueTrack_ScheduleImportLoadJob.sql`, on a copy with its four `__TOKENS__` replaced. The job reads its source settings from `web.cyberark_source_config` (Admin > Data Sources); the script writes that row only when none exists (D-211). The installer's nightly-job option runs a filled-in copy. |
+| `04_BlueTrack_ScheduleImportLoadJob.sql` | Real environments, once Import and Load have each been run by hand and work: creates the nightly 2:00 AM Import + Load SQL Agent job in `msdb` (one step since D-224: `EXEC usp_RunNightlyImportLoad;`, which also takes the daily snapshot when the Import or Load fails; re-run it after script 21 to get that). `sqlcmd -S <server> -C -v DatabaseName="BlueTrack" -i Database/Manual/04_BlueTrack_ScheduleImportLoadJob.sql`, on a copy with its four `__TOKENS__` replaced. The job reads its source settings from `web.cyberark_source_config` (Admin > Data Sources); the script writes that row only when none exists (D-211). The installer's nightly-job option runs a filled-in copy. |
 | `05_BlueTrack_ScheduleAuditLogPurgeJob.sql` | Real environments, once `RetentionDays` is set on Global Application Configuration: the 3:00 AM job calling `usp_PurgeAuditLog`. Same `sqlcmd` form. |
 | `06_BlueTrack_DevFakeAuthUserMapping.sql` | Development only: maps your Windows username to Admin through DevFakeAuth. Replace `@DevFakeAuthUsername` first. |
 

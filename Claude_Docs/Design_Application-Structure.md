@@ -89,6 +89,7 @@ More report types can be added the same way later; this isn't meant to be exhaus
 | ExceptionIdSequenceYear / ExceptionIdNextSequence | int / int | Backing counter for the above, resets per calendar year |
 | LockTimeoutMinutes | int | Account Progress edit-lock expiry (`Database/15_BlueTrack_LockTimeoutConfig.sql`) |
 | ExportMaxRows | int, default 100000 (1 to 1,000,000) | The most rows one report export may hold (D-220, script 17) |
+| SiteUrl | nvarchar(500), null | The address people open BlueTrack at; emails link to pages under it (D-224, script 21). Absolute `https://` URL, `http://` only for localhost, no user name, query or fragment; stored without the trailing `/` or a default port. Blank = not set (emails name pages instead). Audited as a `FieldEdit`; the installer's `Db.SiteUrl` step fills it only when empty. |
 | ModifiedBy / ModifiedDate | FK to app_user / datetime | Change tracking (D-59) |
 
 **Note on step-up MFA scope (D-29):** this is **not** included here. D-29 reads as a fixed architectural policy ("configuration settings and security settings require step-up, general workflow actions don't") rather than something an admin tunes at runtime the way idle timeout or breadcrumb position is — it's enforced by tagging which actions/endpoints are security-sensitive in code, not a config row. Flagging this reading explicitly in case that's wrong — if step-up scope is actually meant to be admin-adjustable, it belongs here too.

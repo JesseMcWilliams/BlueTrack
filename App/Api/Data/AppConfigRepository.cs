@@ -23,11 +23,19 @@ public sealed class AppConfigRepository(IDbConnectionFactory connectionFactory)
                    CONVERT(varchar(5), ac.BusinessHoursEnd, 108) AS BusinessHoursEnd, ac.BusinessDays,
                    ac.BulkEditMaxAccounts, ac.ExportMaxRows,
                    ac.SafeDecomMode, ac.SafeDecomValue, ac.AccountDecomMode, ac.AccountDecomValue,
-                   ac.SafeIgnoreMode, ac.SafeIgnoreValue, dbo.fn_RegexSupported() AS RegexSupported
+                   ac.SafeIgnoreMode, ac.SafeIgnoreValue, dbo.fn_RegexSupported() AS RegexSupported,
+                   ac.SiteUrl
             FROM web.app_config ac
             CROSS JOIN web.audit_config auc
             """;
         return await connection.QuerySingleAsync<GlobalApplicationConfig>(sql);
+    }
+
+    /// <summary>D-224: the address the emails link to pages under; null when not set.</summary>
+    public async Task<string?> GetSiteUrlAsync()
+    {
+        using var connection = connectionFactory.Create();
+        return await connection.QuerySingleOrDefaultAsync<string?>("SELECT SiteUrl FROM web.app_config");
     }
 
     /// <summary>D-35/D-83: checked on every detail-view GET before logging a RecordViewed event.</summary>
@@ -68,7 +76,9 @@ public sealed class AppConfigRepository(IDbConnectionFactory connectionFactory)
                 AccountDecomValue = CASE WHEN @AccountDecomMode IS NULL THEN AccountDecomValue WHEN @AccountDecomMode = 'Off' THEN NULL ELSE @AccountDecomValue END,
                 AccountDecomMode = COALESCE(@AccountDecomMode, AccountDecomMode),
                 SafeIgnoreValue = CASE WHEN @SafeIgnoreMode IS NULL THEN SafeIgnoreValue WHEN @SafeIgnoreMode = 'Off' THEN NULL ELSE @SafeIgnoreValue END,
-                SafeIgnoreMode = COALESCE(@SafeIgnoreMode, SafeIgnoreMode)
+                SafeIgnoreMode = COALESCE(@SafeIgnoreMode, SafeIgnoreMode),
+                -- D-224: null = unchanged, '' = not set.
+                SiteUrl = CASE WHEN @SiteUrl IS NULL THEN SiteUrl WHEN @SiteUrl = '' THEN NULL ELSE @SiteUrl END
             """, new
         {
             request.IdleTimeoutMinutes,
@@ -92,7 +102,8 @@ public sealed class AppConfigRepository(IDbConnectionFactory connectionFactory)
             request.AccountDecomMode,
             request.AccountDecomValue,
             request.SafeIgnoreMode,
-            request.SafeIgnoreValue
+            request.SafeIgnoreValue,
+            request.SiteUrl
         }, transaction);
 
         await connection.ExecuteAsync("""

@@ -1,7 +1,8 @@
 <#
 .SYNOPSIS
     SQL Server connectivity, invoking App/Migrator, environment-specific
-    appsettings, and the optional nightly Import/Load Agent job.
+    appsettings, the Site URL setting, and the optional nightly Import/Load
+    Agent job.
 #>
 
 Set-StrictMode -Version Latest
@@ -190,8 +191,10 @@ function Install-BlueTrackNightlyJob {
     .DESCRIPTION
         The tracked script file is never modified -- only a generated temp copy is.
 
-        D-211: the job's Import step is EXEC usp_Import_Configured;, which reads
-        the sources from web.cyberark_source_config. The script writes that row
+        D-224: the job's one step is EXEC usp_RunNightlyImportLoad; (Import,
+        Load, then the daily snapshot even when either failed). D-211: the
+        Import (usp_Import_Configured) reads the sources from
+        web.cyberark_source_config. The script writes that row
         from these answers only when none exists; once it does, Admin > Data
         Sources owns it, and the script prints a WARNING if the answers differ.
 
@@ -323,4 +326,76 @@ function Grant-BlueTrackAppPoolSqlAccess {
     }
 }
 
-Export-ModuleMember -Function Format-BlueTrackConnectionString, Test-BlueTrackSqlConnection, Test-BlueTrackSqlInstanceIsThisMachine, Invoke-BlueTrackMigrator, Set-BlueTrackEnvironmentConfig, Install-BlueTrackNightlyJob, Grant-BlueTrackAppPoolSqlAccess
+function Get-BlueTrackSiteUrl {
+    <#
+    .SYNOPSIS
+        D-224: the site's address from the installer's answers --
+        https://<Hostname>, with :<HttpsPort> unless it is 443.
+    #>
+    [CmdletBinding()]
+    [OutputType([string])]
+    param(
+        [Parameter(Mandatory)] [string]$Hostname,
+        [ValidateRange(1, 65535)] [int]$HttpsPort = 443
+    )
+
+    $name = $Hostname.Trim().ToLowerInvariant()
+    $hostType = [System.Uri]::CheckHostName($name)
+    if ($hostType -eq [System.UriHostNameType]::Unknown) {
+        throw "'$Hostname' isn't a host name the Site URL can be built from."
+    }
+    if ($hostType -eq [System.UriHostNameType]::IPv6) { $name = "[$name]" }
+    if ($HttpsPort -eq 443) { return "https://$name" }
+    return "https://${name}:$HttpsPort"
+}
+
+function Set-BlueTrackSiteUrl {
+    <#
+    .SYNOPSIS
+        D-224: sets web.app_config.SiteUrl (the address the emails link to)
+        only when it is empty, so an address an admin set on Global
+        Application Configuration is never overwritten. Returns what it did.
+    .DESCRIPTION
+        Needs the column from Database/21_BlueTrack_SnapshotAndSiteUrl.sql,
+        so it runs after Db.Migrate. The value is passed as a SQL parameter.
+        Under -WhatIf it doesn't connect at all (the database may not exist
+        yet).
+    #>
+    [CmdletBinding(SupportsShouldProcess)]
+    [OutputType([string])]
+    param(
+        [Parameter(Mandatory)] [string]$ConnectionString,
+        [Parameter(Mandatory)] [string]$SiteUrl
+    )
+
+    if (-not $PSCmdlet.ShouldProcess('web.app_config.SiteUrl', "Set the Site URL to $SiteUrl if it is empty")) {
+        return "WhatIf: would set the Site URL to $SiteUrl if it is empty"
+    }
+
+    $connection = New-Object System.Data.SqlClient.SqlConnection $ConnectionString
+    $connection.Open()
+    try {
+        $command = $connection.CreateCommand()
+        $command.CommandText = @'
+UPDATE web.app_config SET SiteUrl = @SiteUrl WHERE SiteUrl IS NULL OR LTRIM(RTRIM(SiteUrl)) = N'';
+SELECT TOP (1) SiteUrl FROM web.app_config;
+'@
+        [void]$command.Parameters.Add('@SiteUrl', [System.Data.SqlDbType]::NVarChar, 500)
+        $command.Parameters['@SiteUrl'].Value = $SiteUrl
+        $current = $command.ExecuteScalar()
+    } finally {
+        $connection.Close()
+    }
+
+    if ($null -eq $current -or $current -is [DBNull]) {
+        throw 'web.app_config has no row to hold the Site URL. Run the Db.Migrate step first.'
+    }
+    if ([string]$current -eq $SiteUrl) {
+        Write-Host "Site URL: $SiteUrl (the emails link to pages under it; change it on Global Application Configuration)."
+        return "Site URL is $SiteUrl"
+    }
+    Write-Host "Site URL already set to $current on Global Application Configuration; kept (the installer would have used $SiteUrl)."
+    return "Kept the Site URL $current"
+}
+
+Export-ModuleMember -Function Format-BlueTrackConnectionString, Test-BlueTrackSqlConnection, Test-BlueTrackSqlInstanceIsThisMachine, Invoke-BlueTrackMigrator, Set-BlueTrackEnvironmentConfig, Install-BlueTrackNightlyJob, Grant-BlueTrackAppPoolSqlAccess, Get-BlueTrackSiteUrl, Set-BlueTrackSiteUrl

@@ -19,6 +19,8 @@ What changed in each BlueTrack release, newest first, for users and administrato
 - **More email notifications.** Three new notifications on **Admin > Notifications**: **NightlyImportFailed** (within about 5 minutes of the nightly Import and Load failing, or not finishing within 4 hours, naming the step, file and error), **OverdueRiskExceptions** (a daily list of Risk Exceptions past their review date) and **WeeklySummary** (KPIs, the change since last week, overdue counts and the last import). They start turned off: tick **Enabled** for each one you want, and set when the digests go out in the new **Schedule** section (server time; 07:00 daily and Monday 07:00 unless you change them). Every notification type can now be turned off the same way. The upgrade (script 19) also makes the Import and Load record each run in the database; no other step is needed.
 - **Sign in to Microsoft 365 or Google Workspace for email.** On **Admin > Notifications**, **Auth Method** has three new choices for mailboxes where username and password sign-in is turned off: **Microsoft 365**, **Google Workspace** and **Generic OAuth2**. Each shows only the settings it needs (for example the tenant and client ID), and the secret (client secret, certificate and key, or the Google service account key) is kept as a credential on **Credentials & LDAP**, like the Basic password. **Send Test Email** works with each and says what went wrong (for example "Token endpoint returned invalid_client"), and is now recorded in the Audit Log as a `ConnectionTest` event. The provider needs setting up first; see the Administrator Settings Guide, "Notifications". The upgrade adds database script 20.
 
+- **Links in emails.** New **Site URL** setting on Global Application Configuration: the address people open BlueTrack at (for example `https://bluetrack.company.com`; it must start with `https://`, or `http://` only for localhost). When it's set, the notification emails link straight to the page they mention (Overdue Reviews, Trends, the KPI Summary, CyberArk Sources, the Audit Log); when it's blank they name the page as before. The installer fills it in from the site's host name and HTTPS port when it's blank, and never changes one you've set.
+
 - **Command-line checks** in the new `Tools` folder: the install's health, SAML/OIDC sign-in and sign-out, an LDAPS bind before adding a domain, and the Test buttons. See the Operations Guide, "Checking a Running Install", and `Tools\README.md`.
 
 ### Changed
@@ -37,6 +39,7 @@ What changed in each BlueTrack release, newest first, for users and administrato
 
 ### Fixed
 
+- **Trends no longer has a gap after a failed nightly import.** The daily snapshot behind Reports > Trends is now taken every night, even when the Import or Load fails (it then records the unchanged data). A failed snapshot is reported by the NightlyImportFailed email, and the weekly summary lists the last snapshot run.
 - **SAML sign-in with an unreadable signing key** now says "SAML sign-in is not available" instead of a server error, and the Identity Providers health check reports the problem. The Installation Guide says how to give the App Pool's account read access to the key.
 
 ### Upgrading
@@ -44,7 +47,8 @@ What changed in each BlueTrack release, newest first, for users and administrato
 - Run the installer as usual; it applies the new database scripts (`11_BlueTrack_ConnectionTestAudit.sql`, `12_BlueTrack_CyberArkSourceConfig.sql`, `13_BlueTrack_AccountInventoryFeed.sql`, `14_BlueTrack_FeedAccountLinking.sql`, `15_BlueTrack_ReportingViewsSkipLinkedFeedAccounts.sql`, `16_BlueTrack_BreakGlassAccounts.sql`, `17_BlueTrack_ReportExport.sql`).
 - **If you use Azure Key Vault, AWS Secrets Manager or CyberArk Conjur** in the Secrets Store, enter the stored secret again and save, so it's re-encrypted the new way (the old form still works until then).
 - **Break-glass alerts:** after upgrading, add your break-glass accounts on Identity Providers and give the BreakGlassLogon notification a target role (Notifications).
-- **If you use the nightly import job**, also run the installer with `-Step Db.NightlyJob`. It saves your current CyberArk source settings for the Data Sources page and recreates the job to read them. Until you do, the job keeps working with its old settings, and changes made on the page have no effect.
+- **If you use the nightly import job**, also run the installer with `-Step Db.NightlyJob`. It saves your current CyberArk source settings for the Data Sources page and recreates the job to read them, as one step that also takes the daily Trends snapshot when the import fails (`21_BlueTrack_SnapshotAndSiteUrl.sql`). Until you do, the job keeps working with its old settings, changes made on the page have no effect, and a night whose import fails gets no snapshot.
+- **Site URL:** a full installer run sets it. If you only apply the database scripts, set it on Global Application Configuration, or run the installer with `-Step Db.SiteUrl`.
 
 ## 1.0.0
 

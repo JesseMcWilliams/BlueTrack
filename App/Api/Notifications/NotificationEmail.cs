@@ -8,16 +8,19 @@ namespace BlueTrack.Api.Notifications;
 /// D-222: builds one email as plain, readable HTML plus the same content as
 /// plain text. Every value passed in is HTML-encoded here, so callers pass
 /// raw data (file names, error messages, justifications) and never encode
-/// themselves. BlueTrack has no setting for its own address, so links back
-/// are page names ("Risk Exceptions > Overdue Reviews"), not URLs.
+/// themselves. D-224: with a Site URL (web.app_config.SiteUrl) the pages it
+/// points to are links; without one they are page names only ("Risk
+/// Exceptions > Overdue Reviews").
 /// </summary>
 public sealed class NotificationEmail
 {
     private readonly StringBuilder _text = new();
     private readonly StringBuilder _html = new();
+    private readonly string? _siteUrl;
 
-    public NotificationEmail(string heading)
+    public NotificationEmail(string heading, string? siteUrl = null)
     {
+        _siteUrl = siteUrl;
         _text.AppendLine(heading).AppendLine(new string('=', Math.Min(heading.Length, 70))).AppendLine();
         _html.Append("<h2 style=\"font-size:18px;margin:0 0 12px\">").Append(Encode(heading)).Append("</h2>");
     }
@@ -75,14 +78,39 @@ public sealed class NotificationEmail
         return this;
     }
 
-    /// <summary>Where to look in BlueTrack, by page name (no site address setting exists to build a link from).</summary>
-    public NotificationEmail SeePage(string pageName) => Paragraph($"In BlueTrack, open {pageName}.");
+    /// <summary>
+    /// Where to look in BlueTrack: "In BlueTrack, open A, B and C[ purpose]."
+    /// Each page is a link when the Site URL is set (its address in brackets
+    /// in the plain text), else its name only.
+    /// </summary>
+    public NotificationEmail SeePages(string? purpose, params SitePage[] pages)
+    {
+        var tail = string.IsNullOrEmpty(purpose) ? "." : $" {purpose}.";
+        _text.Append("In BlueTrack, open ").Append(JoinList(pages.Select(p => SiteLinks.Describe(_siteUrl, p)).ToList())).AppendLine(tail).AppendLine();
+        _html.Append("<p style=\"margin:0 0 12px\">In BlueTrack, open ")
+             .Append(JoinList(pages.Select(PageHtml).ToList()))
+             .Append(Encode(tail)).Append("</p>");
+        return this;
+    }
+
+    public NotificationEmail SeePage(SitePage page, string? purpose = null) => SeePages(purpose, page);
+
+    /// <summary>A page as HTML: a link when the Site URL is set. The address is HTML-encoded for the attribute.</summary>
+    private string PageHtml(SitePage page) =>
+        SiteLinks.Link(_siteUrl, page) is { } link
+            ? $"<a href=\"{Encode(link)}\">{Encode(page.Name)}</a>"
+            : Encode(page.Name);
+
+    /// <summary>"A", "A and B", "A, B and C".</summary>
+    private static string JoinList(IReadOnlyList<string> items) =>
+        items.Count <= 1 ? string.Concat(items) : string.Join(", ", items.Take(items.Count - 1)) + " and " + items[^1];
 
     public string Text => _text.ToString().TrimEnd() + Environment.NewLine;
 
     public string Html =>
         "<!DOCTYPE html><html><body style=\"font-family:Segoe UI,Arial,sans-serif;font-size:14px;color:#1f2937\">" +
-        _html + "<p style=\"margin:16px 0 0;font-size:12px;color:#6b7280\">Sent by BlueTrack. Notification settings: Admin &gt; Notifications.</p></body></html>";
+        _html + "<p style=\"margin:16px 0 0;font-size:12px;color:#6b7280\">Sent by BlueTrack. Notification settings: " +
+        PageHtml(SiteLinks.Notifications) + ".</p></body></html>";
 
     public static string Encode(string? value) => WebUtility.HtmlEncode(value ?? "");
 

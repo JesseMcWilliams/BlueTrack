@@ -242,3 +242,7 @@ After `POST /api/auth/logout` cleared every BlueTrack cookie, the next `/api/aut
 - **Skip blank claims.** Authentik sends `"name": ""` for a user with no full name; BlueTrack stored an empty display name. `CurrentUserResolver.DisplayNameFor` takes the first non-blank of `name`, given name, `preferred_username`, then the identifier.
 
 **Lesson:** an SSO integration isn't proven until a real browser completes a sign-in against the real IdP; metadata and request checks passed while the ACS always failed. Automating the round trip with a lab account (password from the Credential Provider, never printed) found two of these in minutes.
+
+## 2026-10-13 -- `END CATCH` then `THROW` is a syntax error (D-224)
+
+Script 21 first failed in the Migrator with "Incorrect syntax near 'THROW'": the statement before `THROW` must end with a semicolon, and a nested `BEGIN TRY ... END CATCH` inside a `CATCH` block doesn't, so write `END CATCH;` (or `END;`) before a re-raising `THROW;`. A bare `THROW;` after that nested block still re-raises the outer `CATCH`'s error, not the nested one (`DailySnapshotTests` checks it).

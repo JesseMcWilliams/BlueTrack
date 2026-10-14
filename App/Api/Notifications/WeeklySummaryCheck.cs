@@ -12,7 +12,7 @@ namespace BlueTrack.Api.Notifications;
 /// earlier (dbo.fact_account_progress_history, D-221's Trends data; "no
 /// history" when there's no snapshot that old), the Overdue / At-Risk
 /// account count, the Risk Exceptions overdue for review, and the last
-/// Import and Load runs.
+/// Import, Load and (D-224) Snapshot runs.
 /// </summary>
 public sealed class WeeklySummaryCheck(
     NotificationRepository notificationRepository,
@@ -20,6 +20,7 @@ public sealed class WeeklySummaryCheck(
     TrendsRepository trendsRepository,
     RiskExceptionRepository riskExceptionRepository,
     IDbConnectionFactory connectionFactory,
+    AppConfigRepository appConfigRepository,
     TimeProvider timeProvider) : INotificationCheck
 {
     public const string TypeName = "WeeklySummary";
@@ -44,7 +45,8 @@ public sealed class WeeklySummaryCheck(
         var overdueExceptions = (await riskExceptionRepository.GetOverdueReviewAsync()).Count;
         var runs = await GetLastRunsAsync();
 
-        var email = new NotificationEmail($"BlueTrack weekly summary, {localNow.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)}");
+        var email = new NotificationEmail($"BlueTrack weekly summary, {localNow.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)}",
+            await appConfigRepository.GetSiteUrlAsync());
 
         email.Heading("Key progress indicators (KPI Summary)").Facts(
         [
@@ -64,7 +66,7 @@ public sealed class WeeklySummaryCheck(
         ]);
 
         email.Heading("Last Import and Load").Facts(runs);
-        email.SeePage("Reports > KPI Summary, Reports > Trends and Reports > Overdue / At-Risk");
+        email.SeePages(null, SiteLinks.KpiSummary, SiteLinks.Trends, SiteLinks.OverdueAtRisk);
 
         return
         [
@@ -84,7 +86,7 @@ public sealed class WeeklySummaryCheck(
         var previous = latest is null ? null : trends.Periods.LastOrDefault(p => p.SnapshotDate <= latest.SnapshotDate.AddDays(-7));
         if (latest is null || previous is null)
         {
-            email.Paragraph("No history yet: there's no daily snapshot from a week ago to compare with. The nightly Load takes one each night.");
+            email.Paragraph("No history yet: there's no daily snapshot from a week ago to compare with. The nightly job takes one each night.");
             return;
         }
 
@@ -131,7 +133,7 @@ public sealed class WeeklySummaryCheck(
         var lastFile = await grid.ReadSingleOrDefaultAsync<DateTime?>();
 
         var facts = new List<(string, string)>();
-        foreach (var step in new[] { "Import", "Load" })
+        foreach (var step in new[] { "Import", "Load", "Snapshot" })
         {
             facts.Add((step, runs.TryGetValue(step, out var run)
                 ? $"{run.Status}, started {NotificationEmail.ServerTime(run.StartedAt, timeProvider)} (server time)"

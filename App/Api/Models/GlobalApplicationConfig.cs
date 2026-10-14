@@ -61,6 +61,9 @@ public sealed class GlobalApplicationConfig
     public required string SafeIgnoreMode { get; init; }
     public string? SafeIgnoreValue { get; init; }
     public bool RegexSupported { get; init; }
+
+    /// <summary>D-224: the address people open BlueTrack at (e.g. https://bluetrack.company.com); emails link to pages under it. Null = not set.</summary>
+    public string? SiteUrl { get; init; }
 }
 
 public sealed class SaveGlobalApplicationConfigRequest
@@ -103,4 +106,11 @@ public sealed class SaveGlobalApplicationConfigRequest
     public string? AccountDecomValue { get; init; }
     public string? SafeIgnoreMode { get; init; }
     public string? SafeIgnoreValue { get; init; }
+
+    /// <summary>
+    /// D-224: null = unchanged; "" = not set; else an absolute https URL
+    /// (http only for localhost). Settable: the controller replaces it with
+    /// the normalized form (SiteLinks.TryNormalize) before saving.
+    /// </summary>
+    public string? SiteUrl { get; set; }
 }
