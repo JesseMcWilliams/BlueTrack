@@ -1,6 +1,8 @@
 # BlueTrack: Handoff, 2026-10-13
 
-> **Stage: Planning.** Point-in-time snapshot for the next Claude session, covering 2026-10-12 to 2026-10-13 (updated at the end of 2026-10-13). Supersedes `Archive_Planning_Handoff-2026-10-11.md` (its open items are carried into the list below). Once every item below is closed, rename to `Archive_Planning_Handoff-2026-10-13.md` with `git mv`.
+> **Archived 2026-10-13:** superseded by `Planning_Handoff-2026-10-14.md`, which carries its open items.
+>
+> **Stage: Planning (at the time).** Point-in-time snapshot for the next Claude session, covering 2026-10-12 to 2026-10-13 (updated at the end of 2026-10-13). Supersedes `Archive_Planning_Handoff-2026-10-11.md` (its open items are carried into the list below). Once every item below is closed, rename to `Archive_Planning_Handoff-2026-10-13.md` with `git mv`.
 
 ## What was done
 SSO went live against the lab Authentik, the user docs and published guides were brought up to date, and **v1.0.0 was released** (signed tag, verified by GitHub). Later on 2026-10-13: two audit findings closed, **Data Sources finished** (phases 3-4), three UI requests (About, nav order, mapping paging), and the rest of the backlog that didn't need a real environment (D-214 to D-217: small items, secrets-backend hardening, break-glass alerts, **SAML Single Logout, proven live**). Everything through #119 is merged to `main` and deployed on the dev site; #120 (this update and a small SLO fix) follows.
