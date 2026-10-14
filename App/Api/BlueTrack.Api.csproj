@@ -129,6 +129,15 @@
   </ItemGroup>
 
   <!--
+    D-230: appsettings.Site.json is written by the installer next to the
+    published API and holds that site's connection string. A copy left in this
+    folder must never be built or published over it.
+  -->
+  <ItemGroup>
+    <Content Remove="appsettings.Site.json" />
+  </ItemGroup>
+
+  <!--
     Embedded so the Group / Role Mapping page's script-generator endpoint
     (GroupRoleMappingsController) can read this tracked script's content at
     runtime regardless of deployment layout: Deploy/Install-BlueTrack.ps1

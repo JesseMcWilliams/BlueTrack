@@ -5,6 +5,8 @@ Logs/
 App/**/bin/
 App/**/obj/
 App/**/*.user
+# D-230: the installer's per-site settings (a real connection string); never in the repo.
+appsettings.Site.json
 
 # Node / Vite / Playwright
 App/*/node_modules/

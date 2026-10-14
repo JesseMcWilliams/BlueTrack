@@ -1,7 +1,7 @@
 <#
 .SYNOPSIS
-    SQL Server connectivity, invoking App/Migrator, environment-specific
-    appsettings, the Site URL setting, and the optional nightly Import/Load
+    SQL Server connectivity, invoking App/Migrator, the site settings file
+    (appsettings.Site.json), the Site URL setting, and the optional nightly Import/Load
     Agent job.
 #>
 
@@ -109,18 +109,30 @@ function Invoke-BlueTrackMigrator {
     }
 }
 
-function Set-BlueTrackEnvironmentConfig {
+function Set-BlueTrackSiteConfig {
     <#
     .SYNOPSIS
-        Writes appsettings.{Environment}.json into the published API output
-        directory with the resolved connection string -- ASP.NET Core's own
-        built-in environment-specific config convention, applied here since
-        Design_Deployment-Methodology.md left this an open question.
-    .NOTES
-        Never edits the tracked App/Api/appsettings.json -- only writes into
-        the publish output, which is not committed to source control.
+        D-230: writes appsettings.Site.json into the published API folder (the
+        connection string, Security:EnableHsts, FileAccess:AllowedRoots and
+        BlueTrack:EnvironmentName), then removes the appsettings.<Environment>.json
+        earlier installers wrote there. Returns what it did.
+    .DESCRIPTION
+        IIS runs the API as ASP.NET Core Production, which never loaded an
+        appsettings.Test.json, .Staging.json or .Development.json. The API always
+        loads appsettings.Site.json instead (Program.cs, SiteSettings.cs), so
+        the Environment answer only names the environment (BlueTrack:EnvironmentName).
+
+        An old appsettings.Test/Staging/Development.json was never loaded, so it
+        is removed. An old appsettings.Production.json was loaded; it is removed
+        only when it holds nothing but the settings this function now writes to
+        the site file. Anything else in it (added by hand) is still in effect, so
+        the file is kept and a warning names the extra settings.
+
+        Never edits the tracked App/Api/appsettings.json -- only writes into the
+        publish output, which is not committed to source control.
     #>
     [CmdletBinding(SupportsShouldProcess)]
+    [OutputType([string])]
     param(
         [Parameter(Mandatory)] [string]$PublishDirectory,
         [Parameter(Mandatory)] [ValidateSet('Development', 'Test', 'Staging', 'Production')] [string]$Environment,
@@ -131,7 +143,8 @@ function Set-BlueTrackEnvironmentConfig {
         [string[]]$AllowedFileRoots = @()
     )
 
-    $configPath = Join-Path $PublishDirectory "appsettings.$Environment.json"
+    $siteFileName = 'appsettings.Site.json'
+    $configPath = Join-Path $PublishDirectory $siteFileName
     $config = [ordered]@{
         ConnectionStrings = [ordered]@{
             BlueTrackDb = $ConnectionString
@@ -142,10 +155,16 @@ function Set-BlueTrackEnvironmentConfig {
         FileAccess        = [ordered]@{
             AllowedRoots = @($AllowedFileRoots | Where-Object { $_ })
         }
+        BlueTrack         = [ordered]@{
+            EnvironmentName = $Environment
+        }
     }
+    $done = New-Object System.Collections.Generic.List[string]
 
-    if ($PSCmdlet.ShouldProcess($configPath, 'Write environment-specific appsettings')) {
+    if ($PSCmdlet.ShouldProcess($configPath, 'Write the site settings file')) {
         $config | ConvertTo-Json -Depth 5 | Set-Content -Path $configPath -Encoding UTF8
+        Write-Host "Wrote $configPath (environment name: $Environment)."
+        $done.Add("Wrote $siteFileName")
 
         # D-197: with SQL authentication the file holds a password. Limit it to
         # Administrators, SYSTEM and IIS's worker processes (IIS_IUSRS holds
@@ -159,7 +178,65 @@ function Set-BlueTrackEnvironmentConfig {
             }
             $acl.AddAccessRule((New-Object System.Security.AccessControl.FileSystemAccessRule 'BUILTIN\IIS_IUSRS', 'Read', 'Allow'))
             Set-Acl -Path $configPath -AclObject $acl
-            Write-Warning "appsettings.$Environment.json holds a SQL login's password; its access is now limited to Administrators, SYSTEM and IIS_IUSRS. Windows authentication (-UseWindowsAuth `$true) avoids storing a password at all, and the runtime login should not be the one used to install."
+            Write-Warning "$siteFileName holds a SQL login's password; its access is now limited to Administrators, SYSTEM and IIS_IUSRS. Windows authentication (-UseWindowsAuth `$true) avoids storing a password at all, and the runtime login should not be the one used to install."
+        }
+    } else {
+        $done.Add("WhatIf: would write $siteFileName")
+    }
+
+    # D-230 migration: the file earlier installers wrote for this Environment.
+    $oldFileName = "appsettings.$Environment.json"
+    $oldPath = Join-Path $PublishDirectory $oldFileName
+    if (Test-Path -LiteralPath $oldPath) {
+        $keep = $false
+        if ($Environment -eq 'Production') {
+            # Loaded by ASP.NET Core until now: keep it if it holds anything the site file doesn't.
+            $written = @('ConnectionStrings:BlueTrackDb', 'Security:EnableHsts', 'FileAccess:AllowedRoots')
+            $extra = @(Get-BlueTrackJsonSettingName -Path $oldPath | Where-Object { $_ -notin $written })
+            if ($extra.Count -gt 0) {
+                $keep = $true
+                Write-Warning "Kept $oldPath`: ASP.NET Core still loads it, and it holds settings the installer doesn't write ($($extra -join ', ')). $siteFileName overrides any setting both files hold. Move those settings to $siteFileName by hand, then delete $oldFileName."
+                $done.Add("kept $oldFileName (holds other settings)")
+            }
+        }
+        if (-not $keep) {
+            if ($PSCmdlet.ShouldProcess($oldPath, "Remove the old environment settings file (replaced by $siteFileName)")) {
+                Remove-Item -LiteralPath $oldPath -Force
+                Write-Host "Removed $oldPath; its settings are in $siteFileName now."
+                $done.Add("removed the old $oldFileName")
+            } else {
+                $done.Add("WhatIf: would remove the old $oldFileName")
+            }
+        }
+    }
+
+    return ($done -join '; ')
+}
+
+function Get-BlueTrackJsonSettingName {
+    <#
+    .SYNOPSIS
+        Lists a JSON settings file's settings as configuration keys
+        (Section:Key), stopping at arrays -- for Set-BlueTrackSiteConfig's
+        check of an old appsettings.Production.json.
+    #>
+    [CmdletBinding()]
+    [OutputType([string])]
+    param(
+        [Parameter(Mandatory)] [string]$Path
+    )
+
+    $stack = New-Object System.Collections.Stack
+    $stack.Push(@('', (Get-Content -LiteralPath $Path -Raw | ConvertFrom-Json)))
+    while ($stack.Count -gt 0) {
+        $prefix, $node = $stack.Pop()
+        if ($node -is [System.Management.Automation.PSCustomObject]) {
+            foreach ($property in $node.PSObject.Properties) {
+                $name = if ($prefix) { "$prefix`:$($property.Name)" } else { $property.Name }
+                $stack.Push(@($name, $property.Value))
+            }
+        } elseif ($prefix) {
+            $prefix
         }
     }
 }
@@ -398,4 +475,4 @@ SELECT TOP (1) SiteUrl FROM web.app_config;
     return "Kept the Site URL $current"
 }
 
-Export-ModuleMember -Function Format-BlueTrackConnectionString, Test-BlueTrackSqlConnection, Test-BlueTrackSqlInstanceIsThisMachine, Invoke-BlueTrackMigrator, Set-BlueTrackEnvironmentConfig, Install-BlueTrackNightlyJob, Grant-BlueTrackAppPoolSqlAccess, Get-BlueTrackSiteUrl, Set-BlueTrackSiteUrl
+Export-ModuleMember -Function Format-BlueTrackConnectionString, Test-BlueTrackSqlConnection, Test-BlueTrackSqlInstanceIsThisMachine, Invoke-BlueTrackMigrator, Set-BlueTrackSiteConfig, Install-BlueTrackNightlyJob, Grant-BlueTrackAppPoolSqlAccess, Get-BlueTrackSiteUrl, Set-BlueTrackSiteUrl
