@@ -3,6 +3,11 @@ import { mount, flushPromises } from '@vue/test-utils'
 import { createRouter, createMemoryHistory } from 'vue-router'
 import TargetEdit from './TargetEdit.vue'
 
+vi.mock('../composables/useConfirmDialog', () => ({
+  confirmDelete: vi.fn().mockResolvedValue(true)
+}))
+import { confirmDelete } from '../composables/useConfirmDialog'
+
 // D-124 Phase 4: Add/Edit moved off Targets.vue's own inline form onto
 // this routed page -- establishes coverage for the create-vs-edit-by-
 // route-param branching (mirroring RiskScoreBandEdit.test.js/
@@ -121,5 +126,66 @@ describe('TargetEdit.vue', () => {
 
     expect(wrapper.find('[role="alert"]').text()).toContain('500')
     expect(wrapper.find('form').exists()).toBe(true)
+  })
+
+  // D-229: a primary lists its linked targets; a linked target shows its primary; both offer Unlink.
+  function mockLinked(target, afterUnlink) {
+    let unlinked = false
+    globalThis.fetch = vi.fn((url, init) => {
+      if (url === '/api/applications') return Promise.resolve(jsonResponse([]))
+      if (url === '/api/admin/targets/identifier-types') return Promise.resolve(jsonResponse(identifierTypes))
+      if (url === '/api/admin/targets/target-types') return Promise.resolve(jsonResponse(targetTypes))
+      if (url.endsWith('/unlink') && init?.method === 'POST') { unlinked = true; return Promise.resolve(jsonResponse(null, { status: 204 })) }
+      if (url === `/api/admin/targets/${target.targetKey}`) return Promise.resolve(jsonResponse(unlinked ? afterUnlink : target))
+      return Promise.resolve(jsonResponse(null, { ok: false, status: 404 }))
+    })
+  }
+
+  it('lists the targets linked to this one and unlinks one after asking', async () => {
+    confirmDelete.mockResolvedValue(true)
+    const linked = { targetKey: 8, targetName: 'db01', targetTypeDisplayName: 'Database', discoverySource: 'CMDB', linkedDate: '2026-10-14T10:00:00' }
+    mockLinked({ ...sampleTarget, linkedTargets: [linked] }, { ...sampleTarget, linkedTargets: [] })
+    const wrapper = mount(TargetEdit, { props: { targetKey: 5 }, global: { plugins: [makeRouter()] } })
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('Linked Targets')
+    expect(wrapper.text()).toContain('CMDB')
+    expect(wrapper.get('a[href="/targets/8"]').text()).toBe('db01')
+
+    await wrapper.get('button[aria-label="Unlink db01"]').trigger('click')
+    await flushPromises()
+
+    expect(confirmDelete).toHaveBeenCalledWith(expect.objectContaining({ title: 'Unlink Target', details: ['db01 from web01'] }), 'Unlink')
+    expect(globalThis.fetch).toHaveBeenCalledWith('/api/admin/targets/8/unlink', { method: 'POST' })
+    expect(wrapper.text()).not.toContain('Linked Targets')
+  })
+
+  it('shows the target a linked target is linked to, and does nothing when Unlink is cancelled', async () => {
+    confirmDelete.mockResolvedValue(false)
+    mockLinked({ ...sampleTarget, linkedToTargetKey: 3, linkedToTargetName: 'primary01', linkedTargets: [] }, sampleTarget)
+    const wrapper = mount(TargetEdit, { props: { targetKey: 5 }, global: { plugins: [makeRouter()] } })
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('Linked Target')
+    expect(wrapper.get('a[href="/targets/3"]').text()).toBe('primary01')
+
+    await wrapper.findAll('button').find(b => b.text() === 'Unlink').trigger('click')
+    await flushPromises()
+
+    expect(globalThis.fetch.mock.calls.some(([url]) => url.endsWith('/unlink'))).toBe(false)
+  })
+
+  it('does not send the link fields back when saving', async () => {
+    mockLinked({ ...sampleTarget, linkedToTargetKey: 3, linkedToTargetName: 'primary01', linkedTargets: [] }, sampleTarget)
+    const wrapper = mount(TargetEdit, { props: { targetKey: 5 }, global: { plugins: [makeRouter()] } })
+    await flushPromises()
+
+    globalThis.fetch.mockResolvedValueOnce(jsonResponse(null, { status: 204 }))
+    await wrapper.get('form').trigger('submit')
+    await flushPromises()
+
+    const [, options] = globalThis.fetch.mock.calls.at(-1)
+    expect(options.method).toBe('PUT')
+    expect(JSON.parse(options.body)).not.toHaveProperty('linkedToTargetKey')
   })
 })

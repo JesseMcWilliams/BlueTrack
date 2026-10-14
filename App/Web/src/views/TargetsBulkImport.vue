@@ -78,6 +78,7 @@ async function importAccountTargetMap() {
     <CsvColumnCheck :file="inventoryFile" feed-type="TargetInventory" :profile-chosen="inventoryProfile !== null" />
     <p v-if="inventoryImportResult">
       {{ t('pages.targetsBulkImport.inventorySummary', { total: formatCount(inventoryImportResult.totalRows), created: formatCount(inventoryImportResult.createdCount), merged: formatCount(inventoryImportResult.mergedCount), pending: formatCount(inventoryImportResult.pendingReviewCount), errors: formatCount(inventoryImportResult.errors?.length ?? 0) }) }}
+      <span v-if="inventoryImportResult.ignoredCount"><br />{{ t('pages.targetsBulkImport.inventoryIgnored', { ignored: formatCount(inventoryImportResult.ignoredCount) }) }}</span>
       <span v-if="inventoryImportResult.errors?.length"><br />{{ inventoryImportResult.errors.map(e => t('pages.targetsBulkImport.rowError', { row: e.rowNumber, error: e.error })).join('; ') }}</span>
     </p>
 

@@ -32,6 +32,10 @@
 // "Bulk Actions" header link below -- the "Link a Single Account to a
 // Target" section stays here, since it's a single-record form (no file
 // upload), not a bulk import.
+//
+// D-229: a target linked to another (Target Match Review's Link) is hidden
+// unless "Linked targets: Show" is chosen, as Account Progress's linked feed
+// accounts (D-212); a shown one carries a Linked badge to its primary.
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useTotalCount } from '../composables/useTotalCount'
@@ -91,6 +95,7 @@ const pageSizeStore = usePageSizeStore()
 
 const typeFilter = ref('')
 const applicationFilter = ref('')
+const linkedFilter = ref('Hide')
 
 // D-124 Phase 3: pagination -- page is local to this page (not persisted);
 // pageSize comes from the shared, server-persisted pageSize store.
@@ -157,6 +162,7 @@ async function load() {
     const params = new URLSearchParams()
     if (typeFilter.value) params.set('targetTypeKey', typeFilter.value)
     if (applicationFilter.value) params.set('applicationKey', applicationFilter.value)
+    if (linkedFilter.value !== 'Hide') params.set('linked', linkedFilter.value)
     if (sortQueryParam.value) params.set('sort', sortQueryParam.value)
     params.set('page', page.value)
     params.set('pageSize', pageSizeStore.current)
@@ -197,7 +203,7 @@ onMounted(async () => {
 // number might not even exist under the new filter) -- a page-size change
 // is handled separately by onPageSizeChange, and a plain Prev/Next click by
 // onPageChange, neither of which should reset anything else.
-watch([typeFilter, applicationFilter, sortQueryParam], () => {
+watch([typeFilter, applicationFilter, linkedFilter, sortQueryParam], () => {
   page.value = 1
   load()
 })
@@ -212,6 +218,7 @@ const keysUrl = computed(() => {
   const params = new URLSearchParams()
   if (typeFilter.value) params.set('targetTypeKey', typeFilter.value)
   if (applicationFilter.value) params.set('applicationKey', applicationFilter.value)
+  if (linkedFilter.value !== 'Hide') params.set('linked', linkedFilter.value)
   return `/api/admin/targets/keys?${params.toString()}`
 })
 const bulkFields = computed(() => [
@@ -284,6 +291,12 @@ async function remove(item) {
           <option v-for="app in applications" :key="app.applicationKey" :value="app.applicationKey">{{ app.applicationName }}</option>
         </select>
       </label>
+      <label class="field-label"><span class="field-label-text">{{ t('pages.targets.linkedTargets') }}</span>
+        <select v-model="linkedFilter">
+          <option value="Hide">{{ t('pages.targets.hide') }}</option>
+          <option value="Show">{{ t('pages.targets.show') }}</option>
+        </select>
+      </label>
     </p>
     <SelectionBar :selection="selection" :page-keys="pageKeys" :filtered-count="filteredCount" :keys-url="keysUrl" :toggle-label="t('pages.targets.selectToggle')">
       <button type="button" class="btn-primary" :disabled="selection.count === 0" @click="bulkPanel = 'edit'">{{ t('pages.targets.bulkEdit') }}</button>
@@ -315,7 +328,11 @@ async function remove(item) {
         <tbody>
           <tr v-for="item in items" :key="item.targetKey">
             <td v-if="selection.enabled"><input type="checkbox" :checked="selection.isSelected(item.targetKey)" :aria-label="t('pages.targets.selectRow', { name: item.targetName })" @change="selection.toggle(item.targetKey)" /></td>
-            <td><router-link :to="{ name: 'target-edit', params: { targetKey: item.targetKey } }">{{ item.targetName }}</router-link></td>
+            <td>
+              <router-link :to="{ name: 'target-edit', params: { targetKey: item.targetKey } }">{{ item.targetName }}</router-link>
+              <router-link v-if="item.linkedToTargetKey" class="linked-badge" :to="{ name: 'target-edit', params: { targetKey: item.linkedToTargetKey } }"
+                :title="t('pages.targets.linkedTitle', { name: item.linkedToTargetName })">{{ t('pages.targets.linkedBadge') }}<span class="visually-hidden">{{ t('pages.targets.linkedHidden', { name: item.linkedToTargetName }) }}</span></router-link>
+            </td>
             <td>{{ item.targetTypeDisplayName }}</td>
             <td>{{ item.applicationName }}</td>
             <td>{{ item.riskScore }}</td>
@@ -346,3 +363,11 @@ async function remove(item) {
     </template>
   </div>
 </template>
+
+<style scoped>
+.linked-badge {
+  margin-left: 0.5rem;
+  font-size: 0.85em;
+  opacity: 0.8;
+}
+</style>

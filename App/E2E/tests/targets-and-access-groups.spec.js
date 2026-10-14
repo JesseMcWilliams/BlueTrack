@@ -200,8 +200,9 @@ test.describe('Bulk actions on Targets (D-190)', () => {
   })
 })
 
-// D-225: Target Match Review's "Merged" target is picked with a typeahead,
-// and import mapping profiles can be pre-filled from a sample CSV's headers.
+// D-225: Target Match Review's link target is picked with a typeahead (D-229
+// replaced Merged with Link), and import mapping profiles can be pre-filled
+// from a sample CSV's headers.
 test.describe('Target Match Review typeahead and CSV header detection (D-225)', () => {
   async function serverTypeKey(page) {
     const types = await (await page.request.get('/api/admin/targets/target-types')).json()
@@ -216,23 +217,25 @@ test.describe('Target Match Review typeahead and CSV header detection (D-225)', 
     return (await response.json()).targetKey
   }
 
-  test('Admin merges a review row into a target found by typing part of its hostname', async ({ page }) => {
+  test('Admin links a review row to a target found by typing part of its hostname', async ({ page }) => {
     await signInAs(page, 'TestUser.Admin')
     const stamp = Date.now()
     const ip = `10.94.${Math.floor(Math.random() * 250) + 1}.${Math.floor(Math.random() * 250) + 1}`
     const destName = `E2E Merge Dest ${stamp}`
+    const incomingName = `E2E Incoming ${stamp}`
     const candidate = await createTarget(page, `E2E Merge Candidate ${stamp}`, [{ identifierType: 'IPAddress', identifierValue: ip }])
     const dest = await createTarget(page, destName, [{ identifierType: 'Hostname', identifierValue: `e2e-merge-${stamp}` }])
+    let linked = null
     try {
       // An inventory row matching only that IP address goes to the review queue.
       const upload = await page.request.post('/api/admin/risk-scoring/import/target-inventory', {
-        multipart: { file: { name: 'review.csv', mimeType: 'text/csv', buffer: Buffer.from(`TargetType,TargetName,RiskScore,IPAddress\nServer,E2E Incoming ${stamp},10,${ip}\n`) } }
+        multipart: { file: { name: 'review.csv', mimeType: 'text/csv', buffer: Buffer.from(`TargetType,TargetName,RiskScore,IPAddress\nServer,${incomingName},10,${ip}\n`) } }
       })
       expect((await upload.json()).pendingReviewCount).toBe(1)
 
       await page.goto('/admin/target-match-review')
       await expect(page.getByRole('heading', { name: 'Target Match Review' })).toBeVisible()
-      const combobox = page.getByRole('combobox', { name: `Merge IPAddress ${ip} into target` })
+      const combobox = page.getByRole('combobox', { name: `Link IPAddress ${ip} to target` })
       await expect(combobox).toHaveAttribute('aria-expanded', 'false')
 
       await combobox.pressSequentially(`merge-${stamp}`)
@@ -247,16 +250,74 @@ test.describe('Target Match Review typeahead and CSV header detection (D-225)', 
       await expect(combobox).toHaveValue(`${destName} (Server)`)
       await expect(combobox).toHaveAttribute('aria-expanded', 'false')
 
-      await page.locator('tbody tr', { hasText: ip }).getByRole('button', { name: 'Merge' }).click()
+      await page.locator('tbody tr', { hasText: ip }).getByRole('button', { name: 'Link', exact: true }).click()
       await expect(page.locator('tbody tr', { hasText: ip })).toHaveCount(0)
 
-      const merged = await (await page.request.get(`/api/admin/targets/${dest}`)).json()
-      expect(merged.identifiers).toContainEqual({ identifierType: 'IPAddress', identifierValue: ip })
+      // D-229: the incoming row is its own target, linked to the chosen one; the IP stays on the candidate.
+      const destTarget = await (await page.request.get(`/api/admin/targets/${dest}`)).json()
+      linked = destTarget.linkedTargets.find(l => l.targetName === incomingName).targetKey
+      const linkedTarget = await (await page.request.get(`/api/admin/targets/${linked}`)).json()
+      expect(linkedTarget.linkedToTargetKey).toBe(dest)
+      const candidateTarget = await (await page.request.get(`/api/admin/targets/${candidate}`)).json()
+      expect(candidateTarget.identifiers).toContainEqual({ identifierType: 'IPAddress', identifierValue: ip })
     } finally {
+      if (linked) await page.request.delete(`/api/admin/targets/${linked}`)
       await page.request.delete(`/api/admin/targets/${dest}`)
       // The resolved review row still names the candidate, so its delete is refused (409);
       // it's left in BlueTrackTest under its E2E name.
       await page.request.delete(`/api/admin/targets/${candidate}`)
+    }
+  })
+
+  // D-229: a linked target is hidden on Targets until "Linked targets: Show"; its page names its primary and can unlink it.
+  test('Admin links a review row to the candidate, finds the linked target with the filter, and unlinks it', async ({ page }) => {
+    await signInAs(page, 'TestUser.Admin')
+    const stamp = Date.now()
+    const ip = `10.92.${Math.floor(Math.random() * 250) + 1}.${Math.floor(Math.random() * 250) + 1}`
+    // A name starting "000" sorts to the top of the Targets list's first page.
+    const primaryName = `E2E LinkPrimary ${stamp}`
+    const linkedName = `000 E2E LinkedDb ${stamp}`
+    const primary = await createTarget(page, primaryName, [{ identifierType: 'IPAddress', identifierValue: ip }])
+    let linked = null
+    try {
+      const upload = await page.request.post('/api/admin/risk-scoring/import/target-inventory', {
+        multipart: { file: { name: 'link.csv', mimeType: 'text/csv', buffer: Buffer.from(`TargetType,TargetName,RiskScore,DiscoverySource,IPAddress,Hostname\nDatabase,${linkedName},300,E2E CMDB,${ip},e2e-linkdb-${stamp}\n`) } }
+      })
+      expect((await upload.json()).pendingReviewCount).toBe(1)
+
+      await page.goto('/admin/target-match-review')
+      const row = page.locator('tbody tr', { hasText: ip })
+      await expect(row).toContainText(`${linkedName} (Database)`)
+      await expect(row).toContainText('Source: E2E CMDB, Risk Score: 300')
+      await expect(row).toContainText(`Hostname: e2e-linkdb-${stamp}`)
+      await row.getByRole('button', { name: 'Link', exact: true }).click()
+      await expect(row).toHaveCount(0)
+
+      await page.goto('/targets')
+      await expect(page.getByRole('heading', { name: 'Targets', exact: true })).toBeVisible()
+      await expect(page.locator('tbody tr').first()).toBeVisible()
+      await expect(page.getByRole('link', { name: linkedName, exact: true })).toHaveCount(0)
+
+      // The select's name includes its chosen option ("Linked targets: Hide"), so match by role and prefix.
+      await page.getByRole('combobox', { name: /^Linked targets:/ }).selectOption('Show')
+      await expect(page.getByRole('link', { name: linkedName, exact: true })).toBeVisible()
+      await expect(page.locator('tbody tr', { hasText: linkedName }).getByRole('link', { name: new RegExp(`^Linked ?: to target ${primaryName}$`) })).toBeVisible()
+
+      await page.getByRole('link', { name: linkedName, exact: true }).click()
+      await expect(page.getByRole('heading', { name: 'Edit Target' })).toBeVisible()
+      await expect(page.getByRole('heading', { name: 'Linked Target', exact: true })).toBeVisible()
+      linked = Number(new URL(page.url()).pathname.split('/').pop())
+      await page.getByRole('button', { name: 'Unlink', exact: true }).click()
+      await confirmDelete(page, 'Unlink')
+      await expect(page.getByRole('heading', { name: 'Linked Target', exact: true })).toHaveCount(0)
+
+      // Unlinked, it's an ordinary target again: listed without the filter.
+      await page.goto('/targets')
+      await expect(page.getByRole('link', { name: linkedName, exact: true })).toBeVisible()
+    } finally {
+      if (linked) await page.request.delete(`/api/admin/targets/${linked}`)
+      // The resolved review row still names the primary, so its delete is refused (409).
+      await page.request.delete(`/api/admin/targets/${primary}`)
     }
   })
 

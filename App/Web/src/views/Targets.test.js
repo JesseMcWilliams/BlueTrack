@@ -292,4 +292,33 @@ describe('Targets.vue', () => {
     })
     expect(globalThis.fetch).toHaveBeenCalledWith(`/api/admin/targets/${sampleTarget.targetKey}`, { method: 'DELETE' })
   })
+
+  // D-229: linked targets are hidden unless shown, and a shown one links to its primary.
+  it('sends linked=Show only when "Linked targets: Show" is chosen, and the keys URL follows it', async () => {
+    mockInitialLoad({ targets: [] })
+    const wrapper = mount(Targets, { global: { plugins: [makeRouter()] } })
+    await flushPromises()
+
+    const firstCall = globalThis.fetch.mock.calls.map(c => c[0]).find(u => u.startsWith('/api/admin/targets?'))
+    expect(firstCall).not.toContain('linked=')
+
+    const linkedSelect = wrapper.findAll('select').find(s => s.element.closest('label').textContent.includes('Linked targets:'))
+    expect(linkedSelect.findAll('option').map(o => o.text())).toEqual(['Hide', 'Show'])
+    await linkedSelect.setValue('Show')
+    await flushPromises()
+
+    const targetsCalls = globalThis.fetch.mock.calls.map(c => c[0]).filter(u => u.startsWith('/api/admin/targets?'))
+    expect(targetsCalls.at(-1)).toContain('linked=Show')
+  })
+
+  it('marks a linked target with a Linked badge to its primary', async () => {
+    mockInitialLoad({ targets: [{ ...sampleTarget, targetKey: 2, targetName: 'db01', linkedToTargetKey: 1, linkedToTargetName: 'web01' }] })
+    const wrapper = mount(Targets, { global: { plugins: [makeRouter()] } })
+    await flushPromises()
+
+    const badge = wrapper.get('a.linked-badge')
+    expect(badge.text()).toBe('Linked: to target web01')
+    expect(badge.attributes('href')).toBe('/targets/1')
+    expect(badge.attributes('title')).toBe('Linked to target web01')
+  })
 })

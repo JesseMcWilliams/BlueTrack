@@ -56,6 +56,20 @@ describe('TargetsBulkImport.vue', () => {
     expect(wrapper.text()).toContain('10 rows -- 6 created, 3 merged, 1 pending review, 0 errors.')
   })
 
+  // D-229: rows ignored on Target Match Review before are skipped, and counted separately.
+  it('Target Inventory: says how many rows were skipped as ignored before, only when some were', async () => {
+    globalThis.fetch = vi.fn(() => Promise.resolve(jsonResponse({
+      totalRows: 4, createdCount: 1, mergedCount: 1, pendingReviewCount: 0, ignoredCount: 2, errors: []
+    })))
+    const wrapper = mount(TargetsBulkImport)
+    await selectFile(wrapper.findAll('input[type="file"]')[0], new File(['a,b'], 'targets.csv', { type: 'text/csv' }))
+    await wrapper.findAll('button')[0].trigger('click')
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('4 rows -- 1 created, 1 merged, 0 pending review, 0 errors.')
+    expect(wrapper.text()).toContain('2 skipped: ignored on Target Match Review before.')
+  })
+
   // The result summary block binds directly to whatever importFile() stored
   // (unchanged from Targets.vue) -- on a non-OK response that's just
   // { error: '...' }, so totalRows/createdCount/etc render as empty rather

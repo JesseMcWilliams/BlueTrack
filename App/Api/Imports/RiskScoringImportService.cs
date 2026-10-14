@@ -210,6 +210,7 @@ public sealed class RiskScoringImportService(
         public int Created { get; private set; }
         public int Merged { get; private set; }
         public int PendingReview { get; private set; }
+        public int Ignored { get; private set; }
         public List<ImportRowError> Errors { get; } = [];
 
         public void Record(TargetMatchOutcome outcome)
@@ -219,16 +220,18 @@ public sealed class RiskScoringImportService(
                 case TargetMatchOutcome.Created: Created++; break;
                 case TargetMatchOutcome.Merged: Merged++; break;
                 case TargetMatchOutcome.PendingReview: PendingReview++; break;
+                case TargetMatchOutcome.Ignored: Ignored++; break;
             }
         }
 
         public ImportResultResponse ToResponse(int totalRows) => new()
         {
             TotalRows = totalRows,
-            SucceededCount = Created + Merged + PendingReview,
+            SucceededCount = Created + Merged + PendingReview + Ignored,
             CreatedCount = Created,
             MergedCount = Merged,
             PendingReviewCount = PendingReview,
+            IgnoredCount = Ignored,
             Errors = Errors
         };
     }

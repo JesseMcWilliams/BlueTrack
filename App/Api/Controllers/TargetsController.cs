@@ -23,23 +23,25 @@ public sealed class TargetsController(
         [FromQuery] int? applicationKey = null,
         [FromQuery] string? sort = null,
         [FromQuery] int? page = null,
-        [FromQuery] int? pageSize = null)
+        [FromQuery] int? pageSize = null,
+        [FromQuery] string? linked = null)
     {
+        // D-229: linked = Hide (default) / Show, as Account Progress's linked feed accounts (D-212).
         var sortBy = SortParser.Parse(sort);
-        var results = await repository.GetAllAsync(targetTypeKey, applicationKey, sortBy, page, pageSize);
+        var results = await repository.GetAllAsync(targetTypeKey, applicationKey, sortBy, page, pageSize, linked);
         Response.Headers["X-Total-Count"] = (await repository.GetTotalCountAsync()).ToString();
-        Response.Headers["X-Filtered-Count"] = (await repository.GetFilteredCountAsync(targetTypeKey, applicationKey)).ToString();
+        Response.Headers["X-Filtered-Count"] = (await repository.GetFilteredCountAsync(targetTypeKey, applicationKey, linked)).ToString();
         return Ok(results);
     }
 
     /// <summary>D-190: "Select all matching" for the list's bulk actions -- no keys if more match than the bulk limit.</summary>
     [HttpGet("keys")]
     public async Task<IActionResult> GetMatchingKeys([FromQuery] int? targetTypeKey, [FromQuery] int? applicationKey,
-        [FromServices] BulkActions.BulkActionRunner runner)
+        [FromServices] BulkActions.BulkActionRunner runner, [FromQuery] string? linked = null)
     {
         var max = await runner.GetMaxItemsAsync();
-        var matching = await repository.GetFilteredCountAsync(targetTypeKey, applicationKey);
-        var keys = matching > max ? [] : await repository.GetFilteredKeysAsync(targetTypeKey, applicationKey, max);
+        var matching = await repository.GetFilteredCountAsync(targetTypeKey, applicationKey, linked);
+        var keys = matching > max ? [] : await repository.GetFilteredKeysAsync(targetTypeKey, applicationKey, max, linked);
         return Ok(new BulkKeysResult { MatchingCount = matching, MaxItems = max, Keys = keys });
     }
 
@@ -120,7 +122,7 @@ public sealed class TargetsController(
         return Ok(result);
     }
 
-    /// <summary>D-225: the typeahead behind Target Match Review's "Merged" target -- name or identifier value contains q (at least 2 characters), at most 20 results.</summary>
+    /// <summary>D-225: the typeahead behind Target Match Review's link target (D-229) -- name or identifier value contains q (at least 2 characters), at most 20 results; linked targets are never offered.</summary>
     [HttpGet("search")]
     public async Task<IActionResult> Search([FromQuery] string? q)
     {
@@ -154,6 +156,24 @@ public sealed class TargetsController(
         }
 
         return Ok(target);
+    }
+
+    /// <summary>D-229: unlinks a linked target from its primary (never linked again automatically). 409 if it isn't linked.</summary>
+    [HttpPost("{targetKey:int}/unlink")]
+    public async Task<IActionResult> Unlink(int targetKey)
+    {
+        var user = await currentUserResolver.ResolveAsync(User);
+        if (user is null) return Unauthorized();
+
+        var unlinked = await repository.UnlinkAsync(targetKey, user.UserKey);
+        if (unlinked is not { } link)
+        {
+            return Problem(title: "Not linked", detail: "This target isn't linked to another target.", statusCode: StatusCodes.Status409Conflict);
+        }
+        await auditLogger.LogAsync("FieldEdit", user.UserKey, "dim_target", targetKey.ToString(),
+            detail: $"Target '{link.TargetName}' unlinked from target '{link.PrimaryTargetName}' (key {link.PrimaryTargetKey})",
+            fieldChanges: [new FieldChange("LinkedToTargetKey", link.PrimaryTargetKey.ToString(), null)]);
+        return NoContent();
     }
 
     [HttpPost]
