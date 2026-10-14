@@ -199,3 +199,127 @@ test.describe('Bulk actions on Targets (D-190)', () => {
     }
   })
 })
+
+// D-225: Target Match Review's "Merged" target is picked with a typeahead,
+// and import mapping profiles can be pre-filled from a sample CSV's headers.
+test.describe('Target Match Review typeahead and CSV header detection (D-225)', () => {
+  async function serverTypeKey(page) {
+    const types = await (await page.request.get('/api/admin/targets/target-types')).json()
+    return types.find(t => t.typeCode === 'Server').targetTypeKey
+  }
+
+  async function createTarget(page, name, identifiers) {
+    const response = await page.request.post('/api/admin/targets', {
+      data: { targetTypeKey: await serverTypeKey(page), targetName: name, riskScore: 100, identifiers }
+    })
+    expect(response.status()).toBe(201)
+    return (await response.json()).targetKey
+  }
+
+  test('Admin merges a review row into a target found by typing part of its hostname', async ({ page }) => {
+    await signInAs(page, 'TestUser.Admin')
+    const stamp = Date.now()
+    const ip = `10.94.${Math.floor(Math.random() * 250) + 1}.${Math.floor(Math.random() * 250) + 1}`
+    const destName = `E2E Merge Dest ${stamp}`
+    const candidate = await createTarget(page, `E2E Merge Candidate ${stamp}`, [{ identifierType: 'IPAddress', identifierValue: ip }])
+    const dest = await createTarget(page, destName, [{ identifierType: 'Hostname', identifierValue: `e2e-merge-${stamp}` }])
+    try {
+      // An inventory row matching only that IP address goes to the review queue.
+      const upload = await page.request.post('/api/admin/risk-scoring/import/target-inventory', {
+        multipart: { file: { name: 'review.csv', mimeType: 'text/csv', buffer: Buffer.from(`TargetType,TargetName,RiskScore,IPAddress\nServer,E2E Incoming ${stamp},10,${ip}\n`) } }
+      })
+      expect((await upload.json()).pendingReviewCount).toBe(1)
+
+      await page.goto('/admin/target-match-review')
+      await expect(page.getByRole('heading', { name: 'Target Match Review' })).toBeVisible()
+      const combobox = page.getByRole('combobox', { name: `Merge IPAddress ${ip} into target` })
+      await expect(combobox).toHaveAttribute('aria-expanded', 'false')
+
+      await combobox.pressSequentially(`merge-${stamp}`)
+      const option = page.getByRole('option', { name: new RegExp(destName) })
+      await expect(option).toBeVisible()
+      await expect(option).toContainText(`Hostname: e2e-merge-${stamp}`)
+      await expect(combobox).toHaveAttribute('aria-expanded', 'true')
+
+      await combobox.press('ArrowDown')
+      await expect(option).toHaveAttribute('aria-selected', 'true')
+      await combobox.press('Enter')
+      await expect(combobox).toHaveValue(`${destName} (Server)`)
+      await expect(combobox).toHaveAttribute('aria-expanded', 'false')
+
+      await page.locator('tbody tr', { hasText: ip }).getByRole('button', { name: 'Merge' }).click()
+      await expect(page.locator('tbody tr', { hasText: ip })).toHaveCount(0)
+
+      const merged = await (await page.request.get(`/api/admin/targets/${dest}`)).json()
+      expect(merged.identifiers).toContainEqual({ identifierType: 'IPAddress', identifierValue: ip })
+    } finally {
+      await page.request.delete(`/api/admin/targets/${dest}`)
+      // The resolved review row still names the candidate, so its delete is refused (409);
+      // it's left in BlueTrackTest under its E2E name.
+      await page.request.delete(`/api/admin/targets/${candidate}`)
+    }
+  })
+
+  test('Admin pre-fills a new mapping profile from a sample CSV without overwriting a field already set', async ({ page }) => {
+    await signInAs(page, 'TestUser.Admin')
+    const profileName = `E2E Detect ${Date.now()}`
+    await page.goto('/admin/import-mapping-profiles/new')
+    await expect(page.getByRole('heading', { name: 'New Profile' })).toBeVisible()
+    await page.getByLabel('Profile Name:').fill(profileName)
+    await page.getByRole('button', { name: '+ Add Field' }).click()
+    await page.getByLabel('Source Column:').first().fill('Criticality')
+    await page.getByLabel('Internal Field:').first().fill('RiskScore')
+
+    // Semicolon-separated, quoted headers, with a UTF-8 byte order mark.
+    await page.getByLabel('Sample CSV file:').setInputFiles({
+      name: 'cmdb.csv', mimeType: 'text/csv', buffer: Buffer.from('﻿"Name";"Kind";"Score";"DNS Name";"Owner"\nweb01;Server;5;web01.example.test;ops\n')
+    })
+    await expect(page.getByText('Found 5 columns (semicolon-separated).')).toBeVisible()
+    await expect(page.getByText('Columns not used: Owner.')).toBeVisible()
+    await expect(page.getByText('RiskScore: now Criticality, the file has Score')).toBeVisible()
+
+    const internal = page.getByLabel('Internal Field:')
+    const source = page.getByLabel('Source Column:')
+    await expect(internal).toHaveCount(4)
+    await expect(source.nth(0)).toHaveValue('Criticality') // not overwritten
+    await expect(internal.nth(1)).toHaveValue('TargetType')
+    await expect(source.nth(1)).toHaveValue('Kind')
+    await expect(internal.nth(2)).toHaveValue('TargetName')
+    await expect(source.nth(2)).toHaveValue('Name')
+    await expect(internal.nth(3)).toHaveValue('FQDN')
+    await expect(source.nth(3)).toHaveValue('DNS Name')
+
+    await page.getByRole('button', { name: 'Replace with the file\'s columns' }).click()
+    await expect(source.nth(0)).toHaveValue('Score')
+
+    await page.locator('form button[type="submit"]').click()
+    await expect(page).toHaveURL(/\/admin\/import-mapping-profiles$/)
+    const profiles = await (await page.request.get('/api/admin/risk-scoring/import-mapping-profiles')).json()
+    const saved = profiles.find(p => p.profileName === profileName)
+    try {
+      expect(Object.fromEntries(saved.fields.map(f => [f.targetFieldName, f.sourceColumnName])))
+        .toEqual({ RiskScore: 'Score', TargetType: 'Kind', TargetName: 'Name', FQDN: 'DNS Name' })
+    } finally {
+      await page.request.delete(`/api/admin/risk-scoring/import-mapping-profiles/${saved.importMappingProfileKey}`)
+    }
+  })
+
+  test('A Bulk Actions upload shows its missing columns and opens a profile pre-filled from them', async ({ page }) => {
+    await signInAs(page, 'TestUser.Analyst')
+    await page.goto('/targets/bulk-import')
+    await expect(page.getByRole('heading', { name: 'Targets: Bulk Actions' })).toBeVisible()
+
+    await page.getByLabel('Target inventory CSV file').setInputFiles({
+      name: 'export.csv', mimeType: 'text/csv', buffer: Buffer.from('Name\tKind\tScore\tHostname\nweb01\tServer\t5\tweb01\n')
+    })
+    await expect(page.getByText('Missing: TargetType, TargetName, RiskScore.')).toBeVisible()
+    await expect(page.getByText('Read by name: Hostname.')).toBeVisible()
+    await page.getByRole('button', { name: 'Create a mapping profile from these columns' }).click()
+
+    await expect(page).toHaveURL(/\/admin\/import-mapping-profiles\/new$/)
+    await expect(page.getByRole('heading', { name: 'New Profile' })).toBeVisible()
+    await expect(page.getByText('Found 4 columns.')).toBeVisible()
+    await expect(page.getByLabel('Internal Field:')).toHaveCount(4)
+    await expect(page.getByLabel('Source Column:').first()).toHaveValue('Kind')
+  })
+})

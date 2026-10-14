@@ -23,6 +23,8 @@ What changed in each BlueTrack release, newest first, for users and administrato
 
 - **Command-line checks** in the new `Tools` folder: the install's health, SAML/OIDC sign-in and sign-out, an LDAPS bind before adding a domain, and the Test buttons. See the Operations Guide, "Checking a Running Install", and `Tools\README.md`.
 
+- **Find the target to merge into, and detect CSV columns.** On **Target Match Review**, **Merge Into** now searches targets as you type (by name or any identifier, at least 2 characters) and shows each one's type and identifiers; leave it empty to merge into the candidate as before. Merging or creating a new target from a review now works (it used to fail with a conflict error): the identifier moves to the target you chose. On **Import Mapping Profiles**, pick a **Sample CSV file** to fill in the source columns from its header row (read in your browser, not uploaded); a field you already set is only changed if you choose **Replace**. The Targets and Access Groups **Bulk Actions** uploads show which required columns a file is missing and can open a new profile pre-filled from it.
+
 ### Changed
 
 - **Numbers:** counts on the pages (totals, pages, selections, import results, dashboard and report figures) use your browser language's number format, for example 1,234 or 1.234.

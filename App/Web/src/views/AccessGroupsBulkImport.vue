@@ -14,6 +14,7 @@ import { apiUrl } from '../utils/apiBase'
 import { ref } from 'vue'
 import { formatCount } from '../utils/formatCount'
 import MappingProfileSelect from '../components/MappingProfileSelect.vue'
+import CsvColumnCheck from '../components/CsvColumnCheck.vue' // D-225
 
 const importState = ref({
   inventory: { file: null, result: null, importing: false, profile: null },
@@ -49,10 +50,11 @@ async function importFile(key, url) {
     <h3>Bulk Import: Access Group Inventory</h3>
     <p><a :href="apiUrl('/api/admin/risk-scoring/import/access-group-inventory/template')">Download template</a> -- upserts by GroupIdentifier (a matching row updates the existing group instead of creating a duplicate).</p>
     <p class="filter-row">
-      <input type="file" accept=".csv" @change="onFileChange('inventory', $event)" />
+      <input type="file" accept=".csv" aria-label="Access group inventory CSV file" @change="onFileChange('inventory', $event)" />
       <MappingProfileSelect v-model="importState.inventory.profile" feed-type="AccessGroupInventory" area="access-group" />
       <button :disabled="!importState.inventory.file || importState.inventory.importing" @click="importFile('inventory', '/api/admin/risk-scoring/import/access-group-inventory')">{{ importState.inventory.importing ? 'Importing...' : 'Import' }}</button>
     </p>
+    <CsvColumnCheck :file="importState.inventory.file" feed-type="AccessGroupInventory" :profile-chosen="importState.inventory.profile !== null" />
     <p v-if="importState.inventory.result">
       {{ formatCount(importState.inventory.result.totalRows) }} rows -- {{ formatCount(importState.inventory.result.succeededCount) }} succeeded, {{ formatCount(importState.inventory.result.errors?.length ?? 0) }} errors.
       <span v-if="importState.inventory.result.errors?.length"><br />{{ importState.inventory.result.errors.map(e => `Row ${e.rowNumber}: ${e.error}`).join('; ') }}</span>
@@ -61,10 +63,11 @@ async function importFile(key, url) {
     <h3>Bulk Import: Access Group -&gt; Target Map</h3>
     <p><a :href="apiUrl('/api/admin/risk-scoring/import/access-group-target-map/template')">Download template</a> -- which Targets each group grants access to (both the group and the target must already exist).</p>
     <p class="filter-row">
-      <input type="file" accept=".csv" @change="onFileChange('targetMap', $event)" />
+      <input type="file" accept=".csv" aria-label="Access group to target map CSV file" @change="onFileChange('targetMap', $event)" />
       <MappingProfileSelect v-model="importState.targetMap.profile" feed-type="AccessGroupTargetMap" area="access-group" />
       <button :disabled="!importState.targetMap.file || importState.targetMap.importing" @click="importFile('targetMap', '/api/admin/risk-scoring/import/access-group-target-map')">{{ importState.targetMap.importing ? 'Importing...' : 'Import' }}</button>
     </p>
+    <CsvColumnCheck :file="importState.targetMap.file" feed-type="AccessGroupTargetMap" :profile-chosen="importState.targetMap.profile !== null" />
     <p v-if="importState.targetMap.result">
       {{ formatCount(importState.targetMap.result.totalRows) }} rows -- {{ formatCount(importState.targetMap.result.succeededCount) }} succeeded, {{ formatCount(importState.targetMap.result.errors?.length ?? 0) }} errors.
       <span v-if="importState.targetMap.result.errors?.length"><br />{{ importState.targetMap.result.errors.map(e => `Row ${e.rowNumber}: ${e.error}`).join('; ') }}</span>
@@ -73,10 +76,11 @@ async function importFile(key, url) {
     <h3>Bulk Import: Account -&gt; Access Group Membership</h3>
     <p><a :href="apiUrl('/api/admin/risk-scoring/import/account-access-group-membership/template')">Download template</a> -- which Accounts belong to each group.</p>
     <p class="filter-row">
-      <input type="file" accept=".csv" @change="onFileChange('membership', $event)" />
+      <input type="file" accept=".csv" aria-label="Account to access group membership CSV file" @change="onFileChange('membership', $event)" />
       <MappingProfileSelect v-model="importState.membership.profile" feed-type="AccountAccessGroupMembership" area="access-group" />
       <button :disabled="!importState.membership.file || importState.membership.importing" @click="importFile('membership', '/api/admin/risk-scoring/import/account-access-group-membership')">{{ importState.membership.importing ? 'Importing...' : 'Import' }}</button>
     </p>
+    <CsvColumnCheck :file="importState.membership.file" feed-type="AccountAccessGroupMembership" :profile-chosen="importState.membership.profile !== null" />
     <p v-if="importState.membership.result">
       {{ formatCount(importState.membership.result.totalRows) }} rows -- {{ formatCount(importState.membership.result.succeededCount) }} succeeded, {{ formatCount(importState.membership.result.errors?.length ?? 0) }} errors.
       <span v-if="importState.membership.result.errors?.length"><br />{{ importState.membership.result.errors.map(e => `Row ${e.rowNumber}: ${e.error}`).join('; ') }}</span>

@@ -141,6 +141,53 @@ public sealed class TargetRepository(IDbConnectionFactory connectionFactory)
         };
     }
 
+    /// <summary>D-225: the most results a typeahead search returns.</summary>
+    public const int SearchResultLimit = 20;
+
+    /// <summary>
+    /// D-225: typeahead search for Target Match Review's "Merged" target --
+    /// Targets whose name or any identifier value contains <paramref name="text"/>
+    /// (a parameterised LIKE, wildcards escaped by SqlLike), names that start
+    /// with it first, at most <see cref="SearchResultLimit"/>. Each result
+    /// carries up to three identifiers, the matching ones first.
+    /// </summary>
+    public async Task<IReadOnlyList<TargetSearchResult>> SearchAsync(string text)
+    {
+        using var connection = connectionFactory.Create();
+        var contains = SqlLike.Contains(text);
+        var targets = (await connection.QueryAsync<(int TargetKey, string TargetName, string TargetTypeDisplayName)>("""
+            SELECT TOP (@Limit) t.TargetKey, t.TargetName, dtt.DisplayName AS TargetTypeDisplayName
+            FROM web.dim_target t
+            JOIN web.dim_target_type dtt ON dtt.TargetTypeKey = t.TargetTypeKey
+            WHERE t.TargetName LIKE @Contains
+               OR EXISTS (SELECT 1 FROM web.target_identifier ti WHERE ti.TargetKey = t.TargetKey AND ti.IdentifierValue LIKE @Contains)
+            ORDER BY CASE WHEN t.TargetName LIKE @StartsWith THEN 0 ELSE 1 END, t.TargetName, t.TargetKey
+            """, new { Limit = SearchResultLimit, Contains = contains, StartsWith = SqlLike.StartsWith(text) })).ToList();
+        if (targets.Count == 0)
+        {
+            return [];
+        }
+
+        var identifierRows = await connection.QueryAsync<(int TargetKey, string IdentifierType, string IdentifierValue)>(
+            "SELECT TargetKey, IdentifierType, IdentifierValue FROM web.target_identifier WHERE TargetKey IN @Keys ORDER BY IdentifierType",
+            new { Keys = targets.Select(t => t.TargetKey).ToList() });
+        var identifiersByTarget = identifierRows
+            .GroupBy(r => r.TargetKey)
+            .ToDictionary(g => g.Key, g => g
+                .OrderBy(r => r.IdentifierValue.Contains(text, StringComparison.OrdinalIgnoreCase) ? 0 : 1)
+                .Take(3)
+                .Select(r => new TargetIdentifier { IdentifierType = r.IdentifierType, IdentifierValue = r.IdentifierValue })
+                .ToList());
+
+        return targets.Select(t => new TargetSearchResult
+        {
+            TargetKey = t.TargetKey,
+            TargetName = t.TargetName,
+            TargetTypeDisplayName = t.TargetTypeDisplayName,
+            Identifiers = identifiersByTarget.GetValueOrDefault(t.TargetKey, [])
+        }).ToList();
+    }
+
     /// <summary>D-121: the grand total row count under the same base (no filter) condition -- backs the X-Total-Count response header.</summary>
     public async Task<int> GetTotalCountAsync()
     {
