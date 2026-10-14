@@ -7,7 +7,8 @@ namespace BlueTrack.Api.Reports;
 /// with one sheet: a bold, frozen header row with an auto-filter. Text is
 /// always stored as a text value, never as a formula, so a cell starting
 /// with "=" can't run; numbers are numeric cells and dates are date cells
-/// (shown yyyy-mm-dd, as on the pages). Column widths come from the text
+/// (a DateOnly shown yyyy-mm-dd, as on the pages; a DateTime -- D-231, the
+/// Audit Log's timestamps -- shown yyyy-mm-dd hh:mm:ss). Column widths come from the text
 /// length of the header and the first rows, not from font measurement, so
 /// the server needs no fonts and a large export stays quick.
 /// </summary>
@@ -27,6 +28,7 @@ public static class XlsxReportWriter
         var columnCount = table.Headers.Count;
         var widths = new int[columnCount];
         var isDateColumn = new bool[columnCount];
+        var isDateTimeColumn = new bool[columnCount];
 
         for (var c = 0; c < columnCount; c++)
         {
@@ -53,7 +55,7 @@ public static class XlsxReportWriter
                         break;
                     case DateTime dt:
                         cell.Value = dt;
-                        isDateColumn[c] = true;
+                        isDateTimeColumn[c] = true;
                         break;
                     case int or long or short or byte or decimal or double or float:
                         cell.Value = Convert.ToDouble(value, System.Globalization.CultureInfo.InvariantCulture);
@@ -63,7 +65,7 @@ public static class XlsxReportWriter
                         break;
                 }
                 if (r < WidthSampleRows)
-                    widths[c] = Math.Max(widths[c], value is DateOnly or DateTime ? 10 : (value.ToString() ?? "").Length);
+                    widths[c] = Math.Max(widths[c], value is DateOnly ? 10 : value is DateTime ? 19 : (value.ToString() ?? "").Length);
             }
         }
 
@@ -75,6 +77,7 @@ public static class XlsxReportWriter
         for (var c = 0; c < columnCount; c++)
         {
             if (isDateColumn[c] && lastRow > 1) sheet.Range(2, c + 1, lastRow, c + 1).Style.NumberFormat.Format = "yyyy-mm-dd";
+            if (isDateTimeColumn[c] && lastRow > 1) sheet.Range(2, c + 1, lastRow, c + 1).Style.NumberFormat.Format = "yyyy-mm-dd hh:mm:ss";
             // +3 leaves room for the auto-filter's drop-down button.
             sheet.Column(c + 1).Width = Math.Clamp(widths[c] + 3, 8, 60);
         }

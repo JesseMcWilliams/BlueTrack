@@ -16,7 +16,9 @@ Open BlueTrack and sign in with the method your organization has set up: Windows
 
 Read-only — no add/edit/delete. Filter by Event Type, Entity, and a From/To date range, then click **Filter**. The list shows Occurred At, Event Type, By, Entity, and Detail. Click **Occurred At** on any row to expand the recorded Reason (if any) and a Field / Old Value / New Value table.
 
-Every report export (**Export CSV** / **Export Excel** on a report) is recorded as a `ReportExport` event, with who exported which report, the format, the number of rows and the filters used.
+**Export CSV** and **Export Excel** download every event matching the filters you last applied with **Filter**, in the list's sort, with the same five columns. **Occurred At** keeps the time, in UTC (headed **Occurred At (UTC)**). The Reason and field changes aren't in the file; open the event in the viewer for those. More events than the administrator's **Export Max Rows** limit are refused with the count: narrow the dates first.
+
+Every export, of a report or of the Audit Log, is recorded as a `ReportExport` event, with who exported what (the report, or `audit-log`), the format, the number of rows and the filters used.
 
 ## The Dashboard and tracked data
 

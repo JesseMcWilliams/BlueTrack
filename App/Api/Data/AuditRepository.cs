@@ -34,14 +34,28 @@ public sealed class AuditRepository(IDbConnectionFactory connectionFactory)
         """;
 
     /// <summary>D-42: adds multi-column sort on top of the existing stacked filters (event type/entity/user/date range). D-124 Phase 3: page/pageSize add SQL Server OFFSET/FETCH paging after the ORDER BY.</summary>
-    public async Task<IReadOnlyList<AuditEventSummary>> GetEventsAsync(
+    public Task<IReadOnlyList<AuditEventSummary>> GetEventsAsync(
         string? eventTypeName, string? entityName, int? performedByUserKey, DateTime? fromDate, DateTime? toDate,
         IReadOnlyList<(string Field, bool Descending)>? sortBy = null,
         int? page = null,
         int? pageSize = null)
     {
-        using var connection = connectionFactory.Create();
         var (normalizedPage, normalizedPageSize) = PagingParams.Normalize(page, pageSize);
+        return QueryEventsAsync(eventTypeName, entityName, performedByUserKey, fromDate, toDate, sortBy,
+            PagingParams.Offset(normalizedPage, normalizedPageSize), normalizedPageSize);
+    }
+
+    /// <summary>D-231: the export's rows -- the same filters and sort as the viewer, every page, at most maxRows.</summary>
+    public Task<IReadOnlyList<AuditEventSummary>> GetExportRowsAsync(
+        string? eventTypeName, string? entityName, int? performedByUserKey, DateTime? fromDate, DateTime? toDate,
+        IReadOnlyList<(string Field, bool Descending)>? sortBy, int maxRows) =>
+        QueryEventsAsync(eventTypeName, entityName, performedByUserKey, fromDate, toDate, sortBy, 0, maxRows);
+
+    private async Task<IReadOnlyList<AuditEventSummary>> QueryEventsAsync(
+        string? eventTypeName, string? entityName, int? performedByUserKey, DateTime? fromDate, DateTime? toDate,
+        IReadOnlyList<(string Field, bool Descending)>? sortBy, int offset, int fetch)
+    {
+        using var connection = connectionFactory.Create();
 
         var sql = $"""
             SELECT
@@ -66,8 +80,8 @@ public sealed class AuditRepository(IDbConnectionFactory connectionFactory)
             PerformedByUserKey = performedByUserKey,
             FromDate = fromDate,
             ToDate = toDate,
-            Offset = PagingParams.Offset(normalizedPage, normalizedPageSize),
-            PageSize = normalizedPageSize
+            Offset = offset,
+            PageSize = fetch
         });
         return rows.AsList();
     }

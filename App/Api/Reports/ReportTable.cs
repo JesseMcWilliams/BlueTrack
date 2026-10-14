@@ -6,9 +6,9 @@ public sealed record ExportColumn<T>(string Header, Func<T, object?> Value);
 /// <summary>
 /// D-220: what an export writes, independent of the format: the header row
 /// and the data rows. A cell is null (blank), a string (always written as
-/// text), a number (int, long, decimal, double) or a DateOnly; the writers
-/// type each one. Bools are spelled out ("Yes"/"No") by the column itself,
-/// as the grid shows them.
+/// text), a number (int, long, decimal, double), a DateOnly, or (D-231) a
+/// DateTime that keeps its time; the writers type each one. Bools are
+/// spelled out ("Yes"/"No") by the column itself, as the grid shows them.
 /// </summary>
 public sealed class ReportTable
 {

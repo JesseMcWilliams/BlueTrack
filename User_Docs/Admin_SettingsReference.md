@@ -41,7 +41,7 @@ This guide has two parts. This file covers sections 1 to 5. Sections 6 (Secrets 
 | Account Progress Lock Timeout (minutes) | How long an Account Progress edit lock survives after the editor's page stops renewing it, for example when a browser is closed. Allowed: 1 to 720. | 30 | 30 (10 to 30 suits most teams) | An open edit page renews its lock every minute, so this only controls how long an abandoned lock blocks others. Keep it well above 1 minute. |
 | Enforce segregation of duties on Risk Exception approval | When on, the person who approved a Risk Exception cannot also be the one who links it to an account. | Off | On, if you have separate staff | Stops one person both approving and applying an exception. Leave it off for a small team, and review the Risk Exception segregation-of-duties report instead. |
 | Bulk edit limit (accounts) | The most accounts one bulk edit, bulk action, delete or undelete may change. Allowed: 1 to 10,000. | 500 | 500 | Large enough for normal work, small enough that a mistaken bulk change is limited. Raise it only for planned clean-ups. |
-| Export Max Rows | The most rows one report export (**Export CSV** or **Export Excel** on any report) may hold. When more rows match the report's filters, the export is refused with the number of rows, never cut short. Allowed: 1 to 1,000,000. | 100,000 | 100,000 | Large enough for any normal report, small enough that one export can't tie up the server. Users narrow the filters when they hit it. |
+| Export Max Rows | The most rows one report export (**Export CSV** or **Export Excel** on any report, or on the Audit Log Viewer) may hold. When more rows match the filters, the export is refused with the number of rows, never cut short. Allowed: 1 to 1,000,000. | 100,000 | 100,000 | Large enough for any normal report, small enough that one export can't tie up the server. Users narrow the filters when they hit it. |
 
 **Idle timeout.** In the browser, BlueTrack signs the user out after this many minutes with no mouse, keyboard or touch activity in any of its tabs, and the sign-in page says why. OIDC and SAML sessions are also ended on the server once no request has arrived for this long, so a closed tab doesn't leave a usable session behind; each OIDC session also ends after 8 hours regardless. Windows sign-in has no session to end: if Windows Integrated is the default method, the user is signed in again as soon as they leave the sign-in page. Separately, a user's cached roles and permissions last at most 15 minutes, and any change to a role, group mapping or identity provider clears every user's cache.
 
@@ -203,7 +203,7 @@ A new install maps `BUILTIN\Administrators` (local administrators of the server)
 | `CurateApplicationMapping` | Manage Applications and Application ↔ Safe Mapping | Admin |
 | `ManageFieldMetadata` | Manage Field Metadata | Admin |
 | `ManageDataSources` | Manage, test and run data feeds | Admin |
-| `ViewAuditLog` | View the audit log | Admin, Auditor |
+| `ViewAuditLog` | View and export the audit log | Admin, Auditor |
 | `ViewDeploymentInfo` | View the Deployment page, health checks and backup status | Admin |
 | `TriggerBackup` | Run **Backup App** on the Deployment page | Admin |
 | `ManageApplicationConfiguration` | Change Global Application Configuration | Admin |
