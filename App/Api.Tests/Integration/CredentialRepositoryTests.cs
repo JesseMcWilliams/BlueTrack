@@ -206,6 +206,33 @@ public class CredentialRepositoryTests
         Assert.Equal(CyberArkErrorCategory.NotFound, exception.Category);
     }
 
+    [Fact]
+    public async Task CreateAsync_AKeyFileSizedPassword_RoundTrips_NowThatScript20WidenedTheColumn()
+    {
+        // D-223: a Google service account key (~2.3 KB of JSON) or a PEM
+        // certificate and key is stored as the password; encrypted and
+        // Base64-encoded it no longer fit NVARCHAR(2000).
+        var repository = CreateRepository();
+        var keyFileSized = string.Concat(Enumerable.Repeat("{\"private_key\":\"ThisIsMy_FAKE_Password6!\"}", 120));   // ~4.6 KB
+        var credentialKey = await repository.CreateAsync(new SaveCredentialRequest
+        {
+            CredentialName = $"IntegrationTest_{Guid.NewGuid():N}",
+            BackendType = "WindowsDpapi",
+            PlaintextPassword = keyFileSized,
+            ScopePreference = "Machine"
+        }, modifiedByUserKey: null);
+        try
+        {
+            Assert.True((await GetRawProtectedPasswordAsync(credentialKey))!.Length > 4000);
+            var (_, password) = await repository.ResolveForUseAsync(credentialKey);
+            Assert.Equal(keyFileSized, password);
+        }
+        finally
+        {
+            await repository.DeleteAsync(credentialKey);
+        }
+    }
+
     private static async Task<string?> GetRawProtectedPasswordAsync(int credentialKey)
     {
         await using var connection = new Microsoft.Data.SqlClient.SqlConnection(TestDatabase.ConnectionString);

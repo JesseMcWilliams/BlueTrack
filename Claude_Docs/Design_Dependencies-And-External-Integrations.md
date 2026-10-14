@@ -66,6 +66,14 @@ Both share `LdapContextFactory` for binding and read `web.ldap_config` — now a
 
 `MailKit`, wired through `App/Api/Notifications/SmtpNotificationSender.cs`. Sends via an admin-configured SMTP relay (host/port/STARTTLS/auth method, credential via `web.credential`); two admin-editable TLS overrides exist (ignore CRL/OCSP revocation checks; ignore all SSL errors), both off by default. Currently triggered by one wired check (`DevFakeAuthEnabledCheck` — warns when DevFakeAuth has been left enabled too long), via the general-purpose `INotificationCheck`/`NotificationCheckBackgroundService` framework designed to take more triggers later without further schema change. See `Claude_Docs/Design_Notifications.md`.
 
+**OAuth2 token endpoints (D-223)**, called only when an OAuth2 Auth Method is chosen, by `App/Api/Notifications/OAuth/SmtpOAuthTokenService.cs` with plain `HttpClient` (no new package; JWTs are built and signed with `System.Security.Cryptography`): 10 seconds a try, 2 retries, no redirects. None is proven against the live service yet.
+
+| System | Endpoint | Used for |
+|---|---|---|
+| Microsoft Entra ID | `https://login.microsoftonline.com/{tenant}/oauth2/v2.0/token` (scope `https://outlook.office365.com/.default`) | Microsoft 365 app-only token; then XOAUTH2 to `smtp.office365.com:587` |
+| Google OAuth 2.0 | `https://oauth2.googleapis.com/token` (JWT bearer, scope `https://mail.google.com/`) | Google Workspace service account token; then XOAUTH2 to `smtp.gmail.com:587` |
+| Any OAuth2 provider | The admin's https token URL (RFC 6749 client credentials) | Generic OAuth2 |
+
 ### 2.7 Database
 
 **SQL Server is the only datastore.** `Microsoft.Data.SqlClient` + `Dapper` (no ORM) back every `App/Api/Data/*Repository.cs`; `dbup-sqlserver` (`App/Migrator`) applies `Database/*.sql` in filename order. `Microsoft.Extensions.Caching.SqlServer` backs a SQL-Server-based distributed cache (`web.distributed_cache`) used for per-user permission caching (`UserRightsCache`) — not an ASP.NET Core cookie session.

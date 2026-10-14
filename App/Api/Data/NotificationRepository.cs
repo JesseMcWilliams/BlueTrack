@@ -19,7 +19,9 @@ public sealed class NotificationRepository(IDbConnectionFactory connectionFactor
         const string sql = """
             SELECT nc.NotificationConfigKey, nc.SmtpHost, nc.SmtpPort, nc.EnableStartTls, nc.AuthMethod,
                    nc.SmtpCredentialKey, c.CredentialName AS SmtpCredentialName, nc.FromAddress, nc.FromDisplayName,
-                   nc.IgnoreCrlErrors, nc.IgnoreSslErrors
+                   nc.IgnoreCrlErrors, nc.IgnoreSslErrors,
+                   nc.OAuthTenantId, nc.OAuthClientId, nc.OAuthClientCredentialType, nc.OAuthTokenUrl,
+                   nc.OAuthScope, nc.OAuthAudience, nc.OAuthClientAuthStyle, nc.OAuthUsername
             FROM web.notification_config nc
             LEFT JOIN web.credential c ON c.CredentialKey = nc.SmtpCredentialKey
             """;
@@ -37,6 +39,9 @@ public sealed class NotificationRepository(IDbConnectionFactory connectionFactor
             SET SmtpHost = @SmtpHost, SmtpPort = @SmtpPort, EnableStartTls = @EnableStartTls,
                 AuthMethod = @AuthMethod, SmtpCredentialKey = @SmtpCredentialKey, FromAddress = @FromAddress,
                 FromDisplayName = @FromDisplayName, IgnoreCrlErrors = @IgnoreCrlErrors, IgnoreSslErrors = @IgnoreSslErrors,
+                OAuthTenantId = @OAuthTenantId, OAuthClientId = @OAuthClientId, OAuthClientCredentialType = @OAuthClientCredentialType,
+                OAuthTokenUrl = @OAuthTokenUrl, OAuthScope = @OAuthScope, OAuthAudience = @OAuthAudience,
+                OAuthClientAuthStyle = @OAuthClientAuthStyle, OAuthUsername = @OAuthUsername,
                 ModifiedBy = @ModifiedBy, ModifiedDate = SYSUTCDATETIME()
             """;
         await connection.ExecuteAsync(sql, new
@@ -50,6 +55,14 @@ public sealed class NotificationRepository(IDbConnectionFactory connectionFactor
             request.FromDisplayName,
             request.IgnoreCrlErrors,
             request.IgnoreSslErrors,
+            request.OAuthTenantId,
+            request.OAuthClientId,
+            request.OAuthClientCredentialType,
+            request.OAuthTokenUrl,
+            request.OAuthScope,
+            request.OAuthAudience,
+            request.OAuthClientAuthStyle,
+            request.OAuthUsername,
             ModifiedBy = modifiedByUserKey
         });
     }

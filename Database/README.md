@@ -35,6 +35,7 @@ instead.
 | 17 | `17_BlueTrack_ReportExport.sql` | D-220: `web.app_config.ExportMaxRows` (report export row limit, default 100000) and the `ReportExport` audit event type. |
 | 18 | `18_BlueTrack_TrendsHistoryIndex.sql` | D-221: an index on `fact_account_progress_history (SnapshotDateKey)`, covering the Trends report's columns, so a date range reads only those days. |
 | 19 | `19_BlueTrack_MoreNotifications.sql` | D-222: `dbo.etl_run_log` (one row per Import and Load run; `usp_Import_Configured` and `usp_RunFullLoad` redefined to write it -- later changes to them must keep it), `dim_notification_type.IsEnabled`, `notification_log.DedupKey`, the digest schedule columns on `notification_config`, and the `NightlyImportFailed`, `OverdueRiskExceptions` and `WeeklySummary` types. |
+| 20 | `20_BlueTrack_SmtpOAuth2.sql` | D-223: OAuth2 (XOAUTH2) SMTP sign-in. `notification_config` gains `OAuthTenantId`, `OAuthClientId`, `OAuthClientCredentialType`, `OAuthTokenUrl`, `OAuthScope`, `OAuthAudience`, `OAuthClientAuthStyle` and `OAuthUsername` (none secret) and a check on `AuthMethod` (an unknown value becomes `None` first); `credential.ProtectedPassword` widens to `NVARCHAR(MAX)` for key files. |
 
 ## The baseline (D-195)
 
@@ -59,7 +60,7 @@ scripts but not up to `51` is refused; upgrade it first from the
 
 ## Adding a script
 
-1. Name it `NN_BlueTrack_<Topic>.sql`, with `NN` the next number (`20` is next).
+1. Name it `NN_BlueTrack_<Topic>.sql`, with `NN` the next number (`21` is next).
 2. Start with a header comment: the file name, `RUN THIS AFTER 01-NN.`, what
    it changes and why (with the `D-n` decision), and whether it's safe to
    re-run.

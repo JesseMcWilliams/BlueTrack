@@ -19,7 +19,12 @@
 // ones -- NightlyImportFailed, OverdueRiskExceptions, WeeklySummary -- start
 // off), and a Schedule section sets the daily digest time and the weekly
 // summary's day and time (server local time), saved by its own PUT.
-import { ref, onMounted } from 'vue'
+//
+// D-223: the Auth Method adds Microsoft 365, Google Workspace and Generic
+// OAuth2 (XOAUTH2). Only the selected mode's fields are shown; the secret
+// itself (client secret, PEM certificate and key, or the service account's
+// JSON key) is a credential picked like Basic's, never typed here.
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { confirmDelete } from '../../composables/useConfirmDialog'
 import { formatCount } from '../../utils/formatCount'
@@ -42,6 +47,56 @@ const schedule = ref(null)
 const scheduleError = ref(null)
 const scheduleSaved = ref(false)
 const weekDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+
+const oauthMethods = ['Microsoft365', 'GoogleWorkspace', 'GenericOAuth2']
+const isOAuth = computed(() => oauthMethods.includes(config.value?.authMethod))
+const usesCredential = computed(() => config.value?.authMethod === 'Basic' || isOAuth.value)
+const credentialLabel = computed(() => {
+  switch (config.value?.authMethod) {
+    case 'Microsoft365':
+      return config.value.oAuthClientCredentialType === 'Certificate' ? 'Certificate and key credential:' : 'Client secret credential:'
+    case 'GoogleWorkspace':
+      return 'Service account key credential:'
+    case 'GenericOAuth2':
+      return 'Client secret credential:'
+    default:
+      return 'Credential:'
+  }
+})
+
+// Defaults when a mode is first picked; nothing already entered is overwritten.
+function onAuthMethodChange() {
+  const c = config.value
+  if (c.authMethod === 'Microsoft365') {
+    c.oAuthClientCredentialType ||= 'Secret'
+    c.smtpHost ||= 'smtp.office365.com'
+  } else if (c.authMethod === 'GoogleWorkspace') {
+    c.smtpHost ||= 'smtp.gmail.com'
+  } else if (c.authMethod === 'GenericOAuth2') {
+    c.oAuthClientAuthStyle ||= 'Basic'
+  }
+  if (isOAuth.value) {
+    c.enableStartTls = true
+    c.smtpPort ||= 587
+  }
+}
+
+// Only the selected mode's OAuth2 fields are saved; the others are cleared.
+function oauthFieldsFor(c) {
+  const m365 = c.authMethod === 'Microsoft365'
+  const generic = c.authMethod === 'GenericOAuth2'
+  const value = (keep, v) => (keep && v ? v : null)
+  return {
+    oAuthTenantId: value(m365, c.oAuthTenantId),
+    oAuthClientId: value(m365 || generic, c.oAuthClientId),
+    oAuthClientCredentialType: value(m365, c.oAuthClientCredentialType),
+    oAuthTokenUrl: value(generic, c.oAuthTokenUrl),
+    oAuthScope: value(generic, c.oAuthScope),
+    oAuthAudience: value(generic, c.oAuthAudience),
+    oAuthClientAuthStyle: value(generic, c.oAuthClientAuthStyle),
+    oAuthUsername: value(oauthMethods.includes(c.authMethod), c.oAuthUsername)
+  }
+}
 
 const testResult = ref(null)
 const testing = ref(false)
@@ -93,11 +148,14 @@ async function saveConfig() {
       fromAddress: config.value.fromAddress,
       fromDisplayName: config.value.fromDisplayName,
       ignoreCrlErrors: config.value.ignoreCrlErrors,
-      ignoreSslErrors: config.value.ignoreSslErrors
+      ignoreSslErrors: config.value.ignoreSslErrors,
+      ...oauthFieldsFor(config.value)
     })
   })
   if (!response.ok) {
-    configError.value = `Save failed: ${response.status}`
+    let detail = ''
+    try { detail = (await response.json())?.detail ?? '' } catch { /* not JSON */ }
+    configError.value = `Save failed: ${response.status}${detail ? ` -- ${detail}` : ''}`
     return
   }
   configSaved.value = true
@@ -208,17 +266,60 @@ async function sendTestEmail() {
         <p>
           <label class="field-label">
             <span class="field-label-text">Auth Method:</span>
-            <select v-model="config.authMethod">
+            <select v-model="config.authMethod" @change="onAuthMethodChange">
               <option value="None">None (open relay)</option>
               <option value="Basic">Basic (username/password)</option>
+              <option value="Microsoft365">Microsoft 365 (OAuth2)</option>
+              <option value="GoogleWorkspace">Google Workspace (OAuth2)</option>
+              <option value="GenericOAuth2">Generic OAuth2 (client credentials)</option>
             </select>
           </label>
         </p>
-        <template v-if="config.authMethod === 'Basic'">
+        <p v-if="config.authMethod === 'Microsoft365'" id="smtp-auth-help">
+          App-only sign-in to Exchange Online: server smtp.office365.com, port 587, STARTTLS. The app needs the SMTP.SendAsApp
+          permission with admin consent, a service principal registered in Exchange Online with access to the mailbox, and
+          SMTP AUTH turned on for the mailbox.
+        </p>
+        <p v-else-if="config.authMethod === 'GoogleWorkspace'" id="smtp-auth-help">
+          A service account with domain-wide delegation for https://mail.google.com/ signs in as the mailbox: server
+          smtp.gmail.com, port 587, STARTTLS. Store the service account's whole JSON key file as the credential's password.
+        </p>
+        <p v-else-if="config.authMethod === 'GenericOAuth2'" id="smtp-auth-help">
+          A client credentials token from your OAuth2 provider, sent to the SMTP server as XOAUTH2. The token URL must use https.
+        </p>
+        <template v-if="config.authMethod === 'Microsoft365'">
+          <p><label class="field-label"><span class="field-label-text">Tenant ID:</span> <input v-model.trim="config.oAuthTenantId" required placeholder="contoso.onmicrosoft.com or GUID" /></label></p>
+          <p><label class="field-label"><span class="field-label-text">Client (application) ID:</span> <input v-model.trim="config.oAuthClientId" required /></label></p>
           <p>
             <label class="field-label">
-              <span class="field-label-text">Credential:</span>
-              <select v-model="config.smtpCredentialKey">
+              <span class="field-label-text">Client credential type:</span>
+              <select v-model="config.oAuthClientCredentialType">
+                <option value="Secret">Client secret</option>
+                <option value="Certificate">Certificate (PEM certificate and private key)</option>
+              </select>
+            </label>
+          </p>
+        </template>
+        <template v-if="config.authMethod === 'GenericOAuth2'">
+          <p><label class="field-label"><span class="field-label-text">Token URL:</span> <input v-model.trim="config.oAuthTokenUrl" type="url" required placeholder="https://idp.company.com/oauth2/token" /></label></p>
+          <p><label class="field-label"><span class="field-label-text">Client ID:</span> <input v-model.trim="config.oAuthClientId" required /></label></p>
+          <p>
+            <label class="field-label">
+              <span class="field-label-text">Client authentication:</span>
+              <select v-model="config.oAuthClientAuthStyle">
+                <option value="Basic">Authorization header (HTTP Basic)</option>
+                <option value="Body">Form fields (client_id and client_secret)</option>
+              </select>
+            </label>
+          </p>
+          <p><label class="field-label"><span class="field-label-text">Scope (optional):</span> <input v-model.trim="config.oAuthScope" placeholder="space-separated" /></label></p>
+          <p><label class="field-label"><span class="field-label-text">Audience (optional):</span> <input v-model.trim="config.oAuthAudience" /></label></p>
+        </template>
+        <template v-if="usesCredential">
+          <p>
+            <label class="field-label">
+              <span class="field-label-text">{{ credentialLabel }}</span>
+              <select v-model="config.smtpCredentialKey" :required="isOAuth" :aria-describedby="isOAuth ? 'smtp-auth-help' : undefined">
                 <option :value="null">(none)</option>
                 <option v-for="credential in credentials" :key="credential.credentialKey" :value="credential.credentialKey">{{ credential.credentialName }}</option>
               </select>
@@ -226,6 +327,12 @@ async function sendTestEmail() {
             <small>Managed on the <router-link :to="{ name: 'admin-credentials' }">Credentials & LDAP</router-link> page.</small>
           </p>
         </template>
+        <p v-if="isOAuth">
+          <label class="field-label">
+            <span class="field-label-text">{{ config.authMethod === 'GenericOAuth2' ? 'XOAUTH2 username:' : 'Sign-in mailbox:' }}</span>
+            <input v-model.trim="config.oAuthUsername" placeholder="blank = the From address" />
+          </label>
+        </p>
         <p><label class="field-label"><span class="field-label-text">From Address:</span> <input v-model="config.fromAddress" placeholder="bluetrack@company.com" /></label></p>
         <p><label class="field-label"><span class="field-label-text">From Display Name:</span> <input v-model="config.fromDisplayName" placeholder="BlueTrack" /></label></p>
         <p><label><input v-model="config.ignoreCrlErrors" type="checkbox" /> Ignore CRL issues (skip certificate revocation checking)</label></p>

@@ -1,5 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
+using Microsoft.AspNetCore.TestHost;
+using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
 namespace BlueTrack.Api.Tests.Contract;
@@ -246,6 +248,226 @@ public class NotificationsControllerTests : IClassFixture<BlueTrackWebApplicatio
         }
     }
 
+    // ---- D-223: OAuth2 (XOAUTH2) sign-in modes ---------------------------------
+
+    [Fact]
+    public async Task Config_OAuthModes_SaveAndGet_RoundTripTheScript20Settings_ThenRestore()
+    {
+        var client = AdminClient();
+        var original = await client.GetFromJsonAsync<NotificationConfigResponse>("/api/admin/notifications/config");
+        var credentialKey = await CreateCredentialAsync(client, $"secret-{Guid.NewGuid():N}");
+        try
+        {
+            var m365 = await client.PutAsJsonAsync("/api/admin/notifications/config", OAuthConfig("Microsoft365", credentialKey, new
+            {
+                oAuthTenantId = "contoso.onmicrosoft.com",
+                oAuthClientId = "11112222-bbbb-3333-cccc-4444dddd5555",
+                oAuthClientCredentialType = "Certificate",
+                oAuthUsername = "alerts@contracttest.local"
+            }));
+            Assert.Equal(HttpStatusCode.NoContent, m365.StatusCode);
+            var saved = await client.GetFromJsonAsync<NotificationConfigResponse>("/api/admin/notifications/config");
+            Assert.Equal(("Microsoft365", "contoso.onmicrosoft.com", "11112222-bbbb-3333-cccc-4444dddd5555", "Certificate", "alerts@contracttest.local"),
+                (saved!.AuthMethod, saved.OAuthTenantId, saved.OAuthClientId, saved.OAuthClientCredentialType, saved.OAuthUsername));
+            Assert.Equal(credentialKey, saved.SmtpCredentialKey);
+
+            var generic = await client.PutAsJsonAsync("/api/admin/notifications/config", OAuthConfig("GenericOAuth2", credentialKey, new
+            {
+                oAuthClientId = "bluetrack",
+                oAuthTokenUrl = "https://idp.contracttest.local/oauth2/token",
+                oAuthScope = "smtp.send",
+                oAuthAudience = "https://smtp.contracttest.local",
+                oAuthClientAuthStyle = "Body"
+            }));
+            Assert.Equal(HttpStatusCode.NoContent, generic.StatusCode);
+            saved = await client.GetFromJsonAsync<NotificationConfigResponse>("/api/admin/notifications/config");
+            Assert.Equal(("GenericOAuth2", "https://idp.contracttest.local/oauth2/token", "smtp.send", "https://smtp.contracttest.local", "Body"),
+                (saved!.AuthMethod, saved.OAuthTokenUrl, saved.OAuthScope, saved.OAuthAudience, saved.OAuthClientAuthStyle));
+            Assert.Null(saved.OAuthTenantId);
+
+            var google = await client.PutAsJsonAsync("/api/admin/notifications/config", OAuthConfig("GoogleWorkspace", credentialKey, new { }));
+            Assert.Equal(HttpStatusCode.NoContent, google.StatusCode);
+            Assert.Equal("GoogleWorkspace", (await client.GetFromJsonAsync<NotificationConfigResponse>("/api/admin/notifications/config"))!.AuthMethod);
+        }
+        finally
+        {
+            await RestoreConfigAsync(client, original!);
+            await client.DeleteAsync($"/api/admin/credentials/{credentialKey}");
+        }
+    }
+
+    [Theory]
+    [InlineData("OAuth2", "{}", "AuthMethod must be one of")]
+    [InlineData("Microsoft365", """{"oAuthClientId":"id","oAuthClientCredentialType":"Secret"}""", "Tenant ID is required")]
+    [InlineData("Microsoft365", """{"oAuthTenantId":"contoso/evil?x=","oAuthClientId":"id","oAuthClientCredentialType":"Secret"}""", "GUID or domain name")]
+    [InlineData("Microsoft365", """{"oAuthTenantId":"contoso.com","oAuthClientCredentialType":"Secret"}""", "Client ID is required")]
+    [InlineData("GenericOAuth2", """{"oAuthClientId":"id","oAuthClientAuthStyle":"Basic"}""", "Token URL is required")]
+    [InlineData("GenericOAuth2", """{"oAuthTokenUrl":"http://idp.example.com/token","oAuthClientId":"id","oAuthClientAuthStyle":"Basic"}""", "https://")]
+    [InlineData("GenericOAuth2", """{"oAuthTokenUrl":"https://idp.example.com/token","oAuthClientId":"id"}""", "Basic (Authorization header) or Body")]
+    public async Task Config_OAuthModes_MissingOrBadFields_Are400s_WithTheReason(string authMethod, string extraJson, string expected)
+    {
+        var client = AdminClient();
+        var before = await client.GetStringAsync("/api/admin/notifications/config");
+        var body = new Dictionary<string, object?>
+        {
+            ["smtpHost"] = "smtp.contracttest.local",
+            ["smtpPort"] = 587,
+            ["enableStartTls"] = true,
+            ["authMethod"] = authMethod,
+            ["smtpCredentialKey"] = 1,
+            ["fromAddress"] = "bluetrack@contracttest.local"
+        };
+        foreach (var property in System.Text.Json.JsonDocument.Parse(extraJson).RootElement.EnumerateObject())
+        {
+            body[property.Name] = property.Value.GetString();
+        }
+
+        var response = await client.PutAsJsonAsync("/api/admin/notifications/config", body);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Contains(expected, await response.Content.ReadAsStringAsync());
+        Assert.Equal(before, await client.GetStringAsync("/api/admin/notifications/config"));
+    }
+
+    [Fact]
+    public async Task Config_OAuthMode_WithoutStartTls_Is400()
+    {
+        var client = AdminClient();
+        var response = await client.PutAsJsonAsync("/api/admin/notifications/config", new
+        {
+            smtpHost = "smtp.contracttest.local", smtpPort = 25, enableStartTls = false, authMethod = "GoogleWorkspace",
+            smtpCredentialKey = 1, fromAddress = "bluetrack@contracttest.local"
+        });
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Contains("STARTTLS must be on", await response.Content.ReadAsStringAsync());
+    }
+
+    [Fact]
+    public async Task SendTestEmail_GenericOAuth2_TokenRefused_ReportsTheErrorCode_AndTheSecretIsNeverInTheResponseConfigOrAudit()
+    {
+        // A fake token endpoint: no real IdP is called. It echoes the client
+        // secret back in its error, the worst case a provider could do.
+        var secret = $"ThisIsMy_FAKE_Password6!{Guid.NewGuid():N}";
+        var tokenEndpoint = new RefusingTokenEndpoint(secret);
+        using var factory = _factory.WithWebHostBuilder(builder => builder.ConfigureTestServices(services =>
+            services.AddHttpClient(BlueTrack.Api.Notifications.OAuth.SmtpOAuthTokenService.HttpClientName)
+                .ConfigurePrimaryHttpMessageHandler(() => tokenEndpoint)));
+        var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Add(TestAuthHandler.TestUserHeaderName, "TestUser.Admin");
+
+        var original = await client.GetFromJsonAsync<NotificationConfigResponse>("/api/admin/notifications/config");
+        var credentialKey = await CreateCredentialAsync(client, secret);
+        var recipientResponse = await client.PostAsJsonAsync("/api/admin/notifications/recipients",
+            new { email = $"contracttest_{Guid.NewGuid():N}@example.com", displayName = "OAuth test", isActive = true });
+        var recipient = await recipientResponse.Content.ReadFromJsonAsync<RecipientKeyResponse>();
+        try
+        {
+            var save = await client.PutAsJsonAsync("/api/admin/notifications/config", OAuthConfig("GenericOAuth2", credentialKey, new
+            {
+                oAuthClientId = "bluetrack",
+                oAuthTokenUrl = "https://idp.contracttest.local/oauth2/token",
+                oAuthClientAuthStyle = "Body"
+            }));
+            Assert.Equal(HttpStatusCode.NoContent, save.StatusCode);
+
+            var response = await client.PostAsync("/api/admin/notifications/test", null);
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            var raw = await response.Content.ReadAsStringAsync();
+            var result = System.Text.Json.JsonSerializer.Deserialize<TestEmailResponse>(raw, new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web));
+            Assert.False(result!.Success);
+            Assert.Contains("Token endpoint returned invalid_client", result.Error);
+            Assert.DoesNotContain(secret, raw);
+
+            // The secret reached the token endpoint (so the masking above was tested for real), and nowhere else.
+            Assert.Equal(1, tokenEndpoint.Calls);
+            Assert.Contains(Uri.EscapeDataString(secret), tokenEndpoint.LastBody);
+            Assert.DoesNotContain(secret, await client.GetStringAsync("/api/admin/notifications/config"));
+            Assert.DoesNotContain(secret, await client.GetStringAsync("/api/admin/credentials"));
+            var testAudit = await ConnectionTestAudit.LatestDetailAsync("notification_config", "GenericOAuth2");
+            Assert.Contains("Test email (GenericOAuth2) failed: Token endpoint returned invalid_client", testAudit);
+            Assert.Equal(0, await CountAuditRowsContainingAsync(secret));
+        }
+        finally
+        {
+            await RestoreConfigAsync(client, original!);
+            await client.DeleteAsync($"/api/admin/notifications/recipients/{recipient!.RecipientKey}");
+            await client.DeleteAsync($"/api/admin/credentials/{credentialKey}");
+        }
+    }
+
+    private static object OAuthConfig(string authMethod, int credentialKey, object oauthFields)
+    {
+        var body = new Dictionary<string, object?>
+        {
+            ["smtpHost"] = "smtp.contracttest.local",
+            ["smtpPort"] = 587,
+            ["enableStartTls"] = true,
+            ["authMethod"] = authMethod,
+            ["smtpCredentialKey"] = credentialKey,
+            ["fromAddress"] = "bluetrack@contracttest.local",
+            ["fromDisplayName"] = "BlueTrack Test"
+        };
+        foreach (var property in oauthFields.GetType().GetProperties())
+        {
+            body[property.Name] = property.GetValue(oauthFields);
+        }
+        return body;
+    }
+
+    private static async Task<int> CreateCredentialAsync(HttpClient client, string secret)
+    {
+        var response = await client.PostAsJsonAsync("/api/admin/credentials", new
+        {
+            credentialName = $"ContractTestOAuthCred_{Guid.NewGuid():N}",
+            backendType = "WindowsDpapi",
+            username = "oauth-client",
+            plaintextPassword = secret
+        });
+        Assert.True(response.IsSuccessStatusCode, $"Credential create failed: {response.StatusCode}");
+        return (await response.Content.ReadFromJsonAsync<CredentialKeyResponse>())!.CredentialKey;
+    }
+
+    private static Task RestoreConfigAsync(HttpClient client, NotificationConfigResponse original) =>
+        client.PutAsJsonAsync("/api/admin/notifications/config", new
+        {
+            smtpHost = original.SmtpHost,
+            smtpPort = original.SmtpPort,
+            enableStartTls = original.EnableStartTls,
+            authMethod = original.AuthMethod,
+            smtpCredentialKey = (int?)null,
+            fromAddress = original.FromAddress,
+            fromDisplayName = original.FromDisplayName,
+            ignoreCrlErrors = original.IgnoreCrlErrors,
+            ignoreSslErrors = original.IgnoreSslErrors
+        });
+
+    private static async Task<int> CountAuditRowsContainingAsync(string text)
+    {
+        await using var connection = new Microsoft.Data.SqlClient.SqlConnection(BlueTrack.Api.Tests.Integration.TestDatabase.ConnectionString);
+        return await Dapper.SqlMapper.ExecuteScalarAsync<int>(connection, """
+            SELECT (SELECT COUNT(*) FROM web.audit_event WHERE Detail LIKE '%' + @Text + '%' OR Reason LIKE '%' + @Text + '%')
+                 + (SELECT COUNT(*) FROM web.audit_field_change WHERE OldValue LIKE '%' + @Text + '%' OR NewValue LIKE '%' + @Text + '%')
+            """, new { Text = text });
+    }
+
+    /// <summary>Refuses every token request with invalid_client, echoing the secret in the description.</summary>
+    private sealed class RefusingTokenEndpoint(string secret) : HttpMessageHandler
+    {
+        public int Calls { get; private set; }
+        public string LastBody { get; private set; } = "";
+
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            Calls++;
+            LastBody = await request.Content!.ReadAsStringAsync(cancellationToken);
+            return new HttpResponseMessage(HttpStatusCode.Unauthorized)
+            {
+                Content = new StringContent($$"""{"error":"invalid_client","error_description":"Client authentication failed for secret {{secret}}"}""",
+                    System.Text.Encoding.UTF8, "application/json")
+            };
+        }
+    }
+
     private sealed class CredentialKeyResponse
     {
         public int CredentialKey { get; set; }
@@ -262,6 +484,14 @@ public class NotificationsControllerTests : IClassFixture<BlueTrackWebApplicatio
         public string? FromDisplayName { get; set; }
         public bool IgnoreCrlErrors { get; set; }
         public bool IgnoreSslErrors { get; set; }
+        public string? OAuthTenantId { get; set; }
+        public string? OAuthClientId { get; set; }
+        public string? OAuthClientCredentialType { get; set; }
+        public string? OAuthTokenUrl { get; set; }
+        public string? OAuthScope { get; set; }
+        public string? OAuthAudience { get; set; }
+        public string? OAuthClientAuthStyle { get; set; }
+        public string? OAuthUsername { get; set; }
     }
 
     private sealed class RecipientKeyResponse
@@ -302,5 +532,6 @@ public class NotificationsControllerTests : IClassFixture<BlueTrackWebApplicatio
     private sealed class TestEmailResponse
     {
         public bool Success { get; set; }
+        public string? Error { get; set; }
     }
 }
