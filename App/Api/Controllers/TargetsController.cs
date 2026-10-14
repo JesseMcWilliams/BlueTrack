@@ -120,6 +120,22 @@ public sealed class TargetsController(
         return Ok(result);
     }
 
+    /// <summary>D-225: the typeahead behind Target Match Review's "Merged" target -- name or identifier value contains q (at least 2 characters), at most 20 results.</summary>
+    [HttpGet("search")]
+    public async Task<IActionResult> Search([FromQuery] string? q)
+    {
+        var text = q?.Trim() ?? "";
+        if (text.Length < 2)
+        {
+            return Problem(title: "Search text too short", detail: "Type at least 2 characters to search.", statusCode: StatusCodes.Status400BadRequest);
+        }
+        if (text.Length > 300)
+        {
+            return Problem(title: "Search text too long", detail: "Search text can be at most 300 characters.", statusCode: StatusCodes.Status400BadRequest);
+        }
+        return Ok(await repository.SearchAsync(text));
+    }
+
     [HttpGet("identifier-types")]
     public async Task<IActionResult> GetIdentifierTypes() => Ok(await repository.GetIdentifierTypesAsync());
 

@@ -27,7 +27,8 @@ public sealed class TargetMatchReviewController(
 
         var (identifierType, identifierValue) = await repository.ResolveAsync(targetMatchReviewKey, request, user.UserKey);
         await auditLogger.LogAsync("FieldEdit", user.UserKey, "target_match_review", targetMatchReviewKey.ToString(),
-            detail: $"{identifierType}='{identifierValue}' resolved as {request.Resolution}");
+            detail: $"{identifierType}='{identifierValue}' resolved as {request.Resolution}"
+                + (request.Resolution == "Merged" && request.MergeIntoTargetKey is { } into ? $" into target {into}" : ""));
         return NoContent();
     }
 }

@@ -60,10 +60,31 @@ At import time (ETL or an admin's own bulk CSV upload alike), the loading logic 
 
 `TargetFieldName`'s fixed list per `FeedType` currently excludes `RiskScore`/`BaseRiskScore` — see the future-use-case note below on why that exclusion is a current omission, not a structural limit.
 
+## Header auto-detection (D-225)
+
+The profile form still takes typed column names, but the admin can also pick a **sample CSV** and have the source columns filled in. The file is read in the browser only (its first 64 KB; nothing is uploaded), by `App/Web/src/utils/csvHeaderMapping.js`:
+
+- **Header row:** a UTF-8 BOM is dropped; the delimiter is whichever of `,`, `;` or tab appears most in the header line outside quotes (comma if none); quoted headers are unquoted (`""` is a quote, a quoted header may hold the delimiter or a line break); headers are trimmed and empty ones dropped.
+- **Matching:** headers and names are compared after lower-casing and removing everything but letters and digits (`IP_Address`, `ip address`, `IP-Address` are one name). Every field first takes an exact match, then the remaining fields try their synonyms in order; each header is used once.
+- **Applying (Import Mapping Profile edit):** an empty row is filled, a field with no row gets a new row, a row already on the same column is left alone, and a row on a **different** column is listed as a conflict that changes only when the admin presses **Replace with the file's columns** (**Keep my mappings** dismisses it). The page then lists what was filled (and whether by an alternative name), the fields not matched (the ones the import requires in bold) and the columns not used.
+- **Bulk Actions pages** (Targets, Access Groups), with no profile chosen: `CsvColumnCheck.vue` reads the chosen file's header the same way and shows which fields the file supplies under their own names and which required ones are missing; **Create a mapping profile from these columns** opens a new profile (feed type set) with the matching already applied.
+
+The fields per feed type and their synonyms are defined once, in `FEED_FIELDS` (the field names are the ones `RiskScoringImportService` reads; keep the two in step). TargetInventory also gets an exact-name field for any identifier type `GET /api/admin/targets/identifier-types` lists beyond the seeded ones.
+
+| Feed type | Field (synonyms) |
+|---|---|
+| TargetInventory | **TargetType** (Type, Target Type, Asset Type, Device Type, Kind, Category); **TargetName** (Name, Target, Asset, Asset Name, Device, Device Name, Display Name, Server Name); **RiskScore** (Risk, Score, Risk Rating, Risk Value); Description (Desc, Notes, Comment, Comments, Details); DiscoverySource (Source, Discovered By, Discovery Tool, Scanner) |
+| TargetInventory identifiers | ADGuid (objectGUID, AD GUID, Object GUID, GUID); ADSid (objectSid, AD SID, SID, Security Identifier); LdapBaseDN (Base DN, LDAP Base DN, Search Base); DatabaseInstanceName (Instance, Instance Name, Database Instance, DB Instance, SQL Instance); ApplianceSerialNumber (Serial Number, Serial, Serial No, Appliance Serial); LinuxHostSignature (Host Signature, Linux Signature, SSH Host Key); FQDN (DNS Name, dNSHostName, DNS Host Name, Fully Qualified Domain Name); Hostname (Host Name, Host, Computer Name, Machine Name, NetBIOS Name); IPAddress (IP, IP Address, IPv4, IPv4 Address, Address) |
+| AccessGroupInventory | **GroupName** (Group, Name, Group Display Name, Display Name, cn); **GroupIdentifier** (Group ID, Group Identifier, Identifier, objectGUID, objectSid, Group SID, Group GUID, distinguishedName, DN); GroupScope (Scope, Group Scope); **BaseRiskScore** (Risk Score, Risk, Score, Base Score); Description |
+| AccessGroupTargetMap | **GroupIdentifier**; **TargetIdentifierType** (Identifier Type, Target ID Type, ID Type); **TargetIdentifierValue** (Identifier Value, Target Identifier, Target ID, Identifier, Target) |
+| AccountAccessGroupMembership | AccountName (Account, User Name, Username, User, sAMAccountName, Member, Member Name) or AccountKey (Account ID, Account Key); **GroupIdentifier** |
+| AccountTargetMap | AccountName or AccountKey; **TargetIdentifierType**; **TargetIdentifierValue** |
+
+Bold = required by the import. Synonyms are a convenience, not a guarantee: the admin reviews the filled-in rows before saving.
+
 ## Open Questions
 
 - **The `ETL`-sourced direct Account→Target feed's exact file shape** — confirmed as one of three mechanisms (see `Design_Risk-Scoring.md`'s "Direct Account→Target Access"); the actual file format is still undefined until that external source is specified, though the field-mapping layer above means this matters less than it used to (a differently-shaped file just needs its own mapping profile, not a code change).
-- **Interactive mapping UX** — v1 as designed is a plain form (an admin already knows the source column names and types them in). A "upload a sample file, auto-detect its headers, map interactively" UX would be nicer but is a real chunk of extra work — worth deciding whether that's in scope for a later refinement.
 - **Mapping a risk score directly on import (future use case, flagged 2026-09-21, not designed or built now).** `RiskScore` (on `dim_target`) and `BaseRiskScore` (on `dim_access_group`) are currently always analyst-set — deliberately excluded from every `TargetFieldName` list a mapping profile can target, per `Design_Risk-Scoring.md`'s own schema comments. A plausible future extension: if a source discovery/inventory tool already computes its own risk rating for a target or group, let a mapping profile map that column onto `RiskScore`/`BaseRiskScore` directly, instead of requiring an analyst to re-enter a value the source system already produced. Not designed now — this is a note to keep in mind so the mapping mechanism (already generic over `TargetFieldName`) doesn't get built or extended in a way that structurally forecloses it later (e.g., hardcoding "the fields a profile can target" to assume they're always analyst-only, rather than just not offering `RiskScore`/`BaseRiskScore` as options today). Whoever picks this up later will also need to decide the harder question this doc doesn't attempt: whether an imported score should simply set `RiskScore`/`BaseRiskScore` outright, or interact with `EffectiveRiskScore`'s existing override mechanism somehow — genuinely undecided, not just unbuilt.
 
 ## See also

@@ -17,6 +17,7 @@ import { apiUrl } from '../utils/apiBase'
 import { ref } from 'vue'
 import { formatCount } from '../utils/formatCount'
 import MappingProfileSelect from '../components/MappingProfileSelect.vue'
+import CsvColumnCheck from '../components/CsvColumnCheck.vue' // D-225
 
 const inventoryFile = ref(null)
 const inventoryProfile = ref(null) // D-207
@@ -68,10 +69,11 @@ async function importAccountTargetMap() {
       each row is matched against existing Targets by identifier (auto-merges on a strong match, e.g. ADGuid; a weak IP-only match is queued for review instead of auto-merging).
     </p>
     <p class="filter-row">
-      <input type="file" accept=".csv" @change="onInventoryFileChange" />
+      <input type="file" accept=".csv" aria-label="Target inventory CSV file" @change="onInventoryFileChange" />
       <MappingProfileSelect v-model="inventoryProfile" feed-type="TargetInventory" area="target" />
       <button :disabled="!inventoryFile || inventoryImporting" @click="importInventory">{{ inventoryImporting ? 'Importing...' : 'Import' }}</button>
     </p>
+    <CsvColumnCheck :file="inventoryFile" feed-type="TargetInventory" :profile-chosen="inventoryProfile !== null" />
     <p v-if="inventoryImportResult">
       {{ formatCount(inventoryImportResult.totalRows) }} rows -- {{ formatCount(inventoryImportResult.createdCount) }} created, {{ formatCount(inventoryImportResult.mergedCount) }} merged, {{ formatCount(inventoryImportResult.pendingReviewCount) }} pending review, {{ formatCount(inventoryImportResult.errors?.length ?? 0) }} errors.
       <span v-if="inventoryImportResult.errors?.length"><br />{{ inventoryImportResult.errors.map(e => `Row ${e.rowNumber}: ${e.error}`).join('; ') }}</span>
@@ -80,10 +82,11 @@ async function importAccountTargetMap() {
     <h3>Bulk Import: Direct Account -&gt; Target Links</h3>
     <p><a :href="apiUrl('/api/admin/risk-scoring/import/account-target-map/template')">Download template</a> -- rows this app cannot yet match to an existing Target/Account are reported as row errors, not silently skipped.</p>
     <p class="filter-row">
-      <input type="file" accept=".csv" @change="onAccountTargetFileChange" />
+      <input type="file" accept=".csv" aria-label="Account to target links CSV file" @change="onAccountTargetFileChange" />
       <MappingProfileSelect v-model="accountTargetProfile" feed-type="AccountTargetMap" area="target" />
       <button :disabled="!accountTargetFile || accountTargetImporting" @click="importAccountTargetMap">{{ accountTargetImporting ? 'Importing...' : 'Import' }}</button>
     </p>
+    <CsvColumnCheck :file="accountTargetFile" feed-type="AccountTargetMap" :profile-chosen="accountTargetProfile !== null" />
     <p v-if="accountTargetImportResult">
       {{ formatCount(accountTargetImportResult.totalRows) }} rows -- {{ formatCount(accountTargetImportResult.createdCount) }} created, {{ formatCount(accountTargetImportResult.mergedCount) }} already linked, {{ formatCount(accountTargetImportResult.errors?.length ?? 0) }} errors.
       <span v-if="accountTargetImportResult.errors?.length"><br />{{ accountTargetImportResult.errors.map(e => `Row ${e.rowNumber}: ${e.error}`).join('; ') }}</span>

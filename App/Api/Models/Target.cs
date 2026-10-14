@@ -18,6 +18,15 @@ public sealed class TargetSummary
     public required IReadOnlyList<TargetIdentifier> Identifiers { get; init; }
 }
 
+/// <summary>D-225: one typeahead result -- enough to tell targets apart: name, type and a few identifiers (the matching ones first).</summary>
+public sealed class TargetSearchResult
+{
+    public int TargetKey { get; init; }
+    public required string TargetName { get; init; }
+    public required string TargetTypeDisplayName { get; init; }
+    public required IReadOnlyList<TargetIdentifier> Identifiers { get; init; }
+}
+
 public sealed class TargetIdentifier
 {
     public required string IdentifierType { get; init; }
