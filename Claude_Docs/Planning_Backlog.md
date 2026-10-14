@@ -17,6 +17,10 @@ Requested 2026-10-13. Each ships on its own branch with a `D-n`; delete it here 
 ## Requested, deferred
 - **API access for scripts and other systems** (requested 2026-10-13): sign-in today is interactive only (Windows, SAML, OIDC). Needs a design: per-user API keys or service tokens, their permissions (a role, like a user), expiry and rotation, storage (hashed), and audit logging of their use.
 
+## Follow-ups found while building D-229 (2026-10-14)
+- **Link two existing targets by hand**: only Target Match Review creates links, and an unlinked pair can't be linked again from the UI. Needs a picker on Edit Target (the D-225 typeahead) and a rule for a target that has its own linked targets.
+- **A resolved Target Match Review row blocks deleting its candidate target** (409, its `CandidateTargetKey` FK): the E2E tests leave such targets behind. Decide whether a delete should clear or remove the target's review history.
+
 ## From the audit findings (moved here 2026-10-13, at the user's request)
 - **Validate LDAPS against a remote DC** (Low): BlueTrack's `UseSsl` bind can't be proven on the dev host, which is the DC itself (binds from a DC to its own LDAPS fail; Authentik's LDAPS sync from another machine works). Run the check from DCACYBSQL01 (another domain): resolve and reach the DC on 636, trust its LDAPS certificate, bind with an account in the DC's domain (no trust between the domains, so not a trusted connection), then let AD Account Discovery run.
 - **`ApplicationPoolIdentity` can't reach a SQL Server on another machine** (found 2026-09-24): `Login failed for user 'DOMAIN\HOSTNAME$'` although the login exists with the right SID. A known limitation of `ApplicationPoolIdentity` for outbound Windows authentication. Needs an environment decision: a dedicated domain account or gMSA for the App Pool (the Installation guide covers the gMSA).

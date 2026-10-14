@@ -16,22 +16,29 @@ namespace BlueTrack.Api.RiskScoring;
 /// </summary>
 internal static class RiskScoreStalenessPropagator
 {
+    /// <summary>
+    /// D-229: a target's linked targets score at its risk, so whatever
+    /// reaches one of them is marked stale too (TargetSet: the target plus
+    /// the targets linked to it now).
+    /// </summary>
     public static Task MarkEntitiesReachingTargetStaleAsync(IDbConnection connection, IDbTransaction transaction, int targetKey) =>
-        MarkStaleAsync(connection, transaction, targetKey, groupsSql: """
+        MarkStaleAsync(connection, transaction, targetKey, groupsSql: $"""
             UPDATE ag SET IsRiskScoreStale = 1
             FROM web.dim_access_group ag
             JOIN web.access_group_target_map agtm ON agtm.AccessGroupKey = ag.AccessGroupKey
-            WHERE agtm.TargetKey = @EntityKey;
+            WHERE agtm.TargetKey IN ({TargetSetSql});
 
             UPDATE web.dim_access_group SET IsRiskScoreStale = 1
-            WHERE FoundOnTargetKey = @EntityKey AND GroupScope = 'Local';
-            """, accountsSql: """
-            SELECT DISTINCT atm.AccountKey FROM web.account_target_map atm WHERE atm.TargetKey = @EntityKey
+            WHERE FoundOnTargetKey IN ({TargetSetSql}) AND GroupScope = 'Local';
+            """, accountsSql: $"""
+            SELECT DISTINCT atm.AccountKey FROM web.account_target_map atm WHERE atm.TargetKey IN ({TargetSetSql})
             UNION
-            SELECT DISTINCT aagm.AccountKey FROM web.account_access_group_map aagm JOIN web.access_group_target_map agtm ON agtm.AccessGroupKey = aagm.AccessGroupKey WHERE agtm.TargetKey = @EntityKey
+            SELECT DISTINCT aagm.AccountKey FROM web.account_access_group_map aagm JOIN web.access_group_target_map agtm ON agtm.AccessGroupKey = aagm.AccessGroupKey WHERE agtm.TargetKey IN ({TargetSetSql})
             UNION
-            SELECT DISTINCT aagm.AccountKey FROM web.account_access_group_map aagm JOIN web.dim_access_group ag ON ag.AccessGroupKey = aagm.AccessGroupKey WHERE ag.FoundOnTargetKey = @EntityKey AND ag.GroupScope = 'Local'
+            SELECT DISTINCT aagm.AccountKey FROM web.account_access_group_map aagm JOIN web.dim_access_group ag ON ag.AccessGroupKey = aagm.AccessGroupKey WHERE ag.FoundOnTargetKey IN ({TargetSetSql}) AND ag.GroupScope = 'Local'
             """);
+
+    private const string TargetSetSql = "SELECT @EntityKey UNION SELECT lts.TargetKey FROM web.vw_linked_target lts WHERE lts.PrimaryTargetKey = @EntityKey";
 
     public static Task MarkEntitiesReachingAccessGroupStaleAsync(IDbConnection connection, IDbTransaction transaction, int accessGroupKey) =>
         MarkStaleAsync(connection, transaction, accessGroupKey, groupsSql: null, accountsSql: """

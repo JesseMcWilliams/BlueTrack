@@ -10,7 +10,7 @@ namespace BlueTrack.Api.Tests.Contract;
 
 /// <summary>
 /// D-225: GET /api/admin/targets/search, the typeahead behind Target Match
-/// Review's "Merged" target, and merging a review row into a chosen target.
+/// Review's link target, and linking a review row to a chosen target (D-229).
 /// Every target is named with a per-test token and removed afterwards.
 /// </summary>
 public class TargetSearchTests : IClassFixture<BlueTrackWebApplicationFactory>
@@ -51,7 +51,8 @@ public class TargetSearchTests : IClassFixture<BlueTrackWebApplicationFactory>
         var keys = targetKeys.ToList();
         await using var connection = new SqlConnection(TestDatabase.ConnectionString);
         await connection.ExecuteAsync("""
-            DELETE FROM web.target_match_review WHERE CandidateTargetKey IN @Keys;
+            DELETE FROM web.target_match_review WHERE CandidateTargetKey IN @Keys OR ResolvedTargetKey IN @Keys;
+            DELETE FROM web.target_link WHERE LinkedTargetKey IN @Keys OR PrimaryTargetKey IN @Keys;
             DELETE FROM web.target_identifier WHERE TargetKey IN @Keys;
             DELETE FROM web.dim_target WHERE TargetKey IN @Keys;
             """, new { Keys = keys });
@@ -165,33 +166,36 @@ public class TargetSearchTests : IClassFixture<BlueTrackWebApplicationFactory>
     }
 
     [Fact]
-    public async Task Review_MergedIntoChosenTarget_MovesTheIdentifier()
+    public async Task Review_LinkedToChosenTarget_KeepsTheIdentifierOnTheCandidate()
     {
         var client = Client("TestUser.Admin");
         var ip = $"10.98.{Random.Shared.Next(1, 254)}.{Random.Shared.Next(1, 254)}";
         var candidate = await CreateTargetAsync(client, $"MergeCandidate {Guid.NewGuid():N}", ("IPAddress", ip));
         var chosen = await CreateTargetAsync(client, $"MergeChosen {Guid.NewGuid():N}");
+        var keys = new List<int> { candidate, chosen };
         try
         {
             var reviewKey = await QueueReviewAsync(client, ip);
 
+            // D-229 (replacing D-225's move): the incoming row becomes a target linked to the chosen one.
             var resolve = await client.PostAsJsonAsync($"/api/admin/risk-scoring/target-match-review/{reviewKey}/resolve",
-                new { resolution = "Merged", mergeIntoTargetKey = chosen });
+                new { resolution = "Linked", primaryTargetKey = chosen });
             Assert.Equal(HttpStatusCode.NoContent, resolve.StatusCode);
 
+            keys.Add(await ResolvedTargetKeyAsync(reviewKey));
             var chosenTarget = await client.GetFromJsonAsync<TargetResponse>($"/api/admin/targets/{chosen}");
-            Assert.Contains(chosenTarget!.Identifiers, i => i.IdentifierType == "IPAddress" && i.IdentifierValue == ip);
+            Assert.DoesNotContain(chosenTarget!.Identifiers, i => i.IdentifierValue == ip);
             var candidateTarget = await client.GetFromJsonAsync<TargetResponse>($"/api/admin/targets/{candidate}");
-            Assert.DoesNotContain(candidateTarget!.Identifiers, i => i.IdentifierValue == ip);
+            Assert.Contains(candidateTarget!.Identifiers, i => i.IdentifierType == "IPAddress" && i.IdentifierValue == ip);
         }
         finally
         {
-            await CleanUpAsync([candidate, chosen]);
+            await CleanUpAsync(keys);
         }
     }
 
     [Fact]
-    public async Task Review_MergedIntoCandidate_AndNewTarget_Succeed()
+    public async Task Review_LinkedToCandidate_AndNewTarget_Succeed()
     {
         var client = Client("TestUser.Admin");
         var ip1 = $"10.97.{Random.Shared.Next(1, 254)}.{Random.Shared.Next(1, 254)}";
@@ -201,9 +205,10 @@ public class TargetSearchTests : IClassFixture<BlueTrackWebApplicationFactory>
         var keys = new List<int> { candidate };
         try
         {
-            var mergeKey = await QueueReviewAsync(client, ip1);
-            var merged = await client.PostAsJsonAsync($"/api/admin/risk-scoring/target-match-review/{mergeKey}/resolve", new { resolution = "Merged" });
-            Assert.Equal(HttpStatusCode.NoContent, merged.StatusCode);
+            var linkKey = await QueueReviewAsync(client, ip1);
+            var linked = await client.PostAsJsonAsync($"/api/admin/risk-scoring/target-match-review/{linkKey}/resolve", new { resolution = "Linked" });
+            Assert.Equal(HttpStatusCode.NoContent, linked.StatusCode);
+            keys.Add(await ResolvedTargetKeyAsync(linkKey));
 
             var newKey = await QueueReviewAsync(client, ip2);
             var created = await client.PostAsJsonAsync($"/api/admin/risk-scoring/target-match-review/{newKey}/resolve",
@@ -213,11 +218,12 @@ public class TargetSearchTests : IClassFixture<BlueTrackWebApplicationFactory>
             await using var connection = new SqlConnection(TestDatabase.ConnectionString);
             var newTargetKey = await connection.QuerySingleAsync<int>("SELECT TargetKey FROM web.dim_target WHERE TargetName = @newName", new { newName });
             keys.Add(newTargetKey);
+            // Both IP addresses stay on the candidate.
             var owners = (await connection.QueryAsync<(string Value, int TargetKey)>(
                 "SELECT IdentifierValue, TargetKey FROM web.target_identifier WHERE IdentifierType = 'IPAddress' AND IdentifierValue IN @Ips",
                 new { Ips = new[] { ip1, ip2 } })).ToDictionary(r => r.Value, r => r.TargetKey);
             Assert.Equal(candidate, owners[ip1]);
-            Assert.Equal(newTargetKey, owners[ip2]);
+            Assert.Equal(candidate, owners[ip2]);
         }
         finally
         {
@@ -226,7 +232,7 @@ public class TargetSearchTests : IClassFixture<BlueTrackWebApplicationFactory>
     }
 
     [Fact]
-    public async Task Review_MergedIntoMissingTarget_Is400()
+    public async Task Review_LinkedToMissingTarget_Is400()
     {
         var client = Client("TestUser.Admin");
         var ip = $"10.95.{Random.Shared.Next(1, 254)}.{Random.Shared.Next(1, 254)}";
@@ -235,13 +241,20 @@ public class TargetSearchTests : IClassFixture<BlueTrackWebApplicationFactory>
         {
             var reviewKey = await QueueReviewAsync(client, ip);
             var resolve = await client.PostAsJsonAsync($"/api/admin/risk-scoring/target-match-review/{reviewKey}/resolve",
-                new { resolution = "Merged", mergeIntoTargetKey = int.MaxValue });
+                new { resolution = "Linked", primaryTargetKey = int.MaxValue });
             Assert.Equal(HttpStatusCode.BadRequest, resolve.StatusCode);
         }
         finally
         {
             await CleanUpAsync([candidate]);
         }
+    }
+
+    private static async Task<int> ResolvedTargetKeyAsync(int reviewKey)
+    {
+        await using var connection = new SqlConnection(TestDatabase.ConnectionString);
+        return await connection.QuerySingleAsync<int>(
+            "SELECT ResolvedTargetKey FROM web.target_match_review WHERE TargetMatchReviewKey = @reviewKey", new { reviewKey });
     }
 
     /// <summary>An inventory row matching only an existing IP address goes to the review queue (D-119 Phase B).</summary>

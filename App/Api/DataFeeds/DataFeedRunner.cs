@@ -203,7 +203,7 @@ public sealed class DataFeedRunner(
             "AccountTargetMap" => await riskScoring.ImportAccountTargetMapAsync(rows, profile, fileName),
             _ => throw new InvalidOperationException($"Unknown feed type '{feed.FeedType}'.")
         };
-        var summary = $"{result.SucceededCount} succeeded ({result.CreatedCount} created, {result.MergedCount} merged, {result.PendingReviewCount} pending review), {result.Errors.Count} errors";
+        var summary = $"{result.SucceededCount} succeeded ({result.CreatedCount} created, {result.MergedCount} merged, {result.PendingReviewCount} pending review{(result.IgnoredCount > 0 ? $", {result.IgnoredCount} ignored before" : "")}), {result.Errors.Count} errors";
         return (result.TotalRows, result.Errors.Count, summary, result);
     }
 

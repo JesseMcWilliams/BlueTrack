@@ -16,9 +16,15 @@
 // TargetRepository.GetByKeyAsync) was added alongside this page, mirroring
 // RiskExceptionsController.GetByKey's existing shape -- Create/Update/
 // Delete are otherwise completely unchanged.
+//
+// D-229: a linked target shows the target it's linked to; a primary lists
+// its linked targets. Unlink (POST /api/admin/targets/{key}/unlink, asked
+// first) is offered on both; a pair is never linked again automatically.
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
+import { confirmDelete } from '../composables/useConfirmDialog'
+import { formatShortDate } from '../utils/formatLocale'
 
 const { t } = useI18n()
 
@@ -40,6 +46,8 @@ const targetTypes = ref([])
 // whole object with the real fetched row below, so this default only ever
 // takes effect on create.
 const editing = ref({ targetTypeKey: null, targetName: '', riskScore: 0, description: '', discoverySource: 'Manual', identifiers: [] })
+const links = ref({ linkedToTargetKey: null, linkedToTargetName: null, linkedTargets: [] })
+const unlinkError = ref(null)
 
 function addIdentifierRow() {
   editing.value.identifiers.push({ identifierType: identifierTypes.value[0]?.identifierType ?? '', identifierValue: '' })
@@ -63,10 +71,7 @@ onMounted(async () => {
 
   if (isEditMode.value) {
     try {
-      const response = await fetch(`/api/admin/targets/${props.targetKey}`)
-      if (!response.ok) throw new Error(t('common.requestFailed', { status: response.status }))
-      const target = await response.json()
-      editing.value = { ...target, identifiers: target.identifiers.map(i => ({ ...i })) }
+      await loadTarget()
     } catch (err) {
       loadError.value = err.message
     }
@@ -78,6 +83,37 @@ onMounted(async () => {
   }
   loading.value = false
 })
+
+async function fetchTarget(key) {
+  const response = await fetch(`/api/admin/targets/${key}`)
+  if (!response.ok) throw new Error(t('common.requestFailed', { status: response.status }))
+  return response.json()
+}
+
+async function loadTarget() {
+  const target = await fetchTarget(props.targetKey)
+  const { linkedToTargetKey, linkedToTargetName, linkedTargets, ...fields } = target
+  editing.value = { ...fields, identifiers: target.identifiers.map(i => ({ ...i })) }
+  links.value = { linkedToTargetKey, linkedToTargetName, linkedTargets: linkedTargets ?? [] }
+}
+
+async function unlink(linkedKey, linkedName, primaryName) {
+  unlinkError.value = null
+  const confirmed = await confirmDelete({
+    title: t('pages.targetEdit.unlinkTitle'),
+    details: [t('pages.targetEdit.unlinkDetail', { name: linkedName, primary: primaryName })],
+    warning: t('pages.targetEdit.unlinkWarning')
+  }, t('pages.targetEdit.unlink'))
+  if (!confirmed) return
+  const response = await fetch(`/api/admin/targets/${linkedKey}/unlink`, { method: 'POST' })
+  if (!response.ok) {
+    const problem = await response.json().catch(() => null)
+    unlinkError.value = problem?.detail ?? t('pages.targetEdit.unlinkFailed', { status: response.status })
+    return
+  }
+  const target = await fetchTarget(props.targetKey)
+  links.value = { linkedToTargetKey: target.linkedToTargetKey, linkedToTargetName: target.linkedToTargetName, linkedTargets: target.linkedTargets ?? [] }
+}
 
 async function save() {
   saveError.value = null
@@ -142,5 +178,38 @@ function cancel() {
       <button type="submit" class="btn-primary" :disabled="saving">{{ t('common.save') }}</button>
       <button type="button" @click="cancel">{{ t('common.cancel') }}</button>
     </form>
+
+    <template v-if="isEditMode && !loading && !loadError">
+      <p v-if="unlinkError" role="alert">{{ unlinkError }}</p>
+      <section v-if="links.linkedToTargetKey">
+        <h3>{{ t('pages.targetEdit.linkedToHeading') }}</h3>
+        <p>
+          {{ t('pages.targetEdit.linkedToIntro') }}
+          <router-link :to="{ name: 'target-edit', params: { targetKey: links.linkedToTargetKey } }">{{ links.linkedToTargetName }}</router-link>
+        </p>
+        <p><button type="button" @click="unlink(props.targetKey, editing.targetName, links.linkedToTargetName)">{{ t('pages.targetEdit.unlink') }}</button></p>
+      </section>
+      <section v-if="links.linkedTargets.length">
+        <h3>{{ t('pages.targetEdit.linkedTargetsHeading') }}</h3>
+        <p>{{ t('pages.targetEdit.linkedTargetsIntro') }}</p>
+        <table>
+          <thead>
+            <tr><th>{{ t('pages.targetEdit.colName') }}</th><th>{{ t('pages.targetEdit.colType') }}</th><th>{{ t('pages.targetEdit.colSource') }}</th><th>{{ t('pages.targetEdit.colLinked') }}</th><th></th></tr>
+          </thead>
+          <tbody>
+            <tr v-for="linked in links.linkedTargets" :key="linked.targetKey">
+              <td><router-link :to="{ name: 'target-edit', params: { targetKey: linked.targetKey } }">{{ linked.targetName }}</router-link></td>
+              <td>{{ linked.targetTypeDisplayName }}</td>
+              <td>{{ linked.discoverySource }}</td>
+              <td>{{ formatShortDate(linked.linkedDate) }}</td>
+              <td>
+                <button type="button" :aria-label="t('pages.targetEdit.unlinkRow', { name: linked.targetName })"
+                        @click="unlink(linked.targetKey, linked.targetName, editing.targetName)">{{ t('pages.targetEdit.unlink') }}</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+    </template>
   </div>
 </template>

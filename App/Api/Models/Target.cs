@@ -16,6 +16,21 @@ public sealed class TargetSummary
     public string? DiscoverySource { get; init; }
     public DateTime ModifiedDate { get; init; }
     public required IReadOnlyList<TargetIdentifier> Identifiers { get; init; }
+    /// <summary>D-229: the primary target this one is linked to, if it is.</summary>
+    public int? LinkedToTargetKey { get; init; }
+    public string? LinkedToTargetName { get; init; }
+    /// <summary>D-229: the targets linked to this one (filled on the single-target GET only).</summary>
+    public IReadOnlyList<LinkedTargetSummary> LinkedTargets { get; init; } = [];
+}
+
+/// <summary>D-229: a target linked to a primary target.</summary>
+public sealed class LinkedTargetSummary
+{
+    public int TargetKey { get; init; }
+    public required string TargetName { get; init; }
+    public required string TargetTypeDisplayName { get; init; }
+    public string? DiscoverySource { get; init; }
+    public DateTime LinkedDate { get; init; }
 }
 
 /// <summary>D-225: one typeahead result -- enough to tell targets apart: name, type and a few identifiers (the matching ones first).</summary>
