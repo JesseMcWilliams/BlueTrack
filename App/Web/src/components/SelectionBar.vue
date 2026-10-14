@@ -6,6 +6,7 @@
 // list's keys endpoint (the same filters as the list), which returns no
 // keys when more match than the bulk limit.
 import { ref, computed } from 'vue'
+import { formatCount } from '../utils/formatCount'
 
 const props = defineProps({
   selection: { type: Object, required: true },
@@ -29,7 +30,7 @@ async function selectAllMatching() {
   const result = await response.json()
   const max = result.maxItems ?? result.maxAccounts
   if (result.matchingCount > max) {
-    message.value = `${result.matchingCount} match, more than the bulk limit of ${max}. Narrow the filters first.`
+    message.value = `${formatCount(result.matchingCount)} match, more than the bulk limit of ${formatCount(max)}. Narrow the filters first.`
     return
   }
   props.selection.add(result.keys ?? result.accountKeys)
@@ -40,9 +41,9 @@ async function selectAllMatching() {
   <div class="selection-bar">
     <label><input type="checkbox" :checked="selection.enabled" @change="selection.setEnabled($event.target.checked)" /> {{ toggleLabel }}</label>
     <template v-if="selection.enabled">
-      <strong role="status">{{ selection.count }} selected</strong><span v-if="selection.count"> ({{ selectedOnPage }} on this page)</span>
+      <strong role="status">{{ formatCount(selection.count) }} selected</strong><span v-if="selection.count"> ({{ formatCount(selectedOnPage) }} on this page)</span>
       <button type="button" @click="selection.add(pageKeys)">Select all on page</button>
-      <button type="button" @click="selectAllMatching">Select all matching ({{ filteredCount ?? 0 }})</button>
+      <button type="button" @click="selectAllMatching">Select all matching ({{ formatCount(filteredCount ?? 0) }})</button>
       <button type="button" @click="selection.invert(pageKeys)">Invert selection on page</button>
       <button type="button" :disabled="selection.count === 0" @click="selection.clear()">Clear</button>
       <slot />

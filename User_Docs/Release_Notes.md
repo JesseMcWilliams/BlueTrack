@@ -14,6 +14,7 @@ What changed in each BlueTrack release, newest first, for users and administrato
 
 ### Changed
 
+- **Numbers:** counts on the pages (totals, pages, selections, import results, dashboard and report figures) use your browser language's number format, for example 1,234 or 1.234.
 - **Navigation:** Reports and Admin are now at the end of the top navigation, with Admin last.
 - **About:** the menu with your name has a new **About** item that shows BlueTrack's version.
 - **Application ↔ Safe Mapping** shows the applications and the safes a page at a time, like Accounts, at your page size.

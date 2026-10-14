@@ -4,6 +4,7 @@
 // stays a lightweight "at a glance" summary rather than a duplicate report.
 import { ref, computed, onMounted } from 'vue'
 import { useRightsStore } from '../stores/rights'
+import { formatCount } from '../utils/formatCount'
 
 const rights = useRightsStore()
 
@@ -167,15 +168,15 @@ onMounted(load)
               <tbody>
                 <tr v-for="stage in stageFunnel" :key="stage.stageName">
                   <td>{{ stage.stageName }}</td>
-                  <td>{{ stage.accountCount }}</td>
+                  <td>{{ formatCount(stage.accountCount) }}</td>
                 </tr>
               </tbody>
             </table>
-            <p>{{ completedCount }} account(s) Complete.</p>
+            <p>{{ formatCount(completedCount) }} account(s) Complete.</p>
           </div>
           <svg v-if="pieSlices.length > 0" class="stage-funnel-pie" viewBox="0 0 100 100" aria-hidden="true">
             <path v-for="slice in pieSlices" :key="slice.name" :d="slice.d" :fill="slice.color">
-              <title>{{ slice.name }}: {{ slice.count }}</title>
+              <title>{{ slice.name }}: {{ formatCount(slice.count) }}</title>
             </path>
           </svg>
         </div>
@@ -199,7 +200,7 @@ onMounted(load)
           </table>
           <svg v-if="kpiPieSlices.length > 0" class="stage-funnel-pie" viewBox="0 0 100 100" aria-hidden="true">
             <path v-for="slice in kpiPieSlices" :key="slice.name" :d="slice.d" :fill="slice.color">
-              <title>{{ slice.name }}: {{ slice.count }}</title>
+              <title>{{ slice.name }}: {{ formatCount(slice.count) }}</title>
             </path>
           </svg>
         </div>
@@ -210,7 +211,7 @@ onMounted(load)
         <h2>Overdue / At-Risk Accounts</h2>
         <p v-if="errors.overdueAtRisk" role="alert">{{ errors.overdueAtRisk }}</p>
         <p v-else>
-          {{ overdueAtRiskCount }} account(s) overdue or at risk.
+          {{ formatCount(overdueAtRiskCount) }} account(s) overdue or at risk.
           <router-link :to="{ name: 'reports-overdue-worklist' }">View worklist</router-link>
         </p>
       </section>
@@ -219,14 +220,14 @@ onMounted(load)
         <h2>Risk Exceptions Needing Attention</h2>
         <p v-if="errors.overdueReview" role="alert">{{ errors.overdueReview }}</p>
         <p v-else>
-          {{ overdueReviewCount }} exception(s) past their review date.
+          {{ formatCount(overdueReviewCount) }} exception(s) past their review date.
           <router-link :to="{ name: 'risk-exceptions-overdue-worklist' }">View worklist</router-link>
         </p>
 
         <template v-if="rights.hasPermission('ApproveExceptions')">
           <p v-if="errors.activeExceptions" role="alert">{{ errors.activeExceptions }}</p>
           <p v-else>
-            {{ activeExceptionsCount }} active exception(s) awaiting approval.
+            {{ formatCount(activeExceptionsCount) }} active exception(s) awaiting approval.
             <router-link :to="{ name: 'risk-exceptions-approval-worklist' }">View worklist</router-link>
           </p>
         </template>

@@ -13,6 +13,8 @@
 // ignoring paging), distinct from `total` (X-Total-Count's unfiltered
 // grand total, unchanged in meaning). `page`/`pageSize` compute the
 // current page's own 1-based row range.
+import { formatCount } from '../utils/formatCount'
+
 defineProps({
   // Rows actually returned on the current page (typically the loaded
   // list's own .length) -- used only to compute the end of the row range,
@@ -39,8 +41,8 @@ function rowRange(page, pageSize, shown, filteredCount) {
 
 <template>
   <p v-if="filteredCount !== null && total !== null" class="filter-count-summary" role="status">
-    Showing {{ rowRange(page, pageSize, shown, filteredCount).start }}&ndash;{{ rowRange(page, pageSize, shown, filteredCount).end }}
-    of {{ filteredCount }} matching ({{ total }} total)
+    Showing {{ formatCount(rowRange(page, pageSize, shown, filteredCount).start) }}&ndash;{{ formatCount(rowRange(page, pageSize, shown, filteredCount).end) }}
+    of {{ formatCount(filteredCount) }} matching ({{ formatCount(total) }} total)
   </p>
 </template>
 

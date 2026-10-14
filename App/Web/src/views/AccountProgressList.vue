@@ -13,6 +13,7 @@ import { useRouter } from 'vue-router'
 import { useRightsStore } from '../stores/rights'
 import { useAccountSelectionStore } from '../stores/accountSelection'
 import { decomNote } from '../utils/decomNote'
+import { formatCount } from '../utils/formatCount'
 import SelectionBar from '../components/SelectionBar.vue'
 
 // D-182: bulk edit. "Select accounts" turns on a checkbox column; the
@@ -274,7 +275,7 @@ watch([stageFilter, statusFilter, riskLevelFilter, ownerFilter, searchFilter, de
     </SelectionBar>
     <form v-if="deletion" class="deletion-form" @submit.prevent="applyDeletion">
       <label class="field-label">
-        <span class="field-label-text">Reason to {{ deletion.action }} {{ selection.count }} account{{ selection.count === 1 ? '' : 's' }}:</span>
+        <span class="field-label-text">Reason to {{ deletion.action }} {{ formatCount(selection.count) }} account{{ selection.count === 1 ? '' : 's' }}:</span>
         <input v-model="deletion.reason" size="60" maxlength="1000" required />
       </label>
       <button type="submit" class="btn-primary" :disabled="deletionSaving || !deletion.reason.trim()">{{ deletion.action === 'delete' ? 'Delete' : 'Undelete' }}</button>
@@ -282,7 +283,7 @@ watch([stageFilter, statusFilter, riskLevelFilter, ownerFilter, searchFilter, de
       <p v-if="deletionError" role="alert">{{ deletionError }}</p>
     </form>
     <div v-if="deletionResult" role="status">
-      <p>{{ deletionResult.changed }} {{ deletionResult.action === 'delete' ? 'deleted' : 'undeleted' }}, {{ deletionResult.skipped.length }} skipped<template v-if="deletionResult.skipped.length"> (still selected)</template>.</p>
+      <p>{{ formatCount(deletionResult.changed) }} {{ deletionResult.action === 'delete' ? 'deleted' : 'undeleted' }}, {{ formatCount(deletionResult.skipped.length) }} skipped<template v-if="deletionResult.skipped.length"> (still selected)</template>.</p>
       <ul v-if="deletionResult.skipped.length">
         <li v-for="s in deletionResult.skipped" :key="s.accountKey">{{ s.accountName ?? s.accountKey }}: {{ s.reason }}</li>
       </ul>

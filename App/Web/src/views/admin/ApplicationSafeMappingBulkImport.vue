@@ -6,6 +6,7 @@ import { apiUrl } from '../../utils/apiBase'
 // Applications first (create/update), then Safe -> Application assignments,
 // which can only name applications that already exist.
 import { ref } from 'vue'
+import { formatCount } from '../../utils/formatCount'
 
 const applicationsFile = ref(null)
 const applicationsResult = ref(null)
@@ -59,8 +60,8 @@ async function importAssignments() {
     <p v-if="applicationsResult" data-testid="applications-result">
       <template v-if="applicationsResult.error">{{ applicationsResult.error }}</template>
       <template v-else>
-        {{ applicationsResult.totalRows }} rows -- {{ applicationsResult.createdCount }} created, {{ applicationsResult.updatedCount }} updated,
-        {{ applicationsResult.unchangedCount }} unchanged, {{ applicationsResult.errors.length }} errors
+        {{ formatCount(applicationsResult.totalRows) }} rows -- {{ formatCount(applicationsResult.createdCount) }} created, {{ formatCount(applicationsResult.updatedCount) }} updated,
+        {{ formatCount(applicationsResult.unchangedCount) }} unchanged, {{ formatCount(applicationsResult.errors.length) }} errors
         <span v-if="applicationsResult.errors.length"><br />{{ rowErrors(applicationsResult) }}</span>
       </template>
     </p>
@@ -79,8 +80,8 @@ async function importAssignments() {
     <p v-if="assignmentsResult" data-testid="assignments-result">
       <template v-if="assignmentsResult.error">{{ assignmentsResult.error }}</template>
       <template v-else>
-        {{ assignmentsResult.totalRows }} rows -- {{ assignmentsResult.assignedCount }} safes assigned, {{ assignmentsResult.changedCount }} changed,
-        {{ assignmentsResult.unchangedCount }} unchanged, {{ assignmentsResult.errors.length }} errors
+        {{ formatCount(assignmentsResult.totalRows) }} rows -- {{ formatCount(assignmentsResult.assignedCount) }} safes assigned, {{ formatCount(assignmentsResult.changedCount) }} changed,
+        {{ formatCount(assignmentsResult.unchangedCount) }} unchanged, {{ formatCount(assignmentsResult.errors.length) }} errors
         <span v-if="assignmentsResult.errors.length"><br />{{ rowErrors(assignmentsResult) }}</span>
       </template>
     </p>

@@ -62,7 +62,9 @@ describe('RiskScoreReport.vue', () => {
     const wrapper = mount(RiskScoreReport)
     await flushPromises()
 
-    expect(wrapper.text()).toContain('Showing 1–1 of 2380 matching (2380 total)')
+    // D-218: counts use the browser's number format.
+    const n = new Intl.NumberFormat().format(2380)
+    expect(wrapper.text()).toContain(`Showing 1–1 of ${n} matching (${n} total)`)
   })
 
   it('sends page/pageSize query params on load, defaulting pageSize to 50', async () => {

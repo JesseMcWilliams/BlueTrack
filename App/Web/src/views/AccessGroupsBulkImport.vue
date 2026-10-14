@@ -12,6 +12,7 @@ import { apiUrl } from '../utils/apiBase'
 // page, and navigating back to Access Groups re-fetches fresh data on
 // mount anyway.
 import { ref } from 'vue'
+import { formatCount } from '../utils/formatCount'
 import MappingProfileSelect from '../components/MappingProfileSelect.vue'
 
 const importState = ref({
@@ -53,7 +54,7 @@ async function importFile(key, url) {
       <button :disabled="!importState.inventory.file || importState.inventory.importing" @click="importFile('inventory', '/api/admin/risk-scoring/import/access-group-inventory')">{{ importState.inventory.importing ? 'Importing...' : 'Import' }}</button>
     </p>
     <p v-if="importState.inventory.result">
-      {{ importState.inventory.result.totalRows }} rows -- {{ importState.inventory.result.succeededCount }} succeeded, {{ importState.inventory.result.errors?.length ?? 0 }} errors.
+      {{ formatCount(importState.inventory.result.totalRows) }} rows -- {{ formatCount(importState.inventory.result.succeededCount) }} succeeded, {{ formatCount(importState.inventory.result.errors?.length ?? 0) }} errors.
       <span v-if="importState.inventory.result.errors?.length"><br />{{ importState.inventory.result.errors.map(e => `Row ${e.rowNumber}: ${e.error}`).join('; ') }}</span>
     </p>
 
@@ -65,7 +66,7 @@ async function importFile(key, url) {
       <button :disabled="!importState.targetMap.file || importState.targetMap.importing" @click="importFile('targetMap', '/api/admin/risk-scoring/import/access-group-target-map')">{{ importState.targetMap.importing ? 'Importing...' : 'Import' }}</button>
     </p>
     <p v-if="importState.targetMap.result">
-      {{ importState.targetMap.result.totalRows }} rows -- {{ importState.targetMap.result.succeededCount }} succeeded, {{ importState.targetMap.result.errors?.length ?? 0 }} errors.
+      {{ formatCount(importState.targetMap.result.totalRows) }} rows -- {{ formatCount(importState.targetMap.result.succeededCount) }} succeeded, {{ formatCount(importState.targetMap.result.errors?.length ?? 0) }} errors.
       <span v-if="importState.targetMap.result.errors?.length"><br />{{ importState.targetMap.result.errors.map(e => `Row ${e.rowNumber}: ${e.error}`).join('; ') }}</span>
     </p>
 
@@ -77,7 +78,7 @@ async function importFile(key, url) {
       <button :disabled="!importState.membership.file || importState.membership.importing" @click="importFile('membership', '/api/admin/risk-scoring/import/account-access-group-membership')">{{ importState.membership.importing ? 'Importing...' : 'Import' }}</button>
     </p>
     <p v-if="importState.membership.result">
-      {{ importState.membership.result.totalRows }} rows -- {{ importState.membership.result.succeededCount }} succeeded, {{ importState.membership.result.errors?.length ?? 0 }} errors.
+      {{ formatCount(importState.membership.result.totalRows) }} rows -- {{ formatCount(importState.membership.result.succeededCount) }} succeeded, {{ formatCount(importState.membership.result.errors?.length ?? 0) }} errors.
       <span v-if="importState.membership.result.errors?.length"><br />{{ importState.membership.result.errors.map(e => `Row ${e.rowNumber}: ${e.error}`).join('; ') }}</span>
     </p>
   </div>

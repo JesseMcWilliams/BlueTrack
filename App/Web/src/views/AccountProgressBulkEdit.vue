@@ -8,6 +8,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAccountSelectionStore } from '../stores/accountSelection'
+import { formatCount } from '../utils/formatCount'
 
 const router = useRouter()
 const selection = useAccountSelectionStore()
@@ -79,7 +80,7 @@ function backToList() {
     <p v-if="!result && selection.count === 0">No accounts are selected. Select them on the <router-link :to="{ name: 'account-progress-list' }">Accounts</router-link> list first.</p>
 
     <form v-else-if="!result" @submit.prevent="apply">
-      <p><strong>{{ selection.count }}</strong> accounts selected. Tick <em>Change</em> for each field to set; the others stay as they are on each account.</p>
+      <p><strong>{{ formatCount(selection.count) }}</strong> accounts selected. Tick <em>Change</em> for each field to set; the others stay as they are on each account.</p>
       <table>
         <thead><tr><th>Change</th><th>Field</th><th>New value</th></tr></thead>
         <tbody>
@@ -111,13 +112,13 @@ function backToList() {
       </p>
       <p><small>Risk Exception can't be bulk edited: it must be linked on each account. Accounts someone else is editing are skipped.</small></p>
       <p v-if="error" role="alert">{{ error }}</p>
-      <button type="submit" class="btn-primary" :disabled="saving || chosen.length === 0">Apply to {{ selection.count }} accounts</button>
+      <button type="submit" class="btn-primary" :disabled="saving || chosen.length === 0">Apply to {{ formatCount(selection.count) }} accounts</button>
       <button type="button" @click="backToList">Cancel</button>
       <span v-if="saving" role="status"> Saving...</span>
     </form>
 
     <div v-else role="status">
-      <p>{{ result.updated }} updated, {{ result.unchanged }} already had these values, {{ result.skipped.length }} skipped.</p>
+      <p>{{ formatCount(result.updated) }} updated, {{ formatCount(result.unchanged) }} already had these values, {{ formatCount(result.skipped.length) }} skipped.</p>
       <template v-if="result.skipped.length">
         <p>Skipped accounts (still selected):</p>
         <table>
