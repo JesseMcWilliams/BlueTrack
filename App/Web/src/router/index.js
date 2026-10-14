@@ -499,6 +499,26 @@ const routes = [
         meta: { breadcrumb: 'shell.routes.adminRiskScoreBandEdit', breadcrumbParent: 'admin' },
         component: () => import('../views/admin/RiskScoreBandEdit.vue'),
         props: true
+      },
+      // D-233: account classification for Reports > Discovered Accounts.
+      {
+        path: 'account-classification',
+        name: 'admin-account-classification',
+        meta: { breadcrumb: 'shell.routes.adminAccountClassification', breadcrumbParent: 'admin' },
+        component: () => import('../views/admin/AccountClassification.vue')
+      },
+      {
+        path: 'account-classification/rules/new',
+        name: 'admin-account-classification-rule-create',
+        meta: { breadcrumb: 'shell.routes.adminAccountClassificationRuleCreate', breadcrumbParent: 'admin-account-classification' },
+        component: () => import('../views/admin/AccountClassificationRuleEdit.vue')
+      },
+      {
+        path: 'account-classification/rules/:ruleKey',
+        name: 'admin-account-classification-rule-edit',
+        meta: { breadcrumb: 'shell.routes.adminAccountClassificationRuleEdit', breadcrumbParent: 'admin-account-classification' },
+        component: () => import('../views/admin/AccountClassificationRuleEdit.vue'),
+        props: true
       }
     ]
   },

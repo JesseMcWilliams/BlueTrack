@@ -1,7 +1,10 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using BlueTrack.Api.AdDiscovery;
+using BlueTrack.Api.Audit;
 using BlueTrack.Api.Auth;
 using BlueTrack.Api.Data;
+using BlueTrack.Api.Models;
 using BlueTrack.Api.Reports;
 
 namespace BlueTrack.Api.Controllers;
@@ -17,7 +20,10 @@ public sealed class ReportsController(
     CurrentUserResolver currentUserResolver,
     DecommissionRepository decommissionRepository,
     ReportExportService exportService,
-    TrendsRepository trendsRepository) : ControllerBase
+    TrendsRepository trendsRepository,
+    AccountClassificationRepository classificationRepository,
+    AccountClassificationService classificationService,
+    AuditLogger auditLogger) : ControllerBase
 {
     // D-220: each report's GET .../export?format=csv|xlsx sits beside it, under the
     // same policy, and takes the same filter/sort parameters the page sends.
@@ -201,23 +207,78 @@ public sealed class ReportsController(
     /// <summary>AD Account Discovery feature (2026-09-16): real AD accounts not yet onboarded into CyberArk, matched against the Access Group inventory and risk-scored, gated by ViewDiscoveredAccounts. Defaults to Status='New' only -- Accept/Dismiss (below) move a row out of this default view without deleting it.</summary>
     [HttpGet("discovered-accounts")]
     [Authorize(Policy = Permissions.ViewDiscoveredAccounts)]
-    public async Task<IActionResult> GetDiscoveredAccounts([FromQuery] string? sort = null, [FromQuery] int? page = null, [FromQuery] int? pageSize = null)
+    public async Task<IActionResult> GetDiscoveredAccounts(
+        [FromQuery] string? sort = null, [FromQuery] int? page = null, [FromQuery] int? pageSize = null, [FromQuery] string? accountClass = null)
     {
+        if (!TryParseClassFilter(accountClass, out var classFilter)) return ClassFilterProblem();
         var sortBy = SortParser.Parse(sort);
-        var results = await discoveredAccountRepository.GetListAsync(sortBy, page, pageSize);
+        var results = await discoveredAccountRepository.GetListAsync(sortBy, page, pageSize, accountClass: classFilter);
         Response.Headers["X-Total-Count"] = (await discoveredAccountRepository.GetTotalCountAsync()).ToString();
-        Response.Headers["X-Filtered-Count"] = (await discoveredAccountRepository.GetFilteredCountAsync()).ToString();
+        Response.Headers["X-Filtered-Count"] = (await discoveredAccountRepository.GetFilteredCountAsync(accountClass: classFilter)).ToString();
         return Ok(results);
     }
 
-    /// <summary>D-220: every New row (all pages) in the page's sort order.</summary>
+    /// <summary>D-220: every New row (all pages) in the page's sort order. D-233: and Class filter.</summary>
     [HttpGet("discovered-accounts/export")]
     [Authorize(Policy = Permissions.ViewDiscoveredAccounts)]
-    public async Task<IActionResult> ExportDiscoveredAccounts([FromQuery] string? format, [FromQuery] string? sort = null) =>
-        await exportService.ExportAsync(this, ReportExports.DiscoveredAccounts, format, Params(("sort", sort)),
-            await discoveredAccountRepository.GetFilteredCountAsync(),
+    public async Task<IActionResult> ExportDiscoveredAccounts([FromQuery] string? format, [FromQuery] string? sort = null, [FromQuery] string? accountClass = null)
+    {
+        if (!TryParseClassFilter(accountClass, out var classFilter)) return ClassFilterProblem();
+        return await exportService.ExportAsync(this, ReportExports.DiscoveredAccounts, format, Params(("sort", sort), ("accountClass", classFilter)),
+            await discoveredAccountRepository.GetFilteredCountAsync(accountClass: classFilter),
             async limit => ReportTable.From(ReportExports.DiscoveredAccountsColumns,
-                await discoveredAccountRepository.GetExportRowsAsync(SortParser.Parse(sort), limit)));
+                await discoveredAccountRepository.GetExportRowsAsync(SortParser.Parse(sort), limit, accountClass: classFilter)));
+    }
+
+    private static bool TryParseClassFilter(string? value, out string? accountClass)
+    {
+        accountClass = null;
+        if (string.IsNullOrWhiteSpace(value)) return true;
+        accountClass = AccountClasses.Canonical(AccountClasses.All, value);
+        return accountClass is not null;
+    }
+
+    private ObjectResult ClassFilterProblem() =>
+        Problem(title: "Invalid class filter", detail: "Class must be Primary, Secondary, Admin or Unknown.", statusCode: StatusCodes.Status400BadRequest);
+
+    /// <summary>
+    /// D-233: a discovered account's manual class and/or owner, kept across discovery runs (the discovery
+    /// upsert never writes them); both null clears the override. Audited, then everything is reclassified
+    /// (an override to or from Primary can change other accounts' owners).
+    /// </summary>
+    [HttpPut("discovered-accounts/{discoveredAccountKey:int}/classification")]
+    [Authorize(Policy = Permissions.ManageDiscoveredAccounts)]
+    public async Task<IActionResult> SaveDiscoveredAccountClassification(int discoveredAccountKey, [FromBody] SaveDiscoveredAccountClassificationRequest request)
+    {
+        var user = await currentUserResolver.ResolveAsync(User);
+        if (user is null) return Unauthorized();
+
+        string? accountClass = null;
+        if (!string.IsNullOrWhiteSpace(request.AccountClass))
+        {
+            accountClass = AccountClasses.Canonical(AccountClasses.All, request.AccountClass);
+            if (accountClass is null) return ClassFilterProblem();
+        }
+
+        var owner = string.IsNullOrWhiteSpace(request.OwnerSamAccountName) ? null : request.OwnerSamAccountName.Trim();
+        if (owner is not null && (owner.Length > 300 || owner.IndexOfAny(['\\', '@', '/', '(', ')', '*']) >= 0))
+        {
+            return Problem(title: "Invalid owner", detail: "Owner is the owner's sAMAccountName (no domain, 300 characters at most).", statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        var (found, oldClass, oldOwner) = await classificationRepository.SaveOverrideAsync(discoveredAccountKey, accountClass, owner, user.UserKey);
+        if (!found) return NotFound();
+
+        await auditLogger.LogAsync("AccountClassification", user.UserKey, "discovered_account", discoveredAccountKey.ToString(),
+            detail: accountClass is null && owner is null ? "Class/owner override cleared" : "Class/owner override set",
+            fieldChanges:
+            [
+                new FieldChange("ClassOverride", oldClass, accountClass),
+                new FieldChange("OwnerOverrideSamAccountName", oldOwner, owner)
+            ]);
+        await classificationService.ReclassifyAsync();
+        return NoContent();
+    }
 
     /// <summary>Which Access Groups a discovered account matched -- mirrors the Risk Score report's own per-account contributor drill-down.</summary>
     [HttpGet("discovered-accounts/{discoveredAccountKey:int}/access-groups")]

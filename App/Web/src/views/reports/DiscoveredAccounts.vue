@@ -15,6 +15,11 @@
 // dialog, already customizable via its confirmLabel param; Dismiss doesn't
 // prompt (low-stakes, doesn't touch fact_account, and a dismissed row isn't
 // deleted -- see GetListAsync's own Status filter).
+//
+// D-233: Account Class, Owner and Matched by columns from Admin > Account
+// Classification's rules, a Class filter (sent to the export too), and a
+// per-row Classify form (ManageDiscoveredAccounts) that sets or clears a
+// manual class/owner override, kept across discovery runs.
 import { ref, computed, onMounted } from 'vue'
 import { formatDate } from '../../utils/formatDate'
 import { useTotalCount } from '../../composables/useTotalCount'
@@ -59,6 +64,8 @@ const sortColumns = ref([])
 const columns = [
   { field: 'samAccountName', labelKey: 'reports.discoveredAccounts.colAccount' },
   { field: 'domainName', labelKey: 'reports.discoveredAccounts.colDomain' },
+  { field: 'accountClass', labelKey: 'reports.discoveredAccounts.colAccountClass' },
+  { field: 'ownerSamAccountName', labelKey: 'reports.discoveredAccounts.colOwner' },
   { field: 'computedRiskScore', labelKey: 'reports.discoveredAccounts.colRiskScore' },
   { field: 'riskScoreBandName', labelKey: 'reports.discoveredAccounts.colRiskBand' },
   { field: 'discoveredDate', labelKey: 'reports.discoveredAccounts.colFirstDiscovered' },
@@ -105,12 +112,93 @@ function toggleSort(field, event) {
 const sortQueryParam = computed(() =>
   sortColumns.value.map(s => `${s.field}:${s.descending ? 'desc' : 'asc'}`).join(','))
 
+const classFilter = ref('')
+const columnCount = computed(() => columns.length + 1 + (rights.hasPermission('ManageDiscoveredAccounts') ? 1 : 0))
+
+const CLASS_KEYS = {
+  Primary: 'reports.discoveredAccounts.classPrimary',
+  Secondary: 'reports.discoveredAccounts.classSecondary',
+  Admin: 'reports.discoveredAccounts.classAdmin',
+  Unknown: 'reports.discoveredAccounts.classUnknown'
+}
+const CLASSES = ['Primary', 'Secondary', 'Admin', 'Unknown']
+
+const OPERATOR_KEYS = {
+  Equals: 'reports.discoveredAccounts.opEquals',
+  Contains: 'reports.discoveredAccounts.opContains',
+  StartsWith: 'reports.discoveredAccounts.opStartsWith',
+  EndsWith: 'reports.discoveredAccounts.opEndsWith',
+  IsSet: 'reports.discoveredAccounts.opIsSet',
+  Pattern: 'reports.discoveredAccounts.opPattern'
+}
+
+const OWNER_SOURCE_KEYS = {
+  Name: 'reports.discoveredAccounts.ownerByName',
+  EmployeeId: 'reports.discoveredAccounts.ownerByEmployeeId',
+  Manual: 'reports.discoveredAccounts.ownerManual',
+  Ambiguous: 'reports.discoveredAccounts.ownerAmbiguous'
+}
+
+function classLabel(value) {
+  return value ? t(CLASS_KEYS[value]) : '—'
+}
+
+function matchedBy(row) {
+  if (row.classSource === 'Manual') return t('reports.discoveredAccounts.matchedManual', { by: row.overrideByName ?? '' })
+  if (row.classSource === 'Default') return t('reports.discoveredAccounts.matchedDefault')
+  if (row.classSource === 'Rule' && row.classRuleType) {
+    const subject = row.classRuleType === 'OU' ? t('reports.discoveredAccounts.distinguishedName') : row.classRuleAttributeName
+    if (row.classRuleOperator === 'IsSet') return t('reports.discoveredAccounts.matchedRuleIsSet', { subject })
+    return t('reports.discoveredAccounts.matchedRule', { subject, operator: t(OPERATOR_KEYS[row.classRuleOperator]), value: row.classRuleValue })
+  }
+  if (row.classSource === 'Rule') return t('reports.discoveredAccounts.matchedRemovedRule')
+  return ''
+}
+
+function onClassFilterChange() {
+  page.value = 1
+  load()
+}
+
+const editingKey = ref(null)
+const overrideForm = ref({ accountClass: '', ownerSamAccountName: '' })
+const overrideError = ref(null)
+
+function startClassify(row) {
+  editingKey.value = row.discoveredAccountKey
+  overrideError.value = null
+  overrideForm.value = { accountClass: row.classOverride ?? '', ownerSamAccountName: row.ownerOverrideSamAccountName ?? '' }
+}
+
+async function saveOverride(row, clear = false) {
+  overrideError.value = null
+  busyKey.value = row.discoveredAccountKey
+  try {
+    const body = clear
+      ? { accountClass: null, ownerSamAccountName: null }
+      : { accountClass: overrideForm.value.accountClass || null, ownerSamAccountName: overrideForm.value.ownerSamAccountName.trim() || null }
+    const response = await fetch(`/api/reports/discovered-accounts/${row.discoveredAccountKey}/classification`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    })
+    if (!response.ok) throw new Error((await response.json().catch(() => null))?.detail ?? t('common.requestFailed', { status: response.status }))
+    editingKey.value = null
+    await load()
+  } catch (err) {
+    overrideError.value = err.message
+  } finally {
+    busyKey.value = null
+  }
+}
+
 async function load() {
   loading.value = true
   error.value = null
   try {
     const params = new URLSearchParams()
     if (sortQueryParam.value) params.set('sort', sortQueryParam.value)
+    if (classFilter.value) params.set('accountClass', classFilter.value)
     params.set('page', page.value)
     params.set('pageSize', pageSizeStore.current)
     const response = await fetch(`/api/reports/discovered-accounts?${params.toString()}`)
@@ -188,7 +276,15 @@ onMounted(load)
   <div>
     <h2>{{ t('reports.discoveredAccounts.title') }}</h2>
     <p class="hint">{{ t('reports.discoveredAccounts.hint') }}</p>
-    <ReportExportButtons path="/api/reports/discovered-accounts/export" :params="{ sort: sortQueryParam }" />
+    <p>
+      <label>{{ t('reports.discoveredAccounts.classFilter') }}
+        <select v-model="classFilter" @change="onClassFilterChange">
+          <option value="">{{ t('reports.discoveredAccounts.classFilterAll') }}</option>
+          <option v-for="c in CLASSES" :key="c" :value="c">{{ t(CLASS_KEYS[c]) }}</option>
+        </select>
+      </label>
+    </p>
+    <ReportExportButtons path="/api/reports/discovered-accounts/export" :params="{ sort: sortQueryParam, accountClass: classFilter || null }" />
     <FilterCountSummary :shown="rows.length" :filtered-count="filteredCount" :total="totalCount" :page="page" :page-size="pageSizeStore.current" />
     <Pager :page="page" :page-count="pageCount" @update:page="onPageChange" @page-size-change="onPageSizeChange" />
     <p v-if="actionError" role="alert">{{ actionError }}</p>
@@ -202,6 +298,7 @@ onMounted(load)
               {{ t(col.labelKey) }} <span aria-hidden="true">{{ sortIndicator(col.field) }}</span>
             </button>
           </th>
+          <th>{{ t('reports.discoveredAccounts.colMatchedBy') }}</th>
           <th v-if="rights.hasPermission('ManageDiscoveredAccounts')"></th>
         </tr>
       </thead>
@@ -219,6 +316,17 @@ onMounted(load)
               </p>
             </td>
             <td>{{ row.domainName }}</td>
+            <td>{{ classLabel(row.accountClass) }}</td>
+            <td>
+              <template v-if="row.ownerSamAccountName">
+                {{ row.ownerSamAccountName }}<span v-if="row.ownerDisplayName"> ({{ row.ownerDisplayName }})</span>
+              </template>
+              <template v-else>{{ '—' }}</template>
+            </td>
+            <td>
+              {{ matchedBy(row) }}
+              <span v-if="OWNER_SOURCE_KEYS[row.ownerSource]" class="owner-source">{{ t(OWNER_SOURCE_KEYS[row.ownerSource]) }}</span>
+            </td>
             <td>{{ row.computedRiskScore ?? '—' }}</td>
             <td>{{ row.riskScoreBandName ?? '—' }}</td>
             <td>{{ formatDate(row.discoveredDate) }}</td>
@@ -226,10 +334,32 @@ onMounted(load)
             <td v-if="rights.hasPermission('ManageDiscoveredAccounts')">
               <button type="button" :disabled="busyKey === row.discoveredAccountKey" @click="accept(row)">{{ t('reports.discoveredAccounts.accept') }}</button>
               <button type="button" :disabled="busyKey === row.discoveredAccountKey" @click="dismiss(row)">{{ t('reports.discoveredAccounts.dismiss') }}</button>
+              <button type="button" :disabled="busyKey === row.discoveredAccountKey" :aria-label="t('reports.discoveredAccounts.classifyLabel', { account: row.samAccountName })" @click="startClassify(row)">{{ t('reports.discoveredAccounts.classify') }}</button>
+            </td>
+          </tr>
+          <tr v-if="editingKey === row.discoveredAccountKey">
+            <td :colspan="columnCount">
+              <form class="override-form" @submit.prevent="saveOverride(row)">
+                <h3>{{ t('reports.discoveredAccounts.classifyHeading', { account: row.samAccountName }) }}</h3>
+                <label>{{ t('reports.discoveredAccounts.overrideClass') }}
+                  <select v-model="overrideForm.accountClass">
+                    <option value="">{{ t('reports.discoveredAccounts.overrideFollowRules') }}</option>
+                    <option v-for="c in CLASSES" :key="c" :value="c">{{ t(CLASS_KEYS[c]) }}</option>
+                  </select>
+                </label>
+                <label>{{ t('reports.discoveredAccounts.overrideOwner') }}
+                  <input v-model="overrideForm.ownerSamAccountName" maxlength="300" />
+                </label>
+                <p class="hint">{{ t('reports.discoveredAccounts.overrideHint') }}</p>
+                <p v-if="overrideError" role="alert">{{ overrideError }}</p>
+                <button type="submit" class="btn-primary" :disabled="busyKey === row.discoveredAccountKey">{{ t('common.save') }}</button>
+                <button v-if="row.classOverride || row.ownerOverrideSamAccountName" type="button" :disabled="busyKey === row.discoveredAccountKey" @click="saveOverride(row, true)">{{ t('reports.discoveredAccounts.clearOverride') }}</button>
+                <button type="button" @click="editingKey = null">{{ t('common.cancel') }}</button>
+              </form>
             </td>
           </tr>
           <tr v-if="expandedKey === row.discoveredAccountKey">
-            <td :colspan="rights.hasPermission('ManageDiscoveredAccounts') ? 7 : 6">
+            <td :colspan="columnCount">
               <p v-if="accessGroupsLoading" role="status">{{ t('reports.discoveredAccounts.loadingAccessGroups') }}</p>
               <p v-else-if="accessGroupsError" role="alert">{{ accessGroupsError }}</p>
               <p v-else-if="accessGroups.length === 0">{{ t('reports.discoveredAccounts.noAccessGroups') }}</p>
@@ -264,6 +394,20 @@ onMounted(load)
 .possible-match {
   margin: var(--space-1) 0 0;
   font-size: 0.875em;
+}
+
+.owner-source {
+  display: block;
+  font-size: 0.875em;
+}
+
+.override-form label {
+  margin-right: 0.5rem;
+}
+
+.override-form h3 {
+  margin-top: 0;
+  font-size: 1em;
 }
 
 .drilldown-list {

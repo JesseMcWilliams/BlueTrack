@@ -136,11 +136,53 @@ public static class ReportExports
             + (string.IsNullOrEmpty(r.DisplayName) ? "" : $" ({r.DisplayName})")
             + (r.IsEnabled ? "" : " [disabled]")),
         new("Domain", r => r.DomainName),
+        new("Account Class", r => r.AccountClass),
+        new("Owner", r => r.OwnerSamAccountName is null ? null
+            : r.OwnerSamAccountName + (string.IsNullOrEmpty(r.OwnerDisplayName) ? "" : $" ({r.OwnerDisplayName})")),
+        new("Matched By", r => DiscoveredAccountMatchedBy(r)),
         new("Risk Score", r => r.ComputedRiskScore),
         new("Risk Band", r => r.RiskScoreBandName),
         new("First Discovered", r => Day(r.DiscoveredDate)),
         new("Last Seen", r => Day(r.LastSeenDate))
     ];
+
+    /// <summary>D-233: the Matched by cell, in the page's words: how the class was set, then how the owner was found.</summary>
+    public static string? DiscoveredAccountMatchedBy(DiscoveredAccount r)
+    {
+        var classPart = r.ClassSource switch
+        {
+            "Manual" => "Manual",
+            "Default" => "No rule matched (default)",
+            "Rule" when r.ClassRuleType is not null => r.ClassRuleType switch
+            {
+                "OU" => $"OU rule: distinguished name {OperatorWords(r.ClassRuleOperator)} \"{r.ClassRuleValue}\"",
+                _ => $"{r.ClassRuleType} rule: {r.ClassRuleAttributeName} {OperatorWords(r.ClassRuleOperator)}"
+                    + (r.ClassRuleOperator == "IsSet" ? "" : $" \"{r.ClassRuleValue}\"")
+            },
+            "Rule" => "Rule (since removed)",
+            _ => null
+        };
+        var ownerPart = r.OwnerSource switch
+        {
+            "Name" => "owner by name",
+            "EmployeeId" => "owner by employee ID",
+            "Manual" => "owner set manually",
+            "Ambiguous" => "owner ambiguous (shared employee ID)",
+            _ => null
+        };
+        return classPart is null ? ownerPart : ownerPart is null ? classPart : $"{classPart}; {ownerPart}";
+    }
+
+    private static string? OperatorWords(string? op) => op switch
+    {
+        "Equals" => "equals",
+        "Contains" => "contains",
+        "StartsWith" => "starts with",
+        "EndsWith" => "ends with",
+        "IsSet" => "is set",
+        "Pattern" => "matches",
+        _ => op
+    };
 
     public static readonly IReadOnlyList<ExportColumn<DecomSafeRow>> DecomSafesColumns =
     [

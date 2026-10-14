@@ -71,12 +71,21 @@ public sealed class DiscoveredAccountRepository(IDbConnectionFactory connectionF
             WHEN MATCHED THEN
                 UPDATE SET DistinguishedName = @DistinguishedName, ObjectSid = @ObjectSid, DisplayName = @DisplayName,
                     IsEnabled = @IsEnabled, ComputedRiskScore = @ComputedRiskScore, RiskScoreCalculatedDate = SYSUTCDATETIME(),
-                    LastSeenDate = SYSUTCDATETIME(), PossibleExistingAccountKey = @PossibleExistingAccountKey
+                    LastSeenDate = SYSUTCDATETIME(), PossibleExistingAccountKey = @PossibleExistingAccountKey,
+                    -- D-233: the classification attributes only when this run read them; the override columns never.
+                    UserPrincipalName = CASE WHEN @AttributesRead = 1 THEN @UserPrincipalName ELSE tgt.UserPrincipalName END,
+                    EmployeeId = CASE WHEN @AttributesRead = 1 THEN @EmployeeId ELSE tgt.EmployeeId END,
+                    EmployeeNumber = CASE WHEN @AttributesRead = 1 THEN @EmployeeNumber ELSE tgt.EmployeeNumber END,
+                    DirectoryAttributes = CASE WHEN @AttributesRead = 1 THEN @DirectoryAttributes ELSE tgt.DirectoryAttributes END,
+                    AttributesReadDate = CASE WHEN @AttributesRead = 1 THEN SYSUTCDATETIME() ELSE tgt.AttributesReadDate END
             WHEN NOT MATCHED THEN
                 INSERT (DomainName, SamAccountName, DistinguishedName, ObjectSid, DisplayName, IsEnabled,
-                        ComputedRiskScore, RiskScoreCalculatedDate, DiscoveredDate, LastSeenDate, PossibleExistingAccountKey)
+                        ComputedRiskScore, RiskScoreCalculatedDate, DiscoveredDate, LastSeenDate, PossibleExistingAccountKey,
+                        UserPrincipalName, EmployeeId, EmployeeNumber, DirectoryAttributes, AttributesReadDate)
                 VALUES (@DomainName, @SamAccountName, @DistinguishedName, @ObjectSid, @DisplayName, @IsEnabled,
-                        @ComputedRiskScore, SYSUTCDATETIME(), SYSUTCDATETIME(), SYSUTCDATETIME(), @PossibleExistingAccountKey)
+                        @ComputedRiskScore, SYSUTCDATETIME(), SYSUTCDATETIME(), SYSUTCDATETIME(), @PossibleExistingAccountKey,
+                        @UserPrincipalName, @EmployeeId, @EmployeeNumber, @DirectoryAttributes,
+                        CASE WHEN @AttributesRead = 1 THEN SYSUTCDATETIME() END)
             OUTPUT INSERTED.DiscoveredAccountKey;
             """;
         return await connection.QuerySingleAsync<int>(sql, new
@@ -88,7 +97,12 @@ public sealed class DiscoveredAccountRepository(IDbConnectionFactory connectionF
             candidate.DisplayName,
             candidate.IsEnabled,
             ComputedRiskScore = computedRiskScore,
-            candidate.PossibleExistingAccountKey
+            candidate.PossibleExistingAccountKey,
+            candidate.AttributesRead,
+            candidate.UserPrincipalName,
+            candidate.EmployeeId,
+            candidate.EmployeeNumber,
+            candidate.DirectoryAttributes
         });
     }
 
@@ -230,7 +244,9 @@ public sealed class DiscoveredAccountRepository(IDbConnectionFactory connectionF
         ["samAccountName"] = "da.SamAccountName",
         ["computedRiskScore"] = "da.ComputedRiskScore",
         ["discoveredDate"] = "da.DiscoveredDate",
-        ["lastSeenDate"] = "da.LastSeenDate"
+        ["lastSeenDate"] = "da.LastSeenDate",
+        ["accountClass"] = "da.AccountClass",
+        ["ownerSamAccountName"] = "da.OwnerSamAccountName"
     };
 
     private const string SelectSql = """
@@ -240,9 +256,16 @@ public sealed class DiscoveredAccountRepository(IDbConnectionFactory connectionF
             da.DiscoveredDate, da.LastSeenDate, da.PossibleExistingAccountKey,
             fa.AccountName AS PossibleExistingAccountName,
             band.BandName AS RiskScoreBandName,
-            da.Status, da.ResolvedAccountKey, da.ReviewedBy, da.ReviewedDate
+            da.Status, da.ResolvedAccountKey, da.ReviewedBy, da.ReviewedDate,
+            da.AccountClass, da.ClassSource, da.ClassRuleKey,
+            cr.RuleType AS ClassRuleType, cr.AttributeName AS ClassRuleAttributeName, cr.Operator AS ClassRuleOperator, cr.Value AS ClassRuleValue,
+            da.OwnerSamAccountName, da.OwnerDisplayName, da.OwnerSource,
+            da.ClassOverride, da.OwnerOverrideSamAccountName, overrideBy.DisplayName AS OverrideByName, da.OverrideDate,
+            da.UserPrincipalName, da.EmployeeId
         FROM web.discovered_account da
         LEFT JOIN dbo.fact_account fa ON fa.AccountKey = da.PossibleExistingAccountKey
+        LEFT JOIN web.account_classification_rule cr ON cr.AccountClassificationRuleKey = da.ClassRuleKey
+        LEFT JOIN web.app_user overrideBy ON overrideBy.UserKey = da.OverrideBy
         LEFT JOIN web.dim_risk_score_band band ON da.ComputedRiskScore BETWEEN band.MinScore AND band.MaxScore
         """;
 
@@ -251,28 +274,33 @@ public sealed class DiscoveredAccountRepository(IDbConnectionFactory connectionF
         IReadOnlyList<(string Field, bool Descending)>? sortBy = null,
         int? page = null,
         int? pageSize = null,
-        string? status = "New")
+        string? status = "New",
+        string? accountClass = null)
     {
         var (normalizedPage, normalizedPageSize) = PagingParams.Normalize(page, pageSize);
-        return await QueryListAsync(sortBy, status, PagingParams.Offset(normalizedPage, normalizedPageSize), normalizedPageSize);
+        return await QueryListAsync(sortBy, status, accountClass, PagingParams.Offset(normalizedPage, normalizedPageSize), normalizedPageSize);
     }
 
     /// <summary>D-220: every row of the report (all pages, same order and Status filter), up to maxRows -- for the export.</summary>
-    public Task<IReadOnlyList<DiscoveredAccount>> GetExportRowsAsync(IReadOnlyList<(string Field, bool Descending)>? sortBy, int maxRows, string? status = "New") =>
-        QueryListAsync(sortBy, status, 0, maxRows);
+    public Task<IReadOnlyList<DiscoveredAccount>> GetExportRowsAsync(IReadOnlyList<(string Field, bool Descending)>? sortBy, int maxRows, string? status = "New", string? accountClass = null) =>
+        QueryListAsync(sortBy, status, accountClass, 0, maxRows);
 
-    private async Task<IReadOnlyList<DiscoveredAccount>> QueryListAsync(IReadOnlyList<(string Field, bool Descending)>? sortBy, string? status, int offset, int fetch)
+    /// <summary>D-233: the report's Class filter (Primary/Secondary/Admin/Unknown; null: every row).</summary>
+    private const string ClassFilterSql = "(@AccountClass IS NULL OR da.AccountClass = @AccountClass)";
+
+    private async Task<IReadOnlyList<DiscoveredAccount>> QueryListAsync(IReadOnlyList<(string Field, bool Descending)>? sortBy, string? status, string? accountClass, int offset, int fetch)
     {
         using var connection = connectionFactory.Create();
         var sql = $"""
             {SelectSql}
-            WHERE (@Status IS NULL OR da.Status = @Status)
+            WHERE (@Status IS NULL OR da.Status = @Status) AND {ClassFilterSql}
             ORDER BY {BuildOrderByClause(sortBy)}
             OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY
             """;
         var rows = await connection.QueryAsync<DiscoveredAccount>(sql, new
         {
             Status = status,
+            AccountClass = accountClass,
             Offset = offset,
             PageSize = fetch
         });
@@ -286,11 +314,12 @@ public sealed class DiscoveredAccountRepository(IDbConnectionFactory connectionF
         return await connection.QuerySingleAsync<int>("SELECT COUNT(*) FROM web.discovered_account");
     }
 
-    public async Task<int> GetFilteredCountAsync(string? status = "New")
+    public async Task<int> GetFilteredCountAsync(string? status = "New", string? accountClass = null)
     {
         using var connection = connectionFactory.Create();
         return await connection.QuerySingleAsync<int>(
-            "SELECT COUNT(*) FROM web.discovered_account WHERE (@Status IS NULL OR Status = @Status)", new { Status = status });
+            $"SELECT COUNT(*) FROM web.discovered_account da WHERE (@Status IS NULL OR da.Status = @Status) AND {ClassFilterSql}",
+            new { Status = status, AccountClass = accountClass });
     }
 
     private static string BuildOrderByClause(IReadOnlyList<(string Field, bool Descending)>? sortBy)

@@ -59,6 +59,7 @@ See `Claude_Docs/Design_Authentication-Architecture.md` for the full design, inc
 `System.DirectoryServices.AccountManagement`, used by two components under `App/Api/Ldap/` and `App/Api/AdDiscovery/`:
 - `LdapGroupMemberResolver` resolves a notification role's mapped AD group(s) to real recipient email addresses — **notification recipient resolution only**, not authentication.
 - `AdAccountDiscoveryService` (AD Account Discovery feature, 2026-09-16, D-137) enumerates real members of every already-inventoried Access Group's AD group, to find accounts not yet onboarded into CyberArk and risk-score them.
+- D-233: with account classification on, `AdAccountDiscoveryService` also runs `DirectorySearcher` searches (System.DirectoryServices, through the context's `PrincipalSearcher.GetUnderlyingSearcher()`) for UPN, employeeID/employeeNumber and an allow-list of attributes, 50 accounts per search, plus capped owner lookups (`Design_Risk-Scoring.md`, "Account classification").
 
 Both share `LdapContextFactory` for binding and read `web.ldap_config` — now a real per-domain table (one row per AD domain/forest, each independently enabled with its own bind credential or trusted connection), not the singleton it originally shipped as. Opt-in per row via `IsEnabled`.
 

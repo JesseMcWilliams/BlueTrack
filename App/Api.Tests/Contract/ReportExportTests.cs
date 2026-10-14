@@ -43,7 +43,7 @@ public class ReportExportTests : IClassFixture<BlueTrackWebApplicationFactory>
         { "/api/reports/unresolved-entitlement-members/export", "UnresolvedEntitlementMembers", "Safe,Member Type,Name,Member ID,Resolution,Membership Expiration,Snapshot Date", "TestUser.DoesNotExist" },
         { "/api/reports/risk-score/export", "RiskScore", "Account,Computed,Override,Effective,Risk Band,Stale?,Last Calculated", "TestUser.Viewer" },
         { "/api/reports/risk-exception-sod/export", "RiskExceptionSoD", "Exception ID,Account,User,Linked On", "TestUser.Viewer" },
-        { "/api/reports/discovered-accounts/export", "DiscoveredAccounts", "Account,Domain,Risk Score,Risk Band,First Discovered,Last Seen", "TestUser.Viewer" },
+        { "/api/reports/discovered-accounts/export", "DiscoveredAccounts", "Account,Domain,Account Class,Owner,Matched By,Risk Score,Risk Band,First Discovered,Last Seen", "TestUser.Viewer" },
         { "/api/reports/decom-safes/export", "SafesFlaggedForDeletion", "Safe,Source,Application,Accounts not yet deleted,Deleted accounts", "TestUser.DoesNotExist" },
         { "/api/reports/decom-accounts/export", "AccountsFlaggedForDeletion", "Username,Address,Account Name,Safe,Source,Flagged by,Note", "TestUser.DoesNotExist" },
         { "/api/reports/kpi-summary/export", "KpiSummary", "KPI,Count,Percentage", "TestUser.DoesNotExist" },

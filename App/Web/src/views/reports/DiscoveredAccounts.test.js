@@ -169,4 +169,113 @@ describe('DiscoveredAccounts.vue', () => {
     expect(confirmDelete).not.toHaveBeenCalled()
     expect(globalThis.fetch).toHaveBeenCalledWith('/api/reports/discovered-accounts/1/dismiss', { method: 'POST' })
   })
+
+  // D-233: account classification columns, Class filter and the per-row override.
+  const classifiedRow = {
+    ...sampleRow,
+    samAccountName: 'adm.jsmith',
+    accountClass: 'Admin',
+    classSource: 'Rule',
+    classRuleKey: 7,
+    classRuleType: 'Name',
+    classRuleAttributeName: 'sAMAccountName',
+    classRuleOperator: 'StartsWith',
+    classRuleValue: 'adm.',
+    ownerSamAccountName: 'jsmith',
+    ownerDisplayName: 'John Smith',
+    ownerSource: 'Name',
+    classOverride: null,
+    ownerOverrideSamAccountName: null
+  }
+
+  it('shows Account Class, Owner and Matched by', async () => {
+    mockInitialLoad({ rows: [classifiedRow] })
+    const wrapper = mount(DiscoveredAccounts)
+    await flushPromises()
+
+    const headers = wrapper.findAll('th').map(th => th.text())
+    expect(headers).toEqual(expect.arrayContaining([expect.stringContaining('Account Class'), expect.stringContaining('Owner'), 'Matched by']))
+    const cells = wrapper.findAll('tbody tr')[0].findAll('td').map(td => td.text())
+    expect(cells[2]).toBe('Admin')
+    expect(cells[3]).toBe('jsmith (John Smith)')
+    expect(cells[4]).toContain('sAMAccountName starts with "adm."')
+    expect(cells[4]).toContain('Owner by name')
+  })
+
+  it('shows Ambiguous, the default and a manual class in words', async () => {
+    mockInitialLoad({ rows: [
+      { ...sampleRow, discoveredAccountKey: 2, accountClass: 'Secondary', classSource: 'Rule', classRuleType: 'OU', classRuleOperator: 'Contains', classRuleValue: 'OU=Admins', ownerSource: 'Ambiguous' },
+      { ...sampleRow, discoveredAccountKey: 3, accountClass: 'Unknown', classSource: 'Default' },
+      { ...sampleRow, discoveredAccountKey: 4, accountClass: 'Primary', classSource: 'Manual', overrideByName: 'Pat Admin', ownerSamAccountName: 'jsmith', ownerSource: 'Manual' }
+    ] })
+    const wrapper = mount(DiscoveredAccounts)
+    await flushPromises()
+
+    const text = wrapper.text()
+    expect(text).toContain('distinguished name contains "OU=Admins"')
+    expect(text).toContain('Owner ambiguous')
+    expect(text).toContain('No rule matched')
+    expect(text).toContain('Set by Pat Admin')
+  })
+
+  it('the Class filter reloads page 1 with accountClass and passes it to the export', async () => {
+    mockInitialLoad({ rows: [classifiedRow] })
+    const wrapper = mount(DiscoveredAccounts)
+    await flushPromises()
+
+    await wrapper.get('select').setValue('Admin')
+    await flushPromises()
+
+    const last = globalThis.fetch.mock.calls.map(c => c[0]).filter(u => u.startsWith('/api/reports/discovered-accounts?')).at(-1)
+    expect(last).toContain('accountClass=Admin')
+    expect(last).toContain('page=1')
+
+    await wrapper.findAll('button').find(b => b.text() === 'Export CSV').trigger('click')
+    await flushPromises()
+    expect(globalThis.fetch.mock.calls.map(c => c[0]).some(u => u.startsWith('/api/reports/discovered-accounts/export?') && u.includes('accountClass=Admin'))).toBe(true)
+  })
+
+  it('has no Classify button without ManageDiscoveredAccounts', async () => {
+    mockInitialLoad({ rows: [classifiedRow] })
+    const wrapper = mount(DiscoveredAccounts)
+    await flushPromises()
+
+    expect(wrapper.findAll('button').some(b => b.text() === 'Classify')).toBe(false)
+  })
+
+  it('Classify saves a class/owner override, then reloads', async () => {
+    const rights = useRightsStore()
+    rights.permissionNames = ['ManageDiscoveredAccounts']
+    mockInitialLoad({ rows: [classifiedRow] })
+    const wrapper = mount(DiscoveredAccounts)
+    await flushPromises()
+
+    await wrapper.get('button[aria-label="Classify adm.jsmith"]').trigger('click')
+    const form = wrapper.get('form.override-form')
+    await form.get('select').setValue('Secondary')
+    await form.get('input').setValue('  jsmith ')
+    await form.trigger('submit')
+    await flushPromises()
+
+    const put = globalThis.fetch.mock.calls.find(c => c[0] === '/api/reports/discovered-accounts/1/classification')
+    expect(put[1].method).toBe('PUT')
+    expect(JSON.parse(put[1].body)).toEqual({ accountClass: 'Secondary', ownerSamAccountName: 'jsmith' })
+    expect(wrapper.find('form.override-form').exists()).toBe(false)
+  })
+
+  it('Clear Override sends nulls for both', async () => {
+    const rights = useRightsStore()
+    rights.permissionNames = ['ManageDiscoveredAccounts']
+    mockInitialLoad({ rows: [{ ...classifiedRow, classOverride: 'Primary', classSource: 'Manual' }] })
+    const wrapper = mount(DiscoveredAccounts)
+    await flushPromises()
+
+    await wrapper.get('button[aria-label="Classify adm.jsmith"]').trigger('click')
+    expect(wrapper.get('form.override-form select').element.value).toBe('Primary')
+    await wrapper.findAll('button').find(b => b.text() === 'Clear Override').trigger('click')
+    await flushPromises()
+
+    const put = globalThis.fetch.mock.calls.find(c => c[0] === '/api/reports/discovered-accounts/1/classification')
+    expect(JSON.parse(put[1].body)).toEqual({ accountClass: null, ownerSamAccountName: null })
+  })
 })

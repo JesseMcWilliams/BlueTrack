@@ -225,6 +225,8 @@ builder.Services.AddHostedService<NotificationCheckBackgroundService>();
 builder.Services.AddScoped<DiscoveredAccountRepository>();
 builder.Services.AddScoped<BlueTrack.Api.AdDiscovery.IAdDirectory, BlueTrack.Api.AdDiscovery.LdapAdDirectory>();   // D-214
 builder.Services.AddScoped<AdAccountDiscoveryService>();
+builder.Services.AddScoped<AccountClassificationRepository>();   // D-233
+builder.Services.AddScoped<BlueTrack.Api.AdDiscovery.AccountClassificationService>();
 builder.Services.AddHostedService<AdAccountDiscoveryBackgroundService>();
 
 // D-181 (Data Sources phase 2): scheduled CSV feeds over the phase 1 import

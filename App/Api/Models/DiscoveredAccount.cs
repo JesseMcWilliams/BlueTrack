@@ -37,6 +37,35 @@ public sealed class DiscoveredAccount
     public long? ResolvedAccountKey { get; init; }
     public int? ReviewedBy { get; init; }
     public DateTime? ReviewedDate { get; init; }
+
+    /// <summary>D-233: Primary | Secondary | Admin | Unknown (the override when there is one); null while classification is off and there's no override.</summary>
+    public string? AccountClass { get; init; }
+
+    /// <summary>D-233: Rule | Default | Manual.</summary>
+    public string? ClassSource { get; init; }
+
+    /// <summary>D-233: the rule that matched (ClassSource Rule), with its type, attribute, operator, value for the Matched by column.</summary>
+    public int? ClassRuleKey { get; init; }
+    public string? ClassRuleType { get; init; }
+    public string? ClassRuleAttributeName { get; init; }
+    public string? ClassRuleOperator { get; init; }
+    public string? ClassRuleValue { get; init; }
+
+    /// <summary>D-233: the owner's sAMAccountName and display name (same domain; possibly not itself a discovered account).</summary>
+    public string? OwnerSamAccountName { get; init; }
+    public string? OwnerDisplayName { get; init; }
+
+    /// <summary>D-233: Self | Name | EmployeeId | Ambiguous | Manual.</summary>
+    public string? OwnerSource { get; init; }
+
+    /// <summary>D-233: the manual override as set (both null: none), kept across discovery runs.</summary>
+    public string? ClassOverride { get; init; }
+    public string? OwnerOverrideSamAccountName { get; init; }
+    public string? OverrideByName { get; init; }
+    public DateTime? OverrideDate { get; init; }
+
+    public string? UserPrincipalName { get; init; }
+    public string? EmployeeId { get; init; }
 }
 
 /// <summary>
@@ -52,6 +81,15 @@ public sealed class DiscoveredAccountCandidate
     public string? ObjectSid { get; init; }
     public string? DisplayName { get; init; }
     public bool IsEnabled { get; init; }
+
+    /// <summary>D-233: true when the classification attributes below were read this run; false leaves the stored ones as they are.</summary>
+    public bool AttributesRead { get; init; }
+    public string? UserPrincipalName { get; init; }
+    public string? EmployeeId { get; init; }
+    public string? EmployeeNumber { get; init; }
+
+    /// <summary>D-233: the allow-listed attributes as a JSON object.</summary>
+    public string? DirectoryAttributes { get; init; }
     public required IReadOnlyList<int> MatchedAccessGroupKeys { get; init; }
     public long? PossibleExistingAccountKey { get; init; }
 }
