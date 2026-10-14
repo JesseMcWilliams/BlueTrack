@@ -13,6 +13,9 @@ import { useRightsStore } from '../../stores/rights'
 import FilterCountSummary from '../../components/FilterCountSummary.vue'
 import Pager from '../../components/Pager.vue'
 import ReportExportButtons from '../../components/ReportExportButtons.vue'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const { totalCount, filteredCount, readTotalCount } = useTotalCount()
 const pageSizeStore = usePageSizeStore()
@@ -49,13 +52,13 @@ const contributorsError = ref(null)
 const sortColumns = ref([])
 
 const columns = [
-  { field: 'accountName', label: 'Account' },
-  { field: 'computedRiskScore', label: 'Computed' },
-  { field: 'overrideRiskScore', label: 'Override' },
-  { field: 'effectiveRiskScore', label: 'Effective' },
-  { field: 'riskScoreBandName', label: 'Risk Band' },
-  { field: 'isRiskScoreStale', label: 'Stale?' },
-  { field: 'riskScoreCalculatedDate', label: 'Last Calculated' }
+  { field: 'accountName', labelKey: 'reports.riskScoreReport.colAccount' },
+  { field: 'computedRiskScore', labelKey: 'reports.riskScoreReport.colComputed' },
+  { field: 'overrideRiskScore', labelKey: 'reports.riskScoreReport.colOverride' },
+  { field: 'effectiveRiskScore', labelKey: 'reports.riskScoreReport.colEffective' },
+  { field: 'riskScoreBandName', labelKey: 'reports.riskScoreReport.colRiskBand' },
+  { field: 'isRiskScoreStale', labelKey: 'reports.riskScoreReport.colStale' },
+  { field: 'riskScoreCalculatedDate', labelKey: 'reports.riskScoreReport.colLastCalculated' }
 ]
 
 function sortIndicator(field) {
@@ -109,7 +112,7 @@ async function load() {
     params.set('page', page.value)
     params.set('pageSize', pageSizeStore.current)
     const response = await fetch(`/api/reports/risk-score?${params.toString()}`)
-    if (!response.ok) throw new Error(`Request failed: ${response.status}`)
+    if (!response.ok) throw new Error(t('common.requestFailed', { status: response.status }))
     readTotalCount(response)
     rows.value = await response.json()
   } catch (err) {
@@ -131,7 +134,7 @@ async function toggleDrilldown(accountKey) {
   contributorsLoading.value = true
   try {
     const response = await fetch(`/api/reports/risk-score/${accountKey}/contributors`)
-    if (!response.ok) throw new Error(`Request failed: ${response.status}`)
+    if (!response.ok) throw new Error(t('common.requestFailed', { status: response.status }))
     contributors.value = await response.json()
   } catch (err) {
     contributorsError.value = err.message
@@ -146,7 +149,7 @@ async function recalculateNow() {
   recalculated.value = false
   try {
     const response = await fetch('/api/reports/risk-score/recalculate', { method: 'POST' })
-    if (!response.ok) throw new Error(`Request failed: ${response.status}`)
+    if (!response.ok) throw new Error(t('common.requestFailed', { status: response.status }))
     recalculated.value = true
     await load()
   } catch (err) {
@@ -161,29 +164,26 @@ onMounted(load)
 
 <template>
   <div>
-    <h2>Risk Score</h2>
-    <p class="hint">
-      EffectiveRiskScore is the Override (if set) or otherwise the Computed score. Click a row's Account
-      name to see the real Targets/Access Groups behind its score.
-    </p>
+    <h2>{{ t('reports.riskScoreReport.title') }}</h2>
+    <p class="hint">{{ t('reports.riskScoreReport.hint') }}</p>
     <p v-if="rights.hasPermission('ManageTargets')">
       <button type="button" @click="recalculateNow" :disabled="recalculating">
-        {{ recalculating ? 'Recalculating...' : 'Recalculate Now' }}
+        {{ recalculating ? t('reports.riskScoreReport.recalculating') : t('reports.riskScoreReport.recalculateNow') }}
       </button>
-      <span v-if="recalculated" role="status"> Recalculated.</span>
+      <span v-if="recalculated" role="status">{{ ' ' + t('reports.riskScoreReport.recalculated') }}</span>
       <span v-if="recalculateError" role="alert"> {{ recalculateError }}</span>
     </p>
     <ReportExportButtons path="/api/reports/risk-score/export" :params="{ sort: sortQueryParam }" />
     <FilterCountSummary :shown="rows.length" :filtered-count="filteredCount" :total="totalCount" :page="page" :page-size="pageSizeStore.current" />
     <Pager :page="page" :page-count="pageCount" @update:page="onPageChange" @page-size-change="onPageSizeChange" />
-    <p v-if="loading" role="status">Loading...</p>
-    <p v-else-if="error" role="alert">Could not load report: {{ error }}</p>
+    <p v-if="loading" role="status">{{ t('common.loading') }}</p>
+    <p v-else-if="error" role="alert">{{ t('reports.riskScoreReport.loadFailed', { error }) }}</p>
     <table v-else>
       <thead>
         <tr>
           <th v-for="col in columns" :key="col.field" :aria-sort="ariaSortFor(col.field)">
             <button type="button" @click="toggleSort(col.field, $event)">
-              {{ col.label }} <span aria-hidden="true">{{ sortIndicator(col.field) }}</span>
+              {{ t(col.labelKey) }} <span aria-hidden="true">{{ sortIndicator(col.field) }}</span>
             </button>
           </th>
         </tr>
@@ -200,20 +200,20 @@ onMounted(load)
             <td>{{ row.overrideRiskScore ?? '—' }}</td>
             <td>{{ row.effectiveRiskScore ?? '—' }}</td>
             <td>{{ row.riskScoreBandName ?? '—' }}</td>
-            <td>{{ row.isRiskScoreStale ? 'Yes' : 'No' }}</td>
+            <td>{{ row.isRiskScoreStale ? t('reports.riskScoreReport.yes') : t('reports.riskScoreReport.no') }}</td>
             <td>{{ formatDate(row.riskScoreCalculatedDate) }}</td>
           </tr>
           <tr v-if="expandedAccountKey === row.accountKey">
             <td colspan="7">
-              <p v-if="contributorsLoading" role="status">Loading contributors...</p>
+              <p v-if="contributorsLoading" role="status">{{ t('reports.riskScoreReport.loadingContributors') }}</p>
               <p v-else-if="contributorsError" role="alert">{{ contributorsError }}</p>
-              <p v-else-if="contributors.length === 0">No contributing Targets or Access Groups found.</p>
+              <p v-else-if="contributors.length === 0">{{ t('reports.riskScoreReport.noContributors') }}</p>
               <table v-else class="drilldown-table">
                 <thead>
                   <tr>
-                    <th>Type</th>
-                    <th>Name</th>
-                    <th>Risk Value</th>
+                    <th>{{ t('reports.riskScoreReport.colType') }}</th>
+                    <th>{{ t('common.name') }}</th>
+                    <th>{{ t('reports.riskScoreReport.colRiskValue') }}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -230,7 +230,7 @@ onMounted(load)
       </tbody>
     </table>
     <Pager :page="page" :page-count="pageCount" @update:page="onPageChange" @page-size-change="onPageSizeChange" />
-    <p><small>Click a column to sort by it; shift-click another column to add it as a secondary sort key.</small></p>
+    <p><small>{{ t('reports.riskScoreReport.sortHelp') }}</small></p>
   </div>
 </template>
 

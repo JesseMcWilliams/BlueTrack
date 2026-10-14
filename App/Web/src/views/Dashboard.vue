@@ -5,6 +5,9 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRightsStore } from '../stores/rights'
 import { formatCount } from '../utils/formatCount'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const rights = useRightsStore()
 
@@ -20,7 +23,7 @@ const loading = ref(true)
 async function loadCount(key, url) {
   try {
     const response = await fetch(url)
-    if (!response.ok) throw new Error(`Request failed: ${response.status}`)
+    if (!response.ok) throw new Error(t('common.requestFailed', { status: response.status }))
     return (await response.json()).length
   } catch (err) {
     errors.value[key] = err.message
@@ -31,7 +34,7 @@ async function loadCount(key, url) {
 async function loadStageFunnel() {
   try {
     const response = await fetch('/api/reports/stage-status-summary')
-    if (!response.ok) throw new Error(`Request failed: ${response.status}`)
+    if (!response.ok) throw new Error(t('common.requestFailed', { status: response.status }))
     const rows = await response.json()
     // Zero-fills every stage (2026-09-06): the API now returns a row for
     // every (stage, status) combination, including ones with zero
@@ -107,11 +110,11 @@ const kpiFunnelBuckets = computed(() => {
   const s = kpiSummary.value
   if (!s) return []
   return [
-    { name: 'Out of Scope', count: s.totalAccounts - s.inScopeAccounts },
-    { name: 'In Scope, Not Onboarded', count: s.inScopeAccounts - s.onboardedAccounts },
-    { name: 'Onboarded, Not Managed', count: s.onboardedAccounts - s.managedAccounts },
-    { name: 'Managed, Not Compliant', count: s.managedAccounts - s.compliantAccounts },
-    { name: 'Compliant', count: s.compliantAccounts }
+    { name: t('pages.dashboard.bucketOutOfScope'), count: s.totalAccounts - s.inScopeAccounts },
+    { name: t('pages.dashboard.bucketInScopeNotOnboarded'), count: s.inScopeAccounts - s.onboardedAccounts },
+    { name: t('pages.dashboard.bucketOnboardedNotManaged'), count: s.onboardedAccounts - s.managedAccounts },
+    { name: t('pages.dashboard.bucketManagedNotCompliant'), count: s.managedAccounts - s.compliantAccounts },
+    { name: t('pages.dashboard.bucketCompliant'), count: s.compliantAccounts }
   ]
 })
 const kpiPieSlices = computed(() => buildPieSlices(kpiFunnelBuckets.value))
@@ -119,7 +122,7 @@ const kpiPieSlices = computed(() => buildPieSlices(kpiFunnelBuckets.value))
 async function loadKpiSummary() {
   try {
     const response = await fetch('/api/reports/kpi-summary')
-    if (!response.ok) throw new Error(`Request failed: ${response.status}`)
+    if (!response.ok) throw new Error(t('common.requestFailed', { status: response.status }))
     kpiSummary.value = await response.json()
   } catch (err) {
     errors.value.kpiSummary = err.message
@@ -152,18 +155,18 @@ onMounted(load)
 
 <template>
   <div>
-    <h1>Dashboard</h1>
-    <p v-if="loading" role="status">Loading...</p>
+    <h1>{{ t('pages.dashboard.title') }}</h1>
+    <p v-if="loading" role="status">{{ t('common.loading') }}</p>
 
     <template v-else>
       <section>
-        <h2>Accounts by Stage</h2>
+        <h2>{{ t('pages.dashboard.accountsByStage') }}</h2>
         <p v-if="errors.stageFunnel" role="alert">{{ errors.stageFunnel }}</p>
         <div v-else class="stage-funnel-layout">
           <div>
             <table>
               <thead>
-                <tr><th>Stage</th><th>Accounts</th></tr>
+                <tr><th>{{ t('pages.dashboard.stage') }}</th><th>{{ t('pages.dashboard.accounts') }}</th></tr>
               </thead>
               <tbody>
                 <tr v-for="stage in stageFunnel" :key="stage.stageName">
@@ -172,63 +175,63 @@ onMounted(load)
                 </tr>
               </tbody>
             </table>
-            <p>{{ formatCount(completedCount) }} account(s) Complete.</p>
+            <p>{{ t('pages.dashboard.completeCount', { count: formatCount(completedCount) }) }}</p>
           </div>
           <svg v-if="pieSlices.length > 0" class="stage-funnel-pie" viewBox="0 0 100 100" aria-hidden="true">
             <path v-for="slice in pieSlices" :key="slice.name" :d="slice.d" :fill="slice.color">
-              <title>{{ slice.name }}: {{ formatCount(slice.count) }}</title>
+              <title>{{ t('pages.dashboard.sliceTitle', { name: slice.name, count: formatCount(slice.count) }) }}</title>
             </path>
           </svg>
         </div>
-        <p><router-link :to="{ name: 'reports-stage-status-summary' }">View full stage/status breakdown</router-link></p>
+        <p><router-link :to="{ name: 'reports-stage-status-summary' }">{{ t('pages.dashboard.viewStageStatus') }}</router-link></p>
       </section>
 
       <section>
-        <h2>Key Progress Indicators</h2>
+        <h2>{{ t('pages.dashboard.kpiTitle') }}</h2>
         <p v-if="errors.kpiSummary" role="alert">{{ errors.kpiSummary }}</p>
         <div v-else-if="kpiSummary" class="stage-funnel-layout">
           <table>
             <thead>
-              <tr><th>KPI</th><th>Percentage</th></tr>
+              <tr><th>{{ t('pages.dashboard.kpi') }}</th><th>{{ t('pages.dashboard.percentage') }}</th></tr>
             </thead>
             <tbody>
-              <tr><td>In Scope vs. All Accounts</td><td>{{ kpiSummary.totalAccounts ? Math.round(kpiSummary.inScopeAccounts / kpiSummary.totalAccounts * 1000) / 10 + '%' : 'N/A' }}</td></tr>
-              <tr><td>Onboarded vs. In Scope</td><td>{{ kpiSummary.inScopeAccounts ? Math.round(kpiSummary.onboardedAccounts / kpiSummary.inScopeAccounts * 1000) / 10 + '%' : 'N/A' }}</td></tr>
-              <tr><td>Managed vs. Onboarded</td><td>{{ kpiSummary.onboardedAccounts ? Math.round(kpiSummary.managedAccounts / kpiSummary.onboardedAccounts * 1000) / 10 + '%' : 'N/A' }}</td></tr>
-              <tr><td>Compliant vs. Managed</td><td>{{ kpiSummary.managedAccounts ? Math.round(kpiSummary.compliantAccounts / kpiSummary.managedAccounts * 1000) / 10 + '%' : 'N/A' }}</td></tr>
+              <tr><td>{{ t('pages.dashboard.kpiInScope') }}</td><td>{{ kpiSummary.totalAccounts ? Math.round(kpiSummary.inScopeAccounts / kpiSummary.totalAccounts * 1000) / 10 + '%' : t('pages.dashboard.notApplicable') }}</td></tr>
+              <tr><td>{{ t('pages.dashboard.kpiOnboarded') }}</td><td>{{ kpiSummary.inScopeAccounts ? Math.round(kpiSummary.onboardedAccounts / kpiSummary.inScopeAccounts * 1000) / 10 + '%' : t('pages.dashboard.notApplicable') }}</td></tr>
+              <tr><td>{{ t('pages.dashboard.kpiManaged') }}</td><td>{{ kpiSummary.onboardedAccounts ? Math.round(kpiSummary.managedAccounts / kpiSummary.onboardedAccounts * 1000) / 10 + '%' : t('pages.dashboard.notApplicable') }}</td></tr>
+              <tr><td>{{ t('pages.dashboard.kpiCompliant') }}</td><td>{{ kpiSummary.managedAccounts ? Math.round(kpiSummary.compliantAccounts / kpiSummary.managedAccounts * 1000) / 10 + '%' : t('pages.dashboard.notApplicable') }}</td></tr>
             </tbody>
           </table>
           <svg v-if="kpiPieSlices.length > 0" class="stage-funnel-pie" viewBox="0 0 100 100" aria-hidden="true">
             <path v-for="slice in kpiPieSlices" :key="slice.name" :d="slice.d" :fill="slice.color">
-              <title>{{ slice.name }}: {{ formatCount(slice.count) }}</title>
+              <title>{{ t('pages.dashboard.sliceTitle', { name: slice.name, count: formatCount(slice.count) }) }}</title>
             </path>
           </svg>
         </div>
-        <p><router-link :to="{ name: 'reports-kpi-summary' }">View full KPI summary</router-link></p>
+        <p><router-link :to="{ name: 'reports-kpi-summary' }">{{ t('pages.dashboard.viewKpiSummary') }}</router-link></p>
       </section>
 
       <section>
-        <h2>Overdue / At-Risk Accounts</h2>
+        <h2>{{ t('pages.dashboard.overdueAtRiskTitle') }}</h2>
         <p v-if="errors.overdueAtRisk" role="alert">{{ errors.overdueAtRisk }}</p>
         <p v-else>
-          {{ formatCount(overdueAtRiskCount) }} account(s) overdue or at risk.
-          <router-link :to="{ name: 'reports-overdue-worklist' }">View worklist</router-link>
+          {{ t('pages.dashboard.overdueAtRiskCount', { count: formatCount(overdueAtRiskCount) }) }}
+          <router-link :to="{ name: 'reports-overdue-worklist' }">{{ t('pages.dashboard.viewWorklist') }}</router-link>
         </p>
       </section>
 
       <section>
-        <h2>Risk Exceptions Needing Attention</h2>
+        <h2>{{ t('pages.dashboard.exceptionsTitle') }}</h2>
         <p v-if="errors.overdueReview" role="alert">{{ errors.overdueReview }}</p>
         <p v-else>
-          {{ formatCount(overdueReviewCount) }} exception(s) past their review date.
-          <router-link :to="{ name: 'risk-exceptions-overdue-worklist' }">View worklist</router-link>
+          {{ t('pages.dashboard.overdueReviewCount', { count: formatCount(overdueReviewCount) }) }}
+          <router-link :to="{ name: 'risk-exceptions-overdue-worklist' }">{{ t('pages.dashboard.viewWorklist') }}</router-link>
         </p>
 
         <template v-if="rights.hasPermission('ApproveExceptions')">
           <p v-if="errors.activeExceptions" role="alert">{{ errors.activeExceptions }}</p>
           <p v-else>
-            {{ formatCount(activeExceptionsCount) }} active exception(s) awaiting approval.
-            <router-link :to="{ name: 'risk-exceptions-approval-worklist' }">View worklist</router-link>
+            {{ t('pages.dashboard.activeExceptionsCount', { count: formatCount(activeExceptionsCount) }) }}
+            <router-link :to="{ name: 'risk-exceptions-approval-worklist' }">{{ t('pages.dashboard.viewWorklist') }}</router-link>
           </p>
         </template>
       </section>

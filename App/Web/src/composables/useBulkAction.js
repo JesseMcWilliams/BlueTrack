@@ -1,4 +1,5 @@
 import { ref } from 'vue'
+import { t } from '../i18n'
 
 // D-190: runs one bulk action (a POST of the selected keys plus the action's
 // own values) and keeps its outcome for the page: result = { requested,
@@ -22,7 +23,7 @@ export function useBulkAction(selection) {
       })
       if (!response.ok) {
         const problem = await response.json().catch(() => null)
-        error.value = problem?.detail ?? `Failed: ${response.status}`
+        error.value = problem?.detail ?? t('shell.bulkResult.failed', { status: response.status })
         return false
       }
       result.value = { ...(await response.json()), verb }

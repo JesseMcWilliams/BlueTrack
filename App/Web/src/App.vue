@@ -6,12 +6,14 @@
 // gated on its own ManageTargets/ManageAccessGroups permission), promoted
 // out of the Admin hub now that Analyst holds those permissions too.
 import { ref, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import Breadcrumbs from './components/Breadcrumbs.vue'
 import ConfirmDialog from './components/ConfirmDialog.vue'
 import UserMenu from './components/UserMenu.vue'
 import { useIdleSignOut } from './composables/useIdleSignOut'
 import { useRightsStore } from './stores/rights'
 
+const { t } = useI18n()
 const rights = useRightsStore()
 useIdleSignOut() // D-209: sign out after Idle Timeout without activity
 
@@ -27,7 +29,8 @@ useIdleSignOut() // D-209: sign out after Idle Timeout without activity
 // ModifiedDate is the closest available signal for "enabled since," not
 // a dedicated one -- see IdentityProviderDetail.cs's own comment on why
 // that's an approximation, not exact.
-const devFakeAuthWarning = ref(null)
+// D-227: the date it was enabled since; the text is rendered from shell.json.
+const devFakeAuthSince = ref(null)
 const DEV_FAKE_AUTH_STALE_DAYS = 7
 
 async function checkDevFakeAuthDuration() {
@@ -41,9 +44,7 @@ async function checkDevFakeAuthDuration() {
 
     const enabledDays = (Date.now() - new Date(devFakeAuth.modifiedDate).getTime()) / (1000 * 60 * 60 * 24)
     if (enabledDays >= DEV_FAKE_AUTH_STALE_DAYS) {
-      devFakeAuthWarning.value =
-        `DevFakeAuth has been enabled for over ${DEV_FAKE_AUTH_STALE_DAYS} days (since ${devFakeAuth.modifiedDate.slice(0, 10)}). ` +
-        'It bypasses real authentication and should only be left on briefly during local development.'
+      devFakeAuthSince.value = devFakeAuth.modifiedDate.slice(0, 10)
     }
   } catch {
     // Non-fatal -- this is an advisory banner, not a page any user needs to load.
@@ -58,7 +59,7 @@ async function checkDevFakeAuthDuration() {
 // GET /api/auth/providers rather than something permission-gated,
 // deliberately: anyone looking at this environment, signed in or not,
 // should immediately know it isn't running with normal authentication.
-const negotiateDisabledWarning = ref(null)
+const negotiateDisabled = ref(false)
 
 async function checkNegotiateDisabled() {
   try {
@@ -66,9 +67,7 @@ async function checkNegotiateDisabled() {
     if (!response.ok) return
     const data = await response.json()
     if (data.negotiateDisabled) {
-      negotiateDisabledWarning.value =
-        'Development mode: Windows Integrated Authentication is disabled in this environment. ' +
-        'This configuration must never be used outside local development or automated testing.'
+      negotiateDisabled.value = true
     }
   } catch {
     // Non-fatal -- this is an advisory banner, not a page any user needs to load.
@@ -90,29 +89,29 @@ onMounted(async () => {
 
 <template>
   <div id="layout">
-    <a href="#main-content" class="skip-link visually-hidden">Skip to main content</a>
+    <a href="#main-content" class="skip-link visually-hidden">{{ t('shell.app.skipToMain') }}</a>
     <!-- D-124: Dashboard always leftmost, the working pages alphabetical by
          label (Access Groups, Accounts, Exceptions, Targets); D-213: then
          Reports, and Admin always last. The user menu (D-206: the signed-in
          user's name, with Profile & Preferences, About and Sign out) stays
          pinned right. -->
-    <nav class="top-nav" aria-label="Primary">
-      <router-link :to="{ name: 'dashboard' }">Dashboard</router-link>
+    <nav class="top-nav" :aria-label="t('shell.nav.ariaLabel')">
+      <router-link :to="{ name: 'dashboard' }">{{ t('shell.nav.dashboard') }}</router-link>
       <!-- D-121: Targets/Access Groups gated per-permission here (unlike
            Dashboard/Accounts/Exceptions/Reports/Admin, which need no gate
            of their own), same hasPermission() pattern AdminHub.vue's own
            sidebar already uses for each of its sections. -->
-      <router-link v-if="rights.hasPermission('ManageAccessGroups')" :to="{ name: 'access-groups' }">Access Groups</router-link>
-      <router-link :to="{ name: 'account-progress-list' }">Accounts</router-link>
-      <router-link :to="{ name: 'risk-exceptions-list' }">Exceptions</router-link>
-      <router-link v-if="rights.hasPermission('ManageTargets')" :to="{ name: 'targets' }">Targets</router-link>
-      <router-link :to="{ name: 'reports' }">Reports</router-link>
-      <router-link :to="{ name: 'admin' }">Admin</router-link>
+      <router-link v-if="rights.hasPermission('ManageAccessGroups')" :to="{ name: 'access-groups' }">{{ t('shell.nav.accessGroups') }}</router-link>
+      <router-link :to="{ name: 'account-progress-list' }">{{ t('shell.nav.accounts') }}</router-link>
+      <router-link :to="{ name: 'risk-exceptions-list' }">{{ t('shell.nav.exceptions') }}</router-link>
+      <router-link v-if="rights.hasPermission('ManageTargets')" :to="{ name: 'targets' }">{{ t('shell.nav.targets') }}</router-link>
+      <router-link :to="{ name: 'reports' }">{{ t('shell.nav.reports') }}</router-link>
+      <router-link :to="{ name: 'admin' }">{{ t('shell.nav.admin') }}</router-link>
       <UserMenu v-if="rights.authenticated" />
     </nav>
     <Breadcrumbs />
-    <p v-if="negotiateDisabledWarning" role="alert" class="dev-fake-auth-warning">{{ negotiateDisabledWarning }}</p>
-    <p v-if="devFakeAuthWarning" role="alert" class="dev-fake-auth-warning">{{ devFakeAuthWarning }}</p>
+    <p v-if="negotiateDisabled" role="alert" class="dev-fake-auth-warning">{{ t('shell.app.negotiateDisabledWarning') }}</p>
+    <p v-if="devFakeAuthSince" role="alert" class="dev-fake-auth-warning">{{ t('shell.app.devFakeAuthWarning', { days: DEV_FAKE_AUTH_STALE_DAYS, since: devFakeAuthSince }) }}</p>
     <!-- D-92: route-change focus target (router/index.js's afterEach hook
          moves focus here) -- a client-routed SPA gives assistive tech no
          "page changed" signal otherwise. tabindex="-1" lets it receive

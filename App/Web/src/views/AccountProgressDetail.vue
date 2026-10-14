@@ -8,6 +8,9 @@ import { useRightsStore } from '../stores/rights'
 import { formatDate } from '../utils/formatDate'
 import { decomNote } from '../utils/decomNote'
 import { formatCount } from '../utils/formatCount'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const props = defineProps({ accountKey: { type: [String, Number], required: true } })
 const router = useRouter()
@@ -115,7 +118,7 @@ async function recalculate() {
   try {
     const response = await fetch(`/api/account-progress/${props.accountKey}/recalculate-risk-score`, { method: 'POST' })
     if (!response.ok) {
-      recalculateError.value = `Recalculate failed: ${response.status}`
+      recalculateError.value = t('pages.accountProgressDetail.recalculateFailed', { status: response.status })
       return
     }
     await refreshDetail()
@@ -131,7 +134,7 @@ async function saveOverride() {
     ? null
     : overrideScoreInput.value
   if (score !== null && !overrideReasonInput.value.trim()) {
-    overrideError.value = 'A Reason is required when setting an override.'
+    overrideError.value = t('pages.accountProgressDetail.reasonRequired')
     return
   }
   overrideSaving.value = true
@@ -143,7 +146,7 @@ async function saveOverride() {
     })
     if (!response.ok) {
       const problem = await response.json().catch(() => null)
-      overrideError.value = problem?.detail ?? `Save failed: ${response.status}`
+      overrideError.value = problem?.detail ?? t('common.saveFailed', { status: response.status })
       return
     }
     overrideReasonInput.value = ''
@@ -196,13 +199,13 @@ watch(isRiskAccepted, async (nowRiskAccepted) => {
 // to whichever tab happens to be open.
 const activeTab = ref('details')
 const tabs = computed(() => [
-  { key: 'details', label: 'Details' },
-  { key: 'risk-score', label: 'Risk Score' },
-  ...(isRiskAccepted.value ? [{ key: 'risk-exception', label: 'Risk Exception' }] : [])
+  { key: 'details', labelKey: 'pages.accountProgressDetail.tabDetails' },
+  { key: 'risk-score', labelKey: 'pages.accountProgressDetail.tabRiskScore' },
+  ...(isRiskAccepted.value ? [{ key: 'risk-exception', labelKey: 'pages.accountProgressDetail.tabRiskException' }] : [])
 ])
 
 function onTabKeydown(event) {
-  const currentIndex = tabs.value.findIndex(t => t.key === activeTab.value)
+  const currentIndex = tabs.value.findIndex(tab => tab.key === activeTab.value)
   let targetIndex = null
   if (event.key === 'ArrowRight') targetIndex = (currentIndex + 1) % tabs.value.length
   else if (event.key === 'ArrowLeft') targetIndex = (currentIndex - 1 + tabs.value.length) % tabs.value.length
@@ -219,7 +222,7 @@ async function loadLinkableExceptions() {
   exceptionError.value = null
   try {
     const response = await fetch(`/api/risk-exceptions?accountKey=${props.accountKey}&status=Active`)
-    if (!response.ok) throw new Error(`Request failed: ${response.status}`)
+    if (!response.ok) throw new Error(t('common.requestFailed', { status: response.status }))
     linkableExceptions.value = await response.json()
   } catch (err) {
     exceptionError.value = err.message
@@ -241,7 +244,7 @@ async function createInlineException() {
       })
     })
     if (!response.ok) {
-      exceptionError.value = `Could not create exception: ${response.status}`
+      exceptionError.value = t('pages.accountProgressDetail.couldNotCreateException', { status: response.status })
       return
     }
     const created = await response.json()
@@ -278,9 +281,9 @@ async function load() {
       fetch(`/api/account-progress/${props.accountKey}/lock`),
       fetch(`/api/account-progress/${props.accountKey}/application-exceptions`)
     ])
-    if (!metaResponse.ok) throw new Error(`Field metadata request failed: ${metaResponse.status}`)
-    if (!refResponse.ok) throw new Error(`Reference data request failed: ${refResponse.status}`)
-    if (!detailResponse.ok) throw new Error(`Account request failed: ${detailResponse.status}`)
+    if (!metaResponse.ok) throw new Error(t('pages.accountProgressDetail.fieldMetadataFailed', { status: metaResponse.status }))
+    if (!refResponse.ok) throw new Error(t('pages.accountProgressDetail.referenceDataFailed', { status: refResponse.status }))
+    if (!detailResponse.ok) throw new Error(t('pages.accountProgressDetail.accountRequestFailed', { status: detailResponse.status }))
 
     fieldMetadata.value = await metaResponse.json()
     referenceData.value = await refResponse.json()
@@ -342,7 +345,7 @@ async function acquireLock() {
     lockStatus.value = await response.json()
     lockedByMe.value = false
   } else {
-    error.value = `Could not acquire edit lock: ${response.status}`
+    error.value = t('pages.accountProgressDetail.couldNotAcquireLock', { status: response.status })
   }
 }
 
@@ -356,7 +359,7 @@ async function forceRelease() {
     lockStatus.value = null
     await acquireLock()
   } else {
-    error.value = `Force-release failed: ${response.status}`
+    error.value = t('pages.accountProgressDetail.forceReleaseFailed', { status: response.status })
   }
 }
 
@@ -386,11 +389,11 @@ async function save() {
     if (!response.ok) {
       if (response.status === 400) {
         const problem = await response.json()
-        saveError.value = problem.detail || 'Validation failed.'
+        saveError.value = problem.detail || t('pages.accountProgressDetail.validationFailed')
       } else if (response.status === 409) {
-        saveError.value = 'This record is no longer locked by you -- reload the page.'
+        saveError.value = t('pages.accountProgressDetail.noLongerLocked')
       } else {
-        saveError.value = `Save failed: ${response.status}`
+        saveError.value = t('common.saveFailed', { status: response.status })
       }
       return
     }
@@ -459,7 +462,7 @@ async function applyDeletion() {
   })
   const result = await response.json().catch(() => null)
   if (!response.ok) {
-    deletionError.value = result?.detail ?? `Failed: ${response.status}`
+    deletionError.value = result?.detail ?? t('pages.accountProgressDetail.failed', { status: response.status })
     return
   }
   if (result.skipped.length) {
@@ -480,61 +483,63 @@ onUnmounted(releaseLock)
 
 <template>
   <div>
-    <h1>Account Progress — {{ detail?.accountName ?? accountKey }}</h1>
-    <p v-if="loading" role="status">Loading...</p>
+    <h1>{{ t('pages.accountProgressDetail.title', { name: detail?.accountName ?? accountKey }) }}</h1>
+    <p v-if="loading" role="status">{{ t('common.loading') }}</p>
     <p v-else-if="error" role="alert">{{ error }}</p>
 
     <template v-else>
       <div v-if="decomNote(detail)" class="decom-notice" role="note">
-        <strong>⚠ Flagged for deletion.</strong> {{ decomNote(detail) }}
-        <template v-if="!detail.isDeleted"> The account itself hasn't been deleted yet.</template>
+        <strong>{{ t('pages.accountProgressDetail.flaggedForDeletion') }}</strong> {{ decomNote(detail) }}
+        <template v-if="!detail.isDeleted">{{ ' ' + t('pages.accountProgressDetail.notYetDeleted') }}</template>
       </div>
       <div v-if="detail.isDeleted" class="deleted-notice" role="note">
-        <strong>This account is deleted.</strong>
-        <template v-if="detail.deletedByName"> Deleted in BlueTrack by {{ detail.deletedByName }} on {{ formatDate(detail.deletedAt) }}: {{ detail.deletionReason }}</template>
-        <template v-if="detail.isDeletedInSource && detail.isInIgnoredSafe"> Not imported (ignored safe): its safe matches the ignored safe pattern.</template>
-        <template v-else-if="detail.isDeletedInSource"> Deleted in CyberArk.</template>
+        <strong>{{ t('pages.accountProgressDetail.isDeleted') }}</strong>
+        <template v-if="detail.deletedByName">{{ ' ' + t('pages.accountProgressDetail.deletedByOn', { name: detail.deletedByName, date: formatDate(detail.deletedAt), reason: detail.deletionReason }) }}</template>
+        <template v-if="detail.isDeletedInSource && detail.isInIgnoredSafe">{{ ' ' + t('pages.accountProgressDetail.notImportedIgnoredSafe') }}</template>
+        <template v-else-if="detail.isDeletedInSource">{{ ' ' + t('pages.accountProgressDetail.deletedInCyberArk') }}</template>
       </div>
       <div v-if="rights.hasPermission('DeleteAccounts')" class="deletion-controls">
-        <button v-if="!detail.deletedByName" type="button" @click="deletionAction = 'delete'">Delete account…</button>
-        <button v-else type="button" @click="deletionAction = 'undelete'">Undelete account…</button>
+        <button v-if="!detail.deletedByName" type="button" @click="deletionAction = 'delete'">{{ t('pages.accountProgressDetail.deleteAccount') }}</button>
+        <button v-else type="button" @click="deletionAction = 'undelete'">{{ t('pages.accountProgressDetail.undeleteAccount') }}</button>
         <form v-if="deletionAction" @submit.prevent="applyDeletion">
-          <label class="field-label"><span class="field-label-text">Reason to {{ deletionAction }}:</span> <input v-model="deletionReason" size="60" maxlength="1000" required /></label>
-          <button type="submit" class="btn-primary" :disabled="!deletionReason.trim()">{{ deletionAction === 'delete' ? 'Delete' : 'Undelete' }}</button>
-          <button type="button" @click="deletionAction = null">Cancel</button>
+          <label class="field-label"><span class="field-label-text">{{ deletionAction === 'delete' ? t('pages.accountProgressDetail.reasonToDelete') : t('pages.accountProgressDetail.reasonToUndelete') }}</span> <input v-model="deletionReason" size="60" maxlength="1000" required /></label>
+          <button type="submit" class="btn-primary" :disabled="!deletionReason.trim()">{{ deletionAction === 'delete' ? t('common.delete') : t('pages.accountProgressDetail.undelete') }}</button>
+          <button type="button" @click="deletionAction = null">{{ t('common.cancel') }}</button>
           <p v-if="deletionError" role="alert">{{ deletionError }}</p>
         </form>
       </div>
       <details v-if="deletionHistory.length" class="deletion-history">
-        <summary>Delete / undelete history ({{ formatCount(deletionHistory.length) }})</summary>
+        <summary>{{ t('pages.accountProgressDetail.historyTitle', { count: formatCount(deletionHistory.length) }) }}</summary>
         <ul>
           <li v-for="h in deletionHistory" :key="`${h.performedAt}-${h.action}`">
-            {{ formatDate(h.performedAt) }}: {{ h.action === 'Delete' ? 'Deleted' : 'Undeleted' }} by {{ h.performedByName }} -- {{ h.reason }}
+            {{ t(h.action === 'Delete' ? 'pages.accountProgressDetail.historyDeleted' : 'pages.accountProgressDetail.historyUndeleted', { date: formatDate(h.performedAt), name: h.performedByName, reason: h.reason }) }}
           </li>
         </ul>
       </details>
       <div v-if="applicationExceptions.length > 0">
-        <p v-for="ex in applicationExceptions" :key="ex.exceptionID">
-          Covered by application-scoped exception <strong>{{ ex.exceptionID }}</strong> ({{ ex.applicationName }}), reviewed by {{ formatDate(ex.reviewDate) }}.
-        </p>
+        <i18n-t v-for="ex in applicationExceptions" :key="ex.exceptionID" keypath="pages.accountProgressDetail.coveredByAppException" tag="p" scope="global">
+          <template #id><strong>{{ ex.exceptionID }}</strong></template>
+          <template #application>{{ ex.applicationName }}</template>
+          <template #date>{{ formatDate(ex.reviewDate) }}</template>
+        </i18n-t>
       </div>
       <p v-if="lockStatus && !lockedByMe">
-        Currently being edited by {{ lockStatus.lockedByName }} since {{ lockStatus.lockedAt }}.
-        <button v-if="rights.hasPermission('EditAccountProgress')" @click="forceRelease">Force Release Lock</button>
+        {{ t('pages.accountProgressDetail.lockedBy', { name: lockStatus.lockedByName, since: lockStatus.lockedAt }) }}
+        <button v-if="rights.hasPermission('EditAccountProgress')" @click="forceRelease">{{ t('pages.accountProgressDetail.forceRelease') }}</button>
       </p>
 
       <div class="account-progress-identity">
         <p class="account-progress-identity-primary">
-          <span class="account-progress-identity-item"><strong>Username:</strong> {{ detail.userName ?? '—' }}</span>
-          <span class="account-progress-identity-item"><strong>Address:</strong> {{ detail.address ?? '—' }}</span>
+          <span class="account-progress-identity-item"><strong>{{ t('pages.accountProgressDetail.username') }}</strong> {{ detail.userName ?? '—' }}</span>
+          <span class="account-progress-identity-item"><strong>{{ t('pages.accountProgressDetail.address') }}</strong> {{ detail.address ?? '—' }}</span>
         </p>
-        <p class="account-progress-identity-secondary"><strong>Account Name:</strong> {{ detail.accountName }}</p>
+        <p class="account-progress-identity-secondary"><strong>{{ t('pages.accountProgressDetail.accountName') }}</strong> {{ detail.accountName }}</p>
       </div>
 
       <form v-if="lockedByMe" @submit.prevent="save">
         <p v-if="saveError" role="alert">{{ saveError }}</p>
 
-        <div role="tablist" class="account-progress-tabs" aria-label="Account Progress sections">
+        <div role="tablist" class="account-progress-tabs" :aria-label="t('pages.accountProgressDetail.sectionsLabel')">
           <button
             v-for="tab in tabs"
             :key="tab.key"
@@ -548,7 +553,7 @@ onUnmounted(releaseLock)
             :tabindex="activeTab === tab.key ? 0 : -1"
             @click="activeTab = tab.key"
             @keydown="onTabKeydown"
-          >{{ tab.label }}</button>
+          >{{ t(tab.labelKey) }}</button>
         </div>
 
         <div
@@ -562,7 +567,7 @@ onUnmounted(releaseLock)
               <span class="field-label-text">{{ field.displayLabel }}<span v-if="field.isRequired"> *</span>:</span>
 
               <select v-if="field.fieldType === 'Dropdown'" v-model="form[formKeyByFieldName[field.fieldName]]" :required="field.isRequired">
-                <option value="">(none)</option>
+                <option value="">{{ t('common.none') }}</option>
                 <option v-for="opt in optionsFor(field)" :key="opt.key" :value="opt.key">{{ opt.name }}</option>
               </select>
 
@@ -582,23 +587,23 @@ onUnmounted(releaseLock)
           aria-labelledby="account-progress-tab-risk-score"
         >
           <dl>
-            <dt>Calculated Risk</dt><dd>{{ detail.computedRiskScore ?? '(not yet calculated)' }}</dd>
-            <dt>Risk Band</dt><dd>{{ detail.riskScoreBandName ?? '—' }}</dd>
-            <dt>Effective Risk Score</dt><dd>{{ detail.effectiveRiskScore ?? '—' }}</dd>
+            <dt>{{ t('pages.accountProgressDetail.calculatedRisk') }}</dt><dd>{{ detail.computedRiskScore ?? t('pages.accountProgressDetail.notYetCalculated') }}</dd>
+            <dt>{{ t('pages.accountProgressDetail.riskBand') }}</dt><dd>{{ detail.riskScoreBandName ?? '—' }}</dd>
+            <dt>{{ t('pages.accountProgressDetail.effectiveRiskScore') }}</dt><dd>{{ detail.effectiveRiskScore ?? '—' }}</dd>
           </dl>
           <p v-if="recalculateError" role="alert">{{ recalculateError }}</p>
           <p>
-            <button type="button" class="account-progress-recalculate" :disabled="recalculating" @click="recalculate">{{ recalculating ? 'Recalculating…' : 'Recalculate' }}</button>
+            <button type="button" class="account-progress-recalculate" :disabled="recalculating" @click="recalculate">{{ recalculating ? t('pages.accountProgressDetail.recalculating') : t('pages.accountProgressDetail.recalculate') }}</button>
           </p>
           <p v-if="overrideError" role="alert">{{ overrideError }}</p>
           <p>
-            <label class="field-label"><span class="field-label-text">Override Score (0-1000, blank clears it):</span>
+            <label class="field-label"><span class="field-label-text">{{ t('pages.accountProgressDetail.overrideScore') }}</span>
               <input v-model.number="overrideScoreInput" type="number" min="0" max="1000" />
             </label>
-            <label class="field-label"><span class="field-label-text">Reason:</span>
+            <label class="field-label"><span class="field-label-text">{{ t('pages.accountProgressDetail.reason') }}</span>
               <input v-model="overrideReasonInput" type="text" />
             </label>
-            <button type="button" :disabled="overrideSaving" @click="saveOverride">Save Override</button>
+            <button type="button" :disabled="overrideSaving" @click="saveOverride">{{ t('pages.accountProgressDetail.saveOverride') }}</button>
           </p>
         </div>
 
@@ -609,13 +614,13 @@ onUnmounted(releaseLock)
           role="tabpanel"
           aria-labelledby="account-progress-tab-risk-exception"
         >
-          <p>Status is Risk Accepted / Excluded -- link an existing Active exception for this account, or create one.</p>
+          <p>{{ t('pages.accountProgressDetail.riskAcceptedHint') }}</p>
           <p v-if="exceptionError" role="alert">{{ exceptionError }}</p>
           <p>
             <label class="field-label">
-              <span class="field-label-text">Linked Exception:</span>
+              <span class="field-label-text">{{ t('pages.accountProgressDetail.linkedException') }}</span>
               <select v-model="selectedExceptionKey" required>
-                <option value="" disabled>Select an exception</option>
+                <option value="" disabled>{{ t('pages.accountProgressDetail.selectException') }}</option>
                 <option v-for="ex in linkableExceptions" :key="ex.exceptionKey" :value="ex.exceptionKey">
                   {{ ex.exceptionID }} -- {{ ex.justification }}
                 </option>
@@ -623,21 +628,21 @@ onUnmounted(releaseLock)
             </label>
           </p>
           <button type="button" @click="showCreateExceptionForm = !showCreateExceptionForm">
-            {{ showCreateExceptionForm ? 'Cancel New Exception' : '+ Create New Exception' }}
+            {{ showCreateExceptionForm ? t('pages.accountProgressDetail.cancelNewException') : t('pages.accountProgressDetail.createNewException') }}
           </button>
           <div v-if="showCreateExceptionForm">
-            <p><label class="field-label"><span class="field-label-text">Justification:</span> <textarea v-model="newException.justification" required></textarea></label></p>
-            <p><label class="field-label"><span class="field-label-text">Review Date:</span> <input v-model="newException.reviewDate" type="date" required /></label></p>
-            <p><label class="field-label"><span class="field-label-text">External Ticket Reference:</span> <input v-model="newException.externalTicketReference" type="text" /></label></p>
-            <button type="button" class="btn-primary" :disabled="creatingException" @click="createInlineException">Create Exception</button>
+            <p><label class="field-label"><span class="field-label-text">{{ t('pages.accountProgressDetail.justification') }}</span> <textarea v-model="newException.justification" required></textarea></label></p>
+            <p><label class="field-label"><span class="field-label-text">{{ t('pages.accountProgressDetail.reviewDate') }}</span> <input v-model="newException.reviewDate" type="date" required /></label></p>
+            <p><label class="field-label"><span class="field-label-text">{{ t('pages.accountProgressDetail.externalTicketReference') }}</span> <input v-model="newException.externalTicketReference" type="text" /></label></p>
+            <button type="button" class="btn-primary" :disabled="creatingException" @click="createInlineException">{{ t('pages.accountProgressDetail.createException') }}</button>
           </div>
         </div>
 
         <p>
-          <label class="field-label"><span class="field-label-text">Reason (required only if regressing to an earlier stage):</span> <input v-model="reason" type="text" /></label>
+          <label class="field-label"><span class="field-label-text">{{ t('pages.accountProgressDetail.regressionReason') }}</span> <input v-model="reason" type="text" /></label>
         </p>
-        <button type="submit" class="btn-primary" :disabled="saving">Save</button>
-        <button type="button" @click="cancelEdit">Cancel</button>
+        <button type="submit" class="btn-primary" :disabled="saving">{{ t('common.save') }}</button>
+        <button type="button" @click="cancelEdit">{{ t('common.cancel') }}</button>
       </form>
 
       <dl v-else>
@@ -645,16 +650,16 @@ onUnmounted(releaseLock)
           <dt>{{ field.displayLabel }}</dt>
           <dd>{{ displayValueFor(field) }}</dd>
         </template>
-        <dt>Last Updated</dt><dd>{{ formatDate(detail.lastUpdated) }}</dd>
-        <dt>Calculated Risk</dt><dd>{{ detail.computedRiskScore ?? '(not yet calculated)' }}</dd>
-        <dt>Risk Band</dt><dd>{{ detail.riskScoreBandName ?? '—' }}</dd>
-        <dt>Effective Risk Score</dt><dd>{{ detail.effectiveRiskScore ?? '—' }}</dd>
+        <dt>{{ t('pages.accountProgressDetail.lastUpdated') }}</dt><dd>{{ formatDate(detail.lastUpdated) }}</dd>
+        <dt>{{ t('pages.accountProgressDetail.calculatedRisk') }}</dt><dd>{{ detail.computedRiskScore ?? t('pages.accountProgressDetail.notYetCalculated') }}</dd>
+        <dt>{{ t('pages.accountProgressDetail.riskBand') }}</dt><dd>{{ detail.riskScoreBandName ?? '—' }}</dd>
+        <dt>{{ t('pages.accountProgressDetail.effectiveRiskScore') }}</dt><dd>{{ detail.effectiveRiskScore ?? '—' }}</dd>
         <template v-if="detail.overrideRiskScore !== null">
-          <dt>Override Risk Score</dt><dd>{{ detail.overrideRiskScore }}</dd>
+          <dt>{{ t('pages.accountProgressDetail.overrideRiskScore') }}</dt><dd>{{ detail.overrideRiskScore }}</dd>
         </template>
         <template v-if="linkedException">
-          <dt>Risk Exception</dt>
-          <dd>{{ linkedException.exceptionID }} ({{ linkedException.statusName }}) — {{ linkedException.justification }}, reviewed {{ formatDate(linkedException.reviewDate) }}</dd>
+          <dt>{{ t('pages.accountProgressDetail.riskException') }}</dt>
+          <dd>{{ t('pages.accountProgressDetail.linkedExceptionValue', { id: linkedException.exceptionID, status: linkedException.statusName, justification: linkedException.justification, date: formatDate(linkedException.reviewDate) }) }}</dd>
         </template>
       </dl>
     </template>

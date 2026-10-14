@@ -8,6 +8,9 @@
 import { ref, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { readCsvHeaders, matchHeaders, fieldsFor } from '../utils/csvHeaderMapping'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const props = defineProps({
   file: { type: Object, default: null },
@@ -27,7 +30,7 @@ watch(() => props.file, async file => {
   try {
     headers.value = (await readCsvHeaders(file)).headers
   } catch (err) {
-    readError.value = `Couldn't read the file's header row: ${err.message}`
+    readError.value = t('shell.csvColumnCheck.readError', { error: err.message })
   }
 }, { immediate: true })
 
@@ -51,13 +54,13 @@ function createProfile() {
     <p v-if="readError">{{ readError }}</p>
     <template v-else-if="headers.length > 0">
       <p>
-        This file has {{ headers.length }} columns.
-        <template v-if="exact.length">Read by name: {{ exact.map(m => m.field).join(', ') }}.</template>
-        <template v-if="missingRequired.length"> <strong>Missing:</strong> {{ missingRequired.join(', ') }}.</template>
+        {{ t('shell.csvColumnCheck.columns', { count: headers.length }) }}
+        <template v-if="exact.length">{{ t('shell.csvColumnCheck.readByName', { fields: exact.map(m => m.field).join(', ') }) }}</template>
+        <template v-if="missingRequired.length"> <strong>{{ t('shell.csvColumnCheck.missingLabel') }}</strong> {{ t('shell.csvColumnCheck.missingList', { fields: missingRequired.join(', ') }) }}</template>
       </p>
       <p v-if="bySynonym.length || missingRequired.length">
-        <template v-if="bySynonym.length">Could be mapped: {{ bySynonym.map(m => `${m.header} → ${m.field}`).join(', ') }}. </template>
-        <button type="button" @click="createProfile">Create a mapping profile from these columns</button>
+        <template v-if="bySynonym.length">{{ t('shell.csvColumnCheck.couldBeMapped', { mappings: bySynonym.map(m => t('shell.csvColumnCheck.mapping', { header: m.header, field: m.field })).join(', ') }) + ' ' }}</template>
+        <button type="button" @click="createProfile">{{ t('shell.csvColumnCheck.createProfile') }}</button>
       </p>
     </template>
   </div>

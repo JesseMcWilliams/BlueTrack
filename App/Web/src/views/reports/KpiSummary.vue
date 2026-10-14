@@ -8,6 +8,9 @@
 import { ref, computed, onMounted } from 'vue'
 import { formatCount } from '../../utils/formatCount'
 import ReportExportButtons from '../../components/ReportExportButtons.vue'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const summary = ref(null)
 const error = ref(null)
@@ -17,7 +20,7 @@ onMounted(async () => {
   try {
     const response = await fetch('/api/reports/kpi-summary')
     if (!response.ok) {
-      throw new Error(`Request failed: ${response.status}`)
+      throw new Error(t('common.requestFailed', { status: response.status }))
     }
     summary.value = await response.json()
   } catch (err) {
@@ -36,38 +39,38 @@ const kpis = computed(() => {
   if (!summary.value) return []
   const s = summary.value
   return [
-    { label: 'Accounts In Scope vs. All Accounts', numerator: s.inScopeAccounts, denominator: s.totalAccounts },
-    { label: 'Accounts Onboarded vs. Accounts In Scope', numerator: s.onboardedAccounts, denominator: s.inScopeAccounts },
-    { label: 'Accounts Managed vs. Onboarded', numerator: s.managedAccounts, denominator: s.onboardedAccounts },
-    { label: 'Accounts Managed vs. Compliance (% of Managed that are Compliant)', numerator: s.compliantAccounts, denominator: s.managedAccounts }
+    { label: t('reports.kpiSummary.inScopeVsAll'), numerator: s.inScopeAccounts, denominator: s.totalAccounts },
+    { label: t('reports.kpiSummary.onboardedVsInScope'), numerator: s.onboardedAccounts, denominator: s.inScopeAccounts },
+    { label: t('reports.kpiSummary.managedVsOnboarded'), numerator: s.managedAccounts, denominator: s.onboardedAccounts },
+    { label: t('reports.kpiSummary.compliantVsManaged'), numerator: s.compliantAccounts, denominator: s.managedAccounts }
   ]
 })
 </script>
 
 <template>
   <div>
-    <h2>KPI Summary</h2>
+    <h2>{{ t('reports.kpiSummary.title') }}</h2>
     <ReportExportButtons path="/api/reports/kpi-summary/export" />
-    <p v-if="loading" role="status">Loading...</p>
-    <p v-else-if="error" role="alert">Could not load KPI summary: {{ error }}</p>
+    <p v-if="loading" role="status">{{ t('common.loading') }}</p>
+    <p v-else-if="error" role="alert">{{ t('reports.kpiSummary.loadFailed', { error }) }}</p>
     <template v-else>
       <table>
         <thead>
           <tr>
-            <th>KPI</th>
-            <th>Count</th>
-            <th>Percentage</th>
+            <th>{{ t('reports.kpiSummary.colKpi') }}</th>
+            <th>{{ t('reports.kpiSummary.colCount') }}</th>
+            <th>{{ t('reports.kpiSummary.colPercentage') }}</th>
           </tr>
         </thead>
         <tbody>
           <tr v-for="kpi in kpis" :key="kpi.label">
             <td>{{ kpi.label }}</td>
             <td>{{ formatCount(kpi.numerator) }} / {{ formatCount(kpi.denominator) }}</td>
-            <td>{{ pct(kpi.numerator, kpi.denominator) === null ? 'N/A' : `${pct(kpi.numerator, kpi.denominator)}%` }}</td>
+            <td>{{ pct(kpi.numerator, kpi.denominator) === null ? t('reports.kpiSummary.notApplicable') : t('reports.kpiSummary.percent', { value: pct(kpi.numerator, kpi.denominator) }) }}</td>
           </tr>
         </tbody>
       </table>
-      <p>{{ formatCount(summary.totalAccounts) }} account(s) total.</p>
+      <p>{{ t('reports.kpiSummary.totalAccounts', { count: formatCount(summary.totalAccounts) }) }}</p>
     </template>
   </div>
 </template>

@@ -7,6 +7,9 @@
 // where they are (confirmed untouched, not in scope for this phase).
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const router = useRouter()
 
@@ -24,7 +27,7 @@ async function addRecipient() {
       body: JSON.stringify(newRecipient.value)
     })
     if (!response.ok) {
-      saveError.value = `Add failed: ${response.status}`
+      saveError.value = t('admin.notificationRecipientCreate.addFailed', { status: response.status })
       return
     }
     router.push({ name: 'admin-notifications' })
@@ -40,13 +43,13 @@ function cancel() {
 
 <template>
   <div>
-    <h2>Add Recipient</h2>
+    <h2>{{ t('admin.notificationRecipientCreate.title') }}</h2>
     <form @submit.prevent="addRecipient">
-      <p><label class="field-label"><span class="field-label-text">Email:</span> <input v-model="newRecipient.email" type="email" required /></label></p>
-      <p><label class="field-label"><span class="field-label-text">Display Name:</span> <input v-model="newRecipient.displayName" /></label></p>
+      <p><label class="field-label"><span class="field-label-text">{{ t('admin.notificationRecipientCreate.email') }}</span> <input v-model="newRecipient.email" type="email" required /></label></p>
+      <p><label class="field-label"><span class="field-label-text">{{ t('admin.notificationRecipientCreate.displayName') }}</span> <input v-model="newRecipient.displayName" /></label></p>
       <p v-if="saveError" role="alert">{{ saveError }}</p>
-      <button type="submit" class="btn-primary" :disabled="saving">Add Recipient</button>
-      <button type="button" @click="cancel">Cancel</button>
+      <button type="submit" class="btn-primary" :disabled="saving">{{ t('admin.notificationRecipientCreate.addRecipient') }}</button>
+      <button type="button" @click="cancel">{{ t('common.cancel') }}</button>
     </form>
   </div>
 </template>

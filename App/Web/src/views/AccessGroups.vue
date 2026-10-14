@@ -39,6 +39,9 @@ import BulkResultSummary from '../components/BulkResultSummary.vue'
 import { useListSelectionStore } from '../stores/listSelection'
 import { useBulkAction } from '../composables/useBulkAction'
 import { formatCount } from '../utils/formatCount'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const router = useRouter()
 const items = ref([])
@@ -69,12 +72,12 @@ function onPageSizeChange() {
 
 const sortColumns = ref([])
 const columns = [
-  { field: 'groupName', label: 'Name' },
-  { field: 'groupIdentifier', label: 'Identifier' },
-  { field: 'groupScope', label: 'Scope' },
-  { field: 'sorTypeName', label: 'SOR Type' },
-  { field: 'baseRiskScore', label: 'Base Risk' },
-  { field: 'computedRiskScore', label: 'Computed Risk' }
+  { field: 'groupName', labelKey: 'pages.accessGroups.colName' },
+  { field: 'groupIdentifier', labelKey: 'pages.accessGroups.colIdentifier' },
+  { field: 'groupScope', labelKey: 'pages.accessGroups.colScope' },
+  { field: 'sorTypeName', labelKey: 'pages.accessGroups.colSorType' },
+  { field: 'baseRiskScore', labelKey: 'pages.accessGroups.colBaseRisk' },
+  { field: 'computedRiskScore', labelKey: 'pages.accessGroups.colComputedRisk' }
 ]
 
 function sortIndicator(field) {
@@ -124,7 +127,7 @@ async function load() {
     params.set('pageSize', pageSizeStore.current)
 
     const groupsResponse = await fetch(`/api/admin/access-groups?${params.toString()}`)
-    if (!groupsResponse.ok) throw new Error(`Request failed: ${groupsResponse.status}`)
+    if (!groupsResponse.ok) throw new Error(t('common.requestFailed', { status: groupsResponse.status }))
     readTotalCount(groupsResponse)
     items.value = await groupsResponse.json()
   } catch (err) {
@@ -163,21 +166,21 @@ const keysUrl = computed(() => {
   if (sorTypeFilter.value) params.set('sorTypeName', sorTypeFilter.value)
   return `/api/admin/access-groups/keys?${params.toString()}`
 })
-const bulkFields = [
-  { field: 'GroupScope', label: 'Scope', type: 'select', required: true, options: [{ value: 'Domain', label: 'Domain' }, { value: 'Local', label: 'Local' }] },
-  { field: 'BaseRiskScore', label: 'Base Risk Score', type: 'number' },
-  { field: 'Description', label: 'Description', type: 'text' }
-]
+const bulkFields = computed(() => [
+  { field: 'GroupScope', label: t('pages.accessGroups.fieldScope'), type: 'select', required: true, options: [{ value: 'Domain', label: t('pages.accessGroups.domain') }, { value: 'Local', label: t('pages.accessGroups.local') }] },
+  { field: 'BaseRiskScore', label: t('pages.accessGroups.fieldBaseRiskScore'), type: 'number' },
+  { field: 'Description', label: t('common.description'), type: 'text' }
+])
 
 async function bulkEdit(payload) {
-  if (await runBulk('/api/admin/access-groups/bulk-edit', payload, 'updated')) {
+  if (await runBulk('/api/admin/access-groups/bulk-edit', payload, t('pages.accessGroups.verbUpdated'))) {
     bulkPanel.value = null
     await load()
   }
 }
 
 async function bulkDelete(reason) {
-  if (await runBulk('/api/admin/access-groups/bulk-delete', { reason }, 'deleted')) {
+  if (await runBulk('/api/admin/access-groups/bulk-delete', { reason }, t('pages.accessGroups.verbDeleted'))) {
     bulkPanel.value = null
     await load()
   }
@@ -188,19 +191,19 @@ async function remove(item) {
   // indented, set off from the title/warning) -- Access Group's own
   // fields map onto this exactly (GroupScope/SorAddress/DiscoverySource).
   const message = {
-    title: 'Delete Access Group',
+    title: t('pages.accessGroups.confirmTitle'),
     details: [
-      `Name: ${item.groupName}`,
-      `Scope: ${item.groupScope}`,
-      `Address: ${item.sorAddress ?? '—'}`,
-      `Source: ${item.discoverySource ?? '—'}`
+      t('pages.accessGroups.confirmName', { name: item.groupName }),
+      t('pages.accessGroups.confirmScope', { scope: item.groupScope }),
+      t('pages.accessGroups.confirmAddress', { address: item.sorAddress ?? '—' }),
+      t('pages.accessGroups.confirmSource', { source: item.discoverySource ?? '—' })
     ],
-    warning: 'This cannot be undone.'
+    warning: t('pages.accessGroups.confirmWarning')
   }
   if (!(await confirmDelete(message))) return
   const response = await fetch(`/api/admin/access-groups/${item.accessGroupKey}`, { method: 'DELETE' })
   if (!response.ok) {
-    error.value = `Delete failed: ${response.status} (a group still referenced by a Target/Account mapping can't be deleted)`
+    error.value = t('pages.accessGroups.deleteFailed', { status: response.status })
     return
   }
   await load()
@@ -209,76 +212,76 @@ async function remove(item) {
 
 <template>
   <div>
-    <h1>Access Groups</h1>
-    <p>Privileged-access groups in the managed environment (e.g. an AD "Server Admins" group) -- not this app's own Safe-permission groups or its login/role mapping. Base risk score (0-1000) is analyst-set; the computed score (base plus reachable Targets) is calculated separately.</p>
+    <h1>{{ t('pages.accessGroups.title') }}</h1>
+    <p>{{ t('pages.accessGroups.intro') }}</p>
     <p>
-      <button type="button" class="btn-primary" @click="router.push({ name: 'access-group-create' })">+ New Access Group</button>
-      <button type="button" @click="router.push({ name: 'access-groups-bulk-import' })">Bulk Actions</button>
+      <button type="button" class="btn-primary" @click="router.push({ name: 'access-group-create' })">{{ t('pages.accessGroups.newAccessGroup') }}</button>
+      <button type="button" @click="router.push({ name: 'access-groups-bulk-import' })">{{ t('pages.accessGroups.bulkActions') }}</button>
     </p>
     <p v-if="error" role="alert">{{ error }}</p>
 
     <p class="filter-row">
-      <label class="field-label"><span class="field-label-text">Scope:</span>
+      <label class="field-label"><span class="field-label-text">{{ t('pages.accessGroups.scope') }}</span>
         <select v-model="scopeFilter">
-          <option value="">All</option>
-          <option value="Domain">Domain</option>
-          <option value="Local">Local</option>
+          <option value="">{{ t('pages.accessGroups.all') }}</option>
+          <option value="Domain">{{ t('pages.accessGroups.domain') }}</option>
+          <option value="Local">{{ t('pages.accessGroups.local') }}</option>
         </select>
       </label>
-      <label class="field-label"><span class="field-label-text">SOR Type:</span>
+      <label class="field-label"><span class="field-label-text">{{ t('pages.accessGroups.sorType') }}</span>
         <select v-model="sorTypeFilter">
-          <option value="">All</option>
+          <option value="">{{ t('pages.accessGroups.all') }}</option>
           <option v-for="type in sorTypes" :key="type.sorTypeKey" :value="type.sorTypeName">{{ type.sorTypeName }}</option>
         </select>
       </label>
     </p>
-    <SelectionBar :selection="selection" :page-keys="pageKeys" :filtered-count="filteredCount" :keys-url="keysUrl" toggle-label="Select access groups for bulk actions">
-      <button type="button" class="btn-primary" :disabled="selection.count === 0" @click="bulkPanel = 'edit'">Bulk edit…</button>
-      <button type="button" :disabled="selection.count === 0" @click="bulkPanel = 'delete'">Delete…</button>
+    <SelectionBar :selection="selection" :page-keys="pageKeys" :filtered-count="filteredCount" :keys-url="keysUrl" :toggle-label="t('pages.accessGroups.selectToggle')">
+      <button type="button" class="btn-primary" :disabled="selection.count === 0" @click="bulkPanel = 'edit'">{{ t('pages.accessGroups.bulkEdit') }}</button>
+      <button type="button" :disabled="selection.count === 0" @click="bulkPanel = 'delete'">{{ t('pages.accessGroups.deleteEllipsis') }}</button>
     </SelectionBar>
     <BulkFieldEditor v-if="bulkPanel === 'edit'" :fields="bulkFields" :count="selection.count" :saving="bulkSaving" @apply="bulkEdit" @cancel="bulkPanel = null" />
-    <BulkReasonForm v-if="bulkPanel === 'delete'" :action="`delete ${formatCount(selection.count)} access group(s)`" button-label="Delete" :saving="bulkSaving" @submit="bulkDelete" @cancel="bulkPanel = null" />
+    <BulkReasonForm v-if="bulkPanel === 'delete'" :action="t('pages.accessGroups.deleteAction', { count: formatCount(selection.count) })" :button-label="t('common.delete')" :saving="bulkSaving" @submit="bulkDelete" @cancel="bulkPanel = null" />
     <p v-if="bulkError" role="alert">{{ bulkError }}</p>
     <BulkResultSummary v-if="bulkResult" :result="bulkResult" />
     <FilterCountSummary :shown="items.length" :filtered-count="filteredCount" :total="totalCount" :page="page" :page-size="pageSizeStore.current" />
     <Pager :page="page" :page-count="pageCount" @update:page="onPageChange" @page-size-change="onPageSizeChange" />
 
-    <p v-if="loading" role="status">Loading...</p>
+    <p v-if="loading" role="status">{{ t('common.loading') }}</p>
 
     <template v-else>
       <table>
         <thead>
           <tr>
-            <th v-if="selection.enabled"><span class="visually-hidden">Selected</span></th>
+            <th v-if="selection.enabled"><span class="visually-hidden">{{ t('pages.accessGroups.selected') }}</span></th>
             <th v-for="col in columns" :key="col.field" :aria-sort="ariaSortFor(col.field)">
               <button type="button" @click="toggleSort(col.field, $event)">
-                {{ col.label }} <span aria-hidden="true">{{ sortIndicator(col.field) }}</span>
+                {{ t(col.labelKey) }} <span aria-hidden="true">{{ sortIndicator(col.field) }}</span>
               </button>
             </th>
-            <th>SOR Address</th>
-            <th>Discovery Source</th>
+            <th>{{ t('pages.accessGroups.colSorAddress') }}</th>
+            <th>{{ t('pages.accessGroups.colDiscoverySource') }}</th>
             <th></th>
           </tr>
         </thead>
         <tbody>
           <tr v-for="item in items" :key="item.accessGroupKey">
-            <td v-if="selection.enabled"><input type="checkbox" :checked="selection.isSelected(item.accessGroupKey)" :aria-label="`Select ${item.groupName}`" @change="selection.toggle(item.accessGroupKey)" /></td>
+            <td v-if="selection.enabled"><input type="checkbox" :checked="selection.isSelected(item.accessGroupKey)" :aria-label="t('pages.accessGroups.selectRow', { name: item.groupName })" @change="selection.toggle(item.accessGroupKey)" /></td>
             <td><router-link :to="{ name: 'access-group-edit', params: { accessGroupKey: item.accessGroupKey } }">{{ item.groupName }}</router-link></td>
             <td>{{ item.groupIdentifier }}</td>
             <td>{{ item.groupScope }}<span v-if="item.foundOnTargetName"> ({{ item.foundOnTargetName }})</span></td>
             <td>{{ item.sorTypeName ?? '—' }}</td>
             <td>{{ item.baseRiskScore }}</td>
-            <td>{{ item.computedRiskScore ?? '(not yet calculated)' }}<span v-if="item.isRiskScoreStale"> (stale)</span></td>
+            <td>{{ item.computedRiskScore ?? t('pages.accessGroups.notYetCalculated') }}<span v-if="item.isRiskScoreStale">{{ ' ' + t('pages.accessGroups.stale') }}</span></td>
             <td>{{ item.sorAddress ?? '—' }}</td>
             <td>{{ item.discoverySource ?? '—' }}</td>
             <td>
-              <button @click="remove(item)">Delete</button>
+              <button @click="remove(item)">{{ t('common.delete') }}</button>
             </td>
           </tr>
         </tbody>
       </table>
       <Pager :page="page" :page-count="pageCount" @update:page="onPageChange" @page-size-change="onPageSizeChange" />
-      <p><small>Click a column to sort by it; shift-click another column to add it as a secondary sort key.</small></p>
+      <p><small>{{ t('pages.accessGroups.sortHint') }}</small></p>
     </template>
   </div>
 </template>

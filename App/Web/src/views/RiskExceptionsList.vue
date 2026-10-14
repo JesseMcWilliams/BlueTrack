@@ -17,6 +17,9 @@ import BulkResultSummary from '../components/BulkResultSummary.vue'
 import { useListSelectionStore } from '../stores/listSelection'
 import { useBulkAction } from '../composables/useBulkAction'
 import { formatCount } from '../utils/formatCount'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const router = useRouter()
 const rights = useRightsStore()
@@ -46,12 +49,12 @@ function onPageSizeChange() {
 const sortColumns = ref([])
 
 const columns = [
-  { field: 'exceptionID', label: 'Exception ID' },
-  { field: 'scopeName', label: 'Scope' },
-  { field: 'approvedByName', label: 'Approved By' },
-  { field: 'approvalDate', label: 'Approval Date' },
-  { field: 'reviewDate', label: 'Review Date' },
-  { field: 'statusName', label: 'Status' }
+  { field: 'exceptionID', labelKey: 'pages.riskExceptionsList.colExceptionId' },
+  { field: 'scopeName', labelKey: 'pages.riskExceptionsList.colScope' },
+  { field: 'approvedByName', labelKey: 'pages.riskExceptionsList.colApprovedBy' },
+  { field: 'approvalDate', labelKey: 'pages.riskExceptionsList.colApprovalDate' },
+  { field: 'reviewDate', labelKey: 'pages.riskExceptionsList.colReviewDate' },
+  { field: 'statusName', labelKey: 'pages.riskExceptionsList.colStatus' }
 ]
 
 function sortIndicator(field) {
@@ -105,7 +108,7 @@ async function load() {
 
     const response = await fetch(`/api/risk-exceptions?${params.toString()}`)
     if (!response.ok) {
-      throw new Error(`Request failed: ${response.status}`)
+      throw new Error(t('common.requestFailed', { status: response.status }))
     }
     readTotalCount(response)
     exceptions.value = await response.json()
@@ -134,14 +137,14 @@ const keysUrl = computed(() => {
 })
 
 async function bulkExtend() {
-  if (await runBulk('/api/risk-exceptions/bulk-extend-review', { newReviewDate: newReviewDate.value }, 're-approved')) {
+  if (await runBulk('/api/risk-exceptions/bulk-extend-review', { newReviewDate: newReviewDate.value }, t('pages.riskExceptionsList.verbReapproved'))) {
     bulkPanel.value = null
     await load()
   }
 }
 
 async function bulkRevoke(reason) {
-  if (await runBulk('/api/risk-exceptions/bulk-revoke', { reason }, 'revoked')) {
+  if (await runBulk('/api/risk-exceptions/bulk-revoke', { reason }, t('pages.riskExceptionsList.verbRevoked'))) {
     bulkPanel.value = null
     await load()
   }
@@ -156,64 +159,64 @@ watch([statusFilter, scopeTypeFilter, sortQueryParam], () => {
 
 <template>
   <div>
-    <h1>Risk Exceptions</h1>
+    <h1>{{ t('pages.riskExceptionsList.title') }}</h1>
     <p v-if="rights.hasPermission('ApproveExceptions')">
-      <button type="button" class="btn-primary" @click="router.push({ name: 'risk-exception-create' })">+ New Exception</button>
-      <button type="button" @click="router.push({ name: 'risk-exceptions-bulk-import' })">Bulk Actions</button>
+      <button type="button" class="btn-primary" @click="router.push({ name: 'risk-exception-create' })">{{ t('pages.riskExceptionsList.newException') }}</button>
+      <button type="button" @click="router.push({ name: 'risk-exceptions-bulk-import' })">{{ t('pages.riskExceptionsList.bulkActions') }}</button>
     </p>
     <p class="filter-row">
-      <label class="field-label"><span class="field-label-text">Status:</span>
+      <label class="field-label"><span class="field-label-text">{{ t('pages.riskExceptionsList.status') }}</span>
         <select v-model="statusFilter">
-          <option value="">All</option>
-          <option value="Active">Active</option>
-          <option value="Expired">Expired</option>
-          <option value="Revoked">Revoked</option>
+          <option value="">{{ t('pages.riskExceptionsList.all') }}</option>
+          <option value="Active">{{ t('common.active') }}</option>
+          <option value="Expired">{{ t('pages.riskExceptionsList.expired') }}</option>
+          <option value="Revoked">{{ t('pages.riskExceptionsList.revoked') }}</option>
         </select>
       </label>
-      <label class="field-label"><span class="field-label-text">Scope:</span>
+      <label class="field-label"><span class="field-label-text">{{ t('pages.riskExceptionsList.scope') }}</span>
         <select v-model="scopeTypeFilter">
-          <option value="">All</option>
-          <option value="Account">Account</option>
-          <option value="Application">Application</option>
+          <option value="">{{ t('pages.riskExceptionsList.all') }}</option>
+          <option value="Account">{{ t('pages.riskExceptionsList.account') }}</option>
+          <option value="Application">{{ t('pages.riskExceptionsList.application') }}</option>
         </select>
       </label>
     </p>
     <template v-if="canApprove">
-      <SelectionBar :selection="selection" :page-keys="pageKeys" :filtered-count="filteredCount" :keys-url="keysUrl" toggle-label="Select exceptions for bulk actions">
-        <button type="button" class="btn-primary" :disabled="selection.count === 0" @click="bulkPanel = 'extend'">Extend review…</button>
-        <button type="button" :disabled="selection.count === 0" @click="bulkPanel = 'revoke'">Revoke…</button>
+      <SelectionBar :selection="selection" :page-keys="pageKeys" :filtered-count="filteredCount" :keys-url="keysUrl" :toggle-label="t('pages.riskExceptionsList.selectToggle')">
+        <button type="button" class="btn-primary" :disabled="selection.count === 0" @click="bulkPanel = 'extend'">{{ t('pages.riskExceptionsList.extendReviewEllipsis') }}</button>
+        <button type="button" :disabled="selection.count === 0" @click="bulkPanel = 'revoke'">{{ t('pages.riskExceptionsList.revokeEllipsis') }}</button>
       </SelectionBar>
       <form v-if="bulkPanel === 'extend'" class="bulk-panel" @submit.prevent="bulkExtend">
-        <label class="field-label"><span class="field-label-text">New review date for {{ formatCount(selection.count) }} exception(s):</span> <input v-model="newReviewDate" type="date" required /></label>
-        <button type="submit" class="btn-primary" :disabled="bulkSaving || !newReviewDate">Extend review</button>
-        <button type="button" @click="bulkPanel = null">Cancel</button>
-        <br /><small>Only Active exceptions are re-approved; others are skipped.</small>
+        <label class="field-label"><span class="field-label-text">{{ t('pages.riskExceptionsList.newReviewDate', { count: formatCount(selection.count) }) }}</span> <input v-model="newReviewDate" type="date" required /></label>
+        <button type="submit" class="btn-primary" :disabled="bulkSaving || !newReviewDate">{{ t('pages.riskExceptionsList.extendReview') }}</button>
+        <button type="button" @click="bulkPanel = null">{{ t('common.cancel') }}</button>
+        <br /><small>{{ t('pages.riskExceptionsList.extendHint') }}</small>
       </form>
-      <BulkReasonForm v-if="bulkPanel === 'revoke'" :action="`revoke ${formatCount(selection.count)} exception(s)`" button-label="Revoke" :saving="bulkSaving" @submit="bulkRevoke" @cancel="bulkPanel = null" />
+      <BulkReasonForm v-if="bulkPanel === 'revoke'" :action="t('pages.riskExceptionsList.revokeAction', { count: formatCount(selection.count) })" :button-label="t('pages.riskExceptionsList.revoke')" :saving="bulkSaving" @submit="bulkRevoke" @cancel="bulkPanel = null" />
       <p v-if="bulkError" role="alert">{{ bulkError }}</p>
       <BulkResultSummary v-if="bulkResult" :result="bulkResult" />
     </template>
     <FilterCountSummary :shown="exceptions.length" :filtered-count="filteredCount" :total="totalCount" :page="page" :page-size="pageSizeStore.current" />
     <Pager :page="page" :page-count="pageCount" @update:page="onPageChange" @page-size-change="onPageSizeChange" />
-    <p v-if="loading" role="status">Loading...</p>
-    <p v-else-if="error" role="alert">Could not load exceptions: {{ error }}</p>
-    <p v-else-if="exceptions.length === 0">No exceptions found.</p>
+    <p v-if="loading" role="status">{{ t('common.loading') }}</p>
+    <p v-else-if="error" role="alert">{{ t('pages.riskExceptionsList.couldNotLoad', { error }) }}</p>
+    <p v-else-if="exceptions.length === 0">{{ t('pages.riskExceptionsList.noneFound') }}</p>
     <table v-else>
       <thead>
         <tr>
-          <th v-if="canApprove && selection.enabled"><span class="visually-hidden">Selected</span></th>
+          <th v-if="canApprove && selection.enabled"><span class="visually-hidden">{{ t('pages.riskExceptionsList.selected') }}</span></th>
           <th v-for="col in columns" :key="col.field" :aria-sort="ariaSortFor(col.field)">
             <button type="button" @click="toggleSort(col.field, $event)">
-              {{ col.label }} <span aria-hidden="true">{{ sortIndicator(col.field) }}</span>
+              {{ t(col.labelKey) }} <span aria-hidden="true">{{ sortIndicator(col.field) }}</span>
             </button>
           </th>
-          <th>Justification</th>
-          <th>Source</th>
+          <th>{{ t('pages.riskExceptionsList.colJustification') }}</th>
+          <th>{{ t('pages.riskExceptionsList.colSource') }}</th>
         </tr>
       </thead>
       <tbody>
         <tr v-for="exception in exceptions" :key="exception.exceptionKey">
-          <td v-if="canApprove && selection.enabled"><input type="checkbox" :checked="selection.isSelected(exception.exceptionKey)" :aria-label="`Select ${exception.exceptionID}`" @change="selection.toggle(exception.exceptionKey)" /></td>
+          <td v-if="canApprove && selection.enabled"><input type="checkbox" :checked="selection.isSelected(exception.exceptionKey)" :aria-label="t('pages.riskExceptionsList.selectRow', { id: exception.exceptionID })" @change="selection.toggle(exception.exceptionKey)" /></td>
           <td><router-link :to="{ name: 'risk-exception-edit', params: { exceptionKey: exception.exceptionKey } }">{{ exception.exceptionID }}</router-link></td>
           <td>{{ exception.scopeType }}: {{ exception.scopeName }}</td>
           <td>{{ exception.approvedByName }}</td>
@@ -231,6 +234,6 @@ watch([statusFilter, scopeTypeFilter, sortQueryParam], () => {
       </tbody>
     </table>
     <Pager :page="page" :page-count="pageCount" @update:page="onPageChange" @page-size-change="onPageSizeChange" />
-    <p><small>Click a column to sort by it; shift-click another column to add it as a secondary sort key.</small></p>
+    <p><small>{{ t('pages.riskExceptionsList.sortHint') }}</small></p>
   </div>
 </template>

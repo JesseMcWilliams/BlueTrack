@@ -11,6 +11,9 @@
 import { computed } from 'vue'
 import { usePageSizeStore, PAGE_SIZE_OPTIONS } from '../stores/pageSize'
 import { formatCount } from '../utils/formatCount'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const props = defineProps({
   page: { type: Number, required: true },
@@ -43,11 +46,11 @@ async function onPageSizeChange(event) {
 
 <template>
   <p class="pager">
-    <button type="button" :disabled="isFirstPage" @click="goPrev">&laquo; Prev</button>
-    <span>Page {{ formatCount(page) }} of {{ formatCount(pageCount) }}</span>
-    <button type="button" :disabled="isLastPage" @click="goNext">Next &raquo;</button>
+    <button type="button" :disabled="isFirstPage" @click="goPrev">{{ t('shell.pager.prev') }}</button>
+    <span>{{ t('shell.pager.page', { page: formatCount(page), pageCount: formatCount(pageCount) }) }}</span>
+    <button type="button" :disabled="isLastPage" @click="goNext">{{ t('shell.pager.next') }}</button>
     <label class="field-label">
-      <span class="field-label-text">Rows per page:</span>
+      <span class="field-label-text">{{ t('shell.pager.rowsPerPage') }}</span>
       <select :value="pageSizeStore.current" @change="onPageSizeChange">
         <option v-for="size in PAGE_SIZE_OPTIONS" :key="size" :value="size">{{ formatCount(size) }}</option>
       </select>

@@ -8,6 +8,9 @@
 // DATABASE server-side and downloads a zip of appsettings*.json.
 import { ref, onMounted } from 'vue'
 import { formatCount } from '../../utils/formatCount'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const info = ref(null)
 const error = ref(null)
@@ -22,7 +25,7 @@ async function load() {
   loading.value = true
   try {
     const response = await fetch('/api/admin/deployment')
-    if (!response.ok) throw new Error(`Request failed: ${response.status}`)
+    if (!response.ok) throw new Error(t('common.requestFailed', { status: response.status }))
     info.value = await response.json()
     const backups = await fetch('/api/admin/deployment/backups')
     recentBackups.value = backups.ok ? await backups.json() : []
@@ -42,7 +45,7 @@ async function backupApp() {
     const response = await fetch('/api/admin/deployment/backup', { method: 'POST' })
     if (!response.ok) {
       const problem = await response.json().catch(() => null)
-      throw new Error(problem?.detail || `Backup failed: ${response.status}`)
+      throw new Error(problem?.detail || t('admin.deploymentInfo.backupFailed', { status: response.status }))
     }
     const blob = await response.blob()
     const disposition = response.headers.get('Content-Disposition') || ''
@@ -67,28 +70,28 @@ async function backupApp() {
 
 <template>
   <div>
-    <h2>Deployment</h2>
+    <h2>{{ t('admin.deploymentInfo.title') }}</h2>
     <p v-if="error" role="alert">{{ error }}</p>
-    <p v-if="loading" role="status">Loading...</p>
+    <p v-if="loading" role="status">{{ t('common.loading') }}</p>
 
     <template v-else-if="info">
       <section>
-        <h3>Environment</h3>
+        <h3>{{ t('admin.deploymentInfo.environment') }}</h3>
         <dl>
-          <dt>Environment name</dt>
+          <dt>{{ t('admin.deploymentInfo.environmentName') }}</dt>
           <dd>{{ info.environmentName }}</dd>
-          <dt>Version</dt>
+          <dt>{{ t('admin.deploymentInfo.version') }}</dt>
           <dd>{{ info.version }}</dd>
-          <dt>Build timestamp (UTC)</dt>
-          <dd>{{ info.buildTimestampUtc ?? 'Unknown' }}</dd>
+          <dt>{{ t('admin.deploymentInfo.buildTimestamp') }}</dt>
+          <dd>{{ info.buildTimestampUtc ?? t('admin.deploymentInfo.unknown') }}</dd>
         </dl>
       </section>
 
       <section>
-        <h3>Health Checks</h3>
+        <h3>{{ t('admin.deploymentInfo.healthChecks') }}</h3>
         <table>
           <thead>
-            <tr><th>Component</th><th>Status</th><th>Description</th></tr>
+            <tr><th>{{ t('admin.deploymentInfo.component') }}</th><th>{{ t('common.status') }}</th><th>{{ t('common.description') }}</th></tr>
           </thead>
           <tbody>
             <tr v-for="check in info.healthChecks" :key="check.name">
@@ -101,33 +104,33 @@ async function backupApp() {
       </section>
 
       <section>
-        <h3>SQL Server Backup Status</h3>
-        <button :disabled="backingUp" @click="backupApp">{{ backingUp ? 'Backing up...' : 'Backup App' }}</button>
+        <h3>{{ t('admin.deploymentInfo.backupStatus') }}</h3>
+        <button :disabled="backingUp" @click="backupApp">{{ backingUp ? t('admin.deploymentInfo.backingUp') : t('admin.deploymentInfo.backupApp') }}</button>
         <p v-if="backupError" role="alert">{{ backupError }}</p>
         <p v-if="!info.backupStatus.available" role="alert">{{ info.backupStatus.error }}</p>
         <table v-else>
           <thead>
-            <tr><th>Backup Type</th><th>Last Backup Finish Date</th></tr>
+            <tr><th>{{ t('admin.deploymentInfo.backupType') }}</th><th>{{ t('admin.deploymentInfo.lastBackupFinish') }}</th></tr>
           </thead>
           <tbody>
             <tr v-for="entry in info.backupStatus.entries" :key="entry.backupType">
               <td>{{ entry.backupType }}</td>
-              <td>{{ entry.lastBackupFinishDate ?? 'Never' }}</td>
+              <td>{{ entry.lastBackupFinishDate ?? t('admin.deploymentInfo.never') }}</td>
             </tr>
           </tbody>
         </table>
 
-        <h4>Recent backups</h4>
-        <p class="hint">Scheduled backups are set on Global Application Configuration (time and days to keep).</p>
-        <p v-if="recentBackups.length === 0">None recorded yet.</p>
+        <h4>{{ t('admin.deploymentInfo.recentBackups') }}</h4>
+        <p class="hint">{{ t('admin.deploymentInfo.scheduleHint') }}</p>
+        <p v-if="recentBackups.length === 0">{{ t('admin.deploymentInfo.noneRecorded') }}</p>
         <table v-else>
           <thead>
-            <tr><th>Started (UTC)</th><th>Type</th><th>Outcome</th><th>File</th><th>Old files deleted</th><th>Note</th></tr>
+            <tr><th>{{ t('admin.deploymentInfo.startedUtc') }}</th><th>{{ t('admin.deploymentInfo.type') }}</th><th>{{ t('admin.deploymentInfo.outcome') }}</th><th>{{ t('admin.deploymentInfo.file') }}</th><th>{{ t('admin.deploymentInfo.oldFilesDeleted') }}</th><th>{{ t('admin.deploymentInfo.note') }}</th></tr>
           </thead>
           <tbody>
             <tr v-for="run in recentBackups" :key="run.backupRunKey">
               <td>{{ run.startedAt.replace('T', ' ').slice(0, 19) }}</td>
-              <td>{{ run.triggerType === 'Schedule' ? 'Scheduled' : `Manual${run.triggeredByName ? ` (${run.triggeredByName})` : ''}` }}</td>
+              <td>{{ run.triggerType === 'Schedule' ? t('admin.deploymentInfo.scheduled') : (run.triggeredByName ? t('admin.deploymentInfo.manualBy', { name: run.triggeredByName }) : t('admin.deploymentInfo.manual')) }}</td>
               <td>{{ run.outcome }}</td>
               <td>{{ run.filePath ?? '' }}</td>
               <td>{{ formatCount(run.filesDeleted) }}</td>

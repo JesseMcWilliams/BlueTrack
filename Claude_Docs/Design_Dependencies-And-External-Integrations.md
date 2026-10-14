@@ -124,6 +124,7 @@ Both share `LdapContextFactory` for binding and read `web.ldap_config` — now a
 | Web | pinia | ^2.2.0 | State stores (rights, theme, page size) |
 | Web | chart.js | ^4.5.1 | Canvas charts on Reports > Trends (D-221). MIT. Brings `@kurkle/color` (MIT) |
 | Web | vue-chartjs | ^5.3.4 | Vue components for Chart.js (D-221). MIT. Peer: chart.js ^4.1.1, vue ^3 |
+| Web | vue-i18n | ^11.4.14 | UI text localization (D-227, `Design_Localization.md`). MIT. Brings `@intlify/core-base`, `@intlify/message-compiler`, `@intlify/shared`, `@intlify/devtools-types` (11.4.14, MIT) and `@vue/devtools-api` 6.6.4 (MIT) |
 | Web (dev) | vite | ^5.4.0 | Dev server / build |
 | Web (dev) | @vitejs/plugin-vue | ^5.1.0 | Vue SFC compilation under Vite |
 | Web (dev) | vitest | ^3.2.7 | Unit/component test runner |
@@ -132,6 +133,8 @@ Both share `LdapContextFactory` for binding and read `web.ldap_config` — now a
 | E2E (dev) | @playwright/test | ^1.48.0 | Browser-driven end-to-end tests |
 
 **chart.js and vue-chartjs (D-221, 2026-10-13):** versions and licences confirmed from the npm registry (`npm view chart.js version license`: 4.5.1, MIT, published 2025-10-13; `npm view vue-chartjs version license peerDependencies`: 5.3.4, MIT, published 2026-07-07). Both load only in the Trends page's own chunk (route-level `import()`), not on other pages. The Dashboard's pies stay hand-rolled SVG (D-143). Vitest stubs `vue-chartjs` (the test DOM has no canvas).
+
+**vue-i18n (D-227, 2026-10-13):** version and licence confirmed from the npm registry (`npm view vue-i18n version license`: 11.4.14, MIT, published 2026-10-10; `latest` dist-tag). Runs under the site's CSP without `'unsafe-eval'`: since v10 messages are compiled JIT to an AST that is interpreted (vue-i18n.intlify.dev, "Optimization"), and neither the package's dist files nor our build contain `eval(` or `new Function`. `@intlify/unplugin-vue-i18n` (build-time precompile) was not added: its current 11.x needs Vite 6+, and the app is on Vite 5.
 
 ## 6. Internal module map (`App/Api`)
 

@@ -7,6 +7,9 @@ import { apiUrl } from '../../utils/apiBase'
 // which can only name applications that already exist.
 import { ref } from 'vue'
 import { formatCount } from '../../utils/formatCount'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const applicationsFile = ref(null)
 const applicationsResult = ref(null)
@@ -24,14 +27,14 @@ async function importFile(url, fileRef, resultRef, importingRef) {
     const formData = new FormData()
     formData.append('file', fileRef.value)
     const response = await fetch(url, { method: 'POST', body: formData })
-    resultRef.value = response.ok ? await response.json() : { error: `Import failed: ${response.status}` }
+    resultRef.value = response.ok ? await response.json() : { error: t('common.importFailed', { status: response.status }) }
   } finally {
     importingRef.value = false
   }
 }
 
 function rowErrors(result) {
-  return result.errors.map(e => `Row ${e.rowNumber}: ${e.error}`).join('; ')
+  return result.errors.map(e => t('admin.applicationSafeMappingBulkImport.rowError', { row: e.rowNumber, error: e.error })).join('; ')
 }
 
 async function importApplications() {
@@ -45,43 +48,36 @@ async function importAssignments() {
 
 <template>
   <div>
-    <h1>Application Mapping: Bulk Actions</h1>
+    <h1>{{ t('admin.applicationSafeMappingBulkImport.title') }}</h1>
 
-    <h3>Bulk Import: Applications</h3>
+    <h3>{{ t('admin.applicationSafeMappingBulkImport.applicationsHeading') }}</h3>
     <p>
-      <a :href="apiUrl('/api/admin/application-mapping/import/applications/template')">Download template</a> --
-      one row per application, matched by ApplicationCode. A new code creates the application; an existing code updates it,
-      and a blank cell leaves that field as it is.
+      <a :href="apiUrl('/api/admin/application-mapping/import/applications/template')">{{ t('common.downloadTemplate') }}</a> {{ t('admin.applicationSafeMappingBulkImport.applicationsIntro') }}
     </p>
     <p class="filter-row">
-      <input type="file" accept=".csv" aria-label="Applications CSV file" @change="applicationsFile = $event.target.files[0] ?? null" />
-      <button :disabled="!applicationsFile || applicationsImporting" @click="importApplications">{{ applicationsImporting ? 'Importing...' : 'Import' }}</button>
+      <input type="file" accept=".csv" :aria-label="t('admin.applicationSafeMappingBulkImport.applicationsFileLabel')" @change="applicationsFile = $event.target.files[0] ?? null" />
+      <button :disabled="!applicationsFile || applicationsImporting" @click="importApplications">{{ applicationsImporting ? t('common.importing') : t('admin.applicationSafeMappingBulkImport.import') }}</button>
     </p>
     <p v-if="applicationsResult" data-testid="applications-result">
       <template v-if="applicationsResult.error">{{ applicationsResult.error }}</template>
       <template v-else>
-        {{ formatCount(applicationsResult.totalRows) }} rows -- {{ formatCount(applicationsResult.createdCount) }} created, {{ formatCount(applicationsResult.updatedCount) }} updated,
-        {{ formatCount(applicationsResult.unchangedCount) }} unchanged, {{ formatCount(applicationsResult.errors.length) }} errors
+        {{ t('admin.applicationSafeMappingBulkImport.applicationsSummary', { total: formatCount(applicationsResult.totalRows), created: formatCount(applicationsResult.createdCount), updated: formatCount(applicationsResult.updatedCount), unchanged: formatCount(applicationsResult.unchangedCount), errors: formatCount(applicationsResult.errors.length) }) }}
         <span v-if="applicationsResult.errors.length"><br />{{ rowErrors(applicationsResult) }}</span>
       </template>
     </p>
 
-    <h3>Bulk Import: Safe → Application Assignments</h3>
+    <h3>{{ t('admin.applicationSafeMappingBulkImport.assignmentsHeading') }}</h3>
     <p>
-      <a :href="apiUrl('/api/admin/application-mapping/import/safe-assignments/template')">Download template</a> --
-      one row per safe: SafeName, Application (its code or name; it must already exist), and an optional Source
-      (PrivilegeCloud or SelfHosted). Without a Source, every safe with that name is assigned. An existing assignment is
-      replaced; safes not in the file are left alone.
+      <a :href="apiUrl('/api/admin/application-mapping/import/safe-assignments/template')">{{ t('common.downloadTemplate') }}</a> {{ t('admin.applicationSafeMappingBulkImport.assignmentsIntro') }}
     </p>
     <p class="filter-row">
-      <input type="file" accept=".csv" aria-label="Safe assignments CSV file" @change="assignmentsFile = $event.target.files[0] ?? null" />
-      <button :disabled="!assignmentsFile || assignmentsImporting" @click="importAssignments">{{ assignmentsImporting ? 'Importing...' : 'Import' }}</button>
+      <input type="file" accept=".csv" :aria-label="t('admin.applicationSafeMappingBulkImport.assignmentsFileLabel')" @change="assignmentsFile = $event.target.files[0] ?? null" />
+      <button :disabled="!assignmentsFile || assignmentsImporting" @click="importAssignments">{{ assignmentsImporting ? t('common.importing') : t('admin.applicationSafeMappingBulkImport.import') }}</button>
     </p>
     <p v-if="assignmentsResult" data-testid="assignments-result">
       <template v-if="assignmentsResult.error">{{ assignmentsResult.error }}</template>
       <template v-else>
-        {{ formatCount(assignmentsResult.totalRows) }} rows -- {{ formatCount(assignmentsResult.assignedCount) }} safes assigned, {{ formatCount(assignmentsResult.changedCount) }} changed,
-        {{ formatCount(assignmentsResult.unchangedCount) }} unchanged, {{ formatCount(assignmentsResult.errors.length) }} errors
+        {{ t('admin.applicationSafeMappingBulkImport.assignmentsSummary', { total: formatCount(assignmentsResult.totalRows), assigned: formatCount(assignmentsResult.assignedCount), changed: formatCount(assignmentsResult.changedCount), unchanged: formatCount(assignmentsResult.unchangedCount), errors: formatCount(assignmentsResult.errors.length) }) }}
         <span v-if="assignmentsResult.errors.length"><br />{{ rowErrors(assignmentsResult) }}</span>
       </template>
     </p>

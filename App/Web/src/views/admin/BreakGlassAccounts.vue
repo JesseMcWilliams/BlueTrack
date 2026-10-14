@@ -6,18 +6,23 @@
 import { ref, onMounted } from 'vue'
 import { confirmDelete } from '../../composables/useConfirmDialog'
 import { formatDate } from '../../utils/formatDate'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const accounts = ref([])
 const error = ref(null)
 const saveError = ref(null)
 const saving = ref(false)
+// The audit event and notification name -- an identifier, not translated.
+const EVENT_NAME = 'BreakGlassLogon'
 const adding = ref({ account: '', displayName: '', notes: '' })
 
 async function load() {
   error.value = null
   try {
     const response = await fetch('/api/admin/break-glass-accounts')
-    if (!response.ok) throw new Error(`Request failed: ${response.status}`)
+    if (!response.ok) throw new Error(t('common.requestFailed', { status: response.status }))
     accounts.value = await response.json()
   } catch (err) {
     error.value = err.message
@@ -37,7 +42,7 @@ async function add() {
     })
     if (!response.ok) {
       const problem = await response.json().catch(() => null)
-      saveError.value = problem?.detail ?? `Add failed: ${response.status}`
+      saveError.value = problem?.detail ?? t('admin.breakGlassAccounts.addFailed', { status: response.status })
       return
     }
     adding.value = { account: '', displayName: '', notes: '' }
@@ -48,10 +53,10 @@ async function add() {
 }
 
 async function remove(account) {
-  if (!(await confirmDelete(`Remove "${account.displayName}" from the break-glass accounts? Its sign-ins will no longer raise an alert.`, 'Remove'))) return
+  if (!(await confirmDelete(t('admin.breakGlassAccounts.confirmRemove', { name: account.displayName }), t('common.remove')))) return
   const response = await fetch(`/api/admin/break-glass-accounts/${account.breakGlassAccountKey}`, { method: 'DELETE' })
   if (!response.ok) {
-    error.value = `Remove failed: ${response.status}`
+    error.value = t('admin.breakGlassAccounts.removeFailed', { status: response.status })
     return
   }
   await load()
@@ -60,37 +65,37 @@ async function remove(account) {
 
 <template>
   <section class="break-glass">
-    <h3>Break-glass accounts</h3>
-    <p>
-      Emergency accounts whose sign-in raises an alert: a <code>BreakGlassLogon</code> event in the Audit Log, and an email to the
-      <strong>BreakGlassLogon</strong> notification's recipients (Admin &gt; Notifications). They sign in like any other account.
-    </p>
+    <h3>{{ t('admin.breakGlassAccounts.title') }}</h3>
+    <i18n-t keypath="admin.breakGlassAccounts.intro" tag="p" scope="global">
+      <template #event><code>{{ EVENT_NAME }}</code></template>
+      <template #notification><strong>{{ EVENT_NAME }}</strong></template>
+    </i18n-t>
     <p v-if="error" role="alert">{{ error }}</p>
-    <p v-if="accounts.length === 0 && !error">No break-glass accounts.</p>
+    <p v-if="accounts.length === 0 && !error">{{ t('admin.breakGlassAccounts.noAccounts') }}</p>
     <table v-else-if="accounts.length">
       <thead>
-        <tr><th>Account</th><th>Identifier</th><th>Notes</th><th>Added</th><th></th></tr>
+        <tr><th>{{ t('admin.breakGlassAccounts.account') }}</th><th>{{ t('admin.breakGlassAccounts.identifier') }}</th><th>{{ t('admin.breakGlassAccounts.notes') }}</th><th>{{ t('admin.breakGlassAccounts.added') }}</th><th></th></tr>
       </thead>
       <tbody>
         <tr v-for="a in accounts" :key="a.breakGlassAccountKey">
           <td>{{ a.displayName }}</td>
           <td><code>{{ a.externalIdentifier }}</code></td>
           <td>{{ a.notes }}</td>
-          <td>{{ formatDate(a.createdDate) }}<template v-if="a.createdByName"> by {{ a.createdByName }}</template></td>
-          <td><button type="button" @click="remove(a)">Remove</button></td>
+          <td>{{ formatDate(a.createdDate) }}<template v-if="a.createdByName">{{ ' ' + t('admin.breakGlassAccounts.addedBy', { name: a.createdByName }) }}</template></td>
+          <td><button type="button" @click="remove(a)">{{ t('common.remove') }}</button></td>
         </tr>
       </tbody>
     </table>
 
     <form @submit.prevent="add">
       <p>
-        <label class="field-label"><span class="field-label-text">Account:</span> <input v-model="adding.account" maxlength="300" placeholder=".\Administrator" required /></label>
-        <small>DOMAIN\name, or .\name for a local account on this server (stored as its SID); or a SID, or an OIDC/SAML user identifier.</small>
+        <label class="field-label"><span class="field-label-text">{{ t('admin.breakGlassAccounts.accountLabel') }}</span> <input v-model="adding.account" maxlength="300" :placeholder="t('admin.breakGlassAccounts.accountPlaceholder')" required /></label>
+        <small>{{ t('admin.breakGlassAccounts.accountHint') }}</small>
       </p>
-      <p><label class="field-label"><span class="field-label-text">Display name:</span> <input v-model="adding.displayName" maxlength="300" placeholder="(the account, if blank)" /></label></p>
-      <p><label class="field-label"><span class="field-label-text">Notes:</span> <input v-model="adding.notes" maxlength="1000" placeholder="Where the credential is kept in CyberArk" /></label></p>
+      <p><label class="field-label"><span class="field-label-text">{{ t('admin.breakGlassAccounts.displayNameLabel') }}</span> <input v-model="adding.displayName" maxlength="300" :placeholder="t('admin.breakGlassAccounts.displayNamePlaceholder')" /></label></p>
+      <p><label class="field-label"><span class="field-label-text">{{ t('admin.breakGlassAccounts.notesLabel') }}</span> <input v-model="adding.notes" maxlength="1000" :placeholder="t('admin.breakGlassAccounts.notesPlaceholder')" /></label></p>
       <p v-if="saveError" role="alert">{{ saveError }}</p>
-      <button type="submit" :disabled="saving">Add break-glass account</button>
+      <button type="submit" :disabled="saving">{{ t('admin.breakGlassAccounts.addButton') }}</button>
     </form>
   </section>
 </template>

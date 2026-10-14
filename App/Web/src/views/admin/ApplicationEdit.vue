@@ -10,6 +10,9 @@
 // change for this page.
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const props = defineProps({ applicationKey: { type: [String, Number], required: false, default: null } })
 const router = useRouter()
@@ -26,10 +29,10 @@ onMounted(async () => {
   if (isEditMode.value) {
     try {
       const response = await fetch('/api/applications/detailed')
-      if (!response.ok) throw new Error(`Request failed: ${response.status}`)
+      if (!response.ok) throw new Error(t('common.requestFailed', { status: response.status }))
       const apps = await response.json()
       const match = apps.find(app => String(app.applicationKey) === String(props.applicationKey))
-      if (!match) throw new Error('Application not found.')
+      if (!match) throw new Error(t('admin.applicationEdit.notFound'))
       editing.value = { ...match }
     } catch (err) {
       loadError.value = err.message
@@ -49,7 +52,7 @@ async function save() {
       body: JSON.stringify(editing.value)
     })
     if (!response.ok) {
-      saveError.value = `Save failed: ${response.status}`
+      saveError.value = t('common.saveFailed', { status: response.status })
       return
     }
     router.push({ name: 'admin-application-mapping' })
@@ -65,22 +68,22 @@ function cancel() {
 
 <template>
   <div>
-    <h2>{{ isEditMode ? 'Edit Application' : 'New Application' }}</h2>
-    <p v-if="loading" role="status">Loading...</p>
+    <h2>{{ isEditMode ? t('admin.applicationEdit.editTitle') : t('admin.applicationEdit.newTitle') }}</h2>
+    <p v-if="loading" role="status">{{ t('common.loading') }}</p>
     <p v-else-if="loadError" role="alert">{{ loadError }}</p>
 
     <form v-else @submit.prevent="save">
-      <p><label class="field-label"><span class="field-label-text">Code:</span> <input v-model="editing.applicationCode" required /></label></p>
-      <p><label class="field-label"><span class="field-label-text">Name:</span> <input v-model="editing.applicationName" required /></label></p>
-      <p><label class="field-label"><span class="field-label-text">Description:</span> <input v-model="editing.description" /></label></p>
-      <p><label class="field-label"><span class="field-label-text">Owner Name:</span> <input v-model="editing.ownerName" /></label></p>
-      <p><label class="field-label"><span class="field-label-text">Owner Email:</span> <input v-model="editing.ownerEmail" /></label></p>
-      <p><label class="field-label"><span class="field-label-text">Technical Contact Name:</span> <input v-model="editing.technicalName" /></label></p>
-      <p><label class="field-label"><span class="field-label-text">Technical Contact Email:</span> <input v-model="editing.technicalEmail" /></label></p>
-      <p><label class="field-label"><span class="field-label-text">Notes:</span> <input v-model="editing.notes" /></label></p>
+      <p><label class="field-label"><span class="field-label-text">{{ t('admin.applicationEdit.code') }}</span> <input v-model="editing.applicationCode" required /></label></p>
+      <p><label class="field-label"><span class="field-label-text">{{ t('admin.applicationEdit.name') }}</span> <input v-model="editing.applicationName" required /></label></p>
+      <p><label class="field-label"><span class="field-label-text">{{ t('admin.applicationEdit.description') }}</span> <input v-model="editing.description" /></label></p>
+      <p><label class="field-label"><span class="field-label-text">{{ t('admin.applicationEdit.ownerName') }}</span> <input v-model="editing.ownerName" /></label></p>
+      <p><label class="field-label"><span class="field-label-text">{{ t('admin.applicationEdit.ownerEmail') }}</span> <input v-model="editing.ownerEmail" /></label></p>
+      <p><label class="field-label"><span class="field-label-text">{{ t('admin.applicationEdit.technicalName') }}</span> <input v-model="editing.technicalName" /></label></p>
+      <p><label class="field-label"><span class="field-label-text">{{ t('admin.applicationEdit.technicalEmail') }}</span> <input v-model="editing.technicalEmail" /></label></p>
+      <p><label class="field-label"><span class="field-label-text">{{ t('admin.applicationEdit.notes') }}</span> <input v-model="editing.notes" /></label></p>
       <p v-if="saveError" role="alert">{{ saveError }}</p>
-      <button type="submit" class="btn-primary" :disabled="saving">Save</button>
-      <button type="button" @click="cancel">Cancel</button>
+      <button type="submit" class="btn-primary" :disabled="saving">{{ t('common.save') }}</button>
+      <button type="button" @click="cancel">{{ t('common.cancel') }}</button>
     </form>
   </div>
 </template>

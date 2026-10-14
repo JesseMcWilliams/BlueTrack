@@ -111,7 +111,7 @@ More report types can be added the same way later; this isn't meant to be exhaus
 
 ### Numbers
 
-**D-218 (2026-10-13):** every count shown on the pages (list and report totals, pager, selection, import and bulk results, dashboard and KPI counts) goes through `formatCount` (`App/Web/src/utils/formatCount.js`), which uses `Intl.NumberFormat` with the browser's language: 1,234 / 1.234 / 1 234. Not counts, so left as they are: risk scores and band limits, percentages, IDs and row numbers, form inputs, and text the server writes (feed run summaries, emails, audit details).
+**D-218 (2026-10-13):** every count shown on the pages (list and report totals, pager, selection, import and bulk results, dashboard and KPI counts) goes through `formatCount` (`App/Web/src/utils/formatCount.js`), which uses `Intl.NumberFormat` with the browser's language: 1,234 / 1.234 / 1 234. **D-227:** the locale comes from `utils/formatLocale.js` (still the browser's unless the user picks a different language), which also has `formatPercent`, `formatShortDate` and `formatDateTime`. Not counts, so left as they are: risk scores and band limits, percentages, IDs and row numbers, form inputs, and text the server writes (feed run summaries, emails, audit details).
 
 ### Report Export
 
@@ -127,9 +127,13 @@ The export holds every row the filters match (all pages). More than `app_config.
 
 **D-225 (2026-10-13):** a search-as-you-type field uses the shared `Combobox.vue` (`App/Web/src/components/`), the W3C ARIA APG combobox pattern (list autocomplete with manual selection): an `<input role="combobox">` with `aria-expanded`, `aria-controls`, `aria-activedescendant` and `aria-autocomplete="list"`, owning a `role="listbox"` of `role="option"` items; focus stays in the input. Down/Up move the active option (wrapping), Enter picks it (and doesn't submit the form), Escape closes the list or, if closed, clears the text; Alt+Down reopens it. The page passes `search(text)` (a server endpoint, never a filter over a full list), `itemKey`, `itemLabel`, an accessible `label`, and an `#option` slot to show enough to tell items apart. Defaults: 2-character minimum, 250 ms debounce; an older response never replaces a newer one; the result count, "No matches." or the error is announced in a polite live region. The picked item is the `v-model`; typing again clears it. Colors are theme tokens (`--color-row-hover` plus a `--color-focus-ring` outline on the active option, so Forced Colors Mode still shows it). First use: Target Match Review's Merge Into (`GET /api/admin/targets/search`, at most 20 results).
 
+### Localization
+
+**D-227 (2026-10-13):** every string the SPA shows comes from vue-i18n messages (`App/Web/src/locales/<locale>/<area>.json`, one file per area), with `t('<area>.<page>.<element>')` in the code; English only for now, with a Language picker in Profile & Preferences. Key naming, file ownership, interpolation/plural/escaping rules, the test helper, the guard test and how to add a language: `Design_Localization.md`.
+
 ### Breadcrumbs
 
-**Resolved 2026-08-27 (D-45):** every page shows a breadcrumb trail so the user always knows where they are and can navigate back up the hierarchy quickly. Position defaults to the top-left of the page. **Resolved 2026-08-27 (D-57):** configurability is **admin-wide only**, via the Global Application Configuration page (alongside audit retention/idle timeout) — not a per-user preference, which would need user-settings infrastructure this app doesn't otherwise have yet. Fully resolves former Q-30.
+**Resolved 2026-08-27 (D-45):** every page shows a breadcrumb trail (labels: i18n keys `shell.routes.<routeName>` in each route's `meta.breadcrumb`, D-227) so the user always knows where they are and can navigate back up the hierarchy quickly. Position defaults to the top-left of the page. **Resolved 2026-08-27 (D-57):** configurability is **admin-wide only**, via the Global Application Configuration page (alongside audit retention/idle timeout) — not a per-user preference, which would need user-settings infrastructure this app doesn't otherwise have yet. Fully resolves former Q-30.
 
 ### Login Provider Display
 

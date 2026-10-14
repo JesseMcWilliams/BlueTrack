@@ -7,6 +7,9 @@
 import { ref, onMounted } from 'vue'
 import { formatDate } from '../../utils/formatDate'
 import ReportExportButtons from '../../components/ReportExportButtons.vue'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const items = ref([])
 const error = ref(null)
@@ -16,7 +19,7 @@ onMounted(async () => {
   try {
     const response = await fetch('/api/reports/reconciliation-review-queue')
     if (!response.ok) {
-      throw new Error(`Request failed: ${response.status}`)
+      throw new Error(t('common.requestFailed', { status: response.status }))
     }
     items.value = await response.json()
   } catch (err) {
@@ -29,11 +32,11 @@ onMounted(async () => {
 
 <template>
   <div>
-    <h2>Reconciliation Review Queue</h2>
+    <h2>{{ t('reports.reconciliationReviewQueue.title') }}</h2>
     <ReportExportButtons path="/api/reports/reconciliation-review-queue/export" />
-    <p v-if="loading" role="status">Loading...</p>
-    <p v-else-if="error" role="alert">Could not load queue: {{ error }}</p>
-    <p v-else-if="items.length === 0">Nothing awaiting reconciliation review.</p>
+    <p v-if="loading" role="status">{{ t('common.loading') }}</p>
+    <p v-else-if="error" role="alert">{{ t('reports.reconciliationReviewQueue.loadFailed', { error }) }}</p>
+    <p v-else-if="items.length === 0">{{ t('reports.reconciliationReviewQueue.empty') }}</p>
     <table v-else class="review-queue">
       <colgroup>
         <col style="width: 19%" />
@@ -45,12 +48,12 @@ onMounted(async () => {
       </colgroup>
       <thead>
         <tr>
-          <th>Self-Hosted Account</th>
-          <th>Privilege Cloud Account</th>
-          <th>Match Method</th>
-          <th>Confidence</th>
-          <th>Matched Date</th>
-          <th>Notes</th>
+          <th>{{ t('reports.reconciliationReviewQueue.colSelfHosted') }}</th>
+          <th>{{ t('reports.reconciliationReviewQueue.colPrivCloud') }}</th>
+          <th>{{ t('reports.reconciliationReviewQueue.colMatchMethod') }}</th>
+          <th>{{ t('reports.reconciliationReviewQueue.colConfidence') }}</th>
+          <th>{{ t('reports.reconciliationReviewQueue.colMatchedDate') }}</th>
+          <th>{{ t('reports.reconciliationReviewQueue.colNotes') }}</th>
         </tr>
       </thead>
       <tbody>

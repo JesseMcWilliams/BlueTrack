@@ -4,6 +4,9 @@
 // Close is the only control, so it takes focus and keeps it (Tab stays put);
 // Escape and the backdrop also close it.
 import { ref, onMounted, nextTick } from 'vue'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const emit = defineEmits(['close'])
 const version = ref(null)
@@ -15,7 +18,7 @@ onMounted(async () => {
   closeButton.value?.focus()
   try {
     const response = await fetch('/api/about')
-    if (!response.ok) throw new Error(`Request failed: ${response.status}`)
+    if (!response.ok) throw new Error(t('common.requestFailed', { status: response.status }))
     version.value = (await response.json()).version
   } catch (err) {
     error.value = err.message
@@ -31,12 +34,12 @@ function onKeydown(event) {
 <template>
   <div class="about-dialog-backdrop" @click.self="emit('close')">
     <div class="about-dialog" role="dialog" aria-modal="true" aria-labelledby="about-dialog-title" @keydown="onKeydown">
-      <h2 id="about-dialog-title">About BlueTrack</h2>
-      <p v-if="error" role="alert">Could not load the version: {{ error }}</p>
-      <p v-else-if="version === null" role="status">Loading...</p>
-      <p v-else>Version {{ version }}</p>
+      <h2 id="about-dialog-title">{{ t('shell.about.title') }}</h2>
+      <p v-if="error" role="alert">{{ t('shell.about.loadFailed', { error }) }}</p>
+      <p v-else-if="version === null" role="status">{{ t('common.loading') }}</p>
+      <p v-else>{{ t('shell.about.version', { version }) }}</p>
       <p class="about-dialog-actions">
-        <button ref="closeButton" type="button" class="btn-primary" @click="emit('close')">Close</button>
+        <button ref="closeButton" type="button" class="btn-primary" @click="emit('close')">{{ t('common.close') }}</button>
       </p>
     </div>
   </div>

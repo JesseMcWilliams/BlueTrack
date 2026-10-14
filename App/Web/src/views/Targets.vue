@@ -46,6 +46,9 @@ import BulkResultSummary from '../components/BulkResultSummary.vue'
 import { useListSelectionStore } from '../stores/listSelection'
 import { useBulkAction } from '../composables/useBulkAction'
 import { formatCount } from '../utils/formatCount'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const router = useRouter()
 
@@ -63,7 +66,7 @@ async function createAccountTargetLink() {
     body: JSON.stringify({ accountName: linkAccountName.value, targetKey: linkTargetKey.value })
   })
   if (!response.ok) {
-    linkError.value = `Link failed: ${response.status}`
+    linkError.value = t('pages.targets.linkFailed', { status: response.status })
     return
   }
   linkSaved.value = true
@@ -106,10 +109,10 @@ function onPageSizeChange() {
 
 const sortColumns = ref([])
 const columns = [
-  { field: 'targetName', label: 'Name' },
-  { field: 'targetType', label: 'Type' },
-  { field: 'applicationName', label: 'Application' },
-  { field: 'riskScore', label: 'Risk Score' }
+  { field: 'targetName', labelKey: 'pages.targets.colName' },
+  { field: 'targetType', labelKey: 'pages.targets.colType' },
+  { field: 'applicationName', labelKey: 'pages.targets.colApplication' },
+  { field: 'riskScore', labelKey: 'pages.targets.colRiskScore' }
 ]
 
 function sortIndicator(field) {
@@ -162,8 +165,8 @@ async function load() {
       fetch(`/api/admin/targets?${params.toString()}`),
       fetch('/api/admin/targets/identifier-types')
     ])
-    if (!targetsResponse.ok) throw new Error(`Request failed: ${targetsResponse.status}`)
-    if (!typesResponse.ok) throw new Error(`Request failed: ${typesResponse.status}`)
+    if (!targetsResponse.ok) throw new Error(t('common.requestFailed', { status: targetsResponse.status }))
+    if (!typesResponse.ok) throw new Error(t('common.requestFailed', { status: typesResponse.status }))
     readTotalCount(targetsResponse)
     items.value = await targetsResponse.json()
     identifierTypes.value = await typesResponse.json()
@@ -212,21 +215,21 @@ const keysUrl = computed(() => {
   return `/api/admin/targets/keys?${params.toString()}`
 })
 const bulkFields = computed(() => [
-  { field: 'TargetTypeKey', label: 'Type', type: 'select', required: true, options: targetTypes.value.map(t => ({ value: t.targetTypeKey, label: t.displayName })) },
-  { field: 'ApplicationKey', label: 'Application', type: 'select', options: applications.value.map(a => ({ value: a.applicationKey, label: a.applicationName })) },
-  { field: 'RiskScore', label: 'Risk Score', type: 'number' },
-  { field: 'Description', label: 'Description', type: 'text' }
+  { field: 'TargetTypeKey', label: t('pages.targets.fieldType'), type: 'select', required: true, options: targetTypes.value.map(type => ({ value: type.targetTypeKey, label: type.displayName })) },
+  { field: 'ApplicationKey', label: t('pages.targets.fieldApplication'), type: 'select', options: applications.value.map(a => ({ value: a.applicationKey, label: a.applicationName })) },
+  { field: 'RiskScore', label: t('pages.targets.fieldRiskScore'), type: 'number' },
+  { field: 'Description', label: t('common.description'), type: 'text' }
 ])
 
 async function bulkEdit(payload) {
-  if (await runBulk('/api/admin/targets/bulk-edit', payload, 'updated')) {
+  if (await runBulk('/api/admin/targets/bulk-edit', payload, t('pages.targets.verbUpdated'))) {
     bulkPanel.value = null
     await load()
   }
 }
 
 async function bulkDelete(reason) {
-  if (await runBulk('/api/admin/targets/bulk-delete', { reason }, 'deleted')) {
+  if (await runBulk('/api/admin/targets/bulk-delete', { reason }, t('pages.targets.verbDeleted'))) {
     bulkPanel.value = null
     await load()
   }
@@ -239,19 +242,19 @@ async function remove(item) {
   // its first identifier value (a Target can have several; just the
   // first is shown, confirmed directly).
   const message = {
-    title: 'Delete Target',
+    title: t('pages.targets.confirmTitle'),
     details: [
-      `Name: ${item.targetName}`,
-      `Scope: ${item.targetTypeDisplayName}`,
-      `Address: ${item.identifiers[0]?.identifierValue ?? '—'}`,
-      `Source: ${item.discoverySource ?? '—'}`
+      t('pages.targets.confirmName', { name: item.targetName }),
+      t('pages.targets.confirmScope', { scope: item.targetTypeDisplayName }),
+      t('pages.targets.confirmAddress', { address: item.identifiers[0]?.identifierValue ?? '—' }),
+      t('pages.targets.confirmSource', { source: item.discoverySource ?? '—' })
     ],
-    warning: 'This cannot be undone.'
+    warning: t('pages.targets.confirmWarning')
   }
   if (!(await confirmDelete(message))) return
   const response = await fetch(`/api/admin/targets/${item.targetKey}`, { method: 'DELETE' })
   if (!response.ok) {
-    error.value = `Delete failed: ${response.status} (a target still referenced by an Access Group or Account mapping can't be deleted)`
+    error.value = t('pages.targets.deleteFailed', { status: response.status })
     return
   }
   await load()
@@ -260,85 +263,85 @@ async function remove(item) {
 
 <template>
   <div>
-    <h1>Targets</h1>
-    <p>Any final destination an account's access leads to -- a server, database, application, or other endpoint. Risk score (0-1000) is always analyst-set here, regardless of how the row itself was created.</p>
+    <h1>{{ t('pages.targets.title') }}</h1>
+    <p>{{ t('pages.targets.intro') }}</p>
     <p>
-      <button type="button" class="btn-primary" @click="router.push({ name: 'target-create' })">+ New Target</button>
-      <button type="button" @click="router.push({ name: 'targets-bulk-import' })">Bulk Actions</button>
+      <button type="button" class="btn-primary" @click="router.push({ name: 'target-create' })">{{ t('pages.targets.newTarget') }}</button>
+      <button type="button" @click="router.push({ name: 'targets-bulk-import' })">{{ t('pages.targets.bulkActions') }}</button>
     </p>
     <p v-if="error" role="alert">{{ error }}</p>
 
     <p class="filter-row">
-      <label class="field-label"><span class="field-label-text">Type:</span>
+      <label class="field-label"><span class="field-label-text">{{ t('pages.targets.type') }}</span>
         <select v-model="typeFilter">
-          <option value="">All</option>
+          <option value="">{{ t('pages.targets.all') }}</option>
           <option v-for="type in targetTypes" :key="type.targetTypeKey" :value="type.targetTypeKey">{{ type.displayName }}</option>
         </select>
       </label>
-      <label class="field-label"><span class="field-label-text">Application:</span>
+      <label class="field-label"><span class="field-label-text">{{ t('pages.targets.application') }}</span>
         <select v-model="applicationFilter">
-          <option value="">All</option>
+          <option value="">{{ t('pages.targets.all') }}</option>
           <option v-for="app in applications" :key="app.applicationKey" :value="app.applicationKey">{{ app.applicationName }}</option>
         </select>
       </label>
     </p>
-    <SelectionBar :selection="selection" :page-keys="pageKeys" :filtered-count="filteredCount" :keys-url="keysUrl" toggle-label="Select targets for bulk actions">
-      <button type="button" class="btn-primary" :disabled="selection.count === 0" @click="bulkPanel = 'edit'">Bulk edit…</button>
-      <button type="button" :disabled="selection.count === 0" @click="bulkPanel = 'delete'">Delete…</button>
+    <SelectionBar :selection="selection" :page-keys="pageKeys" :filtered-count="filteredCount" :keys-url="keysUrl" :toggle-label="t('pages.targets.selectToggle')">
+      <button type="button" class="btn-primary" :disabled="selection.count === 0" @click="bulkPanel = 'edit'">{{ t('pages.targets.bulkEdit') }}</button>
+      <button type="button" :disabled="selection.count === 0" @click="bulkPanel = 'delete'">{{ t('pages.targets.deleteEllipsis') }}</button>
     </SelectionBar>
     <BulkFieldEditor v-if="bulkPanel === 'edit'" :fields="bulkFields" :count="selection.count" :saving="bulkSaving" @apply="bulkEdit" @cancel="bulkPanel = null" />
-    <BulkReasonForm v-if="bulkPanel === 'delete'" :action="`delete ${formatCount(selection.count)} target(s)`" button-label="Delete" :saving="bulkSaving" @submit="bulkDelete" @cancel="bulkPanel = null" />
+    <BulkReasonForm v-if="bulkPanel === 'delete'" :action="t('pages.targets.deleteAction', { count: formatCount(selection.count) })" :button-label="t('common.delete')" :saving="bulkSaving" @submit="bulkDelete" @cancel="bulkPanel = null" />
     <p v-if="bulkError" role="alert">{{ bulkError }}</p>
     <BulkResultSummary v-if="bulkResult" :result="bulkResult" />
     <FilterCountSummary :shown="items.length" :filtered-count="filteredCount" :total="totalCount" :page="page" :page-size="pageSizeStore.current" />
     <Pager :page="page" :page-count="pageCount" @update:page="onPageChange" @page-size-change="onPageSizeChange" />
 
-    <p v-if="loading" role="status">Loading...</p>
+    <p v-if="loading" role="status">{{ t('common.loading') }}</p>
 
     <template v-else>
       <table>
         <thead>
           <tr>
-            <th v-if="selection.enabled"><span class="visually-hidden">Selected</span></th>
+            <th v-if="selection.enabled"><span class="visually-hidden">{{ t('pages.targets.selected') }}</span></th>
             <th v-for="col in columns" :key="col.field" :aria-sort="ariaSortFor(col.field)">
               <button type="button" @click="toggleSort(col.field, $event)">
-                {{ col.label }} <span aria-hidden="true">{{ sortIndicator(col.field) }}</span>
+                {{ t(col.labelKey) }} <span aria-hidden="true">{{ sortIndicator(col.field) }}</span>
               </button>
             </th>
-            <th>Identifiers</th>
+            <th>{{ t('pages.targets.colIdentifiers') }}</th>
             <th></th>
           </tr>
         </thead>
         <tbody>
           <tr v-for="item in items" :key="item.targetKey">
-            <td v-if="selection.enabled"><input type="checkbox" :checked="selection.isSelected(item.targetKey)" :aria-label="`Select ${item.targetName}`" @change="selection.toggle(item.targetKey)" /></td>
+            <td v-if="selection.enabled"><input type="checkbox" :checked="selection.isSelected(item.targetKey)" :aria-label="t('pages.targets.selectRow', { name: item.targetName })" @change="selection.toggle(item.targetKey)" /></td>
             <td><router-link :to="{ name: 'target-edit', params: { targetKey: item.targetKey } }">{{ item.targetName }}</router-link></td>
             <td>{{ item.targetTypeDisplayName }}</td>
             <td>{{ item.applicationName }}</td>
             <td>{{ item.riskScore }}</td>
             <td>{{ item.identifiers.map(i => `${i.identifierType}=${i.identifierValue}`).join(', ') }}</td>
             <td>
-              <button @click="remove(item)">Delete</button>
+              <button @click="remove(item)">{{ t('common.delete') }}</button>
             </td>
           </tr>
         </tbody>
       </table>
       <Pager :page="page" :page-count="pageCount" @update:page="onPageChange" @page-size-change="onPageSizeChange" />
-      <p><small>Click a column to sort by it; shift-click another column to add it as a secondary sort key.</small></p>
+      <p><small>{{ t('pages.targets.sortHint') }}</small></p>
 
-      <h4>Link a Single Account to a Target</h4>
+      <h4>{{ t('pages.targets.linkHeading') }}</h4>
       <p v-if="linkError" role="alert">{{ linkError }}</p>
-      <p v-if="linkSaved" role="status">Linked.</p>
+      <p v-if="linkSaved" role="status">{{ t('pages.targets.linked') }}</p>
       <form class="filter-row" @submit.prevent="createAccountTargetLink">
-        <label class="field-label"><span class="field-label-text">Account Name:</span> <input v-model="linkAccountName" required /></label>
+        <label class="field-label"><span class="field-label-text">{{ t('pages.targets.accountName') }}</span> <input v-model="linkAccountName" required /></label>
         <label class="field-label">
-          <span class="field-label-text">Target:</span>
+          <span class="field-label-text">{{ t('pages.targets.target') }}</span>
           <select v-model="linkTargetKey" required>
-            <option :value="null" disabled>(choose)</option>
+            <option :value="null" disabled>{{ t('pages.targets.choose') }}</option>
             <option v-for="item in items" :key="item.targetKey" :value="item.targetKey">{{ item.targetName }}</option>
           </select>
         </label>
-        <button type="submit" class="btn-primary">Link</button>
+        <button type="submit" class="btn-primary">{{ t('pages.targets.link') }}</button>
       </form>
     </template>
   </div>

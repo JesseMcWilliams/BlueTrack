@@ -2,6 +2,9 @@
 // D-185 / D-190: the reason a bulk delete or revoke needs, as a small inline
 // form (the shared confirm dialog has no text box). Emits submit(reason).
 import { ref } from 'vue'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 defineProps({
   /** e.g. "delete 3 targets" -- shown as "Reason to delete 3 targets:" */
@@ -16,11 +19,11 @@ const reason = ref('')
 <template>
   <form class="bulk-panel" @submit.prevent="emit('submit', reason)">
     <label class="field-label">
-      <span class="field-label-text">Reason to {{ action }}:</span>
+      <span class="field-label-text">{{ t('shell.bulkReasonForm.reason', { action }) }}</span>
       <input v-model="reason" size="60" maxlength="1000" required />
     </label>
     <button type="submit" class="btn-primary" :disabled="saving || !reason.trim()">{{ buttonLabel }}</button>
-    <button type="button" @click="emit('cancel')">Cancel</button>
+    <button type="button" @click="emit('cancel')">{{ t('common.cancel') }}</button>
   </form>
 </template>
 

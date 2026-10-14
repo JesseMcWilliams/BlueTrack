@@ -13,6 +13,9 @@ import { confirmDelete } from '../../composables/useConfirmDialog'
 import FilterCountSummary from '../../components/FilterCountSummary.vue'
 import Pager from '../../components/Pager.vue'
 import ReportExportButtons from '../../components/ReportExportButtons.vue'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const { totalCount, filteredCount, readTotalCount } = useTotalCount()
 const pageSizeStore = usePageSizeStore()
@@ -25,10 +28,10 @@ const actionError = ref(null)
 const loading = ref(true)
 const busyKey = ref(null)
 
-const methodLabels = {
-  FeedShortName: 'Same host name',
-  FeedDnsForward: 'Same IP address (DNS)',
-  FeedDnsReverse: 'Reverse DNS'
+const methodLabelKeys = {
+  FeedShortName: 'reports.possibleAccountMatches.methodShortName',
+  FeedDnsForward: 'reports.possibleAccountMatches.methodDnsForward',
+  FeedDnsReverse: 'reports.possibleAccountMatches.methodDnsReverse'
 }
 
 function onPageChange(newPage) {
@@ -47,7 +50,7 @@ async function load() {
   try {
     const params = new URLSearchParams({ page: page.value, pageSize: pageSizeStore.current })
     const response = await fetch(`/api/reports/possible-matches?${params.toString()}`)
-    if (!response.ok) throw new Error(`Request failed: ${response.status}`)
+    if (!response.ok) throw new Error(t('common.requestFailed', { status: response.status }))
     readTotalCount(response)
     rows.value = await response.json()
   } catch (err) {
@@ -59,15 +62,15 @@ async function load() {
 
 async function act(row, action) {
   if (action === 'link' && !(await confirmDelete(
-    `Link ${row.feedUserName} on ${row.feedAddress} (${row.feedSourceName}) to CyberArk account "${row.cyberArkAccountName}"? It will be hidden from Account Progress and counted as the CyberArk account.`,
-    'Link'
+    t('reports.possibleAccountMatches.linkConfirm', { user: row.feedUserName, address: row.feedAddress, source: row.feedSourceName, account: row.cyberArkAccountName }),
+    t('reports.possibleAccountMatches.link')
   ))) return
 
   actionError.value = null
   busyKey.value = row.reconciliationKey
   try {
     const response = await fetch(`/api/reports/possible-matches/${row.reconciliationKey}/${action}`, { method: 'POST' })
-    if (!response.ok) throw new Error((await response.json().catch(() => null))?.detail ?? `Request failed: ${response.status}`)
+    if (!response.ok) throw new Error((await response.json().catch(() => null))?.detail ?? t('common.requestFailed', { status: response.status }))
     await load()
   } catch (err) {
     actionError.value = err.message
@@ -81,39 +84,36 @@ onMounted(load)
 
 <template>
   <div>
-    <h2>Possible Account Matches</h2>
-    <p class="hint">
-      Accounts from other systems (account inventory data feeds) that may be the same as a CyberArk account,
-      but didn't match it exactly: the user name is the same, and the addresses agree by host name or DNS.
-      <strong>Link</strong> treats them as one account, as an exact match would: the other system's account is hidden
-      and moves to Onboarded to Vault. <strong>Dismiss</strong> means they're different accounts; the pair isn't suggested again.
-    </p>
+    <h2>{{ t('reports.possibleAccountMatches.title') }}</h2>
+    <i18n-t keypath="reports.possibleAccountMatches.hint" tag="p" class="hint" scope="global">
+      <template #link><strong>{{ t('reports.possibleAccountMatches.link') }}</strong></template>
+      <template #dismiss><strong>{{ t('reports.possibleAccountMatches.dismiss') }}</strong></template>
+    </i18n-t>
     <ReportExportButtons path="/api/reports/possible-matches/export" />
     <FilterCountSummary :shown="rows.length" :filtered-count="filteredCount" :total="totalCount" :page="page" :page-size="pageSizeStore.current" />
     <Pager :page="page" :page-count="pageCount" @update:page="onPageChange" @page-size-change="onPageSizeChange" />
     <p v-if="actionError" role="alert">{{ actionError }}</p>
-    <p v-if="loading" role="status">Loading...</p>
-    <p v-else-if="error" role="alert">Could not load report: {{ error }}</p>
-    <p v-else-if="rows.length === 0">No possible matches to review.</p>
+    <p v-if="loading" role="status">{{ t('common.loading') }}</p>
+    <p v-else-if="error" role="alert">{{ t('reports.possibleAccountMatches.loadFailed', { error }) }}</p>
+    <p v-else-if="rows.length === 0">{{ t('reports.possibleAccountMatches.empty') }}</p>
     <table v-else>
       <thead>
-        <tr><th>Other system's account</th><th>CyberArk account</th><th>Why</th><th>Found</th><th></th></tr>
+        <tr><th>{{ t('reports.possibleAccountMatches.colOtherAccount') }}</th><th>{{ t('reports.possibleAccountMatches.colCyberArkAccount') }}</th><th>{{ t('reports.possibleAccountMatches.colWhy') }}</th><th>{{ t('reports.possibleAccountMatches.colFound') }}</th><th></th></tr>
       </thead>
       <tbody>
         <tr v-for="row in rows" :key="row.reconciliationKey">
           <td>
-            <router-link :to="{ name: 'account-progress-detail', params: { accountKey: row.feedAccountKey } }">{{ row.feedUserName }}</router-link>
-            on {{ row.feedAddress }}<br /><small>{{ row.feedSourceName }}</small>
+            <router-link :to="{ name: 'account-progress-detail', params: { accountKey: row.feedAccountKey } }">{{ row.feedUserName }}</router-link>{{ ' ' + t('reports.possibleAccountMatches.onAddress', { address: row.feedAddress }) }}<br /><small>{{ row.feedSourceName }}</small>
           </td>
           <td>
             <router-link :to="{ name: 'account-progress-detail', params: { accountKey: row.cyberArkAccountKey } }">{{ row.cyberArkAccountName }}</router-link>
-            <br /><small>{{ row.cyberArkUserName }} on {{ row.cyberArkAddress }}, {{ row.cyberArkSourceName }}</small>
+            <br /><small>{{ t('reports.possibleAccountMatches.userOnAddress', { user: row.cyberArkUserName, address: row.cyberArkAddress, source: row.cyberArkSourceName }) }}</small>
           </td>
-          <td>{{ methodLabels[row.matchMethod] ?? row.matchMethod }}<br /><small>{{ row.reason }}</small></td>
+          <td>{{ methodLabelKeys[row.matchMethod] ? t(methodLabelKeys[row.matchMethod]) : row.matchMethod }}<br /><small>{{ row.reason }}</small></td>
           <td>{{ formatDate(row.matchedDate) }}</td>
           <td>
-            <button type="button" :disabled="busyKey === row.reconciliationKey" @click="act(row, 'link')">Link</button>
-            <button type="button" :disabled="busyKey === row.reconciliationKey" @click="act(row, 'dismiss')">Dismiss</button>
+            <button type="button" :disabled="busyKey === row.reconciliationKey" @click="act(row, 'link')">{{ t('reports.possibleAccountMatches.link') }}</button>
+            <button type="button" :disabled="busyKey === row.reconciliationKey" @click="act(row, 'dismiss')">{{ t('reports.possibleAccountMatches.dismiss') }}</button>
           </td>
         </tr>
       </tbody>

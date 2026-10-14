@@ -9,6 +9,9 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAccountSelectionStore } from '../stores/accountSelection'
 import { formatCount } from '../utils/formatCount'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const router = useRouter()
 const selection = useAccountSelectionStore()
@@ -19,16 +22,16 @@ const error = ref(null)
 const result = ref(null)
 
 const fields = [
-  { field: 'CurrentStageKey', label: 'Stage', type: 'select', table: 'dim_blueprint_stage', required: true },
-  { field: 'CurrentStatusKey', label: 'Status', type: 'select', table: 'dim_progress_status', required: true },
-  { field: 'RiskLevelKey', label: 'Risk Level', type: 'select', table: 'dim_risk_level' },
-  { field: 'AccountTypeKey', label: 'Account Type', type: 'select', table: 'dim_account_type' },
-  { field: 'SORKey', label: 'Source of Record', type: 'select', table: 'dim_source_of_record' },
-  { field: 'OwnerName', label: 'Owner', type: 'text' },
-  { field: 'BusinessUnit', label: 'Business Unit', type: 'text' },
-  { field: 'TargetRemediationDate', label: 'Target Remediation Date', type: 'date' },
-  { field: 'ActualCompletionDate', label: 'Actual Completion Date', type: 'date' },
-  { field: 'Notes', label: 'Notes', type: 'notes' }
+  { field: 'CurrentStageKey', labelKey: 'pages.accountProgressBulkEdit.fieldStage', type: 'select', table: 'dim_blueprint_stage', required: true },
+  { field: 'CurrentStatusKey', labelKey: 'pages.accountProgressBulkEdit.fieldStatus', type: 'select', table: 'dim_progress_status', required: true },
+  { field: 'RiskLevelKey', labelKey: 'pages.accountProgressBulkEdit.fieldRiskLevel', type: 'select', table: 'dim_risk_level' },
+  { field: 'AccountTypeKey', labelKey: 'pages.accountProgressBulkEdit.fieldAccountType', type: 'select', table: 'dim_account_type' },
+  { field: 'SORKey', labelKey: 'pages.accountProgressBulkEdit.fieldSourceOfRecord', type: 'select', table: 'dim_source_of_record' },
+  { field: 'OwnerName', labelKey: 'pages.accountProgressBulkEdit.fieldOwner', type: 'text' },
+  { field: 'BusinessUnit', labelKey: 'pages.accountProgressBulkEdit.fieldBusinessUnit', type: 'text' },
+  { field: 'TargetRemediationDate', labelKey: 'pages.accountProgressBulkEdit.fieldTargetRemediationDate', type: 'date' },
+  { field: 'ActualCompletionDate', labelKey: 'pages.accountProgressBulkEdit.fieldActualCompletionDate', type: 'date' },
+  { field: 'Notes', labelKey: 'pages.accountProgressBulkEdit.fieldNotes', type: 'notes' }
 ]
 
 const change = ref(Object.fromEntries(fields.map(f => [f.field, false])))
@@ -57,7 +60,7 @@ async function apply() {
     })
     if (!response.ok) {
       const problem = await response.json().catch(() => null)
-      error.value = problem?.detail ?? `Bulk edit failed: ${response.status}`
+      error.value = problem?.detail ?? t('pages.accountProgressBulkEdit.failed', { status: response.status })
       return
     }
     result.value = await response.json()
@@ -76,53 +79,58 @@ function backToList() {
 
 <template>
   <div>
-    <h1>Bulk Edit Accounts</h1>
-    <p v-if="!result && selection.count === 0">No accounts are selected. Select them on the <router-link :to="{ name: 'account-progress-list' }">Accounts</router-link> list first.</p>
+    <h1>{{ t('pages.accountProgressBulkEdit.title') }}</h1>
+    <i18n-t v-if="!result && selection.count === 0" keypath="pages.accountProgressBulkEdit.noneSelected" tag="p" scope="global">
+      <template #link><router-link :to="{ name: 'account-progress-list' }">{{ t('pages.accountProgressBulkEdit.accountsLink') }}</router-link></template>
+    </i18n-t>
 
     <form v-else-if="!result" @submit.prevent="apply">
-      <p><strong>{{ formatCount(selection.count) }}</strong> accounts selected. Tick <em>Change</em> for each field to set; the others stay as they are on each account.</p>
+      <i18n-t keypath="pages.accountProgressBulkEdit.intro" tag="p" scope="global">
+        <template #count><strong>{{ formatCount(selection.count) }}</strong></template>
+        <template #change><em>{{ t('pages.accountProgressBulkEdit.change') }}</em></template>
+      </i18n-t>
       <table>
-        <thead><tr><th>Change</th><th>Field</th><th>New value</th></tr></thead>
+        <thead><tr><th>{{ t('pages.accountProgressBulkEdit.change') }}</th><th>{{ t('pages.accountProgressBulkEdit.field') }}</th><th>{{ t('pages.accountProgressBulkEdit.newValue') }}</th></tr></thead>
         <tbody>
           <tr v-for="f in fields" :key="f.field">
-            <td><input v-model="change[f.field]" type="checkbox" :aria-label="`Change ${f.label}`" /></td>
-            <td>{{ f.label }}</td>
+            <td><input v-model="change[f.field]" type="checkbox" :aria-label="t('pages.accountProgressBulkEdit.changeField', { field: t(f.labelKey) })" /></td>
+            <td>{{ t(f.labelKey) }}</td>
             <td>
-              <select v-if="f.type === 'select'" v-model="values[f.field]" :disabled="!change[f.field]" :aria-label="f.label" :required="change[f.field] && f.required">
-                <option v-if="!f.required" :value="null">(blank)</option>
+              <select v-if="f.type === 'select'" v-model="values[f.field]" :disabled="!change[f.field]" :aria-label="t(f.labelKey)" :required="change[f.field] && f.required">
+                <option v-if="!f.required" :value="null">{{ t('common.blank') }}</option>
                 <option v-for="opt in referenceData[f.table] ?? []" :key="opt.key" :value="opt.key">{{ opt.name }}</option>
               </select>
-              <input v-else-if="f.type === 'text'" v-model="values[f.field]" :disabled="!change[f.field]" :aria-label="f.label" placeholder="blank clears it" />
-              <input v-else-if="f.type === 'date'" v-model="values[f.field]" type="date" :disabled="!change[f.field]" :aria-label="f.label" />
+              <input v-else-if="f.type === 'text'" v-model="values[f.field]" :disabled="!change[f.field]" :aria-label="t(f.labelKey)" :placeholder="t('pages.accountProgressBulkEdit.blankClears')" />
+              <input v-else-if="f.type === 'date'" v-model="values[f.field]" type="date" :disabled="!change[f.field]" :aria-label="t(f.labelKey)" />
               <template v-else>
-                <select v-model="notesMode" :disabled="!change[f.field]" aria-label="Notes mode">
-                  <option value="Append">Add to the existing notes</option>
-                  <option value="Replace">Replace the notes</option>
+                <select v-model="notesMode" :disabled="!change[f.field]" :aria-label="t('pages.accountProgressBulkEdit.notesMode')">
+                  <option value="Append">{{ t('pages.accountProgressBulkEdit.notesAppend') }}</option>
+                  <option value="Replace">{{ t('pages.accountProgressBulkEdit.notesReplace') }}</option>
                 </select>
                 <br />
-                <textarea v-model="values[f.field]" :disabled="!change[f.field]" rows="3" cols="50" aria-label="Notes"></textarea>
+                <textarea v-model="values[f.field]" :disabled="!change[f.field]" rows="3" cols="50" :aria-label="t('pages.accountProgressBulkEdit.fieldNotes')"></textarea>
               </template>
             </td>
           </tr>
         </tbody>
       </table>
       <p>
-        <label class="field-label"><span class="field-label-text">Reason:</span> <input v-model="reason" size="60" /></label>
-        <br /><small>Required if the new Stage is earlier than an account's current stage; recorded in the audit log.</small>
+        <label class="field-label"><span class="field-label-text">{{ t('pages.accountProgressBulkEdit.reason') }}</span> <input v-model="reason" size="60" /></label>
+        <br /><small>{{ t('pages.accountProgressBulkEdit.reasonHint') }}</small>
       </p>
-      <p><small>Risk Exception can't be bulk edited: it must be linked on each account. Accounts someone else is editing are skipped.</small></p>
+      <p><small>{{ t('pages.accountProgressBulkEdit.riskExceptionHint') }}</small></p>
       <p v-if="error" role="alert">{{ error }}</p>
-      <button type="submit" class="btn-primary" :disabled="saving || chosen.length === 0">Apply to {{ formatCount(selection.count) }} accounts</button>
-      <button type="button" @click="backToList">Cancel</button>
-      <span v-if="saving" role="status"> Saving...</span>
+      <button type="submit" class="btn-primary" :disabled="saving || chosen.length === 0">{{ t('pages.accountProgressBulkEdit.apply', { count: formatCount(selection.count) }) }}</button>
+      <button type="button" @click="backToList">{{ t('common.cancel') }}</button>
+      <span v-if="saving" role="status">{{ ' ' + t('pages.accountProgressBulkEdit.saving') }}</span>
     </form>
 
     <div v-else role="status">
-      <p>{{ formatCount(result.updated) }} updated, {{ formatCount(result.unchanged) }} already had these values, {{ formatCount(result.skipped.length) }} skipped.</p>
+      <p>{{ t('pages.accountProgressBulkEdit.result', { updated: formatCount(result.updated), unchanged: formatCount(result.unchanged), skipped: formatCount(result.skipped.length) }) }}</p>
       <template v-if="result.skipped.length">
-        <p>Skipped accounts (still selected):</p>
+        <p>{{ t('pages.accountProgressBulkEdit.skippedTitle') }}</p>
         <table>
-          <thead><tr><th>Account</th><th>Why</th></tr></thead>
+          <thead><tr><th>{{ t('pages.accountProgressBulkEdit.account') }}</th><th>{{ t('pages.accountProgressBulkEdit.why') }}</th></tr></thead>
           <tbody>
             <tr v-for="s in result.skipped" :key="s.accountKey">
               <td><router-link :to="{ name: 'account-progress-detail', params: { accountKey: s.accountKey } }">{{ s.accountName ?? s.accountKey }}</router-link></td>
@@ -131,7 +139,7 @@ function backToList() {
           </tbody>
         </table>
       </template>
-      <button type="button" class="btn-primary" @click="backToList">Back to Accounts</button>
+      <button type="button" class="btn-primary" @click="backToList">{{ t('pages.accountProgressBulkEdit.backToAccounts') }}</button>
     </div>
   </div>
 </template>

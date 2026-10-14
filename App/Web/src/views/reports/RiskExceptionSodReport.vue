@@ -8,6 +8,9 @@
 import { ref, onMounted } from 'vue'
 import { formatDate } from '../../utils/formatDate'
 import ReportExportButtons from '../../components/ReportExportButtons.vue'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const items = ref([])
 const error = ref(null)
@@ -17,7 +20,7 @@ onMounted(async () => {
   try {
     const response = await fetch('/api/reports/risk-exception-sod')
     if (!response.ok) {
-      throw new Error(`Request failed: ${response.status}`)
+      throw new Error(t('common.requestFailed', { status: response.status }))
     }
     items.value = await response.json()
   } catch (err) {
@@ -30,23 +33,19 @@ onMounted(async () => {
 
 <template>
   <div>
-    <h2>Risk Exception Segregation of Duties</h2>
-    <p class="hint">
-      Cases where the same person both approved a Risk Exception and later linked it to an account's
-      progress record. Shown here regardless of whether "Enforce segregation of duties on Risk Exception
-      approval" is currently enabled on Global Application Configuration.
-    </p>
+    <h2>{{ t('reports.riskExceptionSodReport.title') }}</h2>
+    <p class="hint">{{ t('reports.riskExceptionSodReport.hint') }}</p>
     <ReportExportButtons path="/api/reports/risk-exception-sod/export" />
-    <p v-if="loading" role="status">Loading...</p>
-    <p v-else-if="error" role="alert">Could not load the report: {{ error }}</p>
-    <p v-else-if="items.length === 0">No same-person cases found.</p>
+    <p v-if="loading" role="status">{{ t('common.loading') }}</p>
+    <p v-else-if="error" role="alert">{{ t('reports.riskExceptionSodReport.loadFailed', { error }) }}</p>
+    <p v-else-if="items.length === 0">{{ t('reports.riskExceptionSodReport.empty') }}</p>
     <table v-else>
       <thead>
         <tr>
-          <th>Exception ID</th>
-          <th>Account</th>
-          <th>User</th>
-          <th>Linked On</th>
+          <th>{{ t('reports.riskExceptionSodReport.colExceptionId') }}</th>
+          <th>{{ t('reports.riskExceptionSodReport.colAccount') }}</th>
+          <th>{{ t('reports.riskExceptionSodReport.colUser') }}</th>
+          <th>{{ t('reports.riskExceptionSodReport.colLinkedOn') }}</th>
         </tr>
       </thead>
       <tbody>

@@ -11,6 +11,9 @@ import { useRoute } from 'vue-router'
 import { useRightsStore } from '../stores/rights'
 import { useSignOut } from '../composables/useSignOut'
 import AboutDialog from './AboutDialog.vue'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const rights = useRightsStore()
 const route = useRoute()
@@ -32,7 +35,7 @@ function closeAbout() {
   button.value?.focus()
 }
 
-const label = computed(() => rights.displayName || 'Account')
+const label = computed(() => rights.displayName || t('shell.userMenu.account'))
 
 function close({ focusButton = false } = {}) {
   open.value = false
@@ -78,9 +81,9 @@ async function signOut() {
       {{ label }} <span aria-hidden="true">▾</span>
     </button>
     <ul v-show="open" id="user-menu-list" class="user-menu__list">
-      <li><router-link :to="{ name: 'my-profile' }">Profile &amp; Preferences</router-link></li>
-      <li><button type="button" @click="openAbout">About</button></li>
-      <li><button type="button" :disabled="signingOut" @click="signOut">{{ signingOut ? 'Signing out...' : 'Sign out' }}</button></li>
+      <li><router-link :to="{ name: 'my-profile' }">{{ t('shell.userMenu.profile') }}</router-link></li>
+      <li><button type="button" @click="openAbout">{{ t('shell.userMenu.about') }}</button></li>
+      <li><button type="button" :disabled="signingOut" @click="signOut">{{ signingOut ? t('shell.userMenu.signingOut') : t('shell.userMenu.signOut') }}</button></li>
     </ul>
     <p v-if="error" role="alert" class="user-menu__error">{{ error }}</p>
     <AboutDialog v-if="aboutOpen" @close="closeAbout" />

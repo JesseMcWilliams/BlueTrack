@@ -19,8 +19,12 @@ import {
   Chart as ChartJS, BarElement, LineElement, PointElement, CategoryScale, LinearScale, Legend, Tooltip
 } from 'chart.js'
 import { formatCount } from '../../utils/formatCount'
+import { formatShortDate, formatPercent as formatFraction } from '../../utils/formatLocale'
 import { useChartTheme } from '../../utils/chartTheme'
 import ReportExportButtons from '../../components/ReportExportButtons.vue'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 ChartJS.register(BarElement, LineElement, PointElement, CategoryScale, LinearScale, Legend, Tooltip)
 
@@ -65,7 +69,7 @@ const queryParams = computed(() => ({
 
 async function problemMessage(response) {
   const problem = await response.json().catch(() => null)
-  return problem?.detail ?? problem?.title ?? `Request failed: ${response.status}`
+  return problem?.detail ?? problem?.title ?? t('common.requestFailed', { status: response.status })
 }
 
 // Only the latest request's answer is shown, if filters change faster than the API answers.
@@ -108,53 +112,58 @@ onMounted(async () => {
 
 watch(queryParams, load, { immediate: true, deep: true })
 
-// Dates and percentages in the browser's own language, as counts are (D-218).
-const dateFormat = new Intl.DateTimeFormat(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
-const percentFormat = new Intl.NumberFormat(undefined, { style: 'percent', minimumFractionDigits: 0, maximumFractionDigits: 1 })
-
+// Dates and percentages in the active format locale, as counts are (D-218,
+// D-227: utils/formatLocale.js -- the browser's language unless the user
+// picked another).
 function formatDay(value) {
   const [y, m, d] = String(value).slice(0, 10).split('-').map(Number)
-  return dateFormat.format(new Date(y, m - 1, d))
+  return formatShortDate(new Date(y, m - 1, d))
 }
 
 function formatPercent(value) {
-  return value === null || value === undefined ? 'N/A' : percentFormat.format(value / 100)
+  return value === null || value === undefined ? t('reports.trends.notApplicable') : formatFraction(value / 100)
 }
 
 const isWeek = computed(() => report.value?.granularity === 'week')
 const periods = computed(() => report.value?.periods ?? [])
-const labels = computed(() => periods.value.map(p => (isWeek.value ? `Week of ${formatDay(p.periodStart)}` : formatDay(p.periodStart))))
+const labels = computed(() => periods.value.map(p => (isWeek.value ? t('reports.trends.weekOf', { date: formatDay(p.periodStart) }) : formatDay(p.periodStart))))
 const rangeText = computed(() => periods.value.length === 0
   ? ''
-  : `${formatCount(periods.value.length)} ${isWeek.value ? 'week' : 'day'}(s), ${labels.value[0]} to ${labels.value[labels.value.length - 1]}`)
+  : t(isWeek.value ? 'reports.trends.rangeWeeks' : 'reports.trends.rangeDays', {
+    count: formatCount(periods.value.length),
+    first: labels.value[0],
+    last: labels.value[labels.value.length - 1]
+  }))
 
-function baseOptions(t, { stacked, percent }) {
-  const tick = { color: t.text }
+function baseOptions(colors, { stacked, percent }) {
+  const tick = { color: colors.text }
   return {
     responsive: true,
     maintainAspectRatio: false,
     animation: false,
     interaction: { mode: 'index', intersect: false },
     plugins: {
-      legend: { display: !percent, position: 'bottom', labels: { color: t.text, boxWidth: 12 } },
+      legend: { display: !percent, position: 'bottom', labels: { color: colors.text, boxWidth: 12 } },
       tooltip: {
         callbacks: {
           title: items => {
             const p = periods.value[items[0].dataIndex]
-            return isWeek.value ? `${labels.value[items[0].dataIndex]} (snapshot ${formatDay(p.snapshotDate)})` : labels.value[items[0].dataIndex]
+            return isWeek.value
+              ? t('reports.trends.tooltipWeekTitle', { label: labels.value[items[0].dataIndex], date: formatDay(p.snapshotDate) })
+              : labels.value[items[0].dataIndex]
           },
-          label: item => `${item.dataset.label}: ${percent ? formatPercent(item.parsed.y) : formatCount(item.parsed.y)}`
+          label: item => t('reports.trends.tooltipLabel', { series: item.dataset.label, value: percent ? formatPercent(item.parsed.y) : formatCount(item.parsed.y) })
         }
       }
     },
     scales: {
-      x: { stacked, ticks: { ...tick, maxRotation: 0, autoSkip: true }, grid: { display: false }, border: { color: t.grid } },
+      x: { stacked, ticks: { ...tick, maxRotation: 0, autoSkip: true }, grid: { display: false }, border: { color: colors.grid } },
       y: {
         stacked,
         beginAtZero: true,
         ...(percent ? { max: 100 } : {}),
         ticks: { ...tick, precision: 0, callback: v => (percent ? formatPercent(v) : formatCount(v)) },
-        grid: { color: t.grid },
+        grid: { color: colors.grid },
         border: { display: false }
       }
     }
@@ -182,7 +191,7 @@ const riskChart = computed(() => ({
 const percentChart = computed(() => ({
   labels: labels.value,
   datasets: [{
-    label: '% complete',
+    label: t('reports.trends.percentComplete'),
     data: periods.value.map(p => p.percentComplete),
     borderColor: theme.value.line,
     backgroundColor: theme.value.line,
@@ -199,34 +208,31 @@ const percentOptions = computed(() => baseOptions(theme.value, { stacked: false,
 
 <template>
   <div class="trends">
-    <h2>Trends</h2>
-    <p>
-      How accounts have moved over time, from the nightly progress snapshot. % complete uses the KPI Summary's rule:
-      accounts at the final stage with status Complete, out of the accounts in scope (not Risk Accepted / Excluded).
-    </p>
+    <h2>{{ t('reports.trends.title') }}</h2>
+    <p>{{ t('reports.trends.intro') }}</p>
 
     <p class="filter-row">
-      <label class="field-label"><span class="field-label-text">From:</span>
+      <label class="field-label"><span class="field-label-text">{{ t('reports.trends.from') }}</span>
         <input v-model="filters.from" type="date" name="from" required>
       </label>
-      <label class="field-label"><span class="field-label-text">To:</span>
+      <label class="field-label"><span class="field-label-text">{{ t('reports.trends.to') }}</span>
         <input v-model="filters.to" type="date" name="to" required>
       </label>
-      <label class="field-label"><span class="field-label-text">By:</span>
+      <label class="field-label"><span class="field-label-text">{{ t('reports.trends.by') }}</span>
         <select v-model="filters.granularity" name="granularity">
-          <option value="day">Day</option>
-          <option value="week">Week</option>
+          <option value="day">{{ t('reports.trends.day') }}</option>
+          <option value="week">{{ t('reports.trends.week') }}</option>
         </select>
       </label>
-      <label class="field-label"><span class="field-label-text">Application:</span>
+      <label class="field-label"><span class="field-label-text">{{ t('reports.trends.application') }}</span>
         <select v-model="filters.applicationKey" name="applicationKey">
-          <option value="">All</option>
+          <option value="">{{ t('reports.trends.all') }}</option>
           <option v-for="app in applications" :key="app.applicationKey" :value="String(app.applicationKey)">{{ app.applicationName }}</option>
         </select>
       </label>
-      <label class="field-label"><span class="field-label-text">Safe:</span>
+      <label class="field-label"><span class="field-label-text">{{ t('reports.trends.safe') }}</span>
         <select v-model="filters.safeKey" name="safeKey">
-          <option value="">All</option>
+          <option value="">{{ t('reports.trends.all') }}</option>
           <option v-for="safe in safeOptions" :key="safe.safeKey" :value="String(safe.safeKey)">{{ safe.safeName }} ({{ safe.sourceSystemName }})</option>
         </select>
       </label>
@@ -234,30 +240,29 @@ const percentOptions = computed(() => baseOptions(theme.value, { stacked: false,
 
     <ReportExportButtons path="/api/reports/trends/export" :params="queryParams" />
 
-    <p v-if="loading" role="status">Loading...</p>
-    <p v-else-if="error" role="alert">Could not load trends: {{ error }}</p>
+    <p v-if="loading" role="status">{{ t('common.loading') }}</p>
+    <p v-else-if="error" role="alert">{{ t('reports.trends.loadFailed', { error }) }}</p>
     <p v-else-if="periods.length === 0" class="trends-empty" role="status">
-      No progress history in this range{{ filters.applicationKey !== '' || filters.safeKey !== '' ? ' for this Application or Safe' : '' }}.
-      Snapshots are taken by the nightly job; choose an earlier range, or check back after it has run.
+      {{ filters.applicationKey !== '' || filters.safeKey !== '' ? t('reports.trends.emptyFiltered') : t('reports.trends.empty') }}
     </p>
     <template v-else>
       <p role="status">{{ rangeText }}.</p>
 
       <section class="trends-chart" aria-labelledby="trends-stages-title">
-        <h3 id="trends-stages-title">Accounts by stage</h3>
-        <div class="trends-canvas" role="img" :aria-label="`Accounts by stage, stacked bars, ${rangeText}. The numbers are in the data table that follows.`">
+        <h3 id="trends-stages-title">{{ t('reports.trends.stagesTitle') }}</h3>
+        <div class="trends-canvas" role="img" :aria-label="t('reports.trends.stagesChartLabel', { range: rangeText })">
           <Bar :data="stageChart" :options="stackedOptions" />
         </div>
         <button type="button" aria-controls="trends-stages-table" :aria-expanded="showTable.stages ? 'true' : 'false'" @click="showTable.stages = !showTable.stages">
-          {{ showTable.stages ? 'Hide data table' : 'Show data table' }}
+          {{ showTable.stages ? t('reports.trends.hideTable') : t('reports.trends.showTable') }}
         </button>
         <table id="trends-stages-table" :class="{ 'visually-hidden': !showTable.stages }">
-          <caption>Accounts by stage</caption>
+          <caption>{{ t('reports.trends.stagesTitle') }}</caption>
           <thead>
             <tr>
-              <th scope="col">{{ isWeek ? 'Week' : 'Day' }}</th>
+              <th scope="col">{{ isWeek ? t('reports.trends.week') : t('reports.trends.day') }}</th>
               <th v-for="s in report.stages" :key="s.name" scope="col">{{ s.name }}</th>
-              <th scope="col">Total</th>
+              <th scope="col">{{ t('reports.trends.total') }}</th>
             </tr>
           </thead>
           <tbody>
@@ -271,21 +276,21 @@ const percentOptions = computed(() => baseOptions(theme.value, { stacked: false,
       </section>
 
       <section class="trends-chart" aria-labelledby="trends-percent-title">
-        <h3 id="trends-percent-title">% complete</h3>
-        <div class="trends-canvas" role="img" :aria-label="`Percent complete, a line, ${rangeText}. The numbers are in the data table that follows.`">
+        <h3 id="trends-percent-title">{{ t('reports.trends.percentComplete') }}</h3>
+        <div class="trends-canvas" role="img" :aria-label="t('reports.trends.percentChartLabel', { range: rangeText })">
           <Line :data="percentChart" :options="percentOptions" />
         </div>
         <button type="button" aria-controls="trends-percent-table" :aria-expanded="showTable.percent ? 'true' : 'false'" @click="showTable.percent = !showTable.percent">
-          {{ showTable.percent ? 'Hide data table' : 'Show data table' }}
+          {{ showTable.percent ? t('reports.trends.hideTable') : t('reports.trends.showTable') }}
         </button>
         <table id="trends-percent-table" :class="{ 'visually-hidden': !showTable.percent }">
-          <caption>% complete</caption>
+          <caption>{{ t('reports.trends.percentComplete') }}</caption>
           <thead>
             <tr>
-              <th scope="col">{{ isWeek ? 'Week' : 'Day' }}</th>
-              <th scope="col">Compliant</th>
-              <th scope="col">In scope</th>
-              <th scope="col">% complete</th>
+              <th scope="col">{{ isWeek ? t('reports.trends.week') : t('reports.trends.day') }}</th>
+              <th scope="col">{{ t('reports.trends.compliant') }}</th>
+              <th scope="col">{{ t('reports.trends.inScope') }}</th>
+              <th scope="col">{{ t('reports.trends.percentComplete') }}</th>
             </tr>
           </thead>
           <tbody>
@@ -300,18 +305,18 @@ const percentOptions = computed(() => baseOptions(theme.value, { stacked: false,
       </section>
 
       <section class="trends-chart" aria-labelledby="trends-risks-title">
-        <h3 id="trends-risks-title">Accounts by risk level</h3>
-        <div class="trends-canvas" role="img" :aria-label="`Accounts by risk level, stacked bars, ${rangeText}. The numbers are in the data table that follows.`">
+        <h3 id="trends-risks-title">{{ t('reports.trends.risksTitle') }}</h3>
+        <div class="trends-canvas" role="img" :aria-label="t('reports.trends.risksChartLabel', { range: rangeText })">
           <Bar :data="riskChart" :options="stackedOptions" />
         </div>
         <button type="button" aria-controls="trends-risks-table" :aria-expanded="showTable.risks ? 'true' : 'false'" @click="showTable.risks = !showTable.risks">
-          {{ showTable.risks ? 'Hide data table' : 'Show data table' }}
+          {{ showTable.risks ? t('reports.trends.hideTable') : t('reports.trends.showTable') }}
         </button>
         <table id="trends-risks-table" :class="{ 'visually-hidden': !showTable.risks }">
-          <caption>Accounts by risk level</caption>
+          <caption>{{ t('reports.trends.risksTitle') }}</caption>
           <thead>
             <tr>
-              <th scope="col">{{ isWeek ? 'Week' : 'Day' }}</th>
+              <th scope="col">{{ isWeek ? t('reports.trends.week') : t('reports.trends.day') }}</th>
               <th v-for="r in report.riskLevels" :key="r.name" scope="col">{{ r.name }}</th>
             </tr>
           </thead>

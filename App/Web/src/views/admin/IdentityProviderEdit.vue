@@ -9,6 +9,12 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { mergeProviderSettings } from '../../utils/providerSettings'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
+
+// The provider types, by their identifiers (not translated).
+const PROVIDER_TYPES = ['WindowsIntegrated', 'OIDC', 'SAML', 'DevFakeAuth']
 
 const props = defineProps({ providerKey: { type: [String, Number], required: false, default: null } })
 const router = useRouter()
@@ -55,10 +61,10 @@ onMounted(async () => {
   if (isEditMode.value) {
     try {
       const response = await fetch('/api/admin/identity-providers')
-      if (!response.ok) throw new Error(`Request failed: ${response.status}`)
+      if (!response.ok) throw new Error(t('common.requestFailed', { status: response.status }))
       const providers = await response.json()
       const match = providers.find(provider => String(provider.providerKey) === String(props.providerKey))
-      if (!match) throw new Error('Provider not found.')
+      if (!match) throw new Error(t('admin.identityProviderEdit.notFound'))
       // secretReference comes back redacted ("***") when set -- never
       // round-tripped as an editable value. plaintextSecret is a separate
       // write-only field.
@@ -89,7 +95,7 @@ async function save() {
       body: JSON.stringify({ providerType, displayName, isEnabled, displayOrder, configurationValues, plaintextSecret: plaintextSecret || null })
     })
     if (!response.ok) {
-      saveError.value = `Save failed: ${response.status}`
+      saveError.value = t('common.saveFailed', { status: response.status })
       return
     }
     router.push({ name: 'admin-identity-providers' })
@@ -105,58 +111,55 @@ function cancel() {
 
 <template>
   <div>
-    <h2>{{ isEditMode ? 'Edit Provider' : 'New Provider' }}</h2>
-    <p v-if="loading" role="status">Loading...</p>
+    <h2>{{ isEditMode ? t('admin.identityProviderEdit.editTitle') : t('admin.identityProviderEdit.newTitle') }}</h2>
+    <p v-if="loading" role="status">{{ t('common.loading') }}</p>
     <p v-else-if="loadError" role="alert">{{ loadError }}</p>
 
     <form v-else @submit.prevent="save">
       <p>
         <label class="field-label">
-          <span class="field-label-text">Provider Type:</span>
+          <span class="field-label-text">{{ t('admin.identityProviderEdit.providerType') }}</span>
           <select v-model="editing.providerType" @change="onProviderTypeChange">
-            <option value="WindowsIntegrated">WindowsIntegrated</option>
-            <option value="OIDC">OIDC</option>
-            <option value="SAML">SAML</option>
-            <option value="DevFakeAuth">DevFakeAuth</option>
+            <option v-for="type in PROVIDER_TYPES" :key="type" :value="type">{{ type }}</option>
           </select>
         </label>
       </p>
-      <p><label class="field-label"><span class="field-label-text">Display Name:</span> <input v-model="editing.displayName" required /></label></p>
-      <p><label><input v-model="editing.isEnabled" type="checkbox" /> Enabled</label></p>
-      <p><label class="field-label"><span class="field-label-text">Display Order:</span> <input v-model.number="editing.displayOrder" type="number" /></label></p>
+      <p><label class="field-label"><span class="field-label-text">{{ t('admin.identityProviderEdit.displayName') }}</span> <input v-model="editing.displayName" required /></label></p>
+      <p><label><input v-model="editing.isEnabled" type="checkbox" /> {{ t('common.enabled') }}</label></p>
+      <p><label class="field-label"><span class="field-label-text">{{ t('admin.identityProviderEdit.displayOrder') }}</span> <input v-model.number="editing.displayOrder" type="number" /></label></p>
 
       <template v-if="editing.providerType === 'OIDC'">
-        <p><label class="field-label"><span class="field-label-text">Authority:</span> <input v-model="configFields.authority" placeholder="https://login.microsoftonline.com/{tenant}/v2.0" /></label></p>
-        <p><label class="field-label"><span class="field-label-text">Client ID:</span> <input v-model="configFields.clientId" /></label></p>
-        <p><label class="field-label"><span class="field-label-text">Callback Path:</span> <input v-model="configFields.callbackPath" /></label></p>
-        <p><label class="field-label"><span class="field-label-text">Groups Claim Type:</span> <input v-model="configFields.groupsClaimType" /></label></p>
+        <p><label class="field-label"><span class="field-label-text">{{ t('admin.identityProviderEdit.authority') }}</span> <input v-model="configFields.authority" :placeholder="t('admin.identityProviderEdit.authorityPlaceholder')" /></label></p>
+        <p><label class="field-label"><span class="field-label-text">{{ t('admin.identityProviderEdit.clientId') }}</span> <input v-model="configFields.clientId" /></label></p>
+        <p><label class="field-label"><span class="field-label-text">{{ t('admin.identityProviderEdit.callbackPath') }}</span> <input v-model="configFields.callbackPath" /></label></p>
+        <p><label class="field-label"><span class="field-label-text">{{ t('admin.identityProviderEdit.groupsClaimType') }}</span> <input v-model="configFields.groupsClaimType" /></label></p>
       </template>
       <template v-else-if="editing.providerType === 'SAML'">
-        <p><label class="field-label"><span class="field-label-text">SP Entity ID:</span> <input v-model="configFields.spEntityId" /></label></p>
+        <p><label class="field-label"><span class="field-label-text">{{ t('admin.identityProviderEdit.spEntityId') }}</span> <input v-model="configFields.spEntityId" /></label></p>
         <p>
-          <label class="field-label"><span class="field-label-text">SP Certificate Thumbprint:</span> <input v-model="configFields.spCertificateThumbprint" /></label>
-          <small>This app's own signing/decryption certificate, by thumbprint in the Windows Certificate Store -- the App Pool account's own store first, then LocalMachine\My -- not a certificate file or blob. Its private key must be readable by the App Pool account.</small>
+          <label class="field-label"><span class="field-label-text">{{ t('admin.identityProviderEdit.spCertificateThumbprint') }}</span> <input v-model="configFields.spCertificateThumbprint" /></label>
+          <small>{{ t('admin.identityProviderEdit.spCertificateHint') }}</small>
         </p>
-        <p><label class="field-label"><span class="field-label-text">IdP Entity ID:</span> <input v-model="configFields.idpEntityId" /></label></p>
-        <p><label class="field-label"><span class="field-label-text">IdP Single Sign-On Destination:</span> <input v-model="configFields.idpSingleSignOnDestination" /></label></p>
-        <p><label class="field-label"><span class="field-label-text">IdP Single Logout Destination:</span> <input v-model="configFields.idpSingleLogoutDestination" /></label></p>
+        <p><label class="field-label"><span class="field-label-text">{{ t('admin.identityProviderEdit.idpEntityId') }}</span> <input v-model="configFields.idpEntityId" /></label></p>
+        <p><label class="field-label"><span class="field-label-text">{{ t('admin.identityProviderEdit.idpSsoDestination') }}</span> <input v-model="configFields.idpSingleSignOnDestination" /></label></p>
+        <p><label class="field-label"><span class="field-label-text">{{ t('admin.identityProviderEdit.idpSloDestination') }}</span> <input v-model="configFields.idpSingleLogoutDestination" /></label></p>
         <p>
-          <label class="field-label"><span class="field-label-text">IdP Certificate Thumbprint:</span> <input v-model="configFields.idpCertificateThumbprint" /></label>
-          <small>The IdP's signing certificate, by thumbprint in the Windows Certificate Store -- not a certificate file or blob.</small>
+          <label class="field-label"><span class="field-label-text">{{ t('admin.identityProviderEdit.idpCertificateThumbprint') }}</span> <input v-model="configFields.idpCertificateThumbprint" /></label>
+          <small>{{ t('admin.identityProviderEdit.idpCertificateHint') }}</small>
         </p>
-        <p><label class="field-label"><span class="field-label-text">Group Claim Type:</span> <input v-model="configFields.groupClaimType" /></label></p>
+        <p><label class="field-label"><span class="field-label-text">{{ t('admin.identityProviderEdit.groupClaimType') }}</span> <input v-model="configFields.groupClaimType" /></label></p>
       </template>
 
       <p>
         <label class="field-label">
-          <span class="field-label-text">Secret (e.g. OIDC client secret):</span>
+          <span class="field-label-text">{{ t('admin.identityProviderEdit.secret') }}</span>
           <input v-model="editing.plaintextSecret" type="password" size="30"
-            :placeholder="editing.secretReference ? '(already set -- leave blank to keep)' : '(none set)'" />
+            :placeholder="editing.secretReference ? t('admin.identityProviderEdit.secretAlreadySet') : t('admin.identityProviderEdit.secretNoneSet')" />
         </label>
       </p>
       <p v-if="saveError" role="alert">{{ saveError }}</p>
-      <button type="submit" class="btn-primary" :disabled="saving">Save</button>
-      <button type="button" @click="cancel">Cancel</button>
+      <button type="submit" class="btn-primary" :disabled="saving">{{ t('common.save') }}</button>
+      <button type="button" @click="cancel">{{ t('common.cancel') }}</button>
     </form>
   </div>
 </template>

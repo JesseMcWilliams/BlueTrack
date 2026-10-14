@@ -8,6 +8,9 @@
 // A refusal (too many rows, no permission) shows the API's own message.
 import { ref } from 'vue'
 import { fileNameFrom } from '../utils/contentDisposition'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const props = defineProps({
   // The report's export endpoint, e.g. '/api/reports/risk-score/export'.
@@ -21,13 +24,13 @@ const error = ref(null)
 const done = ref(null)
 
 const formats = [
-  { format: 'csv', label: 'Export CSV' },
-  { format: 'xlsx', label: 'Export Excel' }
+  { format: 'csv', labelKey: 'common.exportCsv' },
+  { format: 'xlsx', labelKey: 'common.exportExcel' }
 ]
 
 async function problemMessage(response) {
   const problem = await response.json().catch(() => null)
-  return problem?.detail ?? problem?.title ?? `Export failed: ${response.status}`
+  return problem?.detail ?? problem?.title ?? t('common.exportFailed', { status: response.status })
 }
 
 async function download(format) {
@@ -53,7 +56,7 @@ async function download(format) {
     link.remove()
     // Revoked later, not at once: some browsers still read the blob after click() returns.
     setTimeout(() => URL.revokeObjectURL(url), 40_000)
-    done.value = `Downloaded ${fileName}.`
+    done.value = t('shell.reportExport.downloaded', { fileName })
   } catch (err) {
     error.value = err.message
   } finally {
@@ -63,7 +66,7 @@ async function download(format) {
 </script>
 
 <template>
-  <div class="report-export" role="group" aria-label="Export this report">
+  <div class="report-export" role="group" :aria-label="t('shell.reportExport.ariaLabel')">
     <button
       v-for="f in formats"
       :key="f.format"
@@ -71,10 +74,10 @@ async function download(format) {
       :disabled="busy !== null"
       :aria-busy="busy === f.format ? 'true' : 'false'"
       @click="download(f.format)"
-    >{{ f.label }}</button>
-    <span v-if="busy" role="status">Preparing the export...</span>
+    >{{ t(f.labelKey) }}</button>
+    <span v-if="busy" role="status">{{ t('shell.reportExport.preparing') }}</span>
     <span v-else-if="done" role="status">{{ done }}</span>
-    <p v-if="error" class="report-export-error" role="alert">Could not export: {{ error }}</p>
+    <p v-if="error" class="report-export-error" role="alert">{{ t('shell.reportExport.couldNotExport', { error }) }}</p>
   </div>
 </template>
 

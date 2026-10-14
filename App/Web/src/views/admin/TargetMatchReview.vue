@@ -7,6 +7,9 @@
 // picked merges into the candidate, as before.
 import { ref, onMounted } from 'vue'
 import Combobox from '../../components/Combobox.vue'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const items = ref([])
 const error = ref(null)
@@ -17,7 +20,7 @@ async function load() {
   loading.value = true
   try {
     const response = await fetch('/api/admin/risk-scoring/target-match-review')
-    if (!response.ok) throw new Error(`Request failed: ${response.status}`)
+    if (!response.ok) throw new Error(t('common.requestFailed', { status: response.status }))
     items.value = await response.json()
   } catch (err) {
     error.value = err.message
@@ -30,7 +33,7 @@ onMounted(load)
 
 async function searchTargets(text) {
   const response = await fetch(`/api/admin/targets/search?q=${encodeURIComponent(text)}`)
-  if (!response.ok) throw new Error(`Search failed: ${response.status}`)
+  if (!response.ok) throw new Error(t('admin.targetMatchReview.searchFailed', { status: response.status }))
   return response.json()
 }
 
@@ -51,7 +54,7 @@ async function resolve(item, resolution) {
   })
   if (!response.ok) {
     const problem = await response.json().catch(() => null)
-    error.value = problem?.detail ?? `Resolve failed: ${response.status}`
+    error.value = problem?.detail ?? t('admin.targetMatchReview.resolveFailed', { status: response.status })
     return
   }
   delete mergeTargetByRow.value[item.targetMatchReviewKey]
@@ -61,16 +64,16 @@ async function resolve(item, resolution) {
 
 <template>
   <div>
-    <h2>Target Match Review</h2>
-    <p>A weak match (e.g. an IP address alone, which can be reassigned by DHCP/NAT) found during import -- confirm rather than auto-merge.</p>
-    <p>To merge into a different target than the candidate, search for it by name or by any identifier (at least 2 characters). Leave it empty to merge into the candidate.</p>
+    <h2>{{ t('admin.targetMatchReview.title') }}</h2>
+    <p>{{ t('admin.targetMatchReview.intro') }}</p>
+    <p>{{ t('admin.targetMatchReview.mergeHint') }}</p>
     <p role="alert">{{ error }}</p>
-    <p v-if="loading" role="status">Loading...</p>
+    <p v-if="loading" role="status">{{ t('common.loading') }}</p>
 
     <template v-else>
       <table v-if="items.length > 0">
         <thead>
-          <tr><th>Identifier</th><th>Candidate Target</th><th>Source File</th><th>Merge Into</th><th></th></tr>
+          <tr><th>{{ t('admin.targetMatchReview.identifier') }}</th><th>{{ t('admin.targetMatchReview.candidateTarget') }}</th><th>{{ t('admin.targetMatchReview.sourceFile') }}</th><th>{{ t('admin.targetMatchReview.mergeInto') }}</th><th></th></tr>
         </thead>
         <tbody>
           <tr v-for="item in items" :key="item.targetMatchReviewKey">
@@ -80,11 +83,11 @@ async function resolve(item, resolution) {
             <td>
               <Combobox
                 v-model="mergeTargetByRow[item.targetMatchReviewKey]"
-                :label="`Merge ${item.identifierType} ${item.identifierValue} into target`"
+                :label="t('admin.targetMatchReview.mergeLabel', { type: item.identifierType, value: item.identifierValue })"
                 :search="searchTargets"
-                :item-key="t => t.targetKey"
+                :item-key="target => target.targetKey"
                 :item-label="targetLabel"
-                :placeholder="item.candidateTargetName ? `Candidate: ${item.candidateTargetName}` : 'Search targets'"
+                :placeholder="item.candidateTargetName ? t('admin.targetMatchReview.candidatePlaceholder', { name: item.candidateTargetName }) : t('admin.targetMatchReview.searchPlaceholder')"
               >
                 <template #option="{ item: target }">
                   <strong>{{ target.targetName }}</strong> <span>({{ target.targetTypeDisplayName }})</span>
@@ -94,14 +97,14 @@ async function resolve(item, resolution) {
               </Combobox>
             </td>
             <td>
-              <button @click="resolve(item, 'Merged')">Merge</button>
-              <button @click="resolve(item, 'NewTarget')">New Target</button>
-              <button @click="resolve(item, 'Ignored')">Ignore</button>
+              <button @click="resolve(item, 'Merged')">{{ t('admin.targetMatchReview.merge') }}</button>
+              <button @click="resolve(item, 'NewTarget')">{{ t('admin.targetMatchReview.newTarget') }}</button>
+              <button @click="resolve(item, 'Ignored')">{{ t('admin.targetMatchReview.ignore') }}</button>
             </td>
           </tr>
         </tbody>
       </table>
-      <p v-else>No pending reviews.</p>
+      <p v-else>{{ t('admin.targetMatchReview.noReviews') }}</p>
     </template>
   </div>
 </template>

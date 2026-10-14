@@ -1,18 +1,21 @@
 // D-181: shared by DataSources.vue and DataFeedEdit.vue.
+import { formatDateTime } from '../../utils/formatLocale'
+import { t } from '../../i18n'
 
-const feedTypeLabels = {
-  TargetInventory: 'Target inventory',
-  AccessGroupInventory: 'Access group inventory',
-  AccessGroupTargetMap: 'Access group → target map',
-  AccountAccessGroupMembership: 'Account → access group membership',
-  AccountTargetMap: 'Account → target map',
-  Applications: 'Applications',
-  SafeAssignments: 'Safe → application assignments',
-  AccountInventory: 'Account inventory' // D-212
+const feedTypeLabelKeys = {
+  TargetInventory: 'admin.dataFeedFormat.targetInventory',
+  AccessGroupInventory: 'admin.dataFeedFormat.accessGroupInventory',
+  AccessGroupTargetMap: 'admin.dataFeedFormat.accessGroupTargetMap',
+  AccountAccessGroupMembership: 'admin.dataFeedFormat.accountAccessGroupMembership',
+  AccountTargetMap: 'admin.dataFeedFormat.accountTargetMap',
+  Applications: 'admin.dataFeedFormat.applications',
+  SafeAssignments: 'admin.dataFeedFormat.safeAssignments',
+  AccountInventory: 'admin.dataFeedFormat.accountInventory' // D-212
 }
 
 export function feedTypeLabel(feedType) {
-  return feedTypeLabels[feedType] ?? feedType
+  const key = feedTypeLabelKeys[feedType]
+  return key ? t(key) : feedType
 }
 
 /**
@@ -23,5 +26,5 @@ export function formatRunTime(value, isLocal = false) {
   if (!value) return ''
   const text = isLocal || /[zZ]|[+-]\d\d:\d\d$/.test(value) ? value : `${value}Z`
   const date = new Date(text)
-  return Number.isNaN(date.getTime()) ? value : date.toLocaleString()
+  return Number.isNaN(date.getTime()) ? value : formatDateTime(date)
 }

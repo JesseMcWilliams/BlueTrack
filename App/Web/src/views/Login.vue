@@ -25,6 +25,9 @@ import { apiUrl } from '../utils/apiBase'
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useRightsStore } from '../stores/rights'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const PROVIDER_BY_PATH = { windows: 'WindowsIntegrated', oidc: 'OIDC', saml: 'SAML' }
 
@@ -97,7 +100,7 @@ async function load() {
   let tryWindows = false
   try {
     const response = await fetch('/api/auth/providers')
-    if (!response.ok) throw new Error(`Request failed: ${response.status}`)
+    if (!response.ok) throw new Error(t('common.requestFailed', { status: response.status }))
     const data = await response.json()
     providers.value = [...data.providers].sort((a, b) => a.displayOrder - b.displayOrder)
     defaultProviderType.value = data.defaultProviderType ?? null
@@ -105,7 +108,7 @@ async function load() {
     if (requestedType.value) {
       const requested = providers.value.find(p => p.providerType === requestedType.value)
       if (requested) start(requested)
-      else error.value = "That sign-in method isn't enabled. Choose one below."
+      else error.value = t('shell.login.methodNotEnabled')
       return
     }
 
@@ -131,31 +134,31 @@ onMounted(load)
 
 <template>
   <div>
-    <h1>Sign in</h1>
-    <p v-if="signedOutIdle" role="status">You were signed out because you weren't active for a while.</p>
-    <p v-else-if="signedOut" role="status">You're signed out.</p>
+    <h1>{{ t('shell.login.title') }}</h1>
+    <p v-if="signedOutIdle" role="status">{{ t('shell.login.signedOutIdle') }}</p>
+    <p v-else-if="signedOut" role="status">{{ t('shell.login.signedOut') }}</p>
     <p v-if="error" role="alert">{{ error }}</p>
-    <p v-if="loading" role="status">Loading...</p>
+    <p v-if="loading" role="status">{{ t('common.loading') }}</p>
     <p v-if="windowsFailed && !signingIn" role="alert">
-      Windows sign-in didn't complete. If your browser asked for credentials, check them and choose Continue again.
+      {{ t('shell.login.windowsFailed') }}
     </p>
 
     <template v-else>
-      <p v-if="providers.length === 0">No identity providers are enabled. Contact an administrator.</p>
+      <p v-if="providers.length === 0">{{ t('shell.login.noProviders') }}</p>
       <template v-else>
-        <p>Choose a sign-in method:</p>
+        <p>{{ t('shell.login.chooseMethod') }}</p>
         <ul>
           <li v-for="provider in providers" :key="provider.providerType">
             <a v-if="externalRedirectUrl(provider)" :href="externalRedirectUrl(provider)">{{ provider.displayName }}</a>
-            <span v-else-if="signsInAutomatically(provider)">{{ provider.displayName }} (signs in automatically)</span>
+            <span v-else-if="signsInAutomatically(provider)">{{ t('shell.login.signsInAutomatically', { name: provider.displayName }) }}</span>
             <span v-else>{{ provider.displayName }}</span>
-            <span v-if="provider.providerType === defaultProviderType"> (default)</span>
+            <span v-if="provider.providerType === defaultProviderType">{{ ' ' + t('shell.login.default') }}</span>
             <button
               v-if="provider.providerType === 'WindowsIntegrated'"
               type="button"
               :disabled="signingIn"
               @click="start(provider)"
-            >{{ signingIn ? 'Signing in...' : 'Continue' }}</button>
+            >{{ signingIn ? t('shell.login.signingIn') : t('common.continue') }}</button>
           </li>
         </ul>
       </template>

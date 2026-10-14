@@ -13,6 +13,9 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { confirmDelete } from '../../composables/useConfirmDialog'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const router = useRouter()
 
@@ -36,7 +39,7 @@ async function load() {
       fetch('/api/admin/group-role-mappings'),
       fetch('/api/admin/group-role-mappings/providers')
     ])
-    if (!mappingsResponse.ok) throw new Error(`Request failed: ${mappingsResponse.status}`)
+    if (!mappingsResponse.ok) throw new Error(t('common.requestFailed', { status: mappingsResponse.status }))
     mappings.value = await mappingsResponse.json()
     if (providersResponse.ok) {
       providers.value = await providersResponse.json()
@@ -62,7 +65,7 @@ async function lookup() {
     body: JSON.stringify({ groupName: lookupGroupName.value, providerKey: lookupProviderKey.value })
   })
   if (!response.ok) {
-    lookupError.value = response.status === 404 ? 'Could not resolve that group name.' : `Request failed: ${response.status}`
+    lookupError.value = response.status === 404 ? t('admin.groupRoleMapping.couldNotResolve') : t('common.requestFailed', { status: response.status })
     return
   }
   lookupResult.value = await response.json()
@@ -83,7 +86,7 @@ async function generateBackupStatusReaderScript() {
     body: JSON.stringify({ groupName: lookupGroupName.value })
   })
   if (!response.ok) {
-    scriptGenerationError.value = response.status === 404 ? 'Could not resolve that group name.' : `Request failed: ${response.status}`
+    scriptGenerationError.value = response.status === 404 ? t('admin.groupRoleMapping.couldNotResolve') : t('common.requestFailed', { status: response.status })
     return
   }
   const blob = await response.blob()
@@ -107,10 +110,10 @@ function groupLabel(mapping) {
 }
 
 async function remove(mapping) {
-  if (!(await confirmDelete(`Delete mapping "${groupLabel(mapping)} → ${mapping.roleName}"? This cannot be undone.`))) return
+  if (!(await confirmDelete(t('admin.groupRoleMapping.confirmDelete', { group: groupLabel(mapping), role: mapping.roleName })))) return
   const response = await fetch(`/api/admin/group-role-mappings/${mapping.mappingKey}`, { method: 'DELETE' })
   if (!response.ok) {
-    error.value = `Delete failed: ${response.status}`
+    error.value = t('common.deleteFailed', { status: response.status })
     return
   }
   await load()
@@ -119,16 +122,16 @@ async function remove(mapping) {
 
 <template>
   <div>
-    <h2>Group → Role Mapping</h2>
+    <h2>{{ t('admin.groupRoleMapping.title') }}</h2>
     <p v-if="error" role="alert">{{ error }}</p>
-    <p v-if="loading" role="status">Loading...</p>
+    <p v-if="loading" role="status">{{ t('common.loading') }}</p>
 
     <template v-else>
-      <p><button type="button" class="btn-primary" @click="router.push({ name: 'admin-group-role-mapping-create' })">+ Add Mapping</button></p>
+      <p><button type="button" class="btn-primary" @click="router.push({ name: 'admin-group-role-mapping-create' })">{{ t('admin.groupRoleMapping.addMapping') }}</button></p>
 
       <table>
         <thead>
-          <tr><th>Provider</th><th>Group</th><th>Role</th><th></th></tr>
+          <tr><th>{{ t('admin.groupRoleMapping.provider') }}</th><th>{{ t('admin.groupRoleMapping.group') }}</th><th>{{ t('admin.groupRoleMapping.role') }}</th><th></th></tr>
         </thead>
         <tbody>
           <tr v-for="mapping in mappings" :key="mapping.mappingKey">
@@ -136,41 +139,41 @@ async function remove(mapping) {
             <td>
               {{ groupLabel(mapping) }}
               <span v-if="mapping.groupDisplayName" class="group-identifier">{{ mapping.identityGroupName }}</span>
-              <span v-else-if="mapping.providerType === 'WindowsIntegrated'" class="group-identifier">(name could not be resolved)</span>
+              <span v-else-if="mapping.providerType === 'WindowsIntegrated'" class="group-identifier">{{ t('admin.groupRoleMapping.nameNotResolved') }}</span>
             </td>
             <td>{{ mapping.roleName }}</td>
-            <td><button @click="remove(mapping)">Delete</button></td>
+            <td><button @click="remove(mapping)">{{ t('common.delete') }}</button></td>
           </tr>
         </tbody>
       </table>
 
-      <h3>Lookup / Test Tool</h3>
-      <p>Resolve a group name and see what it currently grants, without saving anything.</p>
+      <h3>{{ t('admin.groupRoleMapping.lookupHeading') }}</h3>
+      <p>{{ t('admin.groupRoleMapping.lookupIntro') }}</p>
       <form class="filter-row" @submit.prevent="lookup">
         <label v-if="providers.length > 1" class="field-label">
-          <span class="field-label-text">Provider</span>
+          <span class="field-label-text">{{ t('admin.groupRoleMapping.provider') }}</span>
           <select v-model="lookupProviderKey" @change="lookupResult = null">
             <option v-for="provider in providers" :key="provider.providerKey" :value="provider.providerKey">{{ provider.displayName }} ({{ provider.providerType }})</option>
           </select>
         </label>
-        <label class="field-label"><span class="field-label-text">Group name</span> <input v-model="lookupGroupName" required /></label>
-        <button type="submit">Resolve</button>
+        <label class="field-label"><span class="field-label-text">{{ t('admin.groupRoleMapping.groupName') }}</span> <input v-model="lookupGroupName" required /></label>
+        <button type="submit">{{ t('admin.groupRoleMapping.resolve') }}</button>
       </form>
       <p v-if="lookupError" role="alert">{{ lookupError }}</p>
       <div v-if="lookupResult">
-        <p v-if="lookupIsWindows">Resolved to: {{ lookupResult.resolvedAccountName }} ({{ lookupResult.sid }})</p>
-        <p v-else>Group claim value: {{ lookupResult.sid }}</p>
-        <p>Current role(s): {{ lookupResult.currentRoleNames.join(', ') || '(none mapped)' }}</p>
-        <p>Current permission(s): {{ lookupResult.currentPermissionNames.join(', ') || '(none)' }}</p>
+        <p v-if="lookupIsWindows">{{ t('admin.groupRoleMapping.resolvedTo', { name: lookupResult.resolvedAccountName, sid: lookupResult.sid }) }}</p>
+        <p v-else>{{ t('admin.groupRoleMapping.groupClaimValue', { value: lookupResult.sid }) }}</p>
+        <p>{{ t('admin.groupRoleMapping.currentRoles', { roles: lookupResult.currentRoleNames.join(', ') || t('admin.groupRoleMapping.noneMapped') }) }}</p>
+        <p>{{ t('admin.groupRoleMapping.currentPermissions', { permissions: lookupResult.currentPermissionNames.join(', ') || t('common.none') }) }}</p>
         <template v-if="lookupIsWindows">
           <p>
-            <button type="button" @click="generateBackupStatusReaderScript">Generate db_backupstatus_reader Script</button>
+            <button type="button" @click="generateBackupStatusReaderScript">{{ t('admin.groupRoleMapping.generateScript') }}</button>
           </p>
-          <p>
-            Downloads a copy of <code>Database/Manual/03_BlueTrack_GrantBackupStatusReaderRole.sql</code> targeting this
-            resolved account -- a DBA still has to run it manually via <code>sqlcmd</code> against <code>msdb</code>,
-            never through the app itself.
-          </p>
+          <i18n-t keypath="admin.groupRoleMapping.scriptHint" tag="p" scope="global">
+            <template #file><code>{{ 'Database/Manual/03_BlueTrack_GrantBackupStatusReaderRole.sql' }}</code></template>
+            <template #tool><code>{{ 'sqlcmd' }}</code></template>
+            <template #database><code>{{ 'msdb' }}</code></template>
+          </i18n-t>
           <p v-if="scriptGenerationError" role="alert">{{ scriptGenerationError }}</p>
         </template>
       </div>

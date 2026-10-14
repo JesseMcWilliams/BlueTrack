@@ -10,6 +10,9 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { readCsvHeaders, matchHeaders, applyMatches, applyConflicts, fieldsFor } from '../../utils/csvHeaderMapping'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const FEED_TYPES = ['TargetInventory', 'AccessGroupInventory', 'AccessGroupTargetMap', 'AccountAccessGroupMembership', 'AccountTargetMap']
 
@@ -43,7 +46,7 @@ const detectError = ref(null)
 async function loadIdentifierTypes() {
   try {
     const response = await fetch('/api/admin/targets/identifier-types')
-    if (response.ok) identifierTypes.value = (await response.json()).map(t => t.identifierType)
+    if (response.ok) identifierTypes.value = (await response.json()).map(type => type.identifierType)
   } catch {
     // The seeded identifier types in csvHeaderMapping.js still match.
   }
@@ -73,12 +76,12 @@ async function onSampleFileChange(event) {
   try {
     const { headers, delimiter } = await readCsvHeaders(file)
     if (headers.length === 0) {
-      detectError.value = 'No column headers found in the first line of that file.'
+      detectError.value = t('admin.importMappingProfileEdit.noHeaders')
       return
     }
     detectFrom(headers, delimiter)
   } catch (err) {
-    detectError.value = `Couldn't read the file: ${err.message}`
+    detectError.value = t('admin.importMappingProfileEdit.couldNotRead', { error: err.message })
   }
 }
 
@@ -91,17 +94,23 @@ function keepConflicts() {
   detection.value = { ...detection.value, conflicts: [] }
 }
 
-const DELIMITER_NAMES = { ',': 'comma', ';': 'semicolon', '\t': 'tab' }
+const DELIMITER_KEYS = { ',': 'admin.importMappingProfileEdit.delimiterComma', ';': 'admin.importMappingProfileEdit.delimiterSemicolon', '\t': 'admin.importMappingProfileEdit.delimiterTab' }
+
+function filledText(filled) {
+  return filled.map(m => m.how === 'synonym'
+    ? t('admin.importMappingProfileEdit.filledSynonym', { field: m.field, header: m.header })
+    : t('admin.importMappingProfileEdit.filledExact', { field: m.field, header: m.header })).join(', ')
+}
 
 onMounted(async () => {
   await loadIdentifierTypes()
   if (isEditMode.value) {
     try {
       const response = await fetch('/api/admin/risk-scoring/import-mapping-profiles')
-      if (!response.ok) throw new Error(`Request failed: ${response.status}`)
+      if (!response.ok) throw new Error(t('common.requestFailed', { status: response.status }))
       const items = await response.json()
       const match = items.find(item => String(item.importMappingProfileKey) === String(props.importMappingProfileKey))
-      if (!match) throw new Error('Profile not found.')
+      if (!match) throw new Error(t('admin.importMappingProfileEdit.notFound'))
       editing.value = { ...match, fields: match.fields.map(f => ({ ...f })) }
     } catch (err) {
       loadError.value = err.message
@@ -128,7 +137,7 @@ async function save() {
       body: JSON.stringify(editing.value)
     })
     if (!response.ok) {
-      saveError.value = `Save failed: ${response.status}`
+      saveError.value = t('common.saveFailed', { status: response.status })
       return
     }
     router.push({ name: 'admin-import-mapping-profiles' })
@@ -144,70 +153,72 @@ function cancel() {
 
 <template>
   <div>
-    <h2>{{ isEditMode ? 'Edit Profile' : 'New Profile' }}</h2>
-    <p v-if="loading" role="status">Loading...</p>
+    <h2>{{ isEditMode ? t('admin.importMappingProfileEdit.editTitle') : t('admin.importMappingProfileEdit.newTitle') }}</h2>
+    <p v-if="loading" role="status">{{ t('common.loading') }}</p>
     <p v-else-if="loadError" role="alert">{{ loadError }}</p>
 
     <form v-else @submit.prevent="save">
       <p>
         <label class="field-label">
-          <span class="field-label-text">Feed Type:</span>
+          <span class="field-label-text">{{ t('admin.importMappingProfileEdit.feedType') }}</span>
           <select v-model="editing.feedType">
             <option v-for="type in FEED_TYPES" :key="type" :value="type">{{ type }}</option>
           </select>
         </label>
       </p>
-      <p><label class="field-label"><span class="field-label-text">Profile Name:</span> <input v-model="editing.profileName" required /></label></p>
-      <p><label><input v-model="editing.isActive" type="checkbox" /> Active</label></p>
-      <p><label class="field-label"><span class="field-label-text">Description:</span> <input v-model="editing.description" /></label></p>
+      <p><label class="field-label"><span class="field-label-text">{{ t('admin.importMappingProfileEdit.profileName') }}</span> <input v-model="editing.profileName" required /></label></p>
+      <p><label><input v-model="editing.isActive" type="checkbox" /> {{ t('common.active') }}</label></p>
+      <p><label class="field-label"><span class="field-label-text">{{ t('admin.importMappingProfileEdit.description') }}</span> <input v-model="editing.description" /></label></p>
 
-      <h4>Detect from a sample file</h4>
-      <p>Pick a sample of the CSV this profile is for. Only its header row is read, in your browser; the file isn't uploaded. Each field is matched to a column with the same name (ignoring case, spaces, underscores and punctuation), then to a common alternative name. Fields you've already mapped aren't changed unless you choose Replace.</p>
+      <h4>{{ t('admin.importMappingProfileEdit.detectHeading') }}</h4>
+      <p>{{ t('admin.importMappingProfileEdit.detectIntro') }}</p>
       <p>
         <label class="field-label">
-          <span class="field-label-text">Sample CSV file:</span>
+          <span class="field-label-text">{{ t('admin.importMappingProfileEdit.sampleFile') }}</span>
           <input type="file" accept=".csv,.txt,text/csv" @change="onSampleFileChange" />
         </label>
       </p>
       <div role="status">
         <template v-if="detection">
           <p>
-            Found {{ detection.headers.length }} columns<template v-if="detection.delimiter"> ({{ DELIMITER_NAMES[detection.delimiter] }}-separated)</template>.
-            <template v-if="detection.filled.length">Filled in: {{ detection.filled.map(m => `${m.field} ← ${m.header}${m.how === 'synonym' ? ' (alternative name)' : ''}`).join(', ') }}.</template>
-            <template v-else>No empty fields to fill in.</template>
+            {{ detection.delimiter
+              ? t('admin.importMappingProfileEdit.foundColumnsDelimited', { count: detection.headers.length, delimiter: t(DELIMITER_KEYS[detection.delimiter]) })
+              : t('admin.importMappingProfileEdit.foundColumns', { count: detection.headers.length }) }}
+            <template v-if="detection.filled.length">{{ t('admin.importMappingProfileEdit.filledIn', { fields: filledText(detection.filled) }) }}</template>
+            <template v-else>{{ t('admin.importMappingProfileEdit.nothingToFill') }}</template>
           </p>
           <p v-if="detection.unmatchedFields.length">
-            Not matched (fill in by hand if the file has them): {{ detection.unmatchedFields.join(', ') }}.
-            <strong v-if="detection.requiredUnmatched.length">Required by the import: {{ detection.requiredUnmatched.join(', ') }}.</strong>
+            {{ t('admin.importMappingProfileEdit.notMatched', { fields: detection.unmatchedFields.join(', ') }) }}
+            <strong v-if="detection.requiredUnmatched.length">{{ t('admin.importMappingProfileEdit.requiredUnmatched', { fields: detection.requiredUnmatched.join(', ') }) }}</strong>
           </p>
-          <p v-if="detection.unusedHeaders.length">Columns not used: {{ detection.unusedHeaders.join(', ') }}.</p>
+          <p v-if="detection.unusedHeaders.length">{{ t('admin.importMappingProfileEdit.unusedColumns', { columns: detection.unusedHeaders.join(', ') }) }}</p>
         </template>
       </div>
       <p v-if="detectError" role="alert">{{ detectError }}</p>
       <div v-if="detection?.conflicts.length" class="detect-conflicts">
-        <p>These fields are already mapped to a different column:</p>
+        <p>{{ t('admin.importMappingProfileEdit.conflictsIntro') }}</p>
         <ul>
-          <li v-for="c in detection.conflicts" :key="c.field">{{ c.field }}: now {{ c.current }}, the file has {{ c.detected }}</li>
+          <li v-for="c in detection.conflicts" :key="c.field">{{ t('admin.importMappingProfileEdit.conflict', { field: c.field, current: c.current, detected: c.detected }) }}</li>
         </ul>
         <p>
-          <button type="button" @click="replaceConflicts">Replace with the file's columns</button>
-          <button type="button" @click="keepConflicts">Keep my mappings</button>
+          <button type="button" @click="replaceConflicts">{{ t('admin.importMappingProfileEdit.replaceConflicts') }}</button>
+          <button type="button" @click="keepConflicts">{{ t('admin.importMappingProfileEdit.keepConflicts') }}</button>
         </p>
       </div>
 
-      <h4>Fields</h4>
+      <h4>{{ t('admin.importMappingProfileEdit.fieldsHeading') }}</h4>
       <div v-for="(field, index) in editing.fields" :key="index" class="filter-row">
-        <label class="field-label"><span class="field-label-text">Source Column:</span> <input v-model="field.sourceColumnName" required /></label>
-        <label class="field-label"><span class="field-label-text">Internal Field:</span> <input v-model="field.targetFieldName" required /></label>
-        <label><input v-model="field.isRequired" type="checkbox" /> Required</label>
-        <label class="field-label"><span class="field-label-text">Default:</span> <input v-model="field.defaultValue" /></label>
-        <button type="button" @click="removeFieldRow(index)">Remove</button>
+        <label class="field-label"><span class="field-label-text">{{ t('admin.importMappingProfileEdit.sourceColumn') }}</span> <input v-model="field.sourceColumnName" required /></label>
+        <label class="field-label"><span class="field-label-text">{{ t('admin.importMappingProfileEdit.internalField') }}</span> <input v-model="field.targetFieldName" required /></label>
+        <label><input v-model="field.isRequired" type="checkbox" /> {{ t('admin.importMappingProfileEdit.required') }}</label>
+        <label class="field-label"><span class="field-label-text">{{ t('admin.importMappingProfileEdit.default') }}</span> <input v-model="field.defaultValue" /></label>
+        <button type="button" @click="removeFieldRow(index)">{{ t('common.remove') }}</button>
       </div>
-      <p><button type="button" @click="addFieldRow">+ Add Field</button></p>
+      <p><button type="button" @click="addFieldRow">{{ t('admin.importMappingProfileEdit.addField') }}</button></p>
 
       <p v-if="saveError" role="alert">{{ saveError }}</p>
-      <button type="submit" class="btn-primary" :disabled="saving">Save</button>
-      <button type="button" @click="cancel">Cancel</button>
+      <button type="submit" class="btn-primary" :disabled="saving">{{ t('common.save') }}</button>
+      <button type="button" @click="cancel">{{ t('common.cancel') }}</button>
     </form>
   </div>
 </template>

@@ -4,32 +4,39 @@
 // every permission-aware control on the page reads from. Also the theme
 // picker (Design_Accessibility-And-Theming.md, D-93) -- confirmed location
 // for this per-user preference, alongside the other self-service settings.
+// D-227: and the language picker, which lists only the registered locales
+// (src/i18n/index.js SUPPORTED_LOCALES), each by its own name.
 import { onMounted } from 'vue'
 import { useRightsStore } from '../stores/rights'
 import { useThemeStore } from '../stores/theme'
+import { useLocaleStore, languageName } from '../stores/locale'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const rights = useRightsStore()
 const theme = useThemeStore()
+const locale = useLocaleStore()
 
 onMounted(() => rights.ensureLoaded())
 </script>
 
 <template>
   <div>
-    <h1>Profile &amp; Preferences</h1>
-    <p v-if="rights.loading" role="status">Loading...</p>
+    <h1>{{ t('shell.myProfile.title') }}</h1>
+    <p v-if="rights.loading" role="status">{{ t('common.loading') }}</p>
     <p v-else-if="rights.error" role="alert">{{ rights.error }}</p>
     <template v-else>
       <dl>
-        <dt>Name</dt>
+        <dt>{{ t('common.name') }}</dt>
         <dd>{{ rights.displayName }}</dd>
-        <dt>Role(s)</dt>
-        <dd>{{ rights.roleNames.join(', ') || '(none mapped)' }}</dd>
+        <dt>{{ t('shell.myProfile.roles') }}</dt>
+        <dd>{{ rights.roleNames.join(', ') || t('shell.myProfile.noneMapped') }}</dd>
       </dl>
-      <h2>Permissions</h2>
+      <h2>{{ t('shell.myProfile.permissions') }}</h2>
       <table v-if="rights.permissionNames.length > 0">
         <thead>
-          <tr><th>Permission</th></tr>
+          <tr><th>{{ t('shell.myProfile.permission') }}</th></tr>
         </thead>
         <tbody>
           <tr v-for="name in rights.permissionNames" :key="name">
@@ -37,21 +44,29 @@ onMounted(() => rights.ensureLoaded())
           </tr>
         </tbody>
       </table>
-      <p v-else>(none)</p>
-      <button :disabled="rights.loading" @click="rights.reload">Reload My Rights</button>
-      <p><small>Re-checks your current group membership immediately, without waiting for anything to expire -- useful right after you know you've been added to a new group.</small></p>
+      <p v-else>{{ t('common.none') }}</p>
+      <button :disabled="rights.loading" @click="rights.reload">{{ t('shell.myProfile.reloadRights') }}</button>
+      <p><small>{{ t('shell.myProfile.reloadRightsHint') }}</small></p>
 
-      <h2>Theme</h2>
+      <h2>{{ t('shell.myProfile.theme') }}</h2>
       <fieldset>
-        <legend>Choose a display theme</legend>
+        <legend>{{ t('shell.myProfile.themeLegend') }}</legend>
         <p>
-          <label><input type="radio" name="theme" value="Light" :checked="theme.current === 'Light'" @change="theme.setTheme('Light')" /> Light</label>
+          <label><input type="radio" name="theme" value="Light" :checked="theme.current === 'Light'" @change="theme.setTheme('Light')" /> {{ t('shell.myProfile.themeLight') }}</label>
         </p>
         <p>
-          <label><input type="radio" name="theme" value="Dark" :checked="theme.current === 'Dark'" @change="theme.setTheme('Dark')" /> Dark</label>
+          <label><input type="radio" name="theme" value="Dark" :checked="theme.current === 'Dark'" @change="theme.setTheme('Dark')" /> {{ t('shell.myProfile.themeDark') }}</label>
         </p>
         <p>
-          <label><input type="radio" name="theme" value="HighVisibility" :checked="theme.current === 'HighVisibility'" @change="theme.setTheme('HighVisibility')" /> High Visibility</label>
+          <label><input type="radio" name="theme" value="HighVisibility" :checked="theme.current === 'HighVisibility'" @change="theme.setTheme('HighVisibility')" /> {{ t('shell.myProfile.themeHighVisibility') }}</label>
+        </p>
+      </fieldset>
+
+      <h2>{{ t('shell.myProfile.language') }}</h2>
+      <fieldset>
+        <legend>{{ t('shell.myProfile.languageLegend') }}</legend>
+        <p v-for="code in locale.available" :key="code">
+          <label><input type="radio" name="language" :value="code" :checked="locale.current === code" @change="locale.setLanguage(code)" /> <span :lang="code">{{ languageName(code) }}</span></label>
         </p>
       </fieldset>
     </template>

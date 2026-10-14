@@ -18,6 +18,9 @@
 // Delete are otherwise completely unchanged.
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const props = defineProps({ targetKey: { type: [String, Number], required: false, default: null } })
 const router = useRouter()
@@ -61,7 +64,7 @@ onMounted(async () => {
   if (isEditMode.value) {
     try {
       const response = await fetch(`/api/admin/targets/${props.targetKey}`)
-      if (!response.ok) throw new Error(`Request failed: ${response.status}`)
+      if (!response.ok) throw new Error(t('common.requestFailed', { status: response.status }))
       const target = await response.json()
       editing.value = { ...target, identifiers: target.identifiers.map(i => ({ ...i })) }
     } catch (err) {
@@ -88,7 +91,7 @@ async function save() {
     })
     if (!response.ok) {
       const problem = await response.json().catch(() => null)
-      saveError.value = problem?.detail ?? `Save failed: ${response.status}`
+      saveError.value = problem?.detail ?? t('common.saveFailed', { status: response.status })
       return
     }
     router.push({ name: 'targets' })
@@ -104,40 +107,40 @@ function cancel() {
 
 <template>
   <div>
-    <h1>{{ isEditMode ? 'Edit Target' : 'New Target' }}</h1>
-    <p v-if="loading" role="status">Loading...</p>
+    <h1>{{ isEditMode ? t('pages.targetEdit.titleEdit') : t('pages.targetEdit.titleNew') }}</h1>
+    <p v-if="loading" role="status">{{ t('common.loading') }}</p>
     <p v-else-if="loadError" role="alert">{{ loadError }}</p>
 
     <form v-else @submit.prevent="save">
-      <p><label class="field-label"><span class="field-label-text">Name:</span> <input v-model="editing.targetName" required /></label></p>
+      <p><label class="field-label"><span class="field-label-text">{{ t('pages.targetEdit.name') }}</span> <input v-model="editing.targetName" required /></label></p>
       <p>
         <label class="field-label">
-          <span class="field-label-text">Type:</span>
+          <span class="field-label-text">{{ t('pages.targetEdit.type') }}</span>
           <select v-model="editing.targetTypeKey">
             <option v-for="type in targetTypes" :key="type.targetTypeKey" :value="type.targetTypeKey">{{ type.displayName }}</option>
           </select>
         </label>
       </p>
-      <p><label class="field-label"><span class="field-label-text">Risk Score (0-1000):</span> <input v-model.number="editing.riskScore" type="number" min="0" max="1000" required /></label></p>
-      <p><label class="field-label"><span class="field-label-text">Description:</span> <input v-model="editing.description" /></label></p>
-      <p><label class="field-label"><span class="field-label-text">Discovery Source:</span> <input v-model="editing.discoverySource" placeholder="Manual" /></label></p>
+      <p><label class="field-label"><span class="field-label-text">{{ t('pages.targetEdit.riskScore') }}</span> <input v-model.number="editing.riskScore" type="number" min="0" max="1000" required /></label></p>
+      <p><label class="field-label"><span class="field-label-text">{{ t('pages.targetEdit.description') }}</span> <input v-model="editing.description" /></label></p>
+      <p><label class="field-label"><span class="field-label-text">{{ t('pages.targetEdit.discoverySource') }}</span> <input v-model="editing.discoverySource" :placeholder="t('pages.targetEdit.discoverySourcePlaceholder')" /></label></p>
 
-      <h3>Identifiers</h3>
+      <h3>{{ t('pages.targetEdit.identifiers') }}</h3>
       <div v-for="(identifier, index) in editing.identifiers" :key="index" class="filter-row">
         <label class="field-label">
-          <span class="field-label-text">Type:</span>
+          <span class="field-label-text">{{ t('pages.targetEdit.type') }}</span>
           <select v-model="identifier.identifierType">
             <option v-for="type in identifierTypes" :key="type.identifierType" :value="type.identifierType">{{ type.identifierType }}</option>
           </select>
         </label>
-        <label class="field-label"><span class="field-label-text">Value:</span> <input v-model="identifier.identifierValue" required /></label>
-        <button type="button" @click="removeIdentifierRow(index)">Remove</button>
+        <label class="field-label"><span class="field-label-text">{{ t('pages.targetEdit.value') }}</span> <input v-model="identifier.identifierValue" required /></label>
+        <button type="button" @click="removeIdentifierRow(index)">{{ t('common.remove') }}</button>
       </div>
-      <p><button type="button" @click="addIdentifierRow">+ Add Identifier</button></p>
+      <p><button type="button" @click="addIdentifierRow">{{ t('pages.targetEdit.addIdentifier') }}</button></p>
 
       <p v-if="saveError" role="alert">{{ saveError }}</p>
-      <button type="submit" class="btn-primary" :disabled="saving">Save</button>
-      <button type="button" @click="cancel">Cancel</button>
+      <button type="submit" class="btn-primary" :disabled="saving">{{ t('common.save') }}</button>
+      <button type="button" @click="cancel">{{ t('common.cancel') }}</button>
     </form>
   </div>
 </template>

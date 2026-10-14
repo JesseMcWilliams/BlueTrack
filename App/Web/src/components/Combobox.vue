@@ -11,6 +11,9 @@
 // The picked item is the v-model; typing again clears it. The number of
 // results is announced in a polite live region.
 import { ref, computed, watch, onBeforeUnmount, useId } from 'vue'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const props = defineProps({
   // Accessible name of the input (use instead of a visible <label for>).
@@ -67,12 +70,14 @@ async function runSearch(query) {
     items.value = Array.isArray(results) ? results : []
     activeIndex.value = -1
     open.value = items.value.length > 0
-    status.value = items.value.length === 0 ? 'No matches.' : `${items.value.length} ${items.value.length === 1 ? 'match' : 'matches'}. Use Up and Down to choose.`
+    status.value = items.value.length === 0
+      ? t('shell.combobox.noMatches')
+      : t('shell.combobox.matches', { count: items.value.length }, items.value.length)
   } catch (err) {
     if (seq !== requestSeq) return
     items.value = []
     close()
-    status.value = err?.message ?? 'Search failed.'
+    status.value = err?.message ?? t('shell.combobox.searchFailed')
   } finally {
     if (seq === requestSeq) loading.value = false
   }
@@ -88,7 +93,7 @@ function onInput(event) {
     loading.value = false
     items.value = []
     close()
-    status.value = query.length === 0 ? '' : `Type at least ${props.minLength} characters.`
+    status.value = query.length === 0 ? '' : t('shell.combobox.typeAtLeast', { count: props.minLength })
     return
   }
   timer = setTimeout(() => runSearch(query), props.debounceMs)
@@ -100,7 +105,7 @@ function pick(index) {
   model.value = item
   text.value = props.itemLabel(item)
   close()
-  status.value = `${props.itemLabel(item)} selected.`
+  status.value = t('shell.combobox.selected', { label: props.itemLabel(item) })
   emit('select', item)
 }
 
@@ -206,7 +211,7 @@ onBeforeUnmount(() => clearTimeout(timer))
         <slot name="option" :item="item">{{ itemLabel(item) }}</slot>
       </li>
     </ul>
-    <span :id="hintId" class="visually-hidden">Type at least {{ minLength }} characters to search.</span>
+    <span :id="hintId" class="visually-hidden">{{ t('shell.combobox.hint', { count: minLength }) }}</span>
     <span class="visually-hidden" role="status" aria-live="polite">{{ status }}</span>
   </div>
 </template>

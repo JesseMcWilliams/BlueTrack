@@ -11,6 +11,9 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { formatDate } from '../utils/formatDate'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const props = defineProps({ exceptionKey: { type: [String, Number], required: false, default: null } })
 const router = useRouter()
@@ -38,7 +41,7 @@ async function loadDetail() {
   try {
     const response = await fetch(`/api/risk-exceptions/${props.exceptionKey}`)
     if (!response.ok) {
-      throw new Error(`Request failed: ${response.status}`)
+      throw new Error(t('common.requestFailed', { status: response.status }))
     }
     detail.value = await response.json()
     newReviewDate.value = detail.value.reviewDate?.slice(0, 10) ?? ''
@@ -91,8 +94,8 @@ async function createException() {
     })
     if (!response.ok) {
       throw new Error(response.status === 403
-        ? 'You do not have the ApproveExceptions permission.'
-        : `Request failed: ${response.status}`)
+        ? t('pages.riskExceptionEdit.noPermission')
+        : t('common.requestFailed', { status: response.status }))
     }
     const created = await response.json()
     router.push({ name: 'risk-exception-edit', params: { exceptionKey: created.exceptionKey } })
@@ -114,7 +117,7 @@ async function extendReview() {
     })
     if (!response.ok) {
       const problem = await response.json().catch(() => null)
-      throw new Error(problem?.detail ?? `Request failed: ${response.status}`)
+      throw new Error(problem?.detail ?? t('common.requestFailed', { status: response.status }))
     }
     detail.value.reviewDate = newReviewDate.value
   } catch (err) {
@@ -138,7 +141,7 @@ async function revoke() {
     })
     if (!response.ok) {
       const problem = await response.json().catch(() => null)
-      throw new Error(problem?.detail ?? `Request failed: ${response.status}`)
+      throw new Error(problem?.detail ?? t('common.requestFailed', { status: response.status }))
     }
     detail.value.statusName = 'Revoked'
   } catch (err) {
@@ -151,62 +154,62 @@ async function revoke() {
 
 <template>
   <div>
-    <h1>{{ isEditMode ? `Exception — ${detail?.exceptionID ?? exceptionKey}` : 'New Exception' }}</h1>
-    <p v-if="loading" role="status">Loading...</p>
+    <h1>{{ isEditMode ? t('pages.riskExceptionEdit.titleEdit', { id: detail?.exceptionID ?? exceptionKey }) : t('pages.riskExceptionEdit.titleNew') }}</h1>
+    <p v-if="loading" role="status">{{ t('common.loading') }}</p>
     <p v-else-if="error" role="alert">{{ error }}</p>
 
     <template v-else-if="isEditMode && detail">
       <dl>
-        <dt>Scope</dt>
-        <dd>{{ detail.accountKey ? `Account #${detail.accountKey}` : `Application #${detail.applicationKey}` }}</dd>
-        <dt>Justification</dt>
+        <dt>{{ t('pages.riskExceptionEdit.scope') }}</dt>
+        <dd>{{ detail.accountKey ? t('pages.riskExceptionEdit.scopeAccount', { key: detail.accountKey }) : t('pages.riskExceptionEdit.scopeApplication', { key: detail.applicationKey }) }}</dd>
+        <dt>{{ t('pages.riskExceptionEdit.justification') }}</dt>
         <dd>{{ detail.justification }}</dd>
-        <dt>Approval Date</dt>
+        <dt>{{ t('pages.riskExceptionEdit.approvalDate') }}</dt>
         <dd>{{ formatDate(detail.approvalDate) }}</dd>
-        <dt>Approved By</dt>
+        <dt>{{ t('pages.riskExceptionEdit.approvedBy') }}</dt>
         <dd>{{ detail.approvedByName }}</dd>
-        <dt>Review Date</dt>
+        <dt>{{ t('pages.riskExceptionEdit.reviewDate') }}</dt>
         <dd>{{ formatDate(detail.reviewDate) }}</dd>
-        <dt>Status</dt>
+        <dt>{{ t('pages.riskExceptionEdit.status') }}</dt>
         <dd>{{ detail.statusName }}</dd>
-        <dt>External Ticket</dt>
+        <dt>{{ t('pages.riskExceptionEdit.externalTicket') }}</dt>
         <dd>{{ detail.externalTicketReference }}</dd>
         <template v-if="detail.sourceTool">
-          <dt>Source</dt>
+          <dt>{{ t('pages.riskExceptionEdit.source') }}</dt>
           <dd>
             <a v-if="detail.sourceUrl" :href="detail.sourceUrl" target="_blank" rel="noopener noreferrer">{{ detail.sourceTool }} {{ detail.sourceExceptionId }}</a>
             <template v-else>{{ detail.sourceTool }} {{ detail.sourceExceptionId }}</template>
           </dd>
-          <dt>Imported</dt>
-          <dd>{{ formatDate(detail.importedDate) }} by {{ detail.importedByName }}</dd>
+          <dt>{{ t('pages.riskExceptionEdit.imported') }}</dt>
+          <dd>{{ t('pages.riskExceptionEdit.importedBy', { date: formatDate(detail.importedDate), name: detail.importedByName }) }}</dd>
         </template>
       </dl>
 
       <template v-if="detail.statusName === 'Active'">
-        <h3>Re-approve (extend review date)</h3>
+        <h3>{{ t('pages.riskExceptionEdit.reapproveHeading') }}</h3>
         <input v-model="newReviewDate" type="date" />
-        <button class="btn-primary" :disabled="saving" @click="extendReview">Extend Review Date</button>
+        <button class="btn-primary" :disabled="saving" @click="extendReview">{{ t('pages.riskExceptionEdit.extendReviewDate') }}</button>
 
-        <h3>Revoke</h3>
-        <p><label class="field-label"><span class="field-label-text">Reason to revoke:</span> <input v-model="revokeReason" size="60" maxlength="1000" /></label></p>
-        <button :disabled="saving || !revokeReason.trim()" @click="revoke">Revoke Exception</button>
+        <h3>{{ t('pages.riskExceptionEdit.revokeHeading') }}</h3>
+        <p><label class="field-label"><span class="field-label-text">{{ t('pages.riskExceptionEdit.reasonToRevoke') }}</span> <input v-model="revokeReason" size="60" maxlength="1000" /></label></p>
+        <button :disabled="saving || !revokeReason.trim()" @click="revoke">{{ t('pages.riskExceptionEdit.revokeException') }}</button>
       </template>
     </template>
 
     <template v-else>
       <form @submit.prevent="createException">
         <p>
-          <label><input v-model="scopeType" type="radio" value="Account" /> Account</label>
-          <label><input v-model="scopeType" type="radio" value="Application" /> Application</label>
+          <label><input v-model="scopeType" type="radio" value="Account" /> {{ t('pages.riskExceptionEdit.account') }}</label>
+          <label><input v-model="scopeType" type="radio" value="Application" /> {{ t('pages.riskExceptionEdit.application') }}</label>
         </p>
         <p v-if="scopeType === 'Account'">
-          <label class="field-label"><span class="field-label-text">Account Key:</span> <input v-model="accountKey" type="number" required /></label>
+          <label class="field-label"><span class="field-label-text">{{ t('pages.riskExceptionEdit.accountKey') }}</span> <input v-model="accountKey" type="number" required /></label>
         </p>
         <p v-else>
           <label class="field-label">
-            <span class="field-label-text">Application:</span>
+            <span class="field-label-text">{{ t('pages.riskExceptionEdit.applicationLabel') }}</span>
             <select v-model="applicationKey" required>
-              <option value="" disabled>Select an application</option>
+              <option value="" disabled>{{ t('pages.riskExceptionEdit.selectApplication') }}</option>
               <option v-for="app in applications" :key="app.applicationKey" :value="app.applicationKey">
                 {{ app.applicationName }}
               </option>
@@ -214,15 +217,15 @@ async function revoke() {
           </label>
         </p>
         <p>
-          <label class="field-label"><span class="field-label-text">Justification:</span> <textarea v-model="justification" required></textarea></label>
+          <label class="field-label"><span class="field-label-text">{{ t('pages.riskExceptionEdit.justificationLabel') }}</span> <textarea v-model="justification" required></textarea></label>
         </p>
         <p>
-          <label class="field-label"><span class="field-label-text">Review Date:</span> <input v-model="reviewDate" type="date" required /></label>
+          <label class="field-label"><span class="field-label-text">{{ t('pages.riskExceptionEdit.reviewDateLabel') }}</span> <input v-model="reviewDate" type="date" required /></label>
         </p>
         <p>
-          <label class="field-label"><span class="field-label-text">External Ticket Reference:</span> <input v-model="externalTicketReference" type="text" /></label>
+          <label class="field-label"><span class="field-label-text">{{ t('pages.riskExceptionEdit.externalTicketReference') }}</span> <input v-model="externalTicketReference" type="text" /></label>
         </p>
-        <button type="submit" class="btn-primary" :disabled="saving">Create Exception</button>
+        <button type="submit" class="btn-primary" :disabled="saving">{{ t('pages.riskExceptionEdit.createException') }}</button>
       </form>
     </template>
   </div>

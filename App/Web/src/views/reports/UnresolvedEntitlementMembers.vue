@@ -7,6 +7,9 @@
 import { ref, onMounted } from 'vue'
 import { formatDate } from '../../utils/formatDate'
 import ReportExportButtons from '../../components/ReportExportButtons.vue'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const items = ref([])
 const error = ref(null)
@@ -16,7 +19,7 @@ onMounted(async () => {
   try {
     const response = await fetch('/api/reports/unresolved-entitlement-members')
     if (!response.ok) {
-      throw new Error(`Request failed: ${response.status}`)
+      throw new Error(t('common.requestFailed', { status: response.status }))
     }
     items.value = await response.json()
   } catch (err) {
@@ -29,25 +32,20 @@ onMounted(async () => {
 
 <template>
   <div>
-    <h2>Unresolved Entitlement Members</h2>
-    <p class="hint">
-      These Safe members are not linked to a known BlueTrack user or group -- typically an internal
-      or service identity, such as a built-in CyberArk cloud role or a CyberArk Identity/Entra-federated
-      principal that doesn't appear in the standard Users/Groups exports. The raw identifier is shown
-      below since this app has no display name to resolve it to.
-    </p>
+    <h2>{{ t('reports.unresolvedEntitlementMembers.title') }}</h2>
+    <p class="hint">{{ t('reports.unresolvedEntitlementMembers.hint') }}</p>
     <ReportExportButtons path="/api/reports/unresolved-entitlement-members/export" />
-    <p v-if="loading" role="status">Loading...</p>
-    <p v-else-if="error" role="alert">Could not load unresolved entitlement members: {{ error }}</p>
-    <p v-else-if="items.length === 0">No unresolved entitlement members found.</p>
+    <p v-if="loading" role="status">{{ t('common.loading') }}</p>
+    <p v-else-if="error" role="alert">{{ t('reports.unresolvedEntitlementMembers.loadFailed', { error }) }}</p>
+    <p v-else-if="items.length === 0">{{ t('reports.unresolvedEntitlementMembers.empty') }}</p>
     <table v-else>
       <thead>
         <tr>
-          <th>Safe</th>
-          <th>Member Type</th>
-          <th>Unresolved Identifier</th>
-          <th>Membership Expiration</th>
-          <th>Snapshot Date</th>
+          <th>{{ t('reports.unresolvedEntitlementMembers.colSafe') }}</th>
+          <th>{{ t('reports.unresolvedEntitlementMembers.colMemberType') }}</th>
+          <th>{{ t('reports.unresolvedEntitlementMembers.colIdentifier') }}</th>
+          <th>{{ t('reports.unresolvedEntitlementMembers.colExpiration') }}</th>
+          <th>{{ t('reports.unresolvedEntitlementMembers.colSnapshotDate') }}</th>
         </tr>
       </thead>
       <tbody>
@@ -55,7 +53,7 @@ onMounted(async () => {
           <td>{{ item.safeName }}</td>
           <td>{{ item.memberType }}</td>
           <td>
-            <span class="unresolved-flag">Unresolved:</span>
+            <span class="unresolved-flag">{{ t('reports.unresolvedEntitlementMembers.unresolved') }}</span>
             {{ item.unresolvedMemberId }}
           </td>
           <td>{{ formatDate(item.membershipExpirationDate) }}</td>

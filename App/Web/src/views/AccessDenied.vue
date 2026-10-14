@@ -1,6 +1,12 @@
+<script setup>
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
+</script>
+
 <template>
   <div>
-    <h1>Access Denied</h1>
-    <p>You don't have permission to view this page, or it doesn't exist.</p>
+    <h1>{{ t('shell.accessDenied.title') }}</h1>
+    <p>{{ t('shell.accessDenied.message') }}</p>
   </div>
 </template>

@@ -7,6 +7,9 @@
 // permission gate.
 import { ref, computed, onMounted } from 'vue'
 import ReportExportButtons from '../../components/ReportExportButtons.vue'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const items = ref([])
 const error = ref(null)
@@ -17,15 +20,15 @@ const shown = computed(() => (hideDeleted.value ? items.value.filter(i => !i.isD
 
 function why(item) {
   const reasons = []
-  if (item.inFlaggedSafe) reasons.push('Safe flagged')
-  if (item.nameFlagged) reasons.push('Name flagged')
+  if (item.inFlaggedSafe) reasons.push(t('reports.decomAccounts.safeFlagged'))
+  if (item.nameFlagged) reasons.push(t('reports.decomAccounts.nameFlagged'))
   return reasons.join(', ')
 }
 
 onMounted(async () => {
   try {
     const response = await fetch('/api/reports/decom-accounts')
-    if (!response.ok) throw new Error(`Request failed: ${response.status}`)
+    if (!response.ok) throw new Error(t('common.requestFailed', { status: response.status }))
     items.value = await response.json()
   } catch (err) {
     error.value = err.message
@@ -37,35 +40,35 @@ onMounted(async () => {
 
 <template>
   <div>
-    <h2>Accounts Flagged for Deletion</h2>
-    <p class="hint">
-      Accounts in a <router-link :to="{ name: 'reports-decom-safes' }">safe flagged for deletion</router-link>, or whose own
-      name matches the <strong>account decommission pattern</strong> (Admin &gt; Global Application Configuration).
-      <strong>Not deleted yet</strong> marks accounts still active in CyberArk; <strong>Also in</strong> lists other safes
-      holding an account with the same username and address.
-    </p>
+    <h2>{{ t('reports.decomAccounts.title') }}</h2>
+    <i18n-t keypath="reports.decomAccounts.hint" tag="p" class="hint" scope="global">
+      <template #safeLink><router-link :to="{ name: 'reports-decom-safes' }">{{ t('reports.decomAccounts.hintSafeLink') }}</router-link></template>
+      <template #pattern><strong>{{ t('reports.decomAccounts.hintPattern') }}</strong></template>
+      <template #notDeleted><strong>{{ t('reports.decomAccounts.hintNotDeleted') }}</strong></template>
+      <template #alsoIn><strong>{{ t('reports.decomAccounts.hintAlsoIn') }}</strong></template>
+    </i18n-t>
     <ReportExportButtons path="/api/reports/decom-accounts/export" :params="{ notDeletedOnly: hideDeleted }" />
-    <p v-if="loading" role="status">Loading...</p>
-    <p v-else-if="error" role="alert">Could not load the report: {{ error }}</p>
+    <p v-if="loading" role="status">{{ t('common.loading') }}</p>
+    <p v-else-if="error" role="alert">{{ t('reports.decomAccounts.loadFailed', { error }) }}</p>
     <template v-else>
-      <p><label><input v-model="hideDeleted" type="checkbox" /> Only accounts not yet deleted</label></p>
-      <p v-if="shown.length === 0">No accounts are flagged for deletion.</p>
+      <p><label><input v-model="hideDeleted" type="checkbox" /> {{ t('reports.decomAccounts.onlyNotDeleted') }}</label></p>
+      <p v-if="shown.length === 0">{{ t('reports.decomAccounts.empty') }}</p>
       <table v-else>
         <thead>
-          <tr><th>Username</th><th>Address</th><th>Account Name</th><th>Safe</th><th>Source</th><th>Flagged by</th><th>Note</th></tr>
+          <tr><th>{{ t('reports.decomAccounts.colUsername') }}</th><th>{{ t('reports.decomAccounts.colAddress') }}</th><th>{{ t('reports.decomAccounts.colAccountName') }}</th><th>{{ t('reports.decomAccounts.colSafe') }}</th><th>{{ t('reports.decomAccounts.colSource') }}</th><th>{{ t('reports.decomAccounts.colFlaggedBy') }}</th><th>{{ t('reports.decomAccounts.colNote') }}</th></tr>
         </thead>
         <tbody>
           <tr v-for="item in shown" :key="item.accountKey">
-            <td><router-link :to="{ name: 'account-progress-detail', params: { accountKey: item.accountKey } }">{{ item.userName || item.accountName }}</router-link><span v-if="!item.userName" class="no-username"> (no username)</span></td>
+            <td><router-link :to="{ name: 'account-progress-detail', params: { accountKey: item.accountKey } }">{{ item.userName || item.accountName }}</router-link><span v-if="!item.userName" class="no-username">{{ ' ' + t('reports.decomAccounts.noUsername') }}</span></td>
             <td>{{ item.address }}</td>
             <td>{{ item.accountName }}</td>
             <td>{{ item.safeName }}</td>
             <td>{{ item.sourceSystemName }}</td>
             <td>{{ why(item) }}</td>
             <td>
-              <template v-if="item.isDeleted">Deleted</template>
-              <template v-else><strong>Not deleted yet.</strong></template>
-              <template v-if="item.otherSafes"> Also in: {{ item.otherSafes }}</template>
+              <template v-if="item.isDeleted">{{ t('reports.decomAccounts.deleted') }}</template>
+              <template v-else><strong>{{ t('reports.decomAccounts.notDeletedYet') }}</strong></template>
+              <template v-if="item.otherSafes">{{ ' ' + t('reports.decomAccounts.alsoIn', { safes: item.otherSafes }) }}</template>
             </td>
           </tr>
         </tbody>

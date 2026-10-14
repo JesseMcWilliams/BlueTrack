@@ -15,6 +15,9 @@ import { useAccountSelectionStore } from '../stores/accountSelection'
 import { decomNote } from '../utils/decomNote'
 import { formatCount } from '../utils/formatCount'
 import SelectionBar from '../components/SelectionBar.vue'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 // D-182: bulk edit. "Select accounts" turns on a checkbox column; the
 // selection (a store) survives paging, sorting and filtering. The bar
@@ -50,7 +53,7 @@ async function applyDeletion() {
     })
     if (!response.ok) {
       const problem = await response.json().catch(() => null)
-      deletionError.value = problem?.detail ?? `Failed: ${response.status}`
+      deletionError.value = problem?.detail ?? t('pages.accountProgressList.failed', { status: response.status })
       return
     }
     const result = await response.json()
@@ -65,12 +68,22 @@ async function applyDeletion() {
   }
 }
 
+// The result line, "N deleted, M skipped." (or undeleted), noting when the skipped stay selected.
+function resultKey(result) {
+  if (result.action === 'delete') return result.skipped.length ? 'pages.accountProgressList.resultDeletedStillSelected' : 'pages.accountProgressList.resultDeleted'
+  return result.skipped.length ? 'pages.accountProgressList.resultUndeletedStillSelected' : 'pages.accountProgressList.resultUndeleted'
+}
+
 function deletedNote(account) {
   if (!account.isDeleted) return ''
   const parts = []
-  if (account.deletedByName) parts.push(`Deleted in BlueTrack by ${account.deletedByName}${account.deletionReason ? `: ${account.deletionReason}` : ''}`)
+  if (account.deletedByName) {
+    parts.push(account.deletionReason
+      ? t('pages.accountProgressList.deletedByWithReason', { name: account.deletedByName, reason: account.deletionReason })
+      : t('pages.accountProgressList.deletedBy', { name: account.deletedByName }))
+  }
   if (account.isDeletedInSource) {
-    parts.push(account.isInIgnoredSafe ? 'Not imported (ignored safe)' : `Deleted in ${isFeedAccount(account) ? account.sourceSystemName : 'CyberArk'}`)
+    parts.push(account.isInIgnoredSafe ? t('pages.accountProgressList.notImportedIgnoredSafe') : t('pages.accountProgressList.deletedInSource', { source: isFeedAccount(account) ? account.sourceSystemName : 'CyberArk' }))
   }
   return parts.join('. ')
 }
@@ -135,15 +148,15 @@ const linkedFilter = ref('Hide')
 const sortColumns = ref([])
 
 const columns = [
-  { field: 'userName', label: 'Username' },
-  { field: 'address', label: 'Address' },
-  { field: 'stageName', label: 'Stage' },
-  { field: 'statusName', label: 'Status' },
-  { field: 'riskLevelName', label: 'Risk Level' },
-  { field: 'ownerName', label: 'Owner' },
-  { field: 'targetRemediationDate', label: 'Target Remediation Date' },
-  { field: 'effectiveRiskScore', label: 'Risk Score' },
-  { field: 'riskScoreBandName', label: 'Risk Band' }
+  { field: 'userName', labelKey: 'pages.accountProgressList.colUsername' },
+  { field: 'address', labelKey: 'pages.accountProgressList.colAddress' },
+  { field: 'stageName', labelKey: 'pages.accountProgressList.colStage' },
+  { field: 'statusName', labelKey: 'pages.accountProgressList.colStatus' },
+  { field: 'riskLevelName', labelKey: 'pages.accountProgressList.colRiskLevel' },
+  { field: 'ownerName', labelKey: 'pages.accountProgressList.colOwner' },
+  { field: 'targetRemediationDate', labelKey: 'pages.accountProgressList.colTargetRemediationDate' },
+  { field: 'effectiveRiskScore', labelKey: 'pages.accountProgressList.colRiskScore' },
+  { field: 'riskScoreBandName', labelKey: 'pages.accountProgressList.colRiskBand' }
 ]
 
 function sortIndicator(field) {
@@ -200,7 +213,7 @@ async function load() {
 
     const response = await fetch(`/api/account-progress?${params.toString()}`)
     if (!response.ok) {
-      throw new Error(`Request failed: ${response.status}`)
+      throw new Error(t('common.requestFailed', { status: response.status }))
     }
     readTotalCount(response)
     accounts.value = await response.json()
@@ -231,74 +244,76 @@ watch([stageFilter, statusFilter, riskLevelFilter, ownerFilter, searchFilter, de
 
 <template>
   <div>
-    <h1>Account Progress</h1>
+    <h1>{{ t('pages.accountProgressList.title') }}</h1>
     <p class="filter-row">
-      <label class="field-label"><span class="field-label-text">Search:</span> <input v-model="searchFilter" type="search" placeholder="username, address or account name..." /></label>
-      <label class="field-label"><span class="field-label-text">Stage:</span>
+      <label class="field-label"><span class="field-label-text">{{ t('pages.accountProgressList.search') }}</span> <input v-model="searchFilter" type="search" :placeholder="t('pages.accountProgressList.searchPlaceholder')" /></label>
+      <label class="field-label"><span class="field-label-text">{{ t('pages.accountProgressList.stage') }}</span>
         <select v-model="stageFilter">
-          <option value="">All</option>
+          <option value="">{{ t('pages.accountProgressList.all') }}</option>
           <option v-for="opt in referenceData.dim_blueprint_stage ?? []" :key="opt.key" :value="opt.name">{{ opt.name }}</option>
         </select>
       </label>
-      <label class="field-label"><span class="field-label-text">Status:</span>
+      <label class="field-label"><span class="field-label-text">{{ t('pages.accountProgressList.status') }}</span>
         <select v-model="statusFilter">
-          <option value="">All</option>
+          <option value="">{{ t('pages.accountProgressList.all') }}</option>
           <option v-for="opt in referenceData.dim_progress_status ?? []" :key="opt.key" :value="opt.name">{{ opt.name }}</option>
         </select>
       </label>
-      <label class="field-label"><span class="field-label-text">Risk Level:</span>
+      <label class="field-label"><span class="field-label-text">{{ t('pages.accountProgressList.riskLevel') }}</span>
         <select v-model="riskLevelFilter">
-          <option value="">All</option>
+          <option value="">{{ t('pages.accountProgressList.all') }}</option>
           <option v-for="opt in referenceData.dim_risk_level ?? []" :key="opt.key" :value="opt.name">{{ opt.name }}</option>
         </select>
       </label>
-      <label class="field-label"><span class="field-label-text">Owner:</span> <input v-model="ownerFilter" type="text" placeholder="contains..." /></label>
-      <label class="field-label"><span class="field-label-text">Deleted accounts:</span>
+      <label class="field-label"><span class="field-label-text">{{ t('pages.accountProgressList.owner') }}</span> <input v-model="ownerFilter" type="text" :placeholder="t('pages.accountProgressList.ownerPlaceholder')" /></label>
+      <label class="field-label"><span class="field-label-text">{{ t('pages.accountProgressList.deletedAccounts') }}</span>
         <select v-model="deletedFilter">
-          <option value="Hide">Hide</option>
-          <option value="Show">Show</option>
-          <option value="Only">Only deleted</option>
+          <option value="Hide">{{ t('pages.accountProgressList.hide') }}</option>
+          <option value="Show">{{ t('pages.accountProgressList.show') }}</option>
+          <option value="Only">{{ t('pages.accountProgressList.onlyDeleted') }}</option>
         </select>
       </label>
-      <label class="field-label"><span class="field-label-text">Linked feed accounts:</span>
+      <label class="field-label"><span class="field-label-text">{{ t('pages.accountProgressList.linkedFeedAccounts') }}</span>
         <select v-model="linkedFilter">
-          <option value="Hide">Hide</option>
-          <option value="Show">Show</option>
+          <option value="Hide">{{ t('pages.accountProgressList.hide') }}</option>
+          <option value="Show">{{ t('pages.accountProgressList.show') }}</option>
         </select>
       </label>
     </p>
     <SelectionBar v-if="canEdit || canDelete" :selection="selection" :page-keys="pageKeys" :filtered-count="filteredCount"
-                  :keys-url="keysUrl" toggle-label="Select accounts for bulk actions">
-      <button v-if="canEdit" type="button" class="btn-primary" :disabled="selection.count === 0" @click="router.push({ name: 'account-progress-bulk-edit' })">Bulk edit…</button>
-      <button v-if="canDelete" type="button" :disabled="selection.count === 0" @click="startDeletion('delete')">Delete…</button>
-      <button v-if="canDelete" type="button" :disabled="selection.count === 0" @click="startDeletion('undelete')">Undelete…</button>
+                  :keys-url="keysUrl" :toggle-label="t('pages.accountProgressList.selectToggle')">
+      <button v-if="canEdit" type="button" class="btn-primary" :disabled="selection.count === 0" @click="router.push({ name: 'account-progress-bulk-edit' })">{{ t('pages.accountProgressList.bulkEdit') }}</button>
+      <button v-if="canDelete" type="button" :disabled="selection.count === 0" @click="startDeletion('delete')">{{ t('pages.accountProgressList.deleteEllipsis') }}</button>
+      <button v-if="canDelete" type="button" :disabled="selection.count === 0" @click="startDeletion('undelete')">{{ t('pages.accountProgressList.undeleteEllipsis') }}</button>
     </SelectionBar>
     <form v-if="deletion" class="deletion-form" @submit.prevent="applyDeletion">
       <label class="field-label">
-        <span class="field-label-text">Reason to {{ deletion.action }} {{ formatCount(selection.count) }} account{{ selection.count === 1 ? '' : 's' }}:</span>
+        <span class="field-label-text">{{ deletion.action === 'delete'
+          ? t('pages.accountProgressList.reasonDelete', { count: formatCount(selection.count) }, selection.count)
+          : t('pages.accountProgressList.reasonUndelete', { count: formatCount(selection.count) }, selection.count) }}</span>
         <input v-model="deletion.reason" size="60" maxlength="1000" required />
       </label>
-      <button type="submit" class="btn-primary" :disabled="deletionSaving || !deletion.reason.trim()">{{ deletion.action === 'delete' ? 'Delete' : 'Undelete' }}</button>
-      <button type="button" @click="deletion = null">Cancel</button>
+      <button type="submit" class="btn-primary" :disabled="deletionSaving || !deletion.reason.trim()">{{ deletion.action === 'delete' ? t('common.delete') : t('pages.accountProgressList.undelete') }}</button>
+      <button type="button" @click="deletion = null">{{ t('common.cancel') }}</button>
       <p v-if="deletionError" role="alert">{{ deletionError }}</p>
     </form>
     <div v-if="deletionResult" role="status">
-      <p>{{ formatCount(deletionResult.changed) }} {{ deletionResult.action === 'delete' ? 'deleted' : 'undeleted' }}, {{ formatCount(deletionResult.skipped.length) }} skipped<template v-if="deletionResult.skipped.length"> (still selected)</template>.</p>
+      <p>{{ t(resultKey(deletionResult), { changed: formatCount(deletionResult.changed), skipped: formatCount(deletionResult.skipped.length) }) }}</p>
       <ul v-if="deletionResult.skipped.length">
         <li v-for="s in deletionResult.skipped" :key="s.accountKey">{{ s.accountName ?? s.accountKey }}: {{ s.reason }}</li>
       </ul>
     </div>
     <FilterCountSummary :shown="accounts.length" :filtered-count="filteredCount" :total="totalCount" :page="page" :page-size="pageSizeStore.current" />
     <Pager :page="page" :page-count="pageCount" @update:page="onPageChange" @page-size-change="onPageSizeChange" />
-    <p v-if="loading" role="status">Loading...</p>
-    <p v-else-if="error" role="alert">Could not load accounts: {{ error }}</p>
+    <p v-if="loading" role="status">{{ t('common.loading') }}</p>
+    <p v-else-if="error" role="alert">{{ t('pages.accountProgressList.couldNotLoad', { error }) }}</p>
     <table v-else>
       <thead>
         <tr>
-          <th v-if="selection.enabled"><span class="visually-hidden">Selected</span></th>
+          <th v-if="selection.enabled"><span class="visually-hidden">{{ t('pages.accountProgressList.selected') }}</span></th>
           <th v-for="col in columns" :key="col.field" :aria-sort="ariaSortFor(col.field)">
             <button type="button" @click="toggleSort(col.field, $event)">
-              {{ col.label }} <span aria-hidden="true">{{ sortIndicator(col.field) }}</span>
+              {{ t(col.labelKey) }} <span aria-hidden="true">{{ sortIndicator(col.field) }}</span>
             </button>
           </th>
         </tr>
@@ -307,17 +322,17 @@ watch([stageFilter, statusFilter, riskLevelFilter, ownerFilter, searchFilter, de
         <template v-for="account in accounts" :key="account.accountKey">
           <tr>
             <td v-if="selection.enabled">
-              <input type="checkbox" :checked="selection.isSelected(account.accountKey)" :aria-label="`Select ${account.userName || account.accountName}${account.address ? ` on ${account.address}` : ''}`" @change="selection.toggle(account.accountKey)" />
+              <input type="checkbox" :checked="selection.isSelected(account.accountKey)" :aria-label="account.address ? t('pages.accountProgressList.selectRowOn', { name: account.userName || account.accountName, address: account.address }) : t('pages.accountProgressList.selectRow', { name: account.userName || account.accountName })" @change="selection.toggle(account.accountKey)" />
             </td>
             <td>
               <!-- D-191: an account with no username links by its account name, so it can always be opened. -->
               <router-link :to="{ name: 'account-progress-detail', params: { accountKey: account.accountKey } }">{{ account.userName || account.accountName }}</router-link>
-              <span v-if="!account.userName" class="no-username"> (no username)</span>
-              <span v-if="decomNote(account)" class="decom-marker" :title="decomNote(account)"><span aria-hidden="true">⚠</span><span class="visually-hidden">Flagged for deletion: {{ decomNote(account) }}</span></span>
-              <span v-if="account.isDeleted" class="deleted-badge" :title="deletedNote(account)">Deleted<span class="visually-hidden">: {{ deletedNote(account) }}</span></span>
-              <span v-if="isFeedAccount(account)" class="source-badge">from {{ account.sourceSystemName }}</span>
+              <span v-if="!account.userName" class="no-username">{{ ' ' + t('pages.accountProgressList.noUsername') }}</span>
+              <span v-if="decomNote(account)" class="decom-marker" :title="decomNote(account)"><span aria-hidden="true">⚠</span><span class="visually-hidden">{{ t('pages.accountProgressList.flaggedForDeletion', { note: decomNote(account) }) }}</span></span>
+              <span v-if="account.isDeleted" class="deleted-badge" :title="deletedNote(account)">{{ t('pages.accountProgressList.deleted') }}<span class="visually-hidden">{{ t('pages.accountProgressList.deletedHidden', { note: deletedNote(account) }) }}</span></span>
+              <span v-if="isFeedAccount(account)" class="source-badge">{{ t('pages.accountProgressList.fromSource', { source: account.sourceSystemName }) }}</span>
               <router-link v-if="account.linkedToAccountKey" class="linked-badge" :to="{ name: 'account-progress-detail', params: { accountKey: account.linkedToAccountKey } }"
-                :title="`Linked to CyberArk account ${account.linkedToAccountName}`">Linked<span class="visually-hidden">: to CyberArk account {{ account.linkedToAccountName }}</span></router-link>
+                :title="t('pages.accountProgressList.linkedTitle', { name: account.linkedToAccountName })">{{ t('pages.accountProgressList.linked') }}<span class="visually-hidden">{{ t('pages.accountProgressList.linkedHidden', { name: account.linkedToAccountName }) }}</span></router-link>
             </td>
             <td>{{ account.address }}</td>
             <td>{{ account.stageName }}</td>
@@ -332,7 +347,7 @@ watch([stageFilter, statusFilter, riskLevelFilter, ownerFilter, searchFilter, de
       </tbody>
     </table>
     <Pager :page="page" :page-count="pageCount" @update:page="onPageChange" @page-size-change="onPageSizeChange" />
-    <p><small>Click a column to sort by it; shift-click another column to add it as a secondary sort key.</small></p>
+    <p><small>{{ t('pages.accountProgressList.sortHint') }}</small></p>
   </div>
 </template>
 
