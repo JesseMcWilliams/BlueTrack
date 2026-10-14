@@ -1,4 +1,5 @@
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using BlueTrack.Api;
 using BlueTrack.Api.AdDiscovery;
 using BlueTrack.Api.Audit;
 using BlueTrack.Api.Auth;
@@ -14,6 +15,11 @@ using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Http;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// D-230: the installer's appsettings.Site.json (connection string, HSTS,
+// allowed file roots, environment name). After appsettings.{Environment}.json,
+// before environment variables and command-line arguments; never in Development.
+builder.Configuration.AddSiteSettingsFile(builder.Environment);
 
 // Add services to the container.
 

@@ -169,7 +169,7 @@ $Steps = @(
     @{ Name = 'Db.Migrate'; Needs = @('Database'); Description = 'Run App/Migrator against Database/' }
     @{ Name = 'Db.SeedTestData'; Needs = @('Database', 'SeedTestData'); Description = 'Run App/Migrator against Database/Test'
         Condition = { $SeedTestData }; SkipReason = 'SeedTestData is off' }
-    @{ Name = 'Db.AppSettings'; Needs = @('Environment', 'Database', 'ApiInstallPath'); Description = 'Write appsettings.<Environment>.json' }
+    @{ Name = 'Db.AppSettings'; Needs = @('Environment', 'Database', 'ApiInstallPath'); Description = 'Write appsettings.Site.json (connection string, HSTS, allowed folders, environment name); remove the old appsettings.<Environment>.json' }
     @{ Name = 'Db.SiteUrl'; Needs = @('Database', 'Hostname'); Description = 'Set the Site URL the emails link to (https://<Hostname>[:<HttpsPort>]), only if it is empty' }
     @{ Name = 'Db.NightlyJob'; Needs = @('Database', 'InstallNightlyJob'); Description = 'Install the nightly Import+Load+Snapshot SQL Agent job'
         Condition = { $InstallNightlyJob }; SkipReason = 'InstallNightlyJob is off' }
@@ -464,8 +464,10 @@ $StepActions = @{
         Invoke-BlueTrackMigrator -RepoRoot $RepoRoot -ConnectionString (Get-InstallConnectionString) -ScriptsFolder 'Database/Test'
     }
     'Db.AppSettings'  = {
-        Set-BlueTrackEnvironmentConfig -PublishDirectory $ApiInstallPath -Environment $Environment -ConnectionString (Get-InstallConnectionString) `
+        # D-230: appsettings.Site.json, which the API always loads (IIS runs it as Production).
+        $message = Set-BlueTrackSiteConfig -PublishDirectory $ApiInstallPath -Environment $Environment -ConnectionString (Get-InstallConnectionString) `
             -EnableHsts (Get-InstallHstsSetting) -AllowedFileRoots @($AllowedFileRoots | Where-Object { $_ })
+        return @{ Status = 'Completed'; Message = $message }
     }
     'Db.SiteUrl'      = {
         # D-224: never overwrites a Site URL an admin set on Global Application Configuration.

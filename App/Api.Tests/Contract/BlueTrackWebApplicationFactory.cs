@@ -47,7 +47,7 @@ file sealed class NegotiateFreeSchemeProvider(IOptions<AuthenticationOptions> op
 /// IConnectionItemsFeature like Kestrel" on literally every request until
 /// this was added.
 /// </summary>
-public sealed class BlueTrackWebApplicationFactory : WebApplicationFactory<Program>
+public class BlueTrackWebApplicationFactory : WebApplicationFactory<Program>
 {
     /// <summary>
     /// D-197: every client sends X-Requested-With, as the SPA does, so

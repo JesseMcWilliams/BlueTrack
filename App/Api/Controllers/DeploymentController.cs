@@ -26,6 +26,7 @@ namespace BlueTrack.Api.Controllers;
 [Authorize(Policy = Permissions.ViewDeploymentInfo)]
 public sealed class DeploymentController(
     IHostEnvironment hostEnvironment,
+    IConfiguration configuration,
     HealthCheckService healthCheckService,
     DeploymentRepository repository,
     AppConfigRepository appConfigRepository,
@@ -52,7 +53,8 @@ public sealed class DeploymentController(
 
         return Ok(new DeploymentInfoResponse
         {
-            EnvironmentName = hostEnvironment.EnvironmentName,
+            // D-230: the installer's Environment answer; IIS always runs as Production.
+            EnvironmentName = SiteSettings.DisplayEnvironmentName(configuration, hostEnvironment),
             Version = version,
             BuildTimestampUtc = buildTimestampUtc,
             HealthChecks = healthReport.Entries.Select(entry => new HealthCheckEntryResponse
@@ -141,7 +143,9 @@ public sealed class DeploymentController(
         using var zipStream = new MemoryStream();
         using (var archive = new ZipArchive(zipStream, ZipArchiveMode.Create, leaveOpen: true))
         {
-            foreach (var configFileName in new[] { "appsettings.json", "appsettings.Production.json" })
+            // D-230: the installer's settings live in appsettings.Site.json; an
+            // older install may still have them in appsettings.Production.json.
+            foreach (var configFileName in new[] { "appsettings.json", "appsettings.Production.json", SiteSettings.FileName })
             {
                 var sourcePath = Path.Combine(AppContext.BaseDirectory, configFileName);
                 if (System.IO.File.Exists(sourcePath))
