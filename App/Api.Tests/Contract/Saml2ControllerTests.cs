@@ -64,18 +64,28 @@ public class Saml2ControllerTests : IClassFixture<BlueTrackWebApplicationFactory
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
 
-    [Fact]
-    public async Task Logout_Authenticated_Redirects()
+    [Theory]
+    [InlineData("/api/auth/saml/logout", "/login?signedOut=1")]
+    [InlineData("/api/auth/saml/logout?reason=idle", "/login?signedOut=1&reason=idle")]
+    public async Task Logout_WithoutASamlSession_EndsBlueTrackOnly_AndGoesToTheSignInPage(string url, string expected)
     {
-        // Logout doesn't check configuration at all (it just signs out of
-        // its own scheme regardless), so this succeeds even with no SAML
-        // row -- confirmed by reading Saml2Controller.Logout directly.
+        // D-217: Single Logout needs a SAML session (its SessionIndex) and the
+        // IdP's logout address; without them, only BlueTrack's session ends.
         var client = _factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
         client.DefaultRequestHeaders.Add(TestAuthHandler.TestUserHeaderName, "TestUser.Viewer");
 
-        var response = await client.GetAsync("/api/auth/saml/logout");
+        var response = await client.GetAsync(url);
 
         Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
-        Assert.Equal("/", response.Headers.Location?.ToString());
+        Assert.Equal(expected, response.Headers.Location?.ToString());
+    }
+
+    [Fact]
+    public async Task SingleLogoutService_NotConfigured_ReturnsServiceUnavailable()
+    {
+        var client = _factory.CreateClient();
+
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, (await client.GetAsync("/api/auth/saml/slo?SAMLRequest=x")).StatusCode);
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, (await client.PostAsync("/api/auth/saml/slo", new FormUrlEncodedContent(new Dictionary<string, string> { ["SAMLResponse"] = "x" }))).StatusCode);
     }
 }

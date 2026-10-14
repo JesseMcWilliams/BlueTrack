@@ -53,6 +53,8 @@ test.describe('Identity Providers admin page', () => {
     const displayName = `E2E Test Provider ${Date.now()}`
 
     await page.getByRole('button', { name: '+ New Provider' }).click()
+    // The list page's break-glass form also has a "Display name:" field (D-216): fill only once the new-provider page is showing.
+    await expect(page.getByRole('heading', { name: 'New Provider' })).toBeVisible()
     await page.getByLabel('Display Name:').fill(displayName)
     await page.locator('form button[type="submit"]').click()
     await expect(page).toHaveURL(/\/admin\/identity-providers$/)
@@ -83,6 +85,8 @@ test.describe('Identity Providers admin page', () => {
     const displayName = `E2E OIDC Provider ${Date.now()}`
 
     await page.getByRole('button', { name: '+ New Provider' }).click()
+    // The list page's break-glass form also has a "Display name:" field (D-216): fill only once the new-provider page is showing.
+    await expect(page.getByRole('heading', { name: 'New Provider' })).toBeVisible()
     await page.getByLabel('Display Name:').fill(displayName)
     await page.getByLabel('Authority:').fill('https://login.example.com/tenant123/v2.0')
     await page.getByLabel('Client ID:').fill('e2e-client-id')
@@ -491,10 +495,13 @@ test.describe('Notifications admin page', () => {
     await expect(page.getByLabel('Ignore CRL issues (skip certificate revocation checking)')).toBeChecked()
 
     // D-116: additive role targeting -- assign then clear, leaving the flat-list-only default restored.
+    // Each change is saved by its own PUT; wait for each one, or the clear can reach the
+    // server before the assign and leave the Admin role set for the API tests.
     const typeRow = page.locator('tbody tr', { hasText: 'DevFakeAuthEnabledTooLong' })
-    await typeRow.getByRole('combobox').selectOption('Admin')
+    const targetRoleSaved = () => page.waitForResponse(r => r.url().includes('/target-role') && r.request().method() === 'PUT')
+    await Promise.all([targetRoleSaved(), typeRow.getByRole('combobox').selectOption('Admin')])
     await expect(typeRow.getByRole('combobox')).toHaveValue(/./)
-    await typeRow.getByRole('combobox').selectOption({ label: '(none -- flat list only)' })
+    await Promise.all([targetRoleSaved(), typeRow.getByRole('combobox').selectOption({ label: '(none -- flat list only)' })])
 
     // Restore SMTP config to a clean/unconfigured state.
     await page.getByLabel('SMTP Host:').fill('')

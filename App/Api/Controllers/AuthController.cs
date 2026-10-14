@@ -15,7 +15,7 @@ namespace BlueTrack.Api.Controllers;
 /// </summary>
 [ApiController]
 [Route("api/auth")]
-public sealed class AuthController(IdentityProviderRepository identityProviderRepository, AuthenticationModeInfo authenticationModeInfo) : ControllerBase
+public sealed class AuthController(IdentityProviderRepository identityProviderRepository, AuthenticationModeInfo authenticationModeInfo, Saml2ConfigurationFactory samlConfigFactory) : ControllerBase
 {
     /// <summary>
     /// D-205: set when someone chooses Windows sign-in (the sign-in page, or
@@ -138,14 +138,24 @@ public sealed class AuthController(IdentityProviderRepository identityProviderRe
     /// <summary>
     /// D-206: the web pages' Sign out. Ends every BlueTrack session the browser
     /// may hold -- the OIDC/DevFakeAuth cookie, the SAML session, and the
-    /// Windows choice (D-205). It doesn't sign the user out of the IdP (no
-    /// Single Logout yet), and a Windows user is signed straight back in once
+    /// Windows choice (D-205). A Windows user is signed straight back in once
     /// they leave the sign-in page while Windows is the default.
+    /// D-217: a SAML session with the IdP's logout address set is left for SAML
+    /// Single Logout instead -- the answer is 200 with singleLogoutUrl, where the
+    /// page sends the browser (the IdP round trip needs a navigation, not a fetch).
     /// </summary>
     [HttpPost("logout")]
     [Authorize]
     public async Task<IActionResult> Logout()
     {
+        var saml = await HttpContext.AuthenticateAsync(ITfoxtec.Identity.Saml2.Schemas.Saml2Constants.AuthenticationScheme);
+        if (saml.Succeeded && Saml2Controller.HasSessionIndex(saml.Principal)
+            && (await samlConfigFactory.BuildAsync())?.SingleLogoutDestination is not null)
+        {
+            await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+            return Ok(new { singleLogoutUrl = Url.Action(nameof(Saml2Controller.Logout), "Saml2") });
+        }
+
         await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
         await HttpContext.SignOutAsync(ITfoxtec.Identity.Saml2.Schemas.Saml2Constants.AuthenticationScheme);
         ClearSignInChoice(HttpContext); // D-205

@@ -34,7 +34,8 @@ SSO went live against the lab Authentik, the user docs and published guides were
 - **Not yet proven:** a real import through `usp_Import_Configured` (the first is tonight's 02:00 run; check its history in `msdb.dbo.sysjobhistory`), and an account inventory feed against real files (none is set up on the dev site).
 - Suites at the last run: xUnit 649/649, Vitest 208/208, Playwright 73/73, PSScriptAnalyzer 0.
 - **Authentik** (lab details in `Live-Testing.local.md`): apps `bluetrack-saml` and `bluetrack-oidc`, groups `BlueTrack-Admin`/`-Analyst`/`-Approver`/`-Auditor`/`-Viewer`; SAML and OIDC verified end to end.
-- A stray SQL Agent job named literally `BlueTrack ($(DatabaseName)) - Audit Log Purge` exists on this instance (the purge script run once without `sqlcmd` variables). Left alone; ask the user before deleting it.
+- **Authentik `bluetrack-saml` provider changed for Single Logout (D-217, 2026-10-13, with the user's OK):** SLS URL `https://bluetrack.company.com/BlueTrack/api/auth/saml/slo`, SLS binding Redirect, logout method `frontchannel_native`, sign logout request and response on. Before: no SLS URL, `frontchannel_iframe`, both unsigned. The helper `Ak.ps1` (Authentik API session via the Credential Provider) was copied from an earlier session's scratchpad.
+- The stray SQL Agent job `BlueTrack ($(DatabaseName)) - Audit Log Purge` (no steps, never ran) was deleted on 2026-10-13 at the user's request.
 
 ## Open items
 1. **Check tonight's nightly import** (02:00 2026-10-14): the first run through `usp_Import_Configured`. A failure names the file or database.
