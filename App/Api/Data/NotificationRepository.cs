@@ -104,7 +104,7 @@ public sealed class NotificationRepository(IDbConnectionFactory connectionFactor
     {
         using var connection = connectionFactory.Create();
         const string sql = """
-            SELECT nt.NotificationTypeKey, nt.NotificationTypeName, nt.Description, nt.TargetRoleKey, r.RoleName AS TargetRoleName
+            SELECT nt.NotificationTypeKey, nt.NotificationTypeName, nt.Description, nt.TargetRoleKey, r.RoleName AS TargetRoleName, nt.IsEnabled
             FROM web.dim_notification_type nt
             LEFT JOIN web.app_role r ON r.AppRoleKey = nt.TargetRoleKey
             ORDER BY nt.NotificationTypeName
@@ -188,4 +188,89 @@ public sealed class NotificationRepository(IDbConnectionFactory connectionFactor
             """;
         await connection.ExecuteAsync(sql, new { NotificationTypeName = notificationTypeName, Detail = detail });
     }
+
+    /// <summary>D-222: a type that's off (or doesn't exist) is never evaluated or sent.</summary>
+    public async Task<bool> IsEnabledAsync(string notificationTypeName)
+    {
+        using var connection = connectionFactory.Create();
+        const string sql = "SELECT IsEnabled FROM web.dim_notification_type WHERE NotificationTypeName = @NotificationTypeName";
+        return await connection.QuerySingleOrDefaultAsync<bool?>(sql, new { NotificationTypeName = notificationTypeName }) ?? false;
+    }
+
+    public async Task SetNotificationTypeEnabledAsync(int notificationTypeKey, bool isEnabled)
+    {
+        using var connection = connectionFactory.Create();
+        const string sql = "UPDATE web.dim_notification_type SET IsEnabled = @IsEnabled WHERE NotificationTypeKey = @NotificationTypeKey";
+        await connection.ExecuteAsync(sql, new { NotificationTypeKey = notificationTypeKey, IsEnabled = isEnabled });
+    }
+
+    /// <summary>D-222: whether a send for this run/day/week (DedupKey) is already logged.</summary>
+    public async Task<bool> WasSentAsync(string notificationTypeName, string dedupKey)
+    {
+        using var connection = connectionFactory.Create();
+        const string sql = """
+            SELECT COUNT(*)
+            FROM web.notification_log nl
+            JOIN web.dim_notification_type nt ON nt.NotificationTypeKey = nl.NotificationTypeKey
+            WHERE nt.NotificationTypeName = @NotificationTypeName AND nl.DedupKey = @DedupKey
+            """;
+        return await connection.QuerySingleAsync<int>(sql, new { NotificationTypeName = notificationTypeName, DedupKey = dedupKey }) > 0;
+    }
+
+    /// <summary>
+    /// D-222: records the send before it happens, under a key that's unique
+    /// per type (UX_notification_log_Type_DedupKey), so two cycles or two API
+    /// processes can't both send it. Null when it's already claimed. A failed
+    /// send calls ReleaseClaimAsync, so the row still means "sent".
+    /// </summary>
+    public async Task<long?> TryClaimAsync(string notificationTypeName, string dedupKey, string? detail)
+    {
+        using var connection = connectionFactory.Create();
+        const string sql = """
+            INSERT INTO web.notification_log (NotificationTypeKey, Detail, DedupKey)
+            OUTPUT inserted.NotificationLogKey
+            SELECT NotificationTypeKey, @Detail, @DedupKey
+            FROM web.dim_notification_type
+            WHERE NotificationTypeName = @NotificationTypeName
+            """;
+        try
+        {
+            return await connection.QuerySingleOrDefaultAsync<long?>(sql, new { NotificationTypeName = notificationTypeName, DedupKey = dedupKey, Detail = Truncate(detail, 2000) });
+        }
+        catch (Microsoft.Data.SqlClient.SqlException ex) when (ex.Number is 2601 or 2627)
+        {
+            return null;   // Duplicate key: already sent (or being sent).
+        }
+    }
+
+    public async Task ReleaseClaimAsync(long notificationLogKey)
+    {
+        using var connection = connectionFactory.Create();
+        await connection.ExecuteAsync("DELETE FROM web.notification_log WHERE NotificationLogKey = @NotificationLogKey", new { NotificationLogKey = notificationLogKey });
+    }
+
+    public async Task<NotificationSchedule> GetScheduleAsync()
+    {
+        using var connection = connectionFactory.Create();
+        const string sql = """
+            SELECT CONVERT(varchar(5), DailyDigestTime, 108) AS DailyDigestTime, WeeklySummaryDay,
+                   CONVERT(varchar(5), WeeklySummaryTime, 108) AS WeeklySummaryTime
+            FROM web.notification_config
+            """;
+        return await connection.QuerySingleAsync<NotificationSchedule>(sql);
+    }
+
+    public async Task SaveScheduleAsync(NotificationSchedule schedule, int? modifiedByUserKey)
+    {
+        using var connection = connectionFactory.Create();
+        const string sql = """
+            UPDATE web.notification_config
+            SET DailyDigestTime = CAST(@DailyDigestTime AS time(0)), WeeklySummaryDay = @WeeklySummaryDay,
+                WeeklySummaryTime = CAST(@WeeklySummaryTime AS time(0)),
+                ModifiedBy = @ModifiedBy, ModifiedDate = SYSUTCDATETIME()
+            """;
+        await connection.ExecuteAsync(sql, new { schedule.DailyDigestTime, schedule.WeeklySummaryDay, schedule.WeeklySummaryTime, ModifiedBy = modifiedByUserKey });
+    }
+
+    private static string? Truncate(string? value, int length) => value is null || value.Length <= length ? value : value[..length];
 }

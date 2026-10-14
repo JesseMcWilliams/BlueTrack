@@ -14,6 +14,8 @@ public interface INotificationSender
     /// AuthenticationException, etc.) rather than swallowing it -- callers
     /// decide whether a failure is fatal (the test-email admin action) or
     /// just logged and retried next cycle (the background check).
+    /// D-222: with <paramref name="htmlBody"/>, the message is HTML with
+    /// <paramref name="body"/> as its plain-text alternative.
     /// </summary>
-    Task SendAsync(IReadOnlyList<string> toAddresses, string subject, string body);
+    Task SendAsync(IReadOnlyList<string> toAddresses, string subject, string body, string? htmlBody = null);
 }

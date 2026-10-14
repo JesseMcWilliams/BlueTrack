@@ -34,6 +34,7 @@ instead.
 | 16 | `16_BlueTrack_BreakGlassAccounts.sql` | D-216: `web.break_glass_account`, and the `BreakGlassLogon` audit event and notification types. |
 | 17 | `17_BlueTrack_ReportExport.sql` | D-220: `web.app_config.ExportMaxRows` (report export row limit, default 100000) and the `ReportExport` audit event type. |
 | 18 | `18_BlueTrack_TrendsHistoryIndex.sql` | D-221: an index on `fact_account_progress_history (SnapshotDateKey)`, covering the Trends report's columns, so a date range reads only those days. |
+| 19 | `19_BlueTrack_MoreNotifications.sql` | D-222: `dbo.etl_run_log` (one row per Import and Load run; `usp_Import_Configured` and `usp_RunFullLoad` redefined to write it -- later changes to them must keep it), `dim_notification_type.IsEnabled`, `notification_log.DedupKey`, the digest schedule columns on `notification_config`, and the `NightlyImportFailed`, `OverdueRiskExceptions` and `WeeklySummary` types. |
 
 ## The baseline (D-195)
 
@@ -58,7 +59,7 @@ scripts but not up to `51` is refused; upgrade it first from the
 
 ## Adding a script
 
-1. Name it `NN_BlueTrack_<Topic>.sql`, with `NN` the next number (`19` is next).
+1. Name it `NN_BlueTrack_<Topic>.sql`, with `NN` the next number (`20` is next).
 2. Start with a header comment: the file name, `RUN THIS AFTER 01-NN.`, what
    it changes and why (with the `D-n` decision), and whether it's safe to
    re-run.

@@ -90,7 +90,7 @@ The import logic moves out of `RiskScoringImportController` and `ApplicationMapp
 
 ### 6. The CyberArk sources
 
-Stay on the existing SQL import and nightly Agent job (D-176), which already works. The change: their settings (enabled, Privilege Cloud folder and file names, EVD database) move into a table edited on the same page, and the job's Import step becomes `EXEC usp_Import_Configured;`, which reads it, so no setting is baked into the job. The installer writes these rows from its answers and recreates the job.
+Stay on the existing SQL import and nightly Agent job (D-176), which already works. The change: their settings (enabled, Privilege Cloud folder and file names, EVD database) move into a table edited on the same page, and the job's Import step becomes `EXEC usp_Import_Configured;`, which reads it, so no setting is baked into the job. The installer writes these rows from its answers and recreates the job. Since D-222 (script 19), `usp_Import_Configured` and `usp_RunFullLoad` each record their run in `dbo.etl_run_log` (Started, then Succeeded or Failed with the error), which the `NightlyImportFailed` notification reads (`Design_Notifications.md`).
 
 ### 7. The page, permissions and file access
 

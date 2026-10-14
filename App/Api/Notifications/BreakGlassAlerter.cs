@@ -19,6 +19,11 @@ public sealed class BreakGlassAlerter(IServiceScopeFactory scopeFactory, ILogger
             try
             {
                 using var scope = scopeFactory.CreateScope();
+                // D-222: the type can be turned off on the Notifications page (the audit event is still written).
+                if (!await scope.ServiceProvider.GetRequiredService<NotificationRepository>().IsEnabledAsync(NotificationTypeName))
+                {
+                    return;
+                }
                 var recipients = await scope.ServiceProvider.GetRequiredService<NotificationRecipientResolver>().ResolveAsync(NotificationTypeName);
                 if (recipients.Count == 0)
                 {

@@ -30,7 +30,7 @@ namespace BlueTrack.Api.Notifications;
 /// </summary>
 public sealed class SmtpNotificationSender(NotificationRepository repository, CredentialRepository credentialRepository) : INotificationSender
 {
-    public async Task SendAsync(IReadOnlyList<string> toAddresses, string subject, string body)
+    public async Task SendAsync(IReadOnlyList<string> toAddresses, string subject, string body, string? htmlBody = null)
     {
         var config = await repository.GetConfigForSendingAsync();
 
@@ -46,7 +46,10 @@ public sealed class SmtpNotificationSender(NotificationRepository repository, Cr
             message.To.Add(MailboxAddress.Parse(to));
         }
         message.Subject = subject;
-        message.Body = new TextPart("plain") { Text = body };
+        // D-222: HTML with a plain-text alternative (multipart/alternative) when the caller has one.
+        message.Body = htmlBody is null
+            ? new TextPart("plain") { Text = body }
+            : new BodyBuilder { TextBody = body, HtmlBody = htmlBody }.ToMessageBody();
 
         using var client = new SmtpClient { CheckCertificateRevocation = !config.IgnoreCrlErrors };
         if (config.IgnoreSslErrors)

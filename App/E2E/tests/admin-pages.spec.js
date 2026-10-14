@@ -509,6 +509,48 @@ test.describe('Notifications admin page', () => {
     await page.locator('form', { has: page.getByLabel('SMTP Host:') }).getByRole('button', { name: 'Save' }).click()
   })
 
+  // D-222: the three new types are listed, off by default; a type's Enabled
+  // checkbox and the Schedule section both save. The toggled type is one
+  // that's on by default, so nothing new can send while the test runs.
+  test('Admin sees the D-222 types off by default, toggles a type, and saves the schedule', async ({ page }) => {
+    await signInAs(page, 'TestUser.Admin')
+    await page.goto('/admin/notifications')
+
+    for (const name of ['NightlyImportFailed', 'OverdueRiskExceptions', 'WeeklySummary']) {
+      await expect(page.getByLabel(`${name} enabled`)).not.toBeChecked()
+    }
+
+    const enabledSaved = () => page.waitForResponse(r => r.url().includes('/enabled') && r.request().method() === 'PUT')
+    const devFakeAuth = page.getByLabel('DevFakeAuthEnabledTooLong enabled')
+    await expect(devFakeAuth).toBeChecked()
+    await Promise.all([enabledSaved(), devFakeAuth.uncheck()])
+    await page.reload()
+    await expect(page.getByLabel('DevFakeAuthEnabledTooLong enabled')).not.toBeChecked()
+    await Promise.all([enabledSaved(), page.getByLabel('DevFakeAuthEnabledTooLong enabled').check()])
+
+    const daily = page.getByLabel('Daily digest time:')
+    const weeklyDay = page.getByLabel('Weekly summary day:')
+    const weeklyTime = page.getByLabel('Weekly summary time:')
+    const original = { daily: await daily.inputValue(), day: await weeklyDay.inputValue(), time: await weeklyTime.inputValue() }
+    const saveSchedule = page.getByRole('button', { name: 'Save Schedule' })
+
+    await daily.fill('06:15')
+    await weeklyDay.selectOption('Fri')
+    await weeklyTime.fill('16:45')
+    await saveSchedule.click()
+    await expect(page.getByText('Schedule saved.')).toBeVisible()
+    await page.reload()
+    await expect(page.getByLabel('Daily digest time:')).toHaveValue('06:15')
+    await expect(page.getByLabel('Weekly summary day:')).toHaveValue('Fri')
+    await expect(page.getByLabel('Weekly summary time:')).toHaveValue('16:45')
+
+    await page.getByLabel('Daily digest time:').fill(original.daily)
+    await page.getByLabel('Weekly summary day:').selectOption(original.day)
+    await page.getByLabel('Weekly summary time:').fill(original.time)
+    await page.getByRole('button', { name: 'Save Schedule' }).click()
+    await expect(page.getByText('Schedule saved.')).toBeVisible()
+  })
+
   // D-124 Phase 4 (partial conversion): "Add Recipient" moved off this
   // page's own inline form onto NotificationRecipientCreate.vue's routed
   // page (/admin/notifications/recipients/new) -- recipients otherwise
