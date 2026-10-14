@@ -27,6 +27,18 @@ public interface ILocalSecretProtector
 
     /// <summary>Decrypts a value previously returned by the scope-aware Protect, using the same scope it was protected with.</summary>
     string Unprotect(string protectedValue, CredentialScope scope);
+
+    /// <summary>
+    /// D-215: for the secrets backends' stored credentials (Azure client
+    /// secret, AWS secret access key, Conjur API key). User scope -- only the
+    /// App Pool's account can decrypt it -- with a random entropy kept in the
+    /// value, falling back to Machine scope if the account's profile isn't
+    /// loaded. The result says which (see UnprotectStored).
+    /// </summary>
+    string ProtectStored(string plaintext);
+
+    /// <summary>D-215: decrypts a ProtectStored value, or an older plain Protect value (Machine scope, fixed entropy).</summary>
+    string UnprotectStored(string protectedValue);
 }
 
 /// <summary>

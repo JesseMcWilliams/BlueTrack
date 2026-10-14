@@ -77,7 +77,7 @@ public sealed class AzureKeyVaultSecretsProvider(
         }
 
         var credential = BuildCredential(settings);
-        var client = new SecretClient(new Uri(settings.VaultUri), credential);
+        var client = new SecretClient(new Uri(settings.VaultUri), credential, ApplyLimits(new SecretClientOptions()));
         var version = string.IsNullOrWhiteSpace(query.Folder) ? null : query.Folder;
 
         try
@@ -111,13 +111,29 @@ public sealed class AzureKeyVaultSecretsProvider(
         }
     }
 
+    /// <summary>
+    /// D-215: a lookup gives up in well under a minute -- the SDK's defaults
+    /// (more retries, a 100-second network timeout) could hold a request for
+    /// minutes when the vault or Entra ID is unreachable.
+    /// </summary>
+    private static T ApplyLimits<T>(T options) where T : Azure.Core.ClientOptions
+    {
+        options.Retry.MaxRetries = 2;
+        options.Retry.Mode = Azure.Core.RetryMode.Exponential;
+        options.Retry.Delay = TimeSpan.FromSeconds(1);
+        options.Retry.MaxDelay = TimeSpan.FromSeconds(4);
+        options.Retry.NetworkTimeout = TimeSpan.FromSeconds(10);
+        return options;
+    }
+
     private Azure.Core.TokenCredential BuildCredential(AzureKeyVaultSettings settings)
     {
         if (!string.Equals(settings.AuthMethod, "ServicePrincipal", StringComparison.OrdinalIgnoreCase))
         {
-            return string.IsNullOrWhiteSpace(settings.ClientId)
-                ? new ManagedIdentityCredential(ManagedIdentityId.SystemAssigned)
-                : new ManagedIdentityCredential(ManagedIdentityId.FromUserAssignedClientId(settings.ClientId));
+            var identity = string.IsNullOrWhiteSpace(settings.ClientId)
+                ? ManagedIdentityId.SystemAssigned
+                : ManagedIdentityId.FromUserAssignedClientId(settings.ClientId);
+            return new ManagedIdentityCredential(ApplyLimits(new ManagedIdentityCredentialOptions(identity)));
         }
 
         if (string.IsNullOrWhiteSpace(settings.TenantId) || string.IsNullOrWhiteSpace(settings.ClientId) || string.IsNullOrWhiteSpace(settings.ProtectedCredential))
@@ -130,7 +146,7 @@ public sealed class AzureKeyVaultSecretsProvider(
         string clientSecret;
         try
         {
-            clientSecret = localSecretProtector.Unprotect(settings.ProtectedCredential);
+            clientSecret = localSecretProtector.UnprotectStored(settings.ProtectedCredential);
         }
         catch (System.Security.Cryptography.CryptographicException ex)
         {
@@ -139,7 +155,7 @@ public sealed class AzureKeyVaultSecretsProvider(
                 CyberArkErrorCategory.Other, ex);
         }
 
-        return new ClientSecretCredential(settings.TenantId, settings.ClientId, clientSecret);
+        return new ClientSecretCredential(settings.TenantId, settings.ClientId, clientSecret, ApplyLimits(new ClientSecretCredentialOptions()));
     }
 
     private sealed class AzureKeyVaultSettings

@@ -66,7 +66,7 @@ public class SecretsStoreRepositoryTests
             var unredactedAzure = await repository.GetByTypeAsync("AzureKeyVault");
             var settingsNode = System.Text.Json.Nodes.JsonNode.Parse(unredactedAzure!.BackendSettings!)!.AsObject();
             var protectedCredential = settingsNode["ProtectedCredential"]!.GetValue<string>();
-            Assert.Equal("integration-test-client-secret", new WindowsDpapiProtector().Unprotect(protectedCredential));
+            Assert.Equal("integration-test-client-secret", new WindowsDpapiProtector().UnprotectStored(protectedCredential));
         }
         finally
         {
@@ -98,7 +98,7 @@ public class SecretsStoreRepositoryTests
 
             var settingsNode = System.Text.Json.Nodes.JsonNode.Parse((await repository.GetByTypeAsync("AzureKeyVault"))!.BackendSettings!)!.AsObject();
             Assert.Equal("https://integration-test-2.vault.azure.net/", settingsNode["VaultUri"]!.GetValue<string>());
-            Assert.Equal("integration-test-client-secret", new WindowsDpapiProtector().Unprotect(settingsNode["ProtectedCredential"]!.GetValue<string>()));
+            Assert.Equal("integration-test-client-secret", new WindowsDpapiProtector().UnprotectStored(settingsNode["ProtectedCredential"]!.GetValue<string>()));
         }
         finally
         {

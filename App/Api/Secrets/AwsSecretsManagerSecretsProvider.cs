@@ -109,11 +109,23 @@ public sealed class AwsSecretsManagerSecretsProvider(
         }
     }
 
+    /// <summary>
+    /// D-215: a lookup gives up in well under a minute -- the SDK's defaults
+    /// (more retries, a long HTTP timeout) could hold a request for minutes
+    /// when AWS is unreachable.
+    /// </summary>
+    private static AmazonSecretsManagerConfig Config(RegionEndpoint regionEndpoint) => new()
+    {
+        RegionEndpoint = regionEndpoint,
+        Timeout = TimeSpan.FromSeconds(10),
+        MaxErrorRetry = 2
+    };
+
     private AmazonSecretsManagerClient BuildClient(AwsSecretsManagerSettings settings, RegionEndpoint regionEndpoint)
     {
         if (!string.Equals(settings.AuthMethod, "AccessKey", StringComparison.OrdinalIgnoreCase))
         {
-            return new AmazonSecretsManagerClient(regionEndpoint);
+            return new AmazonSecretsManagerClient(Config(regionEndpoint));
         }
 
         if (string.IsNullOrWhiteSpace(settings.AccessKeyId) || string.IsNullOrWhiteSpace(settings.ProtectedCredential))
@@ -126,7 +138,7 @@ public sealed class AwsSecretsManagerSecretsProvider(
         string secretAccessKey;
         try
         {
-            secretAccessKey = localSecretProtector.Unprotect(settings.ProtectedCredential);
+            secretAccessKey = localSecretProtector.UnprotectStored(settings.ProtectedCredential);
         }
         catch (System.Security.Cryptography.CryptographicException ex)
         {
@@ -136,7 +148,7 @@ public sealed class AwsSecretsManagerSecretsProvider(
         }
 
         var credentials = new BasicAWSCredentials(settings.AccessKeyId, secretAccessKey);
-        return new AmazonSecretsManagerClient(credentials, regionEndpoint);
+        return new AmazonSecretsManagerClient(credentials, Config(regionEndpoint));
     }
 
     private sealed class AwsSecretsManagerSettings
