@@ -29,6 +29,8 @@ What changed in each BlueTrack release, newest first, for users and administrato
 
 - **Linked targets.** When an imported target matches an existing one only by IP address, **Target Match Review** now shows what was imported (name, type, source, risk score and its other identifiers) and offers **Link**, **New Target** or **Ignore**. **Link** keeps it as its own target, linked to the existing one: the IP address stays where it is, and accounts reaching either count it once, at the existing target's risk score. **New Target** keeps it as a separate target. Later imports of the same row (same name and discovery source) go straight to that target, and an ignored row isn't asked about again; the Bulk Actions result says how many were skipped. Linked targets are hidden on **Targets** unless **Linked targets** is set to **Show**; a target's page lists the targets linked to it, or the one it's linked to, with **Unlink**. Merging, which moved the IP address to another target, is gone. The upgrade adds database script 23.
 
+- **Export the Audit Log.** **Admin > Audit Log Viewer** has **Export CSV** and **Export Excel**, like the reports: every event matching the filters you applied, with the time of each event in UTC. Anyone who can view the Audit Log can export it, up to the **Export Max Rows** limit. See the User Guide, "Audit Log Viewer".
+
 ### Changed
 
 - **Numbers:** counts on the pages (totals, pages, selections, import results, dashboard and report figures) use your browser language's number format, for example 1,234 or 1.234.

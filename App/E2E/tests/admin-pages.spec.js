@@ -1,4 +1,5 @@
 import fs from 'node:fs'
+import { readFile } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import { test, expect } from '@playwright/test'
@@ -344,6 +345,41 @@ test.describe('Audit Log Viewer admin page', () => {
     await page.getByPlaceholder('e.g. FieldEdit').fill('FieldEdit')
     await page.getByRole('button', { name: 'Filter' }).click()
     await expect(page.getByText('Loading...')).toHaveCount(0)
+  })
+
+  // D-231: Export CSV downloads every event matching the applied filters,
+  // with the grid's columns (the timestamp in UTC), and is itself audit-logged
+  // as a ReportExport event -- so exporting the ReportExport events twice
+  // always finds at least the first export in the second file. Buttons are
+  // found by role and exact name: getByLabel/getByText match substrings,
+  // ignoring case (Reference_Lessons-Learned.md).
+  test('Viewer can export the filtered log as CSV', async ({ page }) => {
+    await signInAs(page, 'TestUser.Viewer')
+    await page.goto('/admin/audit-log')
+    await expect(page.getByText('Loading...')).toHaveCount(0)
+
+    await page.getByPlaceholder('e.g. FieldEdit').fill('ReportExport')
+    await page.getByRole('button', { name: 'Filter', exact: true }).click()
+    await expect(page.getByText('Loading...')).toHaveCount(0)
+
+    async function exportCsv() {
+      const [download] = await Promise.all([
+        page.waitForEvent('download'),
+        page.getByRole('button', { name: 'Export CSV', exact: true }).click()
+      ])
+      const name = download.suggestedFilename()
+      await expect(page.getByRole('status').filter({ hasText: `Downloaded ${name}.` })).toBeVisible()
+      return { name, bytes: await readFile(await download.path()) }
+    }
+
+    await exportCsv()
+    const { name, bytes } = await exportCsv()
+    expect(name).toMatch(/^BlueTrack_AuditLog_\d{8}-\d{4}\.csv$/)
+    expect([...bytes.subarray(0, 3)]).toEqual([0xef, 0xbb, 0xbf])
+    const lines = bytes.subarray(3).toString('utf8').split('\r\n')
+    expect(lines[0].split(',')).toEqual(['Occurred At (UTC)', 'Event Type', 'By', 'Entity', 'Detail'])
+    // Newest first (the grid's default sort): the first export's own audit row.
+    expect(lines[1]).toMatch(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2},ReportExport,.*,report audit-log,/)
   })
 
   test('A user with no role mapping (no permissions at all) is denied with a plain error', async ({ page }) => {

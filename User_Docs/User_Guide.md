@@ -248,6 +248,8 @@ The governed list of fields the Account Progress edit form actually renders. Lis
 
 Read-only — no add/edit/delete. Filter by Event Type, Entity, and a From/To date range (submitted via an explicit **Filter** button, not automatically as you type). Columns: Occurred At, Event Type, By, Entity, and Detail. Click the **Occurred At** value on any row to expand an inline panel showing the Reason (if one was recorded) and a Field / Old Value / New Value table for that specific change.
 
+**Exporting.** **Export CSV** and **Export Excel** download every event that matches the filters you last applied with **Filter** (not what you've typed since), in the list's current sort, with the list's five columns. **Occurred At** keeps the time, to the second, in UTC, as the list shows it, so the column is headed **Occurred At (UTC)**; report exports show dates only. The Reason and field changes aren't in the file. More events than the **Export Max Rows** limit are refused with the count, so narrow the dates or event type first. Each export is itself recorded in the Audit Log as a `ReportExport` event.
+
 ### Global Application Configuration
 
 Every admin-wide setting on one form, saved together with a single **Save** button:
@@ -259,7 +261,7 @@ Every admin-wide setting on one form, saved together with a single **Save** butt
 - **Keep scheduled backups (days)**: 1 to 3650. After each scheduled backup, older scheduled backup files are deleted; backups made with **Backup App** are never deleted.
 - The Risk Score Algorithm (Dominant Plus Tail / Combined Exposure — see `Design_Risk-Scoring.md`) and the segregation-of-duties checkbox (below).
 - **Bulk edit limit (accounts)**: 1 to 10000; the most accounts one Account Progress bulk action may change.
-- **Export Max Rows**: 1 to 1,000,000 (100,000 on a new install); the most rows one report export (**Export CSV** / **Export Excel**) may hold. When more rows match, the export is refused with the count rather than cut short.
+- **Export Max Rows**: 1 to 1,000,000 (100,000 on a new install); the most rows one report or Audit Log export (**Export CSV** / **Export Excel**) may hold. When more rows match, the export is refused with the count rather than cut short.
 - **Site URL**: the address people open BlueTrack at (for example `https://bluetrack.company.com`; `https://` only, or `http://` for localhost). The notification emails link to pages under it; leave it blank and they name the pages instead. The installer fills it in when it's blank.
 
 #### Data feeds

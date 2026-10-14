@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import AuditLogViewer from './AuditLogViewer.vue'
+import ReportExportButtons from '../../components/ReportExportButtons.vue'
 
 // D-124 Phase 3: this page had no component-level Vitest coverage before
 // this phase -- establishes coverage for the new pager UI and the
@@ -109,5 +110,70 @@ describe('AuditLogViewer.vue', () => {
     })
     const calls = globalThis.fetch.mock.calls.map(c => c[0]).filter(u => u.startsWith('/api/audit-log?'))
     expect(calls.at(-1)).toContain('pageSize=250')
+  })
+
+  // D-231: Export CSV / Export Excel send the filters last applied with the
+  // Filter button (and the current sort), never unsubmitted form edits.
+  it('the export buttons get the applied filters and sort, not unsubmitted edits', async () => {
+    mockInitialLoad()
+    const wrapper = mount(AuditLogViewer)
+    await flushPromises()
+
+    const exportButtons = wrapper.getComponent(ReportExportButtons)
+    expect(exportButtons.props('path')).toBe('/api/audit-log/export')
+    expect(exportButtons.props('params')).toEqual({ eventType: '', entityName: '', fromDate: '', toDate: '', sort: '' })
+
+    await wrapper.get('input[placeholder="e.g. FieldEdit"]').setValue('FieldEdit')
+    await wrapper.get('input[placeholder="e.g. risk_exception"]').setValue('risk_exception')
+    await wrapper.get('form.filter-row').trigger('submit')
+    await flushPromises()
+    await wrapper.findAll('th button').find(b => b.text().startsWith('Occurred At')).trigger('click')
+    await flushPromises()
+    // Typed but not submitted: neither the grid nor the export use it.
+    await wrapper.get('input[placeholder="e.g. FieldEdit"]').setValue('Logon')
+
+    expect(wrapper.getComponent(ReportExportButtons).props('params')).toEqual({
+      eventType: 'FieldEdit', entityName: 'risk_exception', fromDate: '', toDate: '', sort: 'occurredAt:asc'
+    })
+  })
+
+  it('Export CSV asks the API for every matching event with the applied filters', async () => {
+    URL.createObjectURL = vi.fn(() => 'blob:audit')
+    URL.revokeObjectURL = vi.fn()
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+    mockInitialLoad()
+    const wrapper = mount(AuditLogViewer)
+    await flushPromises()
+
+    await wrapper.get('input[placeholder="e.g. FieldEdit"]').setValue('FieldEdit')
+    await wrapper.get('form.filter-row').trigger('submit')
+    await flushPromises()
+    await wrapper.get('input[placeholder="e.g. FieldEdit"]').setValue('Unsubmitted')
+
+    globalThis.fetch.mockImplementation(() => Promise.resolve({
+      ok: true,
+      status: 200,
+      headers: new Headers({ 'Content-Disposition': 'attachment; filename=BlueTrack_AuditLog_20261014-0930.csv' }),
+      blob: () => Promise.resolve(new Blob(['Occurred At (UTC)']))
+    }))
+    await wrapper.findAll('button').find(b => b.text() === 'Export CSV').trigger('click')
+    await flushPromises()
+
+    expect(globalThis.fetch).toHaveBeenLastCalledWith('/api/audit-log/export?format=csv&eventType=FieldEdit')
+    expect(wrapper.text()).toContain('Downloaded BlueTrack_AuditLog_20261014-0930.csv.')
+  })
+
+  it('paging after an unsubmitted edit keeps the applied filters', async () => {
+    mockInitialLoad({ events: [sampleEvent], totalCount: 900, filteredCount: 900 })
+    const wrapper = mount(AuditLogViewer)
+    await flushPromises()
+
+    await wrapper.get('input[placeholder="e.g. FieldEdit"]').setValue('Typed')
+    await wrapper.findAll('.pager button').find(b => b.text().includes('Next')).trigger('click')
+    await flushPromises()
+
+    const calls = globalThis.fetch.mock.calls.map(c => c[0]).filter(u => u.startsWith('/api/audit-log?'))
+    expect(calls.at(-1)).toContain('page=2')
+    expect(calls.at(-1)).not.toContain('eventType')
   })
 })

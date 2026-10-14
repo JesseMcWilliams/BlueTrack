@@ -50,7 +50,7 @@ public class ReportExportTests : IClassFixture<BlueTrackWebApplicationFactory>
     };
 
     /// <summary>RFC 4180 records (after the BOM): fields split on commas outside quotes, "" unescaped.</summary>
-    private static List<List<string>> ParseCsv(byte[] bytes)
+    internal static List<List<string>> ParseCsv(byte[] bytes)
     {
         Assert.Equal(new byte[] { 0xEF, 0xBB, 0xBF }, bytes[..3]);
         var text = new UTF8Encoding(false).GetString(bytes, 3, bytes.Length - 3);

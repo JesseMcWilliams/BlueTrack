@@ -94,6 +94,7 @@ The purge run itself is recorded in a new **`audit_purge_log`** table, mirroring
 - A global application configuration page including, at minimum, the audit retention period (`audit_config.RetentionDays`).
 - A searchable/filterable audit log view (by user, date range, event type, affected entity) — gated behind a `ViewAuditLog` (or equivalent) permission.
 - Visibility into field-level changes for a given event, not just the top-level action description.
+- **Export (D-231):** Export CSV / Export Excel on the viewer (`GET /api/audit-log/export?format=csv|xlsx`, `ViewAuditLog`), D-220's shared export: every event the filters last applied with **Filter** match (unsubmitted form edits are ignored; the grid's paging and sort use the applied filters too), in the grid's sort, refused above Export Max Rows, and itself logged as a `ReportExport` event (EntityKey `audit-log`). Columns, as the grid: **Occurred At (UTC)**, Event Type, By, Entity (`EntityName EntityKey`), Detail. Unlike the reports' date-only rule, Occurred At keeps the time, to the second, in UTC as stored (the grid shows the same UTC value unconverted); Excel shows it `yyyy-mm-dd hh:mm:ss`. Reason and field changes (the grid's click-to-expand row) aren't exported.
 
 ## Implementation Status (added 2026-09-01, D-73)
 

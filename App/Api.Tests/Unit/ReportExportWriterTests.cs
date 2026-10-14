@@ -109,6 +109,43 @@ public class ReportExportWriterTests
         Assert.Equal(XLDataType.Text, sheet.Cell(3, 1).DataType);
     }
 
+    /// <summary>D-231: a DateTime (the Audit Log's timestamps) keeps its time -- "yyyy-MM-dd HH:mm:ss" in CSV, a date-time cell in Excel.</summary>
+    [Fact]
+    public void DateTimeCells_KeepTheirTime_InCsvAndXlsx()
+    {
+        var table = new ReportTable(["When"], [[new DateTime(2026, 10, 14, 13, 5, 9)], [null]]);
+
+        Assert.Contains("When\r\n2026-10-14 13:05:09\r\n", CsvText(CsvReportWriter.Write(table)));
+
+        using var workbook = OpenXlsx(XlsxReportWriter.Write(table, "Sheet"));
+        var cell = workbook.Worksheet(1).Cell(2, 1);
+        Assert.Equal(XLDataType.DateTime, cell.DataType);
+        Assert.Equal(new DateTime(2026, 10, 14, 13, 5, 9), cell.GetDateTime());
+        Assert.Equal("yyyy-mm-dd hh:mm:ss", cell.Style.NumberFormat.Format);
+    }
+
+    /// <summary>D-231: the Audit Log's columns -- the viewer grid's, with Occurred At cut to the second and Entity as "name key".</summary>
+    [Fact]
+    public void AuditLogColumns_MatchTheViewersGrid()
+    {
+        var row = new AuditEventSummary
+        {
+            AuditEventKey = 7,
+            EventTypeName = "FieldEdit",
+            OccurredAt = new DateTime(2026, 10, 14, 13, 5, 9).AddTicks(1234567),
+            PerformedByName = "Jane Analyst",
+            EntityName = "fact_account_progress",
+            EntityKey = "42",
+            Detail = "Stage changed",
+            Reason = "not exported"
+        };
+        var table = ReportTable.From(ReportExports.AuditLogColumns, [row, new AuditEventSummary { EventTypeName = "Logon", EntityName = "app_user" }]);
+
+        Assert.Equal(["Occurred At (UTC)", "Event Type", "By", "Entity", "Detail"], table.Headers);
+        Assert.Equal(new object?[] { new DateTime(2026, 10, 14, 13, 5, 9), "FieldEdit", "Jane Analyst", "fact_account_progress 42", "Stage changed" }, table.Rows[0]);
+        Assert.Equal("app_user", table.Rows[1][3]);
+    }
+
     [Fact]
     public void Xlsx_KeepsNumberLookingTextAsText()
     {

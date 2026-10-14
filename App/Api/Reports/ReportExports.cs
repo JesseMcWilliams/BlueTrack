@@ -27,6 +27,7 @@ public static class ReportExports
     public static readonly ReportExportInfo DecomAccounts = new("decom-accounts", "AccountsFlaggedForDeletion", "Accounts Flagged for Deletion");
     public static readonly ReportExportInfo KpiSummary = new("kpi-summary", "KpiSummary", "KPI Summary");
     public static readonly ReportExportInfo Trends = new("trends", "Trends", "Trends");
+    public static readonly ReportExportInfo AuditLog = new("audit-log", "AuditLog", "Audit Log");
 
     // The pages show every date as yyyy-MM-dd (formatDate), so the exports do too.
     private static DateOnly? Day(DateTime? value) => value is { } v ? DateOnly.FromDateTime(v) : null;
@@ -40,6 +41,22 @@ public static class ReportExports
         new("Risk Level", r => r.RiskLevelName),
         new("Owner", r => r.OwnerName),
         new("Target Remediation Date", r => Day(r.TargetRemediationDate))
+    ];
+
+    /// <summary>
+    /// D-231: the Audit Log Viewer's grid (AuditLogViewer.vue), its five columns in
+    /// order. Unlike the reports, Occurred At keeps the time (an audit row needs it):
+    /// the stored UTC value, to the second, as the grid shows it (UTC, unconverted);
+    /// the header says so. Reason and the field changes appear only in the grid's
+    /// click-to-expand row, so they aren't exported.
+    /// </summary>
+    public static readonly IReadOnlyList<ExportColumn<AuditEventSummary>> AuditLogColumns =
+    [
+        new("Occurred At (UTC)", r => r.OccurredAt.AddTicks(-(r.OccurredAt.Ticks % TimeSpan.TicksPerSecond))),
+        new("Event Type", r => r.EventTypeName),
+        new("By", r => r.PerformedByName),
+        new("Entity", r => string.Join(" ", new[] { r.EntityName, r.EntityKey }.Where(v => !string.IsNullOrEmpty(v)))),
+        new("Detail", r => r.Detail)
     ];
 
     public static readonly IReadOnlyList<ExportColumn<ReconciliationReviewItem>> ReconciliationReviewColumns =

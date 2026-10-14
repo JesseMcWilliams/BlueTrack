@@ -7,6 +7,7 @@ import { useTotalCount } from '../../composables/useTotalCount'
 import { usePageSizeStore } from '../../stores/pageSize'
 import FilterCountSummary from '../../components/FilterCountSummary.vue'
 import Pager from '../../components/Pager.vue'
+import ReportExportButtons from '../../components/ReportExportButtons.vue'
 import { useI18n } from 'vue-i18n'
 
 const { t } = useI18n()
@@ -21,6 +22,10 @@ const eventTypeFilter = ref('')
 const entityNameFilter = ref('')
 const fromDateFilter = ref('')
 const toDateFilter = ref('')
+
+// D-231: the filters last submitted (Filter button). The grid's paging/sort
+// reloads and the Export buttons both use these, never unsubmitted form edits.
+const appliedFilters = ref({ eventType: '', entityName: '', fromDate: '', toDate: '' })
 
 // D-124 Phase 3: pagination -- page is local to this page (not persisted);
 // pageSize comes from the shared, server-persisted pageSize store.
@@ -42,6 +47,12 @@ function onPageSizeChange() {
 // auto-reload -- still needs the same page-1 reset on every new filter
 // submission.
 function loadFiltered() {
+  appliedFilters.value = {
+    eventType: eventTypeFilter.value,
+    entityName: entityNameFilter.value,
+    fromDate: fromDateFilter.value,
+    toDate: toDateFilter.value
+  }
   page.value = 1
   load()
 }
@@ -97,15 +108,19 @@ function toggleSort(field, event) {
 const sortQueryParam = computed(() =>
   sortColumns.value.map(s => `${s.field}:${s.descending ? 'desc' : 'asc'}`).join(','))
 
+// D-231: what Export CSV / Export Excel send -- the applied filters and the current sort.
+const exportParams = computed(() => ({ ...appliedFilters.value, sort: sortQueryParam.value }))
+
 async function load() {
   loading.value = true
   error.value = null
   try {
     const params = new URLSearchParams()
-    if (eventTypeFilter.value) params.set('eventType', eventTypeFilter.value)
-    if (entityNameFilter.value) params.set('entityName', entityNameFilter.value)
-    if (fromDateFilter.value) params.set('fromDate', fromDateFilter.value)
-    if (toDateFilter.value) params.set('toDate', toDateFilter.value)
+    const applied = appliedFilters.value
+    if (applied.eventType) params.set('eventType', applied.eventType)
+    if (applied.entityName) params.set('entityName', applied.entityName)
+    if (applied.fromDate) params.set('fromDate', applied.fromDate)
+    if (applied.toDate) params.set('toDate', applied.toDate)
     if (sortQueryParam.value) params.set('sort', sortQueryParam.value)
     params.set('page', page.value)
     params.set('pageSize', pageSizeStore.current)
@@ -152,6 +167,7 @@ async function toggleFieldChanges(event) {
       <button type="submit" class="btn-primary">{{ t('admin.auditLogViewer.filter') }}</button>
     </form>
 
+    <ReportExportButtons path="/api/audit-log/export" :params="exportParams" />
     <FilterCountSummary :shown="events.length" :filtered-count="filteredCount" :total="totalCount" :page="page" :page-size="pageSizeStore.current" />
     <Pager :page="page" :page-count="pageCount" @update:page="onPageChange" @page-size-change="onPageSizeChange" />
     <p v-if="error" role="alert">{{ error }}</p>
