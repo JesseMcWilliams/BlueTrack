@@ -544,7 +544,7 @@ $StepActions = @{
         if (Test-BlueTrackDeployment -SiteUrl $siteUrl) {
             return @{ Status = 'Completed'; Message = "Healthy at $siteUrl" }
         }
-        return @{ Status = 'Failed'; Message = 'Did not confirm healthy (health checks or the browser /api/... path) -- see the warnings above' }
+        return @{ Status = 'Failed'; Message = 'Did not confirm healthy (health checks or the browser /BlueTrack/api/... path) -- see the warnings above' }
     }
 }
 #endregion
