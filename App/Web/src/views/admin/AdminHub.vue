@@ -26,7 +26,8 @@ const sections = [
   { name: 'admin-target-match-review', labelKey: 'admin.adminHub.targetMatchReview', permission: 'ManageTargets' },
   { name: 'admin-import-mapping-profiles', labelKey: 'admin.adminHub.importMappingProfiles', permission: 'ManageTargets' },
   { name: 'admin-risk-score-bands', labelKey: 'admin.adminHub.riskScoreBands', permission: 'ManageRiskScoreBands' },
-  { name: 'admin-data-sources', labelKey: 'admin.adminHub.dataSources', permission: 'ManageDataSources' }
+  { name: 'admin-data-sources', labelKey: 'admin.adminHub.dataSources', permission: 'ManageDataSources' },
+  { name: 'admin-account-classification', labelKey: 'admin.adminHub.accountClassification', permission: 'ManageDiscoveredAccounts' }
 ]
 
 const visibleSections = computed(() => sections.filter(s => rights.hasPermission(s.permission)))

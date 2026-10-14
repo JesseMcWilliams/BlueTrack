@@ -18,21 +18,6 @@ namespace BlueTrack.Api.Tests.Integration;
 /// </summary>
 public class AdAccountDiscoveryMultiDomainTests
 {
-    private sealed class FakeDirectory(Dictionary<string, Dictionary<string, DirectoryUser[]>> domains, string? failingDomain = null) : IAdDirectory
-    {
-        public Task<IAdDirectorySession?> OpenAsync(LdapConfig config)
-        {
-            if (config.DomainName == failingDomain) throw new InvalidOperationException("Domain controller unreachable (test).");
-            return Task.FromResult<IAdDirectorySession?>(domains.TryGetValue(config.DomainName, out var groups) ? new Session(groups) : null);
-        }
-
-        private sealed class Session(Dictionary<string, DirectoryUser[]> groups) : IAdDirectorySession
-        {
-            public IReadOnlyList<DirectoryUser>? GetUserMembers(string groupIdentifier) => groups.GetValueOrDefault(groupIdentifier);
-            public void Dispose() { }
-        }
-    }
-
     private sealed record Found(string DomainName, string SamAccountName, string? DisplayName, int GroupCount);
 
     private static DirectoryUser User(string sam, string domain) => new(sam, $"CN={sam},DC={domain}", null, $"{sam} ({domain})", true);
@@ -61,7 +46,7 @@ public class AdAccountDiscoveryMultiDomainTests
                     """, new { group }));
             }
 
-            var directory = new FakeDirectory(new()
+            var directory = new FakeAdDirectory(new()
             {
                 // Domain A has both groups; svc_app is in both of them.
                 [domainA] = new() { [groupA] = [User($"svc_app_{id}", "a"), User($"only_a_{id}", "a")], [groupShared] = [User($"svc_app_{id}", "a")] },
@@ -69,8 +54,10 @@ public class AdAccountDiscoveryMultiDomainTests
                 [domainB] = new() { [groupShared] = [User($"svc_app_{id}", "b")] }
             }, failingDomain: domainDown);
 
+            var classification = new AccountClassificationRepository(factory);
             var service = new AdAccountDiscoveryService(new LdapConfigRepository(factory), directory, new AccessGroupRepository(factory),
-                new DiscoveredAccountRepository(factory), NullLogger<AdAccountDiscoveryService>.Instance);
+                new DiscoveredAccountRepository(factory), classification, new AccountClassificationService(classification),
+                NullLogger<AdAccountDiscoveryService>.Instance);
             await service.RunAsync();
 
             var found = (await connection.QueryAsync<Found>("""

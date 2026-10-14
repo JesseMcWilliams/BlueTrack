@@ -33,6 +33,8 @@ What changed in each BlueTrack release, newest first, for users and administrato
 
 - **Resolve unresolved entitlement members.** **Reports > Unresolved Entitlement Members** now shows each member's name. The nightly load links a member to the user or group with exactly the same name (ignoring case) when there is only one, so most of them leave the report. Approvers and Admins (`ConfirmReconciliation`) can **Resolve** the rest: link the member to a user or group, or mark it as an external or cloud role with a note. A resolution applies to the member on every safe, is kept through the nightly load, and can be undone with **Undo**. Tick **Show resolved** to see resolved members and how each was resolved. Resolve and Undo are recorded in the Audit Log as `EntitlementMemberResolution` events. See the User Guide, "Reports".
 
+- **Account classes on Discovered Accounts.** The report shows each account's **Account Class** (Primary, Secondary, Admin or Unknown), its **Owner** (the person's primary account) and what decided it, with a **Class** filter (also on the export) and a per-row **Classify** override. The rules (AD attributes such as adminCount, a name prefix or suffix, an OU, and a shared employee ID) are set on the new **Admin > Account Classification** page (permission `ManageDiscoveredAccounts`); it is off with no rules until you set it up.
+
 ### Changed
 
 - **Numbers:** counts on the pages (totals, pages, selections, import results, dashboard and report figures) use your browser language's number format, for example 1,234 or 1.234.
@@ -67,6 +69,7 @@ What changed in each BlueTrack release, newest first, for users and administrato
 - **Privilege Cloud import fix:** the installer, or the Migrator on its own, applies `22_BlueTrack_PcImportByHeader.sql`. The nightly job needs no change; the next run uses the new import.
 - **Settings file:** run the installer as usual, or on its own with `.\Install-BlueTrack.ps1 -Step Db.AppSettings,Iis.WebConfig`. It writes `appsettings.Site.json` and removes the old `appsettings.<Environment>.json`; an old `appsettings.Production.json` that holds settings the installer doesn't write is kept, with a warning naming them, so you can move them into `appsettings.Site.json`. Check the database connection afterwards: a Test or Staging install now uses the database you gave the installer. **If the installer found a trusted certificate**, BlueTrack starts sending HSTS, so browsers will then refuse plain HTTP and certificate warnings for that host name.
 - **Entitlement members:** the installer, or the Migrator on its own, applies `24_BlueTrack_EntitlementMemberResolution.sql`. The report shows names at once; the next nightly Import and Load resolves members by name.
+- **Account classification:** the installer, or the Migrator on its own, applies `25_BlueTrack_AccountClassification.sql`. Nothing changes until you turn classification on and add rules on **Admin > Account Classification**; the next AD Account Discovery run then reads the attributes the rules need (until then, only sAMAccountName and OU rules can match).
 
 ## 1.0.0
 

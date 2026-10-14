@@ -86,7 +86,10 @@
     "adminRiskScoreBandCreate": "New Band",
     "adminRiskScoreBandEdit": "Edit Band",
     "accessDenied": "Access Denied",
-    "notFound": "Not Found"
+    "notFound": "Not Found",
+    "adminAccountClassification": "Account Classification",
+    "adminAccountClassificationRuleCreate": "New Rule",
+    "adminAccountClassificationRuleEdit": "Edit Rule"
   },
   "userMenu": {
     "account": "Account",

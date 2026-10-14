@@ -326,6 +326,29 @@ Every choice is remembered. A later import of the same row (the same name and di
 | Min Score / Max Score | The band's score range. Min must not be greater than Max; bands may not overlap. | 0-250, 251-500, 501-750, 751-1000 | Cover 0 to 1000 with no gaps | A score in a gap gets no label. |
 | Risk Order | The sort order, lowest risk first. | 10, 20, 30, 40 | Keep gaps of 10 | Reports sort by it. |
 
+### Account Classification
+
+**Admin > Account Classification** (permission `ManageDiscoveredAccounts`). Separates a person's day-to-day account from their secondary and admin accounts on **Reports > Discovered Accounts**: each discovered account gets an **Account Class** (Primary, Secondary, Admin or Unknown) and an **Owner** (the person's primary account in the same domain). Nothing changes until you turn it on and add rules.
+
+| Setting | What it does | Default | Recommended | Why |
+|---|---|---|---|---|
+| Classify discovered accounts | Works out the class and owner. Off: the columns stay empty (a manual override still shows) and discovery reads no extra attributes. | Off | On, once rules are added | The next discovery run reads the attributes the rules need. |
+| Class when no rule matches | Unknown or Primary. | Unknown | Unknown | Primary would also make every unmatched service account a person's main account. |
+| Find the owner by a shared employee ID | For an account that isn't Primary, the owner is the one enabled account in the same domain with the same employee ID whose class is Primary; for a Secondary or Admin account with none, the one that matches no rule. If more than one could be, the owner is left empty (ambiguous). | Off | On if your directory fills the ID on both accounts | Finds owners whose admin account isn't named after them. |
+| Employee ID attribute | employeeID or employeeNumber. | employeeID | Whichever your HR feed fills | |
+
+**Rules.** Each rule has a condition and a class (Primary, Secondary or Admin), can be enabled or disabled, and is edited on its own page (click its condition). Attribute rules are checked first, then Name rules, then OU rules; within a type, in the order shown (**Up** / **Down**). The first enabled rule that matches sets the class.
+
+| Rule type | Condition | Example |
+|---|---|---|
+| Attribute | One of adminCount, employeeType, extensionAttribute1 to 15, description, title, department; **equals**, **contains**, **starts with** (case ignored) or **is set**. No other attribute can be used. | adminCount equals 1 → Admin; extensionAttribute5 equals Admin → Admin |
+| Name | sAMAccountName or userPrincipalName **starts with** (prefix), **ends with** (suffix) or **matches pattern** (`*` any text, `?` one character). | sAMAccountName starts with `adm.` → Admin; pattern `*-a` → Secondary |
+| OU | The distinguished name **contains** or **ends with** an OU path (case and spaces after commas ignored). | contains `OU=Admin Accounts` → Admin |
+
+A Secondary or Admin **Name** rule on sAMAccountName also gives the owner: the name without the prefix or suffix (`adm.jsmith` is owned by `jsmith`), or the text a pattern's single `*` matched. The owner is used only if that account was found: it's a discovered account, or the discovery run read it from AD. The name rule is tried before the employee ID. A Primary account is its own owner.
+
+Saving the settings, or adding, changing, moving or deleting a rule, reclassifies every discovered account at once from what the last discovery run read; it doesn't contact AD. **Reclassify Now** does the same on request. An owner outside the discovered accounts for a new name rule appears after the next discovery run. Every change is recorded in the Audit Log (event **AccountClassification**).
+
 ### Application ↔ Safe Mapping
 
 **Admin > Application ↔ Safe Mapping** (permission `CurateApplicationMapping`) has no settings. It holds data: each application's code, name, description, owner and technical contact, and which application each safe belongs to. Keep it current, because the risk reports group accounts by application.
