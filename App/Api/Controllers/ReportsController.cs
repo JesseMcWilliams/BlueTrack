@@ -16,7 +16,8 @@ public sealed class ReportsController(
     DiscoveredAccountRepository discoveredAccountRepository,
     CurrentUserResolver currentUserResolver,
     DecommissionRepository decommissionRepository,
-    ReportExportService exportService) : ControllerBase
+    ReportExportService exportService,
+    TrendsRepository trendsRepository) : ControllerBase
 {
     // D-220: each report's GET .../export?format=csv|xlsx sits beside it, under the
     // same policy, and takes the same filter/sort parameters the page sends.
@@ -256,4 +257,50 @@ public sealed class ReportsController(
         await discoveredAccountRepository.DismissAsync(discoveredAccountKey, user.UserKey);
         return NoContent();
     }
+
+    /// <summary>
+    /// D-221: Reports > Trends -- accounts by stage, % complete (D-143's KPI rule) and
+    /// accounts by risk level over time, from the daily snapshot table. from/to default
+    /// to the last 90 days (server date); granularity day (default) or week. One series
+    /// per period; see TrendsRepository.
+    /// </summary>
+    [Authorize(Policy = Permissions.ViewDashboard)]
+    [HttpGet("trends")]
+    public async Task<IActionResult> GetTrends(
+        [FromQuery] DateOnly? from = null, [FromQuery] DateOnly? to = null, [FromQuery] string? granularity = null,
+        [FromQuery] int? applicationKey = null, [FromQuery] int? safeKey = null)
+    {
+        var request = TrendsRequest.Validate(from, to, granularity, applicationKey, safeKey);
+        if (request.Error is not null) return TrendsProblem(request.Error);
+        return Ok(await trendsRepository.GetTrendsAsync(request.From, request.To, request.Granularity, applicationKey, safeKey));
+    }
+
+    /// <summary>D-221: the Trends page's Application and Safe lists.</summary>
+    [Authorize(Policy = Permissions.ViewDashboard)]
+    [HttpGet("trends/filter-options")]
+    public async Task<IActionResult> GetTrendsFilterOptions() => Ok(await trendsRepository.GetFilterOptionsAsync());
+
+    /// <summary>D-220/D-221: one row per period with every series' columns, same filters.</summary>
+    [Authorize(Policy = Permissions.ViewDashboard)]
+    [HttpGet("trends/export")]
+    public async Task<IActionResult> ExportTrends(
+        [FromQuery] string? format,
+        [FromQuery] DateOnly? from = null, [FromQuery] DateOnly? to = null, [FromQuery] string? granularity = null,
+        [FromQuery] int? applicationKey = null, [FromQuery] int? safeKey = null)
+    {
+        var request = TrendsRequest.Validate(from, to, granularity, applicationKey, safeKey);
+        if (request.Error is not null) return TrendsProblem(request.Error);
+        var table = ReportExports.TrendsTable(
+            await trendsRepository.GetTrendsAsync(request.From, request.To, request.Granularity, applicationKey, safeKey));
+        return await exportService.ExportAsync(this, ReportExports.Trends, format,
+            Params(("from", request.From.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture)),
+                   ("to", request.To.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture)),
+                   ("granularity", request.Granularity),
+                   ("applicationKey", applicationKey?.ToString(System.Globalization.CultureInfo.InvariantCulture)),
+                   ("safeKey", safeKey?.ToString(System.Globalization.CultureInfo.InvariantCulture))),
+            table.Rows.Count, _ => Task.FromResult(table));
+    }
+
+    private ObjectResult TrendsProblem(string detail) =>
+        Problem(title: "Invalid Trends request", detail: detail, statusCode: StatusCodes.Status400BadRequest);
 }

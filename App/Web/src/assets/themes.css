@@ -26,6 +26,24 @@
   --color-error-text: #b00020; /* 7.33:1 vs #fff */
   --color-success-text: #1e7e34; /* 5.14:1 vs #fff */
   --color-row-hover: #e4e4e4; /* 16.52:1 text-vs-hover (needs 4.5:1) -- a hover tint, not body text, but computed the same way as every other token here */
+  /* D-221 chart tokens (Reports > Trends; read at runtime by utils/chartTheme.js).
+     Stages and risk levels are ordinal, so each is one hue (blue) stepped
+     light->dark; on Dark/High-Visibility the order flips (darkest nearest the
+     surface). Steps are from the dataviz skill's documented blue ramp and pass
+     its validator (--ordinal: monotone lightness, gaps >= 0.06, end step >= 2:1)
+     against each theme's own background. "Not set" is a neutral gray. */
+  --color-chart-stage-1: #86b6ef;
+  --color-chart-stage-2: #5598e7;
+  --color-chart-stage-3: #2a78d6;
+  --color-chart-stage-4: #1c5cab;
+  --color-chart-stage-5: #104281;
+  --color-chart-risk-1: #86b6ef;
+  --color-chart-risk-2: #3987e5;
+  --color-chart-risk-3: #1c5cab;
+  --color-chart-risk-4: #104281;
+  --color-chart-risk-none: #898781; /* 3.59:1 vs #fff */
+  --color-chart-line: #2a78d6; /* 4.42:1 vs #fff */
+  --color-chart-grid: #e1e0d9;
 }
 
 :root[data-theme='Dark'] {
@@ -39,6 +57,18 @@
   --color-error-text: #ff8a8a; /* 4.86:1 vs #3c3c3c */
   --color-success-text: #7fdb7f; /* 6.48:1 vs #3c3c3c */
   --color-row-hover: #525252; /* 7.42:1 text-vs-hover (needs 4.5:1) */
+  --color-chart-stage-1: #256abf;
+  --color-chart-stage-2: #3987e5;
+  --color-chart-stage-3: #6da7ec;
+  --color-chart-stage-4: #9ec5f4;
+  --color-chart-stage-5: #cde2fb;
+  --color-chart-risk-1: #256abf;
+  --color-chart-risk-2: #6da7ec;
+  --color-chart-risk-3: #9ec5f4;
+  --color-chart-risk-4: #cde2fb;
+  --color-chart-risk-none: #898781; /* gray, no chroma: apart from the blue steps by hue, whatever its lightness */
+  --color-chart-line: #6da7ec; /* 4.41:1 vs #3c3c3c */
+  --color-chart-grid: #5a5a5a;
 }
 
 :root[data-theme='HighVisibility'] {
@@ -53,6 +83,18 @@
   --color-error-text: #ffa500; /* ~10.6:1 vs #000 */
   --color-success-text: #00ff00; /* ~15.3:1 vs #000 */
   --color-row-hover: #1f1f1f; /* 15.35:1 text-vs-hover (needs 7:1, this theme's own AAA target) -- still reads as "barely lighter than black", keeping the theme's max-contrast character */
+  --color-chart-stage-1: #256abf;
+  --color-chart-stage-2: #3987e5;
+  --color-chart-stage-3: #6da7ec;
+  --color-chart-stage-4: #9ec5f4;
+  --color-chart-stage-5: #cde2fb;
+  --color-chart-risk-1: #256abf;
+  --color-chart-risk-2: #6da7ec;
+  --color-chart-risk-3: #9ec5f4;
+  --color-chart-risk-4: #cde2fb;
+  --color-chart-risk-none: #898781; /* gray, no chroma: apart from the blue steps by hue, whatever its lightness */
+  --color-chart-line: #9ec5f4; /* 11.75:1 vs #000 */
+  --color-chart-grid: #4d4d4d;
 }
 
 /* Spacing scale (added 2026-09-06, usability pass): an 8px-based rem scale

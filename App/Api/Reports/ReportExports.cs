@@ -26,6 +26,7 @@ public static class ReportExports
     public static readonly ReportExportInfo DecomSafes = new("decom-safes", "SafesFlaggedForDeletion", "Safes Flagged for Deletion");
     public static readonly ReportExportInfo DecomAccounts = new("decom-accounts", "AccountsFlaggedForDeletion", "Accounts Flagged for Deletion");
     public static readonly ReportExportInfo KpiSummary = new("kpi-summary", "KpiSummary", "KPI Summary");
+    public static readonly ReportExportInfo Trends = new("trends", "Trends", "Trends");
 
     // The pages show every date as yyyy-MM-dd (formatDate), so the exports do too.
     private static DateOnly? Day(DateTime? value) => value is { } v ? DateOnly.FromDateTime(v) : null;
@@ -171,5 +172,29 @@ public static class ReportExports
             $"{k.Numerator} / {k.Denominator}",
             k.Denominator == 0 ? "N/A" : Math.Round((double)k.Numerator / k.Denominator * 100, 1, MidpointRounding.AwayFromZero)
         }).ToList());
+    }
+
+    /// <summary>
+    /// D-221: one row per period, all three charts' series side by side: Period and
+    /// Snapshot Date, the accounts at each stage, Total / In Scope / Compliant /
+    /// % Complete (blank with nothing in scope), then the accounts at each risk level
+    /// and "Not set". The same table as the page's "Show data tables", in one sheet.
+    /// </summary>
+    public static ReportTable TrendsTable(TrendsReport report)
+    {
+        var headers = new List<string> { "Period", "Snapshot Date" };
+        headers.AddRange(report.Stages.Select(s => $"Stage: {s.Name}"));
+        headers.AddRange(["Total Accounts", "In Scope", "Compliant", "% Complete"]);
+        headers.AddRange(report.RiskLevels.Select(r => $"Risk: {r.Name}"));
+
+        var rows = report.Periods.Select(p =>
+        {
+            var cells = new List<object?> { p.PeriodStart, p.SnapshotDate };
+            cells.AddRange(p.StageCounts.Select(c => (object?)c));
+            cells.AddRange([p.TotalAccounts, p.InScopeAccounts, p.CompliantAccounts, p.PercentComplete]);
+            cells.AddRange(p.RiskCounts.Select(c => (object?)c));
+            return cells.ToArray();
+        }).ToList();
+        return new ReportTable(headers, rows);
     }
 }
