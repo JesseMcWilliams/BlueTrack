@@ -11,7 +11,8 @@ import { reactive } from 'vue'
 const state = reactive({
   visible: false,
   message: '',
-  confirmLabel: 'Delete'
+  // null = common.delete ("Delete") in the current language (D-227).
+  confirmLabel: null
 })
 
 let pendingResolve = null
@@ -26,7 +27,7 @@ let pendingResolve = null
  * array of lines) renders visually indented, set off from `title` and
  * `warning`, which don't.
  */
-export function confirmDelete(message, confirmLabel = 'Delete') {
+export function confirmDelete(message, confirmLabel = null) {
   state.message = message
   state.confirmLabel = confirmLabel
   state.visible = true

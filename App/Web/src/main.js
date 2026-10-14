@@ -4,6 +4,8 @@ import './assets/themes.css'
 import App from './App.vue'
 import router from './router'
 import { useThemeStore } from './stores/theme'
+import { useLocaleStore } from './stores/locale'
+import { i18n } from './i18n'
 import { installApiFetch } from './utils/apiBase'
 
 // D-196: in production every fetch('/api/...') goes to /BlueTrack/api/...
@@ -15,8 +17,12 @@ const pinia = createPinia()
 // correct theme paints immediately -- rights.js's load() (App.vue's
 // onMounted) overrides this with the server value once /api/me resolves.
 useThemeStore(pinia).initBeforeServerLoad()
+// D-227: the UI language (and <html lang>) the same way -- the cached choice
+// or the browser's language now; the server value once /api/me resolves.
+useLocaleStore(pinia).initBeforeServerLoad()
 
 createApp(App)
   .use(pinia)
+  .use(i18n)
   .use(router)
   .mount('#app')

@@ -7,6 +7,9 @@
 // Escape and the backdrop both cancel, matching common dialog conventions.
 import { ref, computed, watch, nextTick } from 'vue'
 import { useConfirmDialogState, respondToConfirmDialog } from '../composables/useConfirmDialog'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const state = useConfirmDialogState()
 const cancelButton = ref(null)
@@ -60,8 +63,8 @@ function onKeydown(event) {
       </div>
       <p v-else id="confirm-dialog-message" class="confirm-dialog-message">{{ state.message }}</p>
       <p class="confirm-dialog-actions">
-        <button type="button" ref="cancelButton" @click="respondToConfirmDialog(false)">Cancel</button>
-        <button type="button" ref="confirmButton" class="btn-primary" @click="respondToConfirmDialog(true)">{{ state.confirmLabel }}</button>
+        <button type="button" ref="cancelButton" @click="respondToConfirmDialog(false)">{{ t('common.cancel') }}</button>
+        <button type="button" ref="confirmButton" class="btn-primary" @click="respondToConfirmDialog(true)">{{ state.confirmLabel ?? t('common.delete') }}</button>
       </p>
     </div>
   </div>

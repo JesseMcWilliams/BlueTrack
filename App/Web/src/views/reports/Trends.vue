@@ -19,6 +19,7 @@ import {
   Chart as ChartJS, BarElement, LineElement, PointElement, CategoryScale, LinearScale, Legend, Tooltip
 } from 'chart.js'
 import { formatCount } from '../../utils/formatCount'
+import { formatShortDate, formatPercent as formatFraction } from '../../utils/formatLocale'
 import { useChartTheme } from '../../utils/chartTheme'
 import ReportExportButtons from '../../components/ReportExportButtons.vue'
 
@@ -108,17 +109,16 @@ onMounted(async () => {
 
 watch(queryParams, load, { immediate: true, deep: true })
 
-// Dates and percentages in the browser's own language, as counts are (D-218).
-const dateFormat = new Intl.DateTimeFormat(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
-const percentFormat = new Intl.NumberFormat(undefined, { style: 'percent', minimumFractionDigits: 0, maximumFractionDigits: 1 })
-
+// Dates and percentages in the active format locale, as counts are (D-218,
+// D-227: utils/formatLocale.js -- the browser's language unless the user
+// picked another).
 function formatDay(value) {
   const [y, m, d] = String(value).slice(0, 10).split('-').map(Number)
-  return dateFormat.format(new Date(y, m - 1, d))
+  return formatShortDate(new Date(y, m - 1, d))
 }
 
 function formatPercent(value) {
-  return value === null || value === undefined ? 'N/A' : percentFormat.format(value / 100)
+  return value === null || value === undefined ? 'N/A' : formatFraction(value / 100)
 }
 
 const isWeek = computed(() => report.value?.granularity === 'week')

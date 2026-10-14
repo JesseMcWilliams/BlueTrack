@@ -1,4 +1,5 @@
 // D-181: shared by DataSources.vue and DataFeedEdit.vue.
+import { formatDateTime } from '../../utils/formatLocale'
 
 const feedTypeLabels = {
   TargetInventory: 'Target inventory',
@@ -23,5 +24,5 @@ export function formatRunTime(value, isLocal = false) {
   if (!value) return ''
   const text = isLocal || /[zZ]|[+-]\d\d:\d\d$/.test(value) ? value : `${value}Z`
   const date = new Date(text)
-  return Number.isNaN(date.getTime()) ? value : date.toLocaleString()
+  return Number.isNaN(date.getTime()) ? value : formatDateTime(date)
 }

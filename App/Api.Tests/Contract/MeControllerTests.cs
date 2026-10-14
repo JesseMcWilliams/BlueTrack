@@ -95,6 +95,20 @@ public class MeControllerTests : IClassFixture<BlueTrackWebApplicationFactory>
     }
 
     [Fact]
+    public async Task SetPreference_Language_RoundTrips()
+    {
+        // D-227: the UI language reuses the generalized preference store (no new table).
+        var client = CreateClientAs("TestUser.Approver");
+
+        var setResponse = await client.PutAsJsonAsync("/api/me/preferences/Language", new { value = "en" });
+        Assert.Equal(HttpStatusCode.NoContent, setResponse.StatusCode);
+
+        var me = await client.GetFromJsonAsync<MeResponse>("/api/me");
+        Assert.NotNull(me);
+        Assert.Equal("en", me!.Preferences["Language"]);
+    }
+
+    [Fact]
     public async Task SetPreference_Overwrite_UpdatesTheExistingValue()
     {
         var client = CreateClientAs("TestUser.Approver");

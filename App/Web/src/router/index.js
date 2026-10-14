@@ -7,7 +7,8 @@ import { useRightsStore } from '../stores/rights'
 // rather than flat top-level entries.
 //
 // Every route (except 'dashboard', the implicit root) carries meta.breadcrumb
-// (its human-readable crumb label) and, where its logical parent isn't
+// (the i18n key of its crumb label, D-227: 'shell.routes.<routeName>' in
+// src/locales/en/shell.json) and, where its logical parent isn't
 // 'dashboard', meta.breadcrumbParent (the parent route's name). Breadcrumbs.vue
 // walks this meta chain to build the trail -- deliberately NOT Vue Router's
 // own route.matched, which only reflects actual nested-route parentage.
@@ -24,7 +25,7 @@ const routes = [
   {
     path: '/login',
     name: 'login',
-    meta: { breadcrumb: 'Login' },
+    meta: { breadcrumb: 'shell.routes.login' },
     component: () => import('../views/Login.vue')
   },
   // D-205: a direct sign-in address per method (an IdP's launch URL, or a
@@ -32,7 +33,7 @@ const routes = [
   {
     path: '/login/:provider(windows|oidc|saml)',
     name: 'login-provider',
-    meta: { breadcrumb: 'Login' },
+    meta: { breadcrumb: 'shell.routes.loginProvider' },
     component: () => import('../views/Login.vue')
   },
   {
@@ -43,66 +44,66 @@ const routes = [
   {
     path: '/accounts',
     name: 'account-progress-list',
-    meta: { breadcrumb: 'Accounts' },
+    meta: { breadcrumb: 'shell.routes.accountProgressList' },
     component: () => import('../views/AccountProgressList.vue')
   },
   // D-182: bulk edit of the accounts selected on the list.
   {
     path: '/accounts/bulk-edit',
     name: 'account-progress-bulk-edit',
-    meta: { breadcrumb: 'Bulk Edit', breadcrumbParent: 'account-progress-list' },
+    meta: { breadcrumb: 'shell.routes.accountProgressBulkEdit', breadcrumbParent: 'account-progress-list' },
     component: () => import('../views/AccountProgressBulkEdit.vue')
   },
   {
     path: '/accounts/:accountKey',
     name: 'account-progress-detail',
-    meta: { breadcrumb: 'Account Detail', breadcrumbParent: 'account-progress-list' },
+    meta: { breadcrumb: 'shell.routes.accountProgressDetail', breadcrumbParent: 'account-progress-list' },
     component: () => import('../views/AccountProgressDetail.vue'),
     props: true
   },
   {
     path: '/exceptions',
     name: 'risk-exceptions-list',
-    meta: { breadcrumb: 'Exceptions' },
+    meta: { breadcrumb: 'shell.routes.riskExceptionsList' },
     component: () => import('../views/RiskExceptionsList.vue')
   },
   // D-183: import exceptions approved in another tool.
   {
     path: '/exceptions/bulk-import',
     name: 'risk-exceptions-bulk-import',
-    meta: { breadcrumb: 'Bulk Actions', breadcrumbParent: 'risk-exceptions-list' },
+    meta: { breadcrumb: 'shell.routes.riskExceptionsBulkImport', breadcrumbParent: 'risk-exceptions-list' },
     component: () => import('../views/RiskExceptionsBulkImport.vue')
   },
   {
     path: '/exceptions/new',
     name: 'risk-exception-create',
-    meta: { breadcrumb: 'New Exception', breadcrumbParent: 'risk-exceptions-list' },
+    meta: { breadcrumb: 'shell.routes.riskExceptionCreate', breadcrumbParent: 'risk-exceptions-list' },
     component: () => import('../views/RiskExceptionEdit.vue')
   },
   {
     path: '/exceptions/:exceptionKey',
     name: 'risk-exception-edit',
-    meta: { breadcrumb: 'Edit Exception', breadcrumbParent: 'risk-exceptions-list' },
+    meta: { breadcrumb: 'shell.routes.riskExceptionEdit', breadcrumbParent: 'risk-exceptions-list' },
     component: () => import('../views/RiskExceptionEdit.vue'),
     props: true
   },
   {
     path: '/exceptions/approvals',
     name: 'risk-exceptions-approval-worklist',
-    meta: { breadcrumb: 'Approval Worklist', breadcrumbParent: 'risk-exceptions-list' },
+    meta: { breadcrumb: 'shell.routes.riskExceptionsApprovalWorklist', breadcrumbParent: 'risk-exceptions-list' },
     component: () => import('../views/RiskExceptionsApprovalWorklist.vue')
   },
   {
     path: '/exceptions/overdue',
     name: 'risk-exceptions-overdue-worklist',
-    meta: { breadcrumb: 'Overdue Reviews', breadcrumbParent: 'risk-exceptions-list' },
+    meta: { breadcrumb: 'shell.routes.riskExceptionsOverdueWorklist', breadcrumbParent: 'risk-exceptions-list' },
     component: () => import('../views/RiskExceptionsOverdueWorklist.vue')
   },
   // Reports hub with sub-navigation (D-56) -- three confirmed report types.
   {
     path: '/reports',
     name: 'reports',
-    meta: { breadcrumb: 'Reports' },
+    meta: { breadcrumb: 'shell.routes.reports' },
     component: () => import('../views/reports/ReportsHub.vue'),
     children: [
       {
@@ -112,76 +113,76 @@ const routes = [
       {
         path: 'overdue',
         name: 'reports-overdue-worklist',
-        meta: { breadcrumb: 'Overdue / At-Risk', breadcrumbParent: 'reports' },
+        meta: { breadcrumb: 'shell.routes.reportsOverdueWorklist', breadcrumbParent: 'reports' },
         component: () => import('../views/reports/OverdueAtRiskWorklist.vue')
       },
       {
         path: 'stage-status-summary',
         name: 'reports-stage-status-summary',
-        meta: { breadcrumb: 'Stage/Status Summary', breadcrumbParent: 'reports' },
+        meta: { breadcrumb: 'shell.routes.reportsStageStatusSummary', breadcrumbParent: 'reports' },
         component: () => import('../views/reports/StageStatusFunnelSummary.vue')
       },
       {
         path: 'reconciliation-review',
         name: 'reports-reconciliation-review',
-        meta: { breadcrumb: 'Reconciliation Review', breadcrumbParent: 'reports' },
+        meta: { breadcrumb: 'shell.routes.reportsReconciliationReview', breadcrumbParent: 'reports' },
         component: () => import('../views/reports/ReconciliationReviewQueue.vue')
       },
       // D-212 (Data Sources phase 4c): feed accounts that may be CyberArk accounts.
       {
         path: 'possible-matches',
         name: 'reports-possible-matches',
-        meta: { breadcrumb: 'Possible Account Matches', breadcrumbParent: 'reports' },
+        meta: { breadcrumb: 'shell.routes.reportsPossibleMatches', breadcrumbParent: 'reports' },
         component: () => import('../views/reports/PossibleAccountMatches.vue')
       },
       // D-186: safes and accounts flagged for deletion by the name patterns.
       {
         path: 'decom-safes',
         name: 'reports-decom-safes',
-        meta: { breadcrumb: 'Safes Flagged for Deletion', breadcrumbParent: 'reports' },
+        meta: { breadcrumb: 'shell.routes.reportsDecomSafes', breadcrumbParent: 'reports' },
         component: () => import('../views/reports/DecomSafes.vue')
       },
       {
         path: 'decom-accounts',
         name: 'reports-decom-accounts',
-        meta: { breadcrumb: 'Accounts Flagged for Deletion', breadcrumbParent: 'reports' },
+        meta: { breadcrumb: 'shell.routes.reportsDecomAccounts', breadcrumbParent: 'reports' },
         component: () => import('../views/reports/DecomAccounts.vue')
       },
       {
         path: 'unresolved-entitlement-members',
         name: 'reports-unresolved-entitlement-members',
-        meta: { breadcrumb: 'Unresolved Entitlement Members', breadcrumbParent: 'reports' },
+        meta: { breadcrumb: 'shell.routes.reportsUnresolvedEntitlementMembers', breadcrumbParent: 'reports' },
         component: () => import('../views/reports/UnresolvedEntitlementMembers.vue')
       },
       {
         path: 'risk-score',
         name: 'reports-risk-score',
-        meta: { breadcrumb: 'Risk Score', breadcrumbParent: 'reports' },
+        meta: { breadcrumb: 'shell.routes.reportsRiskScore', breadcrumbParent: 'reports' },
         component: () => import('../views/reports/RiskScoreReport.vue')
       },
       {
         path: 'risk-exception-sod',
         name: 'reports-risk-exception-sod',
-        meta: { breadcrumb: 'Risk Exception Segregation of Duties', breadcrumbParent: 'reports' },
+        meta: { breadcrumb: 'shell.routes.reportsRiskExceptionSod', breadcrumbParent: 'reports' },
         component: () => import('../views/reports/RiskExceptionSodReport.vue')
       },
       {
         path: 'discovered-accounts',
         name: 'reports-discovered-accounts',
-        meta: { breadcrumb: 'Discovered Accounts', breadcrumbParent: 'reports' },
+        meta: { breadcrumb: 'shell.routes.reportsDiscoveredAccounts', breadcrumbParent: 'reports' },
         component: () => import('../views/reports/DiscoveredAccounts.vue')
       },
       {
         path: 'kpi-summary',
         name: 'reports-kpi-summary',
-        meta: { breadcrumb: 'KPI Summary', breadcrumbParent: 'reports' },
+        meta: { breadcrumb: 'shell.routes.reportsKpiSummary', breadcrumbParent: 'reports' },
         component: () => import('../views/reports/KpiSummary.vue')
       },
       // D-221: stage, % complete and risk level over time, from the daily snapshot.
       {
         path: 'trends',
         name: 'reports-trends',
-        meta: { breadcrumb: 'Trends', breadcrumbParent: 'reports' },
+        meta: { breadcrumb: 'shell.routes.reportsTrends', breadcrumbParent: 'reports' },
         component: () => import('../views/reports/Trends.vue')
       }
     ]
@@ -189,7 +190,7 @@ const routes = [
   {
     path: '/profile',
     name: 'my-profile',
-    meta: { breadcrumb: 'Profile & Preferences' },
+    meta: { breadcrumb: 'shell.routes.myProfile' },
     component: () => import('../views/MyProfile.vue')
   },
   // D-121: promoted out of the Admin hub to their own top-level nav entries
@@ -199,7 +200,7 @@ const routes = [
   {
     path: '/targets',
     name: 'targets',
-    meta: { breadcrumb: 'Targets' },
+    meta: { breadcrumb: 'shell.routes.targets' },
     component: () => import('../views/Targets.vue')
   },
   // D-124 Phase 4: Add/Edit moved off Targets.vue's own inline form onto
@@ -207,13 +208,13 @@ const routes = [
   {
     path: '/targets/new',
     name: 'target-create',
-    meta: { breadcrumb: 'New Target', breadcrumbParent: 'targets' },
+    meta: { breadcrumb: 'shell.routes.targetCreate', breadcrumbParent: 'targets' },
     component: () => import('../views/TargetEdit.vue')
   },
   {
     path: '/targets/:targetKey',
     name: 'target-edit',
-    meta: { breadcrumb: 'Edit Target', breadcrumbParent: 'targets' },
+    meta: { breadcrumb: 'shell.routes.targetEdit', breadcrumbParent: 'targets' },
     component: () => import('../views/TargetEdit.vue'),
     props: true
   },
@@ -223,13 +224,13 @@ const routes = [
   {
     path: '/targets/bulk-import',
     name: 'targets-bulk-import',
-    meta: { breadcrumb: 'Bulk Actions', breadcrumbParent: 'targets' },
+    meta: { breadcrumb: 'shell.routes.targetsBulkImport', breadcrumbParent: 'targets' },
     component: () => import('../views/TargetsBulkImport.vue')
   },
   {
     path: '/access-groups',
     name: 'access-groups',
-    meta: { breadcrumb: 'Access Groups' },
+    meta: { breadcrumb: 'shell.routes.accessGroups' },
     component: () => import('../views/AccessGroups.vue')
   },
   // D-124 Phase 4: Add/Edit moved off AccessGroups.vue's own inline form
@@ -237,13 +238,13 @@ const routes = [
   {
     path: '/access-groups/new',
     name: 'access-group-create',
-    meta: { breadcrumb: 'New Access Group', breadcrumbParent: 'access-groups' },
+    meta: { breadcrumb: 'shell.routes.accessGroupCreate', breadcrumbParent: 'access-groups' },
     component: () => import('../views/AccessGroupEdit.vue')
   },
   {
     path: '/access-groups/:accessGroupKey',
     name: 'access-group-edit',
-    meta: { breadcrumb: 'Edit Access Group', breadcrumbParent: 'access-groups' },
+    meta: { breadcrumb: 'shell.routes.accessGroupEdit', breadcrumbParent: 'access-groups' },
     component: () => import('../views/AccessGroupEdit.vue'),
     props: true
   },
@@ -254,7 +255,7 @@ const routes = [
   {
     path: '/access-groups/bulk-import',
     name: 'access-groups-bulk-import',
-    meta: { breadcrumb: 'Bulk Actions', breadcrumbParent: 'access-groups' },
+    meta: { breadcrumb: 'shell.routes.accessGroupsBulkImport', breadcrumbParent: 'access-groups' },
     component: () => import('../views/AccessGroupsBulkImport.vue')
   },
   // Admin hub with sub-navigation (D-47) -- one top-nav entry, sections
@@ -262,7 +263,7 @@ const routes = [
   {
     path: '/admin',
     name: 'admin',
-    meta: { breadcrumb: 'Admin' },
+    meta: { breadcrumb: 'shell.routes.admin' },
     component: () => import('../views/admin/AdminHub.vue'),
     children: [
       {
@@ -272,7 +273,7 @@ const routes = [
       {
         path: 'identity-providers',
         name: 'admin-identity-providers',
-        meta: { breadcrumb: 'Identity Providers', breadcrumbParent: 'admin' },
+        meta: { breadcrumb: 'shell.routes.adminIdentityProviders', breadcrumbParent: 'admin' },
         component: () => import('../views/admin/IdentityProviders.vue')
       },
       // D-124 Phase 4: Add/Edit moved off IdentityProviders.vue's own
@@ -282,20 +283,20 @@ const routes = [
       {
         path: 'identity-providers/new',
         name: 'admin-identity-provider-create',
-        meta: { breadcrumb: 'New Provider', breadcrumbParent: 'admin' },
+        meta: { breadcrumb: 'shell.routes.adminIdentityProviderCreate', breadcrumbParent: 'admin' },
         component: () => import('../views/admin/IdentityProviderEdit.vue')
       },
       {
         path: 'identity-providers/:providerKey',
         name: 'admin-identity-provider-edit',
-        meta: { breadcrumb: 'Edit Provider', breadcrumbParent: 'admin' },
+        meta: { breadcrumb: 'shell.routes.adminIdentityProviderEdit', breadcrumbParent: 'admin' },
         component: () => import('../views/admin/IdentityProviderEdit.vue'),
         props: true
       },
       {
         path: 'group-role-mapping',
         name: 'admin-group-role-mapping',
-        meta: { breadcrumb: 'Group / Role Mapping', breadcrumbParent: 'admin' },
+        meta: { breadcrumb: 'shell.routes.adminGroupRoleMapping', breadcrumbParent: 'admin' },
         component: () => import('../views/admin/GroupRoleMapping.vue')
       },
       // D-124 Phase 4 (partial conversion): only "Add Mapping" moves -- no
@@ -303,13 +304,13 @@ const routes = [
       {
         path: 'group-role-mapping/new',
         name: 'admin-group-role-mapping-create',
-        meta: { breadcrumb: 'Add Mapping', breadcrumbParent: 'admin' },
+        meta: { breadcrumb: 'shell.routes.adminGroupRoleMappingCreate', breadcrumbParent: 'admin' },
         component: () => import('../views/admin/GroupRoleMappingCreate.vue')
       },
       {
         path: 'roles-permissions',
         name: 'admin-roles-permissions',
-        meta: { breadcrumb: 'Roles & Permissions', breadcrumbParent: 'admin' },
+        meta: { breadcrumb: 'shell.routes.adminRolesPermissions', breadcrumbParent: 'admin' },
         component: () => import('../views/admin/RolesAndPermissions.vue')
       },
       // D-124 Phase 4: Add/Edit moved off RolesAndPermissions.vue's own
@@ -317,20 +318,20 @@ const routes = [
       {
         path: 'roles-permissions/new',
         name: 'admin-role-create',
-        meta: { breadcrumb: 'New Role', breadcrumbParent: 'admin' },
+        meta: { breadcrumb: 'shell.routes.adminRoleCreate', breadcrumbParent: 'admin' },
         component: () => import('../views/admin/RoleEdit.vue')
       },
       {
         path: 'roles-permissions/:appRoleKey',
         name: 'admin-role-edit',
-        meta: { breadcrumb: 'Edit Role', breadcrumbParent: 'admin' },
+        meta: { breadcrumb: 'shell.routes.adminRoleEdit', breadcrumbParent: 'admin' },
         component: () => import('../views/admin/RoleEdit.vue'),
         props: true
       },
       {
         path: 'application-mapping',
         name: 'admin-application-mapping',
-        meta: { breadcrumb: 'Application Mapping', breadcrumbParent: 'admin' },
+        meta: { breadcrumb: 'shell.routes.adminApplicationMapping', breadcrumbParent: 'admin' },
         component: () => import('../views/admin/ApplicationSafeMapping.vue')
       },
       // D-124 Phase 4: Add/Edit moved off ApplicationSafeMapping.vue's
@@ -339,7 +340,7 @@ const routes = [
       {
         path: 'application-mapping/new',
         name: 'admin-application-create',
-        meta: { breadcrumb: 'New Application', breadcrumbParent: 'admin' },
+        meta: { breadcrumb: 'shell.routes.adminApplicationCreate', breadcrumbParent: 'admin' },
         component: () => import('../views/admin/ApplicationEdit.vue')
       },
       // D-180: the two CSV imports (Applications; Safe -> Application
@@ -349,26 +350,26 @@ const routes = [
       {
         path: 'application-mapping/bulk-import',
         name: 'admin-application-mapping-bulk-import',
-        meta: { breadcrumb: 'Bulk Actions', breadcrumbParent: 'admin-application-mapping' },
+        meta: { breadcrumb: 'shell.routes.adminApplicationMappingBulkImport', breadcrumbParent: 'admin-application-mapping' },
         component: () => import('../views/admin/ApplicationSafeMappingBulkImport.vue')
       },
       {
         path: 'application-mapping/:applicationKey',
         name: 'admin-application-edit',
-        meta: { breadcrumb: 'Edit Application', breadcrumbParent: 'admin' },
+        meta: { breadcrumb: 'shell.routes.adminApplicationEdit', breadcrumbParent: 'admin' },
         component: () => import('../views/admin/ApplicationEdit.vue'),
         props: true
       },
       {
         path: 'secrets-store',
         name: 'admin-secrets-store',
-        meta: { breadcrumb: 'Secrets Store', breadcrumbParent: 'admin' },
+        meta: { breadcrumb: 'shell.routes.adminSecretsStore', breadcrumbParent: 'admin' },
         component: () => import('../views/admin/SecretsStoreConfiguration.vue')
       },
       {
         path: 'field-metadata',
         name: 'admin-field-metadata',
-        meta: { breadcrumb: 'Field Metadata', breadcrumbParent: 'admin' },
+        meta: { breadcrumb: 'shell.routes.adminFieldMetadata', breadcrumbParent: 'admin' },
         component: () => import('../views/admin/FieldMetadataManagement.vue')
       },
       // D-124 Phase 4: Add/Edit moved off FieldMetadataManagement.vue's own
@@ -376,38 +377,38 @@ const routes = [
       {
         path: 'field-metadata/new',
         name: 'admin-field-metadata-create',
-        meta: { breadcrumb: 'New Field', breadcrumbParent: 'admin' },
+        meta: { breadcrumb: 'shell.routes.adminFieldMetadataCreate', breadcrumbParent: 'admin' },
         component: () => import('../views/admin/FieldMetadataEdit.vue')
       },
       {
         path: 'field-metadata/:fieldMetadataKey',
         name: 'admin-field-metadata-edit',
-        meta: { breadcrumb: 'Edit Field', breadcrumbParent: 'admin' },
+        meta: { breadcrumb: 'shell.routes.adminFieldMetadataEdit', breadcrumbParent: 'admin' },
         component: () => import('../views/admin/FieldMetadataEdit.vue'),
         props: true
       },
       {
         path: 'audit-log',
         name: 'admin-audit-log',
-        meta: { breadcrumb: 'Audit Log', breadcrumbParent: 'admin' },
+        meta: { breadcrumb: 'shell.routes.adminAuditLog', breadcrumbParent: 'admin' },
         component: () => import('../views/admin/AuditLogViewer.vue')
       },
       {
         path: 'configuration',
         name: 'admin-configuration',
-        meta: { breadcrumb: 'Configuration', breadcrumbParent: 'admin' },
+        meta: { breadcrumb: 'shell.routes.adminConfiguration', breadcrumbParent: 'admin' },
         component: () => import('../views/admin/GlobalApplicationConfiguration.vue')
       },
       {
         path: 'deployment',
         name: 'admin-deployment',
-        meta: { breadcrumb: 'Deployment Info', breadcrumbParent: 'admin' },
+        meta: { breadcrumb: 'shell.routes.adminDeployment', breadcrumbParent: 'admin' },
         component: () => import('../views/admin/DeploymentInfo.vue')
       },
       {
         path: 'notifications',
         name: 'admin-notifications',
-        meta: { breadcrumb: 'Notifications', breadcrumbParent: 'admin' },
+        meta: { breadcrumb: 'shell.routes.adminNotifications', breadcrumbParent: 'admin' },
         component: () => import('../views/admin/Notifications.vue')
       },
       // D-124 Phase 4 (partial conversion): only "Add Recipient" moves --
@@ -415,25 +416,25 @@ const routes = [
       {
         path: 'notifications/recipients/new',
         name: 'admin-notification-recipient-create',
-        meta: { breadcrumb: 'Add Recipient', breadcrumbParent: 'admin' },
+        meta: { breadcrumb: 'shell.routes.adminNotificationRecipientCreate', breadcrumbParent: 'admin' },
         component: () => import('../views/admin/NotificationRecipientCreate.vue')
       },
       {
         path: 'credentials',
         name: 'admin-credentials',
-        meta: { breadcrumb: 'Credentials & LDAP', breadcrumbParent: 'admin' },
+        meta: { breadcrumb: 'shell.routes.adminCredentials', breadcrumbParent: 'admin' },
         component: () => import('../views/admin/Credentials.vue')
       },
       {
         path: 'target-match-review',
         name: 'admin-target-match-review',
-        meta: { breadcrumb: 'Target Match Review', breadcrumbParent: 'admin' },
+        meta: { breadcrumb: 'shell.routes.adminTargetMatchReview', breadcrumbParent: 'admin' },
         component: () => import('../views/admin/TargetMatchReview.vue')
       },
       {
         path: 'import-mapping-profiles',
         name: 'admin-import-mapping-profiles',
-        meta: { breadcrumb: 'Import Mapping Profiles', breadcrumbParent: 'admin' },
+        meta: { breadcrumb: 'shell.routes.adminImportMappingProfiles', breadcrumbParent: 'admin' },
         component: () => import('../views/admin/ImportMappingProfiles.vue')
       },
       // D-124 Phase 4: Add/Edit moved off ImportMappingProfiles.vue's own
@@ -441,13 +442,13 @@ const routes = [
       {
         path: 'import-mapping-profiles/new',
         name: 'admin-import-mapping-profile-create',
-        meta: { breadcrumb: 'New Profile', breadcrumbParent: 'admin' },
+        meta: { breadcrumb: 'shell.routes.adminImportMappingProfileCreate', breadcrumbParent: 'admin' },
         component: () => import('../views/admin/ImportMappingProfileEdit.vue')
       },
       {
         path: 'import-mapping-profiles/:importMappingProfileKey',
         name: 'admin-import-mapping-profile-edit',
-        meta: { breadcrumb: 'Edit Profile', breadcrumbParent: 'admin' },
+        meta: { breadcrumb: 'shell.routes.adminImportMappingProfileEdit', breadcrumbParent: 'admin' },
         component: () => import('../views/admin/ImportMappingProfileEdit.vue'),
         props: true
       },
@@ -455,33 +456,33 @@ const routes = [
       {
         path: 'data-sources',
         name: 'admin-data-sources',
-        meta: { breadcrumb: 'Data Sources', breadcrumbParent: 'admin' },
+        meta: { breadcrumb: 'shell.routes.adminDataSources', breadcrumbParent: 'admin' },
         component: () => import('../views/admin/DataSources.vue')
       },
       // D-211 (Data Sources phase 3): the CyberArk sources' nightly import settings.
       {
         path: 'data-sources/cyberark',
         name: 'admin-cyberark-sources-edit',
-        meta: { breadcrumb: 'CyberArk Sources', breadcrumbParent: 'admin-data-sources' },
+        meta: { breadcrumb: 'shell.routes.adminCyberarkSourcesEdit', breadcrumbParent: 'admin-data-sources' },
         component: () => import('../views/admin/CyberArkSourcesEdit.vue')
       },
       {
         path: 'data-sources/new',
         name: 'admin-data-feed-create',
-        meta: { breadcrumb: 'New Feed', breadcrumbParent: 'admin-data-sources' },
+        meta: { breadcrumb: 'shell.routes.adminDataFeedCreate', breadcrumbParent: 'admin-data-sources' },
         component: () => import('../views/admin/DataFeedEdit.vue')
       },
       {
         path: 'data-sources/:dataFeedKey',
         name: 'admin-data-feed-edit',
-        meta: { breadcrumb: 'Edit Feed', breadcrumbParent: 'admin-data-sources' },
+        meta: { breadcrumb: 'shell.routes.adminDataFeedEdit', breadcrumbParent: 'admin-data-sources' },
         component: () => import('../views/admin/DataFeedEdit.vue'),
         props: true
       },
       {
         path: 'risk-score-bands',
         name: 'admin-risk-score-bands',
-        meta: { breadcrumb: 'Risk Score Bands', breadcrumbParent: 'admin' },
+        meta: { breadcrumb: 'shell.routes.adminRiskScoreBands', breadcrumbParent: 'admin' },
         component: () => import('../views/admin/RiskScoreBands.vue')
       },
       // D-124 Phase 4: Add/Edit moved off RiskScoreBands.vue's own inline
@@ -489,13 +490,13 @@ const routes = [
       {
         path: 'risk-score-bands/new',
         name: 'admin-risk-score-band-create',
-        meta: { breadcrumb: 'New Band', breadcrumbParent: 'admin' },
+        meta: { breadcrumb: 'shell.routes.adminRiskScoreBandCreate', breadcrumbParent: 'admin' },
         component: () => import('../views/admin/RiskScoreBandEdit.vue')
       },
       {
         path: 'risk-score-bands/:riskScoreBandKey',
         name: 'admin-risk-score-band-edit',
-        meta: { breadcrumb: 'Edit Band', breadcrumbParent: 'admin' },
+        meta: { breadcrumb: 'shell.routes.adminRiskScoreBandEdit', breadcrumbParent: 'admin' },
         component: () => import('../views/admin/RiskScoreBandEdit.vue'),
         props: true
       }
@@ -504,13 +505,13 @@ const routes = [
   {
     path: '/access-denied',
     name: 'access-denied',
-    meta: { breadcrumb: 'Access Denied' },
+    meta: { breadcrumb: 'shell.routes.accessDenied' },
     component: () => import('../views/AccessDenied.vue')
   },
   {
     path: '/:pathMatch(.*)*',
     name: 'not-found',
-    meta: { breadcrumb: 'Not Found' },
+    meta: { breadcrumb: 'shell.routes.notFound' },
     component: () => import('../views/AccessDenied.vue')
   }
 ]

@@ -14,6 +14,9 @@
 // grand total, unchanged in meaning). `page`/`pageSize` compute the
 // current page's own 1-based row range.
 import { formatCount } from '../utils/formatCount'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 defineProps({
   // Rows actually returned on the current page (typically the loaded
@@ -41,8 +44,12 @@ function rowRange(page, pageSize, shown, filteredCount) {
 
 <template>
   <p v-if="filteredCount !== null && total !== null" class="filter-count-summary" role="status">
-    Showing {{ formatCount(rowRange(page, pageSize, shown, filteredCount).start) }}&ndash;{{ formatCount(rowRange(page, pageSize, shown, filteredCount).end) }}
-    of {{ formatCount(filteredCount) }} matching ({{ formatCount(total) }} total)
+    {{ t('shell.filterCountSummary.showing', {
+      start: formatCount(rowRange(page, pageSize, shown, filteredCount).start),
+      end: formatCount(rowRange(page, pageSize, shown, filteredCount).end),
+      filtered: formatCount(filteredCount),
+      total: formatCount(total)
+    }) }}
   </p>
 </template>
 

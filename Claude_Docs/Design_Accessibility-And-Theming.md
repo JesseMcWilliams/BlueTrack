@@ -105,7 +105,7 @@ The explicit choice is stored **server-side, per user**, in a **generalized pref
 | Field | Type | Purpose |
 |---|---|---|
 | UserKey | int, FK to `app_user` | Composite PK part 1 |
-| PreferenceKey | nvarchar(50) | Composite PK part 2 — e.g. `'Theme'` |
+| PreferenceKey | nvarchar(50) | Composite PK part 2 — `'Theme'`, `'PageSize'`, `'Language'` (D-227) |
 | PreferenceValue | nvarchar(200) | e.g. `'Light'` \| `'Dark'` \| `'HighVisibility'` |
 | ModifiedDate | datetime2 | When this preference was last changed |
 
@@ -114,6 +114,10 @@ A generic self-service endpoint (`PUT /api/me/preferences/{key}`, body `{ value 
 ### 2.5 Theme picker UI
 
 **Confirmed: `MyProfile.vue`** — the user's explicit choice, 2026-09-04. It's already the self-service preferences page (existing "Reload My Rights" action), so the theme selector lives alongside it rather than introducing a second "settings" surface.
+
+### 2.6 Page language (`<html lang>`)
+
+**D-227 (2026-10-13):** `<html lang>` is the active UI language, not a fixed `"en"`: `index.html` still ships `lang="en"`, and the locale store (`App/Web/src/stores/locale.js`) sets it before mount (the cached choice or the browser's language, matched to a registered locale) and again when `/api/me`'s `Language` preference or the Profile & Preferences picker changes it. Screen readers pick their pronunciation from it (WCAG 3.1.1). Each language in the picker is labelled in its own language with a matching `lang` on its label text (WCAG 3.1.2). Details: `Design_Localization.md`.
 
 ## Open Questions
 

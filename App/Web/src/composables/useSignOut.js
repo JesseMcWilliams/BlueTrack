@@ -1,6 +1,7 @@
 import { useRouter } from 'vue-router'
 import { useRightsStore } from '../stores/rights'
 import { navigateAway } from '../utils/navigateAway'
+import { t } from '../i18n'
 
 // D-206/D-209: signing out, shared by the user menu's Sign out and the idle
 // timer. Ends the server sessions, forgets this tab's rights and shows the
@@ -15,7 +16,7 @@ export function useSignOut() {
   return async function signOut(reason) {
     const response = await fetch('/api/auth/logout', { method: 'POST' })
     if (!response.ok && response.status !== 401) {
-      throw new Error(`Sign out failed: ${response.status}`)
+      throw new Error(t('shell.userMenu.signOutFailed', { status: response.status }))
     }
     rights.$reset()
     // D-217: a SAML session signs out at the identity provider too (Single

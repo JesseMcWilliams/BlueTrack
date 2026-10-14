@@ -4,6 +4,9 @@
 // an upload silently used the oldest active profile for its feed type.
 // Shown only when the feed type has an active profile.
 import { ref, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const props = defineProps({
   feedType: { type: String, required: true },
@@ -26,9 +29,9 @@ onMounted(async () => {
 
 <template>
   <label v-if="profiles.length > 0" class="field-label">
-    <span class="field-label-text">Mapping profile:</span>
+    <span class="field-label-text">{{ t('shell.mappingProfileSelect.label') }}</span>
     <select v-model="model">
-      <option :value="null">None (the template's own column names)</option>
+      <option :value="null">{{ t('shell.mappingProfileSelect.none') }}</option>
       <option v-for="p in profiles" :key="p.importMappingProfileKey" :value="p.importMappingProfileKey">{{ p.profileName }}</option>
     </select>
   </label>

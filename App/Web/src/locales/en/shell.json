@@ -1,0 +1,202 @@
+{
+  "app": {
+    "skipToMain": "Skip to main content",
+    "devFakeAuthWarning": "DevFakeAuth has been enabled for over {days} days (since {since}). It bypasses real authentication and should only be left on briefly during local development.",
+    "negotiateDisabledWarning": "Development mode: Windows Integrated Authentication is disabled in this environment. This configuration must never be used outside local development or automated testing."
+  },
+  "nav": {
+    "ariaLabel": "Primary",
+    "dashboard": "Dashboard",
+    "accessGroups": "Access Groups",
+    "accounts": "Accounts",
+    "exceptions": "Exceptions",
+    "targets": "Targets",
+    "reports": "Reports",
+    "admin": "Admin"
+  },
+  "breadcrumbs": {
+    "ariaLabel": "Breadcrumb"
+  },
+  "routes": {
+    "login": "Login",
+    "loginProvider": "Login",
+    "accountProgressList": "Accounts",
+    "accountProgressBulkEdit": "Bulk Edit",
+    "accountProgressDetail": "Account Detail",
+    "riskExceptionsList": "Exceptions",
+    "riskExceptionsBulkImport": "Bulk Actions",
+    "riskExceptionCreate": "New Exception",
+    "riskExceptionEdit": "Edit Exception",
+    "riskExceptionsApprovalWorklist": "Approval Worklist",
+    "riskExceptionsOverdueWorklist": "Overdue Reviews",
+    "reports": "Reports",
+    "reportsOverdueWorklist": "Overdue / At-Risk",
+    "reportsStageStatusSummary": "Stage/Status Summary",
+    "reportsReconciliationReview": "Reconciliation Review",
+    "reportsPossibleMatches": "Possible Account Matches",
+    "reportsDecomSafes": "Safes Flagged for Deletion",
+    "reportsDecomAccounts": "Accounts Flagged for Deletion",
+    "reportsUnresolvedEntitlementMembers": "Unresolved Entitlement Members",
+    "reportsRiskScore": "Risk Score",
+    "reportsRiskExceptionSod": "Risk Exception Segregation of Duties",
+    "reportsDiscoveredAccounts": "Discovered Accounts",
+    "reportsKpiSummary": "KPI Summary",
+    "reportsTrends": "Trends",
+    "myProfile": "Profile & Preferences",
+    "targets": "Targets",
+    "targetCreate": "New Target",
+    "targetEdit": "Edit Target",
+    "targetsBulkImport": "Bulk Actions",
+    "accessGroups": "Access Groups",
+    "accessGroupCreate": "New Access Group",
+    "accessGroupEdit": "Edit Access Group",
+    "accessGroupsBulkImport": "Bulk Actions",
+    "admin": "Admin",
+    "adminIdentityProviders": "Identity Providers",
+    "adminIdentityProviderCreate": "New Provider",
+    "adminIdentityProviderEdit": "Edit Provider",
+    "adminGroupRoleMapping": "Group / Role Mapping",
+    "adminGroupRoleMappingCreate": "Add Mapping",
+    "adminRolesPermissions": "Roles & Permissions",
+    "adminRoleCreate": "New Role",
+    "adminRoleEdit": "Edit Role",
+    "adminApplicationMapping": "Application Mapping",
+    "adminApplicationCreate": "New Application",
+    "adminApplicationMappingBulkImport": "Bulk Actions",
+    "adminApplicationEdit": "Edit Application",
+    "adminSecretsStore": "Secrets Store",
+    "adminFieldMetadata": "Field Metadata",
+    "adminFieldMetadataCreate": "New Field",
+    "adminFieldMetadataEdit": "Edit Field",
+    "adminAuditLog": "Audit Log",
+    "adminConfiguration": "Configuration",
+    "adminDeployment": "Deployment Info",
+    "adminNotifications": "Notifications",
+    "adminNotificationRecipientCreate": "Add Recipient",
+    "adminCredentials": "Credentials & LDAP",
+    "adminTargetMatchReview": "Target Match Review",
+    "adminImportMappingProfiles": "Import Mapping Profiles",
+    "adminImportMappingProfileCreate": "New Profile",
+    "adminImportMappingProfileEdit": "Edit Profile",
+    "adminDataSources": "Data Sources",
+    "adminCyberarkSourcesEdit": "CyberArk Sources",
+    "adminDataFeedCreate": "New Feed",
+    "adminDataFeedEdit": "Edit Feed",
+    "adminRiskScoreBands": "Risk Score Bands",
+    "adminRiskScoreBandCreate": "New Band",
+    "adminRiskScoreBandEdit": "Edit Band",
+    "accessDenied": "Access Denied",
+    "notFound": "Not Found"
+  },
+  "userMenu": {
+    "account": "Account",
+    "profile": "Profile & Preferences",
+    "about": "About",
+    "signingOut": "Signing out...",
+    "signOut": "Sign out",
+    "signOutFailed": "Sign out failed: {status}"
+  },
+  "about": {
+    "title": "About BlueTrack",
+    "loadFailed": "Could not load the version: {error}",
+    "version": "Version {version}"
+  },
+  "myProfile": {
+    "title": "Profile & Preferences",
+    "roles": "Role(s)",
+    "noneMapped": "(none mapped)",
+    "permissions": "Permissions",
+    "permission": "Permission",
+    "reloadRights": "Reload My Rights",
+    "reloadRightsHint": "Re-checks your current group membership immediately, without waiting for anything to expire -- useful right after you know you've been added to a new group.",
+    "theme": "Theme",
+    "themeLegend": "Choose a display theme",
+    "themeLight": "Light",
+    "themeDark": "Dark",
+    "themeHighVisibility": "High Visibility",
+    "language": "Language",
+    "languageLegend": "Choose a display language"
+  },
+  "accessDenied": {
+    "title": "Access Denied",
+    "message": "You don't have permission to view this page, or it doesn't exist."
+  },
+  "login": {
+    "title": "Sign in",
+    "signedOutIdle": "You were signed out because you weren't active for a while.",
+    "signedOut": "You're signed out.",
+    "methodNotEnabled": "That sign-in method isn't enabled. Choose one below.",
+    "windowsFailed": "Windows sign-in didn't complete. If your browser asked for credentials, check them and choose Continue again.",
+    "noProviders": "No identity providers are enabled. Contact an administrator.",
+    "chooseMethod": "Choose a sign-in method:",
+    "signsInAutomatically": "{name} (signs in automatically)",
+    "default": "(default)",
+    "signingIn": "Signing in..."
+  },
+  "bulkFieldEditor": {
+    "intro": "Tick {change} for each field to set on the {count} selected; other fields stay as they are.",
+    "change": "Change",
+    "field": "Field",
+    "newValue": "New value",
+    "changeField": "Change {field}",
+    "blankClears": "blank clears it",
+    "applyTo": "Apply to {count}"
+  },
+  "bulkReasonForm": {
+    "reason": "Reason to {action}:"
+  },
+  "bulkResult": {
+    "summary": "{changed} {verb}, {skipped} skipped.",
+    "summaryStillSelected": "{changed} {verb}, {skipped} skipped (still selected).",
+    "skippedItem": "{name}: {reason}",
+    "unnamedItem": "#{key}",
+    "failed": "Failed: {status}"
+  },
+  "csvColumnCheck": {
+    "readError": "Couldn't read the file's header row: {error}",
+    "columns": "This file has {count} columns.",
+    "readByName": "Read by name: {fields}.",
+    "missingLabel": "Missing:",
+    "missingList": "{fields}.",
+    "couldBeMapped": "Could be mapped: {mappings}.",
+    "mapping": "{header} → {field}",
+    "createProfile": "Create a mapping profile from these columns"
+  },
+  "filterCountSummary": {
+    "showing": "Showing {start}–{end} of {filtered} matching ({total} total)"
+  },
+  "mappingProfileSelect": {
+    "label": "Mapping profile:",
+    "none": "None (the template's own column names)"
+  },
+  "pager": {
+    "prev": "« Prev",
+    "page": "Page {page} of {pageCount}",
+    "next": "Next »",
+    "rowsPerPage": "Rows per page:"
+  },
+  "selectionBar": {
+    "toggle": "Select for bulk actions",
+    "couldNotSelect": "Could not select: {status}",
+    "tooMany": "{matching} match, more than the bulk limit of {max}. Narrow the filters first.",
+    "selected": "{count} selected",
+    "onThisPage": "({count} on this page)",
+    "selectAllOnPage": "Select all on page",
+    "selectAllMatching": "Select all matching ({count})",
+    "invert": "Invert selection on page"
+  },
+  "combobox": {
+    "noMatches": "No matches.",
+    "matches": "{count} match. Use Up and Down to choose. | {count} matches. Use Up and Down to choose.",
+    "searchFailed": "Search failed.",
+    "typeAtLeast": "Type at least {count} characters.",
+    "hint": "Type at least {count} characters to search.",
+    "selected": "{label} selected."
+  },
+  "reportExport": {
+    "ariaLabel": "Export this report",
+    "preparing": "Preparing the export...",
+    "downloaded": "Downloaded {fileName}.",
+    "couldNotExport": "Could not export: {error}"
+  }
+}

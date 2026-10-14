@@ -1,6 +1,8 @@
 import { defineStore } from 'pinia'
 import { useThemeStore } from './theme'
 import { usePageSizeStore } from './pageSize'
+import { useLocaleStore } from './locale'
+import { t } from '../i18n'
 
 // Backs frontend permission-aware UI: hides/disables controls a user can't
 // use, mirroring the API's real [Authorize(Policy = Permissions.X)] gates
@@ -67,7 +69,7 @@ export const useRightsStore = defineStore('rights', {
           this.loaded = true
           return
         }
-        if (!response.ok) throw new Error(`Request failed: ${response.status}`)
+        if (!response.ok) throw new Error(t('common.requestFailed', { status: response.status }))
         const data = await response.json()
         this.userKey = data.userKey
         this.displayName = data.displayName
@@ -77,6 +79,7 @@ export const useRightsStore = defineStore('rights', {
         this.loaded = true
         useThemeStore().loadFromServer(data.preferences)
         usePageSizeStore().loadFromServer(data.preferences)
+        useLocaleStore().loadFromServer(data.preferences)
       } catch (err) {
         this.error = err.message
       } finally {
@@ -95,7 +98,7 @@ export const useRightsStore = defineStore('rights', {
       this.error = null
       try {
         const response = await fetch('/api/me/reload-rights', { method: 'POST' })
-        if (!response.ok) throw new Error(`Request failed: ${response.status}`)
+        if (!response.ok) throw new Error(t('common.requestFailed', { status: response.status }))
         const data = await response.json()
         this.roleNames = data.roleNames
         this.permissionNames = data.permissionNames

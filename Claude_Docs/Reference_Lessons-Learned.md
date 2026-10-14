@@ -246,3 +246,9 @@ After `POST /api/auth/logout` cleared every BlueTrack cookie, the next `/api/aut
 ## 2026-10-13 -- `END CATCH` then `THROW` is a syntax error (D-224)
 
 Script 21 first failed in the Migrator with "Incorrect syntax near 'THROW'": the statement before `THROW` must end with a semicolon, and a nested `BEGIN TRY ... END CATCH` inside a `CATCH` block doesn't, so write `END CATCH;` (or `END;`) before a re-raising `THROW;`. A bare `THROW;` after that nested block still re-raises the outer `CATCH`'s error, not the nested one (`DailySnapshotTests` checks it).
+
+## 2026-10-13 -- `<span> {{ t('x') }}</span>` drops the space (D-227)
+
+Converting text to vue-i18n, `<span v-if="n"> ({{ n }} on this page)</span>` became `<span v-if="n"> {{ t('onThisPage', ...) }}</span>`, and a unit test caught "3 selected(1 on this page)". Vue's template compiler removes a whitespace-only text node that is an element's first or last child; before, the space was part of a text node with words in it, so it survived. Same at the end: `{{ t('x') }} </template>`.
+
+**Lesson:** when a converted string had a leading or trailing space inside its element, write it into the expression (`{{ ' ' + t('x') }}`); never move it into the message. `Design_Localization.md` ("Keeping English byte-identical").

@@ -1,11 +1,13 @@
 <script setup>
 import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 
 // D-45/D-57: every page shows a breadcrumb trail; position defaults to
 // top-left and is admin-configurable via app_config.BreadcrumbPosition.
 // This scaffold hardcodes top-left (see the `breadcrumbs--top-left` class
 // below) -- reading the live app_config value is a follow-up build task.
+const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
 
@@ -27,7 +29,7 @@ const crumbs = computed(() => {
 
   while (current && current.name !== 'dashboard' && !seen.has(current.name)) {
     seen.add(current.name)
-    trail.unshift({ name: current.name, label: current.meta?.breadcrumb ?? String(current.name) })
+    trail.unshift({ name: current.name, label: current.meta?.breadcrumb ? t(current.meta.breadcrumb) : String(current.name) })
     current = routesByName.get(current.meta?.breadcrumbParent ?? 'dashboard')
   }
 
@@ -36,8 +38,8 @@ const crumbs = computed(() => {
 </script>
 
 <template>
-  <nav class="breadcrumbs breadcrumbs--top-left" aria-label="Breadcrumb">
-    <router-link :to="{ name: 'dashboard' }">Dashboard</router-link>
+  <nav class="breadcrumbs breadcrumbs--top-left" :aria-label="t('shell.breadcrumbs.ariaLabel')">
+    <router-link :to="{ name: 'dashboard' }">{{ t('shell.nav.dashboard') }}</router-link>
     <span v-for="crumb in crumbs" :key="crumb.name">
       <span class="breadcrumbs__separator">/</span>
       <router-link :to="{ name: crumb.name }">{{ crumb.label }}</router-link>

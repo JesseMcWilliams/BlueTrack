@@ -5,6 +5,9 @@
 // ticked fields; the API leaves every other field as it is on each item.
 import { ref, computed } from 'vue'
 import { formatCount } from '../utils/formatCount'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const props = defineProps({
   /** [{ field, label, type: 'select' | 'number' | 'text', options?: [{ value, label }], required?: bool }] */
@@ -30,26 +33,29 @@ function apply() {
 
 <template>
   <form class="bulk-panel" @submit.prevent="apply">
-    <p>Tick <em>Change</em> for each field to set on the {{ formatCount(count) }} selected; other fields stay as they are.</p>
+    <i18n-t keypath="shell.bulkFieldEditor.intro" tag="p" scope="global">
+      <template #change><em>{{ t('shell.bulkFieldEditor.change') }}</em></template>
+      <template #count>{{ formatCount(count) }}</template>
+    </i18n-t>
     <table>
-      <thead><tr><th>Change</th><th>Field</th><th>New value</th></tr></thead>
+      <thead><tr><th>{{ t('shell.bulkFieldEditor.change') }}</th><th>{{ t('shell.bulkFieldEditor.field') }}</th><th>{{ t('shell.bulkFieldEditor.newValue') }}</th></tr></thead>
       <tbody>
         <tr v-for="f in fields" :key="f.field">
-          <td><input v-model="change[f.field]" type="checkbox" :aria-label="`Change ${f.label}`" /></td>
+          <td><input v-model="change[f.field]" type="checkbox" :aria-label="t('shell.bulkFieldEditor.changeField', { field: f.label })" /></td>
           <td>{{ f.label }}</td>
           <td>
             <select v-if="f.type === 'select'" v-model="values[f.field]" :disabled="!change[f.field]" :aria-label="f.label" :required="change[f.field] && f.required">
-              <option v-if="!f.required" :value="null">(blank)</option>
+              <option v-if="!f.required" :value="null">{{ t('common.blank') }}</option>
               <option v-for="o in f.options" :key="o.value" :value="o.value">{{ o.label }}</option>
             </select>
             <input v-else-if="f.type === 'number'" v-model.number="values[f.field]" type="number" min="0" :disabled="!change[f.field]" :aria-label="f.label" :required="change[f.field]" />
-            <input v-else v-model="values[f.field]" :disabled="!change[f.field]" :aria-label="f.label" placeholder="blank clears it" size="40" />
+            <input v-else v-model="values[f.field]" :disabled="!change[f.field]" :aria-label="f.label" :placeholder="t('shell.bulkFieldEditor.blankClears')" size="40" />
           </td>
         </tr>
       </tbody>
     </table>
-    <button type="submit" class="btn-primary" :disabled="saving || chosen.length === 0">Apply to {{ formatCount(count) }}</button>
-    <button type="button" @click="emit('cancel')">Cancel</button>
+    <button type="submit" class="btn-primary" :disabled="saving || chosen.length === 0">{{ t('shell.bulkFieldEditor.applyTo', { count: formatCount(count) }) }}</button>
+    <button type="button" @click="emit('cancel')">{{ t('common.cancel') }}</button>
   </form>
 </template>
 
