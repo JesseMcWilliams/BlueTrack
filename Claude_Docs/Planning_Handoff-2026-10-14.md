@@ -32,10 +32,10 @@ On 2026-10-13 after the v1.0.0 release: two audit findings closed, **Data Source
 - **authentik** (lab details in `Live-Testing.local.md`): apps `bluetrack-saml` and `bluetrack-oidc`. The `bluetrack-saml` provider was changed for Single Logout (with the user's OK): SLS URL `https://bluetrack.company.com/BlueTrack/api/auth/saml/slo`, binding Redirect, logout method `frontchannel_native`, logout request and response signed. Before: no SLS URL, `frontchannel_iframe`, unsigned. Its invalidation flow is still the default (ends only BlueTrack's session at authentik).
 
 ## Open items
-1. **Check the first nightly import through `usp_Import_Configured`** (02:00 2026-10-14): `Tools\Test-BlueTrackHealth.ps1 -SiteUrl https://bluetrack.company.com -SqlServerInstance WIN-K5POLANERI5.Company.com` shows the job's last run; a failure names the file or database.
+1. ~~**Check the first nightly import**~~ Done 2026-10-14: the 02:00 run failed (Privilege Cloud Users/Groups layout change, Msg 7301), fixed by D-228 and deployed; `usp_RunNightlyImportLoad` run by hand succeeded (Import, Load, Snapshot). Check the first scheduled run of the new one-step job (02:00 2026-10-15) with `Tools\Test-BlueTrackHealth.ps1`.
 2. **LDAPS from DCACYBSQL01** (backlog): the user will run `Tools\Test-BlueTrackLdaps.ps1` there (copy the `Tools` folder), then add the domain in BlueTrack. Manual steps also in `Live-Testing.local.md`, "Pending check".
 3. **Break-glass end to end** (optional): list an account on Identity Providers, give the BreakGlassLogon notification a target role or recipients, sign in as it, and check the email arrives. Only the audit event is covered by tests.
-4. **Next release:** set `<Version>` in `App/Api/BlueTrack.Api.csproj` before tagging, turn Unreleased into the version's section, rebuild `Published_Docs/` (`python Published_Docs/build_published_docs.py`). Upgrade steps for existing installs are in the release notes (`-Step Db.NightlyJob` once; re-save Azure/AWS/Conjur stored secrets; set up break-glass).
+4. **Next release:** `Tools/New-BlueTrackRelease.ps1 -Version x.y.z -Push`, merge its PR, then `-Tag -Push` (D-226; `Tools/README.md`). Upgrade steps are in the release notes' Unreleased section.
 5. **Backlog** (`Planning_Backlog.md`), all needing a real environment: `ApplicationPoolIdentity` with a remote SQL Server (an environment decision), a live round trip for Azure, AWS and Conjur, a real second AD domain, and the installer steps not yet run on a fresh server.
 
 ## Gotchas for the next session
