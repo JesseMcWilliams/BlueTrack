@@ -67,7 +67,8 @@ public sealed class CyberArkSourcesController(
 
     /// <summary>
     /// Test, on unsaved values: whether the EVD database exists, and whether
-    /// the export folder and today's files exist as the app pool sees them.
+    /// the export folder and today's files exist as the app pool sees them,
+    /// with the columns the import needs in each file's header (D-228).
     /// SQL Server's service account reads the files at import, so it needs
     /// read access as well; the page says so.
     /// </summary>
@@ -103,19 +104,54 @@ public sealed class CyberArkSourcesController(
             if (folderFound)
             {
                 var today = timeProvider.GetLocalNow().DateTime;
-                foreach (var (_, label, fileName) in settings.Files())
+                var columns = await repository.GetImportColumnsAsync();
+                foreach (var (field, label, fileName) in settings.Files())
                 {
                     var expanded = FeedFileResolver.ExpandPattern(fileName, today);
-                    var found = System.IO.File.Exists(Path.Combine(folder, expanded));
-                    checks.Add(new CyberArkSourceTestCheck
+                    var path = Path.Combine(folder, expanded);
+                    if (!System.IO.File.Exists(path))
                     {
-                        Item = label,
-                        Ok = found,
-                        Message = found ? $"{expanded} found." : $"{expanded} not found today."
-                    });
+                        checks.Add(new CyberArkSourceTestCheck { Item = label, Ok = false, Message = $"{expanded} not found today." });
+                        continue;
+                    }
+                    var kind = CyberArkImportColumns.FileKindOf(field);
+                    checks.Add(await CheckHeaderAsync(label, expanded, path, columns.Where(c => c.FileKind == kind)));
                 }
             }
         }
         return Ok(checks);
+    }
+
+    /// <summary>
+    /// D-228: reads only the file's header row and reports the required
+    /// columns it lacks (the import would fail), or OK, noting optional
+    /// columns it lacks (they import as empty).
+    /// </summary>
+    private static async Task<CyberArkSourceTestCheck> CheckHeaderAsync(
+        string label, string fileName, string path, IEnumerable<CyberArkImportColumn> columnsOfKind)
+    {
+        IReadOnlyList<string> header;
+        try
+        {
+            await using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+            header = await RiskScoring.CsvFileReader.ReadHeaderAsync(stream);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or CsvHelper.CsvHelperException)
+        {
+            return new CyberArkSourceTestCheck { Item = label, Ok = false, Message = $"{fileName} found, but it could not be read: {ex.Message}" };
+        }
+
+        var (missingRequired, missingOptional) = CyberArkImportColumns.Compare(header, columnsOfKind);
+        if (missingRequired.Count > 0)
+        {
+            return new CyberArkSourceTestCheck
+            {
+                Item = label,
+                Ok = false,
+                Message = $"{fileName} is missing the required column(s): {string.Join(", ", missingRequired)}. The import would fail."
+            };
+        }
+        var note = missingOptional.Count == 0 ? "" : $" Not in the file, so imported as empty: {string.Join(", ", missingOptional)}.";
+        return new CyberArkSourceTestCheck { Item = label, Ok = true, Message = $"{fileName} found, with the required columns.{note}" };
     }
 }

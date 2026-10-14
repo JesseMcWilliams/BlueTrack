@@ -252,3 +252,9 @@ Script 21 first failed in the Migrator with "Incorrect syntax near 'THROW'": the
 Converting text to vue-i18n, `<span v-if="n"> ({{ n }} on this page)</span>` became `<span v-if="n"> {{ t('onThisPage', ...) }}</span>`, and a unit test caught "3 selected(1 on this page)". Vue's template compiler removes a whitespace-only text node that is an element's first or last child; before, the space was part of a text node with words in it, so it survived. Same at the end: `{{ t('x') }} </template>`.
 
 **Lesson:** when a converted string had a leading or trailing space inside its element, write it into the expression (`{{ ' ' + t('x') }}`); never move it into the message. `Design_Localization.md` ("Keeping English byte-identical").
+
+## 2026-10-14 -- Msg 7301 also means the CSV has a different number of columns (D-228)
+
+The nightly import failed at Users with `Cannot obtain the required interface ("IID_IColumnsInfo") from OLE DB provider "BULK"` (Msg 7301), the same message as the 2026-09-04 line-ending bug above. This time the line endings were fine: Privilege Cloud had changed the Users export from 8 columns to 10, and `BULK INSERT ... FORMAT = 'CSV'` was loading into an 8-column table. A reproduction with synthetic files showed 7301 whenever the **header row's** column count differs from the target table, even though `FIRSTROW = 2` skips that row. A **data** row with the wrong count gives Msg 7330 ("Cannot fetch a row") instead. The import now reads columns by header name and re-raises both errors with a message naming the file (script 22).
+
+The Data Sources **Test** said every file was fine, because it checked only that each file existed. **Lesson:** a check that a file is usable has to open it. Read at least the header and compare it with what the import needs, from the same list the import uses (`web.cyberark_import_column`), so the two can't drift.

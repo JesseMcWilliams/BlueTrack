@@ -1,0 +1,2 @@
+# D-228: these test exact bytes (CRLF line ends, a UTF-8 byte order mark).
+*.csv -text
