@@ -360,7 +360,7 @@ A file in the template's own format needs no profile.
 | Reference Table | For Dropdown fields, the list the choices come from. | As seeded | Keep the seeded table | The choices come from that list. |
 | Required | The form can't be saved without a value. | Stage and Status | Stage and Status, plus any your process requires | Required fields keep the reports complete. |
 | Display Order | The order of fields on the form. | 10, 20 ... 100 | Your preferred order | Gaps of 10 make reordering easy. |
-| Required permission | The permission needed to change this field, on top of `EditAccountProgress`. Enforced on the edit page, in bulk edit and in the Risk Exception import. | None | None, unless a field needs tighter control | Not shown on the page. It is the `RequiredPermission` column in the field metadata table; ask your database administrator to set it. |
+| Required permission | The permission needed to change this field, on top of `EditAccountProgress`. Enforced on the edit page, in bulk edit and in the Risk Exception import. | None | None, unless a field needs tighter control | Set with **Required Permission** on the Edit Field page, and shown in the field list. |
 
 ### Risk Score Bands
 

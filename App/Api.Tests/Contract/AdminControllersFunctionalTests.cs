@@ -79,15 +79,28 @@ public class AdminControllersFunctionalTests : IClassFixture<BlueTrackWebApplica
         Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
         var created = await createResponse.Content.ReadFromJsonAsync<FieldMetadataKeyResponse>();
 
+        // D-214: Required Permission is chosen from the permission options; an unknown key is refused.
+        var options = await client.GetFromJsonAsync<List<PermissionOption>>("/api/admin/field-metadata/permission-options");
+        var approve = Assert.Single(options!, o => o.PermissionName == "ApproveExceptions");
+        var badPermission = await client.PutAsJsonAsync($"/api/admin/field-metadata/{created!.FieldMetadataKey}", new
+        {
+            fieldName = "ContractTestField", displayLabel = "Updated Label", fieldType = "text", isRequired = true, requiredPermission = 999999, displayOrder = 999
+        });
+        Assert.Equal(HttpStatusCode.BadRequest, badPermission.StatusCode);
+
         var updateResponse = await client.PutAsJsonAsync($"/api/admin/field-metadata/{created!.FieldMetadataKey}", new
         {
             fieldName = "ContractTestField",
             displayLabel = "Updated Label",
             fieldType = "text",
             isRequired = true,
+            requiredPermission = approve.PermissionKey,
             displayOrder = 999
         });
         Assert.Equal(HttpStatusCode.NoContent, updateResponse.StatusCode);
+        var saved = (await client.GetFromJsonAsync<List<FieldMetadataResponse>>("/api/admin/field-metadata"))!
+            .Single(f => f.FieldMetadataKey == created.FieldMetadataKey);
+        Assert.Equal("ApproveExceptions", saved.RequiredPermissionName);
 
         var deleteResponse = await client.DeleteAsync($"/api/admin/field-metadata/{created.FieldMetadataKey}");
         Assert.Equal(HttpStatusCode.NoContent, deleteResponse.StatusCode);
@@ -693,6 +706,9 @@ public class AdminControllersFunctionalTests : IClassFixture<BlueTrackWebApplica
         public bool IsActive { get; set; }
         public string? BackendSettings { get; set; }
     }
+
+    private sealed record PermissionOption(int PermissionKey, string PermissionName);
+    private sealed record FieldMetadataResponse(int FieldMetadataKey, string? RequiredPermissionName);
 
     private sealed class AuditEventSummaryResponse
     {

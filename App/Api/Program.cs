@@ -203,6 +203,7 @@ builder.Services.AddHostedService<NotificationCheckBackgroundService>();
 // shape as Notifications above, for the same reason -- talking to LDAP
 // doesn't need a separate process, just its own DI scope per run.
 builder.Services.AddScoped<DiscoveredAccountRepository>();
+builder.Services.AddScoped<BlueTrack.Api.AdDiscovery.IAdDirectory, BlueTrack.Api.AdDiscovery.LdapAdDirectory>();   // D-214
 builder.Services.AddScoped<AdAccountDiscoveryService>();
 builder.Services.AddHostedService<AdAccountDiscoveryBackgroundService>();
 

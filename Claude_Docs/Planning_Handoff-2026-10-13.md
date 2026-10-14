@@ -48,6 +48,7 @@ SSO went live against the lab Authentik, the user docs and published guides were
 - **POSTs to the live API** need `X-Requested-With: XMLHttpRequest` (D-197 CSRF check); without it they're 403.
 - **BlueTrackTest has no CyberArk accounts with an address** (its seed is `DISCOVERY` accounts), so feed-linking tests add a temporary `PRIVCLOUD` account and remove it; xUnit runs one test at a time, so that's safe.
 - **Stacked PRs:** merging one with `--delete-branch` closed the next; retarget first, or (as on 2026-10-13) open the next PR only after the previous one merges.
+- **After a reboot, check SQL Server Agent too** (`Get-Service SQLSERVERAGENT`): it was Manual and stayed stopped after the 2026-10-13 reboot, so no nightly job would have run; the user set it to Automatic and started it.
 - **CI runner wedge** (queued, runner idle, broker errors in `C:\actions-runner\_diag`): restart the runner service (ask the user first). A run queued behind `main`'s own run is normal: there's one runner.
 - **Check new files are tracked:** `git status --short --ignored` after adding files under a folder named like a secrets folder.
 - **Rights cache lives in SQL Server** and outlasts a test run: a test that depends on a new grant must clear it first (`UserRightsCache.InvalidateAllAsync`).

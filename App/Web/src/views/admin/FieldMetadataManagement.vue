@@ -53,7 +53,7 @@ async function remove(item) {
       <table>
         <thead>
           <tr>
-            <th>Field Name</th><th>Display Label</th><th>Type</th><th>Required</th><th>Order</th><th></th>
+            <th>Field Name</th><th>Display Label</th><th>Type</th><th>Required</th><th>Required Permission</th><th>Order</th><th></th>
           </tr>
         </thead>
         <tbody>
@@ -62,6 +62,7 @@ async function remove(item) {
             <td>{{ item.displayLabel }}</td>
             <td>{{ item.fieldType }}</td>
             <td>{{ item.isRequired }}</td>
+            <td>{{ item.requiredPermissionName ?? '' }}</td>
             <td>{{ item.displayOrder }}</td>
             <td>
               <button @click="remove(item)">Delete</button>

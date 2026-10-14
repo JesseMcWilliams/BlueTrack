@@ -85,6 +85,24 @@ The step reports the thumbprint the site now uses and saves it to the site's sav
 
 **SAML signing certificate** (only if you'll use SAML sign-in): this is a separate certificate, not the HTTPS one. The App Pool's account must be able to read its private key. For a certificate in `LocalMachine\My`: open `certlm.msc`, right-click the certificate, choose **All Tasks > Manage Private Keys**, and give the App Pool's account **Read**. If it can't read the key, SAML sign-in returns "SAML sign-in is not available" and the Identity Providers health check reports it. Choosing the certificate: `Admin_Configuration.md`, "SAML".
 
+**Optional: a SAML certificate only the App Pool's account holds.** BlueTrack looks for the SP certificate in the App Pool account's own store (`CurrentUser\My`) before `LocalMachine\My`, so the account can hold a certificate whose key nobody else can read. This works for a gMSA or a domain account, not for `ApplicationPoolIdentity`. There's no installer step for it; do it by hand:
+
+1. **On your CA:** make a certificate template for SAML signing (for example, a copy of the *Web Server* template), give the App Pool's account (for a gMSA, `DOMAIN\BlueTrackSvc$`) **Read** and **Enroll** on it, and publish the template on the CA.
+2. **In IIS:** set the App Pool's **Load User Profile** (Advanced Settings) to **True**, so the account has its own certificate store.
+3. **Enroll as the App Pool's account.** A gMSA can't sign in interactively, so run the request as a one-time scheduled task under that account. For example, in an elevated PowerShell:
+
+   ```powershell
+   $action = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument "-NoProfile -Command Get-Certificate -Template '<template name>' -CertStoreLocation Cert:\CurrentUser\My"
+   $principal = New-ScheduledTaskPrincipal -UserId 'DOMAIN\BlueTrackSvc$' -LogonType Password
+   Register-ScheduledTask -TaskName 'BlueTrack SAML certificate' -Action $action -Principal $principal
+   Start-ScheduledTask -TaskName 'BlueTrack SAML certificate'
+   ```
+
+   When it has finished, remove the task (`Unregister-ScheduledTask -TaskName 'BlueTrack SAML certificate'`). The template must let the subject name be built from Active Directory, or supply one in the request.
+4. **Find the thumbprint** (the CA's issued-certificates list, or a second task that lists `Cert:\CurrentUser\My`), enter it as **SP Certificate Thumbprint** on Identity Providers, and check the **Identity Providers** health check on the Deployment page. Renew the same way before the certificate expires.
+
+These steps haven't been run on a real install yet; confirm the template settings and the task with your PKI administrator the first time.
+
 ### Backup folder access
 
 A backup is a full copy of the database, including stored credentials, so the backup folder is limited to specific accounts. When the installer takes the pre-deployment backup, and whenever `Deploy/Backup-BlueTrack.ps1` runs, the folder (and the backups already in it) has inheritance turned off and broad groups removed: Everyone, Users, Authenticated Users, Guests, Domain Users and Domain Guests. Other existing entries are kept.

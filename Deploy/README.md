@@ -252,7 +252,7 @@ Deploy/
   Compare-BlueTrackSchema.ps1     # list schema (and optionally data) differences between two databases; the drift check
   Templates/
     site-web.config.template      # SPA URL Rewrite fallback rule
-  Logs/                           # transcript logs from each run (git-ignored)
+  Logs/                           # transcript logs from each run (git-ignored; older than 90 days removed at the start of each run, D-214)
   State/                          # answers.<SiteName>.json + progress.<SiteName>.json (git-ignored)
 ```
 
