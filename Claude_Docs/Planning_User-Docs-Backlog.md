@@ -4,3 +4,4 @@
 
 | Date | Change | User doc / section it affects |
 |---|---|---|
+| 2026-10-15 | `Update-BlueTrack.ps1` no longer changes the download folder's permissions; it warns, and `-LockDownFolder` limits the folder unless it's already restricted (D-235). | `Admin_OperationsGuide.md` and `Admin_DeploymentRunbook.md` (Updating) |
