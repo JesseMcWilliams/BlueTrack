@@ -98,6 +98,27 @@ public class TrendsRepositoryTests : IAsyncLifetime
         Assert.Equal(100.0, On(report, 10).PercentComplete);
     }
 
+    /// <summary>D-238: an account assigned to the Application directly (its Safe has none) counts under it too.</summary>
+    [Fact]
+    public async Task ApplicationFilter_AlsoCountsAnAccountAssignedToItDirectly()
+    {
+        await using (var connection = new SqlConnection(TestDatabase.ConnectionString))
+        {
+            await connection.ExecuteAsync("""
+                INSERT INTO dbo.fact_account_progress (AccountKey, CurrentStageKey, CurrentStatusKey, ApplicationKey)
+                SELECT fa.AccountKey,
+                       (SELECT TOP 1 StageKey FROM dbo.dim_blueprint_stage ORDER BY StageOrder),
+                       (SELECT StatusKey FROM dbo.dim_progress_status WHERE StatusName = 'Not Started'),
+                       @ApplicationKey
+                FROM dbo.fact_account fa WHERE fa.SourceAccountId = 'TrendsTest-B1'
+                """, new { _keys.ApplicationKey });   // removed with the other fixture rows
+        }
+
+        var report = await Get(applicationKey: _keys.ApplicationKey);
+
+        Assert.Equal(3, On(report, 2).TotalAccounts);   // A1 and A2 through the Safe, B1 directly
+    }
+
     [Fact]
     public async Task SafeFilter_CountsOnlyAccountsInThatSafe()
     {

@@ -13,6 +13,9 @@ namespace BlueTrack.Api.Data;
 /// the account's current Safe (fact_account.SafeKey) and that Safe's
 /// Application (dim_safe.ApplicationKey) -- the snapshot doesn't record the
 /// Safe, so an account that moved Safes is counted under its current one.
+/// D-238: an account also counts under its own Application
+/// (fact_account_progress.ApplicationKey), so the Application filter matches
+/// either one.
 /// </summary>
 public sealed class TrendsRepository(IDbConnectionFactory connectionFactory)
 {
@@ -52,8 +55,9 @@ public sealed class TrendsRepository(IDbConnectionFactory connectionFactory)
             JOIN @dates dt ON dt.SnapshotDateKey = h.SnapshotDateKey
             JOIN dbo.fact_account fa ON fa.AccountKey = h.AccountKey
             LEFT JOIN dbo.dim_safe ds ON ds.SafeKey = fa.SafeKey
+            LEFT JOIN dbo.fact_account_progress cur ON cur.AccountKey = fa.AccountKey
             WHERE (@SafeKey IS NULL OR fa.SafeKey = @SafeKey)
-              AND (@ApplicationKey IS NULL OR ds.ApplicationKey = @ApplicationKey)
+              AND (@ApplicationKey IS NULL OR ds.ApplicationKey = @ApplicationKey OR cur.ApplicationKey = @ApplicationKey)
             GROUP BY h.SnapshotDateKey, h.StageKey, h.StatusKey, h.RiskLevelKey
             OPTION (RECOMPILE);
 

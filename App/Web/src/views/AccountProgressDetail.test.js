@@ -41,6 +41,7 @@ const fieldMetadata = [
   { fieldName: 'CurrentStageKey', displayLabel: 'Stage', fieldType: 'Dropdown', isRequired: true, displayOrder: 1, referenceTable: 'dim_blueprint_stage' },
   { fieldName: 'CurrentStatusKey', displayLabel: 'Status', fieldType: 'Dropdown', isRequired: true, displayOrder: 2, referenceTable: 'dim_progress_status' },
   { fieldName: 'RiskLevelKey', displayLabel: 'Risk Level', fieldType: 'Dropdown', isRequired: false, displayOrder: 3, referenceTable: 'dim_risk_level' },
+  { fieldName: 'ApplicationKey', displayLabel: 'Application', fieldType: 'Dropdown', isRequired: false, displayOrder: 3.5, referenceTable: 'dim_application' },   // D-238
   { fieldName: 'BusinessUnit', displayLabel: 'Business Unit', fieldType: 'Text', isRequired: false, displayOrder: 4, referenceTable: null },
   { fieldName: 'TargetRemediationDate', displayLabel: 'Target Remediation Date', fieldType: 'Date', isRequired: false, displayOrder: 5, referenceTable: null }
 ]
@@ -51,7 +52,8 @@ const referenceData = {
     { key: 1, name: 'Not Started' },
     { key: RISK_ACCEPTED_STATUS_KEY, name: 'Risk Accepted / Excluded' }
   ],
-  dim_risk_level: [{ key: 5, name: 'High' }]
+  dim_risk_level: [{ key: 5, name: 'High' }],
+  dim_application: [{ key: 3, name: 'Billing' }, { key: 4, name: 'Payroll' }]
 }
 
 function baseDetail(overrides = {}) {
@@ -66,6 +68,7 @@ function baseDetail(overrides = {}) {
     riskLevelKey: null,
     accountTypeKey: null,
     sorKey: null,
+    applicationKey: null,
     ownerName: null,
     businessUnit: null,
     targetRemediationDate: null,
@@ -251,6 +254,7 @@ describe('AccountProgressDetail.vue', () => {
     mockLoad({
       detailOverrides: {
         riskLevelKey: 5,
+        applicationKey: 3,
         businessUnit: 'Finance',
         targetRemediationDate: '2026-03-01T00:00:00',
         overrideRiskScore: 400,
@@ -268,6 +272,7 @@ describe('AccountProgressDetail.vue', () => {
     expect(text).toContain('StageDiscovered')
     expect(text).toContain('StatusNot Started')
     expect(text).toContain('Risk LevelHigh')
+    expect(text).toContain('ApplicationBilling')   // D-238
     expect(text).toContain('Business UnitFinance')
     expect(text).toContain('Target Remediation Date2026-03-01')
     expect(text).toContain('Last Updated2026-01-01')

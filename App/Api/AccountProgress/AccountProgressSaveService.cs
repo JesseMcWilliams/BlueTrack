@@ -112,6 +112,7 @@ public sealed class AccountProgressSaveService(
         AddIfChanged("RiskLevelKey", before.RiskLevelKey, request.RiskLevelKey);
         AddIfChanged("AccountTypeKey", before.AccountTypeKey, request.AccountTypeKey);
         AddIfChanged("SORKey", before.SORKey, request.SORKey);
+        AddIfChanged("ApplicationKey", before.ApplicationKey, request.ApplicationKey);
         AddIfChanged("OwnerName", before.OwnerName, request.OwnerName);
         AddIfChanged("BusinessUnit", before.BusinessUnit, request.BusinessUnit);
         AddIfChanged("TargetRemediationDate", before.TargetRemediationDate?.ToString("yyyy-MM-dd"), request.TargetRemediationDate?.ToString("yyyy-MM-dd"));

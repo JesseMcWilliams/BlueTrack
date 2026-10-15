@@ -107,7 +107,7 @@ public class AccountProgressReadEndpointsTests : IClassFixture<BlueTrackWebAppli
     }
 
     [Fact]
-    public async Task GetReferenceData_AnyAuthenticatedUser_ReturnsAllFiveTables()
+    public async Task GetReferenceData_AnyAuthenticatedUser_ReturnsAllSixTables()
     {
         var client = CreateClientAs("TestUser.Viewer");
 
@@ -116,7 +116,7 @@ public class AccountProgressReadEndpointsTests : IClassFixture<BlueTrackWebAppli
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var referenceData = await response.Content.ReadFromJsonAsync<Dictionary<string, object>>();
         Assert.NotNull(referenceData);
-        Assert.Equal(5, referenceData!.Count);
+        Assert.Equal(6, referenceData!.Count);
     }
 
     [Fact]
@@ -182,6 +182,89 @@ public class AccountProgressReadEndpointsTests : IClassFixture<BlueTrackWebAppli
             // exception just created would block that delete anyway. Only
             // the safe assignment is cleared, matching this shared
             // synthetic fixture's expected resting state.
+            await adminClient.PutAsJsonAsync($"/api/safes/{safeKey}/application", (int?)null);
+        }
+    }
+
+    // ---- D-238: an account's own Application, in addition to its Safe's --------------------------------
+
+    private static async Task SetAccountApplicationAsync(long accountKey, int? applicationKey)
+    {
+        await using var connection = new Microsoft.Data.SqlClient.SqlConnection(TestDatabase.ConnectionString);
+        await Dapper.SqlMapper.ExecuteAsync(connection,
+            "UPDATE dbo.fact_account_progress SET ApplicationKey = @applicationKey WHERE AccountKey = @accountKey", new { accountKey, applicationKey });
+    }
+
+    private static async Task<int> CreateApplicationAsync(HttpClient adminClient, string label)
+    {
+        var suffix = Guid.NewGuid().ToString("N")[..12];
+        var response = await adminClient.PostAsJsonAsync("/api/applications", new { applicationCode = $"CT{label}{suffix}", applicationName = $"{label} test {suffix}" });
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        return (await response.Content.ReadFromJsonAsync<ApplicationKeyResponse>())!.ApplicationKey;
+    }
+
+    private static async Task ExceptApplicationAsync(HttpClient approverClient, int applicationKey)
+    {
+        var response = await approverClient.PostAsJsonAsync("/api/risk-exceptions", new
+        {
+            applicationKey, justification = "Account application contract test", reviewDate = DateTime.UtcNow.Date.AddDays(30)
+        });
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+    }
+
+    /// <summary>D-238: an account assigned to an Application directly (no Safe mapping) is covered by that Application's Active exception.</summary>
+    [Fact]
+    public async Task GetApplicationScopedExceptions_AccountAssignedDirectlyToAnExceptedApplication_IncludesIt()
+    {
+        var adminClient = CreateClientAs("TestUser.Admin");
+        var approverClient = CreateClientAs("TestUser.Approver");
+        var accountKey = await TestAccounts.GetAccountKeyAsync("TestAccount02");
+        var application = await CreateApplicationAsync(adminClient, "Direct");
+        try
+        {
+            await ExceptApplicationAsync(approverClient, application);
+            Assert.Empty((await approverClient.GetFromJsonAsync<List<ApplicationScopedExceptionResponse>>($"/api/account-progress/{accountKey}/application-exceptions"))!);
+
+            await SetAccountApplicationAsync(accountKey, application);
+            var exceptions = await approverClient.GetFromJsonAsync<List<ApplicationScopedExceptionResponse>>($"/api/account-progress/{accountKey}/application-exceptions");
+            Assert.Equal(application, Assert.Single(exceptions!).ApplicationKey);
+
+            await SetAccountApplicationAsync(accountKey, null);   // un-assigning drops the coverage again
+            Assert.Empty((await approverClient.GetFromJsonAsync<List<ApplicationScopedExceptionResponse>>($"/api/account-progress/{accountKey}/application-exceptions"))!);
+        }
+        finally
+        {
+            await SetAccountApplicationAsync(accountKey, null);
+        }
+    }
+
+    /// <summary>D-238: when the account's own Application and its Safe's differ, an Active exception on either covers it; when they are the same, once.</summary>
+    [Fact]
+    public async Task GetApplicationScopedExceptions_OwnAndSafeApplications_BothApplyAndAreNotDuplicated()
+    {
+        var adminClient = CreateClientAs("TestUser.Admin");
+        var approverClient = CreateClientAs("TestUser.Approver");
+        var accountKey = await TestAccounts.GetAccountKeyAsync("TestAccount01");
+        var safeKey = await LookupSafeKeyForAccountAsync(accountKey);
+        var viaSafe = await CreateApplicationAsync(adminClient, "ViaSafe");
+        var own = await CreateApplicationAsync(adminClient, "Own");
+        try
+        {
+            await ExceptApplicationAsync(approverClient, viaSafe);
+            await ExceptApplicationAsync(approverClient, own);
+            Assert.Equal(HttpStatusCode.NoContent, (await adminClient.PutAsJsonAsync($"/api/safes/{safeKey}/application", viaSafe)).StatusCode);
+            await SetAccountApplicationAsync(accountKey, own);
+
+            var both = await approverClient.GetFromJsonAsync<List<ApplicationScopedExceptionResponse>>($"/api/account-progress/{accountKey}/application-exceptions");
+            Assert.Equal(new[] { viaSafe, own }.OrderBy(k => k), both!.Select(e => e.ApplicationKey).OrderBy(k => k));
+
+            await SetAccountApplicationAsync(accountKey, viaSafe);   // the same application both ways: one entry
+            var same = await approverClient.GetFromJsonAsync<List<ApplicationScopedExceptionResponse>>($"/api/account-progress/{accountKey}/application-exceptions");
+            Assert.Equal(viaSafe, Assert.Single(same!).ApplicationKey);
+        }
+        finally
+        {
+            await SetAccountApplicationAsync(accountKey, null);
             await adminClient.PutAsJsonAsync($"/api/safes/{safeKey}/application", (int?)null);
         }
     }
