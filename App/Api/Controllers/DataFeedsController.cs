@@ -126,6 +126,7 @@ public sealed class DataFeedsController(
         Track("IsEnabled", before.IsEnabled.ToString(), request.IsEnabled.ToString());
         Track("DisplayOrder", before.DisplayOrder.ToString(), request.DisplayOrder.ToString());
         Track("SourceSystemKey", before.SourceSystemKey?.ToString(), request.SourceSystemKey?.ToString());
+        Track("SkipGroupRows", before.SkipGroupRows.ToString(), request.SkipGroupRows.ToString());
         if (changes.Count > 0)
         {
             await auditLogger.LogAsync("FieldEdit", user.UserKey, "data_feed", dataFeedKey.ToString(), fieldChanges: changes);
@@ -301,6 +302,7 @@ public sealed class DataFeedsController(
         {
             errors.Add("Only an account inventory feed has a source system.");
         }
+        if (request.SkipGroupRows && request.FeedType != AccountInventoryFeedType) errors.Add("Only an account inventory feed can skip group rows.");   // D-237
 
         if (request.ImportMappingProfileKey is { } profileKey)
         {

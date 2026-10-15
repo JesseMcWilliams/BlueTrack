@@ -19,6 +19,8 @@ public sealed class DataFeedSummary
     /// <summary>D-212: AccountInventory feeds only -- the system the accounts come from.</summary>
     public int? SourceSystemKey { get; init; }
     public string? SourceSystemName { get; init; }
+    /// <summary>D-237: AccountInventory feeds only -- skip rows whose UserName is a group ("*... group*").</summary>
+    public bool SkipGroupRows { get; init; }
     public DataFeedRunSummary? LastRun { get; set; }
 }
 
@@ -33,6 +35,8 @@ public sealed class SaveDataFeedRequest
     public int DisplayOrder { get; init; }
     /// <summary>D-212: required for AccountInventory, empty for every other feed type.</summary>
     public int? SourceSystemKey { get; init; }
+    /// <summary>D-237: only for an AccountInventory feed.</summary>
+    public bool SkipGroupRows { get; init; }
 }
 
 /// <summary>D-212: a dim_source_system row an AccountInventory feed can use.</summary>

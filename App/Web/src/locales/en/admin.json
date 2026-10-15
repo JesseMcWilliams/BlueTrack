@@ -199,6 +199,8 @@
     "chooseSourceSystem": "Choose the system the accounts come from",
     "newSourceSystem": "+ New source system",
     "sourceSystemHint": "Accounts are identified by UserName and Address within this system. Accounts of this system missing from the file are marked deleted.",
+    "skipGroupRows": "Skip group rows",
+    "skipGroupRowsHint": "Skips rows whose UserName starts and ends with * and contains the word group, in any case (a pending-accounts export lists its groups that way, for example *Domain Admins Group*). Skipped rows are not accounts and are not errors; a group an earlier run imported is marked deleted.",
     "sourceNameLabel": "Source name:",
     "sourceNamePlaceholder": "Linux servers (CMDB)",
     "sourceCodeLabel": "Source code:",

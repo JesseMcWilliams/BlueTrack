@@ -68,6 +68,27 @@ describe('DataFeedEdit.vue source system (D-212)', () => {
     expect(wrapper.text()).not.toContain('Source system:')
   })
 
+  it('shows Skip group rows only for an account inventory feed, and saves it (D-237)', async () => {
+    routeFetch({
+      'GET /api/admin/data-feeds/options': jsonResponse(options),
+      'POST /api/admin/data-feeds': jsonResponse({ dataFeedKey: 7 }, true, 201)
+    })
+    const { wrapper } = await mountNew()
+    const importSelect = wrapper.findAll('select')[0]
+
+    await importSelect.setValue('SafeAssignments')
+    expect(wrapper.text()).not.toContain('Skip group rows')
+
+    await importSelect.setValue('AccountInventory')
+    expect(wrapper.text()).toContain('Skip group rows')
+    await wrapper.find('input[type=checkbox]').setValue(true)
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+
+    const saveCall = globalThis.fetch.mock.calls.find(([url, init]) => url === '/api/admin/data-feeds' && init?.method === 'POST')
+    expect(JSON.parse(saveCall[1].body)).toMatchObject({ feedType: 'AccountInventory', skipGroupRows: true })
+  })
+
   it('adds a new source system, selects it, and saves the feed with it', async () => {
     routeFetch({
       'GET /api/admin/data-feeds/options': jsonResponse(options),

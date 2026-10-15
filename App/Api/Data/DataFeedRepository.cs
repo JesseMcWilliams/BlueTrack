@@ -13,7 +13,7 @@ public sealed class DataFeedRepository(IDbConnectionFactory connectionFactory)
     private const string FeedColumns = """
         f.DataFeedKey, f.DisplayName, f.FeedType, f.FolderPath, f.FileNamePattern,
         f.ImportMappingProfileKey, p.ProfileName AS ImportMappingProfileName, f.IsEnabled, f.DisplayOrder,
-        f.SourceSystemKey, ss.SourceSystemName
+        f.SourceSystemKey, ss.SourceSystemName, f.SkipGroupRows
         """;
 
     private const string RunColumns = """
@@ -65,13 +65,13 @@ public sealed class DataFeedRepository(IDbConnectionFactory connectionFactory)
     {
         using var connection = connectionFactory.Create();
         return await connection.QuerySingleAsync<int>("""
-            INSERT INTO web.data_feed (DisplayName, FeedType, FolderPath, FileNamePattern, ImportMappingProfileKey, IsEnabled, DisplayOrder, SourceSystemKey, CreatedBy)
+            INSERT INTO web.data_feed (DisplayName, FeedType, FolderPath, FileNamePattern, ImportMappingProfileKey, IsEnabled, DisplayOrder, SourceSystemKey, SkipGroupRows, CreatedBy)
             OUTPUT inserted.DataFeedKey
-            VALUES (@DisplayName, @FeedType, @FolderPath, @FileNamePattern, @ImportMappingProfileKey, @IsEnabled, @DisplayOrder, @SourceSystemKey, @userKey)
+            VALUES (@DisplayName, @FeedType, @FolderPath, @FileNamePattern, @ImportMappingProfileKey, @IsEnabled, @DisplayOrder, @SourceSystemKey, @SkipGroupRows, @userKey)
             """, new
         {
             request.DisplayName, request.FeedType, request.FolderPath, request.FileNamePattern,
-            request.ImportMappingProfileKey, request.IsEnabled, request.DisplayOrder, request.SourceSystemKey, userKey
+            request.ImportMappingProfileKey, request.IsEnabled, request.DisplayOrder, request.SourceSystemKey, request.SkipGroupRows, userKey
         });
     }
 
@@ -83,12 +83,12 @@ public sealed class DataFeedRepository(IDbConnectionFactory connectionFactory)
             UPDATE web.data_feed
             SET DisplayName = @DisplayName, FeedType = @FeedType, FolderPath = @FolderPath, FileNamePattern = @FileNamePattern,
                 ImportMappingProfileKey = @ImportMappingProfileKey, IsEnabled = @IsEnabled, DisplayOrder = @DisplayOrder,
-                SourceSystemKey = @SourceSystemKey, ModifiedBy = @userKey, ModifiedDate = SYSUTCDATETIME()
+                SourceSystemKey = @SourceSystemKey, SkipGroupRows = @SkipGroupRows, ModifiedBy = @userKey, ModifiedDate = SYSUTCDATETIME()
             WHERE DataFeedKey = @dataFeedKey
             """, new
         {
             request.DisplayName, request.FeedType, request.FolderPath, request.FileNamePattern,
-            request.ImportMappingProfileKey, request.IsEnabled, request.DisplayOrder, request.SourceSystemKey, userKey, dataFeedKey
+            request.ImportMappingProfileKey, request.IsEnabled, request.DisplayOrder, request.SourceSystemKey, request.SkipGroupRows, userKey, dataFeedKey
         });
         return affected > 0;
     }
