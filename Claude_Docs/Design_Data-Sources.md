@@ -29,7 +29,7 @@
 | CyberArk file names (phase 3) | **All seven editable** on the page, with `{date}` tokens (D-211). | 2026-10-13 |
 | Installer vs. page (phase 3) | The installer writes the settings **only when none exist**; afterwards the page owns them and the installer warns if they differ (D-211). | 2026-10-13 |
 | CyberArk Test (phase 3) | EVD database exists; folder and today's files as the App Pool sees them, noting SQL Server reads them as its own account (D-211). | 2026-10-13 |
-| Feed account identity (phase 4) | `SourceAccountId` = lowercase trimmed `username@address` (D-212). | 2026-10-13 |
+| Feed account identity (phase 4) | `SourceAccountId` = lowercase trimmed `username@address` (D-212), at most 400 characters (D-236). | 2026-10-13 |
 | Auto-advance (phase 4) | Only `PRIVCLOUD`/`SELFHOSTED` accounts auto-advance (D-212). | 2026-10-13 |
 | Recording a link (phase 4) | `FieldEdit` audit event with a field change, by the Data Feeds system user (D-212). | 2026-10-13 |
 | Remediation report permission (phase 4) | `ConfirmReconciliation` (D-212). | 2026-10-13 |

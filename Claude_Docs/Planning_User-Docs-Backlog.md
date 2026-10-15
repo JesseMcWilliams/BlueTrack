@@ -5,3 +5,4 @@
 | Date | Change | User doc / section it affects |
 |---|---|---|
 | 2026-10-15 | `Update-BlueTrack.ps1` no longer changes the download folder's permissions; it warns, and `-LockDownFolder` limits the folder unless it's already restricted (D-235). | `Admin_OperationsGuide.md` and `Admin_DeploymentRunbook.md` (Updating) |
+| 2026-10-15 | Account inventory feeds take a user name plus address of up to 400 characters (was 99; D-236, script 27). | `Admin_SettingsReference.md` (Data Sources, feeds) |

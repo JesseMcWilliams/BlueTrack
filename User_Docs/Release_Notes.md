@@ -10,6 +10,8 @@ What changed in each BlueTrack release, newest first, for users and administrato
 
 ### Fixed
 
+- **Account inventory feeds accept long user names and addresses.** A pending-accounts export, whose user names are SIDs, had rows rejected with "UserName and Address together are longer than 99 characters". An account's user name and address together can now be up to 400 characters. The upgrade (script 27) widens the database column; no other step is needed.
+
 ### Upgrading
 
 ## 1.0.6 (2026-10-15)

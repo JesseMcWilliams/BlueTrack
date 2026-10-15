@@ -42,7 +42,7 @@ public sealed class AccountInventoryImportService(
         ["UserName"] = 300, ["Address"] = 300, ["AccountName"] = 500, ["PlatformName"] = 200, ["OwnerName"] = 300, ["Notes"] = 2000
     };
 
-    private const int SourceAccountIdMaxLength = 100;
+    private const int SourceAccountIdMaxLength = 400;   // fact_account.SourceAccountId, NVARCHAR(400) since script 27 (D-236)
 
     /// <summary>fact_account.SourceAccountId for a feed account (D-212).</summary>
     public static string SourceAccountIdFor(string userName, string address) =>
@@ -80,7 +80,7 @@ public sealed class AccountInventoryImportService(
                 var address = Cell("Address") ?? throw new InvalidOperationException("Address is required.");
                 var sourceAccountId = SourceAccountIdFor(userName, address);
                 if (sourceAccountId.Length > SourceAccountIdMaxLength)
-                    throw new InvalidOperationException($"UserName and Address together are longer than {SourceAccountIdMaxLength - 1} characters, so the account can't be identified.");
+                    throw new InvalidOperationException($"UserName and Address together are longer than {SourceAccountIdMaxLength} characters, so the account can't be identified.");
                 if (!seen.Add(sourceAccountId))
                     throw new InvalidOperationException($"{userName} on {address} appears earlier in the file.");
 
