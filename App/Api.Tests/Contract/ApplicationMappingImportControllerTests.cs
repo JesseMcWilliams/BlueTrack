@@ -148,6 +148,88 @@ public class ApplicationMappingImportControllerTests : IClassFixture<BlueTrackWe
         }
     }
 
+    /// <summary>D-239: the same username and address in two sources; a Source narrows, an own application is overwritten, errors are per row.</summary>
+    [Fact]
+    public async Task AccountAssignmentsImport_AssignsMatchingAccounts_SourceNarrows_OverwritesAndReportsErrors()
+    {
+        var client = AdminClient();
+        var id = Guid.NewGuid().ToString("N")[..8];
+        var userName = $"ct_user_{id}";
+        var address = $"ct-host-{id}.example.com";
+        var codeA = $"CTA{id}";
+        var codeB = $"CTB{id}";
+        var accountKeys = new List<long>();
+
+        await using var connection = await OpenAsync();
+        async Task<long> AddAccountAsync(int sourceSystemKey, string suffix, string user, bool withProgress)
+        {
+            var key = await connection.QuerySingleAsync<long>(
+                "INSERT INTO dbo.fact_account (SourceSystemKey, SourceAccountId, AccountName, Address, UserName) OUTPUT inserted.AccountKey VALUES (@Source, @Id, @Name, @Address, @User)",
+                new { Source = sourceSystemKey, Id = $"ct-{id}-{suffix}", Name = $"CT account {suffix} {id}", Address = address, User = user });
+            accountKeys.Add(key);
+            if (withProgress)
+            {
+                await connection.ExecuteAsync("""
+                    INSERT INTO dbo.fact_account_progress (AccountKey, CurrentStageKey, CurrentStatusKey)
+                    SELECT @key, (SELECT TOP 1 StageKey FROM dbo.dim_blueprint_stage ORDER BY StageOrder),
+                                 (SELECT StatusKey FROM dbo.dim_progress_status WHERE StatusName = 'Not Started')
+                    """, new { key });
+            }
+            return key;
+        }
+
+        try
+        {
+            var privilegeCloud = await AddAccountAsync(1, "pc", userName, withProgress: true);
+            var selfHosted = await AddAccountAsync(2, "sh", userName, withProgress: true);
+            await AddAccountAsync(1, "np", $"ct_noprogress_{id}", withProgress: false);
+            await client.PostAsync("/api/admin/application-mapping/import/applications", BuildCsvUpload(
+                $"ApplicationCode,ApplicationName\n{codeA},CT App A {id}\n{codeB},CT App B {id}\n"));
+            var keyA = await connection.QuerySingleAsync<int>("SELECT ApplicationKey FROM web.dim_application WHERE ApplicationCode = @Code", new { Code = codeA });
+            var keyB = await connection.QuerySingleAsync<int>("SELECT ApplicationKey FROM web.dim_application WHERE ApplicationCode = @Code", new { Code = codeB });
+
+            // No Source: both accounts get App A (by code; username and address in other case). Error rows: unknown account, no address, unknown app, no progress record, bad source.
+            var first = await client.PostAsync("/api/admin/application-mapping/import/account-assignments", BuildCsvUpload(
+                "UserName,Address,Application,Source\n" +
+                $"{userName.ToUpperInvariant()},{address.ToUpperInvariant()},{codeA},\n" +
+                $"nobody_{id},{address},{codeA},\n" +
+                $"{userName},,{codeA},\n" +
+                $"{userName},{address},No Such App,\n" +
+                $"ct_noprogress_{id},{address},{codeA},\n" +
+                $"{userName},{address},{codeA},Mainframe\n"));
+            Assert.Equal(HttpStatusCode.OK, first.StatusCode);
+            var firstResult = (await first.Content.ReadFromJsonAsync<AccountAssignmentImportResponse>())!;
+            Assert.Equal((6, 2, 0, 0), (firstResult.TotalRows, firstResult.AssignedCount, firstResult.ChangedCount, firstResult.UnchangedCount));
+            Assert.Equal(new[] { 3, 4, 5, 6, 7 }, firstResult.Errors.Select(e => e.RowNumber));
+            Assert.Contains("no progress record", firstResult.Errors.Single(e => e.RowNumber == 6).Error);
+
+            // Source narrows to Self-Hosted; App B by NAME overwrites only that account's own application.
+            var second = await client.PostAsync("/api/admin/application-mapping/import/account-assignments", BuildCsvUpload(
+                $"UserName,Address,Application,Source\n{userName},{address},CT App B {id},SelfHosted\n"));
+            var secondResult = (await second.Content.ReadFromJsonAsync<AccountAssignmentImportResponse>())!;
+            Assert.Equal((0, 1, 0), (secondResult.AssignedCount, secondResult.ChangedCount, secondResult.UnchangedCount));
+
+            var assigned = (await connection.QueryAsync<(long AccountKey, int? ApplicationKey)>(
+                "SELECT AccountKey, ApplicationKey FROM dbo.fact_account_progress WHERE AccountKey IN (@A, @B)", new { A = privilegeCloud, B = selfHosted })).ToDictionary(r => r.AccountKey, r => r.ApplicationKey);
+            Assert.Equal(keyA, assigned[privilegeCloud]);
+            Assert.Equal(keyB, assigned[selfHosted]);
+
+            // Repeating the Self-Hosted row changes nothing.
+            var third = await client.PostAsync("/api/admin/application-mapping/import/account-assignments", BuildCsvUpload(
+                $"UserName,Address,Application,Source\n{userName},{address},{codeB},SelfHosted\n"));
+            Assert.Equal(1, (await third.Content.ReadFromJsonAsync<AccountAssignmentImportResponse>())!.UnchangedCount);
+        }
+        finally
+        {
+            if (accountKeys.Count > 0)
+            {
+                await connection.ExecuteAsync("DELETE FROM dbo.fact_account_progress WHERE AccountKey IN @Keys", new { Keys = accountKeys });
+                await connection.ExecuteAsync("DELETE FROM dbo.fact_account WHERE AccountKey IN @Keys", new { Keys = accountKeys });
+            }
+            await connection.ExecuteAsync("DELETE FROM web.dim_application WHERE ApplicationCode IN (@A, @B)", new { A = codeA, B = codeB });
+        }
+    }
+
     [Fact]
     public async Task Templates_ListTheFixedColumns()
     {
@@ -155,9 +237,11 @@ public class ApplicationMappingImportControllerTests : IClassFixture<BlueTrackWe
 
         var applications = await client.GetStringAsync("/api/admin/application-mapping/import/applications/template");
         var assignments = await client.GetStringAsync("/api/admin/application-mapping/import/safe-assignments/template");
+        var accountAssignments = await client.GetStringAsync("/api/admin/application-mapping/import/account-assignments/template");
 
         Assert.Equal("ApplicationCode,ApplicationName,Description,OwnerName,OwnerEmail,TechnicalName,TechnicalEmail,Notes", applications.Trim());
         Assert.Equal("SafeName,Application,Source", assignments.Trim());
+        Assert.Equal("UserName,Address,Application,Source", accountAssignments.Trim());   // D-239
     }
 
     [Fact]
@@ -173,5 +257,6 @@ public class ApplicationMappingImportControllerTests : IClassFixture<BlueTrackWe
 
     private sealed record RowError(int RowNumber, string Error);
     private sealed record ApplicationImportResponse(int TotalRows, int CreatedCount, int UpdatedCount, int UnchangedCount, List<RowError> Errors);
+    private sealed record AccountAssignmentImportResponse(int TotalRows, int AssignedCount, int ChangedCount, int UnchangedCount, List<RowError> Errors);
     private sealed record SafeAssignmentImportResponse(int TotalRows, int AssignedCount, int ChangedCount, int UnchangedCount, List<RowError> Errors);
 }

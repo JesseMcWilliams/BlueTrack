@@ -24,6 +24,30 @@ public sealed class SafeAssignmentImportResult
     public required IReadOnlyList<ImportRowError> Errors { get; init; }
 }
 
+/// <summary>
+/// D-239: result of the Account → Application assignments CSV import. Counts
+/// are per account, not per row: a username and address can match accounts in
+/// more than one source, and each matching account is assigned.
+/// </summary>
+public sealed class AccountAssignmentImportResult
+{
+    public int TotalRows { get; init; }
+    public int AssignedCount { get; init; }   // had no application of its own before
+    public int ChangedCount { get; init; }    // had a different application (overwritten)
+    public int UnchangedCount { get; init; }  // already had this application
+    public required IReadOnlyList<ImportRowError> Errors { get; init; }
+}
+
+/// <summary>D-239: an active account matched by username and address, with its own application.</summary>
+public sealed class AccountForMatching
+{
+    public long AccountKey { get; init; }
+    public required string AccountName { get; init; }
+    public required string SourceSystemName { get; init; }
+    public int? ApplicationKey { get; init; }
+    public bool HasProgress { get; init; }
+}
+
 /// <summary>One dbo.dim_safe row with its source, for matching import rows by name.</summary>
 public sealed class SafeForMatching
 {

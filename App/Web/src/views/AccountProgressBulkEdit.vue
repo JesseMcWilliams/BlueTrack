@@ -27,6 +27,7 @@ const fields = [
   { field: 'RiskLevelKey', labelKey: 'pages.accountProgressBulkEdit.fieldRiskLevel', type: 'select', table: 'dim_risk_level' },
   { field: 'AccountTypeKey', labelKey: 'pages.accountProgressBulkEdit.fieldAccountType', type: 'select', table: 'dim_account_type' },
   { field: 'SORKey', labelKey: 'pages.accountProgressBulkEdit.fieldSourceOfRecord', type: 'select', table: 'dim_source_of_record' },
+  { field: 'ApplicationKey', labelKey: 'pages.accountProgressBulkEdit.fieldApplication', type: 'select', table: 'dim_application' },   // D-239
   { field: 'OwnerName', labelKey: 'pages.accountProgressBulkEdit.fieldOwner', type: 'text' },
   { field: 'BusinessUnit', labelKey: 'pages.accountProgressBulkEdit.fieldBusinessUnit', type: 'text' },
   { field: 'TargetRemediationDate', labelKey: 'pages.accountProgressBulkEdit.fieldTargetRemediationDate', type: 'date' },

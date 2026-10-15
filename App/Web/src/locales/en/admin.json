@@ -58,7 +58,11 @@
     "assignmentsHeading": "Bulk Import: Safe → Application Assignments",
     "assignmentsIntro": "-- one row per safe: SafeName, Application (its code or name; it must already exist), and an optional Source (PrivilegeCloud or SelfHosted). Without a Source, every safe with that name is assigned. An existing assignment is replaced; safes not in the file are left alone.",
     "assignmentsFileLabel": "Safe assignments CSV file",
-    "assignmentsSummary": "{total} rows -- {assigned} safes assigned, {changed} changed, {unchanged} unchanged, {errors} errors"
+    "assignmentsSummary": "{total} rows -- {assigned} safes assigned, {changed} changed, {unchanged} unchanged, {errors} errors",
+    "accountAssignmentsHeading": "Bulk Import: Account → Application Assignments",
+    "accountAssignmentsIntro": "-- one row per account: UserName and Address (both required; matched ignoring case), Application (its code or name; it must already exist), and an optional Source (PrivilegeCloud, SelfHosted or a source system name) for the same username and address in more than one source. An account's own application is replaced; accounts not in the file are left alone.",
+    "accountAssignmentsFileLabel": "Account assignments CSV file",
+    "accountAssignmentsSummary": "{total} rows -- {assigned} accounts assigned, {changed} changed, {unchanged} unchanged, {errors} errors"
   },
   "auditLogViewer": {
     "occurredAt": "Occurred At",

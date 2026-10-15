@@ -28,6 +28,10 @@ public sealed class ApplicationMappingImportController(
     public IActionResult GetSafeAssignmentsTemplate() =>
         File(Encoding.UTF8.GetBytes("SafeName,Application,Source\r\n"), "text/csv", "safe-assignments-template.csv");
 
+    [HttpGet("account-assignments/template")]
+    public IActionResult GetAccountAssignmentsTemplate() =>
+        File(Encoding.UTF8.GetBytes("UserName,Address,Application,Source\r\n"), "text/csv", "account-assignments-template.csv");
+
     [HttpPost("applications")]
     [RequestSizeLimit(30_000_000)]   // D-198: also outside IIS, whose default is ~30 MB
     public async Task<IActionResult> ImportApplications(IFormFile file)
@@ -48,5 +52,16 @@ public sealed class ApplicationMappingImportController(
 
         var rows = await CsvFileReader.ReadRowsAsync(file.OpenReadStream());
         return Ok(await importService.ImportSafeAssignmentsAsync(rows, user.UserKey));
+    }
+
+    [HttpPost("account-assignments")]
+    [RequestSizeLimit(30_000_000)]   // D-198: also outside IIS, whose default is ~30 MB
+    public async Task<IActionResult> ImportAccountAssignments(IFormFile file)
+    {
+        var user = await currentUserResolver.ResolveAsync(User);
+        if (user is null) return Unauthorized();
+
+        var rows = await CsvFileReader.ReadRowsAsync(file.OpenReadStream());
+        return Ok(await importService.ImportAccountAssignmentsAsync(rows, user.UserKey));
     }
 }
