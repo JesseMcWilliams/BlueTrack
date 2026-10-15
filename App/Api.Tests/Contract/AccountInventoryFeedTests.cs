@@ -220,6 +220,43 @@ public class AccountInventoryFeedTests : IClassFixture<BlueTrackWebApplicationFa
         }
     }
 
+    /// <summary>D-236: a pending-accounts export's SID user name and long address (over 100 characters together) are accepted; one over 400 is a row error.</summary>
+    [Fact]
+    public async Task Run_AcceptsALongIdentity_AndReportsOneOverTheLimit()
+    {
+        var client = AdminClient();
+        var source = await CreateSourceAsync(client);
+        var folder = Directory.CreateTempSubdirectory("BlueTrackAccountFeed_").FullName;
+        var file = Path.Combine(folder, "accounts.csv");
+        try
+        {
+            var created = await client.PostAsJsonAsync("/api/admin/data-feeds", Feed($"CT_{Guid.NewGuid():N}", folder, source.SourceSystemKey));
+            var key = (await created.Content.ReadFromJsonAsync<KeyResponse>())!.DataFeedKey;
+
+            var sid = "S-1-5-21-1004336348-1177238915-682003330-512345";
+            var longAddress = "workstation-" + new string('a', 100) + ".corp.example.com";
+            var tooLong = new string('b', 380) + "@" + new string('c', 30);   // 411 characters
+            await File.WriteAllTextAsync(file,
+                "UserName,Address\r\n" +
+                $"{sid},{longAddress}\r\n" +
+                $"{tooLong.Split('@')[0]},{tooLong.Split('@')[1]}\r\n");
+            var run = await RunAndWaitAsync(client, key);
+
+            Assert.Equal("CompletedWithErrors", run.Outcome);
+            Assert.Equal(1, run.ErrorRows);
+            Assert.StartsWith("1 created", run.Summary);
+            var accounts = await AccountsAsync(source.SourceSystemKey);
+            var account = Assert.Single(accounts);
+            Assert.Equal($"{sid}@{longAddress}".ToLowerInvariant(), account.SourceAccountId);
+            Assert.True(account.SourceAccountId.Length > 100);
+        }
+        finally
+        {
+            await RemoveSourceAsync(source.SourceSystemKey);
+            Directory.Delete(folder, recursive: true);
+        }
+    }
+
     private sealed record CyberArkAccount(long AccountKey, string AccountName, string UserName, string Address);
     private sealed record ListRow(long AccountKey, string? SourceSystemCode, long? LinkedToAccountKey, string? LinkedToAccountName);
 
