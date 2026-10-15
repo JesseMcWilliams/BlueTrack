@@ -68,7 +68,7 @@ EXEC usp_RunFullLoad;
 
 `Deploy/Update-BlueTrack.ps1` downloads a new version from GitHub and offers to redeploy this site from it with the site's saved installer answers. It needs only PowerShell and HTTPS access to `github.com`; git isn't needed on the server. Full detail: `Deploy/README.md`, "Updating to a new version".
 
-1. **Run it from an elevated (Run as Administrator) PowerShell session**, in the current copy's `Deploy` folder. It refuses to run otherwise: it limits the download folder to Administrators and SYSTEM, since the scripts it downloads are later run elevated.
+1. **Run it from an elevated (Run as Administrator) PowerShell session**, in the current copy's `Deploy` folder. It refuses to run otherwise, since the scripts it downloads are later run elevated. It doesn't change the download folder's permissions, but warns if someone other than Administrators, SYSTEM or TrustedInstaller can change it; add `-LockDownFolder` to limit it to Administrators and SYSTEM (use a folder of its own, not the backup folder: this resets the permissions of everything inside).
 2. **Choose what to install**:
    ```powershell
    .\Update-BlueTrack.ps1                                   # the latest release

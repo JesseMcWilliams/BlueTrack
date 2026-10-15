@@ -30,6 +30,16 @@
     saved answers (Deploy\State\answers.<SiteName>.json). If it isn't set,
     -DownloadFolder sets it, or the script asks once; either way it's saved.
 
+    D-235: the script does not change the download folder's permissions
+    unless you pass -LockDownFolder. Without it, it only checks: if the
+    folder's owner, or anyone who can change it, isn't Administrators, SYSTEM
+    or TrustedInstaller, it warns and names them (the installer runs
+    elevated from here), and changes nothing. With -LockDownFolder, a folder
+    that already passes that check is left as it is; otherwise it is made
+    Administrators-owned and limited to Administrators and SYSTEM, contents
+    included. Don't use it when the folder also holds other things (a backup
+    folder), because that resets their permissions too.
+
     Afterwards it copies the saved answers into the new copy's Deploy\State
     and asks whether to run that copy's Install-BlueTrack.ps1 with them (a
     full redeploy, which includes the pre-deployment backup). -RunInstaller
@@ -49,6 +59,10 @@
     when there's no release). For testing: a branch isn't a signed release.
 .PARAMETER DownloadFolder
     Where to put downloads; saved as UpdateDownloadFolder for next time.
+.PARAMETER LockDownFolder
+    Make Administrators the download folder's owner and limit it (contents
+    included) to Administrators and SYSTEM, unless it already is. Off by
+    default: permissions you set are never changed.
 .PARAMETER RunInstaller
     Run the downloaded copy's installer without asking.
 .PARAMETER Repository
@@ -72,6 +86,7 @@ param(
     [Parameter(Mandatory, ParameterSetName = 'ListBranches')] [switch]$ListBranches,
     [switch]$AllowUnsignedBranch,
     [string]$DownloadFolder,
+    [switch]$LockDownFolder,
     [switch]$RunInstaller,
     [string]$Repository = 'JesseMcWilliams/BlueTrack'
 )
@@ -213,6 +228,35 @@ if ($isRelease) {
 #endregion
 
 #region Download and extract
+function Get-DownloadFolderAccess {
+    # D-235: read-only. Restricted = the owner, and every account that has an
+    # Allow rule granting write, delete, change-permissions or take-ownership,
+    # is Administrators, SYSTEM or TrustedInstaller (CREATOR OWNER is ignored:
+    # it only applies to whoever created the item).
+    param([Parameter(Mandatory)] [string]$Path)
+    $trusted = @('S-1-5-32-544', 'S-1-5-18', 'S-1-3-0', 'S-1-5-80-956008885-3418522649-1831038044-1853292631-2271478464')
+    $change = [int][Security.AccessControl.FileSystemRights]'WriteData, AppendData, WriteExtendedAttributes, WriteAttributes, Delete, DeleteSubdirectoriesAndFiles, ChangePermissions, TakeOwnership'
+    $sidType = [Security.Principal.SecurityIdentifier]
+    $acl = Get-Acl -LiteralPath $Path
+    $owner = $acl.GetOwner($sidType)
+    $changers = New-Object System.Collections.Generic.List[string]
+    foreach ($rule in $acl.GetAccessRules($true, $true, $sidType)) {
+        if ($rule.AccessControlType -ne 'Allow') { continue }
+        if (([int]$rule.FileSystemRights -band $change) -eq 0) { continue }
+        if ($rule.IdentityReference.Value -in $trusted) { continue }
+        $name = try { $rule.IdentityReference.Translate([Security.Principal.NTAccount]).Value } catch { $rule.IdentityReference.Value }
+        if (-not $changers.Contains($name)) { $changers.Add($name) }
+    }
+    $ownerName = try { $owner.Translate([Security.Principal.NTAccount]).Value } catch { $owner.Value }
+    $ownerTrusted = $owner.Value -in $trusted
+    [pscustomobject]@{
+        Restricted   = $ownerTrusted -and $changers.Count -eq 0
+        OwnerTrusted = $ownerTrusted
+        Owner        = $ownerName
+        Changers     = $changers.ToArray()
+    }
+}
+
 $target = Join-Path $DownloadFolder "BlueTrack-$label"
 if (Test-Path $target) {
     throw "$target already exists -- that version was downloaded before. Delete or rename it to download again."
@@ -221,16 +265,29 @@ if (-not $PSCmdlet.ShouldProcess($target, "Download $Repository at '$ref' and ex
 
 New-Item -ItemType Directory -Path $DownloadFolder -Force | Out-Null
 # D-197: what's extracted here is later run elevated (the installer), so only
-# Administrators and SYSTEM may change it. A folder created under C:\ inherits
-# "Authenticated Users: Modify", and one a non-admin created first is theirs,
-# so the folder is re-owned and re-locked on every run, contents included.
+# Administrators and SYSTEM should be able to change it. D-235: the script only
+# changes the permissions when asked (-LockDownFolder) and the folder doesn't
+# already pass the check; otherwise it warns and leaves them alone.
 $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltinRole]::Administrator)
 if (-not $isAdmin) {
-    throw 'Run this from an elevated (Run as Administrator) PowerShell session: the download folder is locked to Administrators, since its scripts are later run elevated.'
+    throw 'Run this from an elevated (Run as Administrator) PowerShell session: the scripts it downloads are later run elevated.'
 }
-& icacls $DownloadFolder /setowner '*S-1-5-32-544' /T /C /Q | Out-Null
-& icacls $DownloadFolder /inheritance:r /grant:r '*S-1-5-32-544:(OI)(CI)F' '*S-1-5-18:(OI)(CI)F' /T /C /Q | Out-Null
-if ($LASTEXITCODE -ne 0) { throw "Could not limit '$DownloadFolder' to Administrators and SYSTEM (icacls exit code $LASTEXITCODE)." }
+$folderAccess = Get-DownloadFolderAccess -Path $DownloadFolder
+if ($folderAccess.Restricted) {
+    Write-Host "Download folder: only Administrators, SYSTEM and TrustedInstaller can change it; its permissions are left as they are."
+} elseif ($LockDownFolder) {
+    # /reset drops explicit entries too; /inheritance:r alone keeps them.
+    & icacls $DownloadFolder /reset /T /C /Q | Out-Null
+    & icacls $DownloadFolder /setowner '*S-1-5-32-544' /T /C /Q | Out-Null
+    & icacls $DownloadFolder /inheritance:r /grant:r '*S-1-5-32-544:(OI)(CI)F' '*S-1-5-18:(OI)(CI)F' /T /C /Q | Out-Null
+    if ($LASTEXITCODE -ne 0) { throw "Could not limit '$DownloadFolder' to Administrators and SYSTEM (icacls exit code $LASTEXITCODE)." }
+    if (-not (Get-DownloadFolderAccess -Path $DownloadFolder).Restricted) { throw "Limited '$DownloadFolder', but it can still be changed by someone other than Administrators and SYSTEM; check its permissions." }
+    Write-Host "Download folder: limited to Administrators and SYSTEM."
+} else {
+    $changers = @($folderAccess.Changers)
+    if (-not $folderAccess.OwnerTrusted) { $changers += "its owner, $($folderAccess.Owner)" }
+    Write-Warning ("The download folder '$DownloadFolder' can be changed by: $($changers -join ', '). The installer in what is downloaded here runs as an administrator, so anyone who can change this folder can run code as one. Its permissions are left as they are; pass -LockDownFolder to limit it to Administrators and SYSTEM (this also resets the permissions of everything inside it).")
+}
 
 $zip = Join-Path $DownloadFolder "BlueTrack-$label.zip"
 $staging = Join-Path $DownloadFolder "BlueTrack-$label.extracting"

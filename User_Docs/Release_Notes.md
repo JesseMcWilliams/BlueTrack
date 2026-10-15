@@ -8,9 +8,13 @@ What changed in each BlueTrack release, newest first, for users and administrato
 
 ### Changed
 
+- **Update-BlueTrack.ps1 no longer changes the download folder's permissions.** It used to take ownership of the whole download folder and limit it to Administrators and SYSTEM on every run, which also reset the permissions of anything else kept in it, such as the backup folder. Now it only warns when someone other than Administrators, SYSTEM or TrustedInstaller can change the folder (they could run code as an administrator through the installer), and leaves it alone. The new **-LockDownFolder** switch limits the folder as before, but skips a folder that is already restricted.
+
 ### Fixed
 
 ### Upgrading
+
+- **If you used Update-BlueTrack.ps1 before**, its earlier runs already limited your download folder; nothing changes there. If the folder and its contents should be locked down and the script warns about it, run it once with `-LockDownFolder`, using a folder that holds only downloaded versions.
 
 ## 1.0.5 (2026-10-14)
 
