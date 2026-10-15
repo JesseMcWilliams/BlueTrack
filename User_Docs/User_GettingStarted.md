@@ -147,6 +147,7 @@ The **Details** tab of an account shows these fields (your administrator can adj
 - **Blueprint Stage** and **Status** (both required).
 - **Risk Level**: Low, Medium, High or Critical, chosen during assessment.
 - **Account Type** and **Source of Record**: may already be filled in, based on the account's CyberArk platform. Correct them if they're wrong for this account.
+- **Application**: the application this account belongs to. An account in a Safe that is mapped to an application already counts under it; set this for an account with no Safe (such as a pending account) or one that belongs to a different application from its Safe. A risk exception on the application covers both kinds.
 - **Owner Name** and **Business Unit**: who is responsible for the account.
 - **Target Remediation Date**: when the account should be done. Once this date passes without an **Actual Completion Date**, the account shows up as overdue.
 - **Actual Completion Date**: when it was actually done.

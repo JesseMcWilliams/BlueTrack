@@ -38,7 +38,7 @@ public class AccountProgressBulkEditTests : IClassFixture<BlueTrackWebApplicatio
         await Repository().UpdateAsync(before.AccountKey, new SaveAccountProgressRequest
         {
             CurrentStageKey = before.CurrentStageKey, CurrentStatusKey = before.CurrentStatusKey, RiskLevelKey = before.RiskLevelKey,
-            AccountTypeKey = before.AccountTypeKey, SORKey = before.SORKey, OwnerName = before.OwnerName, BusinessUnit = before.BusinessUnit,
+            AccountTypeKey = before.AccountTypeKey, SORKey = before.SORKey, ApplicationKey = before.ApplicationKey, OwnerName = before.OwnerName, BusinessUnit = before.BusinessUnit,
             TargetRemediationDate = before.TargetRemediationDate, ActualCompletionDate = before.ActualCompletionDate, Notes = before.Notes
         }, before.ExceptionKey);
 
@@ -54,6 +54,37 @@ public class AccountProgressBulkEditTests : IClassFixture<BlueTrackWebApplicatio
     private sealed record Skipped(long AccountKey, string? AccountName, string Reason);
     private sealed record BulkResult(int Requested, int Updated, int Unchanged, List<Skipped> Skipped);
     private sealed record KeysResult(int MatchingCount, int MaxAccounts, List<long> AccountKeys);
+
+    /// <summary>D-238: a bulk edit of other fields keeps the account's own Application.</summary>
+    [Fact]
+    public async Task BulkEdit_LeavesTheAccountsOwnApplicationAlone()
+    {
+        var accountKey = await TestAccounts.GetAccountKeyAsync("TestAccount02");
+        await new AccountProgressLockRepository(new TestDbConnectionFactory()).ForceReleaseAsync(accountKey);
+        var before = (await Repository().GetDetailAsync(accountKey))!;
+        var suffix = Guid.NewGuid().ToString("N")[..12];
+        var admin = Client("TestUser.Admin");
+        var created = await admin.PostAsJsonAsync("/api/applications", new { applicationCode = $"CTBULK{suffix}", applicationName = $"Bulk test {suffix}" });
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        var applicationKey = (await created.Content.ReadFromJsonAsync<ApplicationCreated>())!.ApplicationKey;
+        await using (var connection = new SqlConnection(TestDatabase.ConnectionString))
+            await connection.ExecuteAsync("UPDATE dbo.fact_account_progress SET ApplicationKey = @applicationKey WHERE AccountKey = @accountKey", new { accountKey, applicationKey });
+        try
+        {
+            var response = await Client("TestUser.Analyst").PostAsJsonAsync("/api/account-progress/bulk-edit", new
+            {
+                accountKeys = new[] { accountKey }, fields = new[] { "BusinessUnit" }, businessUnit = $"Bulk-{suffix}"
+            });
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            Assert.Equal(applicationKey, (await Repository().GetDetailAsync(accountKey))!.ApplicationKey);
+        }
+        finally
+        {
+            await RestoreAsync(before);
+        }
+    }
+
+    private sealed record ApplicationCreated(int ApplicationKey);
 
     [Fact]
     public async Task BulkEdit_ChangesOnlyTheChosenFields_AppendsNotes_AndLogsASummary()

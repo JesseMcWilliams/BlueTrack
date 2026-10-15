@@ -44,6 +44,7 @@ instead.
 | 26 | `26_BlueTrack_SiemForwarding.sql` | D-234: SIEM forwarding. `web.audit_event.WriteVersion` (ROWVERSION, unique index; the forwarder's watermark, read only below `MIN_ACTIVE_ROWVERSION()` so a late-committing row is never skipped); `web.siem_forwarding_config` (one row, off by default), `web.siem_event_type_setting` (forwarded and CEF severity per audit event type, seeded for every existing type), `web.siem_forwarding_state` (watermark, last send/error, the single-sender lease); `usp_PurgeAuditLog` redefined to keep rows not yet forwarded while forwarding is on -- later changes to it must keep that. |
 | 27 | `27_BlueTrack_AccountIdentityLength.sql` | D-236: `fact_account.SourceAccountId` widened from NVARCHAR(100) to NVARCHAR(400) (the unique key `UQ_fact_account` is dropped and re-added around it), so a feed account's `username@address` can be up to 400 characters. |
 | 28 | `28_BlueTrack_FeedSkipGroupRows.sql` | D-237: `web.data_feed.SkipGroupRows` (BIT, default 0): an account inventory feed with it on skips rows whose `UserName` is a group. |
+| 29 | `29_BlueTrack_AccountApplication.sql` | D-238: `fact_account_progress.ApplicationKey` (an account's own Application; FK, index), the Application dropdown on the Account Progress edit form (`account_progress_field_metadata`), and `web.vw_account_application_exception` rebuilt to cover an account through its own application and its Safe's. |
 
 ## The baseline (D-195)
 
@@ -68,7 +69,7 @@ scripts but not up to `51` is refused; upgrade it first from the
 
 ## Adding a script
 
-1. Name it `NN_BlueTrack_<Topic>.sql`, with `NN` the next number (`29` is next).
+1. Name it `NN_BlueTrack_<Topic>.sql`, with `NN` the next number (`30` is next).
 2. Start with a header comment: the file name, `RUN THIS AFTER 01-NN.`, what
    it changes and why (with the `D-n` decision), and whether it's safe to
    re-run.

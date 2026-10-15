@@ -139,6 +139,7 @@ public sealed class AccountProgressBulkEditService(
             ActualCompletionDate = Has("ActualCompletionDate") ? bulk.ActualCompletionDate : before.ActualCompletionDate,
             Notes = notes,
             Reason = bulk.Reason,
+            ApplicationKey = before.ApplicationKey,   // D-238: bulk edit leaves the account's own application alone
             ExceptionKey = before.ExceptionKey
         };
     }

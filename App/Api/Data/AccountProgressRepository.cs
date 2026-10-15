@@ -230,7 +230,7 @@ public sealed class AccountProgressRepository(IDbConnectionFactory connectionFac
         const string sql = """
             SELECT
                 fap.ProgressKey, fap.AccountKey, fa.AccountName, fa.UserName, fa.Address,
-                fap.CurrentStageKey, fap.CurrentStatusKey, fap.RiskLevelKey, fap.AccountTypeKey, fap.SORKey,
+                fap.CurrentStageKey, fap.CurrentStatusKey, fap.RiskLevelKey, fap.AccountTypeKey, fap.SORKey, fap.ApplicationKey,
                 fap.OwnerName, fap.BusinessUnit, fap.TargetRemediationDate, fap.ActualCompletionDate, fap.Notes,
                 fap.LastUpdated, fap.ExceptionKey,
                 ars.ComputedRiskScore, ars.OverrideRiskScore, ars.EffectiveRiskScore, band.BandName AS RiskScoreBandName,
@@ -267,7 +267,7 @@ public sealed class AccountProgressRepository(IDbConnectionFactory connectionFac
         const string sql = """
             UPDATE dbo.fact_account_progress
             SET CurrentStageKey = @CurrentStageKey, CurrentStatusKey = @CurrentStatusKey, RiskLevelKey = @RiskLevelKey,
-                AccountTypeKey = @AccountTypeKey, SORKey = @SORKey, OwnerName = @OwnerName, BusinessUnit = @BusinessUnit,
+                AccountTypeKey = @AccountTypeKey, SORKey = @SORKey, ApplicationKey = @ApplicationKey, OwnerName = @OwnerName, BusinessUnit = @BusinessUnit,
                 TargetRemediationDate = @TargetRemediationDate, ActualCompletionDate = @ActualCompletionDate,
                 Notes = @Notes, ExceptionKey = @ExceptionKey, LastUpdated = SYSUTCDATETIME()
             WHERE AccountKey = @AccountKey
@@ -280,6 +280,7 @@ public sealed class AccountProgressRepository(IDbConnectionFactory connectionFac
             request.RiskLevelKey,
             request.AccountTypeKey,
             request.SORKey,
+            request.ApplicationKey,
             request.OwnerName,
             request.BusinessUnit,
             request.TargetRemediationDate,

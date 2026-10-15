@@ -21,6 +21,8 @@ public sealed class AccountProgressDetail
     public int? RiskLevelKey { get; init; }
     public int? AccountTypeKey { get; init; }
     public int? SORKey { get; init; }
+    /// <summary>D-238: the account's own Application (in addition to its Safe's).</summary>
+    public int? ApplicationKey { get; init; }
     public string? OwnerName { get; init; }
     public string? BusinessUnit { get; init; }
     public DateTime? TargetRemediationDate { get; init; }
@@ -75,6 +77,8 @@ public sealed class SaveAccountProgressRequest
     public int? RiskLevelKey { get; init; }
     public int? AccountTypeKey { get; init; }
     public int? SORKey { get; init; }
+    /// <summary>D-238: null clears the account's own Application.</summary>
+    public int? ApplicationKey { get; init; }
     public string? OwnerName { get; init; }
     public string? BusinessUnit { get; init; }
     public DateTime? TargetRemediationDate { get; init; }

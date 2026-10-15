@@ -352,7 +352,7 @@ Saving the settings, or adding, changing, moving or deleting a rule, reclassifie
 
 ### Application ↔ Safe Mapping
 
-**Admin > Application ↔ Safe Mapping** (permission `CurateApplicationMapping`) has no settings. It holds data: each application's code, name, description, owner and technical contact, and which application each safe belongs to. Keep it current, because the risk reports group accounts by application.
+**Admin > Application ↔ Safe Mapping** (permission `CurateApplicationMapping`) has no settings. It holds data: each application's code, name, description, owner and technical contact, and which application each safe belongs to. Keep it current, because the risk reports group accounts by application. An account can also be assigned to an application on its own edit form (**Application**), in addition to its safe's; that is how an account with no safe, such as a pending account, belongs to one. When an account's own application and its safe's differ, both apply: an Active risk exception on either one covers the account, and Reports > Trends' Application filter counts it under either.
 
 ## 4. Deployment page and health checks
 

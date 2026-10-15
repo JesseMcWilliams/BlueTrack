@@ -20,7 +20,8 @@ public sealed class ReferenceDataRepository(IDbConnectionFactory connectionFacto
         ["dim_progress_status"] = "SELECT StatusKey AS [Key], StatusName AS [Name] FROM dbo.dim_progress_status ORDER BY StatusName",
         ["dim_risk_level"] = "SELECT RiskLevelKey AS [Key], RiskLevelName AS [Name] FROM dbo.dim_risk_level ORDER BY RiskOrder",
         ["dim_account_type"] = "SELECT AccountTypeKey AS [Key], AccountTypeName AS [Name] FROM dbo.dim_account_type ORDER BY AccountTypeName",
-        ["dim_source_of_record"] = "SELECT SORKey AS [Key], SORName AS [Name] FROM dbo.dim_source_of_record ORDER BY SORName"
+        ["dim_source_of_record"] = "SELECT SORKey AS [Key], SORName AS [Name] FROM dbo.dim_source_of_record ORDER BY SORName",
+        ["dim_application"] = "SELECT ApplicationKey AS [Key], ApplicationName AS [Name] FROM web.dim_application ORDER BY ApplicationName"
     };
 
     public async Task<IReadOnlyDictionary<string, IReadOnlyList<DropdownOption>>> GetAllReferenceDataAsync()

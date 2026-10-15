@@ -27,6 +27,7 @@ const formKeyByFieldName = {
   RiskLevelKey: 'riskLevelKey',
   AccountTypeKey: 'accountTypeKey',
   SORKey: 'sorKey',
+  ApplicationKey: 'applicationKey',   // D-238
   OwnerName: 'ownerName',
   BusinessUnit: 'businessUnit',
   TargetRemediationDate: 'targetRemediationDate',
@@ -323,6 +324,7 @@ function resetFormFromDetail() {
     riskLevelKey: detail.value.riskLevelKey,
     accountTypeKey: detail.value.accountTypeKey,
     sorKey: detail.value.sorKey,
+    applicationKey: detail.value.applicationKey,
     ownerName: detail.value.ownerName,
     businessUnit: detail.value.businessUnit,
     targetRemediationDate: detail.value.targetRemediationDate?.slice(0, 10) ?? '',
@@ -373,6 +375,7 @@ async function save() {
       riskLevelKey: form.value.riskLevelKey ? Number(form.value.riskLevelKey) : null,
       accountTypeKey: form.value.accountTypeKey ? Number(form.value.accountTypeKey) : null,
       sorKey: form.value.sorKey ? Number(form.value.sorKey) : null,
+      applicationKey: form.value.applicationKey ? Number(form.value.applicationKey) : null,
       ownerName: form.value.ownerName || null,
       businessUnit: form.value.businessUnit || null,
       targetRemediationDate: form.value.targetRemediationDate || null,

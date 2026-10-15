@@ -191,7 +191,7 @@ public sealed class RiskExceptionImportService(
             var result = await saveService.SaveAsync(accountKey, before, new SaveAccountProgressRequest
             {
                 CurrentStageKey = before.CurrentStageKey, CurrentStatusKey = riskAcceptedKey.Value, RiskLevelKey = before.RiskLevelKey,
-                AccountTypeKey = before.AccountTypeKey, SORKey = before.SORKey, OwnerName = before.OwnerName, BusinessUnit = before.BusinessUnit,
+                AccountTypeKey = before.AccountTypeKey, SORKey = before.SORKey, ApplicationKey = before.ApplicationKey, OwnerName = before.OwnerName, BusinessUnit = before.BusinessUnit,
                 TargetRemediationDate = before.TargetRemediationDate, ActualCompletionDate = before.ActualCompletionDate, Notes = before.Notes,
                 ExceptionKey = exceptionKey
             }, userKey, auditDetail: "Linked by the Risk Exceptions import");

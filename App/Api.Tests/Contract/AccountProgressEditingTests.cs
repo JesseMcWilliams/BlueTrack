@@ -316,6 +316,36 @@ public class AccountProgressEditingTests : IClassFixture<BlueTrackWebApplication
         Assert.True(string.IsNullOrEmpty(body) || body == "null");
     }
 
+    /// <summary>D-238: the edit form sets and clears the account's own Application; the detail returns it.</summary>
+    [Fact]
+    public async Task Update_SetsAndClearsTheAccountsApplication()
+    {
+        var accountKey = await GetAccountKeyAsync("TestAccount03");
+        await ReleaseAnyLockAsync(accountKey);
+        var admin = CreateClientAs("TestUser.Admin");
+        var suffix = Guid.NewGuid().ToString("N")[..12];
+        var created = await admin.PostAsJsonAsync("/api/applications", new { applicationCode = $"CTEDIT{suffix}", applicationName = $"Edit test {suffix}" });
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        var applicationKey = (await created.Content.ReadFromJsonAsync<ApplicationCreated>())!.ApplicationKey;
+        var client = CreateClientAs("TestUser.Approver");
+        var stage = await LookupStageKeyAsync("Onboarded to Vault");
+        var status = await LookupStatusKeyAsync("In Progress");
+
+        await client.PostAsync($"/api/account-progress/{accountKey}/lock", null);
+        var set = await client.PutAsJsonAsync($"/api/account-progress/{accountKey}", new { currentStageKey = stage, currentStatusKey = status, applicationKey });
+        Assert.Equal(HttpStatusCode.NoContent, set.StatusCode);
+        var detail = await client.GetFromJsonAsync<ApplicationDetail>($"/api/account-progress/{accountKey}");
+        Assert.Equal(applicationKey, detail!.ApplicationKey);
+
+        await client.PostAsync($"/api/account-progress/{accountKey}/lock", null);
+        var clear = await client.PutAsJsonAsync($"/api/account-progress/{accountKey}", new { currentStageKey = stage, currentStatusKey = status });
+        Assert.Equal(HttpStatusCode.NoContent, clear.StatusCode);
+        Assert.Null((await client.GetFromJsonAsync<ApplicationDetail>($"/api/account-progress/{accountKey}"))!.ApplicationKey);
+    }
+
+    private sealed record ApplicationCreated(int ApplicationKey);
+    private sealed record ApplicationDetail(int? ApplicationKey);
+
     private static async Task<int> LookupStageKeyAsync(string stageName)
     {
         await using var connection = new Microsoft.Data.SqlClient.SqlConnection(TestDatabase.ConnectionString);

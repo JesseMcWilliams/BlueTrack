@@ -73,6 +73,9 @@ public static class TrendsTestData
             DELETE h FROM dbo.fact_account_progress_history h
             JOIN dbo.fact_account fa ON fa.AccountKey = h.AccountKey
             WHERE fa.SourceAccountId LIKE '{Prefix}-%';
+            DELETE p FROM dbo.fact_account_progress p
+            JOIN dbo.fact_account fa ON fa.AccountKey = p.AccountKey
+            WHERE fa.SourceAccountId LIKE '{Prefix}-%';
             DELETE FROM dbo.fact_account WHERE SourceAccountId LIKE '{Prefix}-%';
             DELETE FROM dbo.dim_safe WHERE SafeUrlId LIKE '{Prefix}Safe%';
             DELETE FROM web.dim_application WHERE ApplicationCode = 'TRENDSTEST';
