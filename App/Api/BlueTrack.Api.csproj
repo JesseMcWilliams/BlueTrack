@@ -8,7 +8,7 @@
          release (tag vX.Y.Z -> X.Y.Z); don't bump it by hand. Between releases
          the build stamps a dev version from git (BlueTrackStampVersion below);
          About and the Deployment page show that stamp. -->
-    <Version>1.0.6</Version>
+    <Version>1.0.7</Version>
     <!-- D-226: the stamp below carries the commit itself, so the SDK's own
          "+<full commit sha>" (SourceLink) isn't appended to InformationalVersion. -->
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>

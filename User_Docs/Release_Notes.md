@@ -6,19 +6,25 @@ What changed in each BlueTrack release, newest first, for users and administrato
 
 ### New
 
+### Changed
+
+### Fixed
+
+### Upgrading
+
+## 1.0.7 (2026-10-15)
+
+### New
+
 - **Assign many accounts to an application at once.** **Bulk edit** on Accounts can set (or clear) the **Application** of every selected account. **Admin > Application ↔ Safe Mapping > Bulk Actions** has a third import, **Account → Application Assignments**: a CSV of UserName, Address, Application (its code or name) and an optional Source. It matches accounts by username and address, ignoring case, and replaces an account's own application; accounts not in the file are left alone. No upgrade step.
 
 - **Assign an account to an application.** The Account Progress edit form has a new **Application** field. An account is covered by an application's risk exception through its own application and through its safe's, so accounts with no safe, such as pending accounts, can now be covered. An application has many accounts; an account has at most one application of its own, in addition to its safe's. When the two differ, both apply, and Reports > Trends' Application filter counts the account under either. Bulk edit leaves the field alone for now. The upgrade adds database script 29.
 
 - **Skip group rows on an account inventory feed.** A pending-accounts export lists local and domain groups beside the accounts, written as `*<name> Group*` in the UserName column. A new **Skip group rows** setting on the feed (off until you turn it on) skips them: they aren't imported, aren't errors, and the run's summary says how many were skipped. A group imported by an earlier run is marked deleted by the next run. The upgrade adds database script 28.
 
-### Changed
-
 ### Fixed
 
 - **Account inventory feeds accept long user names and addresses.** A pending-accounts export, whose user names are SIDs, had rows rejected with "UserName and Address together are longer than 99 characters". An account's user name and address together can now be up to 400 characters. The upgrade (script 27) widens the database column; no other step is needed.
-
-### Upgrading
 
 ## 1.0.6 (2026-10-15)
 
