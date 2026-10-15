@@ -108,7 +108,7 @@ Answers and step outcomes are saved under `Deploy/State/` (git-ignored), one pai
 ```powershell
 .\Install-BlueTrack.ps1 -ListSteps                       # where did it get to?
 .\Install-BlueTrack.ps1 -Resume                          # carry on from the failed step
-.\Install-BlueTrack.ps1 -Step Prereq.HostingBundle       # (re)install one prerequisite, no y/N prompt
+.\Install-BlueTrack.ps1 -Step Prereq.HostingBundle       # install one missing prerequisite, no y/N prompt
 .\Install-BlueTrack.ps1 -StartAt Iis.AppPool             # redo the IIS phase onward
 ```
 
