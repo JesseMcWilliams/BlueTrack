@@ -39,7 +39,8 @@ const editing = ref({
   importMappingProfileKey: null,
   isEnabled: true,
   displayOrder: 0,
-  sourceSystemKey: null
+  sourceSystemKey: null,
+  skipGroupRows: false
 })
 
 const selectedType = computed(() => feedTypes.value.find(ft => ft.value === editing.value.feedType))
@@ -73,7 +74,8 @@ onMounted(async () => {
         importMappingProfileKey: feed.importMappingProfileKey,
         isEnabled: feed.isEnabled,
         displayOrder: feed.displayOrder,
-        sourceSystemKey: feed.sourceSystemKey ?? null
+        sourceSystemKey: feed.sourceSystemKey ?? null,
+        skipGroupRows: feed.skipGroupRows ?? false
       }
       await loadRuns()
     }
@@ -91,7 +93,10 @@ async function loadRuns() {
 function onFeedTypeChanged() {
   // A profile belongs to one feed type; don't carry it over. Only an account inventory feed has a source system.
   editing.value.importMappingProfileKey = null
-  if (!selectedType.value?.usesSourceSystem) editing.value.sourceSystemKey = null
+  if (!selectedType.value?.usesSourceSystem) {
+    editing.value.sourceSystemKey = null
+    editing.value.skipGroupRows = false   // D-237
+  }
 }
 
 async function addSourceSystem() {
@@ -224,6 +229,10 @@ function cancel() {
               <button type="button" @click="newSource = null; newSourceError = null">{{ t('common.cancel') }}</button>
             </p>
           </div>
+          <p>
+            <label><input v-model="editing.skipGroupRows" type="checkbox" /> {{ t('admin.dataFeedEdit.skipGroupRows') }}</label>
+            <small>{{ t('admin.dataFeedEdit.skipGroupRowsHint') }}</small>
+          </p>
         </template>
         <p>
           <label class="field-label"><span class="field-label-text">{{ t('admin.dataFeedEdit.folderPathLabel') }}</span> <input v-model="editing.folderPath" maxlength="500" :placeholder="t('admin.dataFeedEdit.folderPathPlaceholder')" required /></label>

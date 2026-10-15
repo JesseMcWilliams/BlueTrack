@@ -16,8 +16,10 @@ public sealed class AccountInventoryImportResult
     public int LinkedCount { get; init; }
     /// <summary>Phase 4c: new possible matches proposed for the Possible Account Matches report.</summary>
     public int PossibleMatchCount { get; init; }
+    /// <summary>D-237: rows skipped because the feed skips group rows and the UserName is a group.</summary>
+    public int SkippedGroupCount { get; init; }
     public required IReadOnlyList<ImportRowError> Errors { get; init; }
 
     public string Summary =>
-        $"{CreatedCount} created, {UpdatedCount} updated, {RestoredCount} restored, {DeletedCount} marked deleted, {UnchangedCount} unchanged, {LinkedCount} linked to CyberArk, {PossibleMatchCount} possible matches, {Errors.Count} errors";
+        $"{CreatedCount} created, {UpdatedCount} updated, {RestoredCount} restored, {DeletedCount} marked deleted, {UnchangedCount} unchanged, {LinkedCount} linked to CyberArk, {PossibleMatchCount} possible matches, {Errors.Count} errors{(SkippedGroupCount > 0 ? $", {SkippedGroupCount} group rows skipped" : "")}";
 }

@@ -189,7 +189,7 @@ public sealed class DataFeedRunner(
             {
                 if (feed.SourceSystemKey is not { } sourceKey) throw new InvalidOperationException("This account inventory feed has no source system.");
                 var r = await services.GetRequiredService<AccountInventoryImportService>()
-                    .ImportAsync(rows, sourceKey, feed.SourceSystemName ?? sourceKey.ToString(), userKey!.Value);
+                    .ImportAsync(rows, sourceKey, feed.SourceSystemName ?? sourceKey.ToString(), userKey!.Value, feed.SkipGroupRows);
                 return (r.TotalRows, r.Errors.Count, r.Summary, r);
             }
         }

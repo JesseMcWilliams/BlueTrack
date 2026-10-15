@@ -35,9 +35,9 @@ public class AccountInventoryFeedTests : IClassFixture<BlueTrackWebApplicationFa
     private sealed record StatusResponse(bool IsRunning);
     private sealed record AccountRow(string SourceAccountId, string AccountName, string? Address, string? UserName, bool IsDeleted, bool IsDeletedInSource, string? StageName, string? OwnerName);
 
-    private static object Feed(string name, string folder, int? sourceSystemKey, string feedType = "AccountInventory") => new
+    private static object Feed(string name, string folder, int? sourceSystemKey, string feedType = "AccountInventory", bool skipGroupRows = false) => new
     {
-        displayName = name, feedType, folderPath = folder, fileNamePattern = "accounts.csv", isEnabled = false, displayOrder = 960, sourceSystemKey
+        displayName = name, feedType, folderPath = folder, fileNamePattern = "accounts.csv", isEnabled = false, displayOrder = 960, sourceSystemKey, skipGroupRows
     };
 
     private static async Task<SourceResponse> CreateSourceAsync(HttpClient client)
@@ -253,6 +253,79 @@ public class AccountInventoryFeedTests : IClassFixture<BlueTrackWebApplicationFa
         finally
         {
             await RemoveSourceAsync(source.SourceSystemKey);
+            Directory.Delete(folder, recursive: true);
+        }
+    }
+
+    [Theory]
+    [InlineData("*Domain Admins Group*", true)]
+    [InlineData("*local GROUP users*", true)]
+    [InlineData("  *Remote Desktop Users Group*  ", true)]
+    [InlineData("*Administrators*", false)]       // no "group"
+    [InlineData("Domain Group*", false)]          // no leading *
+    [InlineData("*Domain Group", false)]          // no trailing *
+    [InlineData("**", false)]
+    [InlineData("S-1-5-21-1004336348-1177238915-682003330-512", false)]
+    public void IsGroupUserName_NeedsAStarAtEachEndAndTheWordGroupInside(string userName, bool expected) =>
+        Assert.Equal(expected, Api.Imports.AccountInventoryImportService.IsGroupUserName(userName));
+
+    /// <summary>D-237: with SkipGroupRows on, "*...group*" rows are neither imported nor errors; an earlier import of one is marked deleted.</summary>
+    [Fact]
+    public async Task Run_SkipsGroupRows_WhenTheFeedSkipsThem_AndMarksEarlierOnesDeleted()
+    {
+        var client = AdminClient();
+        var source = await CreateSourceAsync(client);
+        var folder = Directory.CreateTempSubdirectory("BlueTrackAccountFeed_").FullName;
+        var file = Path.Combine(folder, "accounts.csv");
+        try
+        {
+            var created = await client.PostAsJsonAsync("/api/admin/data-feeds", Feed($"CT_{Guid.NewGuid():N}", folder, source.SourceSystemKey));
+            var key = (await created.Content.ReadFromJsonAsync<KeyResponse>())!.DataFeedKey;
+
+            // Off by default: the groups are imported like any row.
+            await File.WriteAllTextAsync(file,
+                "UserName,Address\r\n" +
+                "S-1-5-21-1-2-3-1001,host1.example.com\r\n" +
+                "*Domain Admins Group*,host1.example.com\r\n" +
+                "*local GROUP users*,\r\n");
+            var run1 = await RunAndWaitAsync(client, key);
+            Assert.Equal(2, (await AccountsAsync(source.SourceSystemKey)).Count);   // the group row without an address is an error row
+            Assert.Equal(1, run1.ErrorRows);
+            Assert.DoesNotContain("group rows skipped", run1.Summary);
+
+            // Turn it on: the same file now skips both group rows, reports no error, and marks the imported group deleted.
+            var update = await client.PutAsJsonAsync($"/api/admin/data-feeds/{key}", Feed($"CT_{Guid.NewGuid():N}", folder, source.SourceSystemKey, skipGroupRows: true));
+            Assert.Equal(HttpStatusCode.NoContent, update.StatusCode);
+            var run2 = await RunAndWaitAsync(client, key);
+            Assert.Equal("Succeeded", run2.Outcome);
+            Assert.Equal(0, run2.ErrorRows);
+            Assert.Contains("1 marked deleted", run2.Summary);
+            Assert.EndsWith("2 group rows skipped", run2.Summary);
+            var accounts = await AccountsAsync(source.SourceSystemKey);
+            Assert.False(accounts.Single(a => a.UserName == "S-1-5-21-1-2-3-1001").IsDeleted);
+            Assert.True(accounts.Single(a => a.UserName == "*Domain Admins Group*").IsDeleted);
+        }
+        finally
+        {
+            await RemoveSourceAsync(source.SourceSystemKey);
+            Directory.Delete(folder, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task OnlyAnAccountInventoryFeed_CanSkipGroupRows()
+    {
+        var client = AdminClient();
+        var folder = Directory.CreateTempSubdirectory("BlueTrackAccountFeed_").FullName;
+        try
+        {
+            var response = await client.PostAsJsonAsync("/api/admin/data-feeds",
+                Feed($"CT_{Guid.NewGuid():N}", folder, null, feedType: "SafeAssignments", skipGroupRows: true));
+            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+            Assert.Contains("skip group rows", await response.Content.ReadAsStringAsync());
+        }
+        finally
+        {
             Directory.Delete(folder, recursive: true);
         }
     }

@@ -6,6 +6,8 @@ What changed in each BlueTrack release, newest first, for users and administrato
 
 ### New
 
+- **Skip group rows on an account inventory feed.** A pending-accounts export lists local and domain groups beside the accounts, written as `*<name> Group*` in the UserName column. A new **Skip group rows** setting on the feed (off until you turn it on) skips them: they aren't imported, aren't errors, and the run's summary says how many were skipped. A group imported by an earlier run is marked deleted by the next run. The upgrade adds database script 28.
+
 ### Changed
 
 ### Fixed

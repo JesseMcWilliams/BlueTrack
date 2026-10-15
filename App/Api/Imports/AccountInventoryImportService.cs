@@ -48,8 +48,16 @@ public sealed class AccountInventoryImportService(
     public static string SourceAccountIdFor(string userName, string address) =>
         $"{userName.Trim()}@{address.Trim()}".ToLowerInvariant();
 
+    /// <summary>D-237: a pending-accounts export writes a group's user name as "*...group*": a "*" at each end and the word "group" inside, in any case.</summary>
+    public static bool IsGroupUserName(string userName)
+    {
+        var name = userName.Trim();
+        return name.Length > 2 && name[0] == '*' && name[^1] == '*'
+            && name.IndexOf("group", 1, name.Length - 2, StringComparison.OrdinalIgnoreCase) >= 0;
+    }
+
     public async Task<AccountInventoryImportResult> ImportAsync(
-        IReadOnlyList<IReadOnlyDictionary<string, string>> rows, int sourceSystemKey, string sourceSystemName, int userKey)
+        IReadOnlyList<IReadOnlyDictionary<string, string>> rows, int sourceSystemKey, string sourceSystemName, int userKey, bool skipGroupRows = false)
     {
         var existing = (await repository.GetAccountsAsync(sourceSystemKey))
             .ToDictionary(a => a.SourceAccountId, StringComparer.OrdinalIgnoreCase);
@@ -62,6 +70,7 @@ public sealed class AccountInventoryImportService(
         var updates = new List<AccountInventoryRepository.ChangedAccount>();
         var errors = new List<ImportRowError>();
         var unchanged = 0;
+        var skippedGroups = 0;
 
         for (var i = 0; i < rows.Count; i++)
         {
@@ -77,6 +86,11 @@ public sealed class AccountInventoryImportService(
                 }
 
                 var userName = Cell("UserName") ?? throw new InvalidOperationException("UserName is required.");
+                if (skipGroupRows && IsGroupUserName(userName))
+                {
+                    skippedGroups++;   // D-237: not an account, so not counted, not an error, and not kept (an earlier import of it is marked deleted)
+                    continue;
+                }
                 var address = Cell("Address") ?? throw new InvalidOperationException("Address is required.");
                 var sourceAccountId = SourceAccountIdFor(userName, address);
                 if (sourceAccountId.Length > SourceAccountIdMaxLength)
@@ -143,6 +157,7 @@ public sealed class AccountInventoryImportService(
             UnchangedCount = unchanged,
             LinkedCount = linked,
             PossibleMatchCount = proposed,
+            SkippedGroupCount = skippedGroups,
             Errors = errors.OrderBy(e => e.RowNumber).ToList()
         };
         if (creates.Count + updates.Count + deletes.Count > 0)
