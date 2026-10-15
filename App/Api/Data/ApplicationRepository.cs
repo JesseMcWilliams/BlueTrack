@@ -117,6 +117,34 @@ public sealed class ApplicationRepository(IDbConnectionFactory connectionFactory
         return rows.AsList();
     }
 
+    /// <summary>
+    /// D-239: active accounts whose username and address match exactly
+    /// (ignoring case and surrounding spaces; both are required, as in D-183),
+    /// with the source they come from and their own application.
+    /// </summary>
+    public async Task<IReadOnlyList<AccountForMatching>> FindAccountsForAssignmentAsync(string userName, string address)
+    {
+        using var connection = connectionFactory.Create();
+        return (await connection.QueryAsync<AccountForMatching>("""
+            SELECT fa.AccountKey, fa.AccountName, ss.SourceSystemName, fap.ApplicationKey,
+                   CAST(CASE WHEN fap.AccountKey IS NULL THEN 0 ELSE 1 END AS BIT) AS HasProgress
+            FROM dbo.fact_account fa
+            JOIN dbo.dim_source_system ss ON ss.SourceSystemKey = fa.SourceSystemKey
+            LEFT JOIN dbo.fact_account_progress fap ON fap.AccountKey = fa.AccountKey
+            WHERE fa.IsDeleted = 0 AND UPPER(LTRIM(RTRIM(fa.UserName))) = UPPER(@userName)
+              AND UPPER(LTRIM(RTRIM(fa.Address))) = UPPER(@address)
+            """, new { userName = userName.Trim(), address = address.Trim() })).AsList();
+    }
+
+    /// <summary>D-239: sets or clears an account's own application on its progress row.</summary>
+    public async Task AssignAccountApplicationAsync(long accountKey, int? applicationKey)
+    {
+        using var connection = connectionFactory.Create();
+        await connection.ExecuteAsync(
+            "UPDATE dbo.fact_account_progress SET ApplicationKey = @ApplicationKey, LastUpdated = SYSUTCDATETIME() WHERE AccountKey = @AccountKey",
+            new { AccountKey = accountKey, ApplicationKey = applicationKey });
+    }
+
     public async Task AssignSafeApplicationAsync(int safeKey, int? applicationKey)
     {
         using var connection = connectionFactory.Create();

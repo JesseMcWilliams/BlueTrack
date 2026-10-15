@@ -40,6 +40,7 @@ Superseded by the approach change: per-system staging tables and import procedur
 
 ## What already exists to build on
 
+- **Account → Application assignments** (D-239) is a CSV import on Application ↔ Safe Mapping > Bulk Actions only; there is no scheduled feed type for it yet (backlog).
 - **CSV import pipelines** (Bulk Actions pages), each validating row by row and returning counts plus per-row errors: target inventory (servers), access group inventory (groups), access group → target, account → access group membership, account → target links (D-119; each can use a **D-105 mapping profile** to map a system's own column names), applications and safe → application assignments (D-180).
 - **In-app scheduling:** `NotificationCheckBackgroundService` and `AdAccountDiscoveryBackgroundService` already run inside the API on a timer, each with its own DI scope per run.
 - **Source tracking for accounts:** `fact_account.SourceSystemKey` → `dim_source_system` (`PRIVCLOUD`, `SELFHOSTED`, `DISCOVERY`), and Account Progress has a **Discovered** stage. The nightly CyberArk load only soft-deletes missing accounts **within its own source** (`02_BlueTrack_Baseline_EtlLoads.sql`), so accounts under another source are left alone.

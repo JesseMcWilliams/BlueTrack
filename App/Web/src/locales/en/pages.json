@@ -150,6 +150,7 @@
     "fieldRiskLevel": "Risk Level",
     "fieldAccountType": "Account Type",
     "fieldSourceOfRecord": "Source of Record",
+    "fieldApplication": "Application",
     "fieldOwner": "Owner",
     "fieldBusinessUnit": "Business Unit",
     "fieldTargetRemediationDate": "Target Remediation Date",

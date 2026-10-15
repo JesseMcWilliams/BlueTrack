@@ -189,6 +189,79 @@ public sealed class ApplicationMappingImportService(
         };
     }
 
+    /// <summary>
+    /// D-239: Account -> Application assignments. A row names an account by
+    /// UserName + Address (exact, ignoring case; both required, as in D-183),
+    /// an Application (its code, else its name; it must already exist) and an
+    /// optional Source to tell apart accounts with the same username and
+    /// address in different sources. Every matching active account gets the
+    /// application as its own; an existing one is overwritten, and accounts
+    /// not in the file are never touched. Audited as the edit form's change
+    /// is (a FieldEdit of ApplicationKey on fact_account_progress).
+    /// </summary>
+    public async Task<AccountAssignmentImportResult> ImportAccountAssignmentsAsync(IReadOnlyList<IReadOnlyDictionary<string, string>> rows, int userKey)
+    {
+        var applications = await repository.GetAllDetailedAsync();
+        int assigned = 0, changed = 0, unchanged = 0;
+        var errors = new List<ImportRowError>();
+
+        for (var i = 0; i < rows.Count; i++)
+        {
+            var rowNumber = i + 2; // header is row 1
+            try
+            {
+                var row = rows[i];
+                string? Cell(string column) => row.TryGetValue(column, out var raw) && raw.Trim().Length > 0 ? raw.Trim() : null;
+
+                var userName = Cell("UserName") ?? throw new InvalidOperationException("UserName is required.");
+                var address = Cell("Address") ?? throw new InvalidOperationException("Address is required: an account with no address isn't matched.");
+                var applicationText = Cell("Application") ?? throw new InvalidOperationException("Application is required (its code or name).");
+                var application =
+                    applications.FirstOrDefault(a => string.Equals(a.ApplicationCode, applicationText, StringComparison.OrdinalIgnoreCase))
+                    ?? applications.FirstOrDefault(a => string.Equals(a.ApplicationName, applicationText, StringComparison.OrdinalIgnoreCase))
+                    ?? throw new InvalidOperationException($"No application with code or name '{applicationText}'. Import it first (Applications import).");
+
+                var matches = (await repository.FindAccountsForAssignmentAsync(userName, address)).ToList();
+                var sourceText = Cell("Source");
+                if (sourceText is not null)
+                {
+                    var sourceName = SourceAliases.TryGetValue(sourceText, out var alias) ? alias : sourceText;
+                    matches = matches.Where(m => string.Equals(m.SourceSystemName, sourceName, StringComparison.OrdinalIgnoreCase)).ToList();
+                }
+                if (matches.Count == 0)
+                {
+                    throw new InvalidOperationException(sourceText is null
+                        ? $"No account with username '{userName}' and address '{address}'."
+                        : $"No account with username '{userName}' and address '{address}' in source '{sourceText}'.");
+                }
+
+                foreach (var account in matches)
+                {
+                    if (!account.HasProgress) throw new InvalidOperationException($"Account '{account.AccountName}' has no progress record yet; it is created by the next nightly load or feed run.");
+                    if (account.ApplicationKey == application.ApplicationKey)
+                    {
+                        unchanged++;
+                        continue;
+                    }
+                    await repository.AssignAccountApplicationAsync(account.AccountKey, application.ApplicationKey);
+                    await auditLogger.LogAsync("FieldEdit", userKey, "fact_account_progress", account.AccountKey.ToString(),
+                        detail: "Application set by the Account assignments CSV import",
+                        fieldChanges: [new FieldChange("ApplicationKey", account.ApplicationKey?.ToString(), application.ApplicationKey.ToString())]);
+                    if (account.ApplicationKey is null) assigned++; else changed++;
+                }
+            }
+            catch (Exception ex)
+            {
+                errors.Add(new ImportRowError { RowNumber = rowNumber, Error = Errors.RowErrorText.For(ex, logger) });
+            }
+        }
+
+        return new AccountAssignmentImportResult
+        {
+            TotalRows = rows.Count, AssignedCount = assigned, ChangedCount = changed, UnchangedCount = unchanged, Errors = errors
+        };
+    }
+
     private static ApplicationDetail ToDetail(int key, SaveApplicationRequest r) => new()
     {
         ApplicationKey = key, ApplicationCode = r.ApplicationCode, ApplicationName = r.ApplicationName, Description = r.Description,

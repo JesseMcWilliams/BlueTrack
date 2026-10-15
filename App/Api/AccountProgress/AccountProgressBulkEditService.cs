@@ -27,7 +27,7 @@ public sealed class AccountProgressBulkEditService(
 {
     public static readonly IReadOnlySet<string> EditableFields = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
     {
-        "CurrentStageKey", "CurrentStatusKey", "RiskLevelKey", "AccountTypeKey", "SORKey",
+        "CurrentStageKey", "CurrentStatusKey", "RiskLevelKey", "AccountTypeKey", "SORKey", "ApplicationKey",
         "OwnerName", "BusinessUnit", "TargetRemediationDate", "ActualCompletionDate", "Notes"
     };
 
@@ -45,6 +45,8 @@ public sealed class AccountProgressBulkEditService(
             return "Choose a valid Stage.";
         if (Has(request, "CurrentStatusKey") && (request.CurrentStatusKey is null || await repository.GetStatusNameAsync(request.CurrentStatusKey.Value) is null))
             return "Choose a valid Status.";
+        if (Has(request, "ApplicationKey") && request.ApplicationKey is { } applicationKey && !await repository.ApplicationExistsAsync(applicationKey))
+            return "Choose a valid Application.";
         if (request.NotesMode is not (null or "Replace" or "Append")) return "NotesMode must be Replace or Append.";
         if (Has(request, "Notes") && request.NotesMode == "Append" && string.IsNullOrWhiteSpace(request.Notes)) return "Enter the text to add to Notes.";
         return null;
@@ -139,7 +141,7 @@ public sealed class AccountProgressBulkEditService(
             ActualCompletionDate = Has("ActualCompletionDate") ? bulk.ActualCompletionDate : before.ActualCompletionDate,
             Notes = notes,
             Reason = bulk.Reason,
-            ApplicationKey = before.ApplicationKey,   // D-238: bulk edit leaves the account's own application alone
+            ApplicationKey = Has("ApplicationKey") ? bulk.ApplicationKey : before.ApplicationKey,   // D-239 (D-238: otherwise left alone)
             ExceptionKey = before.ExceptionKey
         };
     }

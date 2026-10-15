@@ -17,6 +17,8 @@ public sealed class BulkEditAccountProgressRequest
     public int? RiskLevelKey { get; init; }
     public int? AccountTypeKey { get; init; }
     public int? SORKey { get; init; }
+    /// <summary>D-239: the account's own Application; null (when chosen) clears it.</summary>
+    public int? ApplicationKey { get; init; }
     public string? OwnerName { get; init; }
     public string? BusinessUnit { get; init; }
     public DateTime? TargetRemediationDate { get; init; }

@@ -290,6 +290,15 @@ public sealed class AccountProgressRepository(IDbConnectionFactory connectionFac
         });
     }
 
+    /// <summary>D-239: whether an application exists (bulk edit validates the one it is given).</summary>
+    public async Task<bool> ApplicationExistsAsync(int applicationKey)
+    {
+        using var connection = connectionFactory.Create();
+        return await connection.QuerySingleAsync<bool>(
+            "SELECT CASE WHEN EXISTS (SELECT 1 FROM web.dim_application WHERE ApplicationKey = @applicationKey) THEN 1 ELSE 0 END",
+            new { applicationKey });
+    }
+
     /// <summary>D-51 rule 1: Complete requires ActualCompletionDate -- looked up by name, not a hardcoded key.</summary>
     public async Task<string?> GetStatusNameAsync(int statusKey)
     {

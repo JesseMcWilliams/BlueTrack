@@ -86,6 +86,42 @@ public class AccountProgressBulkEditTests : IClassFixture<BlueTrackWebApplicatio
 
     private sealed record ApplicationCreated(int ApplicationKey);
 
+    /// <summary>D-239: bulk edit can set an Application on every selected account, clear it, and refuses one that doesn't exist.</summary>
+    [Fact]
+    public async Task BulkEdit_SetsAndClearsTheApplication_AndRefusesAnUnknownOne()
+    {
+        var keys = new[] { await TestAccounts.GetAccountKeyAsync("TestAccount01"), await TestAccounts.GetAccountKeyAsync("TestAccount02") };
+        var lockRepository = new AccountProgressLockRepository(new TestDbConnectionFactory());
+        foreach (var key in keys) await lockRepository.ForceReleaseAsync(key);
+        var before = new List<AccountProgressDetail>();
+        foreach (var key in keys) before.Add((await Repository().GetDetailAsync(key))!);
+        var suffix = Guid.NewGuid().ToString("N")[..12];
+        var created = await Client("TestUser.Admin").PostAsJsonAsync("/api/applications", new { applicationCode = $"CTBULKAPP{suffix}", applicationName = $"Bulk app {suffix}" });
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        var applicationKey = (await created.Content.ReadFromJsonAsync<ApplicationCreated>())!.ApplicationKey;
+        var analyst = Client("TestUser.Analyst");
+
+        try
+        {
+            var set = await analyst.PostAsJsonAsync("/api/account-progress/bulk-edit", new { accountKeys = keys, fields = new[] { "ApplicationKey" }, applicationKey });
+            Assert.Equal(HttpStatusCode.OK, set.StatusCode);
+            Assert.Equal(2, (await set.Content.ReadFromJsonAsync<BulkResult>())!.Updated);
+            foreach (var key in keys) Assert.Equal(applicationKey, (await Repository().GetDetailAsync(key))!.ApplicationKey);
+
+            var unknown = await analyst.PostAsJsonAsync("/api/account-progress/bulk-edit", new { accountKeys = keys, fields = new[] { "ApplicationKey" }, applicationKey = 2000000000 });
+            Assert.Equal(HttpStatusCode.BadRequest, unknown.StatusCode);
+            Assert.Contains("valid Application", await unknown.Content.ReadAsStringAsync());
+
+            var clear = await analyst.PostAsJsonAsync("/api/account-progress/bulk-edit", new { accountKeys = keys, fields = new[] { "ApplicationKey" }, applicationKey = (int?)null });
+            Assert.Equal(HttpStatusCode.OK, clear.StatusCode);
+            foreach (var key in keys) Assert.Null((await Repository().GetDetailAsync(key))!.ApplicationKey);
+        }
+        finally
+        {
+            foreach (var original in before) await RestoreAsync(original);
+        }
+    }
+
     [Fact]
     public async Task BulkEdit_ChangesOnlyTheChosenFields_AppendsNotes_AndLogsASummary()
     {
