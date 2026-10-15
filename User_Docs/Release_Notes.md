@@ -6,6 +6,16 @@ What changed in each BlueTrack release, newest first, for users and administrato
 
 ### New
 
+### Changed
+
+### Fixed
+
+### Upgrading
+
+## 1.0.5 (2026-10-14)
+
+### New
+
 - **Forward the audit log to your SIEM.** New page **Admin > SIEM Forwarding** (permission `ManageApplicationConfiguration`): every new audit event is sent to your SIEM's syslog collector within a few seconds, as CEF (Common Event Format) in RFC 5424 syslog, over TLS (with the Windows trust store, a pinned certificate fingerprint or your CA) or TCP. Choose which event types are sent and each one's severity; **Send Test Event** checks the connection. Events wait in the database while the collector is down and are sent when it's back, and the audit purge keeps them until then. Only events written after it's turned on are sent. A new **SIEM Forwarding** health check on the Deployment page warns when sending fails or falls more than 15 minutes behind. **Upgrading:** run the Migrator (adds database script 26), set up the page, and open the firewall from the BlueTrack server to the collector's port. See the Administrator Settings Guide, "SIEM Forwarding".
 - **CyberArk sources on the Data Sources page.** Admin > Data Sources now shows which CyberArk sources the nightly import uses, and **Edit CyberArk sources** changes them: the Privilege Cloud export folder and file names, and the Self-Hosted EVD database. **Test** checks them first. Until now they could only be changed by re-running the installer. See the Administrator Settings Guide, "Data Sources".
 - **Accounts from other systems.** A new data feed import, **Account inventory**, adds the accounts another system has (a CSV of user names and addresses) to Account Progress at Discovered, with the system they came from. Accounts that disappear from the file are marked deleted. When CyberArk has the same account, the two are linked: the account moves to Onboarded to Vault and is counted once, as its CyberArk account. The new **Linked feed accounts** filter on **Accounts** shows the linked ones. Accounts that only nearly match (the same user name, with addresses that agree by host name or DNS) are suggested on the new **Reports > Possible Account Matches**, where Approvers and Admins link or dismiss them. See the Administrator Settings Guide, "Data Sources (feeds)".
