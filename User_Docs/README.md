@@ -17,6 +17,7 @@ These guides live in `User_Docs/` (they were in `Guides/` before; update any boo
 3. [Admin_DataManagement.md](Admin_DataManagement.md) — the recurring operational tasks on a running environment.
 4. [Admin_SettingsReference.md](Admin_SettingsReference.md) — every setting, its default, the recommended value and why. Published as the Administrator Settings Guide.
 5. [Admin_SettingsReference_Notifications.md](Admin_SettingsReference_Notifications.md) — the second part of the settings reference: Secrets Store, credentials, LDAP, email notifications (including OAuth2 sign-in) and SIEM forwarding. Published with part one as the Administrator Settings Guide.
+6. [Admin_ApiAccess.md](Admin_ApiAccess.md) — calling the API from a script: API keys and identity provider tokens, with examples.
 
 ## User guides (by role)
 
