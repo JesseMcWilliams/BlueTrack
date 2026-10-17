@@ -16,18 +16,27 @@
 | #154 | D-241 | `AccountAssignments` data feed: the D-239 CSV import on a schedule. Script 30. |
 | #155 | D-242 | Installer: the Hosting Bundle needs ASP.NET Core runtime 10.0.13 or later (`$script:MinimumAspNetCoreRuntime`). |
 | #156 | (none) | `Planning_API-Access-For-Scripts.md`: options, proposed design, eight questions. |
+| #157 | (none) | Handoff refreshed through #156. |
+| #158 | D-243 | API access phase 1: API keys (`web.api_key`, hash only), `POST /api/auth/token`, 10-minute HS256 token, bearer middleware (not an authentication scheme), `/api/admin/api-keys`, refusal throttle. Script 31. |
+| #159 | D-243 | Admin > API Keys page; API key default lifetime setting (90 days, 1 to 365); `Planning_Questions-Backlog.md`. |
+| #160 | D-243 | Rotate; `ApiKeyExpiring` notification (30 and 7 days); per-key rate limit (600 a minute, a setting). Script 32. |
+| #161 | D-243 | Option B: `idToken` from an enabled OIDC provider; API client mappings (client or group, lowest order wins, never Admin); API callers' rights looked up per request. Script 33. |
+| this PR | (none) | `User_Docs/Admin_ApiAccess.md` (calling the API from a script); handoff. |
 
 ## State
-- **`main`** at the #156 merge (`b2449da`) plus this PR. Last full local runs 2026-10-17 against `BlueTrackTest_Local`: xUnit 1077/1077, Vitest 410/410, Playwright 88/88, PSScriptAnalyzer 0. CI passed on every PR above.
-- **Dev site:** redeployed by the user to `main` as of #156 (`1.0.7-dev.8+b2449da`). Health check 14 pass, 0 fail, 0 warn. The nightly job's scheduled runs succeeded on 2026-10-16 and 2026-10-17.
-- **Unreleased** (`User_Docs/Release_Notes.md`): D-241 (feed) and D-242 (installer check); upgrade step: script 30. The next release is made with `Tools/New-BlueTrackRelease.ps1` (D-226).
-- **Off until configured on the dev site:** the D-222 notification types, account classification, SIEM forwarding.
+- **`main`** at the #161 merge (`9be970b`) plus this PR. Last full local runs 2026-10-17 against `BlueTrackTest_Local`: xUnit 1099/1099, Vitest 431/431, Playwright 91/91, PSScriptAnalyzer 0. CI passed on every PR above.
+- **Dev site:** redeployed to `main` as of #161 (`1.0.7-dev.18+9be970b`, scripts up to 33). Health 14 pass, 0 fail. Live: an API key created through Windows sign-in, exchanged without Windows credentials or `X-Requested-With`, `/api/me` as the key's role (Viewer), key management 403, junk token 401, 401 after Disable, Windows sign-in unchanged, SAML and OIDC sign-in (`Test-BlueTrackSso.ps1`) pass. The test key was deleted.
+- **Unreleased** (`User_Docs/Release_Notes.md`): D-241 (feed), D-242 (installer check), D-243 (API access). Upgrade: scripts 30 to 33.
+- **Off until configured on the dev site:** the D-222 notification types and `ApiKeyExpiring`, account classification, SIEM forwarding. No API keys or client mappings exist there (the live test cleaned up).
 
 ## Open items
-1. **API access for scripts:** the user chose options A and B (BlueTrack API keys and OIDC tokens) and asked for JWT as well, which is ambiguous (see the questions below); the other seven questions in `Planning_API-Access-For-Scripts.md` are unanswered. Ask, then record a `D-n` and build in the proposal's phases. Regression-test Windows, SAML and OIDC sign-in after touching `AuthenticationExtensions.cs`.
-2. **LDAPS from DCACYBSQL01** (backlog): the user runs `Tools\Test-BlueTrackLdaps.ps1` there, then adds the domain in BlueTrack.
-3. **Live tests still owed** (backlog, "Built, but never proven"): SIEM forwarding, account classification against the real AD, OAuth2 SMTP, break-glass email, Azure/AWS/Conjur. The release script ran for real for v1.0.5 to v1.0.7: remove that backlog item.
-4. **Backlog** (`Planning_Backlog.md`): server-side localization and "use browser default" language (deferred), D-229 follow-ups, and the real-data findings.
+1. **Questions backlog:** `Claude_Docs/Planning_Questions-Backlog.md` holds the questions asked to be saved while the user wanted no interruptions (API access: changing a key's role or expiry, who gets expiry emails, auto-deleting expired keys, rate limit shape, Group mappings and other apps' tokens, SAML). Ask them, record the answers (a `D-n` or the doc affected), change the code where the answer differs from what was built, and delete each answered question.
+2. **Live test owed for option B:** an identity-provider token exchanged against the lab authentik with a real client-credentials token (needs an OAuth2 application there and an enabled OIDC provider with a mapping). The code is tested against a fake provider with real RSA signatures only; the discovery fetch (`OidcIdpMetadataSource`, https only) has never run against a real provider.
+3. **Release:** `Tools/New-BlueTrackRelease.ps1 -Version x.y.z -Push`, merge its PR, then `-Tag -Push` (D-226). The release notes' Upgrading lists scripts 30 to 33.
+4. **LDAPS from DCACYBSQL01** (backlog): the user runs `Tools\Test-BlueTrackLdaps.ps1` there, then adds the domain in BlueTrack.
+5. **Live tests still owed** (backlog, "Built, but never proven"): SIEM forwarding, account classification against the real AD, OAuth2 SMTP, break-glass email, Azure/AWS/Conjur. The release script ran for real for v1.0.5 to v1.0.7: remove that backlog item.
+6. **Backlog** (`Planning_Backlog.md`): server-side localization and "use browser default" language (deferred), D-229 follow-ups, and the real-data findings.
+7. **Not built (D-243):** a per-key owner email, a per-key rate limit, changing a key's role or expiry in place, and a published `.docx` of `Admin_ApiAccess.md`.
 
 ## Gotchas for the next session
 - **Local tests use their own database (D-240).** `dotnet test` and `npm test` default to `BlueTrackTest_Local`; build or reset it with `Tools\Reset-BlueTrackLocalTestDb.ps1` (also after a new numbered script). CI owns `BlueTrackTest`, so a local run no longer breaks a CI run's data. Still don't run Playwright locally while CI runs: the CPU and the ports (4173, 7033) are shared. Check with `gh run list --status in_progress`.
@@ -51,3 +60,4 @@
 - **Rights cache lives in SQL Server** and outlasts a test run: a test that depends on a new grant clears it first (`UserRightsCache.InvalidateAllAsync`).
 - **UI text is in message files** (D-227): new SPA text goes in `App/Web/src/locales/en/<area>.json`, never hard-coded; the key-coverage test fails otherwise (`Claude_Docs/Design_Localization.md`).
 - **Release notes:** every user-visible change gets a line under Unreleased in `User_Docs/Release_Notes.md`, and one in `Planning_User-Docs-Backlog.md`.
+- **API access does not touch `AuthenticationExtensions.cs`** (D-243): bearer handling is `ApiTokenAuthenticationMiddleware`, run after the cookie middleware and before `UseAuthorization` in `Program.cs`. Keep it that way, and regression-test Windows, SAML and OIDC sign-in after any change there. API callers' rights are never cached (`UserRightsResolver.ResolveApiAccessAsync`).
