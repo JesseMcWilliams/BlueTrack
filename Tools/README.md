@@ -11,6 +11,8 @@ Each prints one line per check, `PASS`, `FAIL`, `WARN` (worth a look) or `INFO` 
 | `Test-BlueTrackLdaps.ps1` | On the host that will bind, before setting up the domain in BlueTrack | DNS, the LDAPS port, the domain controller's certificate (trusted, right name, not expired), a bind made the way BlueTrack makes it, and reading a group. |
 | `Test-BlueTrackIntegrations.ps1` | As an Admin | BlueTrack's own Test buttons: the Secrets Store lookup, the CyberArk sources, every data feed; and the break-glass setup (accounts, alert recipients, recent BreakGlassLogon events). |
 
+`Reset-BlueTrackLocalTestDb.ps1` isn't a check: it drops and rebuilds a developer's own test database, `BlueTrackTest_Local` by default (D-240), so local test runs don't collide with CI's `BlueTrackTest`. It refuses any name that doesn't start with `BlueTrackTest_`.
+
 `New-BlueTrackRelease.ps1` makes a release; see [Making a release](#making-a-release-new-bluetrackreleaseps1).
 
 `BlueTrackTools.psm1` holds the shared parts (result lines, an HTTP session that follows redirects itself and keeps its own cookies).

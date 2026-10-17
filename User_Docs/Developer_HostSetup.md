@@ -28,11 +28,17 @@ dotnet run --project App/Migrator -- "Server=<sql-server>;Database=BlueTrack;Int
 
 The baseline maps the local `BUILTIN\Administrators` group to the Admin role, so a local administrator can sign in as Admin straight away.
 
-For a local **test** database (used by the API tests and the end-to-end tests), create `BlueTrackTest` the same way and then add the test-only seed data. Never run `Database/Test` against a real environment:
+For a local **test** database (used by the API tests and the end-to-end tests), create `BlueTrackTest_Local` the same way and then add the test-only seed data (`BlueTrackTest` belongs to the CI runner, which rebuilds it on every run). Never run `Database/Test` against a real environment. The script `Tools/Reset-BlueTrackLocalTestDb.ps1` does all of it, dropping and rebuilding the database:
 
 ```powershell
-dotnet run --project App/Migrator -- "Server=<sql-server>;Database=BlueTrackTest;Integrated Security=true;TrustServerCertificate=true" "Database"
-dotnet run --project App/Migrator -- "Server=<sql-server>;Database=BlueTrackTest;Integrated Security=true;TrustServerCertificate=true" "Database/Test"
+.\Tools\Reset-BlueTrackLocalTestDb.ps1 -SqlServerInstance <sql-server>
+```
+
+Or by hand:
+
+```powershell
+dotnet run --project App/Migrator -- "Server=<sql-server>;Database=BlueTrackTest_Local;Integrated Security=true;TrustServerCertificate=true" "Database"
+dotnet run --project App/Migrator -- "Server=<sql-server>;Database=BlueTrackTest_Local;Integrated Security=true;TrustServerCertificate=true" "Database/Test"
 ```
 
 You don't need real CyberArk export data to develop; most pages work on an empty database. Sample exports for a first load are in `Reference/` (git-ignored; ask for a copy), and the "First Data Load" section of `Admin_DeploymentRunbook.md` shows how to load them.
@@ -65,13 +71,13 @@ Vite prints the address it serves on (5173 by default). It forwards `/api` reque
 
 | Suite | Command | Needs |
 |---|---|---|
-| API (unit, integration, contract) | `dotnet test App/Api.Tests` | `BlueTrackTest`; set `BLUETRACK_TEST_CONNECTION` to its connection string |
+| API (unit, integration, contract) | `dotnet test App/Api.Tests` | `BlueTrackTest_Local` (the default; set `BLUETRACK_TEST_CONNECTION` to use another) |
 | Web (Vitest) | `npm run test` in `App/Web` | nothing else |
-| End to end (Playwright) | `npm test` in `App/E2E` | `BlueTrackTest`; Playwright builds the frontend and starts the API itself, signed in through a development-only test sign-in |
+| End to end (Playwright) | `npm test` in `App/E2E` | `BlueTrackTest_Local` (the default; same variable); Playwright builds the frontend and starts the API itself, signed in through a development-only test sign-in |
 
 To run one API test class: `dotnet test App/Api.Tests --filter "FullyQualifiedName~<ClassName>"`. One Vitest file: `npx vitest run <path>`. One Playwright spec: `npx playwright test tests/<file>.spec.js`.
 
-The integration and end-to-end tests change data in `BlueTrackTest`, so don't run two test runs against the same database at once.
+The integration and end-to-end tests change data in the test database, so don't run two test runs against the same database at once.
 
 ## Solution layout
 

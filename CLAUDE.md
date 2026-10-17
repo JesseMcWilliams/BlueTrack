@@ -12,7 +12,7 @@ CyberArk PAM Blueprint progress tracking: a SQL Server warehouse (ETL from Cyber
 - External references are in `C:\Code\References\`. Check there before guessing at API behavior.
 
 ## Tests
-- API: `dotnet test App/Api.Tests` (integration tests need the `BlueTrackTest` DB). One class: add `--filter "FullyQualifiedName~<ClassName>"`.
+- API: `dotnet test App/Api.Tests` (integration tests need the `BlueTrackTest_Local` DB: build it with `Tools/Reset-BlueTrackLocalTestDb.ps1`; CI owns `BlueTrackTest`, D-240). One class: add `--filter "FullyQualifiedName~<ClassName>"`.
 - Web: `npm run test` in `App/Web` (Vitest). One file: `npx vitest run <path>`.
 - E2E: `npm test` in `App/E2E` (Playwright, `workers: 1`). One spec: `npx playwright test tests/<file>.spec.js`.
 - CI (`.github/workflows/ci.yml`) runs all three on a self-hosted runner on this host. Strategy: `Claude_Docs/Design_Testing-Strategy.md`.
