@@ -188,6 +188,10 @@ async function save() {
         <label class="field-label"><span class="field-label-text">{{ t('admin.globalApplicationConfiguration.exportMaxRowsLabel') }}</span> <input v-model.number="config.exportMaxRows" type="number" min="1" max="1000000" required /></label>
         <small>{{ t('admin.globalApplicationConfiguration.exportMaxRowsHint') }}</small>
       </p>
+      <p>
+        <label class="field-label"><span class="field-label-text">{{ t('admin.globalApplicationConfiguration.apiKeyLifetimeLabel') }}</span> <input v-model.number="config.apiKeyDefaultLifetimeDays" type="number" min="1" max="365" required /></label>
+        <small>{{ t('admin.globalApplicationConfiguration.apiKeyLifetimeHint') }}</small>
+      </p>
       <fieldset class="patterns">
         <legend>{{ t('admin.globalApplicationConfiguration.patternsLegend') }}</legend>
         <div class="pattern-helper">

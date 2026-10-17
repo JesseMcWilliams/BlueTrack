@@ -28,7 +28,8 @@ const sections = [
   { name: 'admin-risk-score-bands', labelKey: 'admin.adminHub.riskScoreBands', permission: 'ManageRiskScoreBands' },
   { name: 'admin-data-sources', labelKey: 'admin.adminHub.dataSources', permission: 'ManageDataSources' },
   { name: 'admin-account-classification', labelKey: 'admin.adminHub.accountClassification', permission: 'ManageDiscoveredAccounts' },
-  { name: 'admin-siem-forwarding', labelKey: 'admin.adminHub.siemForwarding', permission: 'ManageApplicationConfiguration' }
+  { name: 'admin-siem-forwarding', labelKey: 'admin.adminHub.siemForwarding', permission: 'ManageApplicationConfiguration' },
+  { name: 'admin-api-keys', labelKey: 'admin.adminHub.apiKeys', permission: 'ManageApiKeys' }
 ]
 
 const visibleSections = computed(() => sections.filter(s => rights.hasPermission(s.permission)))

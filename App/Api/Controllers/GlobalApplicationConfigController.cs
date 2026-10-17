@@ -92,6 +92,11 @@ public sealed class GlobalApplicationConfigController(
         {
             return Problem(title: "Invalid export limit", detail: "ExportMaxRows must be between 1 and 1000000.", statusCode: StatusCodes.Status400BadRequest);
         }
+        // D-243: a new API key's default expiry; the column's CHECK matches this range.
+        if (request.ApiKeyDefaultLifetimeDays is < 1 or > ApiAccess.ApiAccessRules.MaxLifetimeDays)
+        {
+            return Problem(title: "Invalid API key lifetime", detail: $"ApiKeyDefaultLifetimeDays must be between 1 and {ApiAccess.ApiAccessRules.MaxLifetimeDays}.", statusCode: StatusCodes.Status400BadRequest);
+        }
         // D-200: scheduled backups -- a valid time (or "" for off) and 1..3650 days.
         if (!string.IsNullOrEmpty(request.ScheduledBackupTime) && !DataFeeds.FeedSchedule.TryParseTime(request.ScheduledBackupTime, out _))
         {
@@ -162,6 +167,7 @@ public sealed class GlobalApplicationConfigController(
         TrackIfSent("BusinessDays", before.BusinessDays, request.BusinessDays);
         TrackIfSent("BulkEditMaxAccounts", before.BulkEditMaxAccounts.ToString(), request.BulkEditMaxAccounts?.ToString());
         TrackIfSent("ExportMaxRows", before.ExportMaxRows.ToString(), request.ExportMaxRows?.ToString());
+        TrackIfSent("ApiKeyDefaultLifetimeDays", before.ApiKeyDefaultLifetimeDays.ToString(), request.ApiKeyDefaultLifetimeDays?.ToString());   // D-243
         TrackIfSent("SiteUrl", before.SiteUrl ?? "", request.SiteUrl);   // D-224
         static string? Pattern(string? mode, string? value) => mode is null ? null : mode == "Off" ? "Off" : $"{mode}: {value}";
         TrackIfSent("SafeDecomPattern", Pattern(before.SafeDecomMode, before.SafeDecomValue), Pattern(request.SafeDecomMode, request.SafeDecomValue));

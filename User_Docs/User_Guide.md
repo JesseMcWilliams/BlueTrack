@@ -263,6 +263,7 @@ Every admin-wide setting on one form, saved together with a single **Save** butt
 - The Risk Score Algorithm (Dominant Plus Tail / Combined Exposure — see `Design_Risk-Scoring.md`) and the segregation-of-duties checkbox (below).
 - **Bulk edit limit (accounts)**: 1 to 10000; the most accounts one Account Progress bulk action may change.
 - **Export Max Rows**: 1 to 1,000,000 (100,000 on a new install); the most rows one report or Audit Log export (**Export CSV** / **Export Excel**) may hold. When more rows match, the export is refused with the count rather than cut short.
+- **API key default lifetime (days)**: 1 to 365 (90 on a new install); how long a new API key lasts. See **Admin > API Keys**.
 - **Site URL**: the address people open BlueTrack at (for example `https://bluetrack.company.com`; `https://` only, or `http://` for localhost). The notification emails link to pages under it; leave it blank and they name the pages instead. The installer fills it in when it's blank.
 
 #### Data feeds

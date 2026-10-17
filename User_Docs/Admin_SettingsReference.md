@@ -24,7 +24,7 @@ Allowed values and ranges are given in the "What it does" column or in the notes
 
 Every Admin page needs its own permission (see "Roles & Permissions"). A user sees only the Admin pages their roles allow.
 
-This guide has two parts. This file covers sections 1 to 5. Sections 6 (Secrets Store and Credentials, including LDAP), 7 (Notifications) and 8 (SIEM Forwarding) are in [Admin_SettingsReference_Notifications.md](Admin_SettingsReference_Notifications.md). Both are published together as the Administrator Settings Guide.
+This guide has two parts. This file covers sections 1 to 5. Sections 6 (Secrets Store and Credentials, including LDAP), 7 (Notifications) 8 (SIEM Forwarding) and 9 (API Keys) are in [Admin_SettingsReference_Notifications.md](Admin_SettingsReference_Notifications.md). Both are published together as the Administrator Settings Guide.
 
 ## 1. Global Application Configuration
 
@@ -42,6 +42,7 @@ This guide has two parts. This file covers sections 1 to 5. Sections 6 (Secrets 
 | Enforce segregation of duties on Risk Exception approval | When on, the person who approved a Risk Exception cannot also be the one who links it to an account. | Off | On, if you have separate staff | Stops one person both approving and applying an exception. Leave it off for a small team, and review the Risk Exception segregation-of-duties report instead. |
 | Bulk edit limit (accounts) | The most accounts one bulk edit, bulk action, delete or undelete may change. Allowed: 1 to 10,000. | 500 | 500 | Large enough for normal work, small enough that a mistaken bulk change is limited. Raise it only for planned clean-ups. |
 | Export Max Rows | The most rows one report export (**Export CSV** or **Export Excel** on any report, or on the Audit Log Viewer) may hold. When more rows match the filters, the export is refused with the number of rows, never cut short. Allowed: 1 to 1,000,000. | 100,000 | 100,000 | Large enough for any normal report, small enough that one export can't tie up the server. Users narrow the filters when they hit it. |
+| API key default lifetime (days) | How long a new API key lasts before it expires. Allowed: 1 to 365. You can choose another lifetime for each key when you create it (see section 9, API Keys). | 90 | 90 | Short enough that a forgotten key stops working, long enough that you aren't replacing keys constantly. Raise it only if a system can't be given a new key as often. |
 
 **Idle timeout.** In the browser, BlueTrack signs the user out after this many minutes with no mouse, keyboard or touch activity in any of its tabs, and the sign-in page says why. OIDC and SAML sessions are also ended on the server once no request has arrived for this long, so a closed tab doesn't leave a usable session behind; each OIDC session also ends after 8 hours regardless. Windows sign-in has no session to end: if Windows Integrated is the default method, the user is signed in again as soon as they leave the sign-in page. Separately, a user's cached roles and permissions last at most 15 minutes, and any change to a role, group mapping or identity provider clears every user's cache.
 

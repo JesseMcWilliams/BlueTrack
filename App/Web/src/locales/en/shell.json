@@ -90,7 +90,9 @@
     "adminAccountClassification": "Account Classification",
     "adminAccountClassificationRuleCreate": "New Rule",
     "adminAccountClassificationRuleEdit": "Edit Rule",
-    "adminSiemForwarding": "SIEM Forwarding"
+    "adminSiemForwarding": "SIEM Forwarding",
+    "adminApiKeys": "API Keys",
+    "adminApiKeyCreate": "New API Key"
   },
   "userMenu": {
     "account": "Account",

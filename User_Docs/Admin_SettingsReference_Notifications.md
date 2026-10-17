@@ -1,4 +1,4 @@
-# BlueTrack Settings Reference: Secrets, Credentials, Notifications and SIEM Forwarding
+# BlueTrack Settings Reference: Secrets, Credentials, Notifications, SIEM Forwarding and API Keys
 
 **For BlueTrack administrators**
 
@@ -212,3 +212,27 @@ The **Status** section shows whether forwarding is on, when an event was last se
 **Send Test Event** sends one test event (event type `SiemForwardingTest`, severity 1) with the **saved** settings, whether forwarding is on or off, and reports success or the error. Save first, test, then turn forwarding on. Each test is recorded in the Audit Log as a `ConnectionTest` event; every save as a `FieldEdit` on `siem_forwarding_config`.
 
 The **SIEM Forwarding** health check on **Admin > Deployment** is Degraded while forwarding is on and the last send failed, or the oldest waiting event is more than 15 minutes old. See the Operations Guide, "Monitoring SIEM forwarding".
+
+## 9. API Keys
+
+**Admin > API Keys** (permission `ManageApiKeys`, held by Admin only). An API key lets a script or another system call BlueTrack's API without a person signing in. The system sends its key to `POST /api/auth/token` and gets back a token that lasts 10 minutes; it then calls the API with `Authorization: Bearer <token>`, and asks for a new token when that one is about to expire. The key is only ever sent to that one address.
+
+The key acts as the **role** you give it, and can do only what that role can do. The Admin role can't be given to a key, and a key never gets the permissions that manage API keys, sign-in (Identity Providers, Group → Role Mapping, Roles & Permissions), the Secrets Store, credentials, backups, Global Application Configuration or Reload Rights, whatever its role holds. A script that needs those should sign in as a person.
+
+### Creating, disabling and deleting keys
+
+**New API Key** asks for a **Name** (what the key is for), a **Role** and a **Lifetime** in days (the default is set on Global Application Configuration; 365 is the longest). After **Create API Key** the page shows the key once. Copy it then and store it where the script can read it (for example in the CyberArk vault). BlueTrack keeps only a one-way hash, so a lost key can't be shown again: delete it and create another.
+
+| Setting | What it does | Default | Recommended | Why |
+|---|---|---|---|---|
+| Name | Identifies the key in the list and the Audit Log. Must be unique. | Blank | The system or script that uses it | One key per caller means one key can be switched off without stopping the others. |
+| Role | What the key may do. Every role except Admin is offered. | The first role listed | The narrowest role that does the job, for example Auditor or Viewer for a read-only report | A leaked key can do no more than its role. |
+| Lifetime (days) | When the key expires. Allowed: 1 up to 365. | 90, or the Global Application Configuration setting | 90 | A forgotten key stops working by itself. |
+
+The list shows each key's name, the **first characters** of the key (to tell keys apart, never enough to use it), role, expiry, status (**Enabled**, **Disabled** or **Expired**), when and from which address it was last used, and who created it. **Disable** stops a key at once, within about a minute (a token it already holds stops working too) and can be undone with **Enable**; **Delete** removes it for good after a confirmation. An expired key can't get a token.
+
+### Audit and limits
+
+Creating, disabling, enabling and deleting a key are in the Audit Log (`ApiKeyCreated`, `ApiKeyChanged`), as is every token a key is given (`ApiTokenIssued`) and every refused request (`ApiTokenRejected`, showing only the first characters of the key sent). Actions a key takes are attributed to the key (shown as "API key: <name>"). A refused request never says why (a wrong, disabled or expired key all look the same). After 10 refused requests in a minute from one address, further requests from it are answered `429` for a minute.
+
+Each request also checks that the key is still enabled and unexpired, so changes take effect quickly. Changing a key's role isn't possible yet: create a new key and delete the old one.

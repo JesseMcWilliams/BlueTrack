@@ -27,6 +27,7 @@ const baseConfig = {
   businessDays: 'Mon,Tue,Wed,Thu,Fri',
   bulkEditMaxAccounts: 500,
   exportMaxRows: 100000,
+  apiKeyDefaultLifetimeDays: 90,
   safeDecomMode: 'Off',
   safeDecomValue: null,
   accountDecomMode: 'Off',

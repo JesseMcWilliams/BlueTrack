@@ -316,4 +316,37 @@ public class ApiAccessTests : IClassFixture<BlueTrackWebApplicationFactory>
         var providers = (await admin.GetFromJsonAsync<JsonArray>("/api/admin/identity-providers"))!;
         Assert.DoesNotContain("ApiAccess", providers.Select(p => p!["providerType"]!.GetValue<string>()));
     }
+
+    [Fact]
+    public async Task DefaultLifetime_IsASetting_ThatNewKeysFollow()
+    {
+        var admin = AdminClient();
+        var original = (await admin.GetFromJsonAsync<JsonObject>("/api/admin/configuration"))!;
+        Assert.Equal(90, original["apiKeyDefaultLifetimeDays"]!.GetValue<int>());
+
+        JsonObject With(int days)
+        {
+            var body = JsonNode.Parse(original.ToJsonString())!.AsObject();
+            body["apiKeyDefaultLifetimeDays"] = days;
+            return body;
+        }
+
+        var created = (CreatedKey?)null;
+        try
+        {
+            Assert.Equal(HttpStatusCode.BadRequest, (await admin.PutAsJsonAsync("/api/admin/configuration", With(0))).StatusCode);
+            Assert.Equal(HttpStatusCode.BadRequest, (await admin.PutAsJsonAsync("/api/admin/configuration", With(366))).StatusCode);
+            Assert.Equal(HttpStatusCode.NoContent, (await admin.PutAsJsonAsync("/api/admin/configuration", With(30))).StatusCode);
+
+            created = await CreateKeyAsync(admin, "Viewer");
+            Assert.InRange(created.ExpiresAt, DateTime.UtcNow.AddDays(29), DateTime.UtcNow.AddDays(31));
+            var options = (await admin.GetFromJsonAsync<JsonObject>("/api/admin/api-keys/options"))!;
+            Assert.Equal(30, options["defaultLifetimeDays"]!.GetValue<int>());
+        }
+        finally
+        {
+            Assert.Equal(HttpStatusCode.NoContent, (await admin.PutAsJsonAsync("/api/admin/configuration", With(90))).StatusCode);
+            if (created is not null) await DeleteKeysAsync(created.ApiKeyKey);
+        }
+    }
 }

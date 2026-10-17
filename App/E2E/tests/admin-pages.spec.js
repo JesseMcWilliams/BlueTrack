@@ -819,3 +819,43 @@ test.describe('Global Application Configuration admin page', () => {
     await expect(page.getByText('Saved.')).toBeVisible()
   })
 })
+
+// D-243: Admin > API Keys. The key is shown once, after the create.
+test.describe('API Keys admin page', () => {
+  test('Admin creates a key (shown once), disables it, then deletes it', async ({ page }) => {
+    await signInAs(page, 'TestUser.Admin')
+    await page.goto('/admin/api-keys')
+    const keyName = `E2E key ${Date.now()}`
+
+    await page.getByRole('button', { name: 'New API Key' }).click()
+    await expect(page).toHaveURL(/\/admin\/api-keys\/new$/)
+    await page.getByLabel('Name:').fill(keyName)
+    await page.getByRole('button', { name: 'Create API Key' }).click()
+
+    const shown = page.getByLabel('API key')
+    await expect(shown).toHaveValue(/^bt_/)
+    const fullKey = await shown.inputValue()
+    const prefix = fullKey.slice(0, 11)
+    await page.getByRole('button', { name: 'Done' }).click()
+    await expect(page).toHaveURL(/\/admin\/api-keys$/)
+
+    const row = page.locator('tbody tr', { hasText: keyName })
+    await expect(row).toContainText('Enabled')
+    await expect(row).toContainText(prefix)
+    // Nothing on the list is the key itself.
+    await expect(page.locator('body')).not.toContainText(fullKey)
+
+    await row.getByRole('button', { name: 'Disable' }).click()
+    await expect(row).toContainText('Disabled')
+
+    await row.getByRole('button', { name: 'Delete' }).click()
+    await confirmDelete(page)
+    await expect(row).toHaveCount(0)
+  })
+
+  test('Viewer has no API Keys link and the page is refused', async ({ page }) => {
+    await signInAs(page, 'TestUser.Viewer')
+    await page.goto('/admin')
+    await expect(page.locator('nav.admin-subnav').getByRole('link', { name: 'API Keys' })).toHaveCount(0)
+  })
+})
