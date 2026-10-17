@@ -55,7 +55,7 @@ A new table, `web.data_feed`, one row per scheduled CSV feed:
 |---|---|
 | `DataFeedKey` | Identity. |
 | `DisplayName` | Admin-chosen, e.g. "Linux server inventory". |
-| `FeedType` | Which existing import it runs: `TargetInventory`, `AccessGroupInventory`, `AccessGroupTargetMap`, `AccountAccessGroupMembership`, `AccountTargetMap`, `Applications`, `SafeAssignments`, plus the new `AccountInventory` (5). |
+| `FeedType` | Which existing import it runs: `TargetInventory`, `AccessGroupInventory`, `AccessGroupTargetMap`, `AccountAccessGroupMembership`, `AccountTargetMap`, `Applications`, `SafeAssignments`, plus the new `AccountInventory` (5) and `AccountAssignments` (D-241: the Account assignments CSV import, D-239, on a schedule; columns `UserName`, `Address`, `Application`, optional `Source`). |
 | `SourceSystemKey` | The system the data comes from (`dim_source_system`). Required for `AccountInventory`, so each account records where it came from. |
 | `FolderPath`, `FileNamePattern` | Where the file is; the name may contain `{yyyy-MM-dd}` for today's date. Read by the **app pool's account** (see 7). |
 | `MappingProfileKey` | Optional D-105 mapping profile, for feed types that support one. |

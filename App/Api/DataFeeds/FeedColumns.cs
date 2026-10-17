@@ -21,7 +21,8 @@ public static class FeedColumns
         ["AccountTargetMap"] = [["AccountName", "AccountKey"], ["TargetIdentifierType"], ["TargetIdentifierValue"]],
         ["Applications"] = [["ApplicationCode"]],
         ["SafeAssignments"] = [["SafeName"], ["Application"]],
-        ["AccountInventory"] = [["UserName"], ["Address"]]   // D-212
+        ["AccountInventory"] = [["UserName"], ["Address"]],   // D-212
+        ["AccountAssignments"] = [["UserName"], ["Address"], ["Application"]]   // D-241
     };
 
     /// <summary>

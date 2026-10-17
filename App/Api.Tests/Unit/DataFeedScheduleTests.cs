@@ -130,6 +130,7 @@ public class DataFeedScheduleTests
         Assert.Empty(FeedColumns.FindMissing("SafeAssignments", ["safename", "APPLICATION", "Source"], NoMapping));
         Assert.Equal(["Application"], FeedColumns.FindMissing("SafeAssignments", ["SafeName"], NoMapping));
         Assert.Equal(["TargetName", "RiskScore"], FeedColumns.FindMissing("TargetInventory", ["TargetType"], NoMapping));
+        Assert.Equal(["Address", "Application"], FeedColumns.FindMissing("AccountAssignments", ["username", "Source"], NoMapping));   // D-241
     }
 
     [Fact]
