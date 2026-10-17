@@ -264,4 +264,6 @@ Creating, disabling, enabling and deleting a key are in the Audit Log (`ApiKeyCr
 
 **Expiry emails.** The **ApiKeyExpiring** notification (**Admin > Notifications**, off until you enable it) emails a key's **owner** the **API key expiry reminder lead time** (Global Application Configuration, 7 days by default, 1 to 90) before the key expires, and again on the day it expires. A key with no owner email is skipped, and so is the reminder for a key made for no more than the lead time. The **ApiKeyExpired** notification (also off until enabled) emails the administrators, who are its recipients as for any notification type, on the day a key expires. Both go out from the daily digest time, once per key and expiry date; renewing a key's expiry earns new emails. See section 7.
 
+**Expired keys are deleted automatically** the **Delete expired API keys after (days)** setting after they expire (Global Application Configuration, 365 by default; 0 keeps them for ever). The check runs every six hours; each deletion is in the Audit Log (`ApiKeyChanged`, "deleted automatically", by "BlueTrack API access (system)"). A key that is only disabled stays until you delete it.
+
 Each request also checks that the key is still enabled and unexpired, so changes take effect quickly. A key's role is looked up on every request.

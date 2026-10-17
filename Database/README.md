@@ -50,6 +50,7 @@ instead.
 | 32 | `32_BlueTrack_ApiKeyExpiryAndRateLimit.sql` | D-243 (phase 3b): the `ApiKeyExpiring` notification type (off) and `app_config.ApiRateLimitPerMinute` (600). |
 | 33 | `33_BlueTrack_ApiClientMapping.sql` | D-243 (phase 2): `web.api_client_mapping` (an identity provider token's client or group to a role) and the `ApiClientMappingChanged` audit event type. |
 | 34 | `34_BlueTrack_ApiKeyOwnerAndEdit.sql` | D-243 (phase 4): `api_key.OwnerEmail` and `RateLimitPerMinute`, `app_config.ApiKeyReminderLeadDays` (7), the `ApiKeyExpiring` description (owner emails) and the `ApiKeyExpired` notification type (off). |
+| 35 | `35_BlueTrack_ApiKeyExpiredRetention.sql` | D-243 (phase 5): `app_config.ApiKeyExpiredRetentionDays` (365; 0 keeps expired API keys for ever), used by the automatic deletion of expired keys. |
 
 ## The baseline (D-195)
 

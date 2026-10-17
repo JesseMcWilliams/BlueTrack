@@ -106,6 +106,10 @@ public sealed class GlobalApplicationConfigController(
         {
             return Problem(title: "Invalid API key reminder lead time", detail: "ApiKeyReminderLeadDays must be between 1 and 90.", statusCode: StatusCodes.Status400BadRequest);
         }
+        if (request.ApiKeyExpiredRetentionDays is < 0 or > 3650)
+        {
+            return Problem(title: "Invalid API key retention", detail: "ApiKeyExpiredRetentionDays must be between 0 and 3650.", statusCode: StatusCodes.Status400BadRequest);
+        }
         // D-200: scheduled backups -- a valid time (or "" for off) and 1..3650 days.
         if (!string.IsNullOrEmpty(request.ScheduledBackupTime) && !DataFeeds.FeedSchedule.TryParseTime(request.ScheduledBackupTime, out _))
         {
@@ -180,6 +184,7 @@ public sealed class GlobalApplicationConfigController(
         TrackIfSent("ApiKeyDefaultLifetimeDays", before.ApiKeyDefaultLifetimeDays.ToString(), request.ApiKeyDefaultLifetimeDays?.ToString());   // D-243
         TrackIfSent("ApiRateLimitPerMinute", before.ApiRateLimitPerMinute.ToString(), request.ApiRateLimitPerMinute?.ToString());   // D-243
         TrackIfSent("ApiKeyReminderLeadDays", before.ApiKeyReminderLeadDays.ToString(), request.ApiKeyReminderLeadDays?.ToString());   // D-243
+        TrackIfSent("ApiKeyExpiredRetentionDays", before.ApiKeyExpiredRetentionDays.ToString(), request.ApiKeyExpiredRetentionDays?.ToString());   // D-243
         TrackIfSent("SiteUrl", before.SiteUrl ?? "", request.SiteUrl);   // D-224
         static string? Pattern(string? mode, string? value) => mode is null ? null : mode == "Off" ? "Off" : $"{mode}: {value}";
         TrackIfSent("SafeDecomPattern", Pattern(before.SafeDecomMode, before.SafeDecomValue), Pattern(request.SafeDecomMode, request.SafeDecomValue));
