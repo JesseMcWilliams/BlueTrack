@@ -13,14 +13,16 @@ namespace BlueTrack.Api.Tests.Integration;
 ///
 /// The connection string is read from the BLUETRACK_TEST_CONNECTION
 /// environment variable so CI can point it anywhere; it falls back to this
-/// dev host's own BlueTrackTest for running these tests locally without
-/// any extra setup.
+/// dev host's own BlueTrackTest_Local (D-240) for running these tests
+/// locally. CI owns BlueTrackTest and rebuilds it on every run, so local
+/// runs don't share it. Build the local one with
+/// Tools/Reset-BlueTrackLocalTestDb.ps1.
 /// </summary>
 public static class TestDatabase
 {
     public static string ConnectionString =>
         Environment.GetEnvironmentVariable("BLUETRACK_TEST_CONNECTION")
-        ?? "Server=WIN-K5POLANERI5.Company.com;Database=BlueTrackTest;Integrated Security=true;TrustServerCertificate=true";
+        ?? "Server=WIN-K5POLANERI5.Company.com;Database=BlueTrackTest_Local;Integrated Security=true;TrustServerCertificate=true";
 }
 
 public sealed class TestDbConnectionFactory : IDbConnectionFactory

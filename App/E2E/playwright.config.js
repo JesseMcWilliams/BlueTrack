@@ -15,7 +15,8 @@ import { defineConfig, devices } from '@playwright/test'
 // to run each test layer locally").
 const apiConnectionString =
   process.env.BLUETRACK_TEST_CONNECTION ??
-  'Server=WIN-K5POLANERI5.Company.com;Database=BlueTrackTest;Integrated Security=true;TrustServerCertificate=true'
+  // Local runs use their own database (D-240); CI sets the variable and owns BlueTrackTest.
+  'Server=WIN-K5POLANERI5.Company.com;Database=BlueTrackTest_Local;Integrated Security=true;TrustServerCertificate=true'
 
 export default defineConfig({
   testDir: './tests',

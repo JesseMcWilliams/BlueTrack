@@ -74,6 +74,8 @@ CyberArk CP/CCP/Conjur, Azure Key Vault, AWS Secrets Manager, and real OIDC/SAML
 6. `npm run build` builds the SPA, then Playwright runs against the built app + the API pointed at `BlueTrackTest`.
 7. `npm run test` (Vitest) runs independently of the above, no database needed.
 
+**Local runs use their own database (D-240):** CI owns `BlueTrackTest` and rebuilds it on every run, so the xUnit and Playwright fallbacks name `BlueTrackTest_Local`. Build it with `Tools/Reset-BlueTrackLocalTestDb.ps1` (the same steps as 2-4 above). CI sets `BLUETRACK_TEST_CONNECTION` itself. The host's CPU and the E2E ports are still shared, so don't run Playwright locally while CI runs.
+
 ## Admin/Developer Requirements
 
 - A `README` or `CONTRIBUTING`-level note on how to run each test layer locally (not just in CI) — a developer working on this app needs the same disposable-database workflow available on their own machine, not just on the CI host.

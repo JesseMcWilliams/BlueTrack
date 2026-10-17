@@ -1,5 +1,7 @@
 # BlueTrack: Handoff, 2026-10-15
 
+> **Archived 2026-10-17:** superseded by `Planning_Handoff-2026-10-17.md`, which carries its open items.
+>
 > **Stage: Planning.** Point-in-time snapshot for the next Claude session, written at the end of 2026-10-14 (updated after PR #142). Supersedes `Archive_Planning_Handoff-2026-10-14.md` (PRs #109 to #122). Once every open item below is closed, rename this to `Archive_Planning_Handoff-2026-10-15.md` with `git mv`.
 
 ## What was done
