@@ -13,7 +13,11 @@ namespace BlueTrack.Api.Security;
 /// SPA's fetch wrapper (App/Web/src/utils/apiBase.js) adds it to every call.
 ///
 /// Exempt: the SAML assertion consumer service, which the identity provider's
-/// sign-in page posts to as a normal form (its own signature protects it).
+/// sign-in page posts to as a normal form (its own signature protects it), and
+/// (D-243) the API token endpoint and any request that carries an
+/// "Authorization: Bearer" header: a browser attaches ambient credentials
+/// (cookies, Windows sign-in) by itself, but never that header, and another
+/// site can't add it without a CORS preflight, which is never granted.
 /// Paths outside /api (e.g. the OIDC callback, /signin-oidc) are not checked.
 /// </summary>
 public sealed class RequireApiRequestHeaderMiddleware(RequestDelegate next)
@@ -22,7 +26,7 @@ public sealed class RequireApiRequestHeaderMiddleware(RequestDelegate next)
     public const string HeaderValue = "XMLHttpRequest";
 
     private static readonly PathString ApiPrefix = new("/api");
-    private static readonly PathString[] Exempt = [new("/api/auth/saml/acs")];
+    private static readonly PathString[] Exempt = [new("/api/auth/saml/acs"), new("/api/auth/token")];
 
     public async Task InvokeAsync(HttpContext context)
     {
@@ -44,7 +48,8 @@ public sealed class RequireApiRequestHeaderMiddleware(RequestDelegate next)
     private static bool RequiresHeader(HttpRequest request) =>
         !(HttpMethods.IsGet(request.Method) || HttpMethods.IsHead(request.Method) || HttpMethods.IsOptions(request.Method) || HttpMethods.IsTrace(request.Method))
         && request.Path.StartsWithSegments(ApiPrefix, StringComparison.OrdinalIgnoreCase)
-        && !Exempt.Any(path => request.Path.Equals(path, StringComparison.OrdinalIgnoreCase));
+        && !Exempt.Any(path => request.Path.Equals(path, StringComparison.OrdinalIgnoreCase))
+        && !ApiAccess.ApiTokenAuthenticationMiddleware.HasBearerToken(request);
 
     private static bool HasHeader(HttpRequest request) =>
         string.Equals(request.Headers[HeaderName], HeaderValue, StringComparison.OrdinalIgnoreCase);

@@ -98,6 +98,10 @@ builder.Services.AddDistributedSqlServerCache(options =>
     options.TableName = "distributed_cache";
 });
 builder.Services.AddScoped<UserRightsCache>();
+// D-243: API keys, and the tokens they are exchanged for.
+builder.Services.AddMemoryCache();
+builder.Services.AddScoped<BlueTrack.Api.ApiAccess.ApiKeyRepository>();
+builder.Services.AddSingleton<BlueTrack.Api.ApiAccess.ApiTokenService>();
 builder.Services.AddSingleton<BlueTrack.Api.Security.AllowedFileRoots>();   // D-197
 
 // Secrets Storage (D-16/D-32/D-79/D-80). Vault-lookup backends (CyberArk
@@ -350,6 +354,12 @@ app.Use(async (context, next) =>
 
     await next(context);
 });
+
+// D-243: "Authorization: Bearer <token>" from an API key's token exchange.
+// Last before authorization on purpose: it replaces whatever the middleware
+// above left in context.User, and a bearer request never falls back to
+// Windows or a cookie. No authentication scheme is added for it.
+app.UseMiddleware<BlueTrack.Api.ApiAccess.ApiTokenAuthenticationMiddleware>();
 
 app.UseAuthorization();
 

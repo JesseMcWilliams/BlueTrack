@@ -46,6 +46,7 @@ instead.
 | 28 | `28_BlueTrack_FeedSkipGroupRows.sql` | D-237: `web.data_feed.SkipGroupRows` (BIT, default 0): an account inventory feed with it on skips rows whose `UserName` is a group. |
 | 29 | `29_BlueTrack_AccountApplication.sql` | D-238: `fact_account_progress.ApplicationKey` (an account's own Application; FK, index), the Application dropdown on the Account Progress edit form (`account_progress_field_metadata`), and `web.vw_account_application_exception` rebuilt to cover an account through its own application and its Safe's. |
 | 30 | `30_BlueTrack_AccountAssignmentsFeed.sql` | D-241: the `AccountAssignments` value in `web.data_feed`'s FeedType CHECK constraint (a scheduled Account → application assignments import). |
+| 31 | `31_BlueTrack_ApiAccess.sql` | D-243: `web.api_key` (hash only), `web.api_signing_key`, `app_config.ApiKeyDefaultLifetimeDays` (90), the hidden `ApiAccess` identity provider and its system user, the `ManageApiKeys` permission (Admin), and four audit event types. |
 
 ## The baseline (D-195)
 
