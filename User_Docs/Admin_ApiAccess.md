@@ -67,5 +67,6 @@ Invoke-RestMethod "$base/me" -Headers @{ Authorization = "Bearer $token" }
 - **One key per script or system**, so one can be disabled without stopping the others.
 - **Rotate** before a key expires: **Rotate** on the **Admin > API Keys** list makes a new key with the same role, owner and limit, and shows it once. Switch the script over, then **Disable** or **Delete** the old key. Or click the key's name to renew its expiry in place.
 - **Give each key an owner email** and turn on the **ApiKeyExpiring** notification (**Admin > Notifications**): the owner is emailed 7 days before the key expires (the lead time is a setting) and on the day. Turn on **ApiKeyExpired** to tell the administrators on the day.
+- Expired keys are **deleted automatically** a year after they expire (a setting); until then they stay on the list as Expired.
 - **Disable** a key you suspect has leaked. It stops within about a minute, even for a token it already gave.
 - Every token request and every action a caller takes is in the **Audit Log**, attributed to "API key: <name>" or "API client: <name>".

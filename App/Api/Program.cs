@@ -102,6 +102,7 @@ builder.Services.AddScoped<UserRightsCache>();
 builder.Services.AddMemoryCache();
 builder.Services.AddScoped<BlueTrack.Api.ApiAccess.ApiKeyRepository>();
 builder.Services.AddScoped<BlueTrack.Api.ApiAccess.ApiClientMappingRepository>();
+builder.Services.AddHostedService<BlueTrack.Api.ApiAccess.ApiKeyPurgeService>();
 builder.Services.AddSingleton<BlueTrack.Api.ApiAccess.IIdpMetadataSource, BlueTrack.Api.ApiAccess.OidcIdpMetadataSource>();
 builder.Services.AddScoped<BlueTrack.Api.ApiAccess.IdpTokenValidator>();
 builder.Services.AddSingleton<BlueTrack.Api.ApiAccess.ApiTokenService>();

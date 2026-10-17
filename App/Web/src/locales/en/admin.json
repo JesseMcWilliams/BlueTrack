@@ -416,7 +416,9 @@
     "apiRateLimitLabel": "API requests per minute, per key:",
     "apiRateLimitHint": "The most requests one API key may make in a minute, from 1 to 100,000. Over it, the API answers \"too many requests\" until the minute is up.",
     "apiKeyReminderLabel": "API key expiry reminder lead time (days):",
-    "apiKeyReminderHint": "How many days before an API key expires its owner is emailed, from 1 to 90. The owner is emailed again on the day it expires, and the administrators on that day (the ApiKeyExpiring and ApiKeyExpired notification types on Notifications)."
+    "apiKeyReminderHint": "How many days before an API key expires its owner is emailed, from 1 to 90. The owner is emailed again on the day it expires, and the administrators on that day (the ApiKeyExpiring and ApiKeyExpired notification types on Notifications).",
+    "apiKeyRetentionLabel": "Delete expired API keys after (days):",
+    "apiKeyRetentionHint": "How many days an expired API key stays on the API Keys list before it is deleted automatically, from 1 to 3,650 (365 by default). 0 keeps them for ever. A key that is only disabled is never deleted automatically. Each deletion is in the Audit Log."
   },
   "groupRoleMapping": {
     "couldNotResolve": "Could not resolve that group name.",

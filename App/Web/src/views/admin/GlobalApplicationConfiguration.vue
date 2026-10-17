@@ -200,6 +200,10 @@ async function save() {
         <label class="field-label"><span class="field-label-text">{{ t('admin.globalApplicationConfiguration.apiKeyReminderLabel') }}</span> <input v-model.number="config.apiKeyReminderLeadDays" type="number" min="1" max="90" required /></label>
         <small>{{ t('admin.globalApplicationConfiguration.apiKeyReminderHint') }}</small>
       </p>
+      <p>
+        <label class="field-label"><span class="field-label-text">{{ t('admin.globalApplicationConfiguration.apiKeyRetentionLabel') }}</span> <input v-model.number="config.apiKeyExpiredRetentionDays" type="number" min="0" max="3650" required /></label>
+        <small>{{ t('admin.globalApplicationConfiguration.apiKeyRetentionHint') }}</small>
+      </p>
       <fieldset class="patterns">
         <legend>{{ t('admin.globalApplicationConfiguration.patternsLegend') }}</legend>
         <div class="pattern-helper">

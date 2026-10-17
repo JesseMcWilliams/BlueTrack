@@ -53,6 +53,20 @@ public sealed class ApiKeyRepository(IDbConnectionFactory connectionFactory)
         return rows.AsList();
     }
 
+    /// <summary>Keys (enabled or not) that expired before <paramref name="cutoffUtc"/>.</summary>
+    public async Task<IReadOnlyList<ApiKeySummary>> ListExpiredBeforeAsync(DateTime cutoffUtc)
+    {
+        using var connection = connectionFactory.Create();
+        var rows = await connection.QueryAsync<ApiKeySummary>(SummarySelect + " WHERE k.ExpiresAt < @cutoffUtc ORDER BY k.ExpiresAt", new { cutoffUtc });
+        return rows.AsList();
+    }
+
+    public async Task<int> GetExpiredRetentionDaysAsync()
+    {
+        using var connection = connectionFactory.Create();
+        return await connection.QuerySingleAsync<int>("SELECT ApiKeyExpiredRetentionDays FROM web.app_config");
+    }
+
     public async Task<int> GetReminderLeadDaysAsync()
     {
         using var connection = connectionFactory.Create();
