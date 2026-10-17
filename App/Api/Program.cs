@@ -221,6 +221,7 @@ builder.Services.AddScoped<INotificationCheck, DevFakeAuthEnabledCheck>();
 builder.Services.AddScoped<INotificationCheck, NightlyImportFailedCheck>();     // D-222
 builder.Services.AddScoped<INotificationCheck, OverdueRiskExceptionsCheck>();   // D-222
 builder.Services.AddScoped<INotificationCheck, WeeklySummaryCheck>();           // D-222
+builder.Services.AddScoped<INotificationCheck, ApiKeyExpiringCheck>();          // D-243
 builder.Services.AddHostedService<NotificationCheckBackgroundService>();
 
 // AD Account Discovery (2026-09-16): same same-process-BackgroundService

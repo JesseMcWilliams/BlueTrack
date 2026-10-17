@@ -412,7 +412,9 @@
     "businessDaysLabel": "Business days:",
     "businessDaysHint": "Run now asks for confirmation inside these hours, since an import changes data people are working with.",
     "apiKeyLifetimeLabel": "API key default lifetime (days):",
-    "apiKeyLifetimeHint": "How long a new API key lasts before it expires, from 1 to 365. The expiry can be changed for each key when it is created."
+    "apiKeyLifetimeHint": "How long a new API key lasts before it expires, from 1 to 365. The expiry can be changed for each key when it is created.",
+    "apiRateLimitLabel": "API requests per minute, per key:",
+    "apiRateLimitHint": "The most requests one API key may make in a minute, from 1 to 100,000. Over it, the API answers \"too many requests\" until the minute is up."
   },
   "groupRoleMapping": {
     "couldNotResolve": "Could not resolve that group name.",
@@ -904,7 +906,10 @@
     "disable": "Disable",
     "enable": "Enable",
     "confirmDelete": "Delete the API key \"{name}\"? Scripts that use it stop working at once.",
-    "actionFailed": "The change failed: {status}"
+    "actionFailed": "The change failed: {status}",
+    "rotate": "Rotate",
+    "rotatedHeading": "A new API key \"{name}\" was created from \"{from}\".",
+    "rotateHint": "Rotate creates a new key with the same role, for switching a caller over. The old key keeps working until you disable or delete it."
   },
   "apiKeyCreate": {
     "title": "New API Key",

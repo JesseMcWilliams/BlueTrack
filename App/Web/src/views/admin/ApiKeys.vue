@@ -8,6 +8,7 @@ import { useI18n } from 'vue-i18n'
 import { confirmDelete } from '../../composables/useConfirmDialog'
 import { formatDate } from '../../utils/formatDate'
 import { formatRunTime } from './dataFeedFormat'
+import ApiKeyReveal from '../../components/ApiKeyReveal.vue'
 
 const { t } = useI18n()
 const router = useRouter()
@@ -18,6 +19,7 @@ const TOKEN_ENDPOINT = 'POST /api/auth/token'
 const keys = ref([])
 const loading = ref(true)
 const error = ref(null)
+const rotated = ref(null)
 
 // SQL datetime2 reaches the page as UTC without a zone suffix.
 function isExpired(key) {
@@ -55,6 +57,18 @@ async function setEnabled(key, enable) {
   await load()
 }
 
+async function rotate(key) {
+  error.value = null
+  const response = await fetch(`/api/admin/api-keys/${key.apiKeyKey}/rotate`, { method: 'POST' })
+  if (!response.ok) {
+    const problem = await response.json().catch(() => null)
+    error.value = problem?.error ?? t('admin.apiKeys.actionFailed', { status: response.status })
+    return
+  }
+  rotated.value = await response.json()
+  await load()
+}
+
 async function remove(key) {
   if (!(await confirmDelete(t('admin.apiKeys.confirmDelete', { name: key.displayName }), t('common.delete')))) return
   const response = await fetch(`/api/admin/api-keys/${key.apiKeyKey}`, { method: 'DELETE' })
@@ -75,11 +89,16 @@ async function remove(key) {
     <p v-if="error" role="alert">{{ error }}</p>
     <p v-if="loading" role="status">{{ t('common.loading') }}</p>
 
+    <ApiKeyReveal v-else-if="rotated" :api-key="rotated.apiKey" :expires-at="rotated.expiresAt"
+      :heading="t('admin.apiKeys.rotatedHeading', { name: rotated.displayName, from: rotated.rotatedFrom })" @done="rotated = null" />
+
     <template v-else>
       <p><button type="button" class="btn-primary" @click="router.push({ name: 'admin-api-key-create' })">{{ t('admin.apiKeys.newKey') }}</button></p>
       <p v-if="keys.length === 0 && !error">{{ t('admin.apiKeys.noKeys') }}</p>
+      <template v-else-if="keys.length">
+      <p><small>{{ t('admin.apiKeys.rotateHint') }}</small></p>
 
-      <table v-else-if="keys.length">
+      <table>
         <thead>
           <tr>
             <th>{{ t('common.name') }}</th>
@@ -104,11 +123,13 @@ async function remove(key) {
             <td>
               <button v-if="key.isEnabled" type="button" @click="setEnabled(key, false)">{{ t('admin.apiKeys.disable') }}</button>
               <button v-else type="button" @click="setEnabled(key, true)">{{ t('admin.apiKeys.enable') }}</button>
+              <button type="button" @click="rotate(key)">{{ t('admin.apiKeys.rotate') }}</button>
               <button type="button" @click="remove(key)">{{ t('common.delete') }}</button>
             </td>
           </tr>
         </tbody>
       </table>
+      </template>
     </template>
   </div>
 </template>

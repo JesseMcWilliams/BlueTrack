@@ -54,6 +54,9 @@ public sealed class GlobalApplicationConfig
     /// <summary>D-243: the expiry given to a new API key, in days (1 to 365).</summary>
     public int ApiKeyDefaultLifetimeDays { get; init; }
 
+    /// <summary>D-243: the most requests one API key may make in a minute.</summary>
+    public int ApiRateLimitPerMinute { get; init; }
+
     // D-186: decommission and ignored-safe name patterns (Mode: Off / Prefix
     // / Suffix / Regex). RegexSupported is read-only: whether this SQL
     // Server can run Regex patterns (2025, compatibility level 170).
@@ -104,6 +107,9 @@ public sealed class SaveGlobalApplicationConfigRequest
 
     /// <summary>D-243: null = unchanged.</summary>
     public int? ApiKeyDefaultLifetimeDays { get; init; }
+
+    /// <summary>D-243: null = unchanged.</summary>
+    public int? ApiRateLimitPerMinute { get; init; }
 
     /// <summary>D-186: each pattern's Mode and Value; a null Mode leaves that pattern unchanged.</summary>
     public string? SafeDecomMode { get; init; }

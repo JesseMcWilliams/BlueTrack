@@ -110,6 +110,26 @@ describe('ApiKeys.vue', () => {
     expect(call[0]).toBe('/api/admin/api-keys/1')
   })
 
+  it('Rotate makes a new key with the same role, shows it once, and Done returns to the list', async () => {
+    const rotatedBody = { apiKeyKey: 9, apiKey: 'bt_ROTATEDKEYROTATEDKEY', keyPrefix: 'bt_ROTATEDK', expiresAt: '2027-01-15T21:59:02Z', displayName: 'Nightly sync (rotated 2026-10-17)', rotatedFrom: 'Nightly sync' }
+    const { wrapper } = await mountPage()
+    globalThis.fetch = vi.fn((url, init) => Promise.resolve(init?.method === 'POST' ? jsonResponse(rotatedBody, true, 201) : jsonResponse(keys)))
+
+    await wrapper.findAll('tbody tr')[0].findAll('button').find(b => b.text() === 'Rotate').trigger('click')
+    await flushPromises()
+
+    const post = globalThis.fetch.mock.calls.find(([, init]) => init?.method === 'POST')
+    expect(post[0]).toBe('/api/admin/api-keys/1/rotate')
+    expect(wrapper.get('input.api-key-value').element.value).toBe('bt_ROTATEDKEYROTATEDKEY')
+    expect(wrapper.text()).toContain('A new API key "Nightly sync (rotated 2026-10-17)" was created from "Nightly sync".')
+    expect(wrapper.find('table').exists()).toBe(false)
+
+    await wrapper.findAll('button').find(b => b.text() === 'Done').trigger('click')
+    await flushPromises()
+    expect(wrapper.find('table').exists()).toBe(true)
+    expect(wrapper.find('input.api-key-value').exists()).toBe(false)
+  })
+
   it('shows a failure to load', async () => {
     const { wrapper } = await mountPage(jsonResponse(null, false, 500))
     expect(wrapper.find('[role="alert"]').text()).toContain('500')
