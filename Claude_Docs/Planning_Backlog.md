@@ -6,7 +6,7 @@
 Nothing at the moment. The 2026-10-13 requests shipped as D-220 to D-229.
 
 ## Requested, deferred
-- **API access for scripts and other systems** (requested 2026-10-13): sign-in today is interactive only (Windows, SAML, OIDC). Needs a design: per-user API keys or service tokens, their permissions (a role, like a user), expiry and rotation, storage (hashed), and audit logging of their use.
+- **API access for scripts and other systems** (requested 2026-10-13): sign-in today is interactive only (Windows, SAML, OIDC). A proposal with options and eight questions for the user is in `Planning_API-Access-For-Scripts.md` (2026-10-17); build starts once those are answered (per-user API keys or service tokens, their role, expiry and rotation, hashed storage, audit logging).
 - **Localize server-side text** (requested 2026-10-14): API error messages (ProblemDetails), audit details, feed run summaries and emails are English only; D-227 covers the SPA. Needs the request's language on the API (the Language preference or `Accept-Language`) and .NET resource files.
 - **"Use browser default" in the Language picker** (requested 2026-10-14): once a language is saved, there's no way to go back to following the browser's language.
 
