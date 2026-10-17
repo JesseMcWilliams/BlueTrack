@@ -9,6 +9,7 @@ import { confirmDelete } from '../../composables/useConfirmDialog'
 import { formatDate } from '../../utils/formatDate'
 import { formatRunTime } from './dataFeedFormat'
 import ApiKeyReveal from '../../components/ApiKeyReveal.vue'
+import ApiClientMappings from './ApiClientMappings.vue'
 
 const { t } = useI18n()
 const router = useRouter()
@@ -130,6 +131,8 @@ async function remove(key) {
         </tbody>
       </table>
       </template>
+
+      <ApiClientMappings />
     </template>
   </div>
 </template>

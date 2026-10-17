@@ -232,6 +232,23 @@ The key acts as the **role** you give it, and can do only what that role can do.
 
 The list shows each key's name, the **first characters** of the key (to tell keys apart, never enough to use it), role, expiry, status (**Enabled**, **Disabled** or **Expired**), when and from which address it was last used, and who created it. **Disable** stops a key at once, within about a minute (a token it already holds stops working too) and can be undone with **Enable**; **Delete** removes it for good after a confirmation. An expired key can't get a token.
 
+### API client mappings (sign in with an identity provider's token)
+
+A script can instead sign in with a token from an **OIDC identity provider** set up under **Identity Providers** (for example a client-credentials token from authentik or Entra ID). It sends that token as `idToken` to `POST /api/auth/token` (the same address as an API key, one or the other, never both) and gets the same 10-minute API token. BlueTrack checks the token against the provider's own published keys and issuer, only accepts asymmetric signatures, and rejects an expired or altered token. The token's audience isn't checked, because a script's own application is the audience, not BlueTrack: what the caller may do comes only from a mapping.
+
+**Admin > API Keys > API client mappings** says which role such a caller gets. A mapping matches either the token's **client** (its `azp` or `client_id` claim) or a **group** (a value in the claim named as the *Groups claim type* on the identity provider, `groups` by default). These are separate from **Group → Role Mapping**, which is for people signing in: a script gets only what is mapped here. A mapping's role can be any role except Admin, and the same permissions that no API key can have are never given.
+
+| Setting | What it does | Default | Recommended | Why |
+|---|---|---|---|---|
+| Identity provider | The enabled OIDC provider whose tokens the mapping applies to. | The first one | The provider your scripts' applications are registered in | Tokens from a provider you haven't mapped, or a provider that is disabled, are refused. |
+| Match by | **Client** (the token's client ID) or **Group** (a value in its groups claim). | Client | Client for a script's own application | A group match accepts any valid token from the provider that carries the group, including one issued to a person for another application. |
+| Client ID or group | The value to match, exactly (case-sensitive). | Blank | The script application's client ID | Narrow matches keep the role to the caller you meant. |
+| Role | What the caller may do. Every role except Admin is offered. | The first role listed | The narrowest role that does the job | A leaked token can do no more than its role. |
+| Order | When more than one mapping matches a token, the lowest order is used (a client match before a group match when the order is equal). | 100 | Leave at 100 unless two mappings can match | Makes the result predictable. |
+| Name | A label for the list. | Blank | What the caller is | For people reading the list. |
+
+**Disable** or **Delete** a mapping to stop its callers: new exchanges are refused, and a token it already gave stops working within about a minute. A caller's actions in the Audit Log are attributed to "API client: <name>" (the token's `preferred_username`, else its client ID, else its subject). Each exchange (`ApiTokenIssued`) and each refusal (`ApiTokenRejected`) is audited, and each mapping change is `ApiClientMappingChanged`. The refusal throttle and the per-key rate limit apply to these callers too, the rate limit per caller. SAML identity providers can't be used for this.
+
 ### Audit and limits
 
 Creating, disabling, enabling and deleting a key are in the Audit Log (`ApiKeyCreated`, `ApiKeyChanged`), as is every token a key is given (`ApiTokenIssued`) and every refused request (`ApiTokenRejected`, showing only the first characters of the key sent). Actions a key takes are attributed to the key (shown as "API key: <name>"). A refused request never says why (a wrong, disabled or expired key all look the same). After 10 refused requests in a minute from one address, further requests from it are answered `429` for a minute.

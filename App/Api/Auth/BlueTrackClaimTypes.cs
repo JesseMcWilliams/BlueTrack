@@ -12,4 +12,7 @@ namespace BlueTrack.Api.Auth;
 public static class BlueTrackClaimTypes
 {
     public const string ProviderType = "bluetrack:provider_type";
+
+    /// <summary>D-243: the role an API caller with an identity provider's token was mapped to (set from a checked token, never from a provider's claims).</summary>
+    public const string ApiRoleKey = "bluetrack:api_role_key";
 }

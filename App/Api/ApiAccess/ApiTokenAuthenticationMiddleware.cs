@@ -25,6 +25,7 @@ public sealed class ApiTokenAuthenticationMiddleware(RequestDelegate next)
     public const string BearerPrefix = "Bearer ";
     public static readonly TimeSpan StateCacheTime = TimeSpan.FromMinutes(1);
     public const string RateLimitCacheKey = "api-rate-limit";
+    public const string MappingStateCachePrefix = "apiclient-state:";
 
     private sealed class RateCounter
     {
@@ -36,7 +37,7 @@ public sealed class ApiTokenAuthenticationMiddleware(RequestDelegate next)
 
     public async Task InvokeAsync(
         HttpContext context, ApiTokenService tokens, ApiKeyRepository keys, IClaimsTransformation claimsTransformation,
-        IMemoryCache cache, TimeProvider timeProvider, BlueTrack.Api.Data.AppConfigRepository appConfig)
+        IMemoryCache cache, TimeProvider timeProvider, BlueTrack.Api.Data.AppConfigRepository appConfig, ApiClientMappingRepository mappings)
     {
         if (!HasBearerToken(context.Request))
         {
@@ -58,15 +59,36 @@ public sealed class ApiTokenAuthenticationMiddleware(RequestDelegate next)
             return;
         }
 
-        var state = await cache.GetOrCreateAsync($"apikey-state:{identity.ApiKeyKey}", async entry =>
+        string displayName;
+        if (identity.ApiKeyKey is { } apiKeyKey)
         {
-            entry.AbsoluteExpirationRelativeToNow = StateCacheTime;
-            return await keys.GetStateAsync(identity.ApiKeyKey);
-        });
-        if (state is not { IsEnabled: true } || state.ExpiresAt <= timeProvider.GetUtcNow().UtcDateTime)
+            var state = await cache.GetOrCreateAsync($"apikey-state:{apiKeyKey}", async entry =>
+            {
+                entry.AbsoluteExpirationRelativeToNow = StateCacheTime;
+                return await keys.GetStateAsync(apiKeyKey);
+            });
+            if (state is not { IsEnabled: true } || state.ExpiresAt <= timeProvider.GetUtcNow().UtcDateTime)
+            {
+                await RejectAsync(context, "The API key is disabled, expired or deleted.");
+                return;
+            }
+            displayName = state.DisplayName;
+        }
+        else
         {
-            await RejectAsync(context, "The API key is disabled, expired or deleted.");
-            return;
+            // A token from an identity provider: its mapping must still be enabled and still give the same role.
+            var mappingKey = identity.MappingKey!.Value;
+            var state = await cache.GetOrCreateAsync($"{MappingStateCachePrefix}{mappingKey}", async entry =>
+            {
+                entry.AbsoluteExpirationRelativeToNow = StateCacheTime;
+                return await mappings.GetStateAsync(mappingKey);
+            });
+            if (state is not { IsEnabled: true } || state.AppRoleKey != identity.RoleKey)
+            {
+                await RejectAsync(context, "The API client mapping is disabled, changed or deleted.");
+                return;
+            }
+            displayName = identity.DisplayName;
         }
 
         // A fixed one-minute window per key. The limit is a setting (read at most once a minute).
@@ -77,7 +99,7 @@ public sealed class ApiTokenAuthenticationMiddleware(RequestDelegate next)
         });
         var now = timeProvider.GetUtcNow();
         var window = now.ToUnixTimeSeconds() / 60;
-        var counter = cache.GetOrCreate($"apikey-rate:{identity.ApiKeyKey}:{window}", entry =>
+        var counter = cache.GetOrCreate($"apikey-rate:{identity.Subject}:{window}", entry =>
         {
             entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(2);
             return new RateCounter();
@@ -93,10 +115,11 @@ public sealed class ApiTokenAuthenticationMiddleware(RequestDelegate next)
 
         var claims = new ClaimsIdentity(
             [
-                new Claim(ClaimTypes.NameIdentifier, ApiAccessRules.ExternalIdentifierFor(identity.ApiKeyKey)),
-                new Claim("name", $"API key: {state.DisplayName}"),
+                new Claim(ClaimTypes.NameIdentifier, identity.Subject),
+                new Claim("name", identity.ApiKeyKey is null ? $"API client: {displayName}" : $"API key: {displayName}"),
             ],
             authenticationType: "BlueTrack.ApiToken");
+        if (identity.RoleKey is { } roleKey) claims.AddClaim(new Claim(BlueTrackClaimTypes.ApiRoleKey, roleKey.ToString()));
         var principal = new ClaimsPrincipal(claims);
         ExternalIdentityClaims.MarkProvider(principal, ApiAccessRules.ProviderType);
 

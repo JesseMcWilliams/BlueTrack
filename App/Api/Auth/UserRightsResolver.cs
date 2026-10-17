@@ -24,6 +24,7 @@ public sealed class UserRightsResolver(
     AuditLogger auditLogger,
     BreakGlassAccountRepository breakGlassAccountRepository,
     ApiAccess.ApiKeyRepository apiKeyRepository,
+    ApiAccess.ApiClientMappingRepository apiClientMappingRepository,
     Notifications.BreakGlassAlerter breakGlassAlerter,
     IHttpContextAccessor httpContextAccessor)
 {
@@ -44,6 +45,13 @@ public sealed class UserRightsResolver(
         if (string.IsNullOrEmpty(externalIdentifier))
         {
             return None;
+        }
+
+        // D-243: an API caller's rights are looked up on every request (two small queries): never cached, so a
+        // changed role takes effect at once, and not a "logon" (the token exchange was audited).
+        if (provider.ProviderType == ApiAccess.ApiAccessRules.ProviderType)
+        {
+            return await ResolveApiAccessAsync(principal, externalIdentifier);
         }
 
         var cached = await rightsCache.GetAsync(provider.ProviderKey, externalIdentifier);
@@ -91,26 +99,44 @@ public sealed class UserRightsResolver(
             return None;
         }
 
+        if (provider.ProviderType == ApiAccess.ApiAccessRules.ProviderType)
+        {
+            return await ResolveApiAccessAsync(principal, externalIdentifier);
+        }
+
         var rights = await ResolveLiveAsync(principal, provider);
         await rightsCache.SetAsync(provider.ProviderKey, externalIdentifier, rights);
         return rights;
     }
 
-    private async Task<UserRights> ResolveLiveAsync(ClaimsPrincipal principal, IdentityProviderConfig provider)
+    /// <summary>
+    /// D-243: an API key has its one role; a caller with an identity provider's token has the role its mapping
+    /// gave it (carried in the checked token, never from the provider's claims). Either way minus what an API
+    /// caller can never have, and never Admin.
+    /// </summary>
+    private async Task<UserRights> ResolveApiAccessAsync(ClaimsPrincipal principal, string externalIdentifier)
     {
-        // D-243: an API key's rights are its one role (no groups), minus what a key can never have.
-        if (provider.ProviderType == ApiAccess.ApiAccessRules.ProviderType)
+        const string keyPrefix = "apikey-";
+        if (externalIdentifier.StartsWith(keyPrefix, StringComparison.Ordinal) && int.TryParse(externalIdentifier[keyPrefix.Length..], out var apiKeyKey))
         {
-            var identifier = ExternalIdentifierReader.Resolve(principal);
-            var prefix = ApiAccess.ApiAccessRules.ExternalIdentifierFor(0)[..^1];   // "apikey-"
-            if (identifier is null || !identifier.StartsWith(prefix, StringComparison.Ordinal) || !int.TryParse(identifier[prefix.Length..], out var apiKeyKey))
-            {
-                return None;
-            }
-            var apiRights = await apiKeyRepository.GetRightsAsync(apiKeyKey);
-            return apiRights is null ? None : new UserRights([apiRights.RoleName], apiRights.PermissionNames);
+            var keyRights = await apiKeyRepository.GetRightsAsync(apiKeyKey);
+            return keyRights is null || keyRights.RoleName == ApiAccess.ApiAccessRules.AdminRoleName
+                ? None
+                : new UserRights([keyRights.RoleName], keyRights.PermissionNames);
         }
 
+        if (externalIdentifier.StartsWith("apiclient-", StringComparison.Ordinal)
+            && int.TryParse(principal.FindFirst(BlueTrackClaimTypes.ApiRoleKey)?.Value, out var roleKey))
+        {
+            var clientRights = await apiClientMappingRepository.GetRoleRightsAsync(roleKey);
+            return clientRights is null ? None : new UserRights([clientRights.RoleName], clientRights.PermissionNames);
+        }
+
+        return None;
+    }
+
+    private async Task<UserRights> ResolveLiveAsync(ClaimsPrincipal principal, IdentityProviderConfig provider)
+    {
         var groupIdentifiers = provider.ProviderType switch
         {
             "DevFakeAuth" => GroupIdentifierExtractor.GetDevFakeAuthIdentifiers(principal),

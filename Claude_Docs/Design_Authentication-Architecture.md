@@ -144,11 +144,11 @@ Guidance adopted 2026-08-27 for the ITfoxtec.Identity.Saml2 integration (D-23). 
 
 ## API access for scripts (D-243)
 
-A script exchanges an API key (or, in phase 2, an identity provider's JWT) for a 10-minute BlueTrack token at `POST /api/auth/token` and sends it as `Authorization: Bearer <token>`. Built in phase 1: the keys (`web.api_key`, hash only), the token service (HS256, secret in `web.api_signing_key`, DPAPI-protected), `ApiTokenAuthenticationMiddleware` and the key endpoints. Design points that matter when changing the sign-in code:
+A script exchanges an API key, or a JWT from an enabled OIDC identity provider (`idToken`), for a 10-minute BlueTrack token at `POST /api/auth/token` and sends it as `Authorization: Bearer <token>`. Built: the keys (`web.api_key`, hash only), the token service (HS256, secret in `web.api_signing_key`, DPAPI-protected), `ApiTokenAuthenticationMiddleware`, the key endpoints and Admin > API Keys (rotation, expiry emails, a per-key rate limit), and the identity provider route (`IdpTokenValidator` against the provider's own discovery metadata, asymmetric algorithms only; `web.api_client_mapping` gives the role by client or by group, lowest order first; the token carries the mapping and role, and each request checks the mapping is still enabled). Design points that matter when changing the sign-in code:
 - **It is middleware, not an authentication scheme.** It runs after the cookie-preference middleware and before `UseAuthorization` in `Program.cs`, and does nothing without a bearer header. It adds no default or policy scheme, so Windows, SAML and OIDC sign-in behave as before. Regression-test them after any change here.
 - A bearer request is never left to Windows or a cookie: a bad, expired, disabled or deleted key is a 401.
 - A key's identity is an `app_user` under the hidden `ApiAccess` provider (`apikey-<n>`), so audit and the rights cache work as for a person. The provider is left out of the sign-in list, the Identity Providers page and the enabled-provider count.
-- Rights are the key's one role, resolved in `UserRightsResolver` minus `ApiAccessRules.NeverGranted`. The key's state is checked per request from a one-minute cache; admin changes clear it.
+- Rights are the key's (or the mapping's) one role, resolved in `UserRightsResolver` minus `ApiAccessRules.NeverGranted` and never Admin. They are looked up on every request, not cached, and the key's or mapping's state is checked per request from a one-minute cache; admin changes clear it.
 - Bearer calls and the token endpoint are exempt from the D-197 header (a browser never sends that header by itself).
 
 ## Open Questions
