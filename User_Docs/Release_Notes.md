@@ -10,6 +10,8 @@ What changed in each BlueTrack release, newest first, for users and administrato
 
 ### Changed
 
+- **The installer checks the Hosting Bundle's version.** A server whose ASP.NET Core runtime is older than 10.0.13 now counts as missing the Hosting Bundle, and the installer offers to install the current one (`-Step Prereq.HostingBundle`), instead of reporting it as done.
+
 ### Fixed
 
 ### Upgrading

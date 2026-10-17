@@ -41,6 +41,32 @@ $script:InstallerCatalog = @{
     UrlRewrite    = @{ OfflinePattern = 'rewrite_amd64*.msi'; WingetId = $null; Kind = 'Msi'; Signer = 'Microsoft Corporation' }
 }
 
+# D-242: the oldest ASP.NET Core runtime the Hosting Bundle may carry. Some
+# security fixes BlueTrack relies on (Cryptography.Xml) are in the runtime, not
+# in a package. Raise it when a release needs a newer runtime.
+$script:MinimumAspNetCoreRuntime = [version]'10.0.13'
+
+function Get-BlueTrackAspNetCoreRuntimeVersion {
+    <#
+    .SYNOPSIS
+        The newest installed Microsoft.AspNetCore.App 10.x shared runtime, or
+        $null. Read from the folders under Program Files\dotnet, so it doesn't
+        depend on dotnet being on PATH (the Hosting Bundle installs the runtime).
+    #>
+    [CmdletBinding()]
+    param(
+        [string]$SharedRuntimeRoot = (Join-Path ${env:ProgramFiles} 'dotnet\shared\Microsoft.AspNetCore.App')
+    )
+
+    if (-not (Test-Path -LiteralPath $SharedRuntimeRoot)) { return $null }
+    $versions = foreach ($folder in Get-ChildItem -LiteralPath $SharedRuntimeRoot -Directory) {
+        $parsed = $null
+        # A preview folder is "10.0.0-rc.1.25451.107": keep the numeric part.
+        if ($folder.Name -match '^10\.' -and [version]::TryParse(($folder.Name -split '-')[0], [ref]$parsed)) { $parsed }
+    }
+    return @($versions) | Sort-Object -Descending | Select-Object -First 1
+}
+
 function Test-BlueTrackPrerequisite {
     <#
     .SYNOPSIS
@@ -120,13 +146,19 @@ function Test-BlueTrackPrerequisite {
     # --- ASP.NET Core Hosting Bundle (installs the ANCM IIS module) --------
     $ancmPath = Join-Path ${env:ProgramFiles} 'IIS\Asp.Net Core Module\V2\aspnetcorev2.dll'
     $ancmInstalled = Test-Path $ancmPath
+    # D-242: present is not enough; the runtime must be at least the minimum.
+    $runtimeVersion = Get-BlueTrackAspNetCoreRuntimeVersion
+    $runtimeCurrent = [bool]($runtimeVersion -and $runtimeVersion -ge $script:MinimumAspNetCoreRuntime)
     $results += [pscustomobject]@{
         Key             = 'HostingBundle'
         Name            = 'ASP.NET Core Hosting Bundle (ANCM)'
-        Installed       = $ancmInstalled
-        Version         = $null
+        Installed       = [bool]($ancmInstalled -and $runtimeCurrent)
+        Version         = if ($runtimeVersion) { $runtimeVersion.ToString() } else { $null }
         AutoInstallable = $true
-        Detail          = if ($ancmInstalled) { "Found at $ancmPath" } else { 'aspnetcorev2.dll not found -- IIS cannot host the API without this' }
+        Detail          = if (-not $ancmInstalled) { 'aspnetcorev2.dll not found -- IIS cannot host the API without this' }
+                          elseif (-not $runtimeVersion) { "Found at $ancmPath, but no ASP.NET Core 10 runtime is installed (need $($script:MinimumAspNetCoreRuntime) or later)" }
+                          elseif (-not $runtimeCurrent) { "ASP.NET Core runtime $runtimeVersion is older than the required $($script:MinimumAspNetCoreRuntime) (security fixes are in the runtime) -- install the current Hosting Bundle" }
+                          else { "Found at $ancmPath, runtime $runtimeVersion" }
     }
 
     # --- URL Rewrite Module (not a Windows feature -- its own MSI) ----------
