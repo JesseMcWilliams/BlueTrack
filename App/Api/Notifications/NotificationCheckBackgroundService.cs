@@ -91,7 +91,7 @@ public sealed class NotificationCheckBackgroundService(
                 return;
             }
 
-            var recipients = await recipientResolver.ResolveAsync(check.NotificationTypeName);
+            var recipients = result.Recipients ?? await recipientResolver.ResolveAsync(check.NotificationTypeName);
             if (recipients.Count == 0)
             {
                 logger.LogWarning("Notification {NotificationType} triggered but no recipients are configured -- not sent.", check.NotificationTypeName);
@@ -113,7 +113,7 @@ public sealed class NotificationCheckBackgroundService(
 
         try
         {
-            var recipients = await recipientResolver.ResolveAsync(check.NotificationTypeName);
+            var recipients = result.Recipients ?? await recipientResolver.ResolveAsync(check.NotificationTypeName);
             if (recipients.Count == 0)
             {
                 logger.LogWarning("Notification {NotificationType} ({DedupKey}) triggered but no recipients are configured -- not sent.", check.NotificationTypeName, result.DedupKey);

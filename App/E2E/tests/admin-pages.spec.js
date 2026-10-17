@@ -845,6 +845,15 @@ test.describe('API Keys admin page', () => {
     // Nothing on the list is the key itself.
     await expect(page.locator('body')).not.toContainText(fullKey)
 
+    // The name opens the edit page (D-125): set an owner and a limit, and check they stick.
+    await row.getByRole('link', { name: keyName }).click()
+    await expect(page).toHaveURL(/\/admin\/api-keys\/\d+$/)
+    await page.getByLabel('Owner email (optional):').fill('e2e.owner@example.com')
+    await page.getByLabel('Requests per minute (optional):').fill('120')
+    await page.getByRole('button', { name: 'Save' }).click()
+    await expect(page).toHaveURL(/\/admin\/api-keys$/)
+    await expect(row).toContainText('e2e.owner@example.com')
+
     await row.getByRole('button', { name: 'Disable' }).click()
     await expect(row).toContainText('Disabled')
 

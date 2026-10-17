@@ -429,4 +429,185 @@ public class ApiAccessTests : IClassFixture<BlueTrackWebApplicationFactory>
             await DeleteKeysAsync(created.ApiKeyKey);
         }
     }
+
+    private sealed record KeyDetail(int ApiKeyKey, string DisplayName, string RoleName, DateTime ExpiresAt, string? OwnerEmail, int? RateLimitPerMinute);
+
+    private static async Task<KeyDetail> GetKeyAsync(HttpClient admin, int apiKeyKey) =>
+        (await admin.GetFromJsonAsync<KeyDetail>($"/api/admin/api-keys/{apiKeyKey}"))!;
+
+    [Fact]
+    public async Task Create_TakesAnOwnerEmailAndARateLimit_AndValidatesThem()
+    {
+        var admin = AdminClient();
+        var viewer = await RoleKeyAsync("Viewer");
+        var response = await admin.PostAsJsonAsync("/api/admin/api-keys",
+            new { displayName = $"CT owner {Guid.NewGuid():N}"[..24], appRoleKey = viewer, ownerEmail = " owner@example.com ", rateLimitPerMinute = 50 });
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        var created = (await response.Content.ReadFromJsonAsync<CreatedKey>())!;
+        try
+        {
+            var detail = await GetKeyAsync(admin, created.ApiKeyKey);
+            Assert.Equal("owner@example.com", detail.OwnerEmail);
+            Assert.Equal(50, detail.RateLimitPerMinute);
+
+            Assert.Equal(HttpStatusCode.BadRequest, (await admin.PostAsJsonAsync("/api/admin/api-keys", new { displayName = "CT bad email", appRoleKey = viewer, ownerEmail = "not an email" })).StatusCode);
+            Assert.Equal(HttpStatusCode.BadRequest, (await admin.PostAsJsonAsync("/api/admin/api-keys", new { displayName = "CT bad email 2", appRoleKey = viewer, ownerEmail = "Name <a@b.com>" })).StatusCode);
+            Assert.Equal(HttpStatusCode.BadRequest, (await admin.PostAsJsonAsync("/api/admin/api-keys", new { displayName = "CT bad limit", appRoleKey = viewer, rateLimitPerMinute = 0 })).StatusCode);
+            Assert.Equal(HttpStatusCode.BadRequest, (await admin.PostAsJsonAsync("/api/admin/api-keys", new { displayName = "CT bad limit 2", appRoleKey = viewer, rateLimitPerMinute = 100001 })).StatusCode);
+        }
+        finally
+        {
+            await DeleteKeysAsync(created.ApiKeyKey);
+        }
+    }
+
+    [Fact]
+    public async Task Update_ChangesRoleExpiryOwnerAndLimit_InPlace_AndAnIssuedTokenFollowsTheNewRole()
+    {
+        var admin = AdminClient();
+        var created = await CreateKeyAsync(admin, "Viewer");
+        try
+        {
+            var script = ScriptClient();
+            var token = await ExchangeAsync(script, created.ApiKey);
+            var before = (await (await script.SendAsync(Get("/api/me", token))).Content.ReadFromJsonAsync<JsonObject>())!;
+            Assert.Equal(["Viewer"], before["roleNames"]!.AsArray().Select(r => r!.GetValue<string>()));
+
+            var expiresOn = DateTime.UtcNow.AddDays(200).ToString("yyyy-MM-dd");
+            var newName = $"CT renamed {Guid.NewGuid():N}"[..24];
+            var put = await admin.PutAsJsonAsync($"/api/admin/api-keys/{created.ApiKeyKey}",
+                new { displayName = newName, appRoleKey = await RoleKeyAsync("Auditor"), expiresOn, ownerEmail = "new.owner@example.com", rateLimitPerMinute = 75 });
+            Assert.Equal(HttpStatusCode.NoContent, put.StatusCode);
+
+            var detail = await GetKeyAsync(admin, created.ApiKeyKey);
+            Assert.Equal((newName, "Auditor", "new.owner@example.com", 75), (detail.DisplayName, detail.RoleName, detail.OwnerEmail, detail.RateLimitPerMinute));
+            Assert.Equal(expiresOn, detail.ExpiresAt.ToString("yyyy-MM-dd"));
+
+            // The same token, the same key: now the new role (rights are looked up on every request).
+            var after = (await (await script.SendAsync(Get("/api/me", token))).Content.ReadFromJsonAsync<JsonObject>())!;
+            Assert.Equal(["Auditor"], after["roleNames"]!.AsArray().Select(r => r!.GetValue<string>()));
+            Assert.StartsWith($"API key: {newName}", after["displayName"]!.GetValue<string>().Split(" (")[0]);
+
+            // The change is in the Audit Log with what changed.
+            await using var connection = new SqlConnection(TestDatabase.ConnectionString);
+            var changes = (await connection.QueryAsync<string>("""
+                SELECT TOP (10) fc.FieldName FROM web.audit_field_change fc
+                JOIN web.audit_event e ON e.AuditEventKey = fc.AuditEventKey
+                JOIN web.dim_audit_event_type t ON t.AuditEventTypeKey = e.AuditEventTypeKey
+                WHERE t.EventTypeName = 'ApiKeyChanged' AND e.EntityKey = @key ORDER BY fc.AuditFieldChangeKey DESC
+                """, new { key = created.ApiKeyKey.ToString() })).ToList();
+            Assert.Contains("Role", changes);
+            Assert.Contains("ExpiresAt", changes);
+            Assert.Contains("OwnerEmail", changes);
+            Assert.Contains("RateLimitPerMinute", changes);
+
+            // Blank owner and limit clear them; a blank expiry leaves it as it is.
+            Assert.Equal(HttpStatusCode.NoContent, (await admin.PutAsJsonAsync($"/api/admin/api-keys/{created.ApiKeyKey}",
+                new { displayName = newName, appRoleKey = await RoleKeyAsync("Auditor"), expiresOn = (string?)null, ownerEmail = "", rateLimitPerMinute = (int?)null })).StatusCode);
+            var cleared = await GetKeyAsync(admin, created.ApiKeyKey);
+            Assert.Null(cleared.OwnerEmail);
+            Assert.Null(cleared.RateLimitPerMinute);
+            Assert.Equal(expiresOn, cleared.ExpiresAt.ToString("yyyy-MM-dd"));
+        }
+        finally
+        {
+            await DeleteKeysAsync(created.ApiKeyKey);
+        }
+    }
+
+    [Fact]
+    public async Task Update_ValidatesTheRequest()
+    {
+        var admin = AdminClient();
+        var first = await CreateKeyAsync(admin, "Viewer");
+        var second = await CreateKeyAsync(admin, "Viewer");
+        try
+        {
+            var viewer = await RoleKeyAsync("Viewer");
+            var current = await GetKeyAsync(admin, first.ApiKeyKey);
+            async Task<HttpStatusCode> Put(int key, object body) => (await admin.PutAsJsonAsync($"/api/admin/api-keys/{key}", body)).StatusCode;
+            object Body(string? name = null, int? role = null, string? expiresOn = null, string? owner = null, int? limit = null) =>
+                new { displayName = name ?? current.DisplayName, appRoleKey = role ?? viewer, expiresOn, ownerEmail = owner, rateLimitPerMinute = limit };
+
+            Assert.Equal(HttpStatusCode.NotFound, await Put(2147483647, Body()));
+            Assert.Equal(HttpStatusCode.BadRequest, await Put(first.ApiKeyKey, Body(name: " ")));
+            Assert.Equal(HttpStatusCode.BadRequest, await Put(first.ApiKeyKey, Body(role: await RoleKeyAsync("Admin"))));
+            Assert.Equal(HttpStatusCode.BadRequest, await Put(first.ApiKeyKey, Body(role: 0)));
+            Assert.Equal(HttpStatusCode.BadRequest, await Put(first.ApiKeyKey, Body(expiresOn: "tomorrow")));
+            Assert.Equal(HttpStatusCode.BadRequest, await Put(first.ApiKeyKey, Body(expiresOn: DateTime.UtcNow.AddDays(-1).ToString("yyyy-MM-dd"))));
+            Assert.Equal(HttpStatusCode.BadRequest, await Put(first.ApiKeyKey, Body(expiresOn: DateTime.UtcNow.AddDays(400).ToString("yyyy-MM-dd"))));
+            Assert.Equal(HttpStatusCode.BadRequest, await Put(first.ApiKeyKey, Body(owner: "nope")));
+            Assert.Equal(HttpStatusCode.BadRequest, await Put(first.ApiKeyKey, Body(limit: 0)));
+            Assert.Equal(HttpStatusCode.Conflict, await Put(first.ApiKeyKey, Body(name: (await GetKeyAsync(admin, second.ApiKeyKey)).DisplayName)));
+            Assert.Equal(HttpStatusCode.NoContent, await Put(first.ApiKeyKey, Body(expiresOn: DateTime.UtcNow.ToString("yyyy-MM-dd"))));   // today is allowed: it works through the end of the day
+
+            var viewerClient = _factory.CreateClient();
+            viewerClient.DefaultRequestHeaders.Add(TestAuthHandler.TestUserHeaderName, "TestUser.Viewer");
+            Assert.Equal(HttpStatusCode.Forbidden, (await viewerClient.PutAsJsonAsync($"/api/admin/api-keys/{first.ApiKeyKey}", Body())).StatusCode);
+        }
+        finally
+        {
+            await DeleteKeysAsync(first.ApiKeyKey, second.ApiKeyKey);
+        }
+    }
+
+    [Fact]
+    public async Task APerKeyRateLimit_OverridesTheGlobalOne()
+    {
+        var admin = AdminClient();
+        var viewer = await RoleKeyAsync("Viewer");
+        var response = await admin.PostAsJsonAsync("/api/admin/api-keys", new { displayName = $"CT limited {Guid.NewGuid():N}"[..24], appRoleKey = viewer, rateLimitPerMinute = 2 });
+        var created = (await response.Content.ReadFromJsonAsync<CreatedKey>())!;
+        try
+        {
+            var script = ScriptClient();
+            var token = await ExchangeAsync(script, created.ApiKey);
+            // The global limit is 600; this key's own is 2. A window can end between calls, so 2 + 2 pass at most, the 5th can't.
+            HttpResponseMessage? limited = null;
+            for (var i = 0; i < 5 && limited is null; i++)
+            {
+                var r = await script.SendAsync(Get("/api/me", token));
+                if (r.StatusCode == HttpStatusCode.TooManyRequests) limited = r;
+                else Assert.Equal(HttpStatusCode.OK, r.StatusCode);
+            }
+            Assert.NotNull(limited);
+            Assert.Contains("2 requests a minute", await limited!.Content.ReadAsStringAsync());
+
+            // Clearing the key's limit hands it back to the global one.
+            Assert.Equal(HttpStatusCode.NoContent, (await admin.PutAsJsonAsync($"/api/admin/api-keys/{created.ApiKeyKey}",
+                new { displayName = (await GetKeyAsync(admin, created.ApiKeyKey)).DisplayName, appRoleKey = viewer, expiresOn = (string?)null, ownerEmail = (string?)null, rateLimitPerMinute = (int?)null })).StatusCode);
+            for (var i = 0; i < 5; i++) Assert.Equal(HttpStatusCode.OK, (await script.SendAsync(Get("/api/me", token))).StatusCode);
+        }
+        finally
+        {
+            await DeleteKeysAsync(created.ApiKeyKey);
+        }
+    }
+
+    [Fact]
+    public async Task ReminderLeadTime_IsASetting()
+    {
+        var admin = AdminClient();
+        var original = (await admin.GetFromJsonAsync<JsonObject>("/api/admin/configuration"))!;
+        Assert.Equal(7, original["apiKeyReminderLeadDays"]!.GetValue<int>());
+
+        JsonObject With(int days)
+        {
+            var body = JsonNode.Parse(original.ToJsonString())!.AsObject();
+            body["apiKeyReminderLeadDays"] = days;
+            return body;
+        }
+
+        try
+        {
+            Assert.Equal(HttpStatusCode.BadRequest, (await admin.PutAsJsonAsync("/api/admin/configuration", With(0))).StatusCode);
+            Assert.Equal(HttpStatusCode.BadRequest, (await admin.PutAsJsonAsync("/api/admin/configuration", With(91))).StatusCode);
+            Assert.Equal(HttpStatusCode.NoContent, (await admin.PutAsJsonAsync("/api/admin/configuration", With(14))).StatusCode);
+            Assert.Equal(14, (await admin.GetFromJsonAsync<JsonObject>("/api/admin/configuration"))!["apiKeyReminderLeadDays"]!.GetValue<int>());
+        }
+        finally
+        {
+            Assert.Equal(HttpStatusCode.NoContent, (await admin.PutAsJsonAsync("/api/admin/configuration", With(7))).StatusCode);
+        }
+    }
 }

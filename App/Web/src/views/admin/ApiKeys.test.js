@@ -18,7 +18,8 @@ function makeRouter() {
     history: createMemoryHistory(),
     routes: [
       { path: '/', name: 'home', component: { template: '<div />' } },
-      { path: '/admin/api-keys/new', name: 'admin-api-key-create', component: { template: '<div />' } }
+      { path: '/admin/api-keys/new', name: 'admin-api-key-create', component: { template: '<div />' } },
+      { path: '/admin/api-keys/:apiKeyKey', name: 'admin-api-key-edit', component: { template: '<div />' } }
     ]
   })
 }
@@ -27,7 +28,7 @@ const future = new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 19)
 const past = new Date(Date.now() - 86400000).toISOString().slice(0, 19)
 
 const keys = [
-  { apiKeyKey: 1, displayName: 'Nightly sync', keyPrefix: 'bt_AbCdEfGh', appRoleKey: 4, roleName: 'Viewer', expiresAt: future, isEnabled: true, createdAt: '2026-10-17T10:00:00', createdByName: 'Admin', lastUsedAt: '2026-10-17T12:30:15', lastUsedFrom: '10.0.0.5' },
+  { apiKeyKey: 1, displayName: 'Nightly sync', keyPrefix: 'bt_AbCdEfGh', appRoleKey: 4, roleName: 'Viewer', expiresAt: future, isEnabled: true, createdAt: '2026-10-17T10:00:00', createdByName: 'Admin', lastUsedAt: '2026-10-17T12:30:15', lastUsedFrom: '10.0.0.5', ownerEmail: 'owner@example.com', rateLimitPerMinute: null },
   { apiKeyKey: 2, displayName: 'Old report script', keyPrefix: 'bt_ZyXwVuTs', appRoleKey: 3, roleName: 'Auditor', expiresAt: future, isEnabled: false, createdAt: '2026-10-01T10:00:00', createdByName: 'Admin', lastUsedAt: null, lastUsedFrom: null },
   { apiKeyKey: 3, displayName: 'Expired one', keyPrefix: 'bt_QqWwEeRr', appRoleKey: 4, roleName: 'Viewer', expiresAt: past, isEnabled: true, createdAt: '2026-07-01T10:00:00', createdByName: null, lastUsedAt: null, lastUsedFrom: null }
 ]
@@ -70,6 +71,7 @@ describe('ApiKeys.vue', () => {
     expect(text).toContain('bt_AbCdEfGh')
     expect(text).toContain('Viewer')
     expect(text).toContain('Auditor')
+    expect(text).toContain('owner@example.com')
     const rows = wrapper.findAll('tbody tr')
     expect(rows[0].text()).toContain('Enabled')
     expect(rows[0].text()).toContain('from 10.0.0.5')
@@ -82,6 +84,14 @@ describe('ApiKeys.vue', () => {
     const { wrapper } = await mountPage(jsonResponse([]))
     expect(wrapper.text()).toContain('There are no API keys yet.')
     expect(wrapper.find('table').exists()).toBe(false)
+  })
+
+  it('the key name opens its edit page', async () => {
+    const { wrapper, router } = await mountPage()
+    await wrapper.findAll('tbody tr')[0].get('a').trigger('click')
+    await flushPromises()
+    expect(router.currentRoute.value.name).toBe('admin-api-key-edit')
+    expect(router.currentRoute.value.params.apiKeyKey).toBe('1')
   })
 
   it('New API Key opens the create page', async () => {

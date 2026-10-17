@@ -59,11 +59,24 @@ describe('ApiKeyCreate.vue', () => {
 
     const post = globalThis.fetch.mock.calls.find(([, init]) => init?.method === 'POST')
     expect(post[0]).toBe('/api/admin/api-keys')
-    expect(JSON.parse(post[1].body)).toEqual({ displayName: 'Nightly sync', appRoleKey: 3, lifetimeDays: 30 })
+    expect(JSON.parse(post[1].body)).toEqual({ displayName: 'Nightly sync', appRoleKey: 3, lifetimeDays: 30, ownerEmail: null, rateLimitPerMinute: null })
     expect(wrapper.get('input.api-key-value').element.value).toBe('bt_SECRETSECRETSECRET')
     expect(wrapper.text()).toContain('shown only once')
     expect(wrapper.text()).toContain('It expires on 2027-01-15.')
     expect(wrapper.find('form').exists()).toBe(false)
+  })
+
+  it('sends the owner email and the key\'s own request limit when they are filled in', async () => {
+    const { wrapper } = await mountPage()
+
+    await wrapper.get('input[maxlength="100"]').setValue('Nightly sync')
+    await wrapper.get('input[type="email"]').setValue('owner@example.com')
+    await wrapper.findAll('input[type="number"]')[1].setValue('50')
+    await wrapper.get('form').trigger('submit')
+    await flushPromises()
+
+    const post = globalThis.fetch.mock.calls.find(([, init]) => init?.method === 'POST')
+    expect(JSON.parse(post[1].body)).toMatchObject({ ownerEmail: 'owner@example.com', rateLimitPerMinute: 50 })
   })
 
   it('copies the key to the clipboard', async () => {

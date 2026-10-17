@@ -537,6 +537,13 @@ const routes = [
         name: 'admin-api-key-create',
         meta: { breadcrumb: 'shell.routes.adminApiKeyCreate', breadcrumbParent: 'admin-api-keys' },
         component: () => import('../views/admin/ApiKeyCreate.vue')
+      },
+      {
+        path: 'api-keys/:apiKeyKey(\\d+)',
+        name: 'admin-api-key-edit',
+        meta: { breadcrumb: 'shell.routes.adminApiKeyEdit', breadcrumbParent: 'admin-api-keys' },
+        component: () => import('../views/admin/ApiKeyEdit.vue'),
+        props: true
       }
     ]
   },

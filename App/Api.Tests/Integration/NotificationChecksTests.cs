@@ -34,7 +34,7 @@ public class NotificationChecksTests : IClassFixture<BlueTrackWebApplicationFact
     private readonly List<long> _etlRunKeys = [];
     private string? _originalSiteUrl;
 
-    private static readonly string[] NewTypes = [NightlyImportFailedCheck.TypeName, OverdueRiskExceptionsCheck.TypeName, WeeklySummaryCheck.TypeName, ApiKeyExpiringCheck.TypeName];
+    private static readonly string[] NewTypes = [NightlyImportFailedCheck.TypeName, OverdueRiskExceptionsCheck.TypeName, WeeklySummaryCheck.TypeName, ApiKeyExpiringCheck.TypeName, ApiKeyExpiredCheck.TypeName];
 
     public NotificationChecksTests(BlueTrackWebApplicationFactory factory)
     {
@@ -331,34 +331,43 @@ public class NotificationChecksTests : IClassFixture<BlueTrackWebApplicationFact
         public override TimeZoneInfo LocalTimeZone => TimeZoneInfo.Utc;
     }
 
-    /// <summary>D-243: a key is emailed 30 days and 7 days before it expires, once each, and a short-lived or disabled one is not.</summary>
+    /// <summary>
+    /// D-243: the owner is emailed the lead time before the key expires and on the day; the admins (the type's
+    /// recipients) on the day. A key with no owner or made for no more than the lead time is skipped for the owner;
+    /// a disabled key for everyone. Once each, across a restart.
+    /// </summary>
     [Fact]
-    public async Task ApiKeyExpiring_EmailsAt30And7Days_OncePerKeyAndThreshold_AcrossARestart()
+    public async Task ApiKeyExpiry_EmailsTheOwnerAtTheLeadTimeAndOnTheDay_AndTheAdminsOnTheDay_OncePerKey()
     {
-        await SetEnabledAsync(true, ApiKeyExpiringCheck.TypeName);
+        await SetEnabledAsync(true, ApiKeyExpiringCheck.TypeName, ApiKeyExpiredCheck.TypeName);
         var keys = new ApiKeyRepository(new TestDbConnectionFactory());
         var creator = await TestUsers.GetUserKeyAsync("IntegrationTestUser1");
         var id = Guid.NewGuid().ToString("N")[..8];
+        var owner = $"owner_{id}@example.com";
         var created = new List<int>();
 
         await using var connection = new SqlConnection(TestDatabase.ConnectionString);
         var roleKey = await connection.QuerySingleAsync<int>("SELECT AppRoleKey FROM web.app_role WHERE RoleName = 'Viewer'");
-        async Task<string> AddKeyAsync(string label, string createdAt, string expiresAt, bool enabled = true)
+        async Task<string> AddKeyAsync(string label, string createdAt, string expiresAt, string? ownerEmail = null, bool enabled = true)
         {
             var name = $"NotifyTest {label} {id}";
             var (_, prefix, hash) = ApiKeyGenerator.Create();
-            var key = await keys.CreateAsync(name, prefix, hash, roleKey, DateTime.UtcNow.AddYears(1), creator);
+            var key = await keys.CreateAsync(name, prefix, hash, roleKey, DateTime.UtcNow.AddYears(1), creator, ownerEmail);
             created.Add(key);
             await connection.ExecuteAsync("UPDATE web.api_key SET CreatedAt = @createdAt, ExpiresAt = @expiresAt, IsEnabled = @enabled WHERE ApiKeyKey = @key", new { createdAt, expiresAt, enabled, key });
             return name;
         }
+        var originalLead = await connection.QuerySingleAsync<int>("SELECT ApiKeyReminderLeadDays FROM web.app_config");
 
         try
         {
-            var thirty = await AddKeyAsync("A", "2000-10-01", "2001-01-20");        // 18 days left, made for 111 days: the 30-day email
-            var seven = await AddKeyAsync("B", "2000-12-01", "2001-01-06");         // 4 days left: the 7-day email
-            var shortLived = await AddKeyAsync("C", "2000-12-25", "2001-01-10");    // 8 days left, made for 16: neither
-            var disabled = await AddKeyAsync("D", "2000-10-01", "2001-01-05", enabled: false);
+            await connection.ExecuteAsync("UPDATE web.app_config SET ApiKeyReminderLeadDays = 7");
+            var soon = await AddKeyAsync("A", "2000-10-01", "2001-01-08 23:59:59", owner);        // 7 days left on 2 Jan: the lead email
+            var later = await AddKeyAsync("B", "2000-10-01", "2001-01-20 12:00:00", owner);       // 18 days left: not yet
+            var noOwner = await AddKeyAsync("C", "2000-10-01", "2001-01-05", null);               // no owner: nobody at the lead time
+            var shortLived = await AddKeyAsync("D", "2000-12-30", "2001-01-05", owner);           // made for 6 days (under the lead time): no lead email
+            var expiredYesterday = await AddKeyAsync("E", "2000-10-01", "2001-01-01 07:00:00", owner);   // expired a day ago: the day's emails
+            var disabled = await AddKeyAsync("F", "2000-10-01", "2001-01-01 08:00:00", owner, enabled: false);
 
             _clock.Set(new DateTimeOffset(2001, 1, 2, 6, 59, 0, TimeSpan.Zero));
             await NewService().RunOnceAsync(CancellationToken.None);
@@ -368,25 +377,38 @@ public class NotificationChecksTests : IClassFixture<BlueTrackWebApplicationFact
             await NewService().RunOnceAsync(CancellationToken.None);
             await NewService().RunOnceAsync(CancellationToken.None);   // After a "restart": nothing is re-sent.
 
-            var first = Assert.Single(MessagesFor(thirty));
-            Assert.Equal($"BlueTrack: API key \"{thirty}\" expires in 18 days", first.Subject);
-            Assert.Contains(_recipient, first.To);
-            Assert.Contains("Role: Viewer", first.Body);
-            Assert.Contains("Expires: 2001-01-20", first.Body);
-            Assert.NotNull(first.Html);
-            Assert.Contains("expires in 4 days", Assert.Single(MessagesFor(seven)).Subject);
+            var lead = Assert.Single(MessagesFor(soon));
+            Assert.Equal($"BlueTrack: API key \"{soon}\" expires in 7 days", lead.Subject);
+            Assert.Equal([owner], lead.To);   // The owner only, not the admins.
+            Assert.Contains("Role: Viewer", lead.Body);
+            Assert.Contains("Expires: 2001-01-08", lead.Body);
+            Assert.NotNull(lead.Html);
+            Assert.Empty(MessagesFor(later));
+            Assert.Empty(MessagesFor(noOwner));
             Assert.Empty(MessagesFor(shortLived));
             Assert.Empty(MessagesFor(disabled));
 
-            // Later, the 30-day key reaches 7 days: it gets its second email, and nothing else repeats.
-            _clock.Set(new DateTimeOffset(2001, 1, 14, 7, 0, 0, TimeSpan.Zero));
+            var expiredMessages = MessagesFor(expiredYesterday);
+            Assert.Equal(2, expiredMessages.Count);
+            Assert.Contains(expiredMessages, m => m.To.SequenceEqual([owner]) && m.Subject.EndsWith("has expired"));
+            Assert.Contains(expiredMessages, m => m.To.Contains(_recipient) && !m.To.Contains(owner) && m.Body.Contains($"Its owner, {owner}, was told too."));
+
+            // The next day the 7-day key has expired: its owner and the admins are told; the others are as before.
+            _clock.Set(new DateTimeOffset(2001, 1, 9, 7, 0, 0, TimeSpan.Zero));
             await NewService().RunOnceAsync(CancellationToken.None);
-            Assert.Equal(2, MessagesFor(thirty).Count);
-            Assert.Contains("expires in 6 days", MessagesFor(thirty)[1].Subject);
-            Assert.Single(MessagesFor(seven));
+            Assert.Equal(3, MessagesFor(soon).Count);   // lead, then the owner's and the admins' expiry emails
+            Assert.Empty(MessagesFor(noOwner));   // C expired on the 5th: outside the 2 days, so nothing
+            Assert.Equal(2, MessagesFor(expiredYesterday).Count);
+
+            // A longer lead time (a setting) brings the reminder forward.
+            await connection.ExecuteAsync("UPDATE web.app_config SET ApiKeyReminderLeadDays = 15");
+            _clock.Set(new DateTimeOffset(2001, 1, 10, 7, 0, 0, TimeSpan.Zero));
+            await NewService().RunOnceAsync(CancellationToken.None);
+            Assert.Contains("expires in 11 days", Assert.Single(MessagesFor(later)).Subject);
         }
         finally
         {
+            await connection.ExecuteAsync("UPDATE web.app_config SET ApiKeyReminderLeadDays = @originalLead", new { originalLead });
             if (created.Count > 0) await connection.ExecuteAsync("DELETE FROM web.api_key WHERE ApiKeyKey IN @created", new { created });
         }
     }

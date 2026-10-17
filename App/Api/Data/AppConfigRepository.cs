@@ -21,7 +21,7 @@ public sealed class AppConfigRepository(IDbConnectionFactory connectionFactory)
                    CONVERT(varchar(5), ac.ScheduledBackupTime, 108) AS ScheduledBackupTime, ac.ScheduledBackupRetentionDays,
                    CONVERT(varchar(5), ac.BusinessHoursStart, 108) AS BusinessHoursStart,
                    CONVERT(varchar(5), ac.BusinessHoursEnd, 108) AS BusinessHoursEnd, ac.BusinessDays,
-                   ac.BulkEditMaxAccounts, ac.ExportMaxRows, ac.ApiKeyDefaultLifetimeDays, ac.ApiRateLimitPerMinute,
+                   ac.BulkEditMaxAccounts, ac.ExportMaxRows, ac.ApiKeyDefaultLifetimeDays, ac.ApiRateLimitPerMinute, ac.ApiKeyReminderLeadDays,
                    ac.SafeDecomMode, ac.SafeDecomValue, ac.AccountDecomMode, ac.AccountDecomValue,
                    ac.SafeIgnoreMode, ac.SafeIgnoreValue, dbo.fn_RegexSupported() AS RegexSupported,
                    ac.SiteUrl
@@ -79,6 +79,7 @@ public sealed class AppConfigRepository(IDbConnectionFactory connectionFactory)
                 ExportMaxRows = COALESCE(@ExportMaxRows, ExportMaxRows),   -- D-220
                 ApiKeyDefaultLifetimeDays = COALESCE(@ApiKeyDefaultLifetimeDays, ApiKeyDefaultLifetimeDays),   -- D-243
                 ApiRateLimitPerMinute = COALESCE(@ApiRateLimitPerMinute, ApiRateLimitPerMinute),   -- D-243
+                ApiKeyReminderLeadDays = COALESCE(@ApiKeyReminderLeadDays, ApiKeyReminderLeadDays),   -- D-243
                 -- D-186: a pattern's value changes only when its mode is sent; Off clears it.
                 SafeDecomValue = CASE WHEN @SafeDecomMode IS NULL THEN SafeDecomValue WHEN @SafeDecomMode = 'Off' THEN NULL ELSE @SafeDecomValue END,
                 SafeDecomMode = COALESCE(@SafeDecomMode, SafeDecomMode),
@@ -108,6 +109,7 @@ public sealed class AppConfigRepository(IDbConnectionFactory connectionFactory)
             request.ExportMaxRows,
             request.ApiKeyDefaultLifetimeDays,
             request.ApiRateLimitPerMinute,
+            request.ApiKeyReminderLeadDays,
             request.SafeDecomMode,
             request.SafeDecomValue,
             request.AccountDecomMode,

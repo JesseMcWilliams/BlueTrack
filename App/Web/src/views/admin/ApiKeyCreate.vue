@@ -14,8 +14,8 @@ const loading = ref(true)
 const saving = ref(false)
 const loadError = ref(null)
 const saveError = ref(null)
-const options = ref({ roles: [], defaultLifetimeDays: 90, maxLifetimeDays: 365 })
-const form = ref({ displayName: '', appRoleKey: null, lifetimeDays: 90 })
+const options = ref({ roles: [], defaultLifetimeDays: 90, maxLifetimeDays: 365, maxRateLimitPerMinute: 100000 })
+const form = ref({ displayName: '', appRoleKey: null, lifetimeDays: 90, ownerEmail: '', rateLimitPerMinute: null })
 const created = ref(null)
 
 onMounted(async () => {
@@ -39,7 +39,7 @@ async function create() {
     const response = await fetch('/api/admin/api-keys', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(form.value)
+      body: JSON.stringify({ ...form.value, ownerEmail: form.value.ownerEmail || null, rateLimitPerMinute: form.value.rateLimitPerMinute === '' ? null : form.value.rateLimitPerMinute })
     })
     if (!response.ok) {
       const problem = await response.json().catch(() => null)
@@ -81,6 +81,14 @@ function backToList() {
       <p>
         <label class="field-label"><span class="field-label-text">{{ t('admin.apiKeyCreate.lifetimeLabel') }}</span> <input v-model.number="form.lifetimeDays" type="number" min="1" :max="options.maxLifetimeDays" required /></label>
         <small>{{ t('admin.apiKeyCreate.lifetimeHint', { max: options.maxLifetimeDays }) }}</small>
+      </p>
+      <p>
+        <label class="field-label"><span class="field-label-text">{{ t('admin.apiKeyCreate.ownerLabel') }}</span> <input v-model="form.ownerEmail" type="email" maxlength="320" /></label>
+        <small>{{ t('admin.apiKeyCreate.ownerHint') }}</small>
+      </p>
+      <p>
+        <label class="field-label"><span class="field-label-text">{{ t('admin.apiKeyCreate.rateLimitLabel') }}</span> <input v-model.number="form.rateLimitPerMinute" type="number" min="1" :max="options.maxRateLimitPerMinute" /></label>
+        <small>{{ t('admin.apiKeyCreate.rateLimitHint') }}</small>
       </p>
       <p v-if="saveError" role="alert">{{ saveError }}</p>
       <button type="submit" class="btn-primary" :disabled="saving">{{ t('admin.apiKeyCreate.createButton') }}</button>

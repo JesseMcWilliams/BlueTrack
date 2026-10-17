@@ -14,7 +14,7 @@ In the examples, `https://bluetrack.example.com/BlueTrack` stands for your BlueT
 
 ## 1. With an API key
 
-**Create the key.** An administrator opens **Admin > API Keys** and chooses **New API Key**: a name (what the key is for), a role, and a lifetime (90 days by default). The page shows the key once. Copy it then; BlueTrack keeps only a one-way hash, so a lost key can't be shown again.
+**Create the key.** An administrator opens **Admin > API Keys** and chooses **New API Key**: a name (what the key is for), a role, a lifetime (90 days by default), and optionally an owner email (who is told before the key expires) and its own request limit. The page shows the key once. Copy it then; BlueTrack keeps only a one-way hash, so a lost key can't be shown again.
 
 **Get a token.** Send the key to the token address (this is the only time the key is sent):
 
@@ -65,6 +65,7 @@ Invoke-RestMethod "$base/me" -Headers @{ Authorization = "Bearer $token" }
 ## Keeping keys safe
 
 - **One key per script or system**, so one can be disabled without stopping the others.
-- **Rotate** before a key expires: **Rotate** on the **Admin > API Keys** list makes a new key with the same role and shows it once. Switch the script over, then **Disable** or **Delete** the old key. If you turn on the **ApiKeyExpiring** notification (**Admin > Notifications**), recipients are emailed 30 and 7 days before a key expires.
+- **Rotate** before a key expires: **Rotate** on the **Admin > API Keys** list makes a new key with the same role, owner and limit, and shows it once. Switch the script over, then **Disable** or **Delete** the old key. Or click the key's name to renew its expiry in place.
+- **Give each key an owner email** and turn on the **ApiKeyExpiring** notification (**Admin > Notifications**): the owner is emailed 7 days before the key expires (the lead time is a setting) and on the day. Turn on **ApiKeyExpired** to tell the administrators on the day.
 - **Disable** a key you suspect has leaked. It stops within about a minute, even for a token it already gave.
 - Every token request and every action a caller takes is in the **Audit Log**, attributed to "API key: <name>" or "API client: <name>".

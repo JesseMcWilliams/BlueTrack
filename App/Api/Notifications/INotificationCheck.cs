@@ -23,6 +23,8 @@ public interface INotificationCheck
 /// One email. D-222: HtmlBody, when set, is sent with Body as the plain-text
 /// alternative. DedupKey, when set, replaces the cooldown: the send is
 /// claimed in web.notification_log under that key (unique per type), so a
-/// given run, day or week is emailed once, even across restarts.
+/// given run, day or week is emailed once, even across restarts. D-243:
+/// Recipients, when set, are who it goes to instead of the type's own list
+/// (an API key's owner).
 /// </summary>
-public sealed record NotificationCheckResult(string Subject, string Body, string? Detail, string? HtmlBody = null, string? DedupKey = null);
+public sealed record NotificationCheckResult(string Subject, string Body, string? Detail, string? HtmlBody = null, string? DedupKey = null, IReadOnlyList<string>? Recipients = null);

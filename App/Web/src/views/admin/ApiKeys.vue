@@ -105,6 +105,7 @@ async function remove(key) {
             <th>{{ t('common.name') }}</th>
             <th>{{ t('admin.apiKeys.keyStart') }}</th>
             <th>{{ t('admin.apiKeys.role') }}</th>
+            <th>{{ t('admin.apiKeys.owner') }}</th>
             <th>{{ t('admin.apiKeys.expires') }}</th>
             <th>{{ t('common.status') }}</th>
             <th>{{ t('admin.apiKeys.lastUsed') }}</th>
@@ -114,9 +115,10 @@ async function remove(key) {
         </thead>
         <tbody>
           <tr v-for="key in keys" :key="key.apiKeyKey">
-            <td>{{ key.displayName }}</td>
+            <td><router-link :to="{ name: 'admin-api-key-edit', params: { apiKeyKey: key.apiKeyKey } }">{{ key.displayName }}</router-link></td>
             <td><code>{{ key.keyPrefix }}</code></td>
             <td>{{ key.roleName }}</td>
+            <td>{{ key.ownerEmail }}</td>
             <td>{{ formatDate(key.expiresAt) }}</td>
             <td>{{ statusOf(key) }}</td>
             <td>{{ key.lastUsedAt ? formatRunTime(key.lastUsedAt) : t('admin.apiKeys.neverUsed') }}<template v-if="key.lastUsedFrom">{{ ' ' + t('admin.apiKeys.usedFrom', { address: key.lastUsedFrom }) }}</template></td>
