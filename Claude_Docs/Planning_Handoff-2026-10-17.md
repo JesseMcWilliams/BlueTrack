@@ -21,22 +21,23 @@
 | #159 | D-243 | Admin > API Keys page; API key default lifetime setting (90 days, 1 to 365); `Planning_Questions-Backlog.md`. |
 | #160 | D-243 | Rotate; `ApiKeyExpiring` notification (30 and 7 days); per-key rate limit (600 a minute, a setting). Script 32. |
 | #161 | D-243 | Option B: `idToken` from an enabled OIDC provider; API client mappings (client or group, lowest order wins, never Admin); API callers' rights looked up per request. Script 33. |
-| this PR | (none) | `User_Docs/Admin_ApiAccess.md` (calling the API from a script); handoff. |
+| #162 | (none) | `User_Docs/Admin_ApiAccess.md` (calling the API from a script); handoff. |
+| #163 | D-243 | The user's answers: owner email on a key; owner emailed the lead time (7 days, a setting) before expiry and on the day, admins on the day (`ApiKeyExpiring`, `ApiKeyExpired`; replaces the 30/7-day emails); edit a key in place; a per-key rate limit; the API Access guide joins `build_published_docs.py`. Script 34. |
+| this PR | (none) | Handoff through #163. |
 
 ## State
-- **`main`** at the #161 merge (`9be970b`) plus this PR. Last full local runs 2026-10-17 against `BlueTrackTest_Local`: xUnit 1099/1099, Vitest 431/431, Playwright 91/91, PSScriptAnalyzer 0. CI passed on every PR above.
-- **Dev site:** redeployed to `main` as of #161 (`1.0.7-dev.18+9be970b`, scripts up to 33). Health 14 pass, 0 fail. Live: an API key created through Windows sign-in, exchanged without Windows credentials or `X-Requested-With`, `/api/me` as the key's role (Viewer), key management 403, junk token 401, 401 after Disable, Windows sign-in unchanged, SAML and OIDC sign-in (`Test-BlueTrackSso.ps1`) pass. The test key was deleted.
-- **Unreleased** (`User_Docs/Release_Notes.md`): D-241 (feed), D-242 (installer check), D-243 (API access). Upgrade: scripts 30 to 33.
-- **Off until configured on the dev site:** the D-222 notification types and `ApiKeyExpiring`, account classification, SIEM forwarding. No API keys or client mappings exist there (the live test cleaned up).
+- **`main`** at the #163 merge (`2fe9b60`) plus this PR. Last full local runs 2026-10-17 against `BlueTrackTest_Local`: xUnit 1104/1104, Vitest 441/441, Playwright 91/91. CI passed on every PR above.
+- **Dev site:** redeployed to `main` as of #163 (`1.0.7-dev.22+2fe9b60`, scripts up to 34). Health 14 pass, 0 fail. Live: a key with an owner and a limit of 3 (calls 4 and on answered 429), edited to Auditor with a new owner and expiry (the same token then acted as Auditor), then deleted; Windows sign-in unchanged; SAML and OIDC sign-in pass.
+- **Unreleased** (`User_Docs/Release_Notes.md`): D-241, D-242, D-243. Upgrade: scripts 30 to 34; enable `ApiKeyExpiring` and `ApiKeyExpired` on Admin > Notifications for the expiry emails. At the next release `build_published_docs.py` also builds `API_Access_Guide.docx`.
+- **Off until configured on the dev site:** the D-222 notification types, `ApiKeyExpiring`, `ApiKeyExpired`, account classification, SIEM forwarding. No API keys or client mappings exist there.
 
 ## Open items
-1. **Questions backlog:** `Claude_Docs/Planning_Questions-Backlog.md` holds the questions asked to be saved while the user wanted no interruptions (API access: changing a key's role or expiry, who gets expiry emails, auto-deleting expired keys, rate limit shape, Group mappings and other apps' tokens, SAML). Ask them, record the answers (a `D-n` or the doc affected), change the code where the answer differs from what was built, and delete each answered question.
-2. **Live test owed for option B:** an identity-provider token exchanged against the lab authentik with a real client-credentials token (needs an OAuth2 application there and an enabled OIDC provider with a mapping). The code is tested against a fake provider with real RSA signatures only; the discovery fetch (`OidcIdpMetadataSource`, https only) has never run against a real provider.
-3. **Release:** `Tools/New-BlueTrackRelease.ps1 -Version x.y.z -Push`, merge its PR, then `-Tag -Push` (D-226). The release notes' Upgrading lists scripts 30 to 33.
+1. **Live test of option B (identity provider token) is still owed, and was blocked** (2026-10-17): the permission system refused a lab script that tried several ways of getting a token from the lab authentik (client credentials, then an authorization-code sign-in as the lab admin). authentik refused every client-credentials style with `invalid_grant` (provider, application, service account and app-password token created by the script were all deleted again). The code is tested against a fake provider with real RSA signatures only; `OidcIdpMetadataSource` has never run against a real provider. Options in `Planning_Questions-Backlog.md`, question 3.
+2. **Questions backlog:** `Claude_Docs/Planning_Questions-Backlog.md` (auto-deleting expired keys; "lowest order wins"; how to proceed with the live test). Ask, record the answers, and delete each one answered.
+3. **Release:** `Tools/New-BlueTrackRelease.ps1 -Version x.y.z -Push`, merge its PR, then `-Tag -Push` (D-226). The release notes' Upgrading lists scripts 30 to 34.
 4. **LDAPS from DCACYBSQL01** (backlog): the user runs `Tools\Test-BlueTrackLdaps.ps1` there, then adds the domain in BlueTrack.
 5. **Live tests still owed** (backlog, "Built, but never proven"): SIEM forwarding, account classification against the real AD, OAuth2 SMTP, break-glass email, Azure/AWS/Conjur. The release script ran for real for v1.0.5 to v1.0.7: remove that backlog item.
 6. **Backlog** (`Planning_Backlog.md`): server-side localization and "use browser default" language (deferred), D-229 follow-ups, and the real-data findings.
-7. **Not built (D-243):** a per-key owner email, a per-key rate limit, changing a key's role or expiry in place, and a published `.docx` of `Admin_ApiAccess.md`.
 
 ## Gotchas for the next session
 - **Local tests use their own database (D-240).** `dotnet test` and `npm test` default to `BlueTrackTest_Local`; build or reset it with `Tools\Reset-BlueTrackLocalTestDb.ps1` (also after a new numbered script). CI owns `BlueTrackTest`, so a local run no longer breaks a CI run's data. Still don't run Playwright locally while CI runs: the CPU and the ports (4173, 7033) are shared. Check with `gh run list --status in_progress`.
