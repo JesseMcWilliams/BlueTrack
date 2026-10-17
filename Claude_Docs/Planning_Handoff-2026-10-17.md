@@ -23,18 +23,20 @@
 | #161 | D-243 | Option B: `idToken` from an enabled OIDC provider; API client mappings (client or group, lowest order wins, never Admin); API callers' rights looked up per request. Script 33. |
 | #162 | (none) | `User_Docs/Admin_ApiAccess.md` (calling the API from a script); handoff. |
 | #163 | D-243 | The user's answers: owner email on a key; owner emailed the lead time (7 days, a setting) before expiry and on the day, admins on the day (`ApiKeyExpiring`, `ApiKeyExpired`; replaces the 30/7-day emails); edit a key in place; a per-key rate limit; the API Access guide joins `build_published_docs.py`. Script 34. |
-| this PR | (none) | Handoff through #163. |
+| #164 | (none) | Handoff through #163. |
+| #165 | D-243 | Expired API keys are deleted automatically after a setting (365 days; 0 keeps them): `ApiKeyPurgeService`, audited by the system user. Script 35. |
+| this PR | (none) | Handoff through #165. |
 
 ## State
-- **`main`** at the #163 merge (`2fe9b60`) plus this PR. Last full local runs 2026-10-17 against `BlueTrackTest_Local`: xUnit 1104/1104, Vitest 441/441, Playwright 91/91. CI passed on every PR above.
-- **Dev site:** redeployed to `main` as of #163 (`1.0.7-dev.22+2fe9b60`, scripts up to 34). Health 14 pass, 0 fail. Live: a key with an owner and a limit of 3 (calls 4 and on answered 429), edited to Auditor with a new owner and expiry (the same token then acted as Auditor), then deleted; Windows sign-in unchanged; SAML and OIDC sign-in pass.
-- **Unreleased** (`User_Docs/Release_Notes.md`): D-241, D-242, D-243. Upgrade: scripts 30 to 34; enable `ApiKeyExpiring` and `ApiKeyExpired` on Admin > Notifications for the expiry emails. At the next release `build_published_docs.py` also builds `API_Access_Guide.docx`.
+- **`main`** at the #165 merge (`e5f53b2`) plus this PR. Last full local runs 2026-10-17 against `BlueTrackTest_Local`: xUnit 1106/1106, Vitest 441/441, Playwright 91/91. CI passed on every PR above.
+- **Dev site:** redeployed to `main` as of #165 (`1.0.7-dev.26+e5f53b2`, scripts up to 35). Health 14 pass, 0 fail. Live: a key with an owner and a limit of 3 (calls 4 and on answered 429), edited to Auditor with a new owner and expiry (the same token then acted as Auditor), then deleted; Windows sign-in unchanged; SAML and OIDC sign-in pass.
+- **Unreleased** (`User_Docs/Release_Notes.md`): D-241, D-242, D-243. Upgrade: scripts 30 to 35; enable `ApiKeyExpiring` and `ApiKeyExpired` on Admin > Notifications for the expiry emails. At the next release `build_published_docs.py` also builds `API_Access_Guide.docx`.
 - **Off until configured on the dev site:** the D-222 notification types, `ApiKeyExpiring`, `ApiKeyExpired`, account classification, SIEM forwarding. No API keys or client mappings exist there.
 
 ## Open items
 1. **Live test of option B (identity provider token) is still owed, and was blocked** (2026-10-17): the permission system refused a lab script that tried several ways of getting a token from the lab authentik (client credentials, then an authorization-code sign-in as the lab admin). authentik refused every client-credentials style with `invalid_grant` (provider, application, service account and app-password token created by the script were all deleted again). The code is tested against a fake provider with real RSA signatures only; `OidcIdpMetadataSource` has never run against a real provider. Options in `Planning_Questions-Backlog.md`, question 3.
-2. **Questions backlog:** `Claude_Docs/Planning_Questions-Backlog.md` (auto-deleting expired keys; "lowest order wins"; how to proceed with the live test). Ask, record the answers, and delete each one answered.
-3. **Release:** `Tools/New-BlueTrackRelease.ps1 -Version x.y.z -Push`, merge its PR, then `-Tag -Push` (D-226). The release notes' Upgrading lists scripts 30 to 34.
+2. **Questions backlog:** `Claude_Docs/Planning_Questions-Backlog.md` now holds only the blocked live test (item 1 above). The user asked what permissions it needs: see the answer given on 2026-10-17 (a permission rule for running one narrowly written script; not verified that a rule overrides the auto-mode classifier). A simpler route: the user supplies a token from the provider, and a small `Tools/` script exchanges it and reports (not built).
+3. **Release:** `Tools/New-BlueTrackRelease.ps1 -Version x.y.z -Push`, merge its PR, then `-Tag -Push` (D-226). The release notes' Upgrading lists scripts 30 to 35.
 4. **LDAPS from DCACYBSQL01** (backlog): the user runs `Tools\Test-BlueTrackLdaps.ps1` there, then adds the domain in BlueTrack.
 5. **Live tests still owed** (backlog, "Built, but never proven"): SIEM forwarding, account classification against the real AD, OAuth2 SMTP, break-glass email, Azure/AWS/Conjur. The release script ran for real for v1.0.5 to v1.0.7: remove that backlog item.
 6. **Backlog** (`Planning_Backlog.md`): server-side localization and "use browser default" language (deferred), D-229 follow-ups, and the real-data findings.
@@ -62,3 +64,4 @@
 - **UI text is in message files** (D-227): new SPA text goes in `App/Web/src/locales/en/<area>.json`, never hard-coded; the key-coverage test fails otherwise (`Claude_Docs/Design_Localization.md`).
 - **Release notes:** every user-visible change gets a line under Unreleased in `User_Docs/Release_Notes.md`, and one in `Planning_User-Docs-Backlog.md`.
 - **API access does not touch `AuthenticationExtensions.cs`** (D-243): bearer handling is `ApiTokenAuthenticationMiddleware`, run after the cookie middleware and before `UseAuthorization` in `Program.cs`. Keep it that way, and regression-test Windows, SAML and OIDC sign-in after any change there. API callers' rights are never cached (`UserRightsResolver.ResolveApiAccessAsync`).
+- **Wait for CI before a redeploy, and wait for the run to exist.** Right after a merge the push run on `main` may not be listed yet, so "no run in progress" is not enough: wait about 45 seconds, then until it completes. On 2026-10-17 a redeploy started during the push run of #165 and the known flaky E2E test ("Admin deletes an account ... undeletes it in bulk") timed out; re-running the run alone passed.
