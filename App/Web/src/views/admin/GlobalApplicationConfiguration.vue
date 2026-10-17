@@ -192,6 +192,10 @@ async function save() {
         <label class="field-label"><span class="field-label-text">{{ t('admin.globalApplicationConfiguration.apiKeyLifetimeLabel') }}</span> <input v-model.number="config.apiKeyDefaultLifetimeDays" type="number" min="1" max="365" required /></label>
         <small>{{ t('admin.globalApplicationConfiguration.apiKeyLifetimeHint') }}</small>
       </p>
+      <p>
+        <label class="field-label"><span class="field-label-text">{{ t('admin.globalApplicationConfiguration.apiRateLimitLabel') }}</span> <input v-model.number="config.apiRateLimitPerMinute" type="number" min="1" max="100000" required /></label>
+        <small>{{ t('admin.globalApplicationConfiguration.apiRateLimitHint') }}</small>
+      </p>
       <fieldset class="patterns">
         <legend>{{ t('admin.globalApplicationConfiguration.patternsLegend') }}</legend>
         <div class="pattern-helper">

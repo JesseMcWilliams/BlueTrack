@@ -24,13 +24,19 @@ public sealed class ApiTokenAuthenticationMiddleware(RequestDelegate next)
 {
     public const string BearerPrefix = "Bearer ";
     public static readonly TimeSpan StateCacheTime = TimeSpan.FromMinutes(1);
+    public const string RateLimitCacheKey = "api-rate-limit";
+
+    private sealed class RateCounter
+    {
+        public int Count;
+    }
 
     public static bool HasBearerToken(HttpRequest request) =>
         request.Headers.Authorization.ToString().StartsWith(BearerPrefix, StringComparison.OrdinalIgnoreCase);
 
     public async Task InvokeAsync(
         HttpContext context, ApiTokenService tokens, ApiKeyRepository keys, IClaimsTransformation claimsTransformation,
-        IMemoryCache cache, TimeProvider timeProvider)
+        IMemoryCache cache, TimeProvider timeProvider, BlueTrack.Api.Data.AppConfigRepository appConfig)
     {
         if (!HasBearerToken(context.Request))
         {
@@ -60,6 +66,28 @@ public sealed class ApiTokenAuthenticationMiddleware(RequestDelegate next)
         if (state is not { IsEnabled: true } || state.ExpiresAt <= timeProvider.GetUtcNow().UtcDateTime)
         {
             await RejectAsync(context, "The API key is disabled, expired or deleted.");
+            return;
+        }
+
+        // A fixed one-minute window per key. The limit is a setting (read at most once a minute).
+        var limit = await cache.GetOrCreateAsync(RateLimitCacheKey, async entry =>
+        {
+            entry.AbsoluteExpirationRelativeToNow = StateCacheTime;
+            return await appConfig.GetApiRateLimitPerMinuteAsync();
+        });
+        var now = timeProvider.GetUtcNow();
+        var window = now.ToUnixTimeSeconds() / 60;
+        var counter = cache.GetOrCreate($"apikey-rate:{identity.ApiKeyKey}:{window}", entry =>
+        {
+            entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(2);
+            return new RateCounter();
+        })!;
+        if (Interlocked.Increment(ref counter.Count) > limit)
+        {
+            var retryAfter = (int)(((window + 1) * 60) - now.ToUnixTimeSeconds());
+            context.Response.StatusCode = StatusCodes.Status429TooManyRequests;
+            context.Response.Headers.RetryAfter = Math.Max(1, retryAfter).ToString();
+            await context.Response.WriteAsJsonAsync(new { title = "Too many requests", status = 429, detail = $"This API key may make {limit} requests a minute." });
             return;
         }
 

@@ -132,6 +132,7 @@ Each type has an **Enabled** tick box and an optional **Target Role**. A type th
 | NightlyImportFailed | Within about 5 minutes of the nightly Import, Load or daily snapshot failing, or of a run still not finished 4 hours after it started. Once per run. | The step, when it started and failed (server time), the error with the procedure and line, the import files that failed in that run, and who started it. | Off |
 | OverdueRiskExceptions | Once a day, from the daily digest time, when any Risk Exception is past its review date. Nothing is sent when none are. | The Overdue Reviews list (up to 100). | Off |
 | WeeklySummary | Once a week, on the weekly summary day, from its time. | The KPI Summary figures; % complete and accounts per stage compared with the snapshot a week older ("No history yet" when there is none); overdue and at-risk accounts; exceptions overdue for review; the last Import, Load and snapshot runs. | Off |
+| ApiKeyExpiring | Once a day, from the daily digest time, for each API key 30 days and 7 days before it expires. A key made for 30 days or fewer gets only the 7-day email, and one made for 7 days or fewer none. | The key's name, the first characters of the key, its role and its expiry date, with a link to Admin > API Keys. | Off |
 | DevFakeAuthEnabledTooLong | When DevFakeAuth has been enabled for more than 7 days; repeats at most every 7 days. | How long DevFakeAuth has been enabled, and since when. | On |
 | BreakGlassLogon | At once, every time a designated break-glass account signs in (Admin_SettingsReference.md, Identity Providers, "Break-glass accounts"). | The account, the sign-in method, the source IP address and the time (UTC), and where to find it in the Audit Log. | On |
 
@@ -143,7 +144,7 @@ Recommended: enable NightlyImportFailed on every real environment, since nothing
 
 | Setting | What it does | Default | Recommended | Why |
 |---|---|---|---|---|
-| Daily digest time | When the daily emails (OverdueRiskExceptions) go out, server local time. | 07:00 | Before your team's working day starts | The list is waiting when people arrive. If the server is down at that time, the email goes out when it's back the same day. |
+| Daily digest time | When the daily emails (OverdueRiskExceptions, ApiKeyExpiring) go out, server local time. | 07:00 | Before your team's working day starts | The list is waiting when people arrive. If the server is down at that time, the email goes out when it's back the same day. |
 | Weekly summary day | The day WeeklySummary goes out. | Mon | The first working day of your week | Starts the week with last week's progress. |
 | Weekly summary time | The time it goes out that day, server local time. | 07:00 | Same as the daily digest | One time is easier to remember. |
 
@@ -235,4 +236,8 @@ The list shows each key's name, the **first characters** of the key (to tell key
 
 Creating, disabling, enabling and deleting a key are in the Audit Log (`ApiKeyCreated`, `ApiKeyChanged`), as is every token a key is given (`ApiTokenIssued`) and every refused request (`ApiTokenRejected`, showing only the first characters of the key sent). Actions a key takes are attributed to the key (shown as "API key: <name>"). A refused request never says why (a wrong, disabled or expired key all look the same). After 10 refused requests in a minute from one address, further requests from it are answered `429` for a minute.
 
-Each request also checks that the key is still enabled and unexpired, so changes take effect quickly. Changing a key's role isn't possible yet: create a new key and delete the old one.
+**Rate limit.** One key may make at most **API requests per minute, per key** requests a minute (Global Application Configuration, 600 by default). Over that, the API answers `429` with a `Retry-After` header.
+
+**Rotate** on the list creates a new key with the same role (named "<name> (rotated <date>)" and lasting the default lifetime) and shows it once. The old key keeps working, so the script can be switched over without a gap; **Disable** or **Delete** the old key afterwards. The **ApiKeyExpiring** notification (Admin > Notifications, off until you enable it) emails the notification recipients 30 days and 7 days before each key expires; see section 7.
+
+Each request also checks that the key is still enabled and unexpired, so changes take effect quickly. A key's role and expiry can't be changed: rotate it, or create a new key and delete the old one.

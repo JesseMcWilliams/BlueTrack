@@ -8,6 +8,8 @@ What changed in each BlueTrack release, newest first, for users and administrato
 
 - **API keys for scripts.** A script can exchange an API key for a short-lived token (`POST /api/auth/token`) and call the API with it, acting as one role of your choice (any role except Admin). **Admin > API Keys** creates, lists, disables and deletes keys; a key is shown once, when it is created. Keys last 90 days by default (a new setting on **Global Application Configuration**, 1 to 365 days, also set for each key when it is created), can be disabled at once, and every use is in the Audit Log. Signing in with a token from your identity provider follows in a later release.
 
+- **API keys: rotation, expiry emails and a rate limit.** **Rotate** on **Admin > API Keys** makes a new key with the same role, so a script can be switched over before the old key is disabled. A new **ApiKeyExpiring** notification (off until you enable it on **Admin > Notifications**) emails the recipients 30 days and 7 days before a key expires. Each key is limited to 600 requests a minute (**API requests per minute, per key** on **Global Application Configuration**); over it the API answers 429.
+
 - **Schedule the account-to-application assignments.** **Admin > Data Sources** has a new import, **Account → application assignments**: the same file as the Account → Application Assignments import on Application ↔ Safe Mapping > Bulk Actions (`UserName`, `Address`, `Application`, optional `Source`), run on a feed's schedule.
 
 ### Changed
@@ -18,7 +20,7 @@ What changed in each BlueTrack release, newest first, for users and administrato
 
 ### Upgrading
 
-- Run database scripts 30 and 31 (the installer's database step does).
+- Run database scripts 30, 31 and 32 (the installer's database step does). To get the API key expiry emails, enable **ApiKeyExpiring** on **Admin > Notifications**.
 
 ## 1.0.7 (2026-10-15)
 

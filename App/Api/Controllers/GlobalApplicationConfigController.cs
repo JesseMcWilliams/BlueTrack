@@ -15,7 +15,8 @@ public sealed class GlobalApplicationConfigController(
     CurrentUserResolver currentUserResolver,
     AuditLogger auditLogger,
     DecommissionRepository decommissionRepository,
-    Security.AllowedFileRoots allowedFileRoots) : ControllerBase
+    Security.AllowedFileRoots allowedFileRoots,
+    Microsoft.Extensions.Caching.Memory.IMemoryCache memoryCache) : ControllerBase
 {
     /// <summary>
     /// D-186: the settings page's pattern helper -- which sample names each
@@ -97,6 +98,10 @@ public sealed class GlobalApplicationConfigController(
         {
             return Problem(title: "Invalid API key lifetime", detail: $"ApiKeyDefaultLifetimeDays must be between 1 and {ApiAccess.ApiAccessRules.MaxLifetimeDays}.", statusCode: StatusCodes.Status400BadRequest);
         }
+        if (request.ApiRateLimitPerMinute is < 1 or > 100000)
+        {
+            return Problem(title: "Invalid API rate limit", detail: "ApiRateLimitPerMinute must be between 1 and 100000.", statusCode: StatusCodes.Status400BadRequest);
+        }
         // D-200: scheduled backups -- a valid time (or "" for off) and 1..3650 days.
         if (!string.IsNullOrEmpty(request.ScheduledBackupTime) && !DataFeeds.FeedSchedule.TryParseTime(request.ScheduledBackupTime, out _))
         {
@@ -133,6 +138,7 @@ public sealed class GlobalApplicationConfigController(
 
         var before = await repository.GetAsync();
         await repository.UpdateAsync(request, user.UserKey);
+        memoryCache.Remove(ApiAccess.ApiTokenAuthenticationMiddleware.RateLimitCacheKey);   // D-243: the next request reads the new limit
 
         List<FieldChange> changes = [];
         if (before.IdleTimeoutMinutes != request.IdleTimeoutMinutes)
@@ -168,6 +174,7 @@ public sealed class GlobalApplicationConfigController(
         TrackIfSent("BulkEditMaxAccounts", before.BulkEditMaxAccounts.ToString(), request.BulkEditMaxAccounts?.ToString());
         TrackIfSent("ExportMaxRows", before.ExportMaxRows.ToString(), request.ExportMaxRows?.ToString());
         TrackIfSent("ApiKeyDefaultLifetimeDays", before.ApiKeyDefaultLifetimeDays.ToString(), request.ApiKeyDefaultLifetimeDays?.ToString());   // D-243
+        TrackIfSent("ApiRateLimitPerMinute", before.ApiRateLimitPerMinute.ToString(), request.ApiRateLimitPerMinute?.ToString());   // D-243
         TrackIfSent("SiteUrl", before.SiteUrl ?? "", request.SiteUrl);   // D-224
         static string? Pattern(string? mode, string? value) => mode is null ? null : mode == "Off" ? "Off" : $"{mode}: {value}";
         TrackIfSent("SafeDecomPattern", Pattern(before.SafeDecomMode, before.SafeDecomValue), Pattern(request.SafeDecomMode, request.SafeDecomValue));

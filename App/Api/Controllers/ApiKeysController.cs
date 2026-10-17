@@ -63,6 +63,37 @@ public sealed class ApiKeysController(
         return StatusCode(StatusCodes.Status201Created, new { apiKeyKey, apiKey = key, keyPrefix = prefix, expiresAt });
     }
 
+    /// <summary>
+    /// A new key with the same role as this one, for switching a caller over: the old key
+    /// stays enabled until the admin disables or deletes it. Shown once, like any new key.
+    /// </summary>
+    [HttpPost("{apiKeyKey:int}/rotate")]
+    public async Task<IActionResult> Rotate(int apiKeyKey)
+    {
+        var user = await currentUserResolver.ResolveAsync(User);
+        if (user is null) return Unauthorized();
+
+        var existing = await keys.GetAsync(apiKeyKey);
+        if (existing is null) return NotFound();
+
+        var today = timeProvider.GetUtcNow().UtcDateTime;
+        var baseName = $"{existing.DisplayName} (rotated {today:yyyy-MM-dd})";
+        if (baseName.Length > 100) baseName = $"{existing.DisplayName[..(100 - " (rotated yyyy-MM-dd)".Length)]} (rotated {today:yyyy-MM-dd})";
+        var name = baseName;
+        for (var n = 2; await keys.NameExistsAsync(name); n++)
+        {
+            name = $"{baseName} {n}";
+            if (n > 50) return Conflict(new { error = "Too many keys were rotated from this one today; delete some first." });
+        }
+
+        var (key, prefix, hash) = ApiKeyGenerator.Create();
+        var expiresAt = today.AddDays(await keys.GetDefaultLifetimeDaysAsync());
+        var newKey = await keys.CreateAsync(name, prefix, hash, existing.AppRoleKey, expiresAt, user.UserKey);
+        await auditLogger.LogAsync("ApiKeyCreated", user.UserKey, "api_key", newKey.ToString(),
+            detail: $"API key '{name}' ({prefix}) created with role {existing.RoleName}, expires {expiresAt:yyyy-MM-dd}, rotated from '{existing.DisplayName}' ({existing.KeyPrefix})");
+        return StatusCode(StatusCodes.Status201Created, new { apiKeyKey = newKey, apiKey = key, keyPrefix = prefix, expiresAt, displayName = name, rotatedFrom = existing.DisplayName });
+    }
+
     [HttpPost("{apiKeyKey:int}/enable")]
     public Task<IActionResult> Enable(int apiKeyKey) => SetEnabledAsync(apiKeyKey, true);
 

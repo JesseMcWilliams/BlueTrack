@@ -32,6 +32,16 @@ public sealed class ApiKeyRepository(IDbConnectionFactory connectionFactory)
         return rows.AsList();
     }
 
+    /// <summary>Enabled keys that expire after <paramref name="nowUtc"/> and within <paramref name="withinDays"/> days of it (for the expiry emails).</summary>
+    public async Task<IReadOnlyList<ApiKeySummary>> ListExpiringAsync(DateTime nowUtc, int withinDays)
+    {
+        using var connection = connectionFactory.Create();
+        var rows = await connection.QueryAsync<ApiKeySummary>(
+            SummarySelect + " WHERE k.IsEnabled = 1 AND k.ExpiresAt > @nowUtc AND k.ExpiresAt <= DATEADD(DAY, @withinDays, @nowUtc) ORDER BY k.ExpiresAt",
+            new { nowUtc, withinDays });
+        return rows.AsList();
+    }
+
     public async Task<ApiKeySummary?> GetAsync(int apiKeyKey)
     {
         using var connection = connectionFactory.Create();

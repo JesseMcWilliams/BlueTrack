@@ -21,7 +21,7 @@ public sealed class AppConfigRepository(IDbConnectionFactory connectionFactory)
                    CONVERT(varchar(5), ac.ScheduledBackupTime, 108) AS ScheduledBackupTime, ac.ScheduledBackupRetentionDays,
                    CONVERT(varchar(5), ac.BusinessHoursStart, 108) AS BusinessHoursStart,
                    CONVERT(varchar(5), ac.BusinessHoursEnd, 108) AS BusinessHoursEnd, ac.BusinessDays,
-                   ac.BulkEditMaxAccounts, ac.ExportMaxRows, ac.ApiKeyDefaultLifetimeDays,
+                   ac.BulkEditMaxAccounts, ac.ExportMaxRows, ac.ApiKeyDefaultLifetimeDays, ac.ApiRateLimitPerMinute,
                    ac.SafeDecomMode, ac.SafeDecomValue, ac.AccountDecomMode, ac.AccountDecomValue,
                    ac.SafeIgnoreMode, ac.SafeIgnoreValue, dbo.fn_RegexSupported() AS RegexSupported,
                    ac.SiteUrl
@@ -36,6 +36,13 @@ public sealed class AppConfigRepository(IDbConnectionFactory connectionFactory)
     {
         using var connection = connectionFactory.Create();
         return await connection.QuerySingleOrDefaultAsync<string?>("SELECT SiteUrl FROM web.app_config");
+    }
+
+    /// <summary>D-243: the most requests one API key may make in a minute.</summary>
+    public async Task<int> GetApiRateLimitPerMinuteAsync()
+    {
+        using var connection = connectionFactory.Create();
+        return await connection.QuerySingleAsync<int>("SELECT ApiRateLimitPerMinute FROM web.app_config");
     }
 
     /// <summary>D-35/D-83: checked on every detail-view GET before logging a RecordViewed event.</summary>
@@ -71,6 +78,7 @@ public sealed class AppConfigRepository(IDbConnectionFactory connectionFactory)
                 BulkEditMaxAccounts = COALESCE(@BulkEditMaxAccounts, BulkEditMaxAccounts),
                 ExportMaxRows = COALESCE(@ExportMaxRows, ExportMaxRows),   -- D-220
                 ApiKeyDefaultLifetimeDays = COALESCE(@ApiKeyDefaultLifetimeDays, ApiKeyDefaultLifetimeDays),   -- D-243
+                ApiRateLimitPerMinute = COALESCE(@ApiRateLimitPerMinute, ApiRateLimitPerMinute),   -- D-243
                 -- D-186: a pattern's value changes only when its mode is sent; Off clears it.
                 SafeDecomValue = CASE WHEN @SafeDecomMode IS NULL THEN SafeDecomValue WHEN @SafeDecomMode = 'Off' THEN NULL ELSE @SafeDecomValue END,
                 SafeDecomMode = COALESCE(@SafeDecomMode, SafeDecomMode),
@@ -99,6 +107,7 @@ public sealed class AppConfigRepository(IDbConnectionFactory connectionFactory)
             request.BulkEditMaxAccounts,
             request.ExportMaxRows,
             request.ApiKeyDefaultLifetimeDays,
+            request.ApiRateLimitPerMinute,
             request.SafeDecomMode,
             request.SafeDecomValue,
             request.AccountDecomMode,

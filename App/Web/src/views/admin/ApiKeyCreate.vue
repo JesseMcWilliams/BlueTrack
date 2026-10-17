@@ -5,7 +5,7 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { formatDate } from '../../utils/formatDate'
+import ApiKeyReveal from '../../components/ApiKeyReveal.vue'
 
 const { t } = useI18n()
 const router = useRouter()
@@ -17,7 +17,6 @@ const saveError = ref(null)
 const options = ref({ roles: [], defaultLifetimeDays: 90, maxLifetimeDays: 365 })
 const form = ref({ displayName: '', appRoleKey: null, lifetimeDays: 90 })
 const created = ref(null)
-const copied = ref(false)
 
 onMounted(async () => {
   try {
@@ -53,15 +52,6 @@ async function create() {
   }
 }
 
-async function copyKey() {
-  try {
-    await navigator.clipboard.writeText(created.value.apiKey)
-    copied.value = true
-  } catch {
-    copied.value = false   // the key is selectable on the page; copying by hand still works
-  }
-}
-
 function backToList() {
   router.push({ name: 'admin-api-keys' })
 }
@@ -73,17 +63,7 @@ function backToList() {
     <p v-if="loading" role="status">{{ t('common.loading') }}</p>
     <p v-else-if="loadError" role="alert">{{ loadError }}</p>
 
-    <section v-else-if="created">
-      <p role="status"><strong>{{ t('admin.apiKeyCreate.createdHeading') }}</strong></p>
-      <p>{{ t('admin.apiKeyCreate.copyWarning') }}</p>
-      <p><input class="api-key-value" :value="created.apiKey" readonly :aria-label="t('admin.apiKeyCreate.keyLabel')" @focus="$event.target.select()" /></p>
-      <p>
-        <button type="button" @click="copyKey">{{ t('admin.apiKeyCreate.copy') }}</button>
-        <span v-if="copied" role="status">{{ ' ' + t('admin.apiKeyCreate.copied') }}</span>
-      </p>
-      <p>{{ t('admin.apiKeyCreate.expiresOn', { date: formatDate(created.expiresAt) }) }}</p>
-      <button type="button" class="btn-primary" @click="backToList">{{ t('admin.apiKeyCreate.done') }}</button>
-    </section>
+    <ApiKeyReveal v-else-if="created" :api-key="created.apiKey" :expires-at="created.expiresAt" :heading="t('admin.apiKeyCreate.createdHeading')" @done="backToList" />
 
     <form v-else @submit.prevent="create">
       <p>
@@ -108,11 +88,3 @@ function backToList() {
     </form>
   </div>
 </template>
-
-<style scoped>
-.api-key-value {
-  width: 100%;
-  max-width: 40rem;
-  font-family: monospace;
-}
-</style>

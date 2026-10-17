@@ -1,3 +1,4 @@
+using BlueTrack.Api.ApiAccess;
 using BlueTrack.Api.Data;
 using BlueTrack.Api.Models;
 using BlueTrack.Api.Notifications;
@@ -33,7 +34,7 @@ public class NotificationChecksTests : IClassFixture<BlueTrackWebApplicationFact
     private readonly List<long> _etlRunKeys = [];
     private string? _originalSiteUrl;
 
-    private static readonly string[] NewTypes = [NightlyImportFailedCheck.TypeName, OverdueRiskExceptionsCheck.TypeName, WeeklySummaryCheck.TypeName];
+    private static readonly string[] NewTypes = [NightlyImportFailedCheck.TypeName, OverdueRiskExceptionsCheck.TypeName, WeeklySummaryCheck.TypeName, ApiKeyExpiringCheck.TypeName];
 
     public NotificationChecksTests(BlueTrackWebApplicationFactory factory)
     {
@@ -328,5 +329,65 @@ public class NotificationChecksTests : IClassFixture<BlueTrackWebApplicationFact
         public void Set(DateTimeOffset now) => _now = now;
         public override DateTimeOffset GetUtcNow() => _now;
         public override TimeZoneInfo LocalTimeZone => TimeZoneInfo.Utc;
+    }
+
+    /// <summary>D-243: a key is emailed 30 days and 7 days before it expires, once each, and a short-lived or disabled one is not.</summary>
+    [Fact]
+    public async Task ApiKeyExpiring_EmailsAt30And7Days_OncePerKeyAndThreshold_AcrossARestart()
+    {
+        await SetEnabledAsync(true, ApiKeyExpiringCheck.TypeName);
+        var keys = new ApiKeyRepository(new TestDbConnectionFactory());
+        var creator = await TestUsers.GetUserKeyAsync("IntegrationTestUser1");
+        var id = Guid.NewGuid().ToString("N")[..8];
+        var created = new List<int>();
+
+        await using var connection = new SqlConnection(TestDatabase.ConnectionString);
+        var roleKey = await connection.QuerySingleAsync<int>("SELECT AppRoleKey FROM web.app_role WHERE RoleName = 'Viewer'");
+        async Task<string> AddKeyAsync(string label, string createdAt, string expiresAt, bool enabled = true)
+        {
+            var name = $"NotifyTest {label} {id}";
+            var (_, prefix, hash) = ApiKeyGenerator.Create();
+            var key = await keys.CreateAsync(name, prefix, hash, roleKey, DateTime.UtcNow.AddYears(1), creator);
+            created.Add(key);
+            await connection.ExecuteAsync("UPDATE web.api_key SET CreatedAt = @createdAt, ExpiresAt = @expiresAt, IsEnabled = @enabled WHERE ApiKeyKey = @key", new { createdAt, expiresAt, enabled, key });
+            return name;
+        }
+
+        try
+        {
+            var thirty = await AddKeyAsync("A", "2000-10-01", "2001-01-20");        // 18 days left, made for 111 days: the 30-day email
+            var seven = await AddKeyAsync("B", "2000-12-01", "2001-01-06");         // 4 days left: the 7-day email
+            var shortLived = await AddKeyAsync("C", "2000-12-25", "2001-01-10");    // 8 days left, made for 16: neither
+            var disabled = await AddKeyAsync("D", "2000-10-01", "2001-01-05", enabled: false);
+
+            _clock.Set(new DateTimeOffset(2001, 1, 2, 6, 59, 0, TimeSpan.Zero));
+            await NewService().RunOnceAsync(CancellationToken.None);
+            Assert.Empty(MessagesFor(id));   // Before the digest time.
+
+            _clock.Set(new DateTimeOffset(2001, 1, 2, 7, 0, 0, TimeSpan.Zero));
+            await NewService().RunOnceAsync(CancellationToken.None);
+            await NewService().RunOnceAsync(CancellationToken.None);   // After a "restart": nothing is re-sent.
+
+            var first = Assert.Single(MessagesFor(thirty));
+            Assert.Equal($"BlueTrack: API key \"{thirty}\" expires in 18 days", first.Subject);
+            Assert.Contains(_recipient, first.To);
+            Assert.Contains("Role: Viewer", first.Body);
+            Assert.Contains("Expires: 2001-01-20", first.Body);
+            Assert.NotNull(first.Html);
+            Assert.Contains("expires in 4 days", Assert.Single(MessagesFor(seven)).Subject);
+            Assert.Empty(MessagesFor(shortLived));
+            Assert.Empty(MessagesFor(disabled));
+
+            // Later, the 30-day key reaches 7 days: it gets its second email, and nothing else repeats.
+            _clock.Set(new DateTimeOffset(2001, 1, 14, 7, 0, 0, TimeSpan.Zero));
+            await NewService().RunOnceAsync(CancellationToken.None);
+            Assert.Equal(2, MessagesFor(thirty).Count);
+            Assert.Contains("expires in 6 days", MessagesFor(thirty)[1].Subject);
+            Assert.Single(MessagesFor(seven));
+        }
+        finally
+        {
+            if (created.Count > 0) await connection.ExecuteAsync("DELETE FROM web.api_key WHERE ApiKeyKey IN @created", new { created });
+        }
     }
 }

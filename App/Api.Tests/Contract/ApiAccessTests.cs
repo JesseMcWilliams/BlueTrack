@@ -349,4 +349,84 @@ public class ApiAccessTests : IClassFixture<BlueTrackWebApplicationFactory>
             if (created is not null) await DeleteKeysAsync(created.ApiKeyKey);
         }
     }
+
+    [Fact]
+    public async Task Rotate_MakesANewKeyWithTheSameRole_AndLeavesTheOldOneWorking()
+    {
+        var admin = AdminClient();
+        var original = await CreateKeyAsync(admin, "Auditor");
+        CreatedKey? rotated = null;
+        try
+        {
+            var response = await admin.PostAsync($"/api/admin/api-keys/{original.ApiKeyKey}/rotate", null);
+            Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+            var body = (await response.Content.ReadFromJsonAsync<JsonObject>())!;
+            rotated = new CreatedKey(body["apiKeyKey"]!.GetValue<int>(), body["apiKey"]!.GetValue<string>(), body["keyPrefix"]!.GetValue<string>(), body["expiresAt"]!.GetValue<DateTime>());
+            Assert.NotEqual(original.ApiKey, rotated.ApiKey);
+            Assert.Contains("(rotated ", body["displayName"]!.GetValue<string>());
+
+            var list = (await admin.GetFromJsonAsync<List<KeyListItem>>("/api/admin/api-keys"))!;
+            Assert.Equal("Auditor", list.Single(k => k.ApiKeyKey == rotated.ApiKeyKey).RoleName);
+            Assert.True(list.Single(k => k.ApiKeyKey == original.ApiKeyKey).IsEnabled);
+
+            var script = ScriptClient();
+            await ExchangeAsync(script, original.ApiKey);
+            await ExchangeAsync(script, rotated.ApiKey);
+
+            // Rotating again the same day gets its own name.
+            var again = await admin.PostAsync($"/api/admin/api-keys/{original.ApiKeyKey}/rotate", null);
+            var againBody = (await again.Content.ReadFromJsonAsync<JsonObject>())!;
+            Assert.NotEqual(body["displayName"]!.GetValue<string>(), againBody["displayName"]!.GetValue<string>());
+            await DeleteKeysAsync(againBody["apiKeyKey"]!.GetValue<int>());
+
+            Assert.Equal(HttpStatusCode.NotFound, (await admin.PostAsync("/api/admin/api-keys/2147483647/rotate", null)).StatusCode);
+        }
+        finally
+        {
+            await DeleteKeysAsync(original.ApiKeyKey);
+            if (rotated is not null) await DeleteKeysAsync(rotated.ApiKeyKey);
+        }
+    }
+
+    [Fact]
+    public async Task RateLimit_IsASetting_AndTooManyRequestsAreAnswered429()
+    {
+        var admin = AdminClient();
+        var original = (await admin.GetFromJsonAsync<JsonObject>("/api/admin/configuration"))!;
+        Assert.Equal(600, original["apiRateLimitPerMinute"]!.GetValue<int>());
+
+        JsonObject With(int limit)
+        {
+            var body = JsonNode.Parse(original.ToJsonString())!.AsObject();
+            body["apiRateLimitPerMinute"] = limit;
+            return body;
+        }
+
+        var created = await CreateKeyAsync(admin, "Viewer");
+        try
+        {
+            Assert.Equal(HttpStatusCode.BadRequest, (await admin.PutAsJsonAsync("/api/admin/configuration", With(0))).StatusCode);
+            Assert.Equal(HttpStatusCode.BadRequest, (await admin.PutAsJsonAsync("/api/admin/configuration", With(100001))).StatusCode);
+            Assert.Equal(HttpStatusCode.NoContent, (await admin.PutAsJsonAsync("/api/admin/configuration", With(3))).StatusCode);
+
+            var script = ScriptClient();
+            var token = await ExchangeAsync(script, created.ApiKey);
+            // A one-minute window can end between two calls, so allow for one change of window: 3 + 3 pass, the 7th can't.
+            HttpResponseMessage? limited = null;
+            for (var i = 0; i < 7 && limited is null; i++)
+            {
+                var response = await script.SendAsync(Get("/api/me", token));
+                if (response.StatusCode == HttpStatusCode.TooManyRequests) limited = response;
+                else Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            }
+            Assert.NotNull(limited);
+            Assert.InRange(limited!.Headers.RetryAfter!.Delta!.Value.TotalSeconds, 1, 60);
+            Assert.Contains("3 requests a minute", await limited.Content.ReadAsStringAsync());
+        }
+        finally
+        {
+            Assert.Equal(HttpStatusCode.NoContent, (await admin.PutAsJsonAsync("/api/admin/configuration", With(600))).StatusCode);
+            await DeleteKeysAsync(created.ApiKeyKey);
+        }
+    }
 }
