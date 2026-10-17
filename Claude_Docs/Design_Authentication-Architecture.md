@@ -142,6 +142,15 @@ Guidance adopted 2026-08-27 for the ITfoxtec.Identity.Saml2 integration (D-23). 
 
 - Since this is a single IdP, put a manual calendar reminder (or an automated check) on the IdP's certificate expiration date. A SAML outage from an expired certificate nobody rotated is a far more likely failure mode than an actual attack. (D-27)
 
+## API access for scripts (D-243)
+
+A script exchanges an API key (or, in phase 2, an identity provider's JWT) for a 10-minute BlueTrack token at `POST /api/auth/token` and sends it as `Authorization: Bearer <token>`. Built in phase 1: the keys (`web.api_key`, hash only), the token service (HS256, secret in `web.api_signing_key`, DPAPI-protected), `ApiTokenAuthenticationMiddleware` and the key endpoints. Design points that matter when changing the sign-in code:
+- **It is middleware, not an authentication scheme.** It runs after the cookie-preference middleware and before `UseAuthorization` in `Program.cs`, and does nothing without a bearer header. It adds no default or policy scheme, so Windows, SAML and OIDC sign-in behave as before. Regression-test them after any change here.
+- A bearer request is never left to Windows or a cookie: a bad, expired, disabled or deleted key is a 401.
+- A key's identity is an `app_user` under the hidden `ApiAccess` provider (`apikey-<n>`), so audit and the rights cache work as for a person. The provider is left out of the sign-in list, the Identity Providers page and the enabled-provider count.
+- Rights are the key's one role, resolved in `UserRightsResolver` minus `ApiAccessRules.NeverGranted`. The key's state is checked per request from a one-minute cache; admin changes clear it.
+- Bearer calls and the token endpoint are exempt from the D-197 header (a browser never sends that header by itself).
+
 ## Open Questions
 
 None remaining as of 2026-08-27 — the prior open question on this document (Q-01, break-glass credential custody and audit) was resolved this session as D-24 above. **New item found 2026-09-05 (documentation audit):** D-24 says a break-glass logon "triggers an active alert," but no alert-delivery mechanism was ever built or even designed — see the new `Archive_Design_Notification-Framework.md`, which resolves this alongside two other decisions (D-19, D-26) that made the same assumption.

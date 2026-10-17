@@ -38,6 +38,7 @@ public sealed class IdentityProviderRepository(IDbConnectionFactory connectionFa
         const string sql = """
             SELECT ProviderKey, ProviderType, DisplayName, IsEnabled, DisplayOrder, ConfigurationValues
             FROM web.identity_provider_config
+            WHERE ProviderType <> 'ApiAccess'   -- D-243: not a sign-in provider
             ORDER BY DisplayOrder, ProviderKey
             """;
         var rows = await connection.QueryAsync<IdentityProviderConfig>(sql);
@@ -81,7 +82,7 @@ public sealed class IdentityProviderRepository(IDbConnectionFactory connectionFa
         const string sql = """
             SELECT ProviderKey, ProviderType, DisplayName, IsEnabled, DisplayOrder
             FROM web.identity_provider_config
-            WHERE IsEnabled = 1
+            WHERE IsEnabled = 1 AND ProviderType <> 'ApiAccess'   -- D-243: not a sign-in provider
             ORDER BY DisplayOrder
             """;
         var rows = await connection.QueryAsync<IdentityProviderConfig>(sql);
@@ -95,6 +96,7 @@ public sealed class IdentityProviderRepository(IDbConnectionFactory connectionFa
         const string sql = """
             SELECT ProviderKey, ProviderType, DisplayName, IsEnabled, DisplayOrder, ConfigurationValues, SecretReference, ModifiedDate
             FROM web.identity_provider_config
+            WHERE ProviderType <> 'ApiAccess'   -- D-243: not a sign-in provider
             ORDER BY DisplayOrder
             """;
         var rows = await connection.QueryAsync<IdentityProviderDetail>(sql);

@@ -1,6 +1,6 @@
 # BlueTrack: API access for scripts and other systems (proposal)
 
-> **Stage: Planning.** Proposal written 2026-10-17 for the backlog item requested 2026-10-13. **Nothing here is decided or built.** The user's answers to the questions at the end become a `D-n` decision, and this doc then becomes `Design_API-Access.md`.
+> **Stage: Planning.** Decided 2026-10-17 as D-243 (see the Decision Register for the answers to the questions below, including: both A and B behind a short-lived BlueTrack JWT, key default 90 days). **Phase 1 is built** (keys, token exchange, bearer middleware, key endpoints; no UI). **Still to build:** phase 2 (option B: an identity provider's JWT exchanged for a token, mapped to a role by groups claim or a mapping table), phase 3 (Admin > API Keys page, the lifetime setting's UI, expiry emails, rate limit, rotation), the user docs page, and a live check on the dev site (IIS passes a bearer request through; Windows, SAML and OIDC sign-in unchanged). Once built, rename this to `Design_API-Access.md` with `git mv` and update the links.
 
 ## The need
 Scripts and other systems (a scheduler, a SIEM, a CMDB sync) should be able to call BlueTrack's API without a person signing in. Today sign-in is interactive: Windows, SAML and OIDC.

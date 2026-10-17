@@ -35,6 +35,7 @@ public static class Permissions
     public const string ManageDiscoveredAccounts = "ManageDiscoveredAccounts";
     public const string ManageDataSources = "ManageDataSources";
     public const string DeleteAccounts = "DeleteAccounts";
+    public const string ManageApiKeys = "ManageApiKeys";   // D-243
 
     public static readonly IReadOnlyList<string> All =
     [
@@ -44,6 +45,6 @@ public static class Permissions
         ManageFieldMetadata, ViewAuditLog, ManageApplicationConfiguration, ViewDeploymentInfo,
         ManageNotifications, ManageCredentials, TriggerBackup,
         ManageTargets, ManageAccessGroups, ViewRiskReport, ManageRiskScoreBands, ViewRiskExceptionSodReport,
-        ViewDiscoveredAccounts, ManageDiscoveredAccounts, ManageDataSources, DeleteAccounts
+        ViewDiscoveredAccounts, ManageDiscoveredAccounts, ManageDataSources, DeleteAccounts, ManageApiKeys
     ];
 }

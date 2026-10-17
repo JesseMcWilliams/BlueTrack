@@ -23,6 +23,7 @@ public sealed class UserRightsResolver(
     CurrentUserResolver currentUserResolver,
     AuditLogger auditLogger,
     BreakGlassAccountRepository breakGlassAccountRepository,
+    ApiAccess.ApiKeyRepository apiKeyRepository,
     Notifications.BreakGlassAlerter breakGlassAlerter,
     IHttpContextAccessor httpContextAccessor)
 {
@@ -97,6 +98,19 @@ public sealed class UserRightsResolver(
 
     private async Task<UserRights> ResolveLiveAsync(ClaimsPrincipal principal, IdentityProviderConfig provider)
     {
+        // D-243: an API key's rights are its one role (no groups), minus what a key can never have.
+        if (provider.ProviderType == ApiAccess.ApiAccessRules.ProviderType)
+        {
+            var identifier = ExternalIdentifierReader.Resolve(principal);
+            var prefix = ApiAccess.ApiAccessRules.ExternalIdentifierFor(0)[..^1];   // "apikey-"
+            if (identifier is null || !identifier.StartsWith(prefix, StringComparison.Ordinal) || !int.TryParse(identifier[prefix.Length..], out var apiKeyKey))
+            {
+                return None;
+            }
+            var apiRights = await apiKeyRepository.GetRightsAsync(apiKeyKey);
+            return apiRights is null ? None : new UserRights([apiRights.RoleName], apiRights.PermissionNames);
+        }
+
         var groupIdentifiers = provider.ProviderType switch
         {
             "DevFakeAuth" => GroupIdentifierExtractor.GetDevFakeAuthIdentifiers(principal),
