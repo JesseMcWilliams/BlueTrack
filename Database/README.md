@@ -49,6 +49,7 @@ instead.
 | 31 | `31_BlueTrack_ApiAccess.sql` | D-243: `web.api_key` (hash only), `web.api_signing_key`, `app_config.ApiKeyDefaultLifetimeDays` (90), the hidden `ApiAccess` identity provider and its system user, the `ManageApiKeys` permission (Admin), and four audit event types. |
 | 32 | `32_BlueTrack_ApiKeyExpiryAndRateLimit.sql` | D-243 (phase 3b): the `ApiKeyExpiring` notification type (off) and `app_config.ApiRateLimitPerMinute` (600). |
 | 33 | `33_BlueTrack_ApiClientMapping.sql` | D-243 (phase 2): `web.api_client_mapping` (an identity provider token's client or group to a role) and the `ApiClientMappingChanged` audit event type. |
+| 34 | `34_BlueTrack_ApiKeyOwnerAndEdit.sql` | D-243 (phase 4): `api_key.OwnerEmail` and `RateLimitPerMinute`, `app_config.ApiKeyReminderLeadDays` (7), the `ApiKeyExpiring` description (owner emails) and the `ApiKeyExpired` notification type (off). |
 
 ## The baseline (D-195)
 

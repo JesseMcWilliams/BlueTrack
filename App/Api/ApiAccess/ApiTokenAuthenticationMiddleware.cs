@@ -60,6 +60,7 @@ public sealed class ApiTokenAuthenticationMiddleware(RequestDelegate next)
         }
 
         string displayName;
+        int? keyLimit = null;
         if (identity.ApiKeyKey is { } apiKeyKey)
         {
             var state = await cache.GetOrCreateAsync($"apikey-state:{apiKeyKey}", async entry =>
@@ -73,6 +74,7 @@ public sealed class ApiTokenAuthenticationMiddleware(RequestDelegate next)
                 return;
             }
             displayName = state.DisplayName;
+            keyLimit = state.RateLimitPerMinute;
         }
         else
         {
@@ -92,7 +94,7 @@ public sealed class ApiTokenAuthenticationMiddleware(RequestDelegate next)
         }
 
         // A fixed one-minute window per key. The limit is a setting (read at most once a minute).
-        var limit = await cache.GetOrCreateAsync(RateLimitCacheKey, async entry =>
+        var limit = keyLimit ?? await cache.GetOrCreateAsync(RateLimitCacheKey, async entry =>
         {
             entry.AbsoluteExpirationRelativeToNow = StateCacheTime;
             return await appConfig.GetApiRateLimitPerMinuteAsync();

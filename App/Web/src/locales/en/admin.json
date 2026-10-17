@@ -414,7 +414,9 @@
     "apiKeyLifetimeLabel": "API key default lifetime (days):",
     "apiKeyLifetimeHint": "How long a new API key lasts before it expires, from 1 to 365. The expiry can be changed for each key when it is created.",
     "apiRateLimitLabel": "API requests per minute, per key:",
-    "apiRateLimitHint": "The most requests one API key may make in a minute, from 1 to 100,000. Over it, the API answers \"too many requests\" until the minute is up."
+    "apiRateLimitHint": "The most requests one API key may make in a minute, from 1 to 100,000. Over it, the API answers \"too many requests\" until the minute is up.",
+    "apiKeyReminderLabel": "API key expiry reminder lead time (days):",
+    "apiKeyReminderHint": "How many days before an API key expires its owner is emailed, from 1 to 90. The owner is emailed again on the day it expires, and the administrators on that day (the ApiKeyExpiring and ApiKeyExpired notification types on Notifications)."
   },
   "groupRoleMapping": {
     "couldNotResolve": "Could not resolve that group name.",
@@ -909,7 +911,8 @@
     "actionFailed": "The change failed: {status}",
     "rotate": "Rotate",
     "rotatedHeading": "A new API key \"{name}\" was created from \"{from}\".",
-    "rotateHint": "Rotate creates a new key with the same role, for switching a caller over. The old key keeps working until you disable or delete it."
+    "rotateHint": "Rotate creates a new key with the same role, for switching a caller over. The old key keeps working until you disable or delete it.",
+    "owner": "Owner"
   },
   "apiKeyCreate": {
     "title": "New API Key",
@@ -926,7 +929,11 @@
     "copy": "Copy",
     "copied": "Copied.",
     "expiresOn": "It expires on {date}.",
-    "done": "Done"
+    "done": "Done",
+    "ownerLabel": "Owner email (optional):",
+    "ownerHint": "Who is emailed before the key expires, and on the day it does. Leave it blank to tell only the administrators.",
+    "rateLimitLabel": "Requests per minute (optional):",
+    "rateLimitHint": "This key's own limit. Leave it blank to use the limit on Global Application Configuration."
   },
   "apiClientMappings": {
     "title": "API client mappings",
@@ -949,5 +956,13 @@
     "orderHint": "When more than one mapping matches a token, the lowest order is used.",
     "nameLabel": "Name (optional):",
     "addButton": "Add mapping"
+  },
+  "apiKeyEdit": {
+    "title": "Edit API Key",
+    "notFound": "That API key no longer exists.",
+    "keyStart": "The key starts with",
+    "roleHint": "A role change applies at once, including to tokens the key has already been given.",
+    "expiresLabel": "Expires on:",
+    "expiresHint": "The last day the key works (up to {max} days from today). Change it to renew the key or to shorten it; to stop a key now, disable or delete it."
   }
 }

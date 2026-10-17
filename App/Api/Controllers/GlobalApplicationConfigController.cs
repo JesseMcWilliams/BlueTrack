@@ -102,6 +102,10 @@ public sealed class GlobalApplicationConfigController(
         {
             return Problem(title: "Invalid API rate limit", detail: "ApiRateLimitPerMinute must be between 1 and 100000.", statusCode: StatusCodes.Status400BadRequest);
         }
+        if (request.ApiKeyReminderLeadDays is < 1 or > 90)
+        {
+            return Problem(title: "Invalid API key reminder lead time", detail: "ApiKeyReminderLeadDays must be between 1 and 90.", statusCode: StatusCodes.Status400BadRequest);
+        }
         // D-200: scheduled backups -- a valid time (or "" for off) and 1..3650 days.
         if (!string.IsNullOrEmpty(request.ScheduledBackupTime) && !DataFeeds.FeedSchedule.TryParseTime(request.ScheduledBackupTime, out _))
         {
@@ -175,6 +179,7 @@ public sealed class GlobalApplicationConfigController(
         TrackIfSent("ExportMaxRows", before.ExportMaxRows.ToString(), request.ExportMaxRows?.ToString());
         TrackIfSent("ApiKeyDefaultLifetimeDays", before.ApiKeyDefaultLifetimeDays.ToString(), request.ApiKeyDefaultLifetimeDays?.ToString());   // D-243
         TrackIfSent("ApiRateLimitPerMinute", before.ApiRateLimitPerMinute.ToString(), request.ApiRateLimitPerMinute?.ToString());   // D-243
+        TrackIfSent("ApiKeyReminderLeadDays", before.ApiKeyReminderLeadDays.ToString(), request.ApiKeyReminderLeadDays?.ToString());   // D-243
         TrackIfSent("SiteUrl", before.SiteUrl ?? "", request.SiteUrl);   // D-224
         static string? Pattern(string? mode, string? value) => mode is null ? null : mode == "Off" ? "Off" : $"{mode}: {value}";
         TrackIfSent("SafeDecomPattern", Pattern(before.SafeDecomMode, before.SafeDecomValue), Pattern(request.SafeDecomMode, request.SafeDecomValue));

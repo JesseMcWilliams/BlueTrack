@@ -92,7 +92,8 @@
     "adminAccountClassificationRuleEdit": "Edit Rule",
     "adminSiemForwarding": "SIEM Forwarding",
     "adminApiKeys": "API Keys",
-    "adminApiKeyCreate": "New API Key"
+    "adminApiKeyCreate": "New API Key",
+    "adminApiKeyEdit": "Edit API Key"
   },
   "userMenu": {
     "account": "Account",

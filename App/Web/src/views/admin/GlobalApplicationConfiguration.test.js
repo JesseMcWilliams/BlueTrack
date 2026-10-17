@@ -29,6 +29,7 @@ const baseConfig = {
   exportMaxRows: 100000,
   apiKeyDefaultLifetimeDays: 90,
   apiRateLimitPerMinute: 600,
+  apiKeyReminderLeadDays: 7,
   safeDecomMode: 'Off',
   safeDecomValue: null,
   accountDecomMode: 'Off',
