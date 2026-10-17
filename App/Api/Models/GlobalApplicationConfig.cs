@@ -51,6 +51,9 @@ public sealed class GlobalApplicationConfig
     /// <summary>D-220: the most rows one report export (CSV or Excel) may hold.</summary>
     public int ExportMaxRows { get; init; }
 
+    /// <summary>D-243: the expiry given to a new API key, in days (1 to 365).</summary>
+    public int ApiKeyDefaultLifetimeDays { get; init; }
+
     // D-186: decommission and ignored-safe name patterns (Mode: Off / Prefix
     // / Suffix / Regex). RegexSupported is read-only: whether this SQL
     // Server can run Regex patterns (2025, compatibility level 170).
@@ -98,6 +101,9 @@ public sealed class SaveGlobalApplicationConfigRequest
 
     /// <summary>D-220: null = unchanged.</summary>
     public int? ExportMaxRows { get; init; }
+
+    /// <summary>D-243: null = unchanged.</summary>
+    public int? ApiKeyDefaultLifetimeDays { get; init; }
 
     /// <summary>D-186: each pattern's Mode and Value; a null Mode leaves that pattern unchanged.</summary>
     public string? SafeDecomMode { get; init; }

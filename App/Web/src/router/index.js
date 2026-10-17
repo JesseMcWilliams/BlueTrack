@@ -525,6 +525,18 @@ const routes = [
         name: 'admin-siem-forwarding',
         meta: { breadcrumb: 'shell.routes.adminSiemForwarding', breadcrumbParent: 'admin' },
         component: () => import('../views/admin/SiemForwarding.vue')
+      },
+      {
+        path: 'api-keys',
+        name: 'admin-api-keys',
+        meta: { breadcrumb: 'shell.routes.adminApiKeys', breadcrumbParent: 'admin' },
+        component: () => import('../views/admin/ApiKeys.vue')
+      },
+      {
+        path: 'api-keys/new',
+        name: 'admin-api-key-create',
+        meta: { breadcrumb: 'shell.routes.adminApiKeyCreate', breadcrumbParent: 'admin-api-keys' },
+        component: () => import('../views/admin/ApiKeyCreate.vue')
       }
     ]
   },

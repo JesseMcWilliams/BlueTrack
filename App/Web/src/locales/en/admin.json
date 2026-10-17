@@ -17,7 +17,8 @@
     "dataSources": "Data Sources",
     "noSections": "No admin sections available -- you don't hold any admin permission.",
     "accountClassification": "Account Classification",
-    "siemForwarding": "SIEM Forwarding"
+    "siemForwarding": "SIEM Forwarding",
+    "apiKeys": "API Keys"
   },
   "applicationEdit": {
     "editTitle": "Edit Application",
@@ -409,7 +410,9 @@
     "businessHoursStartLabel": "Business hours start:",
     "businessHoursEndLabel": "Business hours end:",
     "businessDaysLabel": "Business days:",
-    "businessDaysHint": "Run now asks for confirmation inside these hours, since an import changes data people are working with."
+    "businessDaysHint": "Run now asks for confirmation inside these hours, since an import changes data people are working with.",
+    "apiKeyLifetimeLabel": "API key default lifetime (days):",
+    "apiKeyLifetimeHint": "How long a new API key lasts before it expires, from 1 to 365. The expiry can be changed for each key when it is created."
   },
   "groupRoleMapping": {
     "couldNotResolve": "Could not resolve that group name.",
@@ -882,5 +885,42 @@
     "saved": "Settings saved.",
     "testSent": "Test event sent to {target}.",
     "testFailed": "Test event to {target} failed: {error}"
+  },
+  "apiKeys": {
+    "title": "API Keys",
+    "intro": "API keys let scripts and other systems call the API without a person signing in. A script sends its key to {endpoint} and gets a token that lasts 10 minutes, then calls the API with that token, acting as the key's role. A key can never hold the permissions that manage API keys, sign-in, roles, secrets or settings.",
+    "newKey": "New API Key",
+    "noKeys": "There are no API keys yet.",
+    "keyStart": "Key starts with",
+    "role": "Role",
+    "expires": "Expires",
+    "lastUsed": "Last used",
+    "neverUsed": "Never",
+    "usedFrom": "from {address}",
+    "createdBy": "Created by",
+    "statusEnabled": "Enabled",
+    "statusDisabled": "Disabled",
+    "statusExpired": "Expired",
+    "disable": "Disable",
+    "enable": "Enable",
+    "confirmDelete": "Delete the API key \"{name}\"? Scripts that use it stop working at once.",
+    "actionFailed": "The change failed: {status}"
+  },
+  "apiKeyCreate": {
+    "title": "New API Key",
+    "nameLabel": "Name:",
+    "nameHint": "What the key is for, for example the script or system that uses it.",
+    "roleLabel": "Role:",
+    "roleHint": "What the key may do is what this role may do. The Admin role is not offered, and a key never gets the permissions that manage API keys, sign-in, roles, secrets or settings.",
+    "lifetimeLabel": "Lifetime (days):",
+    "lifetimeHint": "Up to {max} days. The default is set on Global Application Configuration.",
+    "createButton": "Create API Key",
+    "createdHeading": "The API key was created.",
+    "copyWarning": "Copy the key now. It is shown only once and can't be shown again; if it is lost, delete the key and create a new one.",
+    "keyLabel": "API key",
+    "copy": "Copy",
+    "copied": "Copied.",
+    "expiresOn": "It expires on {date}.",
+    "done": "Done"
   }
 }

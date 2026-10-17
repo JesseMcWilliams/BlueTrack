@@ -6,7 +6,7 @@ What changed in each BlueTrack release, newest first, for users and administrato
 
 ### New
 
-- **API keys for scripts (first part).** A script can exchange an API key for a short-lived token (`POST /api/auth/token`) and call the API with it, acting as one role of your choice (any role except Admin). An administrator creates keys through the API for now (`/api/admin/api-keys`); the Admin page and sign-in with a token from your identity provider follow in later releases. Keys last 90 days by default, can be disabled at once, and every use is in the Audit Log.
+- **API keys for scripts.** A script can exchange an API key for a short-lived token (`POST /api/auth/token`) and call the API with it, acting as one role of your choice (any role except Admin). **Admin > API Keys** creates, lists, disables and deletes keys; a key is shown once, when it is created. Keys last 90 days by default (a new setting on **Global Application Configuration**, 1 to 365 days, also set for each key when it is created), can be disabled at once, and every use is in the Audit Log. Signing in with a token from your identity provider follows in a later release.
 
 - **Schedule the account-to-application assignments.** **Admin > Data Sources** has a new import, **Account → application assignments**: the same file as the Account → Application Assignments import on Application ↔ Safe Mapping > Bulk Actions (`UserName`, `Address`, `Application`, optional `Source`), run on a feed's schedule.
 
