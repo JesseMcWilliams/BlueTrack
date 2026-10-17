@@ -10,6 +10,8 @@ What changed in each BlueTrack release, newest first, for users and administrato
 
 - **API keys: rotation, expiry emails and a rate limit.** **Rotate** on **Admin > API Keys** makes a new key with the same role, so a script can be switched over before the old key is disabled. A new **ApiKeyExpiring** notification (off until you enable it on **Admin > Notifications**) emails the recipients 30 days and 7 days before a key expires. Each key is limited to 600 requests a minute (**API requests per minute, per key** on **Global Application Configuration**); over it the API answers 429.
 
+- **Scripts can sign in with a token from your identity provider.** A script can send a token from an OIDC provider set up under **Identity Providers** (for example a client-credentials token from authentik or Entra ID) instead of an API key, and gets the same short-lived API token. **Admin > API Keys > API client mappings** says which role it gets: by the token's client, or by a group in the token. The Admin role can't be given. Nothing is accepted from a provider you haven't mapped.
+
 - **Schedule the account-to-application assignments.** **Admin > Data Sources** has a new import, **Account → application assignments**: the same file as the Account → Application Assignments import on Application ↔ Safe Mapping > Bulk Actions (`UserName`, `Address`, `Application`, optional `Source`), run on a feed's schedule.
 
 ### Changed
@@ -20,7 +22,7 @@ What changed in each BlueTrack release, newest first, for users and administrato
 
 ### Upgrading
 
-- Run database scripts 30, 31 and 32 (the installer's database step does). To get the API key expiry emails, enable **ApiKeyExpiring** on **Admin > Notifications**.
+- Run database scripts 30 to 33 (the installer's database step does). To get the API key expiry emails, enable **ApiKeyExpiring** on **Admin > Notifications**.
 
 ## 1.0.7 (2026-10-15)
 

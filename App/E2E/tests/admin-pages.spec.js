@@ -853,6 +853,12 @@ test.describe('API Keys admin page', () => {
     await expect(row).toHaveCount(0)
   })
 
+  test('The page has the API client mappings section', async ({ page }) => {
+    await signInAs(page, 'TestUser.Admin')
+    await page.goto('/admin/api-keys')
+    await expect(page.getByRole('heading', { name: 'API client mappings' })).toBeVisible()
+  })
+
   test('Viewer has no API Keys link and the page is refused', async ({ page }) => {
     await signInAs(page, 'TestUser.Viewer')
     await page.goto('/admin')

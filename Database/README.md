@@ -47,6 +47,8 @@ instead.
 | 29 | `29_BlueTrack_AccountApplication.sql` | D-238: `fact_account_progress.ApplicationKey` (an account's own Application; FK, index), the Application dropdown on the Account Progress edit form (`account_progress_field_metadata`), and `web.vw_account_application_exception` rebuilt to cover an account through its own application and its Safe's. |
 | 30 | `30_BlueTrack_AccountAssignmentsFeed.sql` | D-241: the `AccountAssignments` value in `web.data_feed`'s FeedType CHECK constraint (a scheduled Account → application assignments import). |
 | 31 | `31_BlueTrack_ApiAccess.sql` | D-243: `web.api_key` (hash only), `web.api_signing_key`, `app_config.ApiKeyDefaultLifetimeDays` (90), the hidden `ApiAccess` identity provider and its system user, the `ManageApiKeys` permission (Admin), and four audit event types. |
+| 32 | `32_BlueTrack_ApiKeyExpiryAndRateLimit.sql` | D-243 (phase 3b): the `ApiKeyExpiring` notification type (off) and `app_config.ApiRateLimitPerMinute` (600). |
+| 33 | `33_BlueTrack_ApiClientMapping.sql` | D-243 (phase 2): `web.api_client_mapping` (an identity provider token's client or group to a role) and the `ApiClientMappingChanged` audit event type. |
 
 ## The baseline (D-195)
 

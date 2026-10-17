@@ -927,5 +927,27 @@
     "copied": "Copied.",
     "expiresOn": "It expires on {date}.",
     "done": "Done"
+  },
+  "apiClientMappings": {
+    "title": "API client mappings",
+    "intro": "A script can also sign in with a token from your identity provider instead of an API key. It sends that token to the same address and gets an API token that lasts 10 minutes. The role it gets comes from the first mapping that matches its token, lowest order first: by the token's client (a script's own application), or by a value in its groups claim (the claim named on the identity provider). Only roles you list here are given, never Admin. These mappings are separate from Group → Role Mapping, which is for people signing in.",
+    "noMappings": "There are no API client mappings yet.",
+    "noProviders": "Mappings need an enabled OIDC identity provider. Set one up under Identity Providers first.",
+    "provider": "Identity provider",
+    "match": "Match",
+    "value": "Client or group",
+    "order": "Order",
+    "matchClientId": "Client",
+    "matchGroup": "Group",
+    "confirmDelete": "Delete the mapping for {what}? Callers who relied on it are refused, and tokens it already gave stop working within a minute.",
+    "providerLabel": "Identity provider:",
+    "matchLabel": "Match by:",
+    "matchHint": "Client: the token's client ID (its azp or client_id claim). Group: a value in the token's groups claim.",
+    "valueLabel": "Client ID or group:",
+    "roleLabel": "Role:",
+    "orderLabel": "Order:",
+    "orderHint": "When more than one mapping matches a token, the lowest order is used.",
+    "nameLabel": "Name (optional):",
+    "addButton": "Add mapping"
   }
 }

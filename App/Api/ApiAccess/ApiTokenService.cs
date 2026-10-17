@@ -7,7 +7,11 @@ using Microsoft.IdentityModel.Tokens;
 
 namespace BlueTrack.Api.ApiAccess;
 
-public sealed record ApiTokenIdentity(int ApiKeyKey, string DisplayName);
+/// <summary>
+/// Who a token was issued to: an API key (ApiKeyKey set), or a caller with an identity provider's token
+/// (MappingKey and RoleKey set). Subject is the identifier that caller's app_user has.
+/// </summary>
+public sealed record ApiTokenIdentity(int? ApiKeyKey, string DisplayName, string Subject, int? MappingKey = null, int? RoleKey = null);
 
 /// <summary>
 /// D-243: issues and checks the short-lived tokens an API key is exchanged
@@ -22,16 +26,32 @@ public sealed class ApiTokenService(IDbConnectionFactory connectionFactory, ILoc
     public const string Issuer = "BlueTrack";
     public const string Audience = "BlueTrack.Api";
     public const string KeyKeyClaim = "bt_key";
+    public const string MappingKeyClaim = "bt_map";
+    public const string RoleKeyClaim = "bt_role";
     public static readonly TimeSpan Lifetime = TimeSpan.FromMinutes(10);
 
     private static readonly TimeSpan ClockSkew = TimeSpan.FromSeconds(30);
     private readonly SemaphoreSlim _loadLock = new(1, 1);
     private (string KeyId, byte[] Key)? _signingKey;
 
-    public async Task<(string Token, int ExpiresInSeconds)> IssueAsync(int apiKeyKey, string displayName)
+    public Task<(string Token, int ExpiresInSeconds)> IssueAsync(int apiKeyKey, string displayName) =>
+        CreateAsync(ApiAccessRules.ExternalIdentifierFor(apiKeyKey), displayName, new Dictionary<string, object> { [KeyKeyClaim] = apiKeyKey });
+
+    /// <summary>A token for a caller with an identity provider's token: the mapping and role it matched are fixed in it.</summary>
+    public Task<(string Token, int ExpiresInSeconds)> IssueForClientAsync(string subject, string displayName, int mappingKey, int roleKey) =>
+        CreateAsync(subject, displayName, new Dictionary<string, object> { [MappingKeyClaim] = mappingKey, [RoleKeyClaim] = roleKey });
+
+    private async Task<(string Token, int ExpiresInSeconds)> CreateAsync(string subject, string displayName, Dictionary<string, object> extraClaims)
     {
         var (keyId, key) = await GetSigningKeyAsync();
         var now = timeProvider.GetUtcNow();
+        var claims = new Dictionary<string, object>
+        {
+            [JwtRegisteredClaimNames.Sub] = subject,
+            [JwtRegisteredClaimNames.Jti] = Guid.NewGuid().ToString("N"),
+            ["name"] = displayName,
+        };
+        foreach (var (type, value) in extraClaims) claims[type] = value;
         var descriptor = new SecurityTokenDescriptor
         {
             Issuer = Issuer,
@@ -39,13 +59,7 @@ public sealed class ApiTokenService(IDbConnectionFactory connectionFactory, ILoc
             IssuedAt = now.UtcDateTime,
             NotBefore = now.UtcDateTime,
             Expires = now.Add(Lifetime).UtcDateTime,
-            Claims = new Dictionary<string, object>
-            {
-                [JwtRegisteredClaimNames.Sub] = ApiAccessRules.ExternalIdentifierFor(apiKeyKey),
-                [JwtRegisteredClaimNames.Jti] = Guid.NewGuid().ToString("N"),
-                [KeyKeyClaim] = apiKeyKey,
-                ["name"] = displayName,
-            },
+            Claims = claims,
             SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key) { KeyId = keyId }, SecurityAlgorithms.HmacSha256),
         };
         return (new JsonWebTokenHandler().CreateToken(descriptor), (int)Lifetime.TotalSeconds);
@@ -71,9 +85,18 @@ public sealed class ApiTokenService(IDbConnectionFactory connectionFactory, ILoc
         });
         if (!result.IsValid) return null;
 
-        var keyClaim = result.ClaimsIdentity.FindFirst(KeyKeyClaim)?.Value;
-        var name = result.ClaimsIdentity.FindFirst("name")?.Value;
-        return int.TryParse(keyClaim, out var apiKeyKey) && name is not null ? new ApiTokenIdentity(apiKeyKey, name) : null;
+        var claims = result.ClaimsIdentity;
+        var name = claims.FindFirst("name")?.Value;
+        var subject = claims.FindFirst(JwtRegisteredClaimNames.Sub)?.Value;
+        if (name is null || subject is null) return null;
+
+        if (int.TryParse(claims.FindFirst(KeyKeyClaim)?.Value, out var apiKeyKey))
+        {
+            return new ApiTokenIdentity(apiKeyKey, name, subject);
+        }
+        return int.TryParse(claims.FindFirst(MappingKeyClaim)?.Value, out var mappingKey) && int.TryParse(claims.FindFirst(RoleKeyClaim)?.Value, out var roleKey)
+            ? new ApiTokenIdentity(null, name, subject, mappingKey, roleKey)
+            : null;
     }
 
     private async Task<(string KeyId, byte[] Key)> GetSigningKeyAsync()

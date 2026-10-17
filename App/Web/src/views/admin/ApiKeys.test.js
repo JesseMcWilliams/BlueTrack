@@ -32,11 +32,21 @@ const keys = [
   { apiKeyKey: 3, displayName: 'Expired one', keyPrefix: 'bt_QqWwEeRr', appRoleKey: 4, roleName: 'Viewer', expiresAt: past, isEnabled: true, createdAt: '2026-07-01T10:00:00', createdByName: null, lastUsedAt: null, lastUsedFrom: null }
 ]
 
+// The client mappings section loads its own two lists; these tests are about the keys.
+function route(keysResponse) {
+  return (url, init) => {
+    if (init?.method) return Promise.resolve(jsonResponse(null, true, 204))
+    if (url === '/api/admin/api-client-mappings/options') return Promise.resolve(jsonResponse({ providers: [], roles: [], matchTypes: [] }))
+    if (url === '/api/admin/api-client-mappings') return Promise.resolve(jsonResponse([]))
+    return Promise.resolve(keysResponse)
+  }
+}
+
 async function mountPage(response = jsonResponse(keys)) {
   const router = makeRouter()
   router.push('/')
   await router.isReady()
-  globalThis.fetch = vi.fn((url, init) => Promise.resolve(init?.method ? jsonResponse(null, true, 204) : response))
+  globalThis.fetch = vi.fn(route(response))
   const wrapper = mount(ApiKeys, { global: { plugins: [router] } })
   await flushPromises()
   return { wrapper, router }
@@ -113,7 +123,7 @@ describe('ApiKeys.vue', () => {
   it('Rotate makes a new key with the same role, shows it once, and Done returns to the list', async () => {
     const rotatedBody = { apiKeyKey: 9, apiKey: 'bt_ROTATEDKEYROTATEDKEY', keyPrefix: 'bt_ROTATEDK', expiresAt: '2027-01-15T21:59:02Z', displayName: 'Nightly sync (rotated 2026-10-17)', rotatedFrom: 'Nightly sync' }
     const { wrapper } = await mountPage()
-    globalThis.fetch = vi.fn((url, init) => Promise.resolve(init?.method === 'POST' ? jsonResponse(rotatedBody, true, 201) : jsonResponse(keys)))
+    globalThis.fetch = vi.fn((url, init) => init?.method === 'POST' ? Promise.resolve(jsonResponse(rotatedBody, true, 201)) : route(jsonResponse(keys))(url, init))
 
     await wrapper.findAll('tbody tr')[0].findAll('button').find(b => b.text() === 'Rotate').trigger('click')
     await flushPromises()

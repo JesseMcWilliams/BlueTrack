@@ -49,7 +49,7 @@ public class ApiTokenServiceTests
         var (token, expiresIn) = await service.IssueAsync(42, "CT key");
         Assert.Equal(600, expiresIn);
         var identity = await service.ValidateAsync(token);
-        Assert.Equal(new ApiTokenIdentity(42, "CT key"), identity);
+        Assert.Equal(new ApiTokenIdentity(42, "CT key", "apikey-42"), identity);
 
         time.Advance(TimeSpan.FromMinutes(9));
         Assert.NotNull(await service.ValidateAsync(token));

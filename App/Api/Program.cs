@@ -101,6 +101,9 @@ builder.Services.AddScoped<UserRightsCache>();
 // D-243: API keys, and the tokens they are exchanged for.
 builder.Services.AddMemoryCache();
 builder.Services.AddScoped<BlueTrack.Api.ApiAccess.ApiKeyRepository>();
+builder.Services.AddScoped<BlueTrack.Api.ApiAccess.ApiClientMappingRepository>();
+builder.Services.AddSingleton<BlueTrack.Api.ApiAccess.IIdpMetadataSource, BlueTrack.Api.ApiAccess.OidcIdpMetadataSource>();
+builder.Services.AddScoped<BlueTrack.Api.ApiAccess.IdpTokenValidator>();
 builder.Services.AddSingleton<BlueTrack.Api.ApiAccess.ApiTokenService>();
 builder.Services.AddSingleton<BlueTrack.Api.Security.AllowedFileRoots>();   // D-197
 
