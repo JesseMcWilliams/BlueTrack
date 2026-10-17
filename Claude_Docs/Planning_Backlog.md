@@ -43,6 +43,5 @@ Self-Hosted: EVD `CyberArkSH`, loaded 2026-10-13. Privilege Cloud: the export CS
 - **Drop `dbo.stg_discovered_accounts`** in a new script: empty, and nothing references it (superseded by `web.discovered_account`).
 
 ## Process and tooling
-- **Scheduled feed for Account → Application assignments** (Low, D-239): the CSV import exists on Application ↔ Safe Mapping > Bulk Actions; a data feed type for it (like `SafeAssignments`) needs the `web.data_feed.FeedType` CHECK constraint extended, the runner case, `FeedColumns` and the feed type list.
 - **Installer doesn't update an old prerequisite** (Low): the prerequisite check tests presence only (the Hosting Bundle by `aspnetcorev2.dll`), so `-Step Prereq.HostingBundle` reports an installed 10.0.11 as done. A minimum-version check would let an upgrade install the .NET 10.0.13 security update itself; until then the release notes say to install it by hand.
 - Playwright E2E has a known recurring flaky-proxy issue, accepted as a limitation (see `Reference_Lessons-Learned.md`).

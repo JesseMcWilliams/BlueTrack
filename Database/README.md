@@ -45,6 +45,7 @@ instead.
 | 27 | `27_BlueTrack_AccountIdentityLength.sql` | D-236: `fact_account.SourceAccountId` widened from NVARCHAR(100) to NVARCHAR(400) (the unique key `UQ_fact_account` is dropped and re-added around it), so a feed account's `username@address` can be up to 400 characters. |
 | 28 | `28_BlueTrack_FeedSkipGroupRows.sql` | D-237: `web.data_feed.SkipGroupRows` (BIT, default 0): an account inventory feed with it on skips rows whose `UserName` is a group. |
 | 29 | `29_BlueTrack_AccountApplication.sql` | D-238: `fact_account_progress.ApplicationKey` (an account's own Application; FK, index), the Application dropdown on the Account Progress edit form (`account_progress_field_metadata`), and `web.vw_account_application_exception` rebuilt to cover an account through its own application and its Safe's. |
+| 30 | `30_BlueTrack_AccountAssignmentsFeed.sql` | D-241: the `AccountAssignments` value in `web.data_feed`'s FeedType CHECK constraint (a scheduled Account → application assignments import). |
 
 ## The baseline (D-195)
 

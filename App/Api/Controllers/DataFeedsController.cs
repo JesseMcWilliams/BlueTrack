@@ -38,7 +38,8 @@ public sealed class DataFeedsController(
         ["AccountTargetMap"] = "Account → target map",
         ["Applications"] = "Applications",
         ["SafeAssignments"] = "Safe → application assignments",
-        ["AccountInventory"] = "Account inventory (accounts from another system)"   // D-212
+        ["AccountInventory"] = "Account inventory (accounts from another system)",   // D-212
+        ["AccountAssignments"] = "Account → application assignments"   // D-241
     };
 
     private const string AccountInventoryFeedType = "AccountInventory";

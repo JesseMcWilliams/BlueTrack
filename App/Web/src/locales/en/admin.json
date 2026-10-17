@@ -245,7 +245,8 @@
     "accountTargetMap": "Account → target map",
     "applications": "Applications",
     "safeAssignments": "Safe → application assignments",
-    "accountInventory": "Account inventory"
+    "accountInventory": "Account inventory",
+    "accountAssignments": "Account → application assignments"
   },
   "dataSources": {
     "runFinished": "Run finished.",

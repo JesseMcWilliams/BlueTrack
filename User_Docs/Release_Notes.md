@@ -6,11 +6,15 @@ What changed in each BlueTrack release, newest first, for users and administrato
 
 ### New
 
+- **Schedule the account-to-application assignments.** **Admin > Data Sources** has a new import, **Account → application assignments**: the same file as the Account → Application Assignments import on Application ↔ Safe Mapping > Bulk Actions (`UserName`, `Address`, `Application`, optional `Source`), run on a feed's schedule.
+
 ### Changed
 
 ### Fixed
 
 ### Upgrading
+
+- Run database script 30 (the installer's database step does).
 
 ## 1.0.7 (2026-10-15)
 

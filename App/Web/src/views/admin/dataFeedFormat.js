@@ -10,7 +10,8 @@ const feedTypeLabelKeys = {
   AccountTargetMap: 'admin.dataFeedFormat.accountTargetMap',
   Applications: 'admin.dataFeedFormat.applications',
   SafeAssignments: 'admin.dataFeedFormat.safeAssignments',
-  AccountInventory: 'admin.dataFeedFormat.accountInventory' // D-212
+  AccountInventory: 'admin.dataFeedFormat.accountInventory', // D-212
+  AccountAssignments: 'admin.dataFeedFormat.accountAssignments' // D-241
 }
 
 export function feedTypeLabel(feedType) {
