@@ -6,6 +6,16 @@ What changed in each BlueTrack release, newest first, for users and administrato
 
 ### New
 
+### Changed
+
+### Fixed
+
+### Upgrading
+
+## 1.1.0 (2026-10-17)
+
+### New
+
 - **API keys for scripts.** A script can exchange an API key for a short-lived token (`POST /api/auth/token`) and call the API with it, acting as one role of your choice (any role except Admin). **Admin > API Keys** creates, lists, disables and deletes keys; a key is shown once, when it is created. Keys last 90 days by default (a new setting on **Global Application Configuration**, 1 to 365 days, also set for each key when it is created), can be disabled at once, and every use is in the Audit Log. Signing in with a token from your identity provider follows in a later release.
 
 - **API keys: rotation, editing, expiry emails and a rate limit.** **Rotate** on **Admin > API Keys** makes a new key with the same role, so a script can be switched over before the old key is disabled. Click a key's name to change its role, expiry, owner email or limit without making a new key. Give a key an **owner email** and the owner is emailed before it expires (**API key expiry reminder lead time** on **Global Application Configuration**, 7 days by default) and on the day; the administrators are emailed on the day. Both are new notification types, off until you enable **ApiKeyExpiring** and **ApiKeyExpired** on **Admin > Notifications**. Each key is limited to 600 requests a minute (**API requests per minute, per key** on **Global Application Configuration**), or its own limit; over it the API answers 429. Expired keys are deleted automatically a year after they expire (**Delete expired API keys after (days)** on **Global Application Configuration**; 0 keeps them for ever).
@@ -17,8 +27,6 @@ What changed in each BlueTrack release, newest first, for users and administrato
 ### Changed
 
 - **The installer checks the Hosting Bundle's version.** A server whose ASP.NET Core runtime is older than 10.0.13 now counts as missing the Hosting Bundle, and the installer offers to install the current one (`-Step Prereq.HostingBundle`), instead of reporting it as done.
-
-### Fixed
 
 ### Upgrading
 
