@@ -236,9 +236,25 @@ test.describe('Risk Exceptions bulk import (D-183)', () => {
   })
 })
 
+// A test of this flow that timed out part-way leaves TestAccount01 deleted (its clean-up request is cancelled by
+// the same timeout), and then every retry waits 30 seconds for a row that isn't listed: one slow run became
+// three failures (CI, 2026-10-17, twice). So the test puts the account back first, whatever an earlier attempt left.
+async function restoreTestAccount(page) {
+  const response = await page.request.get('/api/account-progress?search=TestAccount01&deleted=Only&pageSize=50')
+  const rows = response.ok() ? await response.json() : []
+  const keys = rows.filter(r => r.accountName === 'TestAccount01').map(r => r.accountKey)
+  if (keys.length > 0) {
+    await page.request.post('/api/account-progress/undelete', { data: { accountKeys: keys, reason: 'E2E cleanup' } })
+  }
+}
+
 test.describe('Account delete and undelete (D-185)', () => {
   test('Admin deletes an account with a reason, finds it under Only deleted, and undeletes it in bulk', async ({ page }) => {
+    // Sign-in, three list and account pages, two dialogs and a bulk action. It takes about 12 seconds on a quiet host, but
+    // CI runs of it have reached the default 30 (2026-10-17), so it gets more room.
+    test.setTimeout(90_000)
     await signInAs(page, 'TestUser.Admin')
+    await restoreTestAccount(page)
     await page.goto('/accounts')
     await page.getByPlaceholder('username, address or account name...').fill('TestAccount01')
     const row = page.locator('tbody tr', { hasText: 'TestAccount01' })
