@@ -17,6 +17,13 @@ public sealed class UserPreferenceRepository(IDbConnectionFactory connectionFact
         return rows.ToDictionary(r => r.PreferenceKey, r => r.PreferenceValue);
     }
 
+    /// <summary>Removes a preference (back to the default). True when there was one.</summary>
+    public async Task<bool> DeleteAsync(int userKey, string preferenceKey)
+    {
+        using var connection = connectionFactory.Create();
+        return await connection.ExecuteAsync("DELETE FROM web.user_preference WHERE UserKey = @userKey AND PreferenceKey = @preferenceKey", new { userKey, preferenceKey }) > 0;
+    }
+
     public async Task SetAsync(int userKey, string preferenceKey, string preferenceValue)
     {
         using var connection = connectionFactory.Create();

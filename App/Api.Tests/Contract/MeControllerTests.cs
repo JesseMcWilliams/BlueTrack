@@ -109,6 +109,20 @@ public class MeControllerTests : IClassFixture<BlueTrackWebApplicationFactory>
     }
 
     [Fact]
+    public async Task ClearPreference_RemovesIt_AndIsHarmlessWhenThereIsNone()
+    {
+        // "Use browser default" for the language: the preference is deleted, not set to a blank.
+        var client = CreateClientAs("TestUser.Approver");
+        await client.PutAsJsonAsync("/api/me/preferences/Language", new { value = "en" });
+        Assert.True((await client.GetFromJsonAsync<MeResponse>("/api/me"))!.Preferences.ContainsKey("Language"));
+
+        Assert.Equal(HttpStatusCode.NoContent, (await client.DeleteAsync("/api/me/preferences/Language")).StatusCode);
+        Assert.False((await client.GetFromJsonAsync<MeResponse>("/api/me"))!.Preferences.ContainsKey("Language"));
+
+        Assert.Equal(HttpStatusCode.NoContent, (await client.DeleteAsync("/api/me/preferences/Language")).StatusCode);
+    }
+
+    [Fact]
     public async Task SetPreference_Overwrite_UpdatesTheExistingValue()
     {
         var client = CreateClientAs("TestUser.Approver");
