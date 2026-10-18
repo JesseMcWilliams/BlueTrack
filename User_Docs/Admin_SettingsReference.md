@@ -354,6 +354,19 @@ A Secondary or Admin **Name** rule on sAMAccountName also gives the owner: the n
 
 Saving the settings, or adding, changing, moving or deleting a rule, reclassifies every discovered account at once from what the last discovery run read; it doesn't contact AD. **Reclassify Now** does the same on request. An owner outside the discovered accounts for a new name rule appears after the next discovery run. Every change is recorded in the Audit Log (event **AccountClassification**).
 
+### Platform Mapping
+
+**Admin > Platform Mapping** (permission `CuratePlatformMapping`, held by Admin). Gives each CyberArk platform the **account type** and **source of record** its accounts start with: Privilege Cloud's own platform list, and for Self-Hosted one platform per policy (the account's PolicyID), added by the nightly load. A mapping is a default, not a rule: both stay editable on each account.
+
+The page lists every platform, the ones with no mapping first, with its source, how many accounts it has and how many of those have no account type. **Search** and **Only platforms with no mapping** narrow the list. Choose an **Account type** (required) and optionally a **Source of record** and **Notes** on a platform's row, then **Save**. **Remove** takes a mapping away (accounts keep what they already have).
+
+| Setting | What it does | Default | Recommended | Why |
+|---|---|---|---|---|
+| Account type | The account type a new account on the platform starts with, from the fixed list (Domain Account, Local/OS Account, Cloud IAM, ...). | Not mapped | Set one for every platform that has accounts | Reports and filters group accounts by it; an unmapped platform's accounts start with none. |
+| Source of record | Where the account really lives (Active Directory, LDAP, Local OS, ...). Optional. | None | Set it when the platform implies it, for example WinDomain implies Active Directory | Lets you see which accounts an identity system should be managing. |
+| Notes | Free text about the choice (up to 500 characters). | Blank | Why you chose it, for the next person | The platform's name alone rarely says. |
+| When saving, also fill accounts already tracked | Gives the account type (and source of record) to accounts on the platform that have none. An account that already has one is never changed. | On | On, the first time you map a platform | Otherwise only accounts first tracked after the mapping get the default. Each save is in the Audit Log with how many accounts it filled. |
+
 ### Application ↔ Safe Mapping
 
 **Admin > Application ↔ Safe Mapping** (permission `CurateApplicationMapping`) has no settings. It holds data: each application's code, name, description, owner and technical contact, and which application each safe belongs to. Keep it current, because the risk reports group accounts by application. An account can also be assigned to an application on its own edit form (**Application**), in addition to its safe's; that is how an account with no safe, such as a pending account, belongs to one. When an account's own application and its safe's differ, both apply: an Active risk exception on either one covers the account, and Reports > Trends' Application filter counts it under either.

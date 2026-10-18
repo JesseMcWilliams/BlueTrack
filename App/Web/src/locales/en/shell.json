@@ -93,7 +93,8 @@
     "adminSiemForwarding": "SIEM Forwarding",
     "adminApiKeys": "API Keys",
     "adminApiKeyCreate": "New API Key",
-    "adminApiKeyEdit": "Edit API Key"
+    "adminApiKeyEdit": "Edit API Key",
+    "adminPlatformMapping": "Platform Mapping"
   },
   "userMenu": {
     "account": "Account",

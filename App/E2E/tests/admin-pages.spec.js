@@ -874,3 +874,21 @@ test.describe('API Keys admin page', () => {
     await expect(page.locator('nav.admin-subnav').getByRole('link', { name: 'API Keys' })).toHaveCount(0)
   })
 })
+
+// D-247: Admin > Platform Mapping.
+test.describe('Platform Mapping admin page', () => {
+  test('Admin opens it from the Admin hub', async ({ page }) => {
+    await signInAs(page, 'TestUser.Admin')
+    await page.goto('/admin')
+    await page.locator('nav.admin-subnav').getByRole('link', { name: 'Platform Mapping' }).click()
+    await expect(page).toHaveURL(/\/admin\/platform-mapping$/)
+    await expect(page.getByRole('heading', { name: 'Platform Mapping' })).toBeVisible()
+    await expect(page.getByLabel('Search:')).toBeVisible()
+  })
+
+  test('Analyst has no Platform Mapping link (it holds no CuratePlatformMapping)', async ({ page }) => {
+    await signInAs(page, 'TestUser.Analyst')
+    await page.goto('/admin')
+    await expect(page.locator('nav.admin-subnav').getByRole('link', { name: 'Platform Mapping' })).toHaveCount(0)
+  })
+})

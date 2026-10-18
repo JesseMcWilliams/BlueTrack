@@ -29,6 +29,7 @@ const sections = [
   { name: 'admin-data-sources', labelKey: 'admin.adminHub.dataSources', permission: 'ManageDataSources' },
   { name: 'admin-account-classification', labelKey: 'admin.adminHub.accountClassification', permission: 'ManageDiscoveredAccounts' },
   { name: 'admin-siem-forwarding', labelKey: 'admin.adminHub.siemForwarding', permission: 'ManageApplicationConfiguration' },
+  { name: 'admin-platform-mapping', labelKey: 'admin.adminHub.platformMapping', permission: 'CuratePlatformMapping' },
   { name: 'admin-api-keys', labelKey: 'admin.adminHub.apiKeys', permission: 'ManageApiKeys' }
 ]
 

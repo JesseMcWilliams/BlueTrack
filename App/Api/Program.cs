@@ -48,6 +48,7 @@ builder.Services.AddScoped<UserRightsResolver>();
 builder.Services.AddScoped<CurrentUserResolver>();
 builder.Services.AddScoped<RiskExceptionRepository>();
 builder.Services.AddScoped<ApplicationRepository>();
+builder.Services.AddScoped<PlatformMappingRepository>();   // D-247
 builder.Services.AddScoped<AuditLogger>();
 builder.Services.AddScoped<FieldMetadataRepository>();
 builder.Services.AddScoped<AppConfigRepository>();

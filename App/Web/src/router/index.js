@@ -527,6 +527,12 @@ const routes = [
         component: () => import('../views/admin/SiemForwarding.vue')
       },
       {
+        path: 'platform-mapping',
+        name: 'admin-platform-mapping',
+        meta: { breadcrumb: 'shell.routes.adminPlatformMapping', breadcrumbParent: 'admin' },
+        component: () => import('../views/admin/PlatformMapping.vue')
+      },
+      {
         path: 'api-keys',
         name: 'admin-api-keys',
         meta: { breadcrumb: 'shell.routes.adminApiKeys', breadcrumbParent: 'admin' },
