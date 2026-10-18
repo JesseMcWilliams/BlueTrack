@@ -8,9 +8,13 @@ What changed in each BlueTrack release, newest first, for users and administrato
 
 ### Changed
 
+- **Self-Hosted accounts now have a platform, a logon domain and a manual-management reason.** Until now every Self-Hosted account showed no platform, because the export has no platform list. The nightly load now adds each policy (PolicyID) it finds as a Self-Hosted platform and gives the accounts that platform; it also fills the platform's logon domain, and, for an account whose automatic management is switched off (the export's CPMDisabled reason), shows it as not auto-managed with that reason. The new platforms start unmapped. There is no page for mapping platforms yet: it is done in SQL, in the `platform_account_type_map` table, and the `vw_review_platform_sor_accounttype` view lists the platforms still unmapped; new accounts then get the account type and source of record you give each platform.
+
 ### Fixed
 
 ### Upgrading
+
+- Run database script 36 (the installer's database step does). The Self-Hosted platforms and properties appear after the next nightly load (or a manual Import and Load).
 
 ## 1.1.0 (2026-10-17)
 

@@ -31,14 +31,11 @@ Nothing at the moment. The 2026-10-13 requests shipped as D-220 to D-229.
 
 ## Found in the real CyberArk data (checked 2026-10-13)
 Self-Hosted: EVD `CyberArkSH`, loaded 2026-10-13. Privilege Cloud: the export CSVs in the configured folder (loaded since D-228, 2026-10-14).
-- **Self-Hosted pivot property names confirmed**: `UserName`, `Address`, `PolicyID` exist with that spelling on every password object (`02_BlueTrack_Baseline_EtlLoads.sql:404`). Remove the PLACEHOLDER comment in the next script that touches `usp_Load_FactAccount`.
-- **Self-Hosted `PlatformKey` is always NULL**: there's no Self-Hosted platform list, so `PolicyID` matches nothing in `dim_platform`. Decide on a source (e.g. seed `dim_platform` from the distinct `PolicyID` values).
-- **Self-Hosted properties the pivot ignores**: `LogonDomain` (could fill `PlatformLogonDomain`), `CPMDisabled`, `DeviceType`, `CreationMethod`, and the linked logon/reconcile account properties (`ExtraPass1*`, `ExtraPass3*`). The EVD has no CPM status or last-change properties, so those stay empty for Self-Hosted.
+- **Self-Hosted properties still not read** (D-244 reads `LogonDomain` and `CPMDisabled`): `DeviceType`, `CreationMethod` and the linked logon/reconcile account properties (`ExtraPass1*`, `ExtraPass3*`). `fact_account` has no columns for them and nothing displays them, so each needs a column and a place on the account page first. The EVD has no CPM status or last-change properties, so those stay empty for Self-Hosted.
 - **Q-27 columns never filled**: the `CAFLock*` and `CAFAccessed`/`CAFNew`/`CAFRetrieved`/`CAFModified`/`CAFIsRequestNeeded` columns on `stg_sh_files` exist, but the EVD import doesn't select them.
 - **Privilege Cloud columns always empty** in the current export: `LastReconciled`, `RemoteMachines`, `Deleted`, and the new Users `Enabled`/`Suspended` and Groups `Directory` (stored since D-228); `LastVerified`, `Platform_LogonDomain` and `CPMStatus` are mostly empty.
 - **Privilege Cloud exports with no importer**: `Export LDAP Group Members.csv` and `Export_ApplicationsList.csv`. Decide whether either is useful.
 - **Direct Account→Target links**: neither CyberArk source lists remote machines (Privilege Cloud `RemoteMachines` is empty; Self-Hosted has no such property), so the Address-derived links (D-193) are the CyberArk side. The `AccountTargetMap` data feed exists (`App/Api/DataFeeds/FeedColumns.cs:21`); what's missing is a non-CyberArk system to supply it.
-- **Drop `dbo.stg_discovered_accounts`** in a new script: empty, and nothing references it (superseded by `web.discovered_account`).
 
 ## Process and tooling
 - Playwright E2E has a known recurring flaky-proxy issue, accepted as a limitation (see `Reference_Lessons-Learned.md`).
