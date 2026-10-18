@@ -65,8 +65,11 @@ onMounted(() => rights.ensureLoaded())
       <h2>{{ t('shell.myProfile.language') }}</h2>
       <fieldset>
         <legend>{{ t('shell.myProfile.languageLegend') }}</legend>
+        <p>
+          <label><input type="radio" name="language" value="" :checked="!locale.explicit" @change="locale.useBrowserDefault()" /> {{ t('shell.myProfile.languageBrowserDefault') }} (<span :lang="locale.current">{{ languageName(locale.current) }}</span>)</label>
+        </p>
         <p v-for="code in locale.available" :key="code">
-          <label><input type="radio" name="language" :value="code" :checked="locale.current === code" @change="locale.setLanguage(code)" /> <span :lang="code">{{ languageName(code) }}</span></label>
+          <label><input type="radio" name="language" :value="code" :checked="locale.explicit && locale.current === code" @change="locale.setLanguage(code)" /> <span :lang="code">{{ languageName(code) }}</span></label>
         </p>
       </fieldset>
     </template>

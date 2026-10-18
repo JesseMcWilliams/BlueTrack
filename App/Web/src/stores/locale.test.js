@@ -122,6 +122,33 @@ describe('locale store (D-227)', () => {
       expect(document.documentElement.getAttribute('lang')).toBe('en')
     })
 
+    it('useBrowserDefault clears the cached and the saved choice and follows the browser again', async () => {
+      localStorage.setItem('bluetrack:language', 'en')
+      const store = useLocaleStore()
+      store.initBeforeServerLoad()
+      expect(store.explicit).toBe(true)
+
+      await store.useBrowserDefault()
+
+      expect(store.explicit).toBe(false)
+      expect(store.current).toBe('en')
+      expect(localStorage.getItem('bluetrack:language')).toBeNull()
+      expect(fetch).toHaveBeenCalledWith('/api/me/preferences/Language', { method: 'DELETE' })
+      expect(getFormatLocale()).toBeUndefined()
+    })
+
+    it('a choice cached here that the server no longer has (cleared on another device) goes back to the browser default', () => {
+      localStorage.setItem('bluetrack:language', 'en')
+      const store = useLocaleStore()
+      store.initBeforeServerLoad()
+      expect(store.explicit).toBe(true)
+
+      store.loadFromServer({ Theme: 'Dark' })
+
+      expect(store.explicit).toBe(false)
+      expect(localStorage.getItem('bluetrack:language')).toBeNull()
+    })
+
     it('setLanguage ignores an unregistered language', async () => {
       const store = useLocaleStore()
       await store.setLanguage('xx')
@@ -170,7 +197,7 @@ describe('Profile & Preferences language picker (D-227)', () => {
     vi.unstubAllGlobals()
   })
 
-  it('lists only the registered languages (English) and saves a choice', async () => {
+  it('lists Use browser default and the registered languages (English), and saves a choice', async () => {
     useRightsStore().$patch({ loaded: true, authenticated: true, displayName: 'A', roleNames: [], permissionNames: [] })
     const wrapper = mount(MyProfile)
     await flushPromises()
@@ -178,11 +205,19 @@ describe('Profile & Preferences language picker (D-227)', () => {
     const fieldset = wrapper.findAll('fieldset').find(f => f.find('legend').text() === 'Choose a display language')
     expect(fieldset).toBeTruthy()
     const radios = fieldset.findAll('input[type="radio"]')
-    expect(radios.map(r => r.element.value)).toEqual(['en'])
-    expect(fieldset.text()).toContain('English')
+    expect(radios.map(r => r.element.value)).toEqual(['', 'en'])
+    expect(fieldset.text()).toContain('Use browser default (English)')
+    // No choice saved yet: following the browser.
     expect(radios[0].element.checked).toBe(true)
+    expect(radios[1].element.checked).toBe(false)
+
+    await radios[1].trigger('change')
+    expect(fetch).toHaveBeenCalledWith('/api/me/preferences/Language', expect.objectContaining({ method: 'PUT' }))
+    await flushPromises()
+    expect(radios[1].element.checked).toBe(true)
+    expect(radios[0].element.checked).toBe(false)
 
     await radios[0].trigger('change')
-    expect(fetch).toHaveBeenCalledWith('/api/me/preferences/Language', expect.objectContaining({ method: 'PUT' }))
+    expect(fetch).toHaveBeenCalledWith('/api/me/preferences/Language', { method: 'DELETE' })
   })
 })

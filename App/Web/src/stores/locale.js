@@ -86,11 +86,33 @@ export const useLocaleStore = defineStore('locale', {
     // rights store, once /api/me's preferences are known.
     loadFromServer(preferences) {
       const serverValue = preferences?.[PREFERENCE_KEY]
-      if (!SUPPORTED_LOCALES.includes(serverValue)) return
+      if (!SUPPORTED_LOCALES.includes(serverValue)) {
+        // The server is the record: a choice cached here that the server no longer has (cleared on another device)
+        // goes back to the browser's language.
+        if (preferences && this.explicit) this.followBrowser(true)
+        return
+      }
       this.current = serverValue
       this.explicit = true
       apply(serverValue, true)
       writeCache(serverValue)
+    },
+    // "Use browser default": drop the saved choice here and on the server, and follow the browser's language again.
+    async useBrowserDefault() {
+      this.followBrowser(true)
+      await fetch(`/api/me/preferences/${PREFERENCE_KEY}`, { method: 'DELETE' })
+    },
+    followBrowser(clearCache) {
+      if (clearCache) {
+        try {
+          localStorage.removeItem(STORAGE_KEY)
+        } catch {
+          // Storage blocked: the server value is cleared anyway.
+        }
+      }
+      this.current = matchLocale(browserLanguages())
+      this.explicit = false
+      apply(this.current, false)
     },
     async setLanguage(code) {
       if (!SUPPORTED_LOCALES.includes(code)) return

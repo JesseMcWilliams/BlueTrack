@@ -122,7 +122,8 @@
     "themeDark": "Dark",
     "themeHighVisibility": "High Visibility",
     "language": "Language",
-    "languageLegend": "Choose a display language"
+    "languageLegend": "Choose a display language",
+    "languageBrowserDefault": "Use browser default"
   },
   "accessDenied": {
     "title": "Access Denied",

@@ -74,6 +74,20 @@ public sealed class MeController(
         return NoContent();
     }
 
+    /// <summary>Removes a preference, so the setting follows its default again ("Use browser default" for the language).</summary>
+    [HttpDelete("preferences/{key}")]
+    public async Task<IActionResult> ClearPreference(string key)
+    {
+        var user = await currentUserResolver.ResolveAsync(User);
+        if (user is null) return Unauthorized();
+
+        if (await userPreferenceRepository.DeleteAsync(user.UserKey, key))
+        {
+            await auditLogger.LogAsync("FieldEdit", user.UserKey, "user_preference", key, detail: $"Preference '{key}' cleared");
+        }
+        return NoContent();
+    }
+
     /// <summary>
     /// Self-service "Reload My Rights" (D-14). Now genuinely meaningful
     /// (D-82): permissions are cached per identity (UserRightsCache), so

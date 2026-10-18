@@ -159,7 +159,7 @@ An exception that's no longer Active can't be re-approved or revoked; if someone
 
 Shows your display name, mapped role(s), and full permission list. Click **Reload My Rights** to re-check your current group membership immediately, without waiting for anything to expire — useful right after you know you've been added to a new group. Also where you pick a display theme: Light, Dark, or High Visibility.
 
-**Language** lists the languages BlueTrack has; for now that's English only. Until you pick one, BlueTrack uses your browser's language if it has it, otherwise English. Your choice is saved for you, like the theme, so it follows you to other computers.
+**Language** lists the languages BlueTrack has; for now that's English only. Until you pick one, BlueTrack uses your browser's language if it has it, otherwise English. **Use browser default** (the first choice) removes your saved language and goes back to that. Your choice is saved for you, like the theme, so it follows you to other computers.
 
 **Numbers and dates.** Counts on the pages (for example `1,234` or `1.234`) and dates use your browser's language format, unless you pick a language on this page that differs from your browser's. Emails, audit details and other text the server writes keep their own format.
 

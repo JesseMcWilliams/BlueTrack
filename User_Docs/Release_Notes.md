@@ -6,6 +6,8 @@ What changed in each BlueTrack release, newest first, for users and administrato
 
 ### New
 
+- **Go back to your browser's language.** **Profile & Preferences > Language** has **Use browser default**: it removes the language you saved, and BlueTrack follows your browser's language again (and its number and date format).
+
 - **Link two targets by hand.** A target's page has **Link to another target**: search for the target it is the same as, choose it and click **Link**. They then count once, at the primary's risk score, like a link made in Target Match Review, and **Unlink** undoes it. A target that is linked already, or that has targets linked to it, can't be linked (unlink first), and a pair you unlinked can be linked again this way.
 
 ### Changed
