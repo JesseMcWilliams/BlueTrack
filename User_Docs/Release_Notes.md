@@ -6,6 +6,16 @@ What changed in each BlueTrack release, newest first, for users and administrato
 
 ### New
 
+### Changed
+
+### Fixed
+
+### Upgrading
+
+## 1.2.0 (2026-10-17)
+
+### New
+
 - **Platform Mapping page.** **Admin > Platform Mapping** lists every CyberArk platform (for Self-Hosted, one per policy, added by the nightly load), the ones with no mapping first, and lets you give each an account type and source of record that its new accounts start with. Saving can also fill the accounts already tracked on the platform that have none (an account that has one is never changed). Until now this was done in SQL.
 
 - **Go back to your browser's language.** **Profile & Preferences > Language** has **Use browser default**: it removes the language you saved, and BlueTrack follows your browser's language again (and its number and date format).
