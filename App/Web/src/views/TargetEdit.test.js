@@ -188,4 +188,106 @@ describe('TargetEdit.vue', () => {
     expect(options.method).toBe('PUT')
     expect(JSON.parse(options.body)).not.toHaveProperty('linkedToTargetKey')
   })
+
+  // D-245: link this target to another by hand.
+  function mockLinkable({ linkResponse = jsonResponse(null, { status: 204 }) } = {}) {
+    let linked = false
+    globalThis.fetch = vi.fn((url, init) => {
+      if (url === '/api/applications') return Promise.resolve(jsonResponse([]))
+      if (url === '/api/admin/targets/identifier-types') return Promise.resolve(jsonResponse(identifierTypes))
+      if (url === '/api/admin/targets/target-types') return Promise.resolve(jsonResponse(targetTypes))
+      if (url.startsWith('/api/admin/targets/search')) {
+        return Promise.resolve(jsonResponse([
+          { targetKey: 5, targetName: 'web01', targetTypeDisplayName: 'Server', identifiers: [] },
+          { targetKey: 3, targetName: 'primary01', targetTypeDisplayName: 'Server', identifiers: [{ identifierType: 'Hostname', identifierValue: 'primary01.example.com' }] }
+        ]))
+      }
+      if (url === '/api/admin/targets/5/link' && init?.method === 'POST') { if (linkResponse.ok) linked = true; return Promise.resolve(linkResponse) }
+      if (url === '/api/admin/targets/5') {
+        return Promise.resolve(jsonResponse(linked ? { ...sampleTarget, linkedToTargetKey: 3, linkedToTargetName: 'primary01', linkedTargets: [] } : { ...sampleTarget, linkedTargets: [] }))
+      }
+      return Promise.resolve(jsonResponse(null, { ok: false, status: 404 }))
+    })
+  }
+
+  async function chooseLinkTarget(wrapper, text, optionName) {
+    const input = wrapper.get('input[role="combobox"]')
+    await input.setValue(text)
+    vi.advanceTimersByTime(250)
+    await flushPromises()
+    const options = wrapper.findAll('[role="option"]')
+    await options.find(o => o.text().includes(optionName)).trigger('click')
+    await flushPromises()
+  }
+
+  it('offers Link to another target, leaves this target out of the choices, and links to the chosen one after asking', async () => {
+    vi.useFakeTimers()
+    try {
+      confirmDelete.mockResolvedValue(true)
+      mockLinkable()
+      const wrapper = mount(TargetEdit, { props: { targetKey: 5 }, global: { plugins: [makeRouter()] } })
+      await flushPromises()
+
+      expect(wrapper.text()).toContain('Link to another target')
+      expect(wrapper.findAll('button').find(b => b.text() === 'Link').attributes('disabled')).toBeDefined()   // nothing chosen yet
+
+      await chooseLinkTarget(wrapper, 'pri', 'primary01')
+      const optionTexts = wrapper.findAll('[role="option"]').map(o => o.text())
+      expect(optionTexts.some(t => t.includes('web01'))).toBe(false)
+
+      await wrapper.findAll('button').find(b => b.text() === 'Link').trigger('click')
+      await flushPromises()
+
+      expect(confirmDelete).toHaveBeenCalledWith(expect.objectContaining({ title: 'Link this target?', details: ['"web01" will be linked to "primary01".'] }), 'Link')
+      const post = globalThis.fetch.mock.calls.find(([url, init]) => url === '/api/admin/targets/5/link' && init?.method === 'POST')
+      expect(JSON.parse(post[1].body)).toEqual({ primaryTargetKey: 3 })
+      // The page now shows the link (and no longer offers one).
+      expect(wrapper.text()).toContain('Linked Target')
+      expect(wrapper.get('a[href="/targets/3"]').text()).toBe('primary01')
+      expect(wrapper.text()).not.toContain('Link to another target')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('does nothing when the link is not confirmed, and shows why a link was refused', async () => {
+    vi.useFakeTimers()
+    try {
+      mockLinkable({ linkResponse: jsonResponse({ detail: "'web01' is already linked to another target. Unlink it first." }, { ok: false, status: 409 }) })
+      const wrapper = mount(TargetEdit, { props: { targetKey: 5 }, global: { plugins: [makeRouter()] } })
+      await flushPromises()
+      await chooseLinkTarget(wrapper, 'pri', 'primary01')
+
+      confirmDelete.mockResolvedValueOnce(false)
+      await wrapper.findAll('button').find(b => b.text() === 'Link').trigger('click')
+      await flushPromises()
+      expect(globalThis.fetch.mock.calls.some(([url]) => url === '/api/admin/targets/5/link')).toBe(false)
+
+      confirmDelete.mockResolvedValueOnce(true)
+      await wrapper.findAll('button').find(b => b.text() === 'Link').trigger('click')
+      await flushPromises()
+      expect(wrapper.find('[role="alert"]').text()).toContain('Unlink it first')
+      expect(wrapper.text()).toContain('Link to another target')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('does not offer to link a target that is linked, or that has targets linked to it, or a new one', async () => {
+    mockLinked({ ...sampleTarget, linkedToTargetKey: 3, linkedToTargetName: 'primary01', linkedTargets: [] }, sampleTarget)
+    const linkedWrapper = mount(TargetEdit, { props: { targetKey: 5 }, global: { plugins: [makeRouter()] } })
+    await flushPromises()
+    expect(linkedWrapper.text()).not.toContain('Link to another target')
+
+    const linked = { targetKey: 8, targetName: 'db01', targetTypeDisplayName: 'Database', discoverySource: 'CMDB', linkedDate: '2026-10-14T10:00:00' }
+    mockLinked({ ...sampleTarget, linkedTargets: [linked] }, sampleTarget)
+    const primaryWrapper = mount(TargetEdit, { props: { targetKey: 5 }, global: { plugins: [makeRouter()] } })
+    await flushPromises()
+    expect(primaryWrapper.text()).not.toContain('Link to another target')
+
+    mockReferenceData()
+    const createWrapper = mount(TargetEdit, { global: { plugins: [makeRouter()] } })
+    await flushPromises()
+    expect(createWrapper.text()).not.toContain('Link to another target')
+  })
 })

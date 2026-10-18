@@ -23,6 +23,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { formatDate } from '../../utils/formatDate'
 import { useTotalCount } from '../../composables/useTotalCount'
+import { useLatestRequest } from '../../composables/useLatestRequest'
 import { usePageSizeStore } from '../../stores/pageSize'
 import { useRightsStore } from '../../stores/rights'
 import { confirmDelete } from '../../composables/useConfirmDialog'
@@ -34,6 +35,7 @@ import { useI18n } from 'vue-i18n'
 const { t } = useI18n()
 
 const { totalCount, filteredCount, readTotalCount } = useTotalCount()
+const latestRequest = useLatestRequest()
 const pageSizeStore = usePageSizeStore()
 const rights = useRightsStore()
 
@@ -193,6 +195,7 @@ async function saveOverride(row, clear = false) {
 }
 
 async function load() {
+  const request = latestRequest.begin()
   loading.value = true
   error.value = null
   try {
@@ -203,12 +206,14 @@ async function load() {
     params.set('pageSize', pageSizeStore.current)
     const response = await fetch(`/api/reports/discovered-accounts?${params.toString()}`)
     if (!response.ok) throw new Error(t('common.requestFailed', { status: response.status }))
+    const body = await response.json()
+    if (!latestRequest.isCurrent(request)) return
     readTotalCount(response)
-    rows.value = await response.json()
+    rows.value = body
   } catch (err) {
-    error.value = err.message
+    if (latestRequest.isCurrent(request)) error.value = err.message
   } finally {
-    loading.value = false
+    if (latestRequest.isCurrent(request)) loading.value = false
   }
 }
 

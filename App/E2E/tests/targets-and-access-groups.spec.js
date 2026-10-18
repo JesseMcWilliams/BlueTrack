@@ -384,3 +384,44 @@ test.describe('Target Match Review typeahead and CSV header detection (D-225)', 
     await expect(page.getByLabel('Source Column:').first()).toHaveValue('Kind')
   })
 })
+
+// D-245: link two existing targets by hand, from Edit Target.
+test.describe('Link two targets by hand (D-245)', () => {
+  test('Analyst links a target to another, sees the link on both, and unlinks it', async ({ page }) => {
+    await signInAs(page, 'TestUser.Analyst')
+    const token = `e2elink${Date.now()}`
+    const types = await (await page.request.get('/api/admin/targets/target-types')).json()
+    const serverType = types.find(t => t.typeCode === 'Server').targetTypeKey
+    const create = async (name, ip) => (await (await page.request.post('/api/admin/targets', {
+      data: { targetTypeKey: serverType, targetName: name, riskScore: 300, identifiers: [{ identifierType: 'IPAddress', identifierValue: ip }] }
+    })).json()).targetKey
+    const octet = Math.floor(Math.random() * 200) + 20
+    const linkedKey = await create(`${token}-linked`, `10.95.${octet}.1`)
+    const primaryKey = await create(`${token}-primary`, `10.95.${octet}.2`)
+
+    try {
+      await page.goto(`/targets/${linkedKey}`)
+      await expect(page.getByRole('heading', { name: 'Link to another target' })).toBeVisible()
+      const search = page.getByRole('combobox', { name: 'Primary target' })
+      await search.fill(`${token}-prim`)
+      await page.getByRole('option', { name: new RegExp(`${token}-primary`) }).click()
+      await page.getByRole('button', { name: 'Link', exact: true }).click()
+      await confirmDelete(page, 'Link')
+
+      await expect(page.getByRole('heading', { name: 'Linked Target' })).toBeVisible()
+      await expect(page.getByRole('link', { name: `${token}-primary` })).toBeVisible()
+      await expect(page.getByRole('heading', { name: 'Link to another target' })).toHaveCount(0)
+
+      await page.goto(`/targets/${primaryKey}`)
+      await expect(page.getByRole('heading', { name: 'Linked Targets' })).toBeVisible()
+      await expect(page.getByRole('link', { name: `${token}-linked` })).toBeVisible()
+
+      await page.getByRole('button', { name: `Unlink ${token}-linked` }).click()
+      await confirmDelete(page, 'Unlink')
+      await expect(page.getByRole('heading', { name: 'Linked Targets' })).toHaveCount(0)
+    } finally {
+      await page.request.delete(`/api/admin/targets/${linkedKey}`)
+      await page.request.delete(`/api/admin/targets/${primaryKey}`)
+    }
+  })
+})

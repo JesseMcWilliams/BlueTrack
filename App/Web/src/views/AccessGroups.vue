@@ -28,6 +28,7 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useTotalCount } from '../composables/useTotalCount'
+import { useLatestRequest } from '../composables/useLatestRequest'
 import { confirmDelete } from '../composables/useConfirmDialog'
 import { usePageSizeStore } from '../stores/pageSize'
 import FilterCountSummary from '../components/FilterCountSummary.vue'
@@ -50,6 +51,7 @@ const error = ref(null)
 const loading = ref(true)
 
 const { totalCount, filteredCount, readTotalCount } = useTotalCount()
+const latestRequest = useLatestRequest()
 const pageSizeStore = usePageSizeStore()
 
 const scopeFilter = ref('')
@@ -117,6 +119,7 @@ const sortQueryParam = computed(() =>
   sortColumns.value.map(s => `${s.field}:${s.descending ? 'desc' : 'asc'}`).join(','))
 
 async function load() {
+  const request = latestRequest.begin()
   loading.value = true
   try {
     const params = new URLSearchParams()
@@ -128,12 +131,14 @@ async function load() {
 
     const groupsResponse = await fetch(`/api/admin/access-groups?${params.toString()}`)
     if (!groupsResponse.ok) throw new Error(t('common.requestFailed', { status: groupsResponse.status }))
+    const body = await groupsResponse.json()
+    if (!latestRequest.isCurrent(request)) return
     readTotalCount(groupsResponse)
-    items.value = await groupsResponse.json()
+    items.value = body
   } catch (err) {
-    error.value = err.message
+    if (latestRequest.isCurrent(request)) error.value = err.message
   } finally {
-    loading.value = false
+    if (latestRequest.isCurrent(request)) loading.value = false
   }
 }
 

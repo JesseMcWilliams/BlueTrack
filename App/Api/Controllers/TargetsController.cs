@@ -176,6 +176,22 @@ public sealed class TargetsController(
         return NoContent();
     }
 
+    public sealed record LinkTargetRequest(int PrimaryTargetKey);
+
+    /// <summary>D-245: links this target to another (the primary) by hand. 400/409 say why not: itself, linked now, has linked targets, or the primary is itself linked.</summary>
+    [HttpPost("{targetKey:int}/link")]
+    public async Task<IActionResult> Link(int targetKey, [FromBody] LinkTargetRequest request)
+    {
+        var user = await currentUserResolver.ResolveAsync(User);
+        if (user is null) return Unauthorized();
+
+        var (targetName, primaryName) = await repository.LinkAsync(targetKey, request.PrimaryTargetKey, user.UserKey);
+        await auditLogger.LogAsync("FieldEdit", user.UserKey, "dim_target", targetKey.ToString(),
+            detail: $"Target '{targetName}' linked to target '{primaryName}' (key {request.PrimaryTargetKey}) by hand",
+            fieldChanges: [new FieldChange("LinkedToTargetKey", null, request.PrimaryTargetKey.ToString())]);
+        return NoContent();
+    }
+
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] SaveTargetRequest request)
     {

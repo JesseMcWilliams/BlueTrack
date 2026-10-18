@@ -119,6 +119,33 @@ describe('AccountProgressList.vue', () => {
   })
 
   // D-178: one search box for Username or Address, sent as `search`.
+  // Replies can arrive out of order: a slow reply to the search must not overwrite the newer filter's rows
+  // (found in E2E: "Deleted accounts: Only" straight after typing a search sometimes showed the search's rows).
+  it('drops a slow reply to an earlier request that arrives after a newer one', async () => {
+    const searchRows = [{ ...sampleAccount, accountKey: 11, userName: 'from-the-search' }]
+    const deletedRows = [{ ...sampleAccount, accountKey: 12, userName: 'from-the-deleted-filter' }]
+    let releaseSearch
+    globalThis.fetch = vi.fn((url) => {
+      if (url === '/api/account-progress/reference-data') return Promise.resolve(jsonResponse({}))
+      if (url.includes('deleted=Only')) return Promise.resolve(jsonResponse(deletedRows, { totalCount: 1 }))   // the newer request (it carries the search too)
+      if (url.includes('search=web')) return new Promise(resolve => { releaseSearch = () => resolve(jsonResponse(searchRows, { totalCount: 1 })) })
+      return Promise.resolve(jsonResponse([sampleAccount], { totalCount: 1 }))
+    })
+    const wrapper = mount(AccountProgressList, { global: { plugins: [makeRouter()] } })
+    await flushPromises()
+
+    await wrapper.get('input[type="search"]').setValue('web')   // slow: not answered yet
+    await wrapper.findAll('select').find(select => select.findAll('option').some(o => o.text() === 'Only deleted')).setValue('Only')
+    await flushPromises()
+    expect(wrapper.text()).toContain('from-the-deleted-filter')
+
+    releaseSearch()   // the older reply arrives last
+    await flushPromises()
+    expect(wrapper.text()).toContain('from-the-deleted-filter')
+    expect(wrapper.text()).not.toContain('from-the-search')
+    expect(wrapper.text()).not.toContain('Loading')
+  })
+
   it('the search box sends a trimmed search param and resets to page 1; blank sends none', async () => {
     mockInitialLoad({ accounts: [sampleAccount], totalCount: 200, filteredCount: 200 })
     const wrapper = mount(AccountProgressList, { global: { plugins: [makeRouter()] } })

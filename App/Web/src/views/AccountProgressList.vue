@@ -6,6 +6,7 @@
 import { ref, computed, watch, onMounted } from 'vue'
 import { formatDate } from '../utils/formatDate'
 import { useTotalCount } from '../composables/useTotalCount'
+import { useLatestRequest } from '../composables/useLatestRequest'
 import { usePageSizeStore } from '../stores/pageSize'
 import FilterCountSummary from '../components/FilterCountSummary.vue'
 import Pager from '../components/Pager.vue'
@@ -111,6 +112,7 @@ function currentFilterParams() {
 
 
 const { totalCount, filteredCount, readTotalCount } = useTotalCount()
+const latestRequest = useLatestRequest()
 const pageSizeStore = usePageSizeStore()
 
 // D-124 Phase 3: pagination -- page is local to this page (not persisted);
@@ -203,6 +205,7 @@ const sortQueryParam = computed(() =>
   sortColumns.value.map(s => `${s.field}:${s.descending ? 'desc' : 'asc'}`).join(','))
 
 async function load() {
+  const request = latestRequest.begin()
   loading.value = true
   error.value = null
   try {
@@ -215,12 +218,14 @@ async function load() {
     if (!response.ok) {
       throw new Error(t('common.requestFailed', { status: response.status }))
     }
+    const body = await response.json()
+    if (!latestRequest.isCurrent(request)) return
     readTotalCount(response)
-    accounts.value = await response.json()
+    accounts.value = body
   } catch (err) {
-    error.value = err.message
+    if (latestRequest.isCurrent(request)) error.value = err.message
   } finally {
-    loading.value = false
+    if (latestRequest.isCurrent(request)) loading.value = false
   }
 }
 
