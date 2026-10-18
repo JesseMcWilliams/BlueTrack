@@ -4,6 +4,7 @@
 // field-level changes (Design_Audit-Logging.md's Admin UI Requirements).
 import { ref, computed, watch, onMounted } from 'vue'
 import { useTotalCount } from '../../composables/useTotalCount'
+import { useLatestRequest } from '../../composables/useLatestRequest'
 import { usePageSizeStore } from '../../stores/pageSize'
 import FilterCountSummary from '../../components/FilterCountSummary.vue'
 import Pager from '../../components/Pager.vue'
@@ -13,6 +14,7 @@ import { useI18n } from 'vue-i18n'
 const { t } = useI18n()
 
 const { totalCount, filteredCount, readTotalCount } = useTotalCount()
+const latestRequest = useLatestRequest()
 const pageSizeStore = usePageSizeStore()
 const events = ref([])
 const error = ref(null)
@@ -112,6 +114,7 @@ const sortQueryParam = computed(() =>
 const exportParams = computed(() => ({ ...appliedFilters.value, sort: sortQueryParam.value }))
 
 async function load() {
+  const request = latestRequest.begin()
   loading.value = true
   error.value = null
   try {
@@ -127,12 +130,14 @@ async function load() {
 
     const response = await fetch(`/api/audit-log?${params.toString()}`)
     if (!response.ok) throw new Error(t('common.requestFailed', { status: response.status }))
+    const body = await response.json()
+    if (!latestRequest.isCurrent(request)) return
     readTotalCount(response)
-    events.value = await response.json()
+    events.value = body
   } catch (err) {
-    error.value = err.message
+    if (latestRequest.isCurrent(request)) error.value = err.message
   } finally {
-    loading.value = false
+    if (latestRequest.isCurrent(request)) loading.value = false
   }
 }
 

@@ -7,6 +7,7 @@ import { useRouter } from 'vue-router'
 import { useRightsStore } from '../stores/rights'
 import { formatDate } from '../utils/formatDate'
 import { useTotalCount } from '../composables/useTotalCount'
+import { useLatestRequest } from '../composables/useLatestRequest'
 import { usePageSizeStore } from '../stores/pageSize'
 import FilterCountSummary from '../components/FilterCountSummary.vue'
 import Pager from '../components/Pager.vue'
@@ -24,6 +25,7 @@ const { t } = useI18n()
 const router = useRouter()
 const rights = useRightsStore()
 const { totalCount, filteredCount, readTotalCount } = useTotalCount()
+const latestRequest = useLatestRequest()
 const pageSizeStore = usePageSizeStore()
 const exceptions = ref([])
 const error = ref(null)
@@ -96,6 +98,7 @@ const sortQueryParam = computed(() =>
   sortColumns.value.map(s => `${s.field}:${s.descending ? 'desc' : 'asc'}`).join(','))
 
 async function load() {
+  const request = latestRequest.begin()
   loading.value = true
   error.value = null
   try {
@@ -110,12 +113,14 @@ async function load() {
     if (!response.ok) {
       throw new Error(t('common.requestFailed', { status: response.status }))
     }
+    const body = await response.json()
+    if (!latestRequest.isCurrent(request)) return
     readTotalCount(response)
-    exceptions.value = await response.json()
+    exceptions.value = body
   } catch (err) {
-    error.value = err.message
+    if (latestRequest.isCurrent(request)) error.value = err.message
   } finally {
-    loading.value = false
+    if (latestRequest.isCurrent(request)) loading.value = false
   }
 }
 

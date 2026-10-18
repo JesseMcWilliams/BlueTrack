@@ -23,6 +23,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
+import Combobox from '../components/Combobox.vue'
 import { confirmDelete } from '../composables/useConfirmDialog'
 import { formatShortDate } from '../utils/formatLocale'
 
@@ -48,6 +49,8 @@ const targetTypes = ref([])
 const editing = ref({ targetTypeKey: null, targetName: '', riskScore: 0, description: '', discoverySource: 'Manual', identifiers: [] })
 const links = ref({ linkedToTargetKey: null, linkedToTargetName: null, linkedTargets: [] })
 const unlinkError = ref(null)
+const linkChoice = ref(null)
+const linkError = ref(null)
 
 function addIdentifierRow() {
   editing.value.identifiers.push({ identifierType: identifierTypes.value[0]?.identifierType ?? '', identifierValue: '' })
@@ -95,6 +98,42 @@ async function loadTarget() {
   const { linkedToTargetKey, linkedToTargetName, linkedTargets, ...fields } = target
   editing.value = { ...fields, identifiers: target.identifiers.map(i => ({ ...i })) }
   links.value = { linkedToTargetKey, linkedToTargetName, linkedTargets: linkedTargets ?? [] }
+}
+
+// D-245: the typeahead lists primaries only (linked targets are left out of it); this target is dropped from it here.
+async function searchTargets(text) {
+  const response = await fetch(`/api/admin/targets/search?q=${encodeURIComponent(text)}`)
+  if (!response.ok) throw new Error(t('pages.targetEdit.searchFailed', { status: response.status }))
+  return (await response.json()).filter(target => String(target.targetKey) !== String(props.targetKey))
+}
+
+function targetLabel(target) {
+  return `${target.targetName} (${target.targetTypeDisplayName})`
+}
+
+async function linkToChosen() {
+  linkError.value = null
+  const chosen = linkChoice.value
+  if (!chosen) return
+  const confirmed = await confirmDelete({
+    title: t('pages.targetEdit.linkTitle'),
+    details: [t('pages.targetEdit.linkDetail', { name: editing.value.targetName, primary: chosen.targetName })],
+    warning: t('pages.targetEdit.linkWarning')
+  }, t('pages.targetEdit.linkConfirm'))
+  if (!confirmed) return
+  const response = await fetch(`/api/admin/targets/${props.targetKey}/link`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ primaryTargetKey: chosen.targetKey })
+  })
+  if (!response.ok) {
+    const problem = await response.json().catch(() => null)
+    linkError.value = problem?.detail ?? t('pages.targetEdit.linkFailed', { status: response.status })
+    return
+  }
+  linkChoice.value = null
+  const target = await fetchTarget(props.targetKey)
+  links.value = { linkedToTargetKey: target.linkedToTargetKey, linkedToTargetName: target.linkedToTargetName, linkedTargets: target.linkedTargets ?? [] }
 }
 
 async function unlink(linkedKey, linkedName, primaryName) {
@@ -181,6 +220,26 @@ function cancel() {
 
     <template v-if="isEditMode && !loading && !loadError">
       <p v-if="unlinkError" role="alert">{{ unlinkError }}</p>
+      <section v-if="!links.linkedToTargetKey && !links.linkedTargets.length">
+        <h3>{{ t('pages.targetEdit.linkHeading') }}</h3>
+        <p>{{ t('pages.targetEdit.linkIntro') }}</p>
+        <Combobox
+          v-model="linkChoice"
+          :label="t('pages.targetEdit.linkLabel')"
+          :search="searchTargets"
+          :item-key="target => target.targetKey"
+          :item-label="targetLabel"
+          :placeholder="t('pages.targetEdit.linkPlaceholder')"
+        >
+          <template #option="{ item: target }">
+            <strong>{{ target.targetName }}</strong> <span>({{ target.targetTypeDisplayName }})</span>
+            <br v-if="target.identifiers.length" />
+            <small>{{ target.identifiers.map(i => `${i.identifierType}: ${i.identifierValue}`).join(', ') }}</small>
+          </template>
+        </Combobox>
+        <p v-if="linkError" role="alert">{{ linkError }}</p>
+        <p><button type="button" :disabled="!linkChoice" @click="linkToChosen">{{ t('pages.targetEdit.linkButton') }}</button></p>
+      </section>
       <section v-if="links.linkedToTargetKey">
         <h3>{{ t('pages.targetEdit.linkedToHeading') }}</h3>
         <p>

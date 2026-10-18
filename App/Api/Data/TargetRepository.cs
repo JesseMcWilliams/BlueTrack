@@ -327,10 +327,85 @@ public sealed class TargetRepository(IDbConnectionFactory connectionFactory)
         {
             await RiskScoreStalenessPropagator.MarkEntitiesReachingTargetStaleAsync(connection, transaction, unlinkedKey);
         }
+        // D-245: a Target Match Review row names the target it was matched to (CandidateTargetKey, an FK). A pending
+        // row is dropped: its match is gone, and the next import queues it again if another target now matches. A
+        // resolved row stays as history (and an Ignored row's memory of the incoming row), no longer naming the target.
+        await connection.ExecuteAsync("""
+            DELETE i FROM web.target_match_review_identifier i
+            JOIN web.target_match_review r ON r.TargetMatchReviewKey = i.TargetMatchReviewKey
+            WHERE r.CandidateTargetKey = @TargetKey AND r.Resolution IS NULL;
+            DELETE FROM web.target_match_review WHERE CandidateTargetKey = @TargetKey AND Resolution IS NULL;
+            UPDATE web.target_match_review SET CandidateTargetKey = NULL WHERE CandidateTargetKey = @TargetKey;
+            """, new { TargetKey = targetKey }, transaction);
         await connection.ExecuteAsync("DELETE FROM web.target_link WHERE LinkedTargetKey = @TargetKey OR PrimaryTargetKey = @TargetKey", new { TargetKey = targetKey }, transaction);
         await connection.ExecuteAsync("DELETE FROM web.target_identifier WHERE TargetKey = @TargetKey", new { TargetKey = targetKey }, transaction);
         await connection.ExecuteAsync("DELETE FROM web.dim_target WHERE TargetKey = @TargetKey", new { TargetKey = targetKey }, transaction);
         transaction.Commit();
+    }
+
+    private sealed class LinkState
+    {
+        public bool IsLinked { get; init; }
+        public bool HasLinkedTargets { get; init; }
+        public bool PrimaryIsLinked { get; init; }
+    }
+
+    /// <summary>
+    /// D-245: links two existing targets by hand: <paramref name="targetKey"/> becomes a linked target of
+    /// <paramref name="primaryTargetKey"/>, as Link does in Target Match Review (each keeps its own identifiers; the
+    /// pair counts once, at the primary's risk). A link is one level deep, so: not to itself; not a target that is
+    /// linked now (unlink it first); not a target that has linked targets of its own; not to a target that is itself
+    /// linked (choose its primary). A pair that was unlinked is linked again by updating its row (a target has one
+    /// link row). Everything reaching the target is marked stale.
+    /// </summary>
+    public async Task<(string TargetName, string PrimaryTargetName)> LinkAsync(int targetKey, int primaryTargetKey, int? linkedByUserKey)
+    {
+        if (targetKey == primaryTargetKey)
+        {
+            throw Errors.ApiProblemException.BadRequest("A target can't be linked to itself.");
+        }
+
+        using var connection = connectionFactory.Create();
+        connection.Open();
+        using var transaction = connection.BeginTransaction();
+        var targetName = await connection.QuerySingleOrDefaultAsync<string>(
+            "SELECT TargetName FROM web.dim_target WHERE TargetKey = @TargetKey", new { TargetKey = targetKey }, transaction)
+            ?? throw Errors.ApiProblemException.NotFound($"Target {targetKey} doesn't exist.");
+        var primaryName = await connection.QuerySingleOrDefaultAsync<string>(
+            "SELECT TargetName FROM web.dim_target WHERE TargetKey = @TargetKey", new { TargetKey = primaryTargetKey }, transaction)
+            ?? throw Errors.ApiProblemException.BadRequest($"The target to link to ({primaryTargetKey}) doesn't exist.");
+
+        var state = await connection.QuerySingleAsync<LinkState>("""
+            SELECT CAST(CASE WHEN EXISTS (SELECT 1 FROM web.vw_linked_target WHERE TargetKey = @TargetKey) THEN 1 ELSE 0 END AS BIT) AS IsLinked,
+                   CAST(CASE WHEN EXISTS (SELECT 1 FROM web.vw_linked_target WHERE PrimaryTargetKey = @TargetKey) THEN 1 ELSE 0 END AS BIT) AS HasLinkedTargets,
+                   CAST(CASE WHEN EXISTS (SELECT 1 FROM web.vw_linked_target WHERE TargetKey = @PrimaryTargetKey) THEN 1 ELSE 0 END AS BIT) AS PrimaryIsLinked
+            """, new { TargetKey = targetKey, PrimaryTargetKey = primaryTargetKey }, transaction);
+        if (state.IsLinked)
+        {
+            throw Errors.ApiProblemException.Conflict($"'{targetName}' is already linked to another target. Unlink it first.");
+        }
+        if (state.HasLinkedTargets)
+        {
+            throw Errors.ApiProblemException.Conflict($"'{targetName}' has targets linked to it, so it can't be linked to another target. Unlink those first.");
+        }
+        if (state.PrimaryIsLinked)
+        {
+            throw Errors.ApiProblemException.BadRequest($"'{primaryName}' is itself linked to another target. Link to that target instead.");
+        }
+
+        await connection.ExecuteAsync("""
+            UPDATE web.target_link
+            SET PrimaryTargetKey = @PrimaryTargetKey, LinkMethod = 'Manual', TargetMatchReviewKey = NULL,
+                LinkedBy = @UserKey, LinkedDate = SYSUTCDATETIME(), UnlinkedBy = NULL, UnlinkedDate = NULL
+            WHERE LinkedTargetKey = @TargetKey;
+            IF @@ROWCOUNT = 0
+                INSERT INTO web.target_link (LinkedTargetKey, PrimaryTargetKey, LinkMethod, LinkedBy)
+                VALUES (@TargetKey, @PrimaryTargetKey, 'Manual', @UserKey);
+            """, new { TargetKey = targetKey, PrimaryTargetKey = primaryTargetKey, UserKey = linkedByUserKey }, transaction);
+        // Whatever reaches the target now scores at the primary's risk.
+        await RiskScoreStalenessPropagator.MarkEntitiesReachingTargetStaleAsync(connection, transaction, targetKey);
+        transaction.Commit();
+        return (targetName, primaryName);
     }
 
     private sealed class UnlinkedRow

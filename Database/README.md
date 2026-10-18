@@ -52,6 +52,7 @@ instead.
 | 34 | `34_BlueTrack_ApiKeyOwnerAndEdit.sql` | D-243 (phase 4): `api_key.OwnerEmail` and `RateLimitPerMinute`, `app_config.ApiKeyReminderLeadDays` (7), the `ApiKeyExpiring` description (owner emails) and the `ApiKeyExpired` notification type (off). |
 | 35 | `35_BlueTrack_ApiKeyExpiredRetention.sql` | D-243 (phase 5): `app_config.ApiKeyExpiredRetentionDays` (365; 0 keeps expired API keys for ever), used by the automatic deletion of expired keys. |
 | 36 | `36_BlueTrack_SelfHostedPlatformsAndProperties.sql` | D-244: `usp_Load_DimPlatform` adds a Self-Hosted platform per distinct PolicyID; `usp_Load_FactAccount` fills the Self-Hosted `PlatformKey`, `PlatformLogonDomain` (LogonDomain) and `AutoManaged`/`ManualReason` (CPMDisabled); drops `dbo.stg_discovered_accounts`. |
+| 37 | `37_BlueTrack_ManualTargetLinks.sql` | D-245: `target_link.LinkMethod` may also be `'Manual'` (two existing targets linked from Edit Target). |
 
 ## The baseline (D-195)
 

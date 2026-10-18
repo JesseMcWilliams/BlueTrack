@@ -35,7 +35,7 @@ If your organization has segregation of duties turned on, you can't link an exce
 - **Access Groups** — privileged-access groups in the managed environment, each with a Base Risk Score and a derived Computed Risk Score. Click a group's name to edit it. Use **Bulk Actions** here too. The same local group can be added once per server.
 - **Bulk edit and delete** — tick **Select targets for bulk actions** (or **Select access groups for bulk actions**), select rows, then **Bulk edit…** to set fields on all of them or **Delete…** to delete them. A bulk delete needs a reason. Items that can't be changed (for example, still in use) are skipped and listed.
 
-- **Linked targets** — a target linked to another (its primary) counts once, at the primary's risk score. Linked targets are hidden on **Targets** unless **Linked targets:** is set to **Show**; **Unlink** on the target's page separates them. See `User_Guide.md`, Targets.
+- **Linked targets** — a target linked to another (its primary) counts once, at the primary's risk score. You can link two existing targets yourself from a target's page (**Link to another target**). Linked targets are hidden on **Targets** unless **Linked targets:** is set to **Show**; **Unlink** on the target's page separates them. See `User_Guide.md`, Targets.
 
 If a save or delete is refused (a duplicate name or identifier, or a row still in use), the page says why.
 

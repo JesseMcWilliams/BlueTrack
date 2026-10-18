@@ -39,6 +39,7 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useTotalCount } from '../composables/useTotalCount'
+import { useLatestRequest } from '../composables/useLatestRequest'
 import { confirmDelete } from '../composables/useConfirmDialog'
 import { usePageSizeStore } from '../stores/pageSize'
 import FilterCountSummary from '../components/FilterCountSummary.vue'
@@ -91,6 +92,7 @@ const error = ref(null)
 const loading = ref(true)
 
 const { totalCount, filteredCount, readTotalCount } = useTotalCount()
+const latestRequest = useLatestRequest()
 const pageSizeStore = usePageSizeStore()
 
 const typeFilter = ref('')
@@ -157,6 +159,7 @@ const sortQueryParam = computed(() =>
   sortColumns.value.map(s => `${s.field}:${s.descending ? 'desc' : 'asc'}`).join(','))
 
 async function load() {
+  const request = latestRequest.begin()
   loading.value = true
   try {
     const params = new URLSearchParams()
@@ -173,13 +176,16 @@ async function load() {
     ])
     if (!targetsResponse.ok) throw new Error(t('common.requestFailed', { status: targetsResponse.status }))
     if (!typesResponse.ok) throw new Error(t('common.requestFailed', { status: typesResponse.status }))
+    const targetsBody = await targetsResponse.json()
+    const typesBody = await typesResponse.json()
+    if (!latestRequest.isCurrent(request)) return
     readTotalCount(targetsResponse)
-    items.value = await targetsResponse.json()
-    identifierTypes.value = await typesResponse.json()
+    items.value = targetsBody
+    identifierTypes.value = typesBody
   } catch (err) {
-    error.value = err.message
+    if (latestRequest.isCurrent(request)) error.value = err.message
   } finally {
-    loading.value = false
+    if (latestRequest.isCurrent(request)) loading.value = false
   }
 }
 

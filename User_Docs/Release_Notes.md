@@ -6,13 +6,21 @@ What changed in each BlueTrack release, newest first, for users and administrato
 
 ### New
 
+- **Link two targets by hand.** A target's page has **Link to another target**: search for the target it is the same as, choose it and click **Link**. They then count once, at the primary's risk score, like a link made in Target Match Review, and **Unlink** undoes it. A target that is linked already, or that has targets linked to it, can't be linked (unlink first), and a pair you unlinked can be linked again this way.
+
 ### Changed
 
 - **Self-Hosted accounts now have a platform, a logon domain and a manual-management reason.** Until now every Self-Hosted account showed no platform, because the export has no platform list. The nightly load now adds each policy (PolicyID) it finds as a Self-Hosted platform and gives the accounts that platform; it also fills the platform's logon domain, and, for an account whose automatic management is switched off (the export's CPMDisabled reason), shows it as not auto-managed with that reason. The new platforms start unmapped. There is no page for mapping platforms yet: it is done in SQL, in the `platform_account_type_map` table, and the `vw_review_platform_sor_accounttype` view lists the platforms still unmapped; new accounts then get the account type and source of record you give each platform.
 
 ### Fixed
 
+- **A list could show the wrong rows after a quick change of filter.** On Accounts, Risk Exceptions, Targets, Access Groups, the Audit Log and Discovered Accounts, typing a search and then changing a filter straight away could, when the search's answer came back last, leave the list showing the search's rows instead of the filter's. Only the newest request's answer is shown now.
+
+- **A target can be deleted after Target Match Review used it.** Deleting a target that Target Match Review had matched imports to failed with a conflict. Its pending reviews are now removed (the next import queues them again if another target matches), and its resolved reviews stay as history without the deleted target's name.
+
 ### Upgrading
+
+- Run database script 37 (the installer's database step does).
 
 - Run database script 36 (the installer's database step does). The Self-Hosted platforms and properties appear after the next nightly load (or a manual Import and Load).
 

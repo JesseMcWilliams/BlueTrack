@@ -6,13 +6,8 @@
 Nothing at the moment. The 2026-10-13 requests shipped as D-220 to D-229.
 
 ## Requested, deferred
-- **API access for scripts and other systems** (requested 2026-10-13): sign-in today is interactive only (Windows, SAML, OIDC). A proposal with options and eight questions for the user is in `Planning_API-Access-For-Scripts.md` (2026-10-17); build starts once those are answered (per-user API keys or service tokens, their role, expiry and rotation, hashed storage, audit logging).
 - **Localize server-side text** (requested 2026-10-14): API error messages (ProblemDetails), audit details, feed run summaries and emails are English only; D-227 covers the SPA. Needs the request's language on the API (the Language preference or `Accept-Language`) and .NET resource files.
 - **"Use browser default" in the Language picker** (requested 2026-10-14): once a language is saved, there's no way to go back to following the browser's language.
-
-## Follow-ups found while building D-229 (2026-10-14)
-- **Link two existing targets by hand**: only Target Match Review creates links, and an unlinked pair can't be linked again from the UI. Needs a picker on Edit Target (the D-225 typeahead) and a rule for a target that has its own linked targets.
-- **A resolved Target Match Review row blocks deleting its candidate target** (409, its `CandidateTargetKey` FK): the E2E tests leave such targets behind. Decide whether a delete should clear or remove the target's review history.
 
 ## From the audit findings (moved here 2026-10-13, at the user's request)
 - **Validate LDAPS against a remote DC** (Low): BlueTrack's `UseSsl` bind can't be proven on the dev host, which is the DC itself (binds from a DC to its own LDAPS fail; Authentik's LDAPS sync from another machine works). Run the check from DCACYBSQL01 (another domain): resolve and reach the DC on 636, trust its LDAPS certificate, bind with an account in the DC's domain (no trust between the domains, so not a trusted connection), then let AD Account Discovery run.

@@ -353,7 +353,18 @@
     "unlinkTitle": "Unlink Target",
     "unlinkDetail": "{name} from {primary}",
     "unlinkWarning": "It will count at its own risk score again, and won't be linked again automatically.",
-    "unlinkFailed": "Unlink failed: {status}"
+    "unlinkFailed": "Unlink failed: {status}",
+    "linkHeading": "Link to another target",
+    "linkIntro": "Link this target to another one (its primary) when they are the same thing under two names, for example the same server in two lists. They keep their own identifiers; together they count once, at the primary's risk score. A target that has targets linked to it, or is linked already, can't be linked.",
+    "linkLabel": "Primary target",
+    "linkPlaceholder": "Search by name or identifier...",
+    "linkButton": "Link",
+    "linkTitle": "Link this target?",
+    "linkDetail": "\"{name}\" will be linked to \"{primary}\".",
+    "linkWarning": "It will count at the primary's risk score, and can be unlinked later.",
+    "linkConfirm": "Link",
+    "linkFailed": "Link failed: {status}",
+    "searchFailed": "Search failed: {status}"
   },
   "targetsBulkImport": {
     "title": "Targets: Bulk Actions",
