@@ -96,9 +96,10 @@ public class SelfHostedPlatformsTests
                 DELETE FROM dbo.fact_account WHERE SourceAccountId LIKE @shPattern;
                 DELETE FROM dbo.dim_platform WHERE PlatformID IN (@windows, @unix);
                 """, new { shPattern = $"{safeId}[_]%", windows, unix });
-            foreach (var row in saved)
+            foreach (var (accountKey, isDeleted, isDeletedInSource) in saved)
             {
-                await connection.ExecuteAsync("UPDATE dbo.fact_account SET IsDeleted = @IsDeleted, IsDeletedInSource = @IsDeletedInSource WHERE AccountKey = @AccountKey", row);
+                await connection.ExecuteAsync("UPDATE dbo.fact_account SET IsDeleted = @isDeleted, IsDeletedInSource = @isDeletedInSource WHERE AccountKey = @accountKey",
+                    new { accountKey, isDeleted, isDeletedInSource });
             }
         }
     }
