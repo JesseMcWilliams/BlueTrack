@@ -18,7 +18,8 @@
     "noSections": "No admin sections available -- you don't hold any admin permission.",
     "accountClassification": "Account Classification",
     "siemForwarding": "SIEM Forwarding",
-    "apiKeys": "API Keys"
+    "apiKeys": "API Keys",
+    "platformMapping": "Platform Mapping"
   },
   "applicationEdit": {
     "editTitle": "Edit Application",
@@ -966,5 +967,30 @@
     "roleHint": "A role change applies at once, including to tokens the key has already been given.",
     "expiresLabel": "Expires on:",
     "expiresHint": "The last day the key works (up to {max} days from today). Change it to renew the key or to shorten it; to stop a key now, disable or delete it."
+  },
+  "platformMapping": {
+    "title": "Platform Mapping",
+    "intro": "Each CyberArk platform (Privilege Cloud's own list; for Self-Hosted, one platform per policy ID) can be given the account type and source of record its accounts start with. A new account gets them when BlueTrack first tracks it, and both can still be changed on each account. Platforms with no mapping are listed first.",
+    "unmappedCount": "{count} platform(s) have no mapping yet.",
+    "search": "Search:",
+    "onlyUnmapped": "Only platforms with no mapping",
+    "fillExisting": "When saving, also fill accounts already tracked on the platform that have no account type or source of record",
+    "fillHint": "An account that already has an account type or source of record is never changed.",
+    "noPlatforms": "No platforms to show.",
+    "source": "Source",
+    "platform": "Platform",
+    "accounts": "Accounts",
+    "withoutType": "With no type",
+    "accountType": "Account type",
+    "sourceOfRecord": "Source of record",
+    "notes": "Notes",
+    "notMapped": "(not mapped)",
+    "accountTypeFor": "Account type for {platform}",
+    "sorFor": "Source of record for {platform}",
+    "notesFor": "Notes for {platform}",
+    "saved": "Saved the mapping of {platform}.",
+    "savedFilled": "Saved the mapping of {platform}: filled {types} account(s) with no account type and {sors} with no source of record.",
+    "removed": "Removed the mapping of {platform}. Accounts keep what they have.",
+    "confirmRemove": "Remove the mapping of {platform}? Accounts already given an account type keep it; new accounts on this platform get none by default."
   }
 }

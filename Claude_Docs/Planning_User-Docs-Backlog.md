@@ -21,3 +21,4 @@
 | 2026-10-18 | Edit Target: **Link to another target** (links two existing targets by hand); deleting a target no longer fails on its Target Match Review rows (D-245, script 37). | `User_Guide.md` (done), `User_Analyst.md` (done) |
 | 2026-10-18 | Fix: a list page ignores a slow reply to an earlier request when a newer one has been made (Accounts, Risk Exceptions, Targets, Access Groups, Audit Log, Discovered Accounts). | none (release notes only) |
 | 2026-10-18 | Language: **Use browser default** on Profile & Preferences (D-246). | `User_Guide.md` (Profile & Preferences) if it describes the language picker |
+| 2026-10-18 | New Admin > Platform Mapping page (D-247): account type and source of record per platform, with an optional fill of accounts that have none. | `Admin_SettingsReference.md` (done), `Admin_DataManagement.md` (a step in the data-load routine) |

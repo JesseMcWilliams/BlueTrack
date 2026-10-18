@@ -12,6 +12,8 @@ The Import+Load SQL Agent job runs at 2:00 AM, refreshing staging data from your
 
 To hear about a failure without checking, turn on the **NightlyImportFailed** notification on **Admin > Notifications** (off on a new install): it emails the failing step, the error and the files that failed, within about 5 minutes. A Privilege Cloud export missing a column the import needs fails the run with the file and column named; **Test** on **Admin > Data Sources > Edit CyberArk sources** checks the files' columns ahead of time. To check by hand, see `Admin_OperationsGuide.md`'s "The Nightly Import + Load Job" section for the query.
 
+**New platforms.** An import can bring platforms BlueTrack hasn't seen (Self-Hosted gets one per policy, from each account's PolicyID). Open **Admin > Platform Mapping**: the platforms with no mapping are listed first. Give each an account type and, where it implies one, a source of record, and leave **also fill accounts already tracked** ticked the first time so the accounts already on the platform get them too (an account that has one is never changed). See *Administrator Settings Guide*, "Platform Mapping".
+
 ## 2. Work the Target Match Review queue
 
 Weak import matches (e.g. an identifier that's only an IP address) land in **Admin > Target Match Review** for a human decision. Each row shows the imported target (name, source and risk score) beside the existing candidate:
