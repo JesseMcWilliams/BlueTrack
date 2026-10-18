@@ -29,12 +29,15 @@
 | #168 | (none) | The delete/undelete E2E flake fixed (90 s limit; the test undeletes TestAccount01 first). |
 | #169 | (none) | Backlog: the release script and nightly job items removed (proven). |
 | #170 | (none) | **Release v1.1.0** (signed tag, GitHub release, `Published_Docs` rebuilt including the new `API_Access_Guide.docx`). |
-| this PR | (none) | Handoff through v1.1.0. |
+| #171 | (none) | Handoff through v1.1.0. |
+| #172 | D-244 | Self-Hosted platforms (one per PolicyID), `PlatformLogonDomain` from LogonDomain, `AutoManaged`/`ManualReason` from CPMDisabled; `stg_discovered_accounts` dropped. Script 36. |
+| #173 | D-245 | Link two existing targets by hand (Edit Target); deleting a target with Target Match Review rows no longer fails; the filtered list pages drop a slow earlier reply (`useLatestRequest`). Script 37. |
+| this PR | (none) | Handoff through #173. |
 
 ## State
-- **`main`** at the v1.1.0 release merge (`31100dc`, tag `v1.1.0`) plus this PR. Last full local runs 2026-10-17 against `BlueTrackTest_Local`: xUnit 1106/1106, Vitest 441/441, Playwright 91/91. CI passed on every PR above.
+- **`main`** at the #173 merge (`f658799`; the last release is tag `v1.1.0`) plus this PR. Last full local runs 2026-10-17 against `BlueTrackTest_Local`: xUnit 1106/1106, Vitest 441/441, Playwright 91/91. CI passed on every PR above.
 - **Dev site:** redeployed to `main` as of #165 (`1.0.7-dev.26+e5f53b2`, scripts up to 35). Health 14 pass, 0 fail. Live: a key with an owner and a limit of 3 (calls 4 and on answered 429), edited to Auditor with a new owner and expiry (the same token then acted as Auditor), then deleted; Windows sign-in unchanged; SAML and OIDC sign-in pass.
-- **Released:** v1.1.0 (2026-10-17) holds D-241, D-242 and D-243 (see `User_Docs/Release_Notes.md`; Upgrading: scripts 30 to 35, and enable `ApiKeyExpiring` and `ApiKeyExpired` for the expiry emails). Unreleased is empty. The dev site runs `main` as of #165 (`1.0.7-dev.26+e5f53b2`); it shows `1.1.0` after the next redeploy (`Install-BlueTrack.ps1 -Step Db.Backup,Db.Migrate,Build.Api,Build.Web,Iis.SiteRestart`, from a clean `main`, after the push run of the last merge has finished).
+- **Released:** v1.1.0 (2026-10-17: D-241 to D-243). **Unreleased** since: D-244 (Self-Hosted platforms and properties), D-245 (manual target links, target delete, stale list replies); Upgrading: scripts 36 and 37. The dev site runs `main` as of #173 (`1.1.0-dev.7+f658799`, scripts up to 37). Live checks 2026-10-18: after the loads, 11 Self-Hosted platforms exist, 2,449 of 2,453 Self-Hosted accounts have a platform, 7 a logon domain, 68 show as not auto-managed; two test targets linked, a chain refused (409), unlinked and deleted.
 - **Off until configured on the dev site:** the D-222 notification types, `ApiKeyExpiring`, `ApiKeyExpired`, account classification, SIEM forwarding. No API keys or client mappings exist there.
 
 ## Open items
@@ -43,7 +46,7 @@
 3. **Next release:** `Tools/New-BlueTrackRelease.ps1 -Version x.y.z -Push`, merge its PR, then `-Tag -Push` (D-226); it worked first time for v1.1.0. Wait for the PR's check to finish and gate the merge on it passing.
 4. **LDAPS from DCACYBSQL01** (backlog): the user runs `Tools\Test-BlueTrackLdaps.ps1` there, then adds the domain in BlueTrack.
 5. **Live tests still owed** (backlog, "Built, but never proven"): SIEM forwarding, account classification against the real AD, OAuth2 SMTP, break-glass email, Azure/AWS/Conjur. (The release script and the nightly job are proven and were removed from this list on 2026-10-17.)
-6. **Backlog** (`Planning_Backlog.md`): server-side localization and "use browser default" language (deferred), D-229 follow-ups, and the real-data findings.
+6. **Backlog** (`Planning_Backlog.md`): server-side localization and "use browser default" language (deferred); real-data findings still open: the Self-Hosted properties not read (`DeviceType`, `CreationMethod`, `ExtraPass1*`/`ExtraPass3*`, which need columns and a place to show them), the unfilled Q-27 `CAF*` columns, the Privilege Cloud columns that are always empty, and the two Privilege Cloud exports with no importer. **Platform mapping has no page and no guide text** (SQL against `platform_account_type_map`, reviewed with `vw_review_platform_sor_accounttype`); the new Self-Hosted platforms are unmapped until someone does it.
 
 ## Gotchas for the next session
 - **Local tests use their own database (D-240).** `dotnet test` and `npm test` default to `BlueTrackTest_Local`; build or reset it with `Tools\Reset-BlueTrackLocalTestDb.ps1` (also after a new numbered script). CI owns `BlueTrackTest`, so a local run no longer breaks a CI run's data. Still don't run Playwright locally while CI runs: the CPU and the ports (4173, 7033) are shared. Check with `gh run list --status in_progress`.
@@ -56,7 +59,7 @@
 - **Backslashes through Bash** mangle heredocs and inline Python (`\r\n` became line breaks, `\04` an octal character, `DOMAIN\name` a line break). Write such text with the Write/Edit tools, then grep for control characters.
 - **POSTs to the live API** need `X-Requested-With: XMLHttpRequest` (D-197).
 - **E2E label clashes:** `getByLabel` is case-insensitive and matches substrings; after a navigation, wait for something only the new page has before filling (see `Reference_Lessons-Learned.md`, 2026-10-13). A UI test that changes shared data and undoes it must wait for each save.
-- **The delete/undelete E2E flake is fixed** (2026-10-17): the test had a 30-second limit it could reach on a busy host, and a timed-out attempt left TestAccount01 deleted, so its retries failed too. It now has 90 seconds and puts the account back before it starts (`Reference_Lessons-Learned.md`, 2026-10-17). If an E2E run fails on all three attempts, read the first attempt's error.
+- **The delete/undelete E2E flake had two causes, both fixed:** the test had a 30-second limit and a timed-out attempt left TestAccount01 deleted for its retries (2026-10-17: now 90 seconds, and it undeletes the account first), and the filtered list pages let a slow earlier reply overwrite a newer one (2026-10-18: `useLatestRequest`). See `Reference_Lessons-Learned.md`. If an E2E run fails on all three attempts, read the first attempt's error.
 - **The test database has no CyberArk accounts with an address**; feed-linking tests add a temporary `PRIVCLOUD` account and remove it (xUnit runs one test at a time).
 - **Live SSO checks without a browser:** `Tools\Test-BlueTrackSso.ps1` (authentik's flow API; the lab account's Credential Provider values are in `Live-Testing.local.md`). For the two front-channel Single Logout legs use a browser: headless Chromium from `App/E2E/node_modules/playwright`, waiting for authentik's "Not you?" before filling the password. IIS writes its log (`C:\inetpub\logs\LogFiles\W3SVC2`) about a minute late.
 - **After a reboot**, check SQL Server Agent too (the health check does).
