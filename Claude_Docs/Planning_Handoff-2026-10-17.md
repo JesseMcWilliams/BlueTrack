@@ -25,18 +25,22 @@
 | #163 | D-243 | The user's answers: owner email on a key; owner emailed the lead time (7 days, a setting) before expiry and on the day, admins on the day (`ApiKeyExpiring`, `ApiKeyExpired`; replaces the 30/7-day emails); edit a key in place; a per-key rate limit; the API Access guide joins `build_published_docs.py`. Script 34. |
 | #164 | (none) | Handoff through #163. |
 | #165 | D-243 | Expired API keys are deleted automatically after a setting (365 days; 0 keeps them): `ApiKeyPurgeService`, audited by the system user. Script 35. |
-| this PR | (none) | Handoff through #165. |
+| #166, #167 | (none) | Handoff through #165; fake-provider tests accepted for option B for now. |
+| #168 | (none) | The delete/undelete E2E flake fixed (90 s limit; the test undeletes TestAccount01 first). |
+| #169 | (none) | Backlog: the release script and nightly job items removed (proven). |
+| #170 | (none) | **Release v1.1.0** (signed tag, GitHub release, `Published_Docs` rebuilt including the new `API_Access_Guide.docx`). |
+| this PR | (none) | Handoff through v1.1.0. |
 
 ## State
-- **`main`** at the #165 merge (`e5f53b2`) plus this PR. Last full local runs 2026-10-17 against `BlueTrackTest_Local`: xUnit 1106/1106, Vitest 441/441, Playwright 91/91. CI passed on every PR above.
+- **`main`** at the v1.1.0 release merge (`31100dc`, tag `v1.1.0`) plus this PR. Last full local runs 2026-10-17 against `BlueTrackTest_Local`: xUnit 1106/1106, Vitest 441/441, Playwright 91/91. CI passed on every PR above.
 - **Dev site:** redeployed to `main` as of #165 (`1.0.7-dev.26+e5f53b2`, scripts up to 35). Health 14 pass, 0 fail. Live: a key with an owner and a limit of 3 (calls 4 and on answered 429), edited to Auditor with a new owner and expiry (the same token then acted as Auditor), then deleted; Windows sign-in unchanged; SAML and OIDC sign-in pass.
-- **Unreleased** (`User_Docs/Release_Notes.md`): D-241, D-242, D-243. Upgrade: scripts 30 to 35; enable `ApiKeyExpiring` and `ApiKeyExpired` on Admin > Notifications for the expiry emails. At the next release `build_published_docs.py` also builds `API_Access_Guide.docx`.
+- **Released:** v1.1.0 (2026-10-17) holds D-241, D-242 and D-243 (see `User_Docs/Release_Notes.md`; Upgrading: scripts 30 to 35, and enable `ApiKeyExpiring` and `ApiKeyExpired` for the expiry emails). Unreleased is empty. The dev site runs `main` as of #165 (`1.0.7-dev.26+e5f53b2`); it shows `1.1.0` after the next redeploy (`Install-BlueTrack.ps1 -Step Db.Backup,Db.Migrate,Build.Api,Build.Web,Iis.SiteRestart`, from a clean `main`, after the push run of the last merge has finished).
 - **Off until configured on the dev site:** the D-222 notification types, `ApiKeyExpiring`, `ApiKeyExpired`, account classification, SIEM forwarding. No API keys or client mappings exist there.
 
 ## Open items
 1. **Live test of option B (identity provider token) not done; the user accepted the fake-provider tests for now (2026-10-17).** The code is tested against a fake provider with real RSA signatures only; `OidcIdpMetadataSource` has never run against a real provider. The lab script was refused by the permission system (credential exploration) and authentik refused every client-credentials style with `invalid_grant`. To close it later: a token and client ID from the user and a small `Tools/` script that exchanges it (not built), or a permission rule for one narrowly written lab script.
 2. **Questions backlog:** `Claude_Docs/Planning_Questions-Backlog.md` is empty. Use it again when the user asks not to be interrupted.
-3. **Release:** `Tools/New-BlueTrackRelease.ps1 -Version x.y.z -Push`, merge its PR, then `-Tag -Push` (D-226). The release notes' Upgrading lists scripts 30 to 35.
+3. **Next release:** `Tools/New-BlueTrackRelease.ps1 -Version x.y.z -Push`, merge its PR, then `-Tag -Push` (D-226); it worked first time for v1.1.0. Wait for the PR's check to finish and gate the merge on it passing.
 4. **LDAPS from DCACYBSQL01** (backlog): the user runs `Tools\Test-BlueTrackLdaps.ps1` there, then adds the domain in BlueTrack.
 5. **Live tests still owed** (backlog, "Built, but never proven"): SIEM forwarding, account classification against the real AD, OAuth2 SMTP, break-glass email, Azure/AWS/Conjur. (The release script and the nightly job are proven and were removed from this list on 2026-10-17.)
 6. **Backlog** (`Planning_Backlog.md`): server-side localization and "use browser default" language (deferred), D-229 follow-ups, and the real-data findings.
