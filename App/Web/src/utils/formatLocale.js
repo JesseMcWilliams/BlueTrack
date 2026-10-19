@@ -62,3 +62,12 @@ export function formatDateTime(value) {
   const date = value instanceof Date ? value : new Date(value)
   return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleString(formatLocale)
 }
+
+// A time the API sends without a zone (SQL datetime2, always UTC), shown as a local date and time. A value that
+// already has a zone is used as it is.
+export function formatUtcDateTime(value) {
+  if (!value) return ''
+  const zoneless = typeof value === 'string' && /^\d{4}-\d\d-\d\dT\d/.test(value) && !/[zZ]|[+-]\d\d:\d\d$/.test(value)
+  const text = zoneless ? `${value}Z` : value
+  return formatDateTime(text)
+}

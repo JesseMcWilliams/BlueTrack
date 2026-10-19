@@ -93,21 +93,35 @@ describe('AccessGroupsBulkImport.vue', () => {
     expect(wrapper.text()).toContain('3 rows -- 3 succeeded, 0 errors.')
   })
 
-  // The result summary block binds directly to whatever importFile() stored
-  // (unchanged from AccessGroups.vue) -- on a non-OK response that's just
-  // { error: '...' }, so totalRows/succeededCount/etc render as empty rather
-  // than a dedicated failure message. That gap predates this phase (a pure
-  // relocation, not a rewrite) and isn't introduced or fixed here; this test
-  // pins the actual current rendering rather than an aspirational one.
-  it('a failed import still renders the (empty) result block rather than throwing', async () => {
-    globalThis.fetch = vi.fn(() => Promise.resolve(jsonResponse(null, { ok: false, status: 500 })))
+  // UI review W4-1: a failed import used to render a summary of blanks ("rows --  succeeded, ...") because the
+  // template never read the error importFile() stored.
+  async function importWith(fetchImpl, section = 0) {
+    globalThis.fetch = vi.fn(fetchImpl)
     const wrapper = mount(AccessGroupsBulkImport)
-    await selectFile(wrapper.findAll('input[type="file"]')[0], new File(['a'], 'groups.csv', { type: 'text/csv' }))
-
-    await wrapper.findAll('button')[0].trigger('click')
+    await selectFile(wrapper.findAll('input[type="file"]')[section], new File(['a'], 'groups.csv', { type: 'text/csv' }))
+    await wrapper.findAll('button')[section].trigger('click')
     await flushPromises()
+    return wrapper
+  }
 
-    expect(wrapper.text()).toContain('rows --  succeeded, 0 errors.')
-    expect(wrapper.findAll('button')[0].text()).toBe('Import')
+  it.each([0, 1, 2])('section %i: a failed import shows the error, not a summary of blanks', async (section) => {
+    const wrapper = await importWith(() => Promise.resolve(jsonResponse(null, { ok: false, status: 500 })), section)
+
+    expect(wrapper.find('[role="alert"]').text()).toBe('Import failed: 500')
+    expect(wrapper.text()).not.toContain('rows --')
+    expect(wrapper.findAll('button')[section].text()).toBe('Import')
+  })
+
+  it('shows the API\'s own reason when it sent one', async () => {
+    const wrapper = await importWith(() => Promise.resolve(jsonResponse({ detail: 'The file is larger than 5 MB.' }, { ok: false, status: 413 })), 1)
+
+    expect(wrapper.find('[role="alert"]').text()).toBe('The file is larger than 5 MB.')
+  })
+
+  it('says so when the server cannot be reached', async () => {
+    const wrapper = await importWith(() => Promise.reject(new TypeError('Failed to fetch')), 2)
+
+    expect(wrapper.find('[role="alert"]').text()).toContain("the server couldn't be reached")
+    expect(wrapper.findAll('button')[2].text()).toBe('Import')
   })
 })

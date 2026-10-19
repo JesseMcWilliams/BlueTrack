@@ -38,7 +38,10 @@
   "applicationSafeMapping": {
     "applicationsRequestFailed": "Applications request failed: {status}",
     "safesRequestFailed": "Safes request failed: {status}",
-    "assignFailed": "Assign failed: {status}",
+    "assignFailedFor": "The application for {name} wasn't changed: {reason}. The list shows what is saved.",
+    "noResponse": "the server didn't answer",
+    "assignedTo": "{name} is now assigned to {application}.",
+    "unassigned": "{name} no longer has an application.",
     "title": "Application ↔ Safe Mapping",
     "applicationsHeading": "Applications",
     "newApplication": "+ New Application",
@@ -84,6 +87,8 @@
     "detail": "Detail",
     "reason": "Reason:",
     "noFieldChanges": "No field-level changes recorded for this event.",
+    "fieldChangesFailed": "The field-level changes couldn't be loaded ({reason}). Close this row and open it again to retry.",
+    "noResponse": "the server didn't answer",
     "field": "Field",
     "oldValue": "Old Value",
     "newValue": "New Value"
@@ -642,6 +647,11 @@
     "noSettings": "(no settings)",
     "alreadySet": "(already set -- leave blank to keep)",
     "noneSet": "(none set)",
+    "activateTitle": "Make {name} the active backend?",
+    "activateDetail": "The application will look secrets up in {name} from now on.",
+    "activateWarning": "If {name} isn't set up correctly or can't be reached, those lookups fail until you make another backend active.",
+    "activated": "{name} is now the active backend.",
+    "saved": "{name} settings saved.",
     "makeActive": "Make Active",
     "testHeading": "Test Connection",
     "testIntro": "Attempts a real retrieval against the active backend. Never shows the retrieved secret -- only whether it succeeded and non-secret metadata (username/address).",
@@ -676,6 +686,15 @@
     "link": "Link",
     "newTarget": "New Target",
     "ignore": "Ignore",
+    "linkFor": "Link {identifier}",
+    "newTargetFor": "Create a new target for {identifier}",
+    "ignoreFor": "Ignore {identifier}",
+    "ignoreTitle": "Ignore {identifier}?",
+    "ignoreDetail": "Imported target: {name}.",
+    "ignoreWarning": "Ignoring is remembered: this row won't be offered for review again.",
+    "linkedNotice": "{identifier} was linked to {target}.",
+    "newTargetNotice": "A new target was created for {identifier}.",
+    "ignoredNotice": "{identifier} was ignored, and won't be offered for review again.",
     "noReviews": "No pending reviews."
   },
   "notifications": {
@@ -1035,6 +1054,7 @@
     "keyStart": "The key starts with",
     "roleHint": "A role change applies at once, including to tokens the key has already been given.",
     "expiresLabel": "Expires on:",
+    "expiredNote": "This key expired on {date}. Saving without choosing a new date leaves its expiry as it is.",
     "expiresHint": "The last day the key works (up to {max} days from today). Change it to renew the key or to shorten it; to stop a key now, disable or delete it."
   },
   "platformMapping": {

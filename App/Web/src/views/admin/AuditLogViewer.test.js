@@ -176,4 +176,48 @@ describe('AuditLogViewer.vue', () => {
     expect(calls.at(-1)).toContain('page=2')
     expect(calls.at(-1)).not.toContain('eventType')
   })
+
+  // UI review W11-3: a failed field-changes load used to read "No field-level changes recorded for this event."
+  describe('field-level changes', () => {
+    async function open(fieldChangesResponse) {
+      globalThis.fetch = vi.fn((url) => {
+        if (url === '/api/audit-log/1/field-changes') return fieldChangesResponse instanceof Error ? Promise.reject(fieldChangesResponse) : Promise.resolve(fieldChangesResponse)
+        if (url.startsWith('/api/audit-log')) return Promise.resolve(jsonResponse([sampleEvent], { totalCount: 1 }))
+        return Promise.resolve(jsonResponse(null, { ok: false, status: 404 }))
+      })
+      const wrapper = mount(AuditLogViewer)
+      await flushPromises()
+      await wrapper.find('tbody a, tbody button').trigger('click')
+      await flushPromises()
+      return wrapper
+    }
+
+    it('shows the changes that were recorded', async () => {
+      const wrapper = await open(jsonResponse([{ fieldName: 'Stage', oldValue: 'A', newValue: 'B' }]))
+
+      expect(wrapper.find('#audit-detail-1').text()).toContain('Stage')
+      expect(wrapper.find('#audit-detail-1 [role="alert"]').exists()).toBe(false)
+    })
+
+    it('says there were none only when the API said so', async () => {
+      const wrapper = await open(jsonResponse([]))
+
+      expect(wrapper.find('#audit-detail-1').text()).toContain('No field-level changes recorded for this event.')
+      expect(wrapper.find('#audit-detail-1 [role="alert"]').exists()).toBe(false)
+    })
+
+    it('a refused load is an error, not "none"', async () => {
+      const wrapper = await open(jsonResponse(null, { ok: false, status: 403 }))
+
+      const detail = wrapper.find('#audit-detail-1')
+      expect(detail.find('[role="alert"]').text()).toContain('Request failed: 403')
+      expect(detail.text()).not.toContain('No field-level changes recorded')
+    })
+
+    it('no answer at all is an error too', async () => {
+      const wrapper = await open(new TypeError('Failed to fetch'))
+
+      expect(wrapper.find('#audit-detail-1 [role="alert"]').text()).toContain("the server didn't answer")
+    })
+  })
 })

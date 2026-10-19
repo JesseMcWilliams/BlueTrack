@@ -12,8 +12,9 @@
 // (AccessGroupsController.GetByKey / AccessGroupRepository.GetByKeyAsync)
 // was added alongside this page, mirroring TargetsController.GetByKey's
 // identical reasoning -- Create/Update/Delete are otherwise unchanged.
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import Combobox from '../components/Combobox.vue'
 import { useI18n } from 'vue-i18n'
 
 const { t } = useI18n()
@@ -27,7 +28,10 @@ const saving = ref(false)
 const loadError = ref(null)
 const saveError = ref(null)
 
-const targets = ref([])
+// UI review W4-2: "Found On Target" was a dropdown filled from GET /api/admin/targets, which answers with the first
+// page (50) of about 2,380 targets, so most could never be chosen. It is a search (the same typeahead Target Edit
+// uses for linking) over name or identifier, and shows the group's current target by the name the API sends.
+const foundOnTarget = ref(null)
 const sorTypes = ref([])
 
 // D-129: Discovery Source defaults to 'Manual' for a brand-new row created
@@ -38,9 +42,6 @@ const editing = ref({ groupName: '', groupIdentifier: '', groupScope: 'Domain', 
 
 onMounted(async () => {
   const referenceDataPromise = Promise.all([
-    fetch('/api/admin/targets').then(r => (r.ok ? r.json() : [])).then(data => { targets.value = data }).catch(() => {
-      // Non-fatal -- the Found On Target dropdown just won't have options if this fails.
-    }),
     fetch('/api/admin/access-groups/sor-types').then(r => (r.ok ? r.json() : [])).then(data => { sorTypes.value = data }).catch(() => {
       // Non-fatal -- the SOR Type dropdown just won't have options if this fails.
     })
@@ -51,6 +52,9 @@ onMounted(async () => {
       const response = await fetch(`/api/admin/access-groups/${props.accessGroupKey}`)
       if (!response.ok) throw new Error(t('common.requestFailed', { status: response.status }))
       editing.value = await response.json()
+      if (editing.value.foundOnTargetKey) {
+        foundOnTarget.value = { targetKey: editing.value.foundOnTargetKey, targetName: editing.value.foundOnTargetName ?? `#${editing.value.foundOnTargetKey}`, targetTypeDisplayName: null, identifiers: [] }
+      }
     } catch (err) {
       loadError.value = err.message
     }
@@ -58,6 +62,21 @@ onMounted(async () => {
 
   await referenceDataPromise
   loading.value = false
+})
+
+async function searchTargets(text) {
+  const response = await fetch(`/api/admin/targets/search?q=${encodeURIComponent(text)}`)
+  if (!response.ok) throw new Error(t('pages.accessGroupEdit.targetSearchFailed', { status: response.status }))
+  return response.json()
+}
+
+function targetLabel(target) {
+  return target.targetTypeDisplayName ? `${target.targetName} (${target.targetTypeDisplayName})` : target.targetName
+}
+
+// Choosing a target sets the key; typing again in the box clears the choice, which leaves no target.
+watch(foundOnTarget, target => {
+  if (editing.value) editing.value.foundOnTargetKey = target ? target.targetKey : null
 })
 
 async function save() {
@@ -107,13 +126,24 @@ function cancel() {
         </label>
       </p>
       <p v-if="editing.groupScope === 'Local'">
-        <label class="field-label">
+        <span class="field-label">
           <span class="field-label-text">{{ t('pages.accessGroupEdit.foundOnTarget') }}</span>
-          <select v-model="editing.foundOnTargetKey">
-            <option :value="null">{{ t('common.none') }}</option>
-            <option v-for="target in targets" :key="target.targetKey" :value="target.targetKey">{{ target.targetName }}</option>
-          </select>
-        </label>
+          <Combobox
+            v-model="foundOnTarget"
+            :label="t('pages.accessGroupEdit.foundOnTargetLabel')"
+            :search="searchTargets"
+            :item-key="target => target.targetKey"
+            :item-label="targetLabel"
+            :placeholder="t('pages.accessGroupEdit.foundOnTargetPlaceholder')"
+          >
+            <template #option="{ item: target }">
+              <strong>{{ target.targetName }}</strong> <span>({{ target.targetTypeDisplayName }})</span>
+              <br v-if="target.identifiers?.length" />
+              <small>{{ (target.identifiers ?? []).map(i => `${i.identifierType}: ${i.identifierValue}`).join(', ') }}</small>
+            </template>
+          </Combobox>
+          <small>{{ t('pages.accessGroupEdit.foundOnTargetHint') }}</small>
+        </span>
       </p>
       <p>
         <label class="field-label">

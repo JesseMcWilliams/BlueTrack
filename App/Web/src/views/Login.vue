@@ -35,6 +35,7 @@ const providers = ref([])
 const defaultProviderType = ref(null)
 const loading = ref(true)
 const error = ref(null)
+const loadFailed = ref(false)
 const signingIn = ref(false)
 const windowsFailed = ref(false)
 const route = useRoute()
@@ -123,6 +124,7 @@ async function load() {
     tryWindows = defaultProvider?.providerType === 'WindowsIntegrated' && typeof route.query.returnUrl === 'string'
   } catch (err) {
     error.value = err.message
+    loadFailed.value = true
   } finally {
     loading.value = false
   }
@@ -143,8 +145,11 @@ onMounted(load)
       {{ t('shell.login.windowsFailed') }}
     </p>
 
-    <template v-else>
-      <p v-if="providers.length === 0">{{ t('shell.login.noProviders') }}</p>
+    <!-- UI review W1-3/W1-4: the list stays after a failed Windows sign-in (Continue and the other methods are the
+         retry), and neither it nor "no identity providers" shows while loading or after a failed load. -->
+    <template v-if="!loading">
+      <p v-if="providers.length === 0 && !loadFailed">{{ t('shell.login.noProviders') }}</p>
+      <template v-else-if="providers.length === 0" />
       <template v-else>
         <p>{{ t('shell.login.chooseMethod') }}</p>
         <ul>

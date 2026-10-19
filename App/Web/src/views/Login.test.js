@@ -165,4 +165,46 @@ describe('Login.vue', () => {
     expect(wrapper.find('[role="alert"]').text()).toContain("isn't enabled")
     expect(wrapper.text()).toContain('Authentik (SAML)')
   })
+
+  // UI review W1-3: the method list used to disappear after a failed Windows sign-in (a v-else), leaving only a
+  // message and no way to retry but a page reload.
+  it('after a failed Windows sign-in the message shows and Continue and the other methods stay', async () => {
+    mockFetch({ meStatus: 401, providers: [windows, saml], defaultProviderType: 'WindowsIntegrated' })
+    const { wrapper } = await mountAt('/login?returnUrl=%2Ftargets')
+
+    expect(wrapper.find('[role="alert"]').text()).toContain("Windows sign-in didn't complete")
+    expect(wrapper.findAll('button').some(b => b.text() === 'Continue')).toBe(true)
+    expect(wrapper.text()).toContain('Authentik (SAML)')
+    expect(wrapper.text()).not.toContain('No identity providers')
+  })
+
+  // UI review W1-4: "No identity providers are enabled" used to flash while the providers were still loading, and
+  // sat beside a load error.
+  it('does not say there are no identity providers while loading, or after a failed load', async () => {
+    let finish
+    globalThis.fetch = vi.fn(() => new Promise(resolve => { finish = resolve }))
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [{ path: '/login', name: 'login', component: Login }, { path: '/', name: 'dashboard', component: { template: '<div />' } }]
+    })
+    await router.push('/login')
+    const wrapper = mount(Login, { global: { plugins: [router, createPinia()] } })
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('Loading')
+    expect(wrapper.text()).not.toContain('No identity providers')
+
+    finish(jsonResponse(null, { ok: false, status: 500 }))
+    await flushPromises()
+
+    expect(wrapper.find('[role="alert"]').text()).toContain('500')
+    expect(wrapper.text()).not.toContain('No identity providers')
+  })
+
+  it('says there are no identity providers only once the load has finished and found none', async () => {
+    mockFetch({ providers: [], defaultProviderType: null })
+    const { wrapper } = await mountAt('/login')
+
+    expect(wrapper.text()).toContain('No identity providers are enabled')
+  })
 })

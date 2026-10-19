@@ -28,6 +28,10 @@ const applications = ref([])
 const safes = ref([])
 const error = ref(null)
 const loading = ref(true)
+// UI review W8-1: an assignment is saved the moment the select changes, so its outcome shows next to the Safes table
+// (the page-level `error` sits at the top, off-screen on a long list, and is cleared by every reload).
+const assignError = ref(null)
+const assignNotice = ref(null)
 
 const appCounts = useTotalCount()
 const safeCounts = useTotalCount()
@@ -93,16 +97,33 @@ function onPageSizeChange() {
 }
 
 async function assignSafe(safe, applicationKeyRaw) {
+  assignError.value = null
+  assignNotice.value = null
   const applicationKey = applicationKeyRaw === '' ? null : Number(applicationKeyRaw)
-  const response = await fetch(`/api/safes/${safe.safeKey}/application`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(applicationKey)
-  })
-  if (!response.ok) {
-    error.value = t('admin.applicationSafeMapping.assignFailed', { status: response.status })
+  const applicationName = allApplications.value.find(a => a.applicationKey === applicationKey)?.applicationName
+  let response = null
+  try {
+    response = await fetch(`/api/safes/${safe.safeKey}/application`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(applicationKey)
+    })
+  } catch {
+    // no response at all: reported below
+  }
+  if (!response?.ok) {
+    const problem = response ? await response.json().catch(() => null) : null
+    assignError.value = t('admin.applicationSafeMapping.assignFailedFor', {
+      name: safe.safeName,
+      reason: problem?.detail ?? (response ? t('common.requestFailed', { status: response.status }) : t('admin.applicationSafeMapping.noResponse'))
+    })
+    // The select still shows what was picked; reload so it goes back to what is saved.
+    await run(loadSafes)
     return
   }
+  assignNotice.value = applicationName
+    ? t('admin.applicationSafeMapping.assignedTo', { name: safe.safeName, application: applicationName })
+    : t('admin.applicationSafeMapping.unassigned', { name: safe.safeName })
   await run(loadSafes)
 }
 </script>
@@ -135,6 +156,8 @@ async function assignSafe(safe, applicationKeyRaw) {
       <Pager :page="appPage" :page-count="appPageCount" @update:page="onAppPageChange" @page-size-change="onPageSizeChange" />
 
       <h3>{{ t('admin.applicationSafeMapping.safesHeading') }}</h3>
+      <p v-if="assignError" role="alert" class="assign-error">{{ assignError }}</p>
+      <p v-if="assignNotice" role="status" class="assign-notice">{{ assignNotice }}</p>
       <FilterCountSummary :shown="safes.length" :filtered-count="safeCounts.filteredCount.value" :total="safeCounts.totalCount.value" :page="safePage" :page-size="pageSizeStore.current" />
       <table class="safes-table">
         <thead>

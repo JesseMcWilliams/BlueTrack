@@ -109,4 +109,122 @@ describe('AccessGroupEdit.vue', () => {
     expect(wrapper.find('[role="alert"]').text()).toContain('500')
     expect(wrapper.find('form').exists()).toBe(true)
   })
+
+  // UI review W4-2: "Found On Target" was a dropdown of GET /api/admin/targets, which is the first page (50) of ~2,380
+  // targets. It is now a search, and a group's current target shows by the name the API sends with it.
+  const localGroup = { ...sampleGroup, groupScope: 'Local', foundOnTargetKey: 77, foundOnTargetName: 'server77' }
+  const found = [
+    { targetKey: 1234, targetName: 'server1234', targetTypeDisplayName: 'Server', identifiers: [{ identifierType: 'Hostname', identifierValue: 'server1234.company.com' }] },
+    { targetKey: 1235, targetName: 'server1235', targetTypeDisplayName: 'Server', identifiers: [] }
+  ]
+
+  function mockLocal(group = localGroup) {
+    globalThis.fetch = vi.fn((url, options) => {
+      if (url === '/api/admin/access-groups/sor-types') return Promise.resolve(jsonResponse(sorTypes))
+      if (url === `/api/admin/access-groups/${group.accessGroupKey}` && !options?.method) return Promise.resolve(jsonResponse({ ...group })) // a copy: the page edits the object it is given
+      if (url === `/api/admin/access-groups/${group.accessGroupKey}` && options?.method === 'PUT') return Promise.resolve(jsonResponse(null, { status: 204 }))
+      if (url.startsWith('/api/admin/targets/search?q=')) return Promise.resolve(jsonResponse(found))
+      return Promise.resolve(jsonResponse(null, { ok: false, status: 404 }))
+    })
+  }
+
+  it('does not load the targets list at all, and searches instead', async () => {
+    vi.useFakeTimers()
+    try {
+      mockLocal()
+      const wrapper = mount(AccessGroupEdit, { props: { accessGroupKey: 3 }, global: { plugins: [makeRouter()] } })
+      await flushPromises()
+      await wrapper.get('input[role="combobox"]').setValue('server12')
+      vi.advanceTimersByTime(250)
+      await flushPromises()
+
+      expect(globalThis.fetch.mock.calls.some(([url]) => url === '/api/admin/targets')).toBe(false)
+      expect(globalThis.fetch).toHaveBeenCalledWith('/api/admin/targets/search?q=server12')
+      const options = wrapper.findAll('[role="option"]').map(o => o.text())
+      expect(options[0]).toContain('server1234')
+      expect(options[0]).toContain('Hostname: server1234.company.com')   // a target past the first 50 can be found by identifier
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('shows the group\'s current target by name, and keeps it when saved untouched', async () => {
+    mockLocal()
+    const wrapper = mount(AccessGroupEdit, { props: { accessGroupKey: 3 }, global: { plugins: [makeRouter()] } })
+    await flushPromises()
+
+    expect(wrapper.get('input[role="combobox"]').element.value).toBe('server77')
+    await wrapper.get('form').trigger('submit')
+    await flushPromises()
+
+    const put = globalThis.fetch.mock.calls.find(([, options]) => options?.method === 'PUT')
+    expect(JSON.parse(put[1].body).foundOnTargetKey).toBe(77)
+  })
+
+  it('saves the target chosen from the search', async () => {
+    vi.useFakeTimers()
+    try {
+      mockLocal({ ...localGroup, foundOnTargetKey: null, foundOnTargetName: null })
+      const wrapper = mount(AccessGroupEdit, { props: { accessGroupKey: 3 }, global: { plugins: [makeRouter()] } })
+      await flushPromises()
+      await wrapper.get('input[role="combobox"]').setValue('server12')
+      vi.advanceTimersByTime(250)
+      await flushPromises()
+      await wrapper.findAll('[role="option"]').find(o => o.text().includes('server1235')).trigger('click')
+      await flushPromises()
+
+      await wrapper.get('form').trigger('submit')
+      await flushPromises()
+
+      const put = globalThis.fetch.mock.calls.find(([, options]) => options?.method === 'PUT')
+      expect(JSON.parse(put[1].body).foundOnTargetKey).toBe(1235)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('clears the target when the box is emptied', async () => {
+    vi.useFakeTimers()
+    try {
+      mockLocal()
+      const wrapper = mount(AccessGroupEdit, { props: { accessGroupKey: 3 }, global: { plugins: [makeRouter()] } })
+      await flushPromises()
+      await wrapper.get('input[role="combobox"]').setValue('')
+      vi.advanceTimersByTime(250)
+      await flushPromises()
+
+      await wrapper.get('form').trigger('submit')
+      await flushPromises()
+
+      const put = globalThis.fetch.mock.calls.find(([, options]) => options?.method === 'PUT')
+      expect(JSON.parse(put[1].body).foundOnTargetKey).toBeNull()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('only offers the search for a Local group', async () => {
+    mockReferenceData()
+    const wrapper = mount(AccessGroupEdit, { props: { accessGroupKey: 3 }, global: { plugins: [makeRouter()] } })
+    await flushPromises()
+
+    expect(wrapper.find('input[role="combobox"]').exists()).toBe(false)   // sampleGroup is a Domain group
+  })
+
+  it('says so when the search fails', async () => {
+    vi.useFakeTimers()
+    try {
+      mockLocal()
+      const wrapper = mount(AccessGroupEdit, { props: { accessGroupKey: 3 }, global: { plugins: [makeRouter()] } })
+      await flushPromises()
+      globalThis.fetch.mockImplementation((url) => Promise.resolve(jsonResponse(null, { ok: false, status: 500 })))
+      await wrapper.get('input[role="combobox"]').setValue('server12')
+      vi.advanceTimersByTime(250)
+      await flushPromises()
+
+      expect(wrapper.text()).toContain('Target search failed: 500')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
 })

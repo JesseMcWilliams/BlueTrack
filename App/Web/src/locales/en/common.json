@@ -25,5 +25,6 @@
   "saveFailed": "Save failed: {status}",
   "deleteFailed": "Delete failed: {status}",
   "importFailed": "Import failed: {status}",
+  "importNetworkFailed": "Import failed: the server couldn't be reached. Check your connection and try again.",
   "exportFailed": "Export failed: {status}"
 }

@@ -221,8 +221,8 @@ function cancel() {
             <small>{{ t('admin.dataFeedEdit.sourceSystemHint') }}</small>
           </p>
           <div v-if="newSource" class="new-source">
-            <p><label class="field-label"><span class="field-label-text">{{ t('admin.dataFeedEdit.sourceNameLabel') }}</span> <input v-model="newSource.sourceSystemName" maxlength="200" :placeholder="t('admin.dataFeedEdit.sourceNamePlaceholder')" /></label></p>
-            <p><label class="field-label"><span class="field-label-text">{{ t('admin.dataFeedEdit.sourceCodeLabel') }}</span> <input v-model="newSource.sourceSystemCode" maxlength="50" :placeholder="t('admin.dataFeedEdit.sourceCodePlaceholder')" /></label></p>
+            <p><label class="field-label"><span class="field-label-text">{{ t('admin.dataFeedEdit.sourceNameLabel') }}</span> <input v-model="newSource.sourceSystemName" maxlength="200" @keydown.enter.prevent="addSourceSystem" :placeholder="t('admin.dataFeedEdit.sourceNamePlaceholder')" /></label></p>
+            <p><label class="field-label"><span class="field-label-text">{{ t('admin.dataFeedEdit.sourceCodeLabel') }}</span> <input v-model="newSource.sourceSystemCode" maxlength="50" @keydown.enter.prevent="addSourceSystem" :placeholder="t('admin.dataFeedEdit.sourceCodePlaceholder')" /></label></p>
             <p v-if="newSourceError" role="alert">{{ newSourceError }}</p>
             <p>
               <button type="button" @click="addSourceSystem">{{ t('admin.dataFeedEdit.addSourceSystem') }}</button>

@@ -21,6 +21,7 @@
 // SetActiveAsync swaps that "***" for the stored credential.
 import { ref, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { confirmDelete } from '../../composables/useConfirmDialog'
 
 const { t } = useI18n()
 
@@ -30,6 +31,7 @@ const AWS_AUTH_METHODS = ['IamRole', 'AccessKey']
 
 const backends = ref([])
 const error = ref(null)
+const notice = ref(null)
 const loading = ref(true)
 const settingsObjects = ref({})
 const credentialDraft = ref({})
@@ -77,6 +79,19 @@ async function load() {
 onMounted(load)
 
 async function activate(backend) {
+  error.value = null
+  notice.value = null
+  const wasActive = backend.isActive
+  // UI review W10-1: making a different backend active switches where the application looks secrets up, so ask first,
+  // naming it. Saving the settings of the one that is already active needs no question.
+  if (!wasActive) {
+    const confirmed = await confirmDelete({
+      title: t('admin.secretsStoreConfiguration.activateTitle', { name: backend.backendType }),
+      details: [t('admin.secretsStoreConfiguration.activateDetail', { name: backend.backendType })],
+      warning: t('admin.secretsStoreConfiguration.activateWarning', { name: backend.backendType })
+    }, t('admin.secretsStoreConfiguration.makeActive'))
+    if (!confirmed) return
+  }
   const settings = settingsObjects.value[backend.backendType] || {}
   const backendSettings = Object.keys(settings).length > 0 ? JSON.stringify(settings) : null
   const response = await fetch('/api/admin/secrets-store/active', {
@@ -93,11 +108,15 @@ async function activate(backend) {
     })
   })
   if (!response.ok) {
-    error.value = t('common.saveFailed', { status: response.status })
+    const problem = await response.json().catch(() => null)
+    error.value = problem?.detail ?? t('common.saveFailed', { status: response.status })
     return
   }
   credentialDraft.value[backend.backendType] = ''
   await load()
+  notice.value = wasActive
+    ? t('admin.secretsStoreConfiguration.saved', { name: backend.backendType })
+    : t('admin.secretsStoreConfiguration.activated', { name: backend.backendType })
 }
 
 async function testConnection() {
@@ -121,6 +140,7 @@ async function testConnection() {
     <h2>{{ t('admin.secretsStoreConfiguration.title') }}</h2>
     <p>{{ t('admin.secretsStoreConfiguration.intro') }}</p>
     <p v-if="error" role="alert">{{ error }}</p>
+    <p v-if="notice" role="status">{{ notice }}</p>
     <p v-if="loading" role="status">{{ t('common.loading') }}</p>
 
     <table v-else>

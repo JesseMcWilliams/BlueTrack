@@ -41,7 +41,15 @@ async function importFile(url, fileRef, resultRef, importingRef, profileRef) {
     formData.append('file', fileRef.value)
     if (profileRef.value !== null) formData.append('mappingProfileKey', String(profileRef.value)) // D-207
     const response = await fetch(url, { method: 'POST', body: formData })
-    resultRef.value = response.ok ? await response.json() : { error: t('common.importFailed', { status: response.status }) }
+    if (response.ok) {
+      resultRef.value = await response.json()
+    } else {
+      // UI review W4-1: the template shows this; the API's own reason when it sent one.
+      const problem = await response.json().catch(() => null)
+      resultRef.value = { error: problem?.detail ?? t('common.importFailed', { status: response.status }) }
+    }
+  } catch {
+    resultRef.value = { error: t('common.importNetworkFailed') }
   } finally {
     importingRef.value = false
   }
@@ -76,7 +84,8 @@ async function importAccountTargetMap() {
       <button :disabled="!inventoryFile || inventoryImporting" @click="importInventory">{{ inventoryImporting ? t('common.importing') : t('pages.targetsBulkImport.import') }}</button>
     </p>
     <CsvColumnCheck :file="inventoryFile" feed-type="TargetInventory" :profile-chosen="inventoryProfile !== null" />
-    <p v-if="inventoryImportResult">
+    <p v-if="inventoryImportResult?.error" role="alert">{{ inventoryImportResult.error }}</p>
+    <p v-else-if="inventoryImportResult">
       {{ t('pages.targetsBulkImport.inventorySummary', { total: formatCount(inventoryImportResult.totalRows), created: formatCount(inventoryImportResult.createdCount), merged: formatCount(inventoryImportResult.mergedCount), pending: formatCount(inventoryImportResult.pendingReviewCount), errors: formatCount(inventoryImportResult.errors?.length ?? 0) }) }}
       <span v-if="inventoryImportResult.ignoredCount"><br />{{ t('pages.targetsBulkImport.inventoryIgnored', { ignored: formatCount(inventoryImportResult.ignoredCount) }) }}</span>
       <span v-if="inventoryImportResult.errors?.length"><br />{{ inventoryImportResult.errors.map(e => t('pages.targetsBulkImport.rowError', { row: e.rowNumber, error: e.error })).join('; ') }}</span>
@@ -90,7 +99,8 @@ async function importAccountTargetMap() {
       <button :disabled="!accountTargetFile || accountTargetImporting" @click="importAccountTargetMap">{{ accountTargetImporting ? t('common.importing') : t('pages.targetsBulkImport.import') }}</button>
     </p>
     <CsvColumnCheck :file="accountTargetFile" feed-type="AccountTargetMap" :profile-chosen="accountTargetProfile !== null" />
-    <p v-if="accountTargetImportResult">
+    <p v-if="accountTargetImportResult?.error" role="alert">{{ accountTargetImportResult.error }}</p>
+    <p v-else-if="accountTargetImportResult">
       {{ t('pages.targetsBulkImport.linksSummary', { total: formatCount(accountTargetImportResult.totalRows), created: formatCount(accountTargetImportResult.createdCount), merged: formatCount(accountTargetImportResult.mergedCount), errors: formatCount(accountTargetImportResult.errors?.length ?? 0) }) }}
       <span v-if="accountTargetImportResult.errors?.length"><br />{{ accountTargetImportResult.errors.map(e => t('pages.targetsBulkImport.rowError', { row: e.rowNumber, error: e.error })).join('; ') }}</span>
     </p>

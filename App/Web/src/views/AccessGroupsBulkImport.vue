@@ -39,7 +39,15 @@ async function importFile(key, url) {
     formData.append('file', state.file)
     if (state.profile !== null) formData.append('mappingProfileKey', String(state.profile)) // D-207
     const response = await fetch(url, { method: 'POST', body: formData })
-    state.result = response.ok ? await response.json() : { error: t('common.importFailed', { status: response.status }) }
+    if (response.ok) {
+      state.result = await response.json()
+    } else {
+      // UI review W4-1: the template shows this; the API's own reason when it sent one.
+      const problem = await response.json().catch(() => null)
+      state.result = { error: problem?.detail ?? t('common.importFailed', { status: response.status }) }
+    }
+  } catch {
+    state.result = { error: t('common.importNetworkFailed') }
   } finally {
     state.importing = false
   }
@@ -58,7 +66,8 @@ async function importFile(key, url) {
       <button :disabled="!importState.inventory.file || importState.inventory.importing" @click="importFile('inventory', '/api/admin/risk-scoring/import/access-group-inventory')">{{ importState.inventory.importing ? t('common.importing') : t('pages.accessGroupsBulkImport.import') }}</button>
     </p>
     <CsvColumnCheck :file="importState.inventory.file" feed-type="AccessGroupInventory" :profile-chosen="importState.inventory.profile !== null" />
-    <p v-if="importState.inventory.result">
+    <p v-if="importState.inventory.result?.error" role="alert">{{ importState.inventory.result.error }}</p>
+    <p v-else-if="importState.inventory.result">
       {{ t('pages.accessGroupsBulkImport.summary', { total: formatCount(importState.inventory.result.totalRows), succeeded: formatCount(importState.inventory.result.succeededCount), errors: formatCount(importState.inventory.result.errors?.length ?? 0) }) }}
       <span v-if="importState.inventory.result.errors?.length"><br />{{ importState.inventory.result.errors.map(e => t('pages.accessGroupsBulkImport.rowError', { row: e.rowNumber, error: e.error })).join('; ') }}</span>
     </p>
@@ -71,7 +80,8 @@ async function importFile(key, url) {
       <button :disabled="!importState.targetMap.file || importState.targetMap.importing" @click="importFile('targetMap', '/api/admin/risk-scoring/import/access-group-target-map')">{{ importState.targetMap.importing ? t('common.importing') : t('pages.accessGroupsBulkImport.import') }}</button>
     </p>
     <CsvColumnCheck :file="importState.targetMap.file" feed-type="AccessGroupTargetMap" :profile-chosen="importState.targetMap.profile !== null" />
-    <p v-if="importState.targetMap.result">
+    <p v-if="importState.targetMap.result?.error" role="alert">{{ importState.targetMap.result.error }}</p>
+    <p v-else-if="importState.targetMap.result">
       {{ t('pages.accessGroupsBulkImport.summary', { total: formatCount(importState.targetMap.result.totalRows), succeeded: formatCount(importState.targetMap.result.succeededCount), errors: formatCount(importState.targetMap.result.errors?.length ?? 0) }) }}
       <span v-if="importState.targetMap.result.errors?.length"><br />{{ importState.targetMap.result.errors.map(e => t('pages.accessGroupsBulkImport.rowError', { row: e.rowNumber, error: e.error })).join('; ') }}</span>
     </p>
@@ -84,7 +94,8 @@ async function importFile(key, url) {
       <button :disabled="!importState.membership.file || importState.membership.importing" @click="importFile('membership', '/api/admin/risk-scoring/import/account-access-group-membership')">{{ importState.membership.importing ? t('common.importing') : t('pages.accessGroupsBulkImport.import') }}</button>
     </p>
     <CsvColumnCheck :file="importState.membership.file" feed-type="AccountAccessGroupMembership" :profile-chosen="importState.membership.profile !== null" />
-    <p v-if="importState.membership.result">
+    <p v-if="importState.membership.result?.error" role="alert">{{ importState.membership.result.error }}</p>
+    <p v-else-if="importState.membership.result">
       {{ t('pages.accessGroupsBulkImport.summary', { total: formatCount(importState.membership.result.totalRows), succeeded: formatCount(importState.membership.result.succeededCount), errors: formatCount(importState.membership.result.errors?.length ?? 0) }) }}
       <span v-if="importState.membership.result.errors?.length"><br />{{ importState.membership.result.errors.map(e => t('pages.accessGroupsBulkImport.rowError', { row: e.rowNumber, error: e.error })).join('; ') }}</span>
     </p>
