@@ -3,6 +3,7 @@ import { mount, flushPromises } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { createRouter, createMemoryHistory } from 'vue-router'
 import { useRightsStore } from '../stores/rights'
+import { useListStateStore } from '../stores/listState'
 import AccountProgressDetail from './AccountProgressDetail.vue'
 
 function makeRouter() {
@@ -280,5 +281,64 @@ describe('AccountProgressDetail.vue', () => {
     expect(text).toContain('Effective Risk Score400')
     expect(text).toContain('Override Risk Score400')
     expect(text).toContain('Risk ExceptionEX-7 (Active) — Approved by CISO, reviewed 2026-06-01')
+  })
+
+  // UI review W2-2: Save and Cancel used to land on an unfiltered page 1 of the list.
+  describe('returning to the list', () => {
+    function listRouter() {
+      return createRouter({
+        history: createMemoryHistory(),
+        routes: [
+          { path: '/', name: 'home', component: { template: '<div />' } },
+          { path: '/accounts', name: 'account-progress-list', component: { template: '<div />' } }
+        ]
+      })
+    }
+
+    async function mountWith(router) {
+      useRightsStore().userKey = 1
+      mockLoad()
+      await router.push('/')
+      return mountEditable({ global: { plugins: [router] } })
+    }
+
+    it('Cancel goes back to the list with the filters, sort and page it had', async () => {
+      useListStateStore().remember('account-progress-list', { stage: 'Discovery', sort: 'userName:desc', page: '2' })
+      const router = listRouter()
+      const wrapper = await mountWith(router)
+
+      await wrapper.findAll('button').find(b => b.text() === 'Cancel').trigger('click')
+      await flushPromises()
+
+      expect(router.currentRoute.value.name).toBe('account-progress-list')
+      expect(router.currentRoute.value.query).toEqual({ stage: 'Discovery', sort: 'userName:desc', page: '2' })
+    })
+
+    it('Save goes back to the list the same way', async () => {
+      useListStateStore().remember('account-progress-list', { search: 'svc' })
+      const router = listRouter()
+      const wrapper = await mountWith(router)
+      const base = globalThis.fetch.getMockImplementation()
+      globalThis.fetch.mockImplementation((url, options) => url === '/api/account-progress/42' && options?.method === 'PUT'
+        ? Promise.resolve({ ok: true, status: 204, json: () => Promise.resolve(null) })
+        : base(url, options))
+
+      await wrapper.find('form').trigger('submit')
+      await flushPromises()
+
+      expect(router.currentRoute.value.name).toBe('account-progress-list')
+      expect(router.currentRoute.value.query).toEqual({ search: 'svc' })
+    })
+
+    it('with no remembered view it goes to the plain list', async () => {
+      const router = listRouter()
+      const wrapper = await mountWith(router)
+
+      await wrapper.findAll('button').find(b => b.text() === 'Cancel').trigger('click')
+      await flushPromises()
+
+      expect(router.currentRoute.value.name).toBe('account-progress-list')
+      expect(router.currentRoute.value.query).toEqual({})
+    })
   })
 })

@@ -3,6 +3,7 @@ import { mount, flushPromises } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { createRouter, createMemoryHistory } from 'vue-router'
 import AccountProgressList from './AccountProgressList.vue'
+import { useListStateStore } from '../stores/listState'
 
 // D-124 Phase 3: this page had no component-level Vitest coverage before
 // this phase (it predates Targets.test.js/AccessGroups.test.js's own
@@ -56,6 +57,7 @@ function makeRouter() {
     history: createMemoryHistory(),
     routes: [
       { path: '/', name: 'home', component: { template: '<div />' } },
+      { path: '/accounts', name: 'account-progress-list', component: { template: '<div />' } },
       { path: '/account-progress/:accountKey', name: 'account-progress-detail', component: { template: '<div />' } }
     ]
   })
@@ -246,5 +248,178 @@ describe('AccountProgressList.vue', () => {
     await flushPromises()
     const calls = globalThis.fetch.mock.calls.map(c => c[0]).filter(u => u.startsWith('/api/account-progress?'))
     expect(calls.at(-1)).toContain('linked=Show')
+  })
+
+  // UI review W2-2: the filters, sort and page are in the page address.
+  describe('list state in the address', () => {
+    const referenceData = {
+      dim_blueprint_stage: [{ key: 1, name: 'Discovery' }, { key: 2, name: 'Planning' }],
+      dim_progress_status: [{ key: 1, name: 'In Progress' }]
+    }
+
+    function mockWithReferenceData(totalCount = 200) {
+      globalThis.fetch = vi.fn((url) => {
+        if (url === '/api/account-progress/reference-data') return Promise.resolve(jsonResponse(referenceData))
+        if (url.startsWith('/api/account-progress')) return Promise.resolve(jsonResponse([sampleAccount], { totalCount, filteredCount: totalCount }))
+        return Promise.resolve(jsonResponse(null, { ok: false, status: 404 }))
+      })
+    }
+
+    async function mountAt(path) {
+      const router = makeRouter()
+      await router.push(path)
+      const wrapper = mount(AccountProgressList, { global: { plugins: [router] } })
+      await flushPromises()
+      return { wrapper, router }
+    }
+
+    const listCalls = () => globalThis.fetch.mock.calls.map(c => c[0]).filter(u => u.startsWith('/api/account-progress?'))
+    const lastListCall = () => new URLSearchParams(listCalls().at(-1).split('?')[1])
+
+    it('reads the filters, sort and page from the address into the first request and the controls', async () => {
+      mockWithReferenceData()
+      const { wrapper } = await mountAt('/accounts?stage=Discovery&status=In%20Progress&search=web&owner=jane&deleted=Only&linked=Show&sort=userName:desc,address:asc&page=2')
+
+      const first = new URLSearchParams(listCalls()[0].split('?')[1])
+      expect(Object.fromEntries(first)).toMatchObject({
+        stage: 'Discovery', status: 'In Progress', search: 'web', owner: 'jane', deleted: 'Only', linked: 'Show',
+        sort: 'userName:desc,address:asc', page: '2'
+      })
+      expect(wrapper.find('input[type="search"]').element.value).toBe('web')
+      expect(wrapper.text()).toContain('Page 2 of')
+      expect(wrapper.findAll('th').find(th => th.text().startsWith('Username')).attributes('aria-sort')).toBe('descending')
+    })
+
+    it('an untouched list has a clean address and an unfiltered first request', async () => {
+      mockWithReferenceData()
+      const { router } = await mountAt('/accounts')
+
+      const params = lastListCall()
+      expect(params.get('stage')).toBeNull()
+      expect(params.get('deleted')).toBeNull()
+      expect(params.get('page')).toBe('1')
+      expect(router.currentRoute.value.query).toEqual({})
+    })
+
+    it('ignores a value the page does not have: an unknown deleted option, an unknown sort field, a bad page', async () => {
+      mockWithReferenceData()
+      await mountAt('/accounts?deleted=Everything&sort=bogus:asc&page=-4')
+
+      const params = lastListCall()
+      expect(params.get('deleted')).toBeNull()
+      expect(params.get('sort')).toBeNull()
+      expect(params.get('page')).toBe('1')
+    })
+
+    it('writes a change to the address, and takes it out again when cleared', async () => {
+      mockWithReferenceData()
+      const { wrapper, router } = await mountAt('/accounts')
+
+      await wrapper.find('input[type="search"]').setValue('svc')
+      await flushPromises()
+      expect(router.currentRoute.value.query).toEqual({ search: 'svc' })
+
+      await wrapper.find('input[type="search"]').setValue('')
+      await flushPromises()
+      expect(router.currentRoute.value.query).toEqual({})
+    })
+
+    it('replaces the address entry rather than adding one, so Back leaves the list', async () => {
+      mockWithReferenceData()
+      const router = makeRouter()
+      await router.push('/') // the first navigation of a router replaces, so give Back somewhere to go
+      await router.push('/accounts')
+      const wrapper = mount(AccountProgressList, { global: { plugins: [router] } })
+      await flushPromises()
+
+      await wrapper.find('input[type="search"]').setValue('svc')
+      await flushPromises()
+      await wrapper.find('input[type="search"]').setValue('svcx')
+      await flushPromises()
+      router.back()
+      await flushPromises()
+
+      expect(router.currentRoute.value.name).toBe('home') // one Back from the list, not one per keystroke
+    })
+
+    it('a sort click is in the address; the page goes in when it is not the first, and a filter change drops it', async () => {
+      mockWithReferenceData()
+      const { wrapper, router } = await mountAt('/accounts')
+
+      await wrapper.findAll('th').find(th => th.text().startsWith('Address')).find('button').trigger('click')
+      await flushPromises()
+      expect(router.currentRoute.value.query).toEqual({ sort: 'address:asc' })
+
+      await wrapper.findAll('.pager button').find(b => b.text().includes('Next')).trigger('click')
+      await flushPromises()
+      expect(router.currentRoute.value.query).toEqual({ sort: 'address:asc', page: '2' })
+
+      await wrapper.find('input[type="search"]').setValue('svc')
+      await flushPromises()
+      expect(router.currentRoute.value.query).toEqual({ sort: 'address:asc', search: 'svc' })   // back on page 1
+    })
+
+    it('a stage chosen in the dropdown is in the address', async () => {
+      mockWithReferenceData()
+      const { wrapper, router } = await mountAt('/accounts')
+
+      await wrapper.findAll('select')[0].setValue('Planning')
+      await flushPromises()
+
+      expect(router.currentRoute.value.query).toEqual({ stage: 'Planning' })
+      expect(lastListCall().get('stage')).toBe('Planning')
+    })
+
+    it('remembers the view for the places that lead back to the list', async () => {
+      mockWithReferenceData()
+      const { wrapper } = await mountAt('/accounts?stage=Discovery')
+      const store = useListStateStore()
+      expect(store.queryFor('account-progress-list')).toEqual({ stage: 'Discovery' })
+
+      await wrapper.find('input[type="search"]').setValue('svc')
+      await flushPromises()
+
+      expect(store.queryFor('account-progress-list')).toEqual({ stage: 'Discovery', search: 'svc' })
+    })
+
+    it('follows the address when it changes under the page (Back, Forward, a link), keeping the page it names', async () => {
+      mockWithReferenceData()
+      const { wrapper, router } = await mountAt('/accounts?stage=Discovery')
+      const calls = listCalls().length
+
+      await router.push('/accounts?stage=Planning&page=3')
+      await flushPromises()
+
+      expect(listCalls().length).toBe(calls + 1)   // one reload, not one per field
+      const params = lastListCall()
+      expect(params.get('stage')).toBe('Planning')
+      expect(params.get('page')).toBe('3')
+      expect(wrapper.findAll('select')[0].element.value).toBe('Planning')
+      expect(router.currentRoute.value.query).toEqual({ stage: 'Planning', page: '3' })
+    })
+
+    it('does not reload when the address is already what the page shows', async () => {
+      mockWithReferenceData()
+      const { wrapper, router } = await mountAt('/accounts')
+      await wrapper.find('input[type="search"]').setValue('svc')
+      await flushPromises()
+      const calls = listCalls().length
+
+      await router.replace({ query: { search: 'svc' } })
+      await flushPromises()
+
+      expect(listCalls().length).toBe(calls)
+    })
+
+    it('leaving the list does not reload it', async () => {
+      mockWithReferenceData()
+      const { router } = await mountAt('/accounts?stage=Discovery')
+      const calls = listCalls().length
+
+      await router.push('/account-progress/1')
+      await flushPromises()
+
+      expect(listCalls().length).toBe(calls)
+    })
   })
 })

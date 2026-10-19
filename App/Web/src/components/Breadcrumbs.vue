@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
+import { useListStateStore } from '../stores/listState'
 
 // D-45/D-57: every page shows a breadcrumb trail; position defaults to
 // top-left and is admin-configurable via app_config.BreadcrumbPosition.
@@ -10,6 +11,7 @@ import { useI18n } from 'vue-i18n'
 const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
+const listState = useListStateStore()
 
 // Walks meta.breadcrumbParent (router/index.js), not route.matched --
 // route.matched only reflects actual nested-route parentage, which is
@@ -42,7 +44,7 @@ const crumbs = computed(() => {
     <router-link :to="{ name: 'dashboard' }">{{ t('shell.nav.dashboard') }}</router-link>
     <span v-for="crumb in crumbs" :key="crumb.name">
       <span class="breadcrumbs__separator">/</span>
-      <router-link :to="{ name: crumb.name }">{{ crumb.label }}</router-link>
+      <router-link :to="{ name: crumb.name, query: listState.queryFor(crumb.name) }">{{ crumb.label }}</router-link>
     </span>
   </nav>
 </template>

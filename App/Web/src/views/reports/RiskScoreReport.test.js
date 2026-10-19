@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
+import { createRouter, createMemoryHistory } from 'vue-router'
 import { createPinia, setActivePinia } from 'pinia'
 import RiskScoreReport from './RiskScoreReport.vue'
 
@@ -93,5 +94,64 @@ describe('RiskScoreReport.vue', () => {
     const calls = globalThis.fetch.mock.calls.map(c => c[0]).filter(u => u.startsWith('/api/reports/risk-score?'))
     expect(calls.at(-1)).toContain('page=1')
     expect(calls.at(-1)).toContain('sort=accountName')
+  })
+
+  // UI review W7-2: the sort and page are in the page address, so a view can be shared and reloaded.
+  describe('address', () => {
+    async function mountAt(path) {
+      const page = { template: '<div />' }
+      const router = createRouter({
+        history: createMemoryHistory(),
+        routes: [{ path: '/', name: 'home', component: page }, { path: '/report', name: 'report', component: page }]
+      })
+      await router.push(path)
+      const wrapper = mount(RiskScoreReport, { global: { plugins: [router] } })
+      await flushPromises()
+      return { wrapper, router }
+    }
+
+    const calls = () => globalThis.fetch.mock.calls.map(c => c[0]).filter(u => u.startsWith('/api/reports/risk-score?'))
+    const lastCall = () => new URLSearchParams(calls().at(-1).split('?')[1])
+
+    it('reads the sort and page from the address into the request', async () => {
+      mockInitialLoad({ totalCount: 500 })
+      await mountAt('/report?sort=accountName:desc&page=2')
+
+      expect(lastCall().get('sort')).toBe('accountName:desc')
+      expect(lastCall().get('page')).toBe('2')
+    })
+
+    it('ignores a sort field the page does not have, and a bad page', async () => {
+      mockInitialLoad()
+      await mountAt('/report?sort=bogus:asc&page=0')
+
+      expect(lastCall().get('sort')).toBeNull()
+      expect(lastCall().get('page')).toBe('1')
+    })
+
+    it('a sort click is in the address, and so is a later page', async () => {
+      mockInitialLoad({ totalCount: 500 })
+      const { wrapper, router } = await mountAt('/report')
+
+      await wrapper.findAll('th').find(th => th.text().startsWith('Account')).find('button').trigger('click')
+      await flushPromises()
+      expect(router.currentRoute.value.query.sort).toContain('accountName:')
+
+      await wrapper.findAll('.pager button').find(b => b.text().includes('Next')).trigger('click')
+      await flushPromises()
+      expect(router.currentRoute.value.query.page).toBe('2')
+    })
+
+    it('follows the address when it changes under the page, with one reload', async () => {
+      mockInitialLoad({ totalCount: 500 })
+      const { router } = await mountAt('/report')
+      const before = calls().length
+
+      await router.push('/report?page=3')
+      await flushPromises()
+
+      expect(calls().length).toBe(before + 1)
+      expect(lastCall().get('page')).toBe('3')
+    })
   })
 })

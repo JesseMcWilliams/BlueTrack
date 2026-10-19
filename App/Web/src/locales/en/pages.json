@@ -9,6 +9,7 @@
     "accountsByStage": "Accounts by Stage",
     "stage": "Stage",
     "accounts": "Accounts",
+    "showStageAccounts": "Show the {count} accounts in {stage}",
     "completeCount": "{count} account(s) Complete.",
     "sliceTitle": "{name}: {count}",
     "viewStageStatus": "View full stage/status breakdown",

@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
+import { createRouter, createMemoryHistory } from 'vue-router'
 import { createPinia, setActivePinia } from 'pinia'
 import { useRightsStore } from '../../stores/rights'
 import DiscoveredAccounts from './DiscoveredAccounts.vue'
@@ -277,5 +278,87 @@ describe('DiscoveredAccounts.vue', () => {
 
     const put = globalThis.fetch.mock.calls.find(c => c[0] === '/api/reports/discovered-accounts/1/classification')
     expect(JSON.parse(put[1].body)).toEqual({ accountClass: null, ownerSamAccountName: null })
+  })
+
+  // UI review W7-2: the sort and page are in the page address, so a view can be shared and reloaded.
+  describe('address', () => {
+    async function mountAt(path) {
+      const page = { template: '<div />' }
+      const router = createRouter({
+        history: createMemoryHistory(),
+        routes: [{ path: '/', name: 'home', component: page }, { path: '/report', name: 'report', component: page }]
+      })
+      await router.push(path)
+      const wrapper = mount(DiscoveredAccounts, { global: { plugins: [router] } })
+      await flushPromises()
+      return { wrapper, router }
+    }
+
+    const calls = () => globalThis.fetch.mock.calls.map(c => c[0]).filter(u => u.startsWith('/api/reports/discovered-accounts?'))
+    const lastCall = () => new URLSearchParams(calls().at(-1).split('?')[1])
+
+    it('reads the sort and page from the address into the request', async () => {
+      mockInitialLoad({ totalCount: 500 })
+      await mountAt('/report?sort=samAccountName:desc&page=2')
+
+      expect(lastCall().get('sort')).toBe('samAccountName:desc')
+      expect(lastCall().get('page')).toBe('2')
+    })
+
+    it('ignores a sort field the page does not have, and a bad page', async () => {
+      mockInitialLoad()
+      await mountAt('/report?sort=bogus:asc&page=0')
+
+      expect(lastCall().get('sort')).toBeNull()
+      expect(lastCall().get('page')).toBe('1')
+    })
+
+    it('a sort click is in the address, and so is a later page', async () => {
+      mockInitialLoad({ totalCount: 500 })
+      const { wrapper, router } = await mountAt('/report')
+
+      await wrapper.findAll('th').find(th => th.text().startsWith('Account')).find('button').trigger('click')
+      await flushPromises()
+      expect(router.currentRoute.value.query.sort).toContain('samAccountName:')
+
+      await wrapper.findAll('.pager button').find(b => b.text().includes('Next')).trigger('click')
+      await flushPromises()
+      expect(router.currentRoute.value.query.page).toBe('2')
+    })
+
+    it('follows the address when it changes under the page, with one reload', async () => {
+      mockInitialLoad({ totalCount: 500 })
+      const { router } = await mountAt('/report')
+      const before = calls().length
+
+      await router.push('/report?page=3')
+      await flushPromises()
+
+      expect(calls().length).toBe(before + 1)
+      expect(lastCall().get('page')).toBe('3')
+    })
+
+    it('reads the class filter from the address', async () => {
+      const { wrapper } = await mountAt('/report?class=Admin')
+
+      expect(lastCall().get('accountClass')).toBe('Admin')
+      expect(wrapper.find('select').element.value).toBe('Admin')
+    })
+
+    it('ignores a class the page does not have', async () => {
+      await mountAt('/report?class=Everything')
+
+      expect(lastCall().get('accountClass')).toBeNull()
+    })
+
+    it('a class chosen in the dropdown is in the address, and the page goes back to 1', async () => {
+      const { wrapper, router } = await mountAt('/report?page=3')
+      expect(router.currentRoute.value.query).toEqual({ page: '3' })
+
+      await wrapper.find('select').setValue('Admin')
+      await flushPromises()
+
+      expect(router.currentRoute.value.query).toEqual({ class: 'Admin' })
+    })
   })
 })

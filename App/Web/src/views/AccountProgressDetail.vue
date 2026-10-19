@@ -4,6 +4,7 @@
 // (enforced server-side; this form just surfaces whatever error comes back).
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
+import { useListStateStore } from '../stores/listState'
 import { useRightsStore } from '../stores/rights'
 import { formatDate } from '../utils/formatDate'
 import { decomNote } from '../utils/decomNote'
@@ -14,6 +15,7 @@ const { t } = useI18n()
 
 const props = defineProps({ accountKey: { type: [String, Number], required: true } })
 const router = useRouter()
+const listState = useListStateStore()
 const rights = useRightsStore()
 
 // Maps account_progress_field_metadata.FieldName (PascalCase, matches the
@@ -413,8 +415,8 @@ async function save() {
     stopHeartbeat()
     // A save returns to the Accounts list (2026-09-06, user-requested) --
     // no need to refetch/reset this page's own form first, since the
-    // component is about to unmount.
-    router.push({ name: 'account-progress-list' })
+    // component is about to unmount. UI review W2-2: to the list as it was left (its filters, sort and page).
+    backToList()
   } finally {
     saving.value = false
   }
@@ -425,7 +427,11 @@ async function save() {
 // was the one Cancel button in the app that didn't already do this).
 async function cancelEdit() {
   await releaseLock()
-  router.push({ name: 'account-progress-list' })
+  backToList()
+}
+
+function backToList() {
+  router.push({ name: 'account-progress-list', query: listState.queryFor('account-progress-list') })
 }
 
 async function releaseLock() {
