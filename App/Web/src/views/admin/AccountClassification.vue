@@ -9,11 +9,13 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
+import { useRightsStore } from '../../stores/rights'
 import { confirmDelete } from '../../composables/useConfirmDialog'
 import { formatCount } from '../../utils/formatCount'
 
 const { t } = useI18n()
 const router = useRouter()
+const rights = useRightsStore()
 
 const loading = ref(true)
 const error = ref(null)
@@ -126,6 +128,8 @@ onMounted(load)
   <div>
     <h2>{{ t('admin.accountClassification.title') }}</h2>
     <p class="intro">{{ t('admin.accountClassification.intro') }}</p>
+    <!-- UI review W5-7: where the rules' effect shows. -->
+    <p v-if="rights.hasPermission('ViewDiscoveredAccounts')"><router-link :to="{ name: 'reports-discovered-accounts' }">{{ t('admin.accountClassification.seeDiscovered') }}</router-link></p>
     <p v-if="error" role="alert">{{ error }}</p>
     <p v-if="message" role="status">{{ message }}</p>
     <p v-if="loading" role="status">{{ t('common.loading') }}</p>

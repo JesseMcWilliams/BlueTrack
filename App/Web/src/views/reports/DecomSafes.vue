@@ -35,6 +35,7 @@ onMounted(async () => {
       <template #suffix><code>{{ '_DECOM' }}</code></template>
       <template #accountsLink><router-link :to="{ name: 'reports-decom-accounts' }">{{ t('reports.decomSafes.hintAccountsLink') }}</router-link></template>
     </i18n-t>
+    <p class="hint">{{ t('reports.decomSafes.whatNext') }}</p>
     <ReportExportButtons path="/api/reports/decom-safes/export" />
     <p v-if="loading" role="status">{{ t('common.loading') }}</p>
     <p v-else-if="error" role="alert">{{ t('reports.decomSafes.loadFailed', { error }) }}</p>

@@ -100,6 +100,19 @@ describe('UnresolvedEntitlementMembers.vue', () => {
       memberType: 'User', sourceMemberId: '6a1f-guid', resolution: 'Linked', userKey: 40, groupKey: null, note: null
     })
     expect(wrapper.find('h3').exists()).toBe(false)
+    // UI review W5-5: a line says what was saved
+    expect(wrapper.find('[role="status"]').text()).toBe('jane.doe@corp.example resolved.')
+  })
+
+  it('moves focus into the Resolve form when it opens (UI review W5-5)', async () => {
+    globalThis.fetch = vi.fn((url) => Promise.resolve(url.includes('/principals') ? jsonResponse([]) : jsonResponse([unresolved])))
+    const wrapper = mountPage(['ViewDashboard', 'ConfirmReconciliation'])
+    await flushPromises()
+
+    await wrapper.findAll('button').find(b => b.text() === 'Resolve').trigger('click')
+    await flushPromises()
+
+    expect(document.activeElement).toBe(wrapper.find('h3').element)
   })
 
   it('External / cloud role posts the note; a refusal shows the API message', async () => {

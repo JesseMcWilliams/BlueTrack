@@ -47,6 +47,7 @@ onMounted(async () => {
       <template #notDeleted><strong>{{ t('reports.decomAccounts.hintNotDeleted') }}</strong></template>
       <template #alsoIn><strong>{{ t('reports.decomAccounts.hintAlsoIn') }}</strong></template>
     </i18n-t>
+    <p class="hint">{{ t('reports.decomAccounts.whatNext') }}</p>
     <ReportExportButtons path="/api/reports/decom-accounts/export" :params="{ notDeletedOnly: hideDeleted }" />
     <p v-if="loading" role="status">{{ t('common.loading') }}</p>
     <p v-else-if="error" role="alert">{{ t('reports.decomAccounts.loadFailed', { error }) }}</p>

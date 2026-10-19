@@ -12,7 +12,7 @@ The Self-Hosted Direct setup workflow (Credentials, CyberArk sources, Data Sourc
 4. **List state in the URL and drill-down: shipped (D-252)** for the Accounts list, Trends, Discovered Accounts and Risk Score, and for the Dashboard and stage-by-status counts. The KPI counts shipped in D-261.
 5. **Missing empty states: shipped (D-253)** for Targets, Access Groups, Accounts, Discovered Accounts and the admin lists. Still open: Risk Score report (a report, not the Bands list).
 6. **Silent failures**: bulk-import HTTP errors on Application mapping render nothing (Targets and Access Groups shipped in D-251); theme, language and page-size saves ignore failures. (W8-3, W12-3)
-7. **Accessibility basics** (worklist row links and named Delete buttons shipped, D-257 and D-258): toggles without `aria-expanded`, forms that open away from the control without moving focus. (W3-5, W4-7, W5-5, W5-6, W9-9, W10-8)
+7. **Accessibility basics** (worklist row links and named Delete buttons shipped, D-257 and D-258): toggles without `aria-expanded` and forms that open away from the control without moving focus remain on the Notifications run history (W9-9) and the Secrets Store (W10-8). (W9-9, W10-8; W5-5 and W5-6 shipped in D-262)
 
 ## Workflow 1: Sign-in and access
 
@@ -66,11 +66,7 @@ Works well: link and unlink confirmations that say what will happen, the delete 
 | ID | Finding | Effort |
 |---|---|---|
 | W5-2 | Discovered Accounts has no empty state. | S |
-| W5-3 | Reconciliation Review is a dead end: no hint, read-only ("actions aren't wired up yet" in its own comment), and nothing links it to Possible Matches, which does the linking. Add a hint and link, or retire it if superseded (unverified). | S |
 | W5-4 | Dismiss on Possible Matches and Discovered Accounts has no undo or "show dismissed" view (it now confirms). | M |
-| W5-5 | The Resolve form on Unresolved Members opens at the top of the page, away from the row, with no focus move and no message on save. | S |
-| W5-6 | The account-name toggle has no `aria-expanded`; the Classify form opens without moving focus. | S |
-| W5-7 | The "possible match" note names the account without linking to it; Account Classification doesn't link to Discovered Accounts, where its effect shows. | S |
 
 Works well: Link's confirm names both accounts; Unresolved Members pre-fills the exact match and offers Undo; Account Classification reports how many accounts it changed.
 
@@ -82,7 +78,6 @@ Read-only reports; the admin acts in CyberArk. Rows link to the account detail.
 |---|---|---|
 | W6-1 | The Safes report can't show which accounts are in a flagged Safe; the Accounts report has no Safe filter. | M |
 | W6-2 | The Accounts report loads every row, with no sorting, paging, search or count. | M |
-| W6-3 | No "what next" line (delete in CyberArk; the report updates after the next load) and no reviewed state. | S |
 | W6-4 | The Application name isn't linked to its edit page. | S |
 
 ## Workflow 7: Reporting

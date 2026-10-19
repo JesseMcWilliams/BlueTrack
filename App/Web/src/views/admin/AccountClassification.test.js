@@ -1,6 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
 import { createRouter, createMemoryHistory } from 'vue-router'
+import { createPinia, setActivePinia } from 'pinia'
+import { useRightsStore } from '../../stores/rights'
 import AccountClassification from './AccountClassification.vue'
 import AccountClassificationRuleEdit from './AccountClassificationRuleEdit.vue'
 
@@ -39,6 +41,7 @@ function makeRouter() {
     routes: [
       { path: '/', name: 'home', component: { template: '<div />' } },
       { path: '/admin/account-classification', name: 'admin-account-classification', component: { template: '<div />' } },
+      { path: '/reports/discovered-accounts', name: 'reports-discovered-accounts', component: { template: '<div />' } },
       { path: '/admin/account-classification/rules/new', name: 'admin-account-classification-rule-create', component: { template: '<div />' } },
       { path: '/admin/account-classification/rules/:ruleKey', name: 'admin-account-classification-rule-edit', component: { template: '<div />' } }
     ]
@@ -61,11 +64,26 @@ function mockApi(overrides = {}) {
 
 describe('AccountClassification.vue', () => {
   beforeEach(() => {
+    setActivePinia(createPinia())
     confirmDelete.mockResolvedValue(true)
   })
 
   afterEach(() => {
     vi.restoreAllMocks()
+  })
+
+  // UI review W5-7
+  it('links to Discovered Accounts only for someone who can open it', async () => {
+    mockApi()
+    const without = mount(AccountClassification, { global: { plugins: [makeRouter()] } })
+    await flushPromises()
+    expect(without.text()).not.toContain('See the result on Discovered Accounts')
+
+    useRightsStore().permissionNames = ['ViewDiscoveredAccounts']
+    mockApi()
+    const withLink = mount(AccountClassification, { global: { plugins: [makeRouter()] } })
+    await flushPromises()
+    expect(withLink.text()).toContain('See the result on Discovered Accounts')
   })
 
   it('shows the settings and each rule type in its own table, in order', async () => {

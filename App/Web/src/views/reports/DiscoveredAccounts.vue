@@ -20,7 +20,7 @@
 // Classification's rules, a Class filter (sent to the export too), and a
 // per-row Classify form (ManageDiscoveredAccounts) that sets or clears a
 // manual class/owner override, kept across discovery runs.
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, nextTick } from 'vue'
 import { useAddressState } from '../../composables/useAddressState'
 import { readOneOf, readText, readPage, parseSort, compactQuery } from '../../utils/listQuery'
 import { formatDate } from '../../utils/formatDate'
@@ -169,10 +169,13 @@ const editingKey = ref(null)
 const overrideForm = ref({ accountClass: '', ownerSamAccountName: '' })
 const overrideError = ref(null)
 
-function startClassify(row) {
+async function startClassify(row) {
   editingKey.value = row.discoveredAccountKey
   overrideError.value = null
   overrideForm.value = { accountClass: row.classOverride ?? '', ownerSamAccountName: row.ownerOverrideSamAccountName ?? '' }
+  // UI review W5-6: the form opens in a row of its own, so move focus into it.
+  await nextTick()
+  document.querySelector('.override-form select')?.focus()
 }
 
 async function saveOverride(row, clear = false) {
@@ -331,14 +334,14 @@ onMounted(load)
         <template v-for="row in rows" :key="row.discoveredAccountKey">
           <tr>
             <td>
-              <button type="button" class="link-button" @click="toggleDrilldown(row.discoveredAccountKey)">
+              <button type="button" class="link-button" :aria-expanded="expandedKey === row.discoveredAccountKey" @click="toggleDrilldown(row.discoveredAccountKey)">
                 {{ row.samAccountName }}
               </button>
               <span v-if="row.displayName"> ({{ row.displayName }})</span>
               <span v-if="!row.isEnabled">{{ ' ' + t('reports.discoveredAccounts.disabled') }}</span>
-              <p v-if="row.possibleExistingAccountKey" class="possible-match" role="status">
-                {{ t('reports.discoveredAccounts.possibleMatch', { account: row.possibleExistingAccountName }) }}
-              </p>
+              <i18n-t v-if="row.possibleExistingAccountKey" keypath="reports.discoveredAccounts.possibleMatch" tag="p" class="possible-match" role="status" scope="global">
+                <template #account><router-link :to="{ name: 'account-progress-detail', params: { accountKey: row.possibleExistingAccountKey } }">{{ row.possibleExistingAccountName }}</router-link></template>
+              </i18n-t>
             </td>
             <td>{{ row.domainName }}</td>
             <td>{{ classLabel(row.accountClass) }}</td>

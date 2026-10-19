@@ -8,7 +8,7 @@
 // group, or label it External / cloud role) or Undo that. Resolved members
 // are left out unless Show resolved is ticked. Resolve acts on the member, so
 // every safe row with that member ID changes together.
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, nextTick } from 'vue'
 import { formatDate } from '../../utils/formatDate'
 import { useRightsStore } from '../../stores/rights'
 import { confirmDelete } from '../../composables/useConfirmDialog'
@@ -24,6 +24,8 @@ const base = '/api/reports/unresolved-entitlement-members'
 const items = ref([])
 const error = ref(null)
 const actionError = ref(null)
+// UI review W5-5: what a save did, shown beside the form's old place (the top of the page).
+const notice = ref(null)
 const loading = ref(true)
 const showResolved = ref(false)
 const busy = ref(false)
@@ -80,6 +82,7 @@ const principalLabel = principal => principal.name
 async function startResolve(item) {
   actionError.value = null
   formError.value = null
+  notice.value = null
   editing.value = {
     memberType: item.memberType,
     sourceMemberId: item.unresolvedMemberId,
@@ -100,6 +103,17 @@ async function startResolve(item) {
       // No suggestion; the search box still works.
     }
   }
+}
+
+// UI review W5-5: the form opens at the top of the page, away from the row's button, so bring it into view and put
+// focus in it (its heading), instead of leaving the user looking at the row.
+async function showResolveForm(item) {
+  const opening = startResolve(item)
+  await nextTick()
+  const form = document.getElementById('resolve-heading')
+  form?.scrollIntoView?.({ block: 'start' })
+  form?.focus()
+  await opening
 }
 
 function cancel() {
@@ -131,6 +145,7 @@ async function save() {
       body: JSON.stringify(body)
     })
     if (!response.ok) throw new Error(await problemMessage(response))
+    notice.value = t('reports.unresolvedEntitlementMembers.resolvedNotice', { name: editing.value.memberName })
     editing.value = null
     await load()
   } catch (err) {
@@ -179,7 +194,7 @@ onMounted(load)
     <p><label><input v-model="showResolved" type="checkbox" @change="onShowResolvedChange" /> {{ t('reports.unresolvedEntitlementMembers.showResolved') }}</label></p>
 
     <section v-if="editing" class="resolve-form" aria-labelledby="resolve-heading">
-      <h3 id="resolve-heading">{{ t('reports.unresolvedEntitlementMembers.resolveTitle', { name: editing.memberName }) }}</h3>
+      <h3 id="resolve-heading" tabindex="-1">{{ t('reports.unresolvedEntitlementMembers.resolveTitle', { name: editing.memberName }) }}</h3>
       <p>{{ t('reports.unresolvedEntitlementMembers.resolveAppliesTo', { id: editing.sourceMemberId, count: editing.count }, editing.count) }}</p>
       <fieldset>
         <legend>{{ t('reports.unresolvedEntitlementMembers.resolveAs') }}</legend>
@@ -223,6 +238,7 @@ onMounted(load)
     </section>
 
     <p v-if="actionError" role="alert">{{ actionError }}</p>
+    <p v-if="notice" role="status">{{ notice }}</p>
     <p v-if="loading" role="status">{{ t('common.loading') }}</p>
     <p v-else-if="error" role="alert">{{ t('reports.unresolvedEntitlementMembers.loadFailed', { error }) }}</p>
     <p v-else-if="items.length === 0">{{ showResolved ? t('reports.unresolvedEntitlementMembers.emptyAll') : t('reports.unresolvedEntitlementMembers.empty') }}</p>
@@ -254,7 +270,7 @@ onMounted(load)
           <td v-if="canResolve">
             <button type="button" :disabled="busy"
                     :aria-label="t('reports.unresolvedEntitlementMembers.resolveLabel', { name: item.memberName ?? item.unresolvedMemberId, safe: item.safeName })"
-                    @click="startResolve(item)">{{ t('reports.unresolvedEntitlementMembers.resolve') }}</button>
+                    @click="showResolveForm(item)">{{ t('reports.unresolvedEntitlementMembers.resolve') }}</button>
             <button v-if="item.resolutionMethod === 'Manual' || item.resolutionMethod === 'External'" type="button" :disabled="busy"
                     :aria-label="t('reports.unresolvedEntitlementMembers.undoLabel', { name: item.memberName ?? item.unresolvedMemberId, safe: item.safeName })"
                     @click="undo(item)">{{ t('reports.unresolvedEntitlementMembers.undo') }}</button>

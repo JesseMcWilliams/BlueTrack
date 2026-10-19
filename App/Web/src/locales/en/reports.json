@@ -21,6 +21,7 @@
     "hintPattern": "account decommission pattern",
     "hintNotDeleted": "Not deleted yet",
     "hintAlsoIn": "Also in",
+    "whatNext": "BlueTrack only reports these. Delete them in CyberArk; this report updates after the next data load.",
     "loadFailed": "Could not load the report: {error}",
     "onlyNotDeleted": "Only accounts not yet deleted",
     "empty": "No accounts are flagged for deletion.",
@@ -43,6 +44,7 @@
     "hint": "Safes whose name matches the {pattern} (Admin > Global Application Configuration), typically a prefix or suffix such as {prefix} or {suffix} added while CyberArk's retention policy keeps the safe, or while its accounts move to another safe. Accounts still in these safes are on {accountsLink}.",
     "hintPattern": "safe decommission pattern",
     "hintAccountsLink": "Accounts Flagged for Deletion",
+    "whatNext": "BlueTrack only reports these. Delete or move them in CyberArk; this report updates after the next data load.",
     "loadFailed": "Could not load the report: {error}",
     "empty": "No safes are flagged for deletion. If you expected some, check the safe decommission pattern.",
     "colSafe": "Safe",
@@ -155,6 +157,8 @@
     "title": "Reconciliation Review Queue",
     "loadFailed": "Could not load queue: {error}",
     "empty": "Nothing awaiting reconciliation review.",
+    "hint": "Unconfirmed matches between a Self-Hosted account and a Privilege Cloud account, listed for review. This page is read-only: it has no confirm or reject buttons. To link accounts from other systems (data feeds) to CyberArk accounts, use {possibleMatches}.",
+    "hintPossibleMatches": "Possible Account Matches",
     "colSelfHosted": "Self-Hosted Account",
     "colPrivCloud": "Privilege Cloud Account",
     "colMatchMethod": "Match Method",
@@ -236,6 +240,7 @@
     "inScope": "In scope"
   },
   "unresolvedEntitlementMembers": {
+    "resolvedNotice": "{name} resolved.",
     "title": "Unresolved Entitlement Members",
     "hint": "These Safe members have an ID in the Entitlements export that matches no user or group in the Users and Groups exports. The nightly load links a member to the one user or group with exactly the same name (ignoring case); the rest are listed here, typically built-in CyberArk cloud roles or identities from CyberArk Identity or Entra ID.",
     "hintResolve": "Resolve links a member to the right user or group, or marks it as an external or cloud role. It applies to every safe the member is on, and is kept through the nightly load. Undo removes it.",

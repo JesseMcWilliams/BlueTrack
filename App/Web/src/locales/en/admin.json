@@ -829,6 +829,7 @@
   },
   "accountClassification": {
     "title": "Account Classification",
+    "seeDiscovered": "See the result on Discovered Accounts",
     "intro": "Separates a person's day-to-day (Primary) account from their Secondary and Admin accounts on Reports > Discovered Accounts, and finds each account's Owner (the person's primary account). Attribute rules are checked first, then Name rules, then OU rules, each in the order shown; the first enabled rule that matches sets the class. Saving anything here reclassifies every discovered account at once, from what the last discovery run read -- no directory lookup.",
     "settings": "Settings",
     "enabled": "Classify discovered accounts",
