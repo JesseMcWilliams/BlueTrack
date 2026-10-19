@@ -11,13 +11,16 @@
 // D-213: both tables page server-side, like Accounts, at the user's page
 // size (the shared pageSize store). The Safes rows' <select> still lists
 // every application, so the full list is loaded once for it.
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useTotalCount } from '../../composables/useTotalCount'
 import { usePageSizeStore } from '../../stores/pageSize'
 import FilterCountSummary from '../../components/FilterCountSummary.vue'
 import Pager from '../../components/Pager.vue'
 import { useI18n } from 'vue-i18n'
+import { confirmDelete } from '../../composables/useConfirmDialog'
+import { problemMessage } from '../../utils/problemText'
+import EmptyListMessage from '../../components/EmptyListMessage.vue'
 
 const { t } = useI18n()
 
@@ -37,12 +40,22 @@ const appCounts = useTotalCount()
 const safeCounts = useTotalCount()
 const appPage = ref(1)
 const safePage = ref(1)
+// UI review W8-2: the Safes table can be searched by name and narrowed to Safes with no application.
+const safeSearch = ref('')
+const unassignedOnly = ref(false)
 const pageCountFor = (count) => computed(() => Math.max(1, Math.ceil((count.value ?? 0) / pageSizeStore.current)))
 const appPageCount = pageCountFor(appCounts.filteredCount)
 const safePageCount = pageCountFor(safeCounts.filteredCount)
 
-function pageParams(page) {
-  return new URLSearchParams({ page, pageSize: pageSizeStore.current }).toString()
+function pageParams(page, extra = {}) {
+  return new URLSearchParams({ page, pageSize: pageSizeStore.current, ...extra }).toString()
+}
+
+function safeFilterParams() {
+  const extra = {}
+  if (safeSearch.value.trim()) extra.search = safeSearch.value.trim()
+  if (unassignedOnly.value) extra.unassigned = 'true'
+  return extra
 }
 
 async function loadApplications() {
@@ -53,7 +66,7 @@ async function loadApplications() {
 }
 
 async function loadSafes() {
-  const response = await fetch(`/api/safes?${pageParams(safePage.value)}`)
+  const response = await fetch(`/api/safes?${pageParams(safePage.value, safeFilterParams())}`)
   if (!response.ok) throw new Error(t('admin.applicationSafeMapping.safesRequestFailed', { status: response.status }))
   safeCounts.readTotalCount(response)
   safes.value = await response.json()
@@ -78,6 +91,29 @@ onMounted(async () => {
   await run(() => Promise.all([loadApplications(), loadSafes(), loadAllApplications()]))
   loading.value = false
 })
+
+// A change to the search or the unassigned filter starts the Safes table over at page 1, after a short pause for typing.
+let safeFilterTimer = null
+watch([safeSearch, unassignedOnly], () => {
+  clearTimeout(safeFilterTimer)
+  safeFilterTimer = setTimeout(() => {
+    safePage.value = 1
+    run(loadSafes)
+  }, 250)
+})
+
+// UI review W8-5: delete an application nothing uses (the API refuses one that is in use, with the counts).
+const usedBy = (app) => app.safeCount + app.accountCount + app.targetCount + app.exceptionCount
+async function removeApplication(app) {
+  if (!(await confirmDelete(t('admin.applicationSafeMapping.confirmDelete', { name: app.applicationName })))) return
+  const response = await fetch(`/api/applications/${app.applicationKey}`, { method: 'DELETE' })
+  if (!response.ok) {
+    error.value = await problemMessage(response, t('common.deleteFailed', { status: response.status }))
+    return
+  }
+  error.value = null
+  await run(() => Promise.all([loadApplications(), loadSafes(), loadAllApplications()]))
+}
 
 function onAppPageChange(page) {
   appPage.value = page
@@ -131,6 +167,8 @@ async function assignSafe(safe, applicationKeyRaw) {
 <template>
   <div>
     <h2>{{ t('admin.applicationSafeMapping.title') }}</h2>
+    <!-- UI review W8-6: where an account's application comes from. -->
+    <p class="intro">{{ t('admin.applicationSafeMapping.intro') }}</p>
     <p v-if="error" role="alert">{{ error }}</p>
     <p v-if="loading" role="status">{{ t('common.loading') }}</p>
 
@@ -143,19 +181,25 @@ async function assignSafe(safe, applicationKeyRaw) {
       <FilterCountSummary :shown="applications.length" :filtered-count="appCounts.filteredCount.value" :total="appCounts.totalCount.value" :page="appPage" :page-size="pageSizeStore.current" />
       <table class="applications-table">
         <thead>
-          <tr><th>{{ t('admin.applicationSafeMapping.code') }}</th><th>{{ t('common.name') }}</th><th>{{ t('admin.applicationSafeMapping.owner') }}</th></tr>
+          <tr><th>{{ t('admin.applicationSafeMapping.code') }}</th><th>{{ t('common.name') }}</th><th>{{ t('admin.applicationSafeMapping.owner') }}</th><th>{{ t('admin.applicationSafeMapping.usedBy') }}</th><th><span class="visually-hidden">{{ t('admin.applicationSafeMapping.actions') }}</span></th></tr>
         </thead>
         <tbody>
           <tr v-for="app in applications" :key="app.applicationKey">
             <td>{{ app.applicationCode }}</td>
             <td><router-link :to="{ name: 'admin-application-edit', params: { applicationKey: app.applicationKey } }">{{ app.applicationName }}</router-link></td>
             <td>{{ app.ownerName }}</td>
+            <td>{{ t('admin.applicationSafeMapping.usage', { safes: app.safeCount, accounts: app.accountCount, targets: app.targetCount, exceptions: app.exceptionCount }) }}</td>
+            <td><button type="button" :disabled="usedBy(app) > 0" :title="usedBy(app) > 0 ? t('admin.applicationSafeMapping.inUse') : undefined" :aria-label="t('common.deleteNamed', { name: app.applicationName })" @click="removeApplication(app)">{{ t('common.delete') }}</button></td>
           </tr>
         </tbody>
       </table>
       <Pager :page="appPage" :page-count="appPageCount" @update:page="onAppPageChange" @page-size-change="onPageSizeChange" />
 
       <h3>{{ t('admin.applicationSafeMapping.safesHeading') }}</h3>
+      <p class="filter-row">
+        <label class="field-label"><span class="field-label-text">{{ t('admin.applicationSafeMapping.searchSafes') }}</span> <input v-model="safeSearch" type="search" /></label>
+        <label><input v-model="unassignedOnly" type="checkbox" /> {{ t('admin.applicationSafeMapping.unassignedOnly') }}</label>
+      </p>
       <p v-if="assignError" role="alert" class="assign-error">{{ assignError }}</p>
       <p v-if="assignNotice" role="status" class="assign-notice">{{ assignNotice }}</p>
       <FilterCountSummary :shown="safes.length" :filtered-count="safeCounts.filteredCount.value" :total="safeCounts.totalCount.value" :page="safePage" :page-size="pageSizeStore.current" />
@@ -177,6 +221,7 @@ async function assignSafe(safe, applicationKeyRaw) {
           </tr>
         </tbody>
       </table>
+      <EmptyListMessage :show="safes.length === 0" :message="t('admin.applicationSafeMapping.noSafesMatch')" />
       <Pager :page="safePage" :page-count="safePageCount" @update:page="onSafePageChange" @page-size-change="onPageSizeChange" />
     </template>
   </div>

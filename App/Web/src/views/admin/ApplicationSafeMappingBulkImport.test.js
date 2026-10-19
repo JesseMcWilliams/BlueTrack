@@ -84,3 +84,34 @@ describe('ApplicationSafeMappingBulkImport.vue', () => {
     expect(summary).toContain("Row 4: No account with username 'x' and address 'y'.")
   })
 })
+
+describe('ApplicationSafeMappingBulkImport.vue: failures (UI review W8-3)', () => {
+  afterEach(() => vi.restoreAllMocks())
+
+  it('lists each row error on its own line', async () => {
+    globalThis.fetch = vi.fn(() => Promise.resolve(jsonResponse({
+      totalRows: 3, createdCount: 1, updatedCount: 0, unchangedCount: 0,
+      errors: [{ rowNumber: 4, error: 'First problem.' }, { rowNumber: 6, error: 'Second problem.' }]
+    })))
+    const wrapper = mount(ApplicationSafeMappingBulkImport)
+    await selectFile(wrapper.get('input[aria-label="Applications CSV file"]'), new File(['x'], 'apps.csv', { type: 'text/csv' }))
+    await importButtons(wrapper)[0].trigger('click')
+    await flushPromises()
+
+    expect(wrapper.findAll('[data-testid="applications-result"] li').map(li => li.text())).toEqual(['Row 4: First problem.', 'Row 6: Second problem.'])
+  })
+
+  it('says so when the server does not answer, and gives the API reason when it refuses', async () => {
+    globalThis.fetch = vi.fn(() => Promise.reject(new TypeError('Failed to fetch')))
+    const wrapper = mount(ApplicationSafeMappingBulkImport)
+    await selectFile(wrapper.get('input[aria-label="Applications CSV file"]'), new File(['x'], 'apps.csv', { type: 'text/csv' }))
+    await importButtons(wrapper)[0].trigger('click')
+    await flushPromises()
+    expect(wrapper.get('[data-testid="applications-result"]').text()).toBe('The server did not answer, so nothing was imported.')
+
+    globalThis.fetch = vi.fn(() => Promise.resolve({ ok: false, status: 400, json: () => Promise.resolve({ detail: 'The file has no header row.' }) }))
+    await importButtons(wrapper)[0].trigger('click')
+    await flushPromises()
+    expect(wrapper.get('[data-testid="applications-result"]').text()).toBe('The file has no header row.')
+  })
+})

@@ -7,6 +7,7 @@ import { apiUrl } from '../../utils/apiBase'
 // which can only name applications that already exist.
 import { ref } from 'vue'
 import { formatCount } from '../../utils/formatCount'
+import { problemMessage } from '../../utils/problemText'
 import { useI18n } from 'vue-i18n'
 
 const { t } = useI18n()
@@ -30,15 +31,20 @@ async function importFile(url, fileRef, resultRef, importingRef) {
   try {
     const formData = new FormData()
     formData.append('file', fileRef.value)
+    // UI review W8-3: a network error and the API's own reason are shown, not swallowed or reduced to a status.
     const response = await fetch(url, { method: 'POST', body: formData })
-    resultRef.value = response.ok ? await response.json() : { error: t('common.importFailed', { status: response.status }) }
+    resultRef.value = response.ok
+      ? await response.json()
+      : { error: await problemMessage(response, t('common.importFailed', { status: response.status })) }
+  } catch {
+    resultRef.value = { error: t('admin.applicationSafeMappingBulkImport.noResponse') }
   } finally {
     importingRef.value = false
   }
 }
 
-function rowErrors(result) {
-  return result.errors.map(e => t('admin.applicationSafeMappingBulkImport.rowError', { row: e.rowNumber, error: e.error })).join('; ')
+function rowError(e) {
+  return t('admin.applicationSafeMappingBulkImport.rowError', { row: e.rowNumber, error: e.error })
 }
 
 async function importApplications() {
@@ -66,13 +72,13 @@ async function importAssignments() {
       <input type="file" accept=".csv" :aria-label="t('admin.applicationSafeMappingBulkImport.applicationsFileLabel')" @change="applicationsFile = $event.target.files[0] ?? null" />
       <button :disabled="!applicationsFile || applicationsImporting" @click="importApplications">{{ applicationsImporting ? t('common.importing') : t('admin.applicationSafeMappingBulkImport.import') }}</button>
     </p>
-    <p v-if="applicationsResult" data-testid="applications-result">
+    <div v-if="applicationsResult" data-testid="applications-result" role="status">
       <template v-if="applicationsResult.error">{{ applicationsResult.error }}</template>
       <template v-else>
         {{ t('admin.applicationSafeMappingBulkImport.applicationsSummary', { total: formatCount(applicationsResult.totalRows), created: formatCount(applicationsResult.createdCount), updated: formatCount(applicationsResult.updatedCount), unchanged: formatCount(applicationsResult.unchangedCount), errors: formatCount(applicationsResult.errors.length) }) }}
-        <span v-if="applicationsResult.errors.length"><br />{{ rowErrors(applicationsResult) }}</span>
+        <ul v-if="applicationsResult.errors.length" class="row-errors"><li v-for="e in applicationsResult.errors" :key="e.rowNumber">{{ rowError(e) }}</li></ul>
       </template>
-    </p>
+    </div>
 
     <h3>{{ t('admin.applicationSafeMappingBulkImport.assignmentsHeading') }}</h3>
     <p>
@@ -82,13 +88,13 @@ async function importAssignments() {
       <input type="file" accept=".csv" :aria-label="t('admin.applicationSafeMappingBulkImport.assignmentsFileLabel')" @change="assignmentsFile = $event.target.files[0] ?? null" />
       <button :disabled="!assignmentsFile || assignmentsImporting" @click="importAssignments">{{ assignmentsImporting ? t('common.importing') : t('admin.applicationSafeMappingBulkImport.import') }}</button>
     </p>
-    <p v-if="assignmentsResult" data-testid="assignments-result">
+    <div v-if="assignmentsResult" data-testid="assignments-result" role="status">
       <template v-if="assignmentsResult.error">{{ assignmentsResult.error }}</template>
       <template v-else>
         {{ t('admin.applicationSafeMappingBulkImport.assignmentsSummary', { total: formatCount(assignmentsResult.totalRows), assigned: formatCount(assignmentsResult.assignedCount), changed: formatCount(assignmentsResult.changedCount), unchanged: formatCount(assignmentsResult.unchangedCount), errors: formatCount(assignmentsResult.errors.length) }) }}
-        <span v-if="assignmentsResult.errors.length"><br />{{ rowErrors(assignmentsResult) }}</span>
+        <ul v-if="assignmentsResult.errors.length" class="row-errors"><li v-for="e in assignmentsResult.errors" :key="e.rowNumber">{{ rowError(e) }}</li></ul>
       </template>
-    </p>
+    </div>
 
     <h3>{{ t('admin.applicationSafeMappingBulkImport.accountAssignmentsHeading') }}</h3>
     <p>
@@ -98,12 +104,12 @@ async function importAssignments() {
       <input type="file" accept=".csv" :aria-label="t('admin.applicationSafeMappingBulkImport.accountAssignmentsFileLabel')" @change="accountAssignmentsFile = $event.target.files[0] ?? null" />
       <button :disabled="!accountAssignmentsFile || accountAssignmentsImporting" @click="importAccountAssignments">{{ accountAssignmentsImporting ? t('common.importing') : t('admin.applicationSafeMappingBulkImport.import') }}</button>
     </p>
-    <p v-if="accountAssignmentsResult" data-testid="account-assignments-result">
+    <div v-if="accountAssignmentsResult" data-testid="account-assignments-result" role="status">
       <template v-if="accountAssignmentsResult.error">{{ accountAssignmentsResult.error }}</template>
       <template v-else>
         {{ t('admin.applicationSafeMappingBulkImport.accountAssignmentsSummary', { total: formatCount(accountAssignmentsResult.totalRows), assigned: formatCount(accountAssignmentsResult.assignedCount), changed: formatCount(accountAssignmentsResult.changedCount), unchanged: formatCount(accountAssignmentsResult.unchangedCount), errors: formatCount(accountAssignmentsResult.errors.length) }) }}
-        <span v-if="accountAssignmentsResult.errors.length"><br />{{ rowErrors(accountAssignmentsResult) }}</span>
+        <ul v-if="accountAssignmentsResult.errors.length" class="row-errors"><li v-for="e in accountAssignmentsResult.errors" :key="e.rowNumber">{{ rowError(e) }}</li></ul>
       </template>
-    </p>
+    </div>
   </div>
 </template>

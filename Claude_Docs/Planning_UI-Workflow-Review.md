@@ -88,11 +88,7 @@ Works well: exports respect the active filters and sort and relay the API's erro
 
 | ID | Finding | Effort |
 |---|---|---|
-| W8-2 | The Safes table can't be searched or filtered to unassigned only. | M |
-| W8-3 | Bulk imports write at once with no preview; a network error is silent; row errors are one semicolon-joined string. | S |
-| W8-5 | No way to delete an application and nothing shows how many Safes or accounts use it. Unverified: delete may exist elsewhere. | M |
-| W8-6 | The account-to-application relationship is hard to find (Safe mapping, a CSV, the detail form, Bulk Edit). Add an intro with links. | S |
-| W8-7 | Platform Mapping: Remove can be double-clicked; Save is silently disabled. | S |
+| W8-3 | Bulk imports write at once with no preview (a dry run needs a validate-only mode in the import API); the rest of W8-3 shipped in D-266. | M |
 
 ## Workflow 9: Data loading and operations
 

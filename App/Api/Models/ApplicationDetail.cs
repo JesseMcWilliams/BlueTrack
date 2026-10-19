@@ -13,6 +13,12 @@ public sealed class ApplicationDetail
     public string? TechnicalName { get; init; }
     public string? TechnicalEmail { get; init; }
     public string? Notes { get; init; }
+
+    /// <summary>UI review W8-5: what still uses this application, so the page can show it and the delete can refuse.</summary>
+    public int SafeCount { get; init; }
+    public int AccountCount { get; init; }
+    public int TargetCount { get; init; }
+    public int ExceptionCount { get; init; }
 }
 
 public sealed class SaveApplicationRequest

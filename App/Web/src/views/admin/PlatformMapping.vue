@@ -80,17 +80,31 @@ async function save(row) {
   }
 }
 
+// UI review W8-7: say why Save is off instead of leaving it silently disabled.
+function saveHint(row) {
+  if (!drafts.value[row.platformKey].accountTypeKey) return t('admin.platformMapping.saveNeedsType')
+  if (!changed(row)) return t('admin.platformMapping.saveNothingChanged')
+  return undefined
+}
+
 async function remove(row) {
+  if (busyKey.value === row.platformKey) return
   if (!(await confirmDelete(t('admin.platformMapping.confirmRemove', { platform: row.platformId }), t('common.remove')))) return
   error.value = null
   message.value = null
-  const response = await fetch(`/api/admin/platform-mapping/${row.platformKey}`, { method: 'DELETE' })
-  if (!response.ok) {
-    error.value = t('common.deleteFailed', { status: response.status })
-    return
+  // UI review W8-7: the button is off while the removal runs, so a double click can't send it twice.
+  busyKey.value = row.platformKey
+  try {
+    const response = await fetch(`/api/admin/platform-mapping/${row.platformKey}`, { method: 'DELETE' })
+    if (!response.ok) {
+      error.value = t('common.deleteFailed', { status: response.status })
+      return
+    }
+    message.value = t('admin.platformMapping.removed', { platform: row.platformId })
+    await load()
+  } finally {
+    busyKey.value = null
   }
-  message.value = t('admin.platformMapping.removed', { platform: row.platformId })
-  await load()
 }
 </script>
 
@@ -147,8 +161,8 @@ async function remove(row) {
             </td>
             <td><input v-model="drafts[row.platformKey].notes" maxlength="500" :aria-label="t('admin.platformMapping.notesFor', { platform: row.platformId })" /></td>
             <td>
-              <button type="button" :disabled="busyKey === row.platformKey || !drafts[row.platformKey].accountTypeKey || !changed(row)" @click="save(row)">{{ t('common.save') }}</button>
-              <button v-if="!row.isUnmapped" type="button" @click="remove(row)">{{ t('common.remove') }}</button>
+              <button type="button" :disabled="busyKey === row.platformKey || !drafts[row.platformKey].accountTypeKey || !changed(row)" :title="saveHint(row)" @click="save(row)">{{ t('common.save') }}</button>
+              <button v-if="!row.isUnmapped" type="button" :disabled="busyKey === row.platformKey" @click="remove(row)">{{ t('common.remove') }}</button>
             </td>
           </tr>
         </tbody>
