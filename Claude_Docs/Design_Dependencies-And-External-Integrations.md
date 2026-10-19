@@ -23,6 +23,10 @@ A single, maintained inventory of every external system, third-party API, and li
 
 The `dbo` schema's operational data (accounts, safes, platforms, entitlements) comes from **flat-file exports**, not a live CyberArk REST call: Privileged Cloud CSV exports (`Reference/PrivilegedCloud/`) loaded via `usp_Import_All`/`usp_Import_PC_*` (BULK INSERT), plus a same-instance cross-database query against a separate Self-Hosted/EVD database (`usp_Import_SelfHosted_EVD`). Access-group/target inventory used for risk scoring comes from a similarly file-based bulk-import mechanism (`App/Api/RiskScoring/CsvFileReader.cs`, `CsvHelper`), not a CyberArk API either — see `Design_Risk-Scoring.md`.
 
+### 2.1a CyberArk — Self-Hosted PVWA REST API (live, optional; D-248)
+
+When Admin > Data Sources > CyberArk sources sets Self-Hosted to **Direct**, the API reads a Self-Hosted PVWA's 2nd gen REST API (`/PasswordVault/API/`, PAM Self-Hosted 14.2 or later) each night: logon (`auth/CyberArk` or `auth/LDAP`), Safes, Accounts, Safe members, Users, UserGroups and Platforms, `GET` only. `HttpClient` named `PvwaDirect` (`App/Api/Program.cs`; redirects off, 5-minute timeout). The credential is a named `web.credential` fetched at each pull (a CP or CCP one reads the Vault; see 2.2). Verified against the lab PVWA on 2026-10-19; see `Design_CyberArk-Direct-Integration.md` for what it returns and the gaps against the EVD. Nothing is written to PVWA.
+
 ### 2.2 CyberArk — secrets retrieval (live API/local call, distinct from 2.1)
 
 Used only for BlueTrack's own operational credentials (e.g. an SMTP or LDAP bind account) via the pluggable `IVaultSecretProvider` abstraction (`App/Api/Secrets/`, `Design_Secrets-Storage.md`) — never for the warehouse data above:

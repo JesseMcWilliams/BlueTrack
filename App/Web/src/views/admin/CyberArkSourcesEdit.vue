@@ -3,7 +3,10 @@
 // by the SQL Agent job's Import step (usp_Import_Configured). Test works on the
 // unsaved values: it checks the EVD database exists and, as the app pool sees
 // them, the export folder and today's files.
-import { ref, onMounted } from 'vue'
+// D-248: Self-Hosted can come from the EVD database or straight from PVWA's REST
+// API (Self-Hosted Direct, pulled by the API each night at the pull time); for
+// Direct, Test logs on with the chosen credential and counts what it can see.
+import { ref, watch, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 
@@ -30,6 +33,30 @@ const testError = ref(null)
 const testChecks = ref(null)
 const isConfigured = ref(true)
 const editing = ref(null)
+const credentials = ref(null)
+const credentialsError = ref(null)
+
+const selfHostedSources = [
+  { value: 'Evd', labelKey: 'admin.cyberArkSourcesEdit.sourceEvd' },
+  { value: 'Direct', labelKey: 'admin.cyberArkSourcesEdit.sourceDirect' }
+]
+const logonMethods = ['CyberArk', 'LDAP']
+
+// The credential list is only needed for Direct, so it is fetched when Direct is first in play.
+async function loadCredentials() {
+  if (credentials.value || credentialsError.value) return
+  try {
+    const response = await fetch('/api/admin/cyberark-sources/credentials')
+    if (!response.ok) throw new Error(t('common.requestFailed', { status: response.status }))
+    credentials.value = await response.json()
+  } catch (err) {
+    credentialsError.value = err.message
+  }
+}
+
+watch(() => editing.value && editing.value.importSelfHosted && editing.value.selfHostedSource === 'Direct', (direct) => {
+  if (direct) loadCredentials()
+})
 
 onMounted(async () => {
   try {
@@ -37,7 +64,12 @@ onMounted(async () => {
     if (!response.ok) throw new Error(t('common.requestFailed', { status: response.status }))
     const body = await response.json()
     isConfigured.value = body.isConfigured
-    editing.value = { ...body.settings, exportFolderPath: body.settings.exportFolderPath ?? '', evdDatabaseName: body.settings.evdDatabaseName ?? '' }
+    editing.value = {
+      ...body.settings,
+      exportFolderPath: body.settings.exportFolderPath ?? '',
+      evdDatabaseName: body.settings.evdDatabaseName ?? '',
+      pvwaBaseUrl: body.settings.pvwaBaseUrl ?? ''
+    }
   } catch (err) {
     loadError.value = err.message
   }
@@ -121,11 +153,53 @@ function cancel() {
 
         <fieldset>
           <legend><label><input v-model="editing.importSelfHosted" type="checkbox" /> {{ t('admin.cyberArkSourcesEdit.importSelfHosted') }}</label></legend>
-          <p v-if="editing.importSelfHosted">
-            <label class="field-label"><span class="field-label-text">{{ t('admin.cyberArkSourcesEdit.evdDatabaseLabel') }}</span> <input v-model="editing.evdDatabaseName" maxlength="128" :placeholder="t('admin.cyberArkSourcesEdit.evdDatabasePlaceholder')" required /></label>
-            <small>{{ t('admin.cyberArkSourcesEdit.evdDatabaseHint') }}</small>
-          </p>
+          <template v-if="editing.importSelfHosted">
+            <p>
+              <label class="field-label"><span class="field-label-text">{{ t('admin.cyberArkSourcesEdit.selfHostedSourceLabel') }}</span>
+                <select v-model="editing.selfHostedSource">
+                  <option v-for="o in selfHostedSources" :key="o.value" :value="o.value">{{ t(o.labelKey) }}</option>
+                </select>
+              </label>
+            </p>
+            <p v-if="editing.selfHostedSource === 'Evd'">
+              <label class="field-label"><span class="field-label-text">{{ t('admin.cyberArkSourcesEdit.evdDatabaseLabel') }}</span> <input v-model="editing.evdDatabaseName" maxlength="128" :placeholder="t('admin.cyberArkSourcesEdit.evdDatabasePlaceholder')" required /></label>
+              <small>{{ t('admin.cyberArkSourcesEdit.evdDatabaseHint') }}</small>
+            </p>
+            <template v-else>
+              <p>{{ t('admin.cyberArkSourcesEdit.directIntro') }}</p>
+              <p>
+                <label class="field-label"><span class="field-label-text">{{ t('admin.cyberArkSourcesEdit.pvwaAddressLabel') }}</span> <input v-model="editing.pvwaBaseUrl" maxlength="400" :placeholder="t('admin.cyberArkSourcesEdit.pvwaAddressPlaceholder')" required /></label>
+                <small>{{ t('admin.cyberArkSourcesEdit.pvwaAddressHint') }}</small>
+              </p>
+              <p>
+                <label class="field-label"><span class="field-label-text">{{ t('admin.cyberArkSourcesEdit.credentialLabel') }}</span>
+                  <select v-model="editing.pvwaCredentialKey" required>
+                    <option :value="null" disabled>{{ t('admin.cyberArkSourcesEdit.chooseCredential') }}</option>
+                    <option v-for="c in credentials ?? []" :key="c.credentialKey" :value="c.credentialKey">{{ c.credentialName }} ({{ c.backendType }})</option>
+                  </select>
+                </label>
+                <small>{{ t('admin.cyberArkSourcesEdit.credentialHint') }}</small>
+              </p>
+              <p v-if="credentialsError" role="alert">{{ credentialsError }}</p>
+              <p>
+                <label class="field-label"><span class="field-label-text">{{ t('admin.cyberArkSourcesEdit.logonMethodLabel') }}</span>
+                  <select v-model="editing.pvwaLogonMethod">
+                    <option v-for="m in logonMethods" :key="m" :value="m">{{ m }}</option>
+                  </select>
+                </label>
+              </p>
+              <p>
+                <label class="field-label"><span class="field-label-text">{{ t('admin.cyberArkSourcesEdit.pullTimeLabel') }}</span> <input v-model="editing.directPullTime" maxlength="5" pattern="([01][0-9]|2[0-3]):[0-5][0-9]" required /></label>
+                <small>{{ t('admin.cyberArkSourcesEdit.pullTimeHint') }}</small>
+              </p>
+              <p>
+                <label class="field-label"><span class="field-label-text">{{ t('admin.cyberArkSourcesEdit.maxChangeLabel') }}</span> <input v-model.number="editing.directMaxChangePercent" type="number" min="0" max="100" required /></label>
+                <small>{{ t('admin.cyberArkSourcesEdit.maxChangeHint') }}</small>
+              </p>
+            </template>
+          </template>
         </fieldset>
+        <p><small>{{ t('admin.cyberArkSourcesEdit.plannedSources') }}</small></p>
 
         <p>
           <button type="button" :disabled="testing" @click="test">{{ t('admin.cyberArkSourcesEdit.test') }}</button>

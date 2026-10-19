@@ -6,6 +6,9 @@
 // page then polls /status until it finishes. Inside business hours (Global
 // Application Configuration) Run now asks first, since an import changes
 // data people are working with.
+// D-248: when Self-Hosted comes from PVWA directly (Self-Hosted Direct), this page
+// also shows the pull log and has Pull now. A pull rejected for changing the Safe or
+// account count too much can be accepted from here; the page polls while one runs.
 import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import { confirmDelete } from '../../composables/useConfirmDialog'
@@ -23,6 +26,8 @@ const error = ref(null)
 const message = ref(null)
 const loading = ref(true)
 let pollTimer = null
+const directPulls = ref(null)
+let directTimer = null
 
 async function loadFeeds() {
   const response = await fetch('/api/admin/data-feeds')
@@ -43,10 +48,69 @@ async function loadCyberArk() {
   cyberArk.value = await response.json()
 }
 
+function isDirect() {
+  const s = cyberArk.value?.settings
+  return !!(cyberArk.value?.isConfigured && s?.importSelfHosted && s?.selfHostedSource === 'Direct')
+}
+
+async function loadDirectPulls() {
+  const response = await fetch('/api/admin/cyberark-sources/direct/pulls')
+  if (!response.ok) throw new Error(t('common.requestFailed', { status: response.status }))
+  directPulls.value = await response.json()
+}
+
+function startDirectPolling() {
+  if (directTimer) return
+  directTimer = setInterval(async () => {
+    try {
+      await loadDirectPulls()
+      if (!directPulls.value.running) stopDirectPolling()
+    } catch (err) {
+      stopDirectPolling()
+      error.value = err.message
+    }
+  }, 3000)
+}
+
+function stopDirectPolling() {
+  if (directTimer) clearInterval(directTimer)
+  directTimer = null
+}
+
+async function pullNow(acceptChange) {
+  error.value = null
+  message.value = null
+  await loadStatus()
+  const question = acceptChange ? t('admin.dataSources.confirmAcceptPull') : t('admin.dataSources.confirmPull')
+  if ((acceptChange || status.value.withinBusinessHours) && !(await confirmDelete(question, acceptChange ? t('admin.dataSources.acceptAndPull') : t('admin.dataSources.pullNow')))) {
+    return
+  }
+  const response = await fetch('/api/admin/cyberark-sources/direct/pull', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ acceptChange })
+  })
+  if (response.status === 409) {
+    error.value = t('admin.dataSources.pullAlreadyRunning')
+  } else if (!response.ok) {
+    const problem = await response.json().catch(() => null)
+    error.value = problem?.detail ?? t('admin.dataSources.pullFailedToStart', { status: response.status })
+    return
+  } else {
+    message.value = t('admin.dataSources.pullStartedMessage')
+  }
+  await loadDirectPulls()
+  startDirectPolling()
+}
+
 async function load() {
   loading.value = true
   try {
     await Promise.all([loadFeeds(), loadStatus(), loadCyberArk()])
+    if (isDirect()) {
+      await loadDirectPulls()
+      if (directPulls.value.running) startDirectPolling()
+    }
     if (status.value.isRunning) startPolling()
   } catch (err) {
     error.value = err.message
@@ -56,7 +120,7 @@ async function load() {
 }
 
 onMounted(load)
-onBeforeUnmount(stopPolling)
+onBeforeUnmount(() => { stopPolling(); stopDirectPolling() })
 
 function startPolling() {
   if (pollTimer) return
@@ -138,13 +202,42 @@ async function remove(feed) {
             <template v-else>{{ t('admin.dataSources.privilegeCloudOff') }}</template>
           </li>
           <li>
-            <i18n-t v-if="cyberArk.settings.importSelfHosted" keypath="admin.dataSources.selfHostedOn" scope="global">
+            <i18n-t v-if="isDirect()" keypath="admin.dataSources.selfHostedDirectOn" scope="global">
+              <template #address><code>{{ cyberArk.settings.pvwaBaseUrl }}</code></template>
+              <template #time>{{ cyberArk.settings.directPullTime }}</template>
+            </i18n-t>
+            <i18n-t v-else-if="cyberArk.settings.importSelfHosted" keypath="admin.dataSources.selfHostedOn" scope="global">
               <template #database><code>{{ cyberArk.settings.evdDatabaseName }}</code></template>
             </i18n-t>
             <template v-else>{{ t('admin.dataSources.selfHostedOff') }}</template>
           </li>
         </ul>
       </template>
+      <div v-if="isDirect() && directPulls" class="direct-pulls">
+        <h4>{{ t('admin.dataSources.directHeading') }}</h4>
+        <p v-if="directPulls.running" role="status">{{ t('admin.dataSources.pullRunning') }}</p>
+        <p v-if="directPulls.pulls.length === 0">{{ t('admin.dataSources.noPulls') }}</p>
+        <table v-else>
+          <thead>
+            <tr><th>{{ t('admin.dataSources.pullStarted') }}</th><th>{{ t('admin.dataSources.pullBy') }}</th><th>{{ t('admin.dataSources.pullResult') }}</th><th>{{ t('admin.dataSources.pullCounts') }}</th></tr>
+          </thead>
+          <tbody>
+            <tr v-for="p in directPulls.pulls.slice(0, 5)" :key="p.pullKey">
+              <td>{{ formatRunTime(p.startedAt) }}</td>
+              <td>{{ p.triggeredBy }}<template v-if="p.acceptedChange">{{ ' ' + t('admin.dataSources.pullAccepted') }}</template></td>
+              <td>
+                <strong :class="`outcome-${p.status}`">{{ p.status }}</strong>
+                <br /><small v-if="p.message">{{ p.message }}</small>
+              </td>
+              <td><template v-if="p.safeCount !== null">{{ t('admin.dataSources.pullCountsValue', { safes: p.safeCount, accounts: p.accountCount, users: p.userCount ?? 0, groups: p.groupCount ?? 0 }) }}</template></td>
+            </tr>
+          </tbody>
+        </table>
+        <p>
+          <button type="button" :disabled="directPulls.running" @click="pullNow(false)">{{ t('admin.dataSources.pullNow') }}</button>
+          <button v-if="directPulls.pulls[0]?.status === 'Rejected'" type="button" :disabled="directPulls.running" @click="pullNow(true)">{{ t('admin.dataSources.acceptAndPull') }}</button>
+        </p>
+      </div>
       <p><button type="button" @click="router.push({ name: 'admin-cyberark-sources-edit' })">{{ t('admin.dataSources.editCyberArk') }}</button></p>
 
       <h3>{{ t('admin.dataSources.dataFeedsHeading') }}</h3>
@@ -196,5 +289,5 @@ async function remove(feed) {
 </template>
 
 <style scoped>
-.outcome-Failed { color: var(--color-error, #b00020); }
+.outcome-Failed, .outcome-Rejected { color: var(--color-error, #b00020); }
 </style>

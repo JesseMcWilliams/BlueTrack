@@ -30,7 +30,13 @@ const defaults = {
   accountsFileName: 'Export_AccountsList.csv',
   entitlementsFileName: 'Export Entitlements {yyyy-MM-dd}.csv',
   importSelfHosted: false,
-  evdDatabaseName: null
+  evdDatabaseName: null,
+  selfHostedSource: 'Evd',
+  pvwaBaseUrl: null,
+  pvwaCredentialKey: null,
+  pvwaLogonMethod: 'CyberArk',
+  directPullTime: '01:30',
+  directMaxChangePercent: 20
 }
 
 function routeFetch(handlers) {
@@ -108,5 +114,82 @@ describe('CyberArkSourcesEdit.vue', () => {
     await flushPromises()
 
     expect(wrapper.find('.check-failed').text()).toContain('Problem: EVD database: No database named NoSuchDb')
+  })
+
+  // D-248: Self-Hosted Direct.
+  const credentials = [
+    { credentialKey: 3, credentialName: 'PVWA service user', backendType: 'CyberArkCP' },
+    { credentialKey: 4, credentialName: 'Other', backendType: 'WindowsDpapi' }
+  ]
+
+  it('shows the EVD field for the EVD source and the PVWA fields for Direct, loading credentials only for Direct', async () => {
+    routeFetch({
+      'GET /api/admin/cyberark-sources': jsonResponse({ isConfigured: true, settings: { ...defaults, importSelfHosted: true, evdDatabaseName: 'CyberArkSH' } }),
+      'GET /api/admin/cyberark-sources/credentials': jsonResponse(credentials)
+    })
+    const wrapper = await mountPage()
+
+    expect(wrapper.text()).toContain('EVD database:')
+    expect(wrapper.text()).not.toContain('PVWA address')
+    expect(globalThis.fetch.mock.calls.some(([url]) => url.endsWith('/credentials'))).toBe(false)
+
+    await wrapper.find('select').setValue('Direct')
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('PVWA address')
+    expect(wrapper.text()).not.toContain('EVD database:')
+    expect(wrapper.text()).toContain('Pending (discovered) accounts are not read')
+    expect(wrapper.text()).toContain('PVWA service user (CyberArkCP)')
+    expect(wrapper.text()).toContain('Privilege Cloud Direct')
+  })
+
+  it('opens straight onto the Direct fields when Direct is saved, and loads the credentials', async () => {
+    routeFetch({
+      'GET /api/admin/cyberark-sources': jsonResponse({
+        isConfigured: true,
+        settings: { ...defaults, importSelfHosted: true, selfHostedSource: 'Direct', pvwaBaseUrl: 'https://pvwa.example.com', pvwaCredentialKey: 3 }
+      }),
+      'GET /api/admin/cyberark-sources/credentials': jsonResponse(credentials)
+    })
+    const wrapper = await mountPage()
+
+    expect(wrapper.find('input[placeholder="https://pvwa.example.com"]').element.value).toBe('https://pvwa.example.com')
+    expect(globalThis.fetch.mock.calls.some(([url]) => url.endsWith('/credentials'))).toBe(true)
+  })
+
+  it('saves the Direct settings as typed', async () => {
+    routeFetch({
+      'GET /api/admin/cyberark-sources': jsonResponse({
+        isConfigured: true,
+        settings: { ...defaults, importSelfHosted: true, selfHostedSource: 'Direct', pvwaBaseUrl: 'https://pvwa.example.com', pvwaCredentialKey: 3 }
+      }),
+      'GET /api/admin/cyberark-sources/credentials': jsonResponse(credentials),
+      'PUT /api/admin/cyberark-sources': jsonResponse(null, true, 204)
+    })
+    const router = makeRouter()
+    await router.push('/')
+    const wrapper = await mountPage(router)
+
+    await wrapper.find('input[maxlength="5"]').setValue('01:15')
+    await wrapper.find('input[type="number"]').setValue('35')
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+
+    const put = globalThis.fetch.mock.calls.find(([, options]) => options?.method === 'PUT')
+    expect(JSON.parse(put[1].body)).toMatchObject({
+      importSelfHosted: true, selfHostedSource: 'Direct', pvwaBaseUrl: 'https://pvwa.example.com', pvwaCredentialKey: 3,
+      pvwaLogonMethod: 'CyberArk', directPullTime: '01:15', directMaxChangePercent: 35
+    })
+    expect(router.currentRoute.value.name).toBe('admin-data-sources')
+  })
+
+  it('says so when the credentials could not be loaded', async () => {
+    routeFetch({
+      'GET /api/admin/cyberark-sources': jsonResponse({ isConfigured: true, settings: { ...defaults, importSelfHosted: true, selfHostedSource: 'Direct' } }),
+      'GET /api/admin/cyberark-sources/credentials': jsonResponse(null, false, 403)
+    })
+    const wrapper = await mountPage()
+
+    expect(wrapper.find('[role="alert"]').text()).toContain('403')
   })
 })

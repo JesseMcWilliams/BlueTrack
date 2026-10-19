@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using BlueTrack.Api.Audit;
 using BlueTrack.Api.Auth;
+using BlueTrack.Api.CyberArkDirect;
 using BlueTrack.Api.Data;
 using BlueTrack.Api.DataFeeds;
 using BlueTrack.Api.Models;
@@ -12,7 +13,10 @@ namespace BlueTrack.Api.Controllers;
 /// D-211 (Data Sources phase 3, Design_Data-Sources.md): the CyberArk
 /// sources on Admin > Data Sources. The settings are read each night by
 /// dbo.usp_Import_Configured, the Agent job's Import step; there is no Run
-/// now for these sources (decided 2026-10-09).
+/// now for the EVD or the Privilege Cloud folder (decided 2026-10-09).
+/// D-248: Self-Hosted can instead be pulled by the API from PVWA's REST API
+/// (Self-Hosted Direct); that source has a Test, a pull log and a Run now,
+/// because a pull rejected by the change guard needs a way to be accepted.
 /// </summary>
 [ApiController]
 [Route("api/admin/cyberark-sources")]
@@ -22,7 +26,11 @@ public sealed class CyberArkSourcesController(
     CurrentUserResolver currentUserResolver,
     AuditLogger auditLogger,
     TimeProvider timeProvider,
-    Security.AllowedFileRoots allowedFileRoots) : ControllerBase
+    Security.AllowedFileRoots allowedFileRoots,
+    SelfHostedDirectRepository directRepository,
+    SelfHostedDirectRunner directRunner,
+    SelfHostedDirectPullService directPullService,
+    CredentialRepository credentialRepository) : ControllerBase
 {
     [HttpGet]
     public async Task<IActionResult> Get() => Ok(await repository.GetAsync());
@@ -38,6 +46,11 @@ public sealed class CyberArkSourcesController(
         if (errors.Count > 0)
         {
             return Problem(title: "Invalid CyberArk source settings", detail: string.Join(" ", errors), statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        if (settings.ImportSelfHosted && settings.SelfHostedSource == "Direct" && !await repository.CredentialExistsAsync(settings.PvwaCredentialKey!.Value))
+        {
+            return Problem(title: "Invalid CyberArk source settings", detail: "The credential doesn't exist. Choose one from Admin > Credentials.", statusCode: StatusCodes.Status400BadRequest);
         }
 
         var before = await repository.GetAsync();
@@ -57,6 +70,12 @@ public sealed class CyberArkSourcesController(
         }
         Track(nameof(settings.ImportSelfHosted), old.ImportSelfHosted.ToString(), settings.ImportSelfHosted.ToString());
         Track(nameof(settings.EvdDatabaseName), old.EvdDatabaseName, settings.EvdDatabaseName);
+        Track(nameof(settings.SelfHostedSource), old.SelfHostedSource, settings.SelfHostedSource);
+        Track(nameof(settings.PvwaBaseUrl), old.PvwaBaseUrl, settings.PvwaBaseUrl);
+        Track(nameof(settings.PvwaCredentialKey), old.PvwaCredentialKey?.ToString(), settings.PvwaCredentialKey?.ToString());
+        Track(nameof(settings.PvwaLogonMethod), old.PvwaLogonMethod, settings.PvwaLogonMethod);
+        Track(nameof(settings.DirectPullTime), old.DirectPullTime, settings.DirectPullTime);
+        Track(nameof(settings.DirectMaxChangePercent), old.DirectMaxChangePercent.ToString(), settings.DirectMaxChangePercent.ToString());
         if (changes.Count > 0)
         {
             await auditLogger.LogAsync("FieldEdit", user.UserKey, "cyberark_source_config", "1",
@@ -80,7 +99,11 @@ public sealed class CyberArkSourcesController(
         if (errors.Count > 0) return BadRequest(new { error = string.Join(" ", errors) });
 
         var checks = new List<CyberArkSourceTestCheck>();
-        if (settings.ImportSelfHosted)
+        if (settings.ImportSelfHosted && settings.SelfHostedSource == "Direct")
+        {
+            checks.AddRange(await directPullService.TestAsync(settings, HttpContext.RequestAborted));
+        }
+        else if (settings.ImportSelfHosted)
         {
             var exists = await repository.DatabaseExistsAsync(settings.EvdDatabaseName!);
             checks.Add(new CyberArkSourceTestCheck
@@ -123,6 +146,43 @@ public sealed class CyberArkSourcesController(
     }
 
     /// <summary>
+    /// D-248: the named credentials the Direct source can use, names only. Admin > Credentials has its own list, but
+    /// it needs a different permission than this page does, and a secret never leaves the server either way.
+    /// </summary>
+    [HttpGet("credentials")]
+    public async Task<IActionResult> Credentials() =>
+        Ok((await credentialRepository.GetAllAsync()).Select(c => new { c.CredentialKey, c.CredentialName, c.BackendType }));
+
+    /// <summary>D-248: the latest Self-Hosted Direct pulls, newest first, and whether one is running now.</summary>
+    [HttpGet("direct/pulls")]
+    public async Task<IActionResult> DirectPulls() =>
+        Ok(new { running = directRunner.IsRunning, pulls = await directRepository.GetRecentAsync(15) });
+
+    /// <summary>
+    /// D-248: Run now for Self-Hosted Direct: starts a pull in the background (the page polls the log). With
+    /// <c>acceptChange</c> a change over the allowed percentage is accepted instead of rejected. Audit-logged.
+    /// </summary>
+    [HttpPost("direct/pull")]
+    public async Task<IActionResult> DirectPull([FromBody] DirectPullRequest request)
+    {
+        var user = await currentUserResolver.ResolveAsync(User);
+        if (user is null) return Unauthorized();
+
+        var settings = (await repository.GetAsync()).Settings;
+        if (!settings.ImportSelfHosted || settings.SelfHostedSource != "Direct")
+        {
+            return Problem(title: "Self-Hosted Direct isn't the saved source", detail: "Save Self-Hosted Direct as the source first.", statusCode: StatusCodes.Status400BadRequest);
+        }
+        if (!directRunner.TryStart(user.DisplayName ?? "an admin", request.AcceptChange))
+        {
+            return Problem(title: "A pull is already running", statusCode: StatusCodes.Status409Conflict);
+        }
+        await auditLogger.LogAsync("FieldEdit", user.UserKey, "cyberark_source_config", "1",
+            detail: request.AcceptChange ? "Self-Hosted Direct pull started, accepting a change over the allowed percentage" : "Self-Hosted Direct pull started");
+        return Accepted();
+    }
+
+    /// <summary>
     /// D-228: reads only the file's header row and reports the required
     /// columns it lacks (the import would fail), or OK, noting optional
     /// columns it lacks (they import as empty).
@@ -154,4 +214,11 @@ public sealed class CyberArkSourcesController(
         var note = missingOptional.Count == 0 ? "" : $" Not in the file, so imported as empty: {string.Join(", ", missingOptional)}.";
         return new CyberArkSourceTestCheck { Item = label, Ok = true, Message = $"{fileName} found, with the required columns.{note}" };
     }
+}
+
+/// <summary>D-248: body of Run now for Self-Hosted Direct.</summary>
+public sealed class DirectPullRequest
+{
+    /// <summary>Accept a Safe or account count change larger than the allowed percentage (an admin has checked it).</summary>
+    public bool AcceptChange { get; init; }
 }

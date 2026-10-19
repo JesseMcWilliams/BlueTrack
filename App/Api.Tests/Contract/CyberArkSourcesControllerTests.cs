@@ -59,13 +59,13 @@ public class CyberArkSourcesControllerTests : IClassFixture<BlueTrackWebApplicat
         await connection.ExecuteAsync("DELETE FROM web.cyberark_source_config");
         if (savedRowJson is null) return;
         await connection.ExecuteAsync("""
-            INSERT INTO web.cyberark_source_config
-            SELECT * FROM OPENJSON(@json) WITH (
+            INSERT INTO web.cyberark_source_config (CyberArkSourceConfigKey, ImportPrivilegeCloud, ExportFolderPath, PlatformsFileName, UsersFileName, GroupsFileName, GroupMembersFileName, SafesFileName, AccountsFileName, EntitlementsFileName, ImportSelfHosted, EvdDatabaseName, ModifiedBy, ModifiedDate, SelfHostedSource, PvwaBaseUrl, PvwaCredentialKey, PvwaLogonMethod, DirectPullTime, DirectMaxChangePercent)
+            SELECT CyberArkSourceConfigKey, ImportPrivilegeCloud, ExportFolderPath, PlatformsFileName, UsersFileName, GroupsFileName, GroupMembersFileName, SafesFileName, AccountsFileName, EntitlementsFileName, ImportSelfHosted, EvdDatabaseName, ModifiedBy, ModifiedDate, SelfHostedSource, PvwaBaseUrl, PvwaCredentialKey, PvwaLogonMethod, DirectPullTime, DirectMaxChangePercent FROM OPENJSON(@json) WITH (
                 CyberArkSourceConfigKey INT, ImportPrivilegeCloud BIT, ExportFolderPath NVARCHAR(400),
                 PlatformsFileName NVARCHAR(200), UsersFileName NVARCHAR(200), GroupsFileName NVARCHAR(200),
                 GroupMembersFileName NVARCHAR(200), SafesFileName NVARCHAR(200), AccountsFileName NVARCHAR(200),
                 EntitlementsFileName NVARCHAR(200), ImportSelfHosted BIT, EvdDatabaseName NVARCHAR(128),
-                ModifiedBy INT, ModifiedDate DATETIME2)
+                ModifiedBy INT, ModifiedDate DATETIME2, SelfHostedSource NVARCHAR(10), PvwaBaseUrl NVARCHAR(400), PvwaCredentialKey INT, PvwaLogonMethod NVARCHAR(20), DirectPullTime NVARCHAR(5), DirectMaxChangePercent INT)
             """, new { json = savedRowJson });
     }
 
@@ -183,6 +183,185 @@ public class CyberArkSourcesControllerTests : IClassFixture<BlueTrackWebApplicat
         finally
         {
             Directory.Delete(folder, recursive: true);
+        }
+    }
+
+
+    // ---- D-248: Self-Hosted Direct ----
+
+    private static object DirectSettings(string? url, int? credentialKey, string method = "CyberArk", string pullTime = "01:30", int percent = 20) => new
+    {
+        importPrivilegeCloud = false,
+        platformsFileName = "Export_PlatformsList.csv",
+        usersFileName = "Export_UsersList.csv",
+        groupsFileName = "Export_GroupsList.csv",
+        groupMembersFileName = "Export Local Group Members {yyyy-MM-dd}.csv",
+        safesFileName = "Export_SafesList.csv",
+        accountsFileName = "Export_AccountsList.csv",
+        entitlementsFileName = "Export Entitlements {yyyy-MM-dd}.csv",
+        importSelfHosted = true,
+        selfHostedSource = "Direct",
+        pvwaBaseUrl = url,
+        pvwaCredentialKey = credentialKey,
+        pvwaLogonMethod = method,
+        directPullTime = pullTime,
+        directMaxChangePercent = percent
+    };
+
+    private static async Task<int> AddCredentialAsync(string name)
+    {
+        await using var connection = new SqlConnection(TestDatabase.ConnectionString);
+        return await connection.QuerySingleAsync<int>("""
+            INSERT INTO web.credential (CredentialName, BackendType, VaultSafe, VaultFolder, VaultObject)
+            VALUES (@name, 'CyberArkCP', 'S', 'Root', 'O');
+            SELECT CAST(SCOPE_IDENTITY() AS INT);
+            """, new { name });
+    }
+
+    [Fact]
+    public async Task Get_OffersTheFourSources_WithPrivilegeCloudDirectPlanned()
+    {
+        var got = (await Client("TestUser.Admin").GetFromJsonAsync<JsonObject>("/api/admin/cyberark-sources"))!;
+
+        var options = got["options"]!.AsArray();
+        Assert.Equal(["SelfHostedEvd", "SelfHostedDirect", "PrivilegeCloudFolder", "PrivilegeCloudDirect"], options.Select(o => o!["key"]!.GetValue<string>()));
+        Assert.False(options[3]!["available"]!.GetValue<bool>());
+    }
+
+    [Fact]
+    public async Task Save_DirectSource_RoundTrips_AndAuditsTheNewFields()
+    {
+        var client = Client("TestUser.Admin");
+        var saved = await SavedRowJsonAsync();
+        var credentialName = "DirectTest" + Guid.NewGuid().ToString("N")[..8];
+        var credentialKey = await AddCredentialAsync(credentialName);
+        var url = $"https://pvwa-{Guid.NewGuid():N}.example.com";
+        try
+        {
+            var put = await client.PutAsJsonAsync("/api/admin/cyberark-sources", DirectSettings(url + "/", credentialKey, "LDAP", "01:15", 35));
+            Assert.Equal(HttpStatusCode.NoContent, put.StatusCode);
+
+            var settings = (await client.GetFromJsonAsync<JsonObject>("/api/admin/cyberark-sources"))!["settings"]!;
+            Assert.Equal("Direct", settings["selfHostedSource"]!.GetValue<string>());
+            Assert.Equal(url, settings["pvwaBaseUrl"]!.GetValue<string>());   // trailing slash trimmed
+            Assert.Equal(credentialKey, settings["pvwaCredentialKey"]!.GetValue<int>());
+            Assert.Equal("LDAP", settings["pvwaLogonMethod"]!.GetValue<string>());
+            Assert.Equal("01:15", settings["directPullTime"]!.GetValue<string>());
+            Assert.Equal(35, settings["directMaxChangePercent"]!.GetValue<int>());
+            Assert.Null(settings["evdDatabaseName"]);
+
+            await using var connection = new SqlConnection(TestDatabase.ConnectionString);
+            var fields = (await connection.QueryAsync<string>("""
+                SELECT c.FieldName FROM web.audit_event e
+                JOIN web.audit_field_change c ON c.AuditEventKey = e.AuditEventKey
+                WHERE e.EntityName = 'cyberark_source_config' AND c.FieldName IN ('SelfHostedSource', 'PvwaBaseUrl', 'DirectMaxChangePercent') AND c.NewValue IN ('Direct', @url, '35')
+                """, new { url })).ToList();
+            Assert.Contains("SelfHostedSource", fields);
+            Assert.Contains("PvwaBaseUrl", fields);
+            Assert.Contains("DirectMaxChangePercent", fields);
+        }
+        finally
+        {
+            await RestoreAsync(saved);
+            await using var connection = new SqlConnection(TestDatabase.ConnectionString);
+            await connection.ExecuteAsync("DELETE FROM web.credential WHERE CredentialKey = @credentialKey", new { credentialKey });
+        }
+    }
+
+    [Fact]
+    public async Task Save_DirectSource_RejectsABadAddress_AMissingCredential_AndAnUnknownCredential()
+    {
+        var client = Client("TestUser.Admin");
+
+        var http = await client.PutAsJsonAsync("/api/admin/cyberark-sources", DirectSettings("http://pvwa.example.com", 1));
+        Assert.Equal(HttpStatusCode.BadRequest, http.StatusCode);
+        Assert.Contains("PVWA address must be https://host", (await http.Content.ReadFromJsonAsync<JsonObject>())!["detail"]!.GetValue<string>());
+
+        var none = await client.PutAsJsonAsync("/api/admin/cyberark-sources", DirectSettings("https://pvwa.example.com", null));
+        Assert.Equal(HttpStatusCode.BadRequest, none.StatusCode);
+        Assert.Contains("A credential is required", (await none.Content.ReadFromJsonAsync<JsonObject>())!["detail"]!.GetValue<string>());
+
+        var unknown = await client.PutAsJsonAsync("/api/admin/cyberark-sources", DirectSettings("https://pvwa.example.com", 2_000_000_000));
+        Assert.Equal(HttpStatusCode.BadRequest, unknown.StatusCode);
+        Assert.Contains("credential doesn't exist", (await unknown.Content.ReadFromJsonAsync<JsonObject>())!["detail"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public async Task DirectPulls_ReturnsTheLog_NewestFirst_AndWhetherAPullIsRunning()
+    {
+        var client = Client("TestUser.Admin");
+        await using var connection = new SqlConnection(TestDatabase.ConnectionString);
+        var maxBefore = await connection.QuerySingleAsync<long>("SELECT ISNULL(MAX(PullKey), 0) FROM dbo.cyberark_direct_pull");
+        try
+        {
+            await connection.ExecuteAsync("""
+                INSERT INTO dbo.cyberark_direct_pull (Status, CompletedAt, TriggeredBy, SafeCount, AccountCount, Message)
+                VALUES ('Rejected', SYSUTCDATETIME(), 'schedule', 10, 20, 'Safes went from 40 to 10')
+                """);
+
+            var body = (await client.GetFromJsonAsync<JsonObject>("/api/admin/cyberark-sources/direct/pulls"))!;
+
+            Assert.False(body["running"]!.GetValue<bool>());
+            var newest = body["pulls"]!.AsArray()[0]!;
+            Assert.Equal(("Rejected", "schedule", 10, 20, "Safes went from 40 to 10"),
+                (newest["status"]!.GetValue<string>(), newest["triggeredBy"]!.GetValue<string>(), newest["safeCount"]!.GetValue<int>(),
+                 newest["accountCount"]!.GetValue<int>(), newest["message"]!.GetValue<string>()));
+        }
+        finally
+        {
+            await connection.ExecuteAsync("DELETE FROM dbo.cyberark_direct_pull WHERE PullKey > @maxBefore", new { maxBefore });
+        }
+    }
+
+    [Fact]
+    public async Task DirectPull_WhenDirectIsNotTheSavedSource_IsRefused_AndNothingStarts()
+    {
+        var client = Client("TestUser.Admin");
+        var saved = await SavedRowJsonAsync();
+        try
+        {
+            Assert.Equal(HttpStatusCode.NoContent, (await client.PutAsJsonAsync("/api/admin/cyberark-sources", Settings(false, null, true, "BlueTrackTest"))).StatusCode);
+
+            var response = await client.PostAsJsonAsync("/api/admin/cyberark-sources/direct/pull", new { acceptChange = false });
+
+            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+            Assert.Contains("Save Self-Hosted Direct", await response.Content.ReadAsStringAsync());
+        }
+        finally
+        {
+            await RestoreAsync(saved);
+        }
+    }
+
+    [Fact]
+    public async Task DirectEndpoints_AsViewer_AreForbidden()
+    {
+        var client = Client("TestUser.Viewer");
+
+        Assert.Equal(HttpStatusCode.Forbidden, (await client.GetAsync("/api/admin/cyberark-sources/direct/pulls")).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await client.PostAsJsonAsync("/api/admin/cyberark-sources/direct/pull", new { acceptChange = true })).StatusCode);
+    }
+
+    [Fact]
+    public async Task Credentials_ListsNamesOnly_ForAnAdmin_AndIsForbiddenToAViewer()
+    {
+        var name = "DirectList" + Guid.NewGuid().ToString("N")[..8];
+        var key = await AddCredentialAsync(name);
+        try
+        {
+            var body = (await Client("TestUser.Admin").GetFromJsonAsync<JsonArray>("/api/admin/cyberark-sources/credentials"))!;
+
+            var row = body.Single(c => c!["credentialName"]!.GetValue<string>() == name)!.AsObject();
+            Assert.Equal(key, row["credentialKey"]!.GetValue<int>());
+            Assert.Equal("CyberArkCP", row["backendType"]!.GetValue<string>());
+            Assert.Equal(["credentialKey", "credentialName", "backendType"], row.Select(p => p.Key));   // nothing about the Safe, object or password
+
+            Assert.Equal(HttpStatusCode.Forbidden, (await Client("TestUser.Viewer").GetAsync("/api/admin/cyberark-sources/credentials")).StatusCode);
+        }
+        finally
+        {
+            await using var connection = new SqlConnection(TestDatabase.ConnectionString);
+            await connection.ExecuteAsync("DELETE FROM web.credential WHERE CredentialKey = @key", new { key });
         }
     }
 }
