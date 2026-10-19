@@ -36,3 +36,4 @@
 | 2026-10-19 | UI review step 5e (D-260): lost edit lock warning with Take the lock again; idle sign-out warning with Stay signed in. | `User_Guide.md` (editing an account, signing in). |
 | 2026-10-19 | UI review step 5f (D-261): KPI Summary counts link to the Accounts list (new `kpi` filter, "Show all accounts"). | `User_Guide.md` (reports, accounts). |
 | 2026-10-19 | UI review step 5g (D-262): report hints (Reconciliation Review, decommission), Resolve form focus and saved line, Discovered Accounts links and toggle state, Account Classification link. | `User_Guide.md` (reports), `Admin_SettingsReference.md` (account classification). |
+| 2026-10-19 | UI review step 5h (D-263): KPI definitions and read time, Risk Score empty/link, email inputs, Backup App confirm and file name, run history toggle state. | `User_Guide.md` (reports), `Admin_OperationsGuide.md` (backup). |

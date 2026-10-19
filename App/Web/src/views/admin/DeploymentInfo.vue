@@ -9,6 +9,7 @@
 import { ref, onMounted } from 'vue'
 import { formatCount } from '../../utils/formatCount'
 import { useI18n } from 'vue-i18n'
+import { confirmDelete } from '../../composables/useConfirmDialog'
 
 const { t } = useI18n()
 
@@ -18,6 +19,7 @@ const loading = ref(true)
 
 const backupError = ref(null)
 const backingUp = ref(false)
+const backupNotice = ref(null) // UI review W9-7: names the file that was downloaded
 // D-200: the latest backups (scheduled and manual), from web.backup_run.
 const recentBackups = ref([])
 
@@ -39,8 +41,11 @@ async function load() {
 onMounted(load)
 
 async function backupApp() {
+  // UI review W9-7: a real database backup runs on the server, so it asks first.
+  if (!(await confirmDelete(t('admin.deploymentInfo.backupConfirm'), t('admin.deploymentInfo.backupApp')))) return
   backingUp.value = true
   backupError.value = null
+  backupNotice.value = null
   try {
     const response = await fetch('/api/admin/deployment/backup', { method: 'POST' })
     if (!response.ok) {
@@ -59,6 +64,7 @@ async function backupApp() {
     link.click()
     URL.revokeObjectURL(url)
 
+    backupNotice.value = t('admin.deploymentInfo.backupDone', { file: fileName })
     await load()
   } catch (err) {
     backupError.value = err.message
@@ -107,6 +113,7 @@ async function backupApp() {
         <h3>{{ t('admin.deploymentInfo.backupStatus') }}</h3>
         <button :disabled="backingUp" @click="backupApp">{{ backingUp ? t('admin.deploymentInfo.backingUp') : t('admin.deploymentInfo.backupApp') }}</button>
         <p v-if="backupError" role="alert">{{ backupError }}</p>
+        <p v-if="backupNotice" role="status">{{ backupNotice }}</p>
         <p v-if="!info.backupStatus.available" role="alert">{{ info.backupStatus.error }}</p>
         <table v-else>
           <thead>

@@ -273,7 +273,7 @@ function cancel() {
           <tbody>
             <template v-for="run in runs" :key="run.dataFeedRunKey">
               <tr>
-                <td><a href="#" @click.prevent="showRun(run)">{{ formatRunTime(run.startedAt) }}</a></td>
+                <td><a href="#" :aria-expanded="selectedRun?.dataFeedRunKey === run.dataFeedRunKey" @click.prevent="showRun(run)">{{ formatRunTime(run.startedAt) }}</a></td>
                 <td>{{ run.triggerType === 'RunNow' ? t('admin.dataFeedEdit.triggerRunNow') : t('admin.dataFeedEdit.triggerNightly') }}</td>
                 <td>{{ run.triggeredByName }}</td>
                 <td>{{ run.outcome }}</td>
