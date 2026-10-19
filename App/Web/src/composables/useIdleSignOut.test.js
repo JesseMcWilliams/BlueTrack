@@ -91,6 +91,45 @@ describe('useIdleSignOut', () => {
     wrapper.unmount()
   })
 
+  // UI review W12-1
+  it('warns for the last two minutes, and any activity clears the warning', async () => {
+    const { wrapper } = await mountHost({ minutes: 30 })
+
+    clock += 27 * 60000
+    await api.check()
+    expect(api.warning.value).toBeNull()
+
+    clock += 60000 + 1 // 1 minute 59 seconds left
+    await api.check()
+    expect(api.warning.value).toEqual({ minutesLeft: 2 })
+    clock += 61000
+    await api.check()
+    expect(api.warning.value).toEqual({ minutesLeft: 1 })
+
+    window.dispatchEvent(new Event('keydown'))
+    expect(api.warning.value).toBeNull()
+    expect(globalThis.fetch).not.toHaveBeenCalled()
+    wrapper.unmount()
+  })
+
+  it('warns in the last half of a very short timeout, and signs out at the end', async () => {
+    const { wrapper } = await mountHost({ minutes: 2 })
+
+    clock += 50000
+    await api.check()
+    expect(api.warning.value).toBeNull()
+    clock += 20000 // 50 s left: inside the warning window (the last half of a 2 minute timeout)
+    await api.check()
+    expect(api.warning.value).toEqual({ minutesLeft: 1 })
+
+    clock += 60000
+    await api.check()
+    await flushPromises()
+    expect(api.warning.value).toBeNull()
+    expect(globalThis.fetch).toHaveBeenCalledWith('/api/auth/logout', { method: 'POST' })
+    wrapper.unmount()
+  })
+
   it('does nothing when nobody is signed in', async () => {
     const { wrapper } = await mountHost({ minutes: 30, authenticated: false })
 

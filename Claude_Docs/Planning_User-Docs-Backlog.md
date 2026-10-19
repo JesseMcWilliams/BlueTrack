@@ -33,3 +33,4 @@
 | 2026-10-19 | UI review step 5b (D-257): Risk Exception create finds the account by typing; Accounts Clear filters; worklist links; Yes/No columns. | `User_Guide.md` (risk exceptions, accounts), `Admin_SettingsReference.md`. |
 | 2026-10-19 | UI review step 5c (D-258): Targets and Access Groups lists keep filters/sort/page in the address; failed load shows no stale rows; named Delete buttons; Link a Single Account to a Target uses searches. | `User_Guide.md` (targets, access groups). |
 | 2026-10-19 | UI review step 5d (D-259): Risk Exceptions and Audit Log lists keep filters/sort/page in the address; exception detail names the account (linked) or application. | `User_Guide.md` (risk exceptions), `Admin_OperationsGuide.md` (audit log). |
+| 2026-10-19 | UI review step 5e (D-260): lost edit lock warning with Take the lock again; idle sign-out warning with Stay signed in. | `User_Guide.md` (editing an account, signing in). |

@@ -12,6 +12,7 @@ import ConfirmDialog from './components/ConfirmDialog.vue'
 import UserMenu from './components/UserMenu.vue'
 import { useIdleSignOut } from './composables/useIdleSignOut'
 import FlashMessage from './components/FlashMessage.vue'
+import IdleWarning from './components/IdleWarning.vue'
 import { useRightsStore } from './stores/rights'
 import { flashNavigated } from './composables/useFlash'
 import { useRouter } from 'vue-router'
@@ -22,7 +23,7 @@ const rights = useRightsStore()
 const hasAccess = computed(() => !(rights.loaded && rights.authenticated === true && rights.permissionNames.length === 0))
 // UI review theme 3: a "saved" line set before a navigation shows on the page it lands on, and goes at the next one.
 useRouter().afterEach(() => flashNavigated())
-useIdleSignOut() // D-209: sign out after Idle Timeout without activity
+const { warning: idleWarning, touch: stayActive } = useIdleSignOut() // D-209: sign out after Idle Timeout without activity
 
 // DevFakeAuth-enabled-too-long warning (added 2026-09-06, user-requested):
 // DevFakeAuth bypasses real authentication and is meant only for local
@@ -120,6 +121,7 @@ onMounted(async () => {
     </nav>
     <Breadcrumbs />
     <FlashMessage />
+    <IdleWarning :warning="idleWarning" @stay="stayActive" />
     <p v-if="negotiateDisabled" role="alert" class="dev-fake-auth-warning">{{ t('shell.app.negotiateDisabledWarning') }}</p>
     <p v-if="devFakeAuthSince" role="alert" class="dev-fake-auth-warning">{{ t('shell.app.devFakeAuthWarning', { days: DEV_FAKE_AUTH_STALE_DAYS, since: devFakeAuthSince }) }}</p>
     <!-- D-92: route-change focus target (router/index.js's afterEach hook

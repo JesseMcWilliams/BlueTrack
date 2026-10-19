@@ -48,6 +48,10 @@ const reason = ref('')
 
 const lockStatus = ref(null) // null = unlocked; otherwise { lockedByUserKey, lockedByName, lockedAt, ... }
 const lockedByMe = ref(false)
+// UI review W2-3: the heartbeat found the lock gone (it expired, or a colleague forced it). The form and what was
+// typed stay; Save waits until the lock is taken again.
+const lockLost = ref(false)
+const lockLostBy = ref(null)
 
 // D-81: Active application-scoped exceptions covering this account,
 // computed live -- independent of detail.exceptionKey, which only ever
@@ -357,7 +361,36 @@ async function acquireLock() {
 }
 
 async function sendHeartbeat() {
-  await fetch(`/api/account-progress/${props.accountKey}/lock/heartbeat`, { method: 'PUT' })
+  try {
+    const response = await fetch(`/api/account-progress/${props.accountKey}/lock/heartbeat`, { method: 'PUT' })
+    if (response.status === 409) {
+      stopHeartbeat()
+      lockedByMe.value = false
+      lockStatus.value = null
+      lockLost.value = true
+    }
+  } catch {
+    // A dropped request is not a lost lock: the next beat tries again.
+  }
+}
+
+// UI review W2-3: take the lock again without reloading, so the form keeps what was typed.
+async function reacquireLock() {
+  lockLostBy.value = null
+  const response = await fetch(`/api/account-progress/${props.accountKey}/lock`, { method: 'POST' })
+  if (response.ok) {
+    lockStatus.value = await response.json()
+    lockedByMe.value = true
+    lockLost.value = false
+    stopHeartbeat()
+    heartbeatTimer = setInterval(sendHeartbeat, 60000)
+  } else if (response.status === 409) {
+    const holder = await response.json()
+    lockStatus.value = holder
+    lockLostBy.value = holder.lockedByName
+  } else {
+    saveError.value = t('pages.accountProgressDetail.couldNotAcquireLock', { status: response.status })
+  }
 }
 
 async function forceRelease() {
@@ -556,7 +589,11 @@ onUnmounted(releaseLock)
         <p class="account-progress-identity-secondary"><strong>{{ t('pages.accountProgressDetail.accountName') }}</strong> {{ detail.accountName }}</p>
       </div>
 
-      <form v-if="lockedByMe" @submit.prevent="save">
+      <form v-if="lockedByMe || lockLost" @submit.prevent="save">
+        <p v-if="lockLost" role="alert">
+          {{ lockLostBy ? t('pages.accountProgressDetail.lockLostTaken', { name: lockLostBy }) : t('pages.accountProgressDetail.lockLost') }}
+          <button type="button" @click="reacquireLock">{{ t('pages.accountProgressDetail.lockReacquire') }}</button>
+        </p>
         <p v-if="saveError" role="alert">{{ saveError }}</p>
 
         <div role="tablist" class="account-progress-tabs" :aria-label="t('pages.accountProgressDetail.sectionsLabel')">
@@ -661,7 +698,7 @@ onUnmounted(releaseLock)
         <p>
           <label class="field-label"><span class="field-label-text">{{ t('pages.accountProgressDetail.regressionReason') }}</span> <input v-model="reason" type="text" /></label>
         </p>
-        <button type="submit" class="btn-primary" :disabled="saving">{{ t('common.save') }}</button>
+        <button type="submit" class="btn-primary" :disabled="saving || lockLost">{{ t('common.save') }}</button>
         <button type="button" @click="cancelEdit">{{ t('common.cancel') }}</button>
       </form>
 

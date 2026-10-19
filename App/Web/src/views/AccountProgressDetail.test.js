@@ -132,6 +132,65 @@ async function mountEditable(options = {}) {
   return wrapper
 }
 
+describe('AccountProgressDetail.vue: a lost edit lock (UI review W2-3)', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    const rights = useRightsStore()
+    rights.userKey = 1
+    rights.permissionNames = ['EditAccountProgress']
+    rights.loaded = true
+    vi.useFakeTimers()
+  })
+  afterEach(() => {
+    vi.useRealTimers()
+    vi.restoreAllMocks()
+  })
+
+  async function mountAndLoseTheLock(reacquire) {
+    mockLoad()
+    const wrapper = await mountEditable()
+    const base = globalThis.fetch.getMockImplementation()
+    globalThis.fetch = vi.fn((url, options) => {
+      if (url === '/api/account-progress/42/lock/heartbeat') return Promise.resolve({ ok: false, status: 409, json: () => Promise.resolve({}) })
+      if (url === '/api/account-progress/42/lock' && options?.method === 'POST' && reacquire) return Promise.resolve(reacquire)
+      return base(url, options)
+    })
+    await vi.advanceTimersByTimeAsync(60000)
+    await flushPromises()
+    return wrapper
+  }
+
+  it('warns at the next heartbeat, keeps the form and what was typed, and stops Save', async () => {
+    const wrapper = await mountAndLoseTheLock()
+    const field = wrapper.findAll('form input').find(i => !i.attributes('type') || i.attributes('type') === 'text')
+    await field.setValue('typed before the lock was lost')
+    expect(wrapper.find('[role="alert"]').text()).toContain('You no longer hold the edit lock')
+    expect(field.element.value).toBe('typed before the lock was lost')
+    expect(wrapper.find('button.btn-primary[type="submit"]').attributes('disabled')).toBeDefined()
+    expect(wrapper.text()).not.toContain('Currently being edited')
+  })
+
+  it('Take the lock again gets Save back without reloading', async () => {
+    const wrapper = await mountAndLoseTheLock({ ok: true, status: 200, json: () => Promise.resolve({ lockedByUserKey: 1, lockedByName: 'Test User', lockedAt: '2026-01-01T00:00:00Z' }) })
+
+    await wrapper.findAll('button').find(b => b.text() === 'Take the lock again').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.text()).not.toContain('You no longer hold the edit lock')
+    expect(wrapper.find('button.btn-primary[type="submit"]').attributes('disabled')).toBeUndefined()
+  })
+
+  it('says who has it when a colleague holds the lock now', async () => {
+    const wrapper = await mountAndLoseTheLock({ ok: false, status: 409, json: () => Promise.resolve({ lockedByUserKey: 2, lockedByName: 'Other User', lockedAt: '2026-01-01T00:00:00Z' }) })
+
+    await wrapper.findAll('button').find(b => b.text() === 'Take the lock again').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('Other User now holds the edit lock')
+    expect(wrapper.find('button.btn-primary[type="submit"]').attributes('disabled')).toBeDefined()
+  })
+})
+
 describe('AccountProgressDetail.vue', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
