@@ -128,7 +128,18 @@
   },
   "accessDenied": {
     "title": "Access Denied",
-    "message": "You don't have permission to view this page, or it doesn't exist."
+    "message": "You don't have permission to view this page. If you need it, ask an administrator to give your account a role that includes it.",
+    "home": "Go to the Dashboard",
+    "profile": "See my roles"
+  },
+  "notFound": {
+    "title": "Page Not Found",
+    "message": "There is no page at this address. It may have moved, or the address may be mistyped.",
+    "home": "Go to the Dashboard"
+  },
+  "noAccess": {
+    "message": "Your account has no roles in BlueTrack, so most pages will show nothing or refuse you. Ask an administrator to give your account a role.",
+    "profile": "See my profile"
   },
   "login": {
     "title": "Sign in",
