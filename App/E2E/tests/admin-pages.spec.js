@@ -346,8 +346,8 @@ test.describe('Audit Log Viewer admin page', () => {
 
     await expect(page.getByText('Loading...')).toHaveCount(0)
 
-    await page.getByPlaceholder('e.g. FieldEdit').fill('FieldEdit')
-    await page.getByRole('button', { name: 'Filter' }).click()
+    await page.getByLabel('Event Type:').selectOption('FieldEdit') // a choice since UI review W11-1
+    await page.getByRole('button', { name: 'Filter', exact: true }).click()
     await expect(page.getByText('Loading...')).toHaveCount(0)
   })
 
@@ -362,7 +362,7 @@ test.describe('Audit Log Viewer admin page', () => {
     await page.goto('/admin/audit-log')
     await expect(page.getByText('Loading...')).toHaveCount(0)
 
-    await page.getByPlaceholder('e.g. FieldEdit').fill('ReportExport')
+    await page.getByLabel('Event Type:').selectOption('ReportExport')
     await page.getByRole('button', { name: 'Filter', exact: true }).click()
     await expect(page.getByText('Loading...')).toHaveCount(0)
 

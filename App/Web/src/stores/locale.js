@@ -100,7 +100,13 @@ export const useLocaleStore = defineStore('locale', {
     // "Use browser default": drop the saved choice here and on the server, and follow the browser's language again.
     async useBrowserDefault() {
       this.followBrowser(true)
-      await fetch(`/api/me/preferences/${PREFERENCE_KEY}`, { method: 'DELETE' })
+      // UI review W12-3: true when the server kept it; the change applies here either way.
+      try {
+        const response = await fetch(`/api/me/preferences/${PREFERENCE_KEY}`, { method: 'DELETE' })
+        return response.ok
+      } catch {
+        return false
+      }
     },
     followBrowser(clearCache) {
       if (clearCache) {
@@ -115,17 +121,22 @@ export const useLocaleStore = defineStore('locale', {
       apply(this.current, false)
     },
     async setLanguage(code) {
-      if (!SUPPORTED_LOCALES.includes(code)) return
+      if (!SUPPORTED_LOCALES.includes(code)) return false
       this.current = code
       this.explicit = true
       apply(code, true)
       writeCache(code)
 
-      await fetch(`/api/me/preferences/${PREFERENCE_KEY}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ value: code })
-      })
+      try {
+        const response = await fetch(`/api/me/preferences/${PREFERENCE_KEY}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ value: code })
+        })
+        return response.ok
+      } catch {
+        return false
+      }
     }
   }
 })

@@ -62,6 +62,7 @@ async function signOut() {
     await signOutNow()
   } catch (err) {
     error.value = err.message
+    open.value = true // UI review W12-5: keep the menu open so the error sits beside Sign out
   } finally {
     signingOut.value = false
   }

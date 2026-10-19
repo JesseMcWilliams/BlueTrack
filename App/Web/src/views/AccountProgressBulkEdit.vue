@@ -22,6 +22,7 @@ const selection = useAccountSelectionStore()
 const referenceData = ref({})
 const saving = ref(false)
 const error = ref(null)
+const referenceError = ref(null) // UI review W2-9: without the reference data the dropdowns are empty, so say so
 const result = ref(null)
 
 const fields = [
@@ -46,8 +47,13 @@ const reason = ref('')
 const chosen = computed(() => fields.filter(f => change.value[f.field]).map(f => f.field))
 
 onMounted(async () => {
-  const response = await fetch('/api/account-progress/reference-data')
-  if (response.ok) referenceData.value = await response.json()
+  try {
+    const response = await fetch('/api/account-progress/reference-data')
+    if (response.ok) referenceData.value = await response.json()
+    else referenceError.value = t('pages.accountProgressBulkEdit.referenceFailed', { status: response.status })
+  } catch {
+    referenceError.value = t('pages.accountProgressBulkEdit.referenceFailed', { status: 0 })
+  }
 })
 
 async function apply() {
@@ -97,6 +103,7 @@ function backToList() {
     </i18n-t>
 
     <form v-else-if="!result" @submit.prevent="apply">
+      <p v-if="referenceError" role="alert">{{ referenceError }}</p>
       <i18n-t keypath="pages.accountProgressBulkEdit.intro" tag="p" scope="global">
         <template #count><strong>{{ formatCount(selection.count) }}</strong></template>
         <template #change><em>{{ t('pages.accountProgressBulkEdit.change') }}</em></template>

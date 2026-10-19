@@ -39,11 +39,17 @@ export const usePageSizeStore = defineStore('pageSize', {
       const parsed = parsePageSize(size)
       this.current = parsed
 
-      await fetch('/api/me/preferences/PageSize', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ value: String(parsed) })
-      })
+      // UI review W12-3: true when the server kept it; the change applies here either way.
+      try {
+        const response = await fetch('/api/me/preferences/PageSize', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ value: String(parsed) })
+        })
+        return response.ok
+      } catch {
+        return false
+      }
     }
   }
 })

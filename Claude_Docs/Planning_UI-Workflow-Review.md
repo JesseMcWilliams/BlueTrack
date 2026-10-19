@@ -29,10 +29,7 @@ Today: Dashboard, then the Accounts list (seven filters, multi-sort, paging), th
 
 | ID | Finding | Effort |
 |---|---|---|
-| W2-5 | A view-only user isn't told why there is no edit form (`:542,651`). | S |
 | W2-6 | Bulk Apply has no result summary on the shared bulk components; a ticked Date or text field left empty clears that field on every selected account (the confirmation now lists the fields). | S |
-| W2-8 | No confirmation after Save; the risk override saves on its own, unexplained (Cancel won't undo it). | S |
-| W2-9 | A reference-data load failure in bulk edit is silent (empty dropdowns). | S |
 
 Works well: selection survives paging and sorting; sort headers are real buttons with `aria-sort`; a regression needs a reason; delete and undelete keep a visible history.
 
@@ -119,20 +116,13 @@ Works well: the API key reveal (shown once, select on focus, Copy), the keys lis
 
 | ID | Finding | Effort |
 |---|---|---|
-| W11-1 | Event type is free text and there is no filter for who did it. Unverified: whether the API supports a user filter. | M |
-| W11-2 | Field Metadata type and reference table are free text; a typo can break the Account Progress edit form. Use selects. | M |
-| W11-4 | Audit timestamps are the raw stored string with no zone. | S |
-| W11-5 | No Clear filters button. | S |
+| W11-1 | There is no filter for who did it: the API takes `performedByUserKey`, but the viewer has no user lookup to pick one (the event type is now a choice, D-265). | M |
 
 ## Workflow 12: Personal settings
 
 | ID | Finding | Effort |
 |---|---|---|
 | W12-1 | Edits typed in a form are lost when the idle sign-out happens (the warning now gives two minutes). Unverified: whether sign-in returns to the page. | M |
-| W12-2 | Reload My Rights replaces the whole page with "Loading" and gives no confirmation; a failure replaces the page with an alert. | S |
-| W12-3 | Theme, language and page-size saves ignore failures and show no "Saved". | S |
-| W12-4 | Page size can be set only from list pagers, not on the profile page. | S |
-| W12-5 | A sign-out error appears detached, under a menu that has already closed. Unverified how it looks. | S |
 
 Works well: the user menu is a proper disclosure (Escape returns focus, closes on route change), the About dialog is modal with focus handled, the idle timer is shared across tabs.
 

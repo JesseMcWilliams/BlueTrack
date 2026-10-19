@@ -87,6 +87,13 @@ public sealed class AuditRepository(IDbConnectionFactory connectionFactory)
     }
 
     /// <summary>D-121: the grand total row count with no filter applied -- backs the X-Total-Count response header on GetEventsAsync's own endpoint.</summary>
+    /// <summary>UI review W11-1: the event type names, for the viewer's Event Type choice.</summary>
+    public async Task<IReadOnlyList<string>> GetEventTypeNamesAsync()
+    {
+        using var connection = connectionFactory.Create();
+        return (await connection.QueryAsync<string>("SELECT EventTypeName FROM web.dim_audit_event_type ORDER BY EventTypeName")).AsList();
+    }
+
     public async Task<int> GetTotalCountAsync()
     {
         using var connection = connectionFactory.Create();

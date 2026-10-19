@@ -36,6 +36,7 @@ const sampleEvent = {
 
 function mockInitialLoad({ events = [sampleEvent], totalCount = events.length, filteredCount = totalCount } = {}) {
   globalThis.fetch = vi.fn((url) => {
+    if (url === '/api/audit-log/event-types') return Promise.resolve(jsonResponse(null, { ok: false, status: 404 })) // free-text fallback
     if (url.startsWith('/api/audit-log')) return Promise.resolve(jsonResponse(events, { totalCount, filteredCount }))
     return Promise.resolve(jsonResponse(null, { ok: false, status: 404 }))
   })
@@ -219,5 +220,60 @@ describe('AuditLogViewer.vue', () => {
 
       expect(wrapper.find('#audit-detail-1 [role="alert"]').text()).toContain("the server didn't answer")
     })
+  })
+})
+
+describe('AuditLogViewer.vue: event types, local times and Clear filters (UI review W11-1, W11-4, W11-5)', () => {
+  beforeEach(() => setActivePinia(createPinia()))
+  afterEach(() => vi.restoreAllMocks())
+
+  function mockWithTypes() {
+    globalThis.fetch = vi.fn((url) => {
+      if (url === '/api/audit-log/event-types') return Promise.resolve(jsonResponse(['FieldEdit', 'Logon']))
+      return Promise.resolve(jsonResponse([sampleEvent], { totalCount: 1, filteredCount: 1 }))
+    })
+  }
+
+  it('offers the event types as a choice and sends the chosen one', async () => {
+    mockWithTypes()
+    const wrapper = mount(AuditLogViewer)
+    await flushPromises()
+    const select = wrapper.find('select')
+    expect(select.findAll('option').map(o => o.text())).toEqual(['All', 'FieldEdit', 'Logon'])
+
+    await select.setValue('Logon')
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+    const call = globalThis.fetch.mock.calls.map(c => c[0]).filter(u => u.startsWith('/api/audit-log?')).at(-1)
+    expect(call).toContain('eventType=Logon')
+  })
+
+  it('shows the time as a local date and time with the stored UTC value as its tooltip', async () => {
+    mockWithTypes()
+    const wrapper = mount(AuditLogViewer)
+    await flushPromises()
+    const time = wrapper.find('tbody time')
+    expect(time.text()).not.toBe('2026-09-09T12:00:00Z')
+    expect(time.text()).toMatch(/2026|9\/9|9\.9|09/)
+    expect(time.attributes('title')).toBe('Stored as 2026-09-09T12:00:00Z (UTC)')
+  })
+
+  it('Clear filters appears with a filter set and reloads with none', async () => {
+    mockWithTypes()
+    const wrapper = mount(AuditLogViewer)
+    await flushPromises()
+    const clear = () => wrapper.findAll('button').find(b => b.text() === 'Clear filters')
+    expect(clear()).toBeUndefined()
+
+    await wrapper.find('input[placeholder="e.g. risk_exception"]').setValue('risk_exception')
+    expect(clear()).toBeDefined()
+    globalThis.fetch.mockClear()
+    await clear().trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('input[placeholder="e.g. risk_exception"]').element.value).toBe('')
+    const loads = globalThis.fetch.mock.calls.map(c => c[0]).filter(u => u.startsWith('/api/audit-log?'))
+    expect(loads).toHaveLength(1)
+    expect(loads[0]).not.toContain('entityName=')
   })
 })

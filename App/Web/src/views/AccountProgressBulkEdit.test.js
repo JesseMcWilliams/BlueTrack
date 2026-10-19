@@ -50,6 +50,22 @@ describe('Account bulk edit', () => {
     expect(globalThis.fetch.mock.calls.some(([url, init]) => url === '/api/account-progress/bulk-edit' && init?.method === 'POST')).toBe(true)
   })
 
+  // UI review W2-9
+  it('says so when the dropdown choices could not be loaded', async () => {
+    const wrapper = await mountPage()
+    expect(wrapper.text()).not.toContain('could not be loaded')
+
+    setActivePinia(createPinia())
+    useAccountSelectionStore().add([11])
+    globalThis.fetch = vi.fn(() => Promise.resolve({ ok: false, status: 500, json: () => Promise.resolve(null) }))
+    const router = createRouter({ history: createMemoryHistory(), routes: [{ path: '/', name: 'account-progress-list', component: { template: '<div />' } }] })
+    router.push('/')
+    await router.isReady()
+    const failing = mount(AccountProgressBulkEdit, { global: { plugins: [router] } })
+    await flushPromises()
+    expect(failing.find('[role="alert"]').text()).toContain('could not be loaded (500)')
+  })
+
   it('changes nothing when the confirmation is cancelled', async () => {
     confirmDelete.mockResolvedValue(false)
     const wrapper = await mountPage()

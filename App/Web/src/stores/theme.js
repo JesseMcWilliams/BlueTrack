@@ -41,16 +41,22 @@ export const useThemeStore = defineStore('theme', {
       }
     },
     async setTheme(theme) {
-      if (!VALID_THEMES.includes(theme)) return
+      if (!VALID_THEMES.includes(theme)) return false
       this.current = theme
       apply(theme)
       localStorage.setItem(STORAGE_KEY, theme)
 
-      await fetch('/api/me/preferences/Theme', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ value: theme })
-      })
+      // UI review W12-3: true when the server kept it; the change applies here either way.
+      try {
+        const response = await fetch('/api/me/preferences/Theme', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ value: theme })
+        })
+        return response.ok
+      } catch {
+        return false
+      }
     }
   }
 })

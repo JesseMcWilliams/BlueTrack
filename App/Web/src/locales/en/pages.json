@@ -107,6 +107,9 @@
     "couldNotAcquireLock": "Could not acquire edit lock: {status}",
     "forceReleaseFailed": "Force-release failed: {status}",
     "validationFailed": "Validation failed.",
+    "overrideSaved": "Risk score override saved.",
+    "overrideHint": "The risk score override is saved on its own with Save Override. Save and Cancel below do not include it, and Cancel does not undo it.",
+    "viewOnly": "You can view this account but not change it: your roles do not include editing accounts.",
     "lockLost": "You no longer hold the edit lock on this account: it expired, or someone forced it. What you typed is still here, but you can't save until you take the lock again.",
     "lockLostTaken": "{name} now holds the edit lock on this account. What you typed is still here, but you can't save until they are done and you take the lock again.",
     "lockReacquire": "Take the lock again",
@@ -161,6 +164,7 @@
     "linkedExceptionValue": "{id} ({status}) — {justification}, reviewed {date}"
   },
   "accountProgressBulkEdit": {
+    "referenceFailed": "The choices for the dropdowns could not be loaded ({status}), so they are empty. Reload the page to try again.",
     "confirmTitle": "Change these fields on {count} accounts?",
     "confirmWarning": "Each account's current value for these fields is replaced.",
     "confirmButton": "Apply",
