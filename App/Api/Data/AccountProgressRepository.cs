@@ -55,6 +55,12 @@ public sealed class AccountProgressRepository(IDbConnectionFactory connectionFac
           AND (@RiskLevelName IS NULL OR rl.RiskLevelName = @RiskLevelName)
           AND (@OwnerContains IS NULL OR fap.OwnerName LIKE '%' + @OwnerContains + '%')
           AND (@SearchPattern IS NULL OR fa.UserName LIKE @SearchPattern OR fa.Address LIKE @SearchPattern OR fa.AccountName LIKE @SearchPattern)
+          -- UI review W7-1: the KPI Summary's counts (D-143), so each count can open the accounts behind it.
+          AND (@Kpi IS NULL OR @Kpi = 'total'
+               OR (@Kpi = 'inScope'    AND sts.StatusName <> 'Risk Accepted / Excluded')
+               OR (@Kpi = 'onboarded'  AND sts.StatusName <> 'Risk Accepted / Excluded' AND stg.StageOrder >= 3)
+               OR (@Kpi = 'managed'    AND sts.StatusName <> 'Risk Accepted / Excluded' AND stg.StageOrder >= 4)
+               OR (@Kpi = 'compliant'  AND stg.StageOrder = 5 AND sts.StatusName = 'Complete'))
         """;
 
     /// <summary>
@@ -82,7 +88,8 @@ public sealed class AccountProgressRepository(IDbConnectionFactory connectionFac
         int? pageSize = null,
         string? search = null,
         string? deleted = null,
-        string? linked = null)
+        string? linked = null,
+        string? kpi = null)
     {
         using var connection = connectionFactory.Create();
         var (normalizedPage, normalizedPageSize) = PagingParams.Normalize(page, pageSize);
@@ -134,6 +141,7 @@ public sealed class AccountProgressRepository(IDbConnectionFactory connectionFac
             SearchPattern = ToContainsPattern(search),
             DeletedFilter = NormalizeDeleted(deleted),
             LinkedFilter = NormalizeLinked(linked),
+            Kpi = NormalizeKpi(kpi),
             Offset = PagingParams.Offset(normalizedPage, normalizedPageSize),
             PageSize = normalizedPageSize
         });
@@ -155,7 +163,8 @@ public sealed class AccountProgressRepository(IDbConnectionFactory connectionFac
         string? ownerContains = null,
         string? search = null,
         string? deleted = null,
-        string? linked = null)
+        string? linked = null,
+        string? kpi = null)
     {
         using var connection = connectionFactory.Create();
         var sql = $"SELECT COUNT(*) {FilterFromSql}";
@@ -167,7 +176,8 @@ public sealed class AccountProgressRepository(IDbConnectionFactory connectionFac
             OwnerContains = ownerContains,
             SearchPattern = ToContainsPattern(search),
             DeletedFilter = NormalizeDeleted(deleted),
-            LinkedFilter = NormalizeLinked(linked)
+            LinkedFilter = NormalizeLinked(linked),
+            Kpi = NormalizeKpi(kpi)
         });
     }
 
@@ -177,7 +187,7 @@ public sealed class AccountProgressRepository(IDbConnectionFactory connectionFac
     /// the caller compares against GetFilteredCountAsync to know if there were more.
     /// </summary>
     public async Task<IReadOnlyList<long>> GetFilteredKeysAsync(
-        string? stageName, string? statusName, string? riskLevelName, string? ownerContains, string? search, int limit, string? deleted = null, string? linked = null)
+        string? stageName, string? statusName, string? riskLevelName, string? ownerContains, string? search, int limit, string? deleted = null, string? linked = null, string? kpi = null)
     {
         using var connection = connectionFactory.Create();
         var sql = $"SELECT TOP (@Limit) fa.AccountKey {FilterFromSql} ORDER BY fa.AccountName, fa.AccountKey";
@@ -190,9 +200,21 @@ public sealed class AccountProgressRepository(IDbConnectionFactory connectionFac
             SearchPattern = ToContainsPattern(search),
             DeletedFilter = NormalizeDeleted(deleted),
             LinkedFilter = NormalizeLinked(linked),
+            Kpi = NormalizeKpi(kpi),
             Limit = limit
         })).AsList();
     }
+
+    /// <summary>UI review W7-1: one of the KPI Summary's counts (total, inScope, onboarded, managed, compliant), or null for no KPI filter; an unknown value is ignored.</summary>
+    private static string? NormalizeKpi(string? kpi) => kpi?.ToLowerInvariant() switch
+    {
+        "total" => "total",
+        "inscope" => "inScope",
+        "onboarded" => "onboarded",
+        "managed" => "managed",
+        "compliant" => "compliant",
+        _ => null
+    };
 
     /// <summary>D-185: "Hide" (default), "Show" (deleted too) or "Only" (deleted only).</summary>
     private static string NormalizeDeleted(string? deleted) => deleted?.ToLowerInvariant() switch

@@ -118,6 +118,7 @@
     "colPercentage": "Percentage",
     "notApplicable": "N/A",
     "percent": "{value}%",
+    "listNote": "Each count opens the Accounts list showing those accounts. The Accounts list shows accounts that have progress tracking, so an In Scope or All Accounts count can be higher than the list if some accounts have none yet.",
     "totalAccounts": "{count} account(s) total."
   },
   "overdueAtRiskWorklist": {

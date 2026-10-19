@@ -112,6 +112,7 @@ function currentFilterParams() {
   if (searchFilter.value.trim()) params.set('search', searchFilter.value.trim())
   if (deletedFilter.value !== 'Hide') params.set('deleted', deletedFilter.value)
   if (linkedFilter.value !== 'Hide') params.set('linked', linkedFilter.value)
+  if (kpiFilter.value) params.set('kpi', kpiFilter.value)
   return params
 }
 
@@ -150,6 +151,16 @@ const searchFilter = ref('')
 const deletedFilter = ref('Hide')
 // D-212: a feed account linked to a CyberArk account is hidden unless shown here.
 const linkedFilter = ref('Hide')
+// UI review W7-1: one of the KPI Summary's counts (D-143), opened from a count there; '' = no KPI filter.
+const KPI_FILTERS = ['total', 'inScope', 'onboarded', 'managed', 'compliant']
+const kpiFilter = ref('')
+const kpiNames = computed(() => ({
+  total: t('pages.accountProgressList.kpiTotal'),
+  inScope: t('pages.accountProgressList.kpiInScope'),
+  onboarded: t('pages.accountProgressList.kpiOnboarded'),
+  managed: t('pages.accountProgressList.kpiManaged'),
+  compliant: t('pages.accountProgressList.kpiCompliant')
+}))
 
 // Each entry: { field, descending }. Order in this array IS sort priority.
 const sortColumns = ref([])
@@ -213,7 +224,7 @@ const sortQueryParam = computed(() => formatSort(sortColumns.value))
 // report can link straight to a stage. Defaults are left out of the address.
 // UI review W2-7: Clear filters puts every filter back to its default (the sort stays); one change, so one reload.
 const filtersActive = computed(() => !!(stageFilter.value || statusFilter.value || riskLevelFilter.value || ownerFilter.value
-  || searchFilter.value.trim() || deletedFilter.value !== 'Hide' || linkedFilter.value !== 'Hide'))
+  || searchFilter.value.trim() || deletedFilter.value !== 'Hide' || linkedFilter.value !== 'Hide' || kpiFilter.value))
 
 function clearFilters() {
   stageFilter.value = ''
@@ -223,6 +234,7 @@ function clearFilters() {
   searchFilter.value = ''
   deletedFilter.value = 'Hide'
   linkedFilter.value = 'Hide'
+  kpiFilter.value = ''
 }
 
 const LIST_ROUTE = 'account-progress-list'
@@ -237,6 +249,7 @@ function applyAddress(query) {
   searchFilter.value = readText(query, 'search')
   deletedFilter.value = readOneOf(query, 'deleted', ['Hide', 'Show', 'Only'], 'Hide')
   linkedFilter.value = readOneOf(query, 'linked', ['Hide', 'Show'], 'Hide')
+  kpiFilter.value = readOneOf(query, 'kpi', KPI_FILTERS, '')
   sortColumns.value = parseSort(readText(query, 'sort'), columns.map(c => c.field))
   page.value = readPage(query)
 }
@@ -244,7 +257,7 @@ function applyAddress(query) {
 function currentAddress() {
   return compactQuery({
     stage: stageFilter.value, status: statusFilter.value, riskLevel: riskLevelFilter.value, owner: ownerFilter.value,
-    search: searchFilter.value.trim(), deleted: deletedFilter.value, linked: linkedFilter.value, sort: sortQueryParam.value, page: page.value
+    search: searchFilter.value.trim(), deleted: deletedFilter.value, linked: linkedFilter.value, kpi: kpiFilter.value, sort: sortQueryParam.value, page: page.value
   }, QUERY_DEFAULTS)
 }
 
@@ -295,13 +308,13 @@ onMounted(async () => {
 
 // D-124 Phase 3: a filter/sort change resets to page 1 -- see Targets.vue's
 // identical comment for why page-size/Prev/Next changes are handled separately.
-watch([stageFilter, statusFilter, riskLevelFilter, ownerFilter, searchFilter, deletedFilter, linkedFilter, sortQueryParam], () => {
+watch([stageFilter, statusFilter, riskLevelFilter, ownerFilter, searchFilter, deletedFilter, linkedFilter, kpiFilter, sortQueryParam], () => {
   if (applyingAddress) return
   page.value = 1
   load()
 })
 
-watch([stageFilter, statusFilter, riskLevelFilter, ownerFilter, searchFilter, deletedFilter, linkedFilter, sortQueryParam, page], writeAddress, { flush: 'post' })
+watch([stageFilter, statusFilter, riskLevelFilter, ownerFilter, searchFilter, deletedFilter, linkedFilter, kpiFilter, sortQueryParam, page], writeAddress, { flush: 'post' })
 
 // Back and Forward (or a link to this list while it is open) change the address under the page: show what it says.
 watch(() => route.query, async (query) => {
@@ -353,6 +366,10 @@ watch(() => route.query, async (query) => {
         </select>
       </label>
       <button v-if="filtersActive" type="button" @click="clearFilters">{{ t('pages.accountProgressList.clearFilters') }}</button>
+    </p>
+    <p v-if="kpiFilter" class="kpi-filter">
+      {{ t('pages.accountProgressList.kpiShowing', { name: kpiNames[kpiFilter] }) }}
+      <button type="button" @click="kpiFilter = ''">{{ t('pages.accountProgressList.kpiRemove') }}</button>
     </p>
     <SelectionBar v-if="canEdit || canDelete" :selection="selection" :page-keys="pageKeys" :filtered-count="filteredCount"
                   :keys-url="keysUrl" :toggle-label="t('pages.accountProgressList.selectToggle')">

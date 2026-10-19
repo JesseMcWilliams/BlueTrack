@@ -37,14 +37,15 @@ public sealed class AccountProgressController(
         [FromQuery] int? pageSize = null,
         [FromQuery] string? search = null,
         [FromQuery] string? deleted = null,
-        [FromQuery] string? linked = null)
+        [FromQuery] string? linked = null,
+        [FromQuery] string? kpi = null)
     {
         // D-178 / D-191: search matches Username, Address or AccountName ("contains").
         // D-185: deleted = Hide (default) / Show / Only. D-212: linked = Hide (default) / Show.
         var sortBy = SortParser.Parse(sort);
-        var results = await repository.GetSummaryListAsync(stage, status, riskLevel, owner, sortBy, page, pageSize, search, deleted, linked);
+        var results = await repository.GetSummaryListAsync(stage, status, riskLevel, owner, sortBy, page, pageSize, search, deleted, linked, kpi);
         Response.Headers["X-Total-Count"] = (await repository.GetTotalCountAsync()).ToString();
-        Response.Headers["X-Filtered-Count"] = (await repository.GetFilteredCountAsync(stage, status, riskLevel, owner, search, deleted, linked)).ToString();
+        Response.Headers["X-Filtered-Count"] = (await repository.GetFilteredCountAsync(stage, status, riskLevel, owner, search, deleted, linked, kpi)).ToString();
         return Ok(results);
     }
 
@@ -65,11 +66,12 @@ public sealed class AccountProgressController(
         [FromQuery] string? owner = null,
         [FromQuery] string? search = null,
         [FromQuery] string? deleted = null,
-        [FromQuery] string? linked = null)
+        [FromQuery] string? linked = null,
+        [FromQuery] string? kpi = null)
     {
         var max = (await appConfigRepository.GetAsync()).BulkEditMaxAccounts;
-        var matching = await repository.GetFilteredCountAsync(stage, status, riskLevel, owner, search, deleted, linked);
-        var keys = matching > max ? [] : await repository.GetFilteredKeysAsync(stage, status, riskLevel, owner, search, max, deleted, linked);
+        var matching = await repository.GetFilteredCountAsync(stage, status, riskLevel, owner, search, deleted, linked, kpi);
+        var keys = matching > max ? [] : await repository.GetFilteredKeysAsync(stage, status, riskLevel, owner, search, max, deleted, linked, kpi);
         return Ok(new AccountProgressKeysResult { MatchingCount = matching, MaxAccounts = max, AccountKeys = keys });
     }
 

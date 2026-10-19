@@ -30,6 +30,13 @@
     "activeExceptionsCount": "{count} active exception(s) awaiting approval."
   },
   "accountProgressList": {
+    "kpiShowing": "Showing the accounts counted in the KPI Summary as: {name}.",
+    "kpiRemove": "Show all accounts",
+    "kpiTotal": "All accounts",
+    "kpiInScope": "In scope (not Risk Accepted / Excluded)",
+    "kpiOnboarded": "Onboarded (stage 3 or later, in scope)",
+    "kpiManaged": "Managed (stage 4 or later, in scope)",
+    "kpiCompliant": "Compliant (final stage, status Complete)",
     "clearFilters": "Clear filters",
     "emptyNone": "No accounts have been loaded yet. They appear after a data feed or CyberArk pull has run.",
     "emptyFiltered": "No accounts match the current filters.",
