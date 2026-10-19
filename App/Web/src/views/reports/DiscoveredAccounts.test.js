@@ -156,9 +156,10 @@ describe('DiscoveredAccounts.vue', () => {
     expect(globalThis.fetch).not.toHaveBeenCalledWith('/api/reports/discovered-accounts/1/accept', { method: 'POST' })
   })
 
-  it('Dismiss posts without a confirm prompt, then reloads the list', async () => {
+  it('Dismiss asks first, then posts and reloads the list', async () => {
     const rights = useRightsStore()
     rights.permissionNames = ['ManageDiscoveredAccounts']
+    confirmDelete.mockResolvedValue(true)
     mockInitialLoad()
     const wrapper = mount(DiscoveredAccounts)
     await flushPromises()
@@ -167,8 +168,22 @@ describe('DiscoveredAccounts.vue', () => {
     await dismissButton.trigger('click')
     await flushPromises()
 
-    expect(confirmDelete).not.toHaveBeenCalled()
+    expect(confirmDelete).toHaveBeenCalledWith(expect.stringContaining('Dismiss "'), 'Dismiss')
     expect(globalThis.fetch).toHaveBeenCalledWith('/api/reports/discovered-accounts/1/dismiss', { method: 'POST' })
+  })
+
+  it('Dismiss does nothing when the confirmation is cancelled', async () => {
+    const rights = useRightsStore()
+    rights.permissionNames = ['ManageDiscoveredAccounts']
+    confirmDelete.mockResolvedValue(false)
+    mockInitialLoad()
+    const wrapper = mount(DiscoveredAccounts)
+    await flushPromises()
+
+    await wrapper.findAll('button').find(b => b.text() === 'Dismiss').trigger('click')
+    await flushPromises()
+
+    expect(globalThis.fetch).not.toHaveBeenCalledWith('/api/reports/discovered-accounts/1/dismiss', { method: 'POST' })
   })
 
   // D-233: account classification columns, Class filter and the per-row override.

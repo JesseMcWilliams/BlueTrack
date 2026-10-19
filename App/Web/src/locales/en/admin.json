@@ -1006,6 +1006,7 @@
     "confirmDelete": "Delete the API key \"{name}\"? Scripts that use it stop working at once.",
     "actionFailed": "The change failed: {status}",
     "rotate": "Rotate",
+    "rotateConfirm": "Rotate the API key \"{name}\"? A new key with the same role is created and shown once. The old key keeps working until you disable or delete it.",
     "rotatedHeading": "A new API key \"{name}\" was created from \"{from}\".",
     "rotateHint": "Rotate creates a new key with the same role, for switching a caller over. The old key keeps working until you disable or delete it.",
     "owner": "Owner"

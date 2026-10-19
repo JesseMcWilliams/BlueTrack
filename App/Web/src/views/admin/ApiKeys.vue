@@ -59,6 +59,8 @@ async function setEnabled(key, enable) {
 }
 
 async function rotate(key) {
+  // UI review W10-4: a rotation creates a live key, so it asks first.
+  if (!(await confirmDelete(t('admin.apiKeys.rotateConfirm', { name: key.displayName }), t('admin.apiKeys.rotate')))) return
   error.value = null
   const response = await fetch(`/api/admin/api-keys/${key.apiKeyKey}/rotate`, { method: 'POST' })
   if (!response.ok) {

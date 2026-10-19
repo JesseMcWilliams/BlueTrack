@@ -150,6 +150,9 @@
     "linkedExceptionValue": "{id} ({status}) — {justification}, reviewed {date}"
   },
   "accountProgressBulkEdit": {
+    "confirmTitle": "Change these fields on {count} accounts?",
+    "confirmWarning": "Each account's current value for these fields is replaced.",
+    "confirmButton": "Apply",
     "title": "Bulk Edit Accounts",
     "fieldStage": "Stage",
     "fieldStatus": "Status",

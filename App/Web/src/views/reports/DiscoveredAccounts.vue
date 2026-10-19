@@ -13,8 +13,8 @@
 // the report. Accept reuses the shared confirmDelete dialog (D-128) --
 // despite the name, it's this app's one generic confirm-before-a-real-write
 // dialog, already customizable via its confirmLabel param; Dismiss doesn't
-// prompt (low-stakes, doesn't touch fact_account, and a dismissed row isn't
-// deleted -- see GetListAsync's own Status filter).
+// prompt until UI review W5-4 (it doesn't touch fact_account, and a dismissed row isn't
+// deleted -- see GetListAsync's own Status filter), but a row that leaves the list now asks first too.
 //
 // D-233: Account Class, Owner and Matched by columns from Admin > Account
 // Classification's rules, a Class filter (sent to the export too), and a
@@ -243,6 +243,11 @@ async function accept(row) {
 }
 
 async function dismiss(row) {
+  // UI review W5-4: a dismissed row leaves the list, so Dismiss asks first.
+  if (!(await confirmDelete(
+    t('reports.discoveredAccounts.dismissConfirm', { account: row.samAccountName, domain: row.domainName }),
+    t('reports.discoveredAccounts.dismiss')
+  ))) return
   actionError.value = null
   busyKey.value = row.discoveredAccountKey
   try {
