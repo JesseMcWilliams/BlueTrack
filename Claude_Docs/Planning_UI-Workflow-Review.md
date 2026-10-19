@@ -12,7 +12,7 @@ The Self-Hosted Direct setup workflow (Credentials, CyberArk sources, Data Sourc
 4. **List state in the URL and drill-down: shipped (D-252)** for the Accounts list, Trends, Discovered Accounts and Risk Score, and for the Dashboard and stage-by-status counts. The KPI counts shipped in D-261.
 5. **Missing empty states: shipped (D-253)** for Targets, Access Groups, Accounts, Discovered Accounts and the admin lists. Still open: Risk Score report (a report, not the Bands list).
 6. **Silent failures**: bulk-import HTTP errors on Application mapping render nothing (Targets and Access Groups shipped in D-251); theme, language and page-size saves ignore failures. (W8-3, W12-3)
-7. **Accessibility basics** (worklist row links and named Delete buttons shipped, D-257 and D-258): toggles without `aria-expanded` and forms that open away from the control without moving focus remain on the Secrets Store (W10-8). (W10-8; W5-5, W5-6 and W9-9 shipped in D-262 and D-263)
+7. **Accessibility basics** (worklist row links and named Delete buttons shipped, D-257 and D-258): toggles without `aria-expanded` and forms that open away from the control without moving focus are done. (W5-5, W5-6, W9-9 and W10-8 shipped in D-262 to D-264)
 
 ## Workflow 1: Sign-in and access
 
@@ -20,8 +20,6 @@ Today: the router guard sends an unauthenticated user to `/login`; Login lists o
 
 | ID | Finding | Effort |
 |---|---|---|
-| W1-5 | The Identity Provider pages never say OIDC changes need an app restart (a code comment only). Unverified: wording elsewhere. | S |
-| W1-7 | No lock-out warning when deleting the default or last enabled provider, or your own role. Unverified: the server may refuse. | M |
 
 Works well: distinct idle and signed-out messages, an open-redirect-safe `returnUrl`, group names resolved with a Lookup tool that explains effective rights.
 
@@ -103,8 +101,6 @@ Works well: exports respect the active filters and sort and relay the API's erro
 
 | ID | Finding | Effort |
 |---|---|---|
-| W9-1 | Every Notifications action reloads and remounts the page, losing unsaved SMTP or schedule edits (`Notifications.vue:175-268`). | S |
-| W9-3 | The SMTP Test email uses the saved settings but stays enabled while the form is dirty. | S |
 | W9-4 | Failed runs, Unhealthy checks and failed backups aren't marked in the run history, health checks or backup table. | S |
 | W9-5 | Add-recipient failure shows only the status code. | S |
 | W9-8 | No "Saved" message after a feed or recipient save. | S |
@@ -115,12 +111,7 @@ Works well: the business-hours guard on Run now, Test on unsaved feed values, Gl
 
 | ID | Finding | Effort |
 |---|---|---|
-| W10-2 | Identity Provider pages never say OIDC changes need an app restart. | S |
-| W10-3 | No lock-out warning when deleting an identity provider. | S |
 | W10-4 | No leave-page guard on the API key reveal screen (Rotate now confirms). | S |
-| W10-5 | Copy failure is silent on plain-HTTP hosts (`ApiKeyReveal.vue`). | S |
-| W10-7 | SIEM Save and Test messages appear at the top of a long form, away from the buttons. | S |
-| W10-8 | Secrets Store credential inputs have no label; the Role permission list isn't a fieldset. | S |
 
 Works well: the API key reveal (shown once, select on focus, Copy), the keys list (status, last used, where from), SIEM status and "Test first" hint.
 

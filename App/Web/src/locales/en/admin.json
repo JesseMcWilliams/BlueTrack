@@ -536,6 +536,7 @@
     "selectRole": "Select a role"
   },
   "identityProviderEdit": {
+    "oidcRestartNote": "OpenID Connect changes take effect after the application is restarted: the sign-in scheme is registered once, at startup. SAML changes take effect immediately.",
     "notFound": "Provider not found.",
     "editTitle": "Edit Provider",
     "newTitle": "New Provider",
@@ -561,6 +562,8 @@
     "secretNoneSet": "(none set)"
   },
   "identityProviders": {
+    "deleteLastWarning": "This is the only enabled provider: after it is deleted, nobody can sign in through it.",
+    "deleteDefaultWarning": "It is also the default sign-in method.",
     "emptyNone": "No identity providers are configured yet.",
     "saveDefaultFailed": "Saving the default sign-in method failed: {status}",
     "confirmDelete": "Delete Identity Provider \"{name}\"? This cannot be undone.",
@@ -629,6 +632,7 @@
     "addRecipient": "Add Recipient"
   },
   "secretsStoreConfiguration": {
+    "credentialFor": "Credential for {backend}",
     "title": "Secrets Store Configuration",
     "intro": "Exactly one backend is active at a time.",
     "backend": "Backend",
@@ -703,6 +707,7 @@
     "noReviews": "No pending reviews."
   },
   "notifications": {
+    "testNeedsSave": "The test uses the saved SMTP settings. Save your changes first.",
     "dayMon": "Mon",
     "dayTue": "Tue",
     "dayWed": "Wed",
@@ -1027,6 +1032,7 @@
     "copyWarning": "Copy the key now. It is shown only once and can't be shown again; if it is lost, delete the key and create a new one.",
     "keyLabel": "API key",
     "copy": "Copy",
+    "copyFailed": "Could not copy automatically. Select the key above and copy it by hand.",
     "copied": "Copied.",
     "expiresOn": "It expires on {date}.",
     "done": "Done",

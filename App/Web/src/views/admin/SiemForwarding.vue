@@ -138,9 +138,12 @@ onMounted(load)
   <div>
     <h2>{{ t('admin.siemForwarding.title') }}</h2>
     <p class="intro">{{ t('admin.siemForwarding.intro') }}</p>
-    <p v-if="error" role="alert">{{ error }}</p>
-    <p v-if="message" role="status">{{ message }}</p>
-    <p v-if="testResult" :role="testResult.ok ? 'status' : 'alert'">{{ testResult.text }}</p>
+    <!-- UI review W10-7: with the form showing, these three sit under its Save and Test buttons, not above a long form. -->
+    <template v-if="!settings">
+      <p v-if="error" role="alert">{{ error }}</p>
+      <p v-if="message" role="status">{{ message }}</p>
+      <p v-if="testResult" :role="testResult.ok ? 'status' : 'alert'">{{ testResult.text }}</p>
+    </template>
     <p v-if="loading" role="status">{{ t('common.loading') }}</p>
 
     <template v-else-if="settings">
@@ -289,6 +292,9 @@ onMounted(load)
           <button type="button" :disabled="busy || !settings.host" @click="sendTest">{{ t('admin.siemForwarding.test') }}</button>
         </p>
         <p class="hint">{{ t('admin.siemForwarding.testHint') }}</p>
+        <p v-if="error" role="alert">{{ error }}</p>
+        <p v-if="message" role="status">{{ message }}</p>
+        <p v-if="testResult" :role="testResult.ok ? 'status' : 'alert'">{{ testResult.text }}</p>
       </form>
     </template>
   </div>

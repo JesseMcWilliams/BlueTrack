@@ -90,8 +90,8 @@ function cancel() {
       <p><label class="field-label"><span class="field-label-text">{{ t('admin.roleEdit.roleName') }}</span> <input v-model="editing.roleName" required /></label></p>
       <p><label class="field-label"><span class="field-label-text">{{ t('admin.roleEdit.description') }}</span> <input v-model="editing.description" /></label></p>
       <p><label class="field-label"><span class="field-label-text">{{ t('admin.roleEdit.notificationEmail') }}</span> <input v-model="editing.notificationEmail" type="email" :placeholder="t('admin.roleEdit.notificationEmailPlaceholder')" /></label></p>
-      <p>
-        {{ t('admin.roleEdit.permissions') }}
+      <fieldset>
+        <legend>{{ t('admin.roleEdit.permissions') }}</legend>
         <label v-for="perm in catalog" :key="perm.permissionKey" style="display: block">
           <input
             type="checkbox"
@@ -100,7 +100,7 @@ function cancel() {
           />
           {{ perm.permissionName }} — {{ perm.description }}
         </label>
-      </p>
+      </fieldset>
       <p v-if="saveError" role="alert">{{ saveError }}</p>
       <button type="submit" class="btn-primary" :disabled="saving">{{ t('common.save') }}</button>
       <button type="button" @click="cancel">{{ t('common.cancel') }}</button>

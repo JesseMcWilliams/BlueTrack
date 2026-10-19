@@ -204,6 +204,7 @@ async function testConnection() {
             <input
               v-model="credentialDraft[backend.backendType]"
               type="password"
+              :aria-label="t('admin.secretsStoreConfiguration.credentialFor', { backend: backend.backendType })"
               :placeholder="backend.backendSettings?.includes('ProtectedCredential') ? t('admin.secretsStoreConfiguration.alreadySet') : t('admin.secretsStoreConfiguration.noneSet')"
             />
           </td>

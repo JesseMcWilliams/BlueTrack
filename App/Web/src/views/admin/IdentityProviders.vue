@@ -93,7 +93,16 @@ async function saveDefault() {
 }
 
 async function remove(provider) {
-  if (!(await confirmDelete(t('admin.identityProviders.confirmDelete', { name: provider.displayName })))) return
+  // UI review W1-7/W10-3: the server does not refuse, so say when this takes away a way to sign in.
+  const others = providers.value.filter(p => p.providerKey !== provider.providerKey && p.isEnabled)
+  const warnings = []
+  if (provider.isEnabled && others.length === 0) warnings.push(t('admin.identityProviders.deleteLastWarning'))
+  if (provider.providerType === defaultProviderType.value) warnings.push(t('admin.identityProviders.deleteDefaultWarning'))
+  const message = t('admin.identityProviders.confirmDelete', { name: provider.displayName })
+  const confirmed = warnings.length === 0
+    ? await confirmDelete(message)
+    : await confirmDelete({ title: message, details: [], warning: warnings.join(' ') })
+  if (!confirmed) return
   const response = await fetch(`/api/admin/identity-providers/${provider.providerKey}`, { method: 'DELETE' })
   if (!response.ok) {
     error.value = t('common.deleteFailed', { status: response.status })
