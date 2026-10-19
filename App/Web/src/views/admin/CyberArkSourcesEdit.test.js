@@ -14,7 +14,9 @@ function makeRouter() {
     history: createMemoryHistory(),
     routes: [
       { path: '/', name: 'home', component: { template: '<div />' } },
-      { path: '/admin/data-sources', name: 'admin-data-sources', component: { template: '<div />' } }
+      { path: '/admin/data-sources', name: 'admin-data-sources', component: { template: '<div />' } },
+      { path: '/admin/credentials', name: 'admin-credentials', component: { template: '<div />' } },
+      { path: '/admin/data-sources/cyberark', name: 'admin-cyberark-sources-edit', component: { template: '<div />' } }
     ]
   })
 }
@@ -191,5 +193,71 @@ describe('CyberArkSourcesEdit.vue', () => {
     const wrapper = await mountPage()
 
     expect(wrapper.find('[role="alert"]').text()).toContain('403')
+  })
+
+  // D-248: linking to and from Credentials.
+  it('links to Admin > Credentials to create a credential, keeping what was typed', async () => {
+    sessionStorage.clear()
+    routeFetch({
+      'GET /api/admin/cyberark-sources': jsonResponse({ isConfigured: true, settings: { ...defaults, importSelfHosted: true, selfHostedSource: 'Direct', pvwaBaseUrl: 'https://pvwa.example.com' } }),
+      'GET /api/admin/cyberark-sources/credentials': jsonResponse(credentials)
+    })
+    const router = makeRouter()
+    await router.push('/')
+    const wrapper = await mountPage(router)
+    await wrapper.find('input[placeholder="https://pvwa.example.com"]').setValue('https://typed.example.com')
+
+    const link = wrapper.findAll('a').find(a => a.text() === 'Create a credential')
+    expect(link.attributes('href')).toContain('/admin/credentials?new=CyberArkCP&returnTo=cyberark-sources')
+    await link.trigger('click')
+
+    expect(JSON.parse(sessionStorage.getItem('cyberArkSourcesDraft')).editing.pvwaBaseUrl).toBe('https://typed.example.com')
+  })
+
+  it('arrives from a credential with Direct and that credential chosen, and restores the draft', async () => {
+    sessionStorage.setItem('cyberArkSourcesDraft', JSON.stringify({
+      at: Date.now(),
+      editing: { ...defaults, importSelfHosted: true, selfHostedSource: 'Evd', evdDatabaseName: 'CyberArkSH', pvwaBaseUrl: 'https://typed.example.com', directMaxChangePercent: 35 }
+    }))
+    routeFetch({
+      'GET /api/admin/cyberark-sources': jsonResponse({ isConfigured: true, settings: defaults }),
+      'GET /api/admin/cyberark-sources/credentials': jsonResponse(credentials)
+    })
+    const router = makeRouter()
+    await router.push('/admin/data-sources/cyberark?credentialKey=3')
+    const wrapper = await mountPage(router)
+
+    expect(wrapper.find('input[placeholder="https://pvwa.example.com"]').element.value).toBe('https://typed.example.com')
+    expect(wrapper.find('input[type="number"]').element.value).toBe('35')
+    expect(wrapper.findAll('select')[1].element.value).toBe('3')
+    expect(sessionStorage.getItem('cyberArkSourcesDraft')).toBeNull()   // used once
+    expect(wrapper.findAll('select')[0].element.value).toBe('Direct')
+  })
+
+  it('arrives from a credential without a draft: Direct on, that credential chosen, nothing else changed', async () => {
+    sessionStorage.clear()
+    routeFetch({
+      'GET /api/admin/cyberark-sources': jsonResponse({ isConfigured: true, settings: { ...defaults, importPrivilegeCloud: true, exportFolderPath: 'D:\\Exports' } }),
+      'GET /api/admin/cyberark-sources/credentials': jsonResponse(credentials)
+    })
+    const router = makeRouter()
+    await router.push('/admin/data-sources/cyberark?credentialKey=4')
+    const wrapper = await mountPage(router)
+
+    expect(wrapper.findAll('select').find(s => s.element.value === '4')).toBeTruthy()
+    expect(wrapper.text()).toContain('Export folder')   // Privilege Cloud stays as it was
+  })
+
+  it('ignores a draft older than an hour', async () => {
+    sessionStorage.setItem('cyberArkSourcesDraft', JSON.stringify({ at: Date.now() - 2 * 3600_000, editing: { ...defaults, pvwaBaseUrl: 'https://stale.example.com' } }))
+    routeFetch({
+      'GET /api/admin/cyberark-sources': jsonResponse({ isConfigured: true, settings: defaults }),
+      'GET /api/admin/cyberark-sources/credentials': jsonResponse(credentials)
+    })
+    const router = makeRouter()
+    await router.push('/admin/data-sources/cyberark?credentialKey=3')
+    const wrapper = await mountPage(router)
+
+    expect(wrapper.find('input[placeholder="https://pvwa.example.com"]').element.value).toBe('')
   })
 })

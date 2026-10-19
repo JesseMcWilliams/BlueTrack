@@ -27,7 +27,19 @@ public interface IVaultSecretProvider
 /// secrets; each backend's own settings, like CyberArk CP/CCP's AppID,
 /// live in web.secrets_store.BackendSettings instead, per D-49).
 /// </summary>
-public sealed record SecretQuery(string Safe, string Folder, string Object);
+public sealed record SecretQuery(string Safe, string Folder, string Object)
+{
+    /// <summary>
+    /// The folder CyberArk CP and CCP use when none is given: every Safe has a "Root" folder, and a blank Folder in
+    /// the request is refused (CP: APPPR502E "Password query ... is invalid"). Other backends keep their own meaning
+    /// of Folder (an AWS version stage, an Azure version), so only the CyberArk providers call this.
+    /// </summary>
+    public const string CyberArkDefaultFolder = "Root";
+
+    /// <summary>This query with a blank Folder replaced by <see cref="CyberArkDefaultFolder"/>, and a given one trimmed.</summary>
+    public SecretQuery WithCyberArkFolder() =>
+        this with { Folder = string.IsNullOrWhiteSpace(Folder) ? CyberArkDefaultFolder : Folder.Trim() };
+}
 
 /// <summary>
 /// Content is char[], not string, per Design_Secrets-Storage.md's own note

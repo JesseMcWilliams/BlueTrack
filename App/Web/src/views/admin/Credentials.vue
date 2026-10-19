@@ -5,11 +5,18 @@
 // which picks the one active backend for resolving privileged-account
 // secrets a vault manages. Also hosts LDAP Configuration, a small singleton
 // that just needs a bind-account Credential picked from the list below.
-import { ref, onMounted } from 'vue'
+// D-248: each credential links to the CyberArk sources page ("Use for Self-Hosted Direct"),
+// and the sources page links here with ?new=<backend>&returnTo=cyberark-sources to create
+// one; saving that new credential goes back there with it chosen.
+import { ref, computed, onMounted } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { confirmDelete } from '../../composables/useConfirmDialog'
 import { useI18n } from 'vue-i18n'
 
 const { t } = useI18n()
+const route = useRoute()
+const router = useRouter()
+const returnToSources = ref(false)
 
 const BACKEND_TYPES = ['WindowsDpapi', 'CyberArkCP', 'CyberArkCCP', 'CyberArkConjur', 'AzureKeyVault', 'AwsSecretsManager']
 
@@ -42,7 +49,17 @@ async function load() {
   }
 }
 
-onMounted(load)
+onMounted(async () => {
+  await load()
+  const wanted = route?.query?.new
+  if (wanted) {
+    startCreate()
+    if (BACKEND_TYPES.includes(wanted)) editing.value.backendType = wanted
+    returnToSources.value = route.query.returnTo === 'cyberark-sources'
+  }
+})
+
+const isCyberArkVault = computed(() => editing.value?.backendType === 'CyberArkCP' || editing.value?.backendType === 'CyberArkCCP')
 
 function startCreate() {
   editing.value = { credentialName: '', backendType: 'WindowsDpapi', username: '', scopePreference: 'Machine', vaultSafe: '', vaultFolder: '', vaultObject: '' }
@@ -68,7 +85,12 @@ async function save() {
     error.value = t('common.saveFailed', { status: response.status })
     return
   }
+  const created = isNew ? await response.json().catch(() => null) : null
   editing.value = null
+  if (created?.credentialKey && returnToSources.value) {
+    router.push({ name: 'admin-cyberark-sources-edit', query: { credentialKey: created.credentialKey } })
+    return
+  }
   await load()
 }
 
@@ -154,6 +176,7 @@ async function removeLdapConfig(config) {
             </td>
             <td>
               <button @click="startEdit(credential)">{{ t('common.edit') }}</button>
+              <router-link :to="{ name: 'admin-cyberark-sources-edit', query: { credentialKey: credential.credentialKey } }">{{ t('admin.credentials.useForSelfHosted') }}</router-link>
               <button @click="remove(credential)">{{ t('common.delete') }}</button>
               <button @click="test(credential)" :disabled="testResults[credential.credentialKey]?.testing">{{ t('admin.credentials.test') }}</button>
               <span v-if="testResults[credential.credentialKey]?.success === true" role="status">{{ ' ' + t('admin.credentials.testOk', { username: testResults[credential.credentialKey].username }) }}</span>
@@ -165,6 +188,7 @@ async function removeLdapConfig(config) {
 
       <form v-if="editing" @submit.prevent="save">
         <h4>{{ editing.credentialKey === undefined ? t('admin.credentials.newCredential') : t('admin.credentials.editCredential') }}</h4>
+        <p v-if="returnToSources && editing.credentialKey === undefined" role="status">{{ t('admin.credentials.returnToSources') }}</p>
         <p><label class="field-label"><span class="field-label-text">{{ t('admin.credentials.nameLabel') }}</span> <input v-model="editing.credentialName" required /></label></p>
         <p>
           <label class="field-label">
@@ -197,7 +221,10 @@ async function removeLdapConfig(config) {
 
         <template v-else>
           <p><label class="field-label"><span class="field-label-text">{{ t('admin.credentials.safeLabel') }}</span> <input v-model="editing.vaultSafe" /></label></p>
-          <p><label class="field-label"><span class="field-label-text">{{ t('admin.credentials.folderLabel') }}</span> <input v-model="editing.vaultFolder" /></label></p>
+          <p>
+            <label class="field-label"><span class="field-label-text">{{ t('admin.credentials.folderLabel') }}</span> <input v-model="editing.vaultFolder" :placeholder="isCyberArkVault ? t('admin.credentials.folderPlaceholder') : ''" /></label>
+            <small v-if="isCyberArkVault">{{ t('admin.credentials.folderHint') }}</small>
+          </p>
           <p><label class="field-label"><span class="field-label-text">{{ t('admin.credentials.objectLabel') }}</span> <input v-model="editing.vaultObject" /></label></p>
         </template>
 

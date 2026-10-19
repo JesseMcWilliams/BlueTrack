@@ -308,3 +308,9 @@ Found by pulling the lab PVWA's REST API and the EVD database for the same Vault
 - **The REST user list has no email**; each user's details do. The permissions are 22 named booleans, and the ambiguous ones (`addAccounts` and `updateAccountProperties` both matched two EVD columns in the data) were settled by what they mean, then checked on 88 members.
 - **The app's database account can't TRUNCATE** (it has no ALTER, `Database/Manual/02`): the staging write that runs inside the API uses `DELETE`; only the SQL Agent job's procedures truncate.
 - **Tests that put `web.cyberark_source_config` back with `INSERT ... SELECT *` from `OPENJSON ... WITH (...)` break whenever a column is added**: they now name the columns, so a later column needs adding to the list in `EtlRunLogTests`, `DailySnapshotTests` and `CyberArkSourcesControllerTests`.
+
+## 2026-10-19 -- First live use of Self-Hosted Direct: three things the fake and the captured data hid (D-249)
+
+- **`Users?ExtendedDetails=true` and `Users` disagree on this PVWA**: the extended list leaves out the built-in `Master` user (id 0) while both report `Total` 44, so a strict "list shorter than Total" check failed every pull. A spike that only printed the extended list's count (43) hid it. Read the plain list, and treat a leftover difference as a warning. Master's `Users/0/` details call returns a 500, so built-in and component users aren't asked for details.
+- **CyberArk CP refuses an empty Folder** (`APPPR502E`), but the credential form let it be saved blank. The first CP lookup in this project always had a folder typed in. CP and CCP now send `Root`.
+- **A test that drives a provider with a stub never sees the real SDK's input rules.** The CCP stub test now checks the URL it sends, and `SecretQuery.WithCyberArkFolder` has its own unit test, but the CP SDK call itself is only checked live.

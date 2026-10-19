@@ -214,14 +214,45 @@ public class PvwaClientTests
     }
 
     [Fact]
-    public async Task UsersListShorterThanItsTotal_IsAnIncompleteListAndStopsThePull()
+    public async Task UsersListShorterThanItsTotal_IsAWarning_NotAFailure()
     {
         var fake = FullPvwa();
-        fake.Json("/PasswordVault/API/Users", "{\"Users\":[{\"id\":47,\"username\":\"a\"}],\"Total\":6001}");
+        fake.Json("/PasswordVault/API/Users", "{\"Users\":[{\"id\":47,\"username\":\"a\"}],\"Total\":44}");
 
-        var error = await Assert.ThrowsAsync<PvwaException>(() => Client(fake).PullAsync(Token, CancellationToken.None));
+        var snapshot = await Client(fake).PullAsync(Token, CancellationToken.None);
 
-        Assert.Contains("reported 6001 users but returned 1", error.Message);
+        Assert.Single(snapshot.Users);
+        var warning = Assert.Single(snapshot.Warnings);
+        Assert.Contains("PVWA reported 44 users but returned 1; 43 user(s)", warning);
+    }
+
+    [Fact]
+    public async Task Users_AreReadWithThePlainList_BecauseExtendedDetailsDropsTheMasterUser()
+    {
+        var fake = FullPvwa();
+
+        await Client(fake).PullAsync(Token, CancellationToken.None);
+
+        var call = Assert.Single(fake.Requests, r => r.PathAndQuery.StartsWith("/PasswordVault/API/Users") && !r.PathAndQuery.Contains("/Users/"));
+        Assert.Equal("/PasswordVault/API/Users", call.PathAndQuery);
+    }
+
+    [Fact]
+    public async Task ComponentAndBuiltInUsers_AreNotAskedForDetails()
+    {
+        var fake = FullPvwa();
+        fake.Json("/PasswordVault/API/Users",
+            "{\"Users\":[{\"id\":0,\"username\":\"Master\",\"componentUser\":false,\"userType\":\"Built-InAdmins\",\"enableUser\":true,\"personalDetails\":{}},"
+            + "{\"id\":22,\"username\":\"PasswordManager\",\"componentUser\":true,\"userType\":\"CPM\"},"
+            + "{\"id\":47,\"username\":\"adm.jesse\",\"componentUser\":false,\"userType\":\"EPVUser\"}],\"Total\":3}");
+
+        var snapshot = await Client(fake).PullAsync(Token, CancellationToken.None);
+
+        Assert.Equal([0L, 22L, 47L], snapshot.Users.Select(u => u.Id));
+        Assert.DoesNotContain(fake.Requests, r => r.PathAndQuery == "/PasswordVault/API/Users/22/");
+        Assert.DoesNotContain(fake.Requests, r => r.PathAndQuery == "/PasswordVault/API/Users/0/");   // Master: its details call returns a 500
+        Assert.Contains(fake.Requests, r => r.PathAndQuery == "/PasswordVault/API/Users/47/");
+        Assert.Null(snapshot.Users.Single(u => u.Id == 22).Email);
     }
 
     [Fact]

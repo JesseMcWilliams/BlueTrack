@@ -7,12 +7,28 @@
 // API (Self-Hosted Direct, pulled by the API each night at the pull time); for
 // Direct, Test logs on with the chosen credential and counts what it can see.
 import { ref, watch, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 
 const { t } = useI18n()
 
 const router = useRouter()
+const route = useRoute()
+
+// D-248: "Create a credential" leaves this page, so the unsaved values wait in sessionStorage for the way back
+// (the Credentials page returns here with ?credentialKey=). A draft older than an hour is ignored.
+const DRAFT_KEY = 'cyberArkSourcesDraft'
+function rememberDraft() {
+  try { sessionStorage.setItem(DRAFT_KEY, JSON.stringify({ at: Date.now(), editing: editing.value })) } catch { /* private window: the values are simply not kept */ }
+}
+function takeDraft() {
+  try {
+    const raw = sessionStorage.getItem(DRAFT_KEY)
+    sessionStorage.removeItem(DRAFT_KEY)
+    const draft = raw ? JSON.parse(raw) : null
+    return draft && Date.now() - draft.at < 3600_000 ? draft.editing : null
+  } catch { return null }
+}
 
 const fileFields = [
   { field: 'platformsFileName', labelKey: 'admin.cyberArkSourcesEdit.platformsFile' },
@@ -69,6 +85,16 @@ onMounted(async () => {
       exportFolderPath: body.settings.exportFolderPath ?? '',
       evdDatabaseName: body.settings.evdDatabaseName ?? '',
       pvwaBaseUrl: body.settings.pvwaBaseUrl ?? ''
+    }
+    // Arriving from a credential ("Use for Self-Hosted Direct", or after creating one): pick Direct with that
+    // credential, keeping whatever was typed before leaving this page. Nothing is saved until Save.
+    const credentialKey = Number(route?.query?.credentialKey) || null
+    if (credentialKey) {
+      const draft = takeDraft()
+      if (draft) editing.value = draft
+      editing.value.importSelfHosted = true
+      editing.value.selfHostedSource = 'Direct'
+      editing.value.pvwaCredentialKey = credentialKey
     }
   } catch (err) {
     loadError.value = err.message
@@ -179,6 +205,10 @@ function cancel() {
                   </select>
                 </label>
                 <small>{{ t('admin.cyberArkSourcesEdit.credentialHint') }}</small>
+              </p>
+              <p>
+                <router-link :to="{ name: 'admin-credentials', query: { new: 'CyberArkCP', returnTo: 'cyberark-sources' } }" @click="rememberDraft">{{ t('admin.cyberArkSourcesEdit.createCredential') }}</router-link>
+                <small>{{ ' ' + t('admin.cyberArkSourcesEdit.createCredentialHint') }}</small>
               </p>
               <p v-if="credentialsError" role="alert">{{ credentialsError }}</p>
               <p>

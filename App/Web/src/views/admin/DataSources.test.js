@@ -268,6 +268,29 @@ describe('DataSources.vue', () => {
 
     expect(wrapper.find('[role="alert"]').text()).toContain('Save Self-Hosted Direct as the source first.')
   })
+
+  it('Details opens a dialog with the whole message, the counts and what to do, and closes again', async () => {
+    routeFetch(directHandlers([pull({ status: 'Rejected', message: 'Safes went from 40 to 10 (-30; at most 8 allowed at 20%) | User \'x\': details not read' })]))
+    const wrapper = mount(DataSources, { global: { plugins: [makeRouter()] }, attachTo: document.body })
+    await flushPromises()
+    expect(document.body.querySelector('[role="dialog"]')).toBeNull()
+
+    await wrapper.findAll('button').find(b => b.text() === 'Details').trigger('click')
+    await flushPromises()
+
+    const dialog = document.body.querySelector('[role="dialog"]')
+    expect(dialog.textContent).toContain('Self-Hosted Direct pull')
+    expect(dialog.textContent).toContain('Safes went from 40 to 10')
+    expect(dialog.textContent).toContain("User 'x': details not read")
+    expect(dialog.querySelectorAll('.pull-details-messages li')).toHaveLength(2)
+    expect(dialog.textContent).toContain('2452')
+    expect(dialog.textContent).toContain('Accept the change and pull')
+
+    ;[...dialog.querySelectorAll('button')].find(b => b.textContent === 'Close').click()
+    await flushPromises()
+    expect(document.body.querySelector('[role="dialog"]')).toBeNull()
+    wrapper.unmount()
+  })
 })
 
 describe('dataFeedFormat', () => {

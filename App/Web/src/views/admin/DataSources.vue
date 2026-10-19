@@ -13,6 +13,7 @@ import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import { confirmDelete } from '../../composables/useConfirmDialog'
 import { feedTypeLabel, formatRunTime } from './dataFeedFormat'
+import PullDetailsDialog from './PullDetailsDialog.vue'
 import { useI18n } from 'vue-i18n'
 
 const { t } = useI18n()
@@ -27,6 +28,7 @@ const message = ref(null)
 const loading = ref(true)
 let pollTimer = null
 const directPulls = ref(null)
+const selectedPull = ref(null)
 let directTimer = null
 
 async function loadFeeds() {
@@ -219,7 +221,7 @@ async function remove(feed) {
         <p v-if="directPulls.pulls.length === 0">{{ t('admin.dataSources.noPulls') }}</p>
         <table v-else>
           <thead>
-            <tr><th>{{ t('admin.dataSources.pullStarted') }}</th><th>{{ t('admin.dataSources.pullBy') }}</th><th>{{ t('admin.dataSources.pullResult') }}</th><th>{{ t('admin.dataSources.pullCounts') }}</th></tr>
+            <tr><th>{{ t('admin.dataSources.pullStarted') }}</th><th>{{ t('admin.dataSources.pullBy') }}</th><th>{{ t('admin.dataSources.pullResult') }}</th><th>{{ t('admin.dataSources.pullCounts') }}</th><th></th></tr>
           </thead>
           <tbody>
             <tr v-for="p in directPulls.pulls.slice(0, 5)" :key="p.pullKey">
@@ -230,6 +232,7 @@ async function remove(feed) {
                 <br /><small v-if="p.message">{{ p.message }}</small>
               </td>
               <td><template v-if="p.safeCount !== null">{{ t('admin.dataSources.pullCountsValue', { safes: p.safeCount, accounts: p.accountCount, users: p.userCount ?? 0, groups: p.groupCount ?? 0 }) }}</template></td>
+              <td><button type="button" @click="selectedPull = p">{{ t('admin.dataSources.pullDetails') }}</button></td>
             </tr>
           </tbody>
         </table>
@@ -239,6 +242,8 @@ async function remove(feed) {
         </p>
       </div>
       <p><button type="button" @click="router.push({ name: 'admin-cyberark-sources-edit' })">{{ t('admin.dataSources.editCyberArk') }}</button></p>
+
+      <PullDetailsDialog v-if="selectedPull" :pull="selectedPull" @close="selectedPull = null" />
 
       <h3>{{ t('admin.dataSources.dataFeedsHeading') }}</h3>
       <p>
