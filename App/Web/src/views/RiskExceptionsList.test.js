@@ -3,6 +3,7 @@ import { mount, flushPromises } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { createRouter, createMemoryHistory } from 'vue-router'
 import RiskExceptionsList from './RiskExceptionsList.vue'
+import { useRightsStore } from '../stores/rights'
 
 // D-124 Phase 3: this page had no component-level Vitest coverage before
 // this phase -- establishes coverage for the new pager UI and the
@@ -48,6 +49,8 @@ function makeRouter() {
     routes: [
       { path: '/', name: 'home', component: { template: '<div />' } },
       { path: '/risk-exceptions/new', name: 'risk-exception-create', component: { template: '<div />' } },
+      { path: '/risk-exceptions/overdue', name: 'risk-exceptions-overdue-worklist', component: { template: '<div />' } },
+      { path: '/risk-exceptions/approvals', name: 'risk-exceptions-approval-worklist', component: { template: '<div />' } },
       { path: '/risk-exceptions/:exceptionKey', name: 'risk-exception-edit', component: { template: '<div />' } }
     ]
   })
@@ -68,6 +71,21 @@ describe('RiskExceptionsList.vue', () => {
     await flushPromises()
 
     expect(wrapper.text()).toContain('EXC-2026-0001')
+  })
+
+  // UI review W3-6
+  it('links to the overdue worklist for everyone, and to the approval worklist only for approvers', async () => {
+    mockInitialLoad()
+    const viewer = mount(RiskExceptionsList, { global: { plugins: [makeRouter()] } })
+    await flushPromises()
+    expect(viewer.findAll('a').map(a => a.text())).toContain('Reviews overdue')
+    expect(viewer.findAll('a').map(a => a.text())).not.toContain('Approval worklist')
+
+    useRightsStore().permissionNames = ['ApproveExceptions']
+    mockInitialLoad()
+    const approver = mount(RiskExceptionsList, { global: { plugins: [makeRouter()] } })
+    await flushPromises()
+    expect(approver.findAll('a').map(a => a.text())).toContain('Approval worklist')
   })
 
   it('shows the "Showing N of M matching (of total)" count summary once both headers are known', async () => {

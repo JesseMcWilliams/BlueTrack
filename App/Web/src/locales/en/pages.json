@@ -30,6 +30,7 @@
     "activeExceptionsCount": "{count} active exception(s) awaiting approval."
   },
   "accountProgressList": {
+    "clearFilters": "Clear filters",
     "emptyNone": "No accounts have been loaded yet. They appear after a data feed or CyberArk pull has run.",
     "emptyFiltered": "No accounts match the current filters.",
     "title": "Account Progress",
@@ -189,6 +190,8 @@
     "backToAccounts": "Back to Accounts"
   },
   "riskExceptionsList": {
+    "overdueLink": "Reviews overdue",
+    "approvalLink": "Approval worklist",
     "title": "Risk Exceptions",
     "colExceptionId": "Exception ID",
     "colScope": "Scope",
@@ -251,7 +254,10 @@
     "reviewExtended": "The review date is now {date}.",
     "account": "Account",
     "application": "Application",
-    "accountKey": "Account Key:",
+    "accountLabel": "Account:",
+    "accountPlaceholder": "Type part of the user name, account name or address",
+    "accountSearchFailed": "Account search failed: {status}",
+    "chooseAccount": "Choose an account from the list.",
     "applicationLabel": "Application:",
     "selectApplication": "Select an application",
     "justificationLabel": "Justification:",

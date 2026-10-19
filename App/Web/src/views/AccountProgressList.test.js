@@ -84,6 +84,31 @@ describe('AccountProgressList.vue', () => {
     expect(wrapper.text()).toContain('web01.example.com')
   })
 
+  // UI review W2-7
+  it('offers Clear filters only while a filter is set, and clearing reloads once with the defaults', async () => {
+    mockInitialLoad({ accounts: [sampleAccount], totalCount: 5, filteredCount: 1 })
+    const wrapper = mount(AccountProgressList, { global: { plugins: [makeRouter()] } })
+    await flushPromises()
+    const clear = () => wrapper.findAll('button').find(b => b.text() === 'Clear filters')
+    expect(clear()).toBeUndefined()
+
+    await wrapper.find('input[type="search"]').setValue('web01')
+    await wrapper.findAll('select').find(s => s.text().includes('Only deleted')).setValue('Show')
+    await flushPromises()
+    expect(clear()).toBeDefined()
+    globalThis.fetch.mockClear()
+
+    await clear().trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('input[type="search"]').element.value).toBe('')
+    expect(clear()).toBeUndefined()
+    const loads = globalThis.fetch.mock.calls.map(c => c[0]).filter(u => u.startsWith('/api/account-progress?'))
+    expect(loads).toHaveLength(1)
+    expect(loads[0]).not.toContain('search=')
+    expect(loads[0]).not.toContain('deleted=')
+  })
+
   it('shows the "Showing N of M matching (of total)" count summary once both headers are known', async () => {
     mockInitialLoad({ accounts: [sampleAccount], totalCount: 500, filteredCount: 30 })
     const wrapper = mount(AccountProgressList, { global: { plugins: [makeRouter()] } })

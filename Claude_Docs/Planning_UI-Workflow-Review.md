@@ -21,7 +21,7 @@ Today: the router guard sends an unauthenticated user to `/login`; Login lists o
 | ID | Finding | Effort |
 |---|---|---|
 | W1-5 | The Identity Provider pages never say OIDC changes need an app restart (a code comment only). Unverified: wording elsewhere. | S |
-| W1-6 | No empty states; Enabled prints raw true/false; row-less Delete labels (`IdentityProviders.vue:119-127`, `GroupRoleMapping.vue:137`, `RolesAndPermissions.vue:68`). | S |
+| W1-6 | Row-less Delete labels (`IdentityProviders.vue:119-127`, `GroupRoleMapping.vue:137`, `RolesAndPermissions.vue:68`). | S |
 | W1-7 | No lock-out warning when deleting the default or last enabled provider, or your own role. Unverified: the server may refuse. | M |
 
 Works well: distinct idle and signed-out messages, an open-redirect-safe `returnUrl`, group names resolved with a Lookup tool that explains effective rights.
@@ -35,7 +35,6 @@ Today: Dashboard, then the Accounts list (seven filters, multi-sort, paging), th
 | W2-3 | The edit lock can be lost silently: the heartbeat ignores its response, and the user learns at Save. Warn at once; offer a re-acquire that keeps the form. | M |
 | W2-5 | A view-only user isn't told why there is no edit form (`:542,651`). | S |
 | W2-6 | Bulk Apply has no result summary on the shared bulk components; a ticked Date or text field left empty clears that field on every selected account (the confirmation now lists the fields). | S |
-| W2-7 | No empty state and no Clear filters button on a seven-filter list. | S |
 | W2-8 | No confirmation after Save; the risk override saves on its own, unexplained (Cancel won't undo it). | S |
 | W2-9 | A reference-data load failure in bulk edit is silent (empty dropdowns). | S |
 
@@ -47,10 +46,8 @@ Today: the Dashboard links to the two worklists (the list page doesn't); create 
 
 | ID | Finding | Effort |
 |---|---|---|
-| W3-2 | **High.** Account scope needs a raw numeric AccountKey and a wrong one gets a generic 400. Use the typeahead (`Combobox.vue`, already used on `TargetEdit.vue`). | M |
 | W3-4 | The detail shows "Account #1234", not the account's name or a link to it, and doesn't list the accounts an application-scoped exception covers. | M |
-| W3-5 | The approval worklist opens only on row click: no link, no keyboard access (`RiskExceptionsApprovalWorklist.vue:286-290`). | S |
-| W3-6 | The worklists can't be reached from the exceptions list; neither shows the linked account, and neither can extend or revoke inline. | S |
+| W3-6 | Neither worklist shows the linked account, and neither can extend or revoke inline (they are now linked from the exceptions list). | S |
 | W3-7 | "Approval worklist" lists every Active exception; there is no pending-approval state. Unverified whether the API has one. Rename or confirm the purpose. | S |
 | W3-8 | Expired and Revoked exceptions show no reason, who or when (D-190 records it). | S |
 
@@ -103,7 +100,7 @@ Read-only reports; the admin acts in CyberArk. Rows link to the account detail.
 | W7-4 | Overdue/At-Risk can't be sorted, filtered or paged, and shows no days overdue. | M |
 | W7-5 | Trends doesn't validate the date range and refetches on every keystroke. | S |
 | W7-6 | The Risk Score account name expands a panel instead of linking to the account. | S |
-| W7-7 | Risk Score has no empty state. | S |
+| W7-7 | The Risk Score report has no empty state (the Bands list does). | S |
 
 Works well: exports respect the active filters and sort and relay the API's error; Trends has chart text alternatives and a data table behind each chart.
 
@@ -142,7 +139,6 @@ Works well: the business-hours guard on Run now, Test on unsaved feed values, Gl
 | W10-5 | Copy failure is silent on plain-HTTP hosts (`ApiKeyReveal.vue`). | S |
 | W10-7 | SIEM Save and Test messages appear at the top of a long form, away from the buttons. | S |
 | W10-8 | Secrets Store credential inputs have no label; the Role permission list isn't a fieldset. | S |
-| W10-9 | Identity Provider and Role save errors show only the status; no empty states; raw true/false. | S |
 
 Works well: the API key reveal (shown once, select on focus, Copy), the keys list (status, last used, where from), SIEM status and "Test first" hint.
 
@@ -154,7 +150,6 @@ Works well: the API key reveal (shown once, select on focus, Copy), the keys lis
 | W11-2 | Field Metadata type and reference table are free text; a typo can break the Account Progress edit form. Use selects. | M |
 | W11-4 | Audit timestamps are the raw stored string with no zone. | S |
 | W11-5 | No Clear filters button. | S |
-| W11-6 | Field list prints true/false; no empty state. | S |
 
 ## Workflow 12: Personal settings
 

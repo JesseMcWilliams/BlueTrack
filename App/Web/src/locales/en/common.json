@@ -12,6 +12,8 @@
   "description": "Description",
   "status": "Status",
   "enabled": "Enabled",
+  "yes": "Yes",
+  "no": "No",
   "active": "Active",
   "none": "(none)",
   "blank": "(blank)",

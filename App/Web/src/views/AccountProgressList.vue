@@ -211,6 +211,20 @@ const sortQueryParam = computed(() => formatSort(sortColumns.value))
 // UI review W2-2: the filters, sort and page are in the page address (?stage=...&sort=...&page=2), so a filtered list
 // survives opening an account and coming back, a reload and a pasted link, and the Dashboard and the stage/status
 // report can link straight to a stage. Defaults are left out of the address.
+// UI review W2-7: Clear filters puts every filter back to its default (the sort stays); one change, so one reload.
+const filtersActive = computed(() => !!(stageFilter.value || statusFilter.value || riskLevelFilter.value || ownerFilter.value
+  || searchFilter.value.trim() || deletedFilter.value !== 'Hide' || linkedFilter.value !== 'Hide'))
+
+function clearFilters() {
+  stageFilter.value = ''
+  statusFilter.value = ''
+  riskLevelFilter.value = ''
+  ownerFilter.value = ''
+  searchFilter.value = ''
+  deletedFilter.value = 'Hide'
+  linkedFilter.value = 'Hide'
+}
+
 const LIST_ROUTE = 'account-progress-list'
 const QUERY_DEFAULTS = { deleted: 'Hide', linked: 'Hide', page: 1 }
 let applyingAddress = false
@@ -338,6 +352,7 @@ watch(() => route.query, async (query) => {
           <option value="Show">{{ t('pages.accountProgressList.show') }}</option>
         </select>
       </label>
+      <button v-if="filtersActive" type="button" @click="clearFilters">{{ t('pages.accountProgressList.clearFilters') }}</button>
     </p>
     <SelectionBar v-if="canEdit || canDelete" :selection="selection" :page-keys="pageKeys" :filtered-count="filteredCount"
                   :keys-url="keysUrl" :toggle-label="t('pages.accountProgressList.selectToggle')">

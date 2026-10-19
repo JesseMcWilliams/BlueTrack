@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test'
 import { signInAs } from './auth.js'
+import { pickAccount } from './accountPicker.js'
 
 // Layer 4: the three list/worklist pages with zero prior E2E coverage --
 // AccountProgressList.vue, RiskExceptionsList.vue,
@@ -84,11 +85,8 @@ test.describe('Risk Exceptions List', () => {
     // didn't hold. Creates its own row instead, same pattern already used
     // by that other file's "Overdue Exception Reviews worklist" test.
     await signInAs(page, 'TestUser.Approver')
-    const accountsResponse = await page.request.get('/api/account-progress')
-    const accounts = await accountsResponse.json()
-    const account = accounts.find(a => a.accountName === 'TestAccount03')
     await page.goto('/exceptions/new')
-    await page.getByLabel('Account Key:').fill(String(account.accountKey))
+    await pickAccount(page, 'TestAccount03')
     await page.getByLabel('Justification:').fill(`E2E list-pages fixture ${Date.now()}`)
     const reviewDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
     await page.getByLabel('Review Date:').fill(reviewDate)
@@ -129,10 +127,7 @@ test.describe('Overdue Exception Reviews worklist', () => {
     // reject a past date (confirmed by reading both), matching the same
     // pattern the xUnit RiskExceptionRepositoryTests use for this exact scenario.
     await page.goto('/exceptions/new')
-    const accountsResponse = await page.request.get('/api/account-progress')
-    const accounts = await accountsResponse.json()
-    const account = accounts.find(a => a.accountName === 'TestAccount03')
-    await page.getByLabel('Account Key:').fill(String(account.accountKey))
+    await pickAccount(page, 'TestAccount03')
     // Unique per run -- RiskExceptionsController has no Delete endpoint
     // (an established pattern across this suite), so a fixed literal
     // string here collided with a leftover row from an earlier run

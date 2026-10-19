@@ -120,7 +120,7 @@ async function remove(provider) {
           <tr v-for="provider in providers" :key="provider.providerKey">
             <td>{{ provider.providerType }}</td>
             <td><router-link :to="{ name: 'admin-identity-provider-edit', params: { providerKey: provider.providerKey } }">{{ provider.displayName }}</router-link></td>
-            <td>{{ provider.isEnabled }}</td>
+            <td>{{ provider.isEnabled ? t('common.yes') : t('common.no') }}</td>
             <td>{{ provider.displayOrder }}</td>
             <td>
               <button @click="remove(provider)">{{ t('common.delete') }}</button>
