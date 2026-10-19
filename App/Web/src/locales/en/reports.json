@@ -194,6 +194,8 @@
     "loadFailed": "Could not load summary: {error}",
     "empty": "No account progress data yet.",
     "colStage": "Stage",
+    "showCell": "Show the {count} accounts in {stage} with status {status}",
+    "showStage": "Show all {count} accounts in {stage}",
     "colTotal": "Total"
   },
   "trends": {

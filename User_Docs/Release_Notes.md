@@ -6,6 +6,9 @@ What changed in each BlueTrack release, newest first, for users and administrato
 
 ### New
 
+- **Filters, sort and page are kept in the page address** on the Accounts list, and on the Trends, Discovered Accounts and Risk Score reports. Opening an account and coming back (Save, Cancel, or the Accounts breadcrumb) returns you to the list as you left it, and a copied address opens the same view.
+- **The stage counts on the Dashboard, and the counts on Reports > Stage / Status Summary, open the accounts behind them.** (They show the Accounts list's default view, which hides deleted accounts, as the counts do. The KPI counts don't open a list yet.)
+
 - **Self-Hosted Direct.** BlueTrack can read your Self-Hosted CyberArk Vault straight from PVWA's REST API instead of the EVD database (PAM Self-Hosted 14.2 or later). On Admin > Data Sources > Edit CyberArk sources, choose the Self-Hosted source, then give the PVWA address, a credential from Admin > Credentials (a CyberArk CP or CCP credential is fetched from the Vault at each pull), the logon method (CyberArk or LDAP), the pull time and how much the Safe or account count may change. It reads Safes, accounts, Safe members, users, groups and platforms (platform names and descriptions now come from PVWA). Pending (discovered) accounts are not read.
 - **A pull that looks wrong is stopped.** PVWA only returns what the service account can see. If the number of Safes or accounts changes by more than the allowed percentage from the last good pull, the pull is rejected, the nightly import fails and you get the usual failed-import email. Data Sources lists recent pulls, with **Pull now** and, after a rejection, **Accept the change and pull**.
 

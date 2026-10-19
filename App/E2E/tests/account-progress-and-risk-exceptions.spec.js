@@ -151,8 +151,10 @@ test.describe('Account Progress bulk edit (D-182)', () => {
       await page.getByRole('button', { name: 'Apply to 2 accounts' }).click()
       await expect(page.getByText('2 updated, 0 already had these values, 0 skipped.')).toBeVisible()
 
+      // Back to Accounts returns to the list as it was left (D-252): the search is still in the address and the box.
       await page.getByRole('button', { name: 'Back to Accounts' }).click()
-      await expect(page).toHaveURL(/\/accounts$/)
+      await expect(page).toHaveURL(/\/accounts\?search=TestAccount0$/)
+      await expect(page.getByPlaceholder('username, address or account name...')).toHaveValue('TestAccount0')
     } finally {
       for (const o of originals) {
         await page.request.post('/api/account-progress/bulk-edit', {

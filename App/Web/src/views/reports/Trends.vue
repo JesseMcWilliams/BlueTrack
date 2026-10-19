@@ -21,6 +21,8 @@ import {
 import { formatCount } from '../../utils/formatCount'
 import { formatShortDate, formatPercent as formatFraction } from '../../utils/formatLocale'
 import { useChartTheme } from '../../utils/chartTheme'
+import { useAddressState } from '../../composables/useAddressState'
+import { readDate, readOneOf, readText, compactQuery } from '../../utils/listQuery'
 import ReportExportButtons from '../../components/ReportExportButtons.vue'
 import { useI18n } from 'vue-i18n'
 
@@ -41,6 +43,24 @@ function defaultRange() {
 }
 
 const filters = reactive({ ...defaultRange(), granularity: 'day', applicationKey: '', safeKey: '' })
+
+// UI review W7-2: the range, grouping, Application and Safe are in the page address (?from=...&application=7), so a
+// view can be shared, repeated and reloaded. The defaults (the last 90 days, by day, no Application or Safe) are left
+// out. Read before the watchers below, so a Safe named in the address isn't cleared before the choices have loaded.
+const defaults = defaultRange()
+useAddressState({
+  sources: () => [filters.from, filters.to, filters.granularity, filters.applicationKey, filters.safeKey],
+  apply(query) {
+    filters.from = readDate(query, 'from', defaults.from)
+    filters.to = readDate(query, 'to', defaults.to)
+    filters.granularity = readOneOf(query, 'granularity', ['day', 'week'], 'day')
+    filters.applicationKey = readText(query, 'application')
+    filters.safeKey = readText(query, 'safe')
+  },
+  current: () => compactQuery(
+    { from: filters.from, to: filters.to, granularity: filters.granularity, application: filters.applicationKey, safe: filters.safeKey },
+    { from: defaults.from, to: defaults.to, granularity: 'day' })
+})
 
 const applications = ref([])
 const safes = ref([])

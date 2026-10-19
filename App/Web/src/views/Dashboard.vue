@@ -171,7 +171,13 @@ onMounted(load)
               <tbody>
                 <tr v-for="stage in stageFunnel" :key="stage.stageName">
                   <td>{{ stage.stageName }}</td>
-                  <td>{{ formatCount(stage.accountCount) }}</td>
+                  <td>
+                    <!-- UI review W2-1: the count opens the accounts behind it (the list's default view, which hides deleted
+                         accounts, as this count does). -->
+                    <router-link v-if="stage.accountCount > 0" :to="{ name: 'account-progress-list', query: { stage: stage.stageName } }"
+                                 :aria-label="t('pages.dashboard.showStageAccounts', { count: formatCount(stage.accountCount), stage: stage.stageName })">{{ formatCount(stage.accountCount) }}</router-link>
+                    <template v-else>{{ formatCount(stage.accountCount) }}</template>
+                  </td>
                 </tr>
               </tbody>
             </table>

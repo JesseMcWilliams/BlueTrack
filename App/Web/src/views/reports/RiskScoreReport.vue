@@ -6,6 +6,8 @@
 // real Targets/Access Groups contributing to that Account's score
 // (GET /api/reports/risk-score/{accountKey}/contributors).
 import { ref, computed, onMounted } from 'vue'
+import { useAddressState } from '../../composables/useAddressState'
+import { readText, readPage, parseSort, compactQuery } from '../../utils/listQuery'
 import { formatDate } from '../../utils/formatDate'
 import { useTotalCount } from '../../composables/useTotalCount'
 import { usePageSizeStore } from '../../stores/pageSize'
@@ -158,6 +160,17 @@ async function recalculateNow() {
     recalculating.value = false
   }
 }
+
+// UI review W7-2: the sort and page are in the page address, so a view can be shared and reloaded.
+useAddressState({
+  sources: () => [sortQueryParam.value, page.value],
+  apply(query) {
+    sortColumns.value = parseSort(readText(query, 'sort'), columns.map(c => c.field))
+    page.value = readPage(query)
+  },
+  current: () => compactQuery({ sort: sortQueryParam.value, page: page.value }, { page: 1 }),
+  onApplied: load
+})
 
 onMounted(load)
 </script>

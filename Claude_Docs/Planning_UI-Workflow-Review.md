@@ -9,7 +9,7 @@ The Self-Hosted Direct setup workflow (Credentials, CyberArk sources, Data Sourc
 1. **A failed save loses the user's work or says only a status code.** Risk exception saves are fixed (D-251); Identity Provider, Role, Application and Notification recipient saves still show "save failed: 400" where other pages show the API's `problem.detail`. Fix once with a shared error-from-response helper. (W8-4, W9-5, W10-9)
 2. **Destructive or live-changing buttons that don't confirm**, next to ones that do. Still open: Dismiss a possible match, Rotate an API key, Bulk Apply on accounts. (Revoke, Ignore, Force Release and Make active shipped in D-251.) (W2-6, W5-4, W10-4)
 3. **No "saved" message after a save that navigates away**, so the user infers success from the list. (W2-8, W4-8, W9-8)
-4. **List state isn't in the URL, and numbers don't drill down.** Dashboard, KPI and stage-summary counts are plain text, and the Accounts list reads no query string, so a filter is lost on every round trip and a report can't be shared or repeated. This is the biggest workflow gap for the daily user. (W2-1, W2-2, W7-1, W7-2)
+4. **List state in the URL and drill-down: shipped (D-252)** for the Accounts list, Trends, Discovered Accounts and Risk Score, and for the Dashboard and stage-by-status counts. Still open: the KPI counts (W7-1); and the other lists (Targets, Access Groups, Risk Exceptions, Audit Log) still keep their filters only in the page.
 5. **Missing empty states** (a filter with no matches shows only headers): Targets, Access Groups, Accounts, Discovered Accounts, Risk Score, Identity Providers, Field Metadata. (W2-7, W4-6, W5-2, W7-7, W10-9, W11-6)
 6. **Silent failures**: bulk-import HTTP errors on Application mapping render nothing (Targets and Access Groups shipped in D-251); theme, language and page-size saves ignore failures. (W8-3, W12-3)
 7. **Accessibility basics**: a worklist that opens only on row click, "Delete" repeated with no row name, toggles without `aria-expanded`, forms that open away from the control without moving focus. (W3-5, W4-7, W5-5, W5-6, W9-9, W10-8)
@@ -34,8 +34,6 @@ Today: Dashboard, then the Accounts list (seven filters, multi-sort, paging), th
 
 | ID | Finding | Effort |
 |---|---|---|
-| W2-1 | **High.** The Dashboard can't drill into accounts: stage rows are plain text and the list reads no query string. | M |
-| W2-2 | **High.** Filters, sort and page are lost on every round trip: filter to 200 accounts, open one, save, and you are back on an unfiltered page 1. Keep list state in the URL and return to it after Save and Cancel. | M |
 | W2-3 | The edit lock can be lost silently: the heartbeat ignores its response, and the user learns at Save. Warn at once; offer a re-acquire that keeps the form. | M |
 | W2-5 | A view-only user isn't told why there is no edit form (`:542,651`). | S |
 | W2-6 | Bulk Apply has no confirmation or summary, and doesn't use the shared bulk components; a ticked Date or text field left empty clears that field on every selected account. | M |
@@ -102,8 +100,7 @@ Read-only reports; the admin acts in CyberArk. Rows link to the account detail.
 
 | ID | Finding | Effort |
 |---|---|---|
-| W7-1 | **High.** No drill-down from a number to the accounts behind it (KPI, stage summary, Dashboard). | M |
-| W7-2 | Report filters aren't in the URL, so a report can't be shared or repeated (Trends, Discovered Accounts, Risk Score). | M |
+| W7-1 | KPI Summary and the Dashboard KPI counts (in scope, onboarded, managed, compliant) don't open the accounts behind them: the Accounts list has no filter that matches those definitions (D-143), so they need server-side filters first. The stage and stage-by-status counts do (D-252). | M |
 | W7-3 | KPI Summary doesn't say what Onboarded, Managed or Compliant mean, or give an "as of" date (the definitions are in a code comment, D-143). | S |
 | W7-4 | Overdue/At-Risk can't be sorted, filtered or paged, and shows no days overdue. | M |
 | W7-5 | Trends doesn't validate the date range and refetches on every keystroke. | S |
@@ -176,7 +173,7 @@ Works well: the user menu is a proper disclosure (Escape returns focus, closes o
 ## Suggested order
 
 1. ~~Quick, high-value fixes: the bugs and the missing confirmations.~~ Shipped (D-251). Still open from that group: Bulk Apply on accounts has no confirmation (W2-6), Dismiss on Possible Matches and Discovered Accounts (W5-4), Rotate an API key (W10-4).
-2. **List state in the URL and drill-down** (W2-1, W2-2, W7-1, W7-2): the biggest change to the daily workflow, and one shared piece of work.
+2. ~~List state in the URL and drill-down.~~ Shipped (D-252). Still open from that group: the KPI counts (W7-1), and the same treatment for Targets, Access Groups, Risk Exceptions and the Audit Log.
 3. **One shared error helper** for failed saves (theme 1), then empty states (theme 5) and "saved" messages (theme 3).
 4. **No-access experience** (W1-1, W1-2).
 5. The rest by workflow.

@@ -3,14 +3,16 @@
 // stacked with AND) plus multi-column sort -- click a column header to sort
 // by just that column; shift-click another header to add it as a secondary
 // sort key without losing the first (badges show the resulting priority).
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, computed, watch, onMounted, nextTick } from 'vue'
 import { formatDate } from '../utils/formatDate'
 import { useTotalCount } from '../composables/useTotalCount'
 import { useLatestRequest } from '../composables/useLatestRequest'
 import { usePageSizeStore } from '../stores/pageSize'
 import FilterCountSummary from '../components/FilterCountSummary.vue'
 import Pager from '../components/Pager.vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
+import { useListStateStore } from '../stores/listState'
+import { readText, readOneOf, readPage, parseSort, formatSort, compactQuery, sameQuery } from '../utils/listQuery'
 import { useRightsStore } from '../stores/rights'
 import { useAccountSelectionStore } from '../stores/accountSelection'
 import { decomNote } from '../utils/decomNote'
@@ -24,6 +26,8 @@ const { t } = useI18n()
 // selection (a store) survives paging, sorting and filtering. The bar
 // itself is the shared SelectionBar (D-190).
 const router = useRouter()
+const route = useRoute()
+const listState = useListStateStore()
 const rights = useRightsStore()
 const selection = useAccountSelectionStore()
 const canEdit = computed(() => rights.hasPermission('EditAccountProgress'))
@@ -201,8 +205,43 @@ function toggleSort(field, event) {
   }
 }
 
-const sortQueryParam = computed(() =>
-  sortColumns.value.map(s => `${s.field}:${s.descending ? 'desc' : 'asc'}`).join(','))
+const sortQueryParam = computed(() => formatSort(sortColumns.value))
+
+// UI review W2-2: the filters, sort and page are in the page address (?stage=...&sort=...&page=2), so a filtered list
+// survives opening an account and coming back, a reload and a pasted link, and the Dashboard and the stage/status
+// report can link straight to a stage. Defaults are left out of the address.
+const LIST_ROUTE = 'account-progress-list'
+const QUERY_DEFAULTS = { deleted: 'Hide', linked: 'Hide', page: 1 }
+let applyingAddress = false
+
+function applyAddress(query) {
+  stageFilter.value = readText(query, 'stage')
+  statusFilter.value = readText(query, 'status')
+  riskLevelFilter.value = readText(query, 'riskLevel')
+  ownerFilter.value = readText(query, 'owner')
+  searchFilter.value = readText(query, 'search')
+  deletedFilter.value = readOneOf(query, 'deleted', ['Hide', 'Show', 'Only'], 'Hide')
+  linkedFilter.value = readOneOf(query, 'linked', ['Hide', 'Show'], 'Hide')
+  sortColumns.value = parseSort(readText(query, 'sort'), columns.map(c => c.field))
+  page.value = readPage(query)
+}
+
+function currentAddress() {
+  return compactQuery({
+    stage: stageFilter.value, status: statusFilter.value, riskLevel: riskLevelFilter.value, owner: ownerFilter.value,
+    search: searchFilter.value.trim(), deleted: deletedFilter.value, linked: linkedFilter.value, sort: sortQueryParam.value, page: page.value
+  }, QUERY_DEFAULTS)
+}
+
+applyAddress(route.query)
+listState.remember(LIST_ROUTE, currentAddress())
+
+function writeAddress() {
+  if (applyingAddress) return
+  const query = currentAddress()
+  listState.remember(LIST_ROUTE, query)
+  if (!sameQuery(query, route.query)) router.replace({ query })
+}
 
 async function load() {
   const request = latestRequest.begin()
@@ -242,7 +281,21 @@ onMounted(async () => {
 // D-124 Phase 3: a filter/sort change resets to page 1 -- see Targets.vue's
 // identical comment for why page-size/Prev/Next changes are handled separately.
 watch([stageFilter, statusFilter, riskLevelFilter, ownerFilter, searchFilter, deletedFilter, linkedFilter, sortQueryParam], () => {
+  if (applyingAddress) return
   page.value = 1
+  load()
+})
+
+watch([stageFilter, statusFilter, riskLevelFilter, ownerFilter, searchFilter, deletedFilter, linkedFilter, sortQueryParam, page], writeAddress, { flush: 'post' })
+
+// Back and Forward (or a link to this list while it is open) change the address under the page: show what it says.
+watch(() => route.query, async (query) => {
+  if (route.name !== LIST_ROUTE || sameQuery(query, currentAddress())) return
+  applyingAddress = true
+  applyAddress(query)
+  await nextTick()
+  applyingAddress = false
+  listState.remember(LIST_ROUTE, currentAddress())
   load()
 })
 </script>

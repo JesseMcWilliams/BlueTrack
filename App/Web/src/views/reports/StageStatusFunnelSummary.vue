@@ -62,8 +62,18 @@ function stageTotal(stageName) {
       <tbody>
         <tr v-for="stage in stages" :key="stage">
           <td>{{ stage }}</td>
-          <td v-for="status in statuses" :key="status">{{ formatCount(countFor(stage, status)) }}</td>
-          <td>{{ formatCount(stageTotal(stage)) }}</td>
+          <!-- UI review W2-1/W7-1: a count opens the accounts behind it (the Accounts list's default view, which hides deleted
+               accounts, as this report does). A zero has nothing behind it. -->
+          <td v-for="status in statuses" :key="status">
+            <router-link v-if="countFor(stage, status) > 0" :to="{ name: 'account-progress-list', query: { stage, status } }"
+                         :aria-label="t('reports.stageStatusFunnelSummary.showCell', { count: formatCount(countFor(stage, status)), stage, status })">{{ formatCount(countFor(stage, status)) }}</router-link>
+            <template v-else>{{ formatCount(countFor(stage, status)) }}</template>
+          </td>
+          <td>
+            <router-link v-if="stageTotal(stage) > 0" :to="{ name: 'account-progress-list', query: { stage } }"
+                         :aria-label="t('reports.stageStatusFunnelSummary.showStage', { count: formatCount(stageTotal(stage)), stage })">{{ formatCount(stageTotal(stage)) }}</router-link>
+            <template v-else>{{ formatCount(stageTotal(stage)) }}</template>
+          </td>
         </tr>
       </tbody>
     </table>

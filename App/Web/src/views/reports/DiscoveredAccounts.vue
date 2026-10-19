@@ -21,6 +21,8 @@
 // per-row Classify form (ManageDiscoveredAccounts) that sets or clears a
 // manual class/owner override, kept across discovery runs.
 import { ref, computed, onMounted } from 'vue'
+import { useAddressState } from '../../composables/useAddressState'
+import { readOneOf, readText, readPage, parseSort, compactQuery } from '../../utils/listQuery'
 import { formatDate } from '../../utils/formatDate'
 import { useTotalCount } from '../../composables/useTotalCount'
 import { useLatestRequest } from '../../composables/useLatestRequest'
@@ -273,6 +275,18 @@ async function toggleDrilldown(discoveredAccountKey) {
     accessGroupsLoading.value = false
   }
 }
+
+// UI review W7-2: the class filter, sort and page are in the page address, so a view can be shared and reloaded.
+useAddressState({
+  sources: () => [classFilter.value, sortQueryParam.value, page.value],
+  apply(query) {
+    classFilter.value = readOneOf(query, 'class', CLASSES, '')
+    sortColumns.value = parseSort(readText(query, 'sort'), columns.map(c => c.field))
+    page.value = readPage(query)
+  },
+  current: () => compactQuery({ class: classFilter.value, sort: sortQueryParam.value, page: page.value }, { page: 1 }),
+  onApplied: load
+})
 
 onMounted(load)
 </script>

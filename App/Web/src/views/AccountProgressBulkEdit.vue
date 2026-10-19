@@ -8,12 +8,14 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAccountSelectionStore } from '../stores/accountSelection'
+import { useListStateStore } from '../stores/listState'
 import { formatCount } from '../utils/formatCount'
 import { useI18n } from 'vue-i18n'
 
 const { t } = useI18n()
 
 const router = useRouter()
+const listState = useListStateStore()
 const selection = useAccountSelectionStore()
 
 const referenceData = ref({})
@@ -74,7 +76,8 @@ async function apply() {
 }
 
 function backToList() {
-  router.push({ name: 'account-progress-list' })
+  // UI review W2-2: the list as it was left (its filters, sort and page).
+  router.push({ name: 'account-progress-list', query: listState.queryFor('account-progress-list') })
 }
 </script>
 
@@ -82,7 +85,7 @@ function backToList() {
   <div>
     <h1>{{ t('pages.accountProgressBulkEdit.title') }}</h1>
     <i18n-t v-if="!result && selection.count === 0" keypath="pages.accountProgressBulkEdit.noneSelected" tag="p" scope="global">
-      <template #link><router-link :to="{ name: 'account-progress-list' }">{{ t('pages.accountProgressBulkEdit.accountsLink') }}</router-link></template>
+      <template #link><router-link :to="{ name: 'account-progress-list', query: listState.queryFor('account-progress-list') }">{{ t('pages.accountProgressBulkEdit.accountsLink') }}</router-link></template>
     </i18n-t>
 
     <form v-else-if="!result" @submit.prevent="apply">
