@@ -4,6 +4,9 @@
 // as AccountProgressList.vue.
 import { ref, computed, watch, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { useAddressState } from '../composables/useAddressState'
+import { useListStateStore } from '../stores/listState'
+import { readText, readOneOf, readPage, parseSort, compactQuery } from '../utils/listQuery'
 import { useRightsStore } from '../stores/rights'
 import { formatDate } from '../utils/formatDate'
 import { useTotalCount } from '../composables/useTotalCount'
@@ -23,6 +26,7 @@ import { useI18n } from 'vue-i18n'
 const { t } = useI18n()
 
 const router = useRouter()
+const listState = useListStateStore()
 const rights = useRightsStore()
 const { totalCount, filteredCount, readTotalCount } = useTotalCount()
 const latestRequest = useLatestRequest()
@@ -124,6 +128,21 @@ async function load() {
   }
 }
 
+// UI review W4 (D-252's pattern): the filters, sort and page are in the page address, so a filtered list survives
+// opening an exception and coming back, a reload and a pasted link.
+const { isApplying } = useAddressState({
+  sources: () => [statusFilter.value, scopeTypeFilter.value, sortQueryParam.value, page.value],
+  apply(query) {
+    statusFilter.value = readOneOf(query, 'status', ['Active', 'Expired', 'Revoked'], '')
+    scopeTypeFilter.value = readOneOf(query, 'scopeType', ['Account', 'Application'], '')
+    sortColumns.value = parseSort(readText(query, 'sort'), columns.map(c => c.field))
+    page.value = readPage(query)
+  },
+  current: () => compactQuery({ status: statusFilter.value, scopeType: scopeTypeFilter.value, sort: sortQueryParam.value, page: page.value }, { page: 1 }),
+  remember: (query) => listState.remember('risk-exceptions-list', query),
+  onApplied: load
+})
+
 onMounted(load)
 
 // D-190: bulk re-approve (new review date) and bulk revoke (reason
@@ -157,6 +176,7 @@ async function bulkRevoke(reason) {
 // D-124 Phase 3: a filter/sort change resets to page 1 -- see Targets.vue's
 // identical comment for why page-size/Prev/Next changes are handled separately.
 watch([statusFilter, scopeTypeFilter, sortQueryParam], () => {
+  if (isApplying()) return
   page.value = 1
   load()
 })

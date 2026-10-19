@@ -26,6 +26,7 @@ function makeRouter() {
     history: createMemoryHistory(),
     routes: [
       { path: '/', name: 'home', component: { template: '<div />' } },
+      { path: '/accounts/:accountKey', name: 'account-progress-detail', component: { template: '<div />' } },
       { path: '/exceptions/:exceptionKey', name: 'risk-exception-edit', component: { template: '<div />' } }
     ]
   })
@@ -163,6 +164,25 @@ describe('RiskExceptionEdit.vue', () => {
   })
 
   describe('edit', () => {
+    // UI review W3-4
+    it('names the account and links to it, or the application by name', async () => {
+      routeFetch({ 'GET /api/applications': jsonResponse([]), 'GET /api/risk-exceptions/5': jsonResponse({ ...active, accountName: 'svc_payroll', accountAddress: 'pay01.example.com' }) })
+      const account = await mountEdit({ exceptionKey: 5 })
+      const link = account.find('dd a')
+      expect(link.text()).toBe('svc_payroll (pay01.example.com)')
+      expect(link.attributes('href')).toBe('/accounts/1234')
+
+      routeFetch({ 'GET /api/applications': jsonResponse([]), 'GET /api/risk-exceptions/5': jsonResponse({ ...active, accountKey: null, applicationKey: 3, applicationName: 'Payroll' }) })
+      const application = await mountEdit({ exceptionKey: 5 })
+      expect(application.text()).toContain('Application: Payroll')
+    })
+
+    it('falls back to the key when the name is missing', async () => {
+      routeFetch({ 'GET /api/applications': jsonResponse([]), 'GET /api/risk-exceptions/5': jsonResponse({ ...active }) })
+      const wrapper = await mountEdit({ exceptionKey: 5 })
+      expect(wrapper.text()).toContain('Account #1234')
+    })
+
     function base(extra = {}) {
       return { 'GET /api/applications': jsonResponse([]), 'GET /api/risk-exceptions/5': jsonResponse({ ...active }), ...extra }
     }

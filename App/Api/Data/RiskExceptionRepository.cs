@@ -127,12 +127,15 @@ public sealed class RiskExceptionRepository(IDbConnectionFactory connectionFacto
         using var connection = connectionFactory.Create();
 
         const string sql = """
-            SELECT re.ExceptionKey, re.ExceptionID, re.AccountKey, re.ApplicationKey, re.Justification,
-                   re.ApprovedBy, COALESCE(au.DisplayName, re.ApprovedByName) AS ApprovedByName,
+            SELECT re.ExceptionKey, re.ExceptionID, re.AccountKey, re.ApplicationKey,
+                   COALESCE(NULLIF(fa.UserName, ''), fa.AccountName) AS AccountName, fa.Address AS AccountAddress, da.ApplicationName,
+                   re.Justification, re.ApprovedBy, COALESCE(au.DisplayName, re.ApprovedByName) AS ApprovedByName,
                    re.ApprovalDate, re.ReviewDate, des.StatusName, re.ExternalTicketReference,
                    re.SourceTool, re.SourceExceptionId, re.SourceUrl, iu.DisplayName AS ImportedByName, re.ImportedDate
             FROM web.risk_exception re
             JOIN web.dim_exception_status des ON des.ExceptionStatusKey = re.ExceptionStatusKey
+            LEFT JOIN dbo.fact_account fa ON fa.AccountKey = re.AccountKey
+            LEFT JOIN web.dim_application da ON da.ApplicationKey = re.ApplicationKey
             LEFT JOIN web.app_user au ON au.UserKey = re.ApprovedBy
             LEFT JOIN web.app_user iu ON iu.UserKey = re.ImportedBy
             WHERE re.ExceptionKey = @ExceptionKey

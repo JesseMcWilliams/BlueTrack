@@ -9,7 +9,7 @@ The Self-Hosted Direct setup workflow (Credentials, CyberArk sources, Data Sourc
 1. **A failed save says only a status code: shipped (D-251, D-253)** for the edit pages. Still open: Credentials LDAP save, Notifications and Account Detail's other-status branch still show their own status text. (W9-5)
 2. **Destructive or live-changing buttons that don't confirm**, next to ones that do. Shipped (D-251, D-256): Revoke, Ignore, Force Release, Make active, Dismiss, Rotate and Bulk Apply. Still open: no undo or "show dismissed" view (W5-4).
 3. **"Saved" message after a save that navigates away: shipped (D-253)** on every edit page that returns to a list and on Account Detail.
-4. **List state in the URL and drill-down: shipped (D-252)** for the Accounts list, Trends, Discovered Accounts and Risk Score, and for the Dashboard and stage-by-status counts. Still open: the KPI counts (W7-1); Risk Exceptions and the Audit Log still keep their filters only in the page (Targets and Access Groups shipped in D-258).
+4. **List state in the URL and drill-down: shipped (D-252)** for the Accounts list, Trends, Discovered Accounts and Risk Score, and for the Dashboard and stage-by-status counts. Still open: the KPI counts (W7-1).
 5. **Missing empty states: shipped (D-253)** for Targets, Access Groups, Accounts, Discovered Accounts and the admin lists. Still open: Risk Score report (a report, not the Bands list).
 6. **Silent failures**: bulk-import HTTP errors on Application mapping render nothing (Targets and Access Groups shipped in D-251); theme, language and page-size saves ignore failures. (W8-3, W12-3)
 7. **Accessibility basics** (worklist row links and named Delete buttons shipped, D-257 and D-258): toggles without `aria-expanded`, forms that open away from the control without moving focus. (W3-5, W4-7, W5-5, W5-6, W9-9, W10-8)
@@ -45,7 +45,7 @@ Today: the Dashboard links to the two worklists (the list page doesn't); create 
 
 | ID | Finding | Effort |
 |---|---|---|
-| W3-4 | The detail shows "Account #1234", not the account's name or a link to it, and doesn't list the accounts an application-scoped exception covers. | M |
+| W3-4 | An application-scoped exception doesn't list the accounts it covers (the detail now names the account or application, D-259). | M |
 | W3-6 | Neither worklist shows the linked account, and neither can extend or revoke inline (they are now linked from the exceptions list). | S |
 | W3-7 | "Approval worklist" lists every Active exception; there is no pending-approval state. Unverified whether the API has one. Rename or confirm the purpose. | S |
 | W3-8 | Expired and Revoked exceptions show no reason, who or when (D-190 records it). | S |
