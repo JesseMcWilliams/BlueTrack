@@ -4,12 +4,14 @@
 // Configuration. Ignored safes aren't listed. Read-only, no permission gate.
 import { ref, onMounted } from 'vue'
 import { formatCount } from '../../utils/formatCount'
+import { useRightsStore } from '../../stores/rights'
 import ReportExportButtons from '../../components/ReportExportButtons.vue'
 import { useI18n } from 'vue-i18n'
 
 const { t } = useI18n()
 
 const items = ref([])
+const rights = useRightsStore() // UI review W6-4: the application link needs CurateApplicationMapping
 const error = ref(null)
 const loading = ref(true)
 
@@ -48,8 +50,15 @@ onMounted(async () => {
         <tr v-for="item in items" :key="item.safeKey">
           <td>{{ item.safeName }}</td>
           <td>{{ item.sourceSystemName }}</td>
-          <td>{{ item.applicationName }}</td>
-          <td>{{ formatCount(item.activeAccountCount) }}</td>
+          <td>
+            <router-link v-if="item.applicationKey && item.applicationName && rights.hasPermission('CurateApplicationMapping')" :to="{ name: 'admin-application-edit', params: { applicationKey: item.applicationKey } }">{{ item.applicationName }}</router-link>
+            <template v-else>{{ item.applicationName }}</template>
+          </td>
+          <td>
+            <!-- UI review W6-1: opens the Accounts report for this Safe. -->
+            <router-link v-if="item.activeAccountCount + item.deletedAccountCount > 0" :to="{ name: 'reports-decom-accounts', query: { safe: item.safeName } }" :aria-label="t('reports.decomSafes.showAccounts', { safe: item.safeName })">{{ formatCount(item.activeAccountCount) }}</router-link>
+            <template v-else>{{ formatCount(item.activeAccountCount) }}</template>
+          </td>
           <td>{{ formatCount(item.deletedAccountCount) }}</td>
         </tr>
       </tbody>

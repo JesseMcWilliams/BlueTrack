@@ -55,6 +55,7 @@ instead.
 | 37 | `37_BlueTrack_ManualTargetLinks.sql` | D-245: `target_link.LinkMethod` may also be `'Manual'` (two existing targets linked from Edit Target). |
 | 38 | `38_BlueTrack_SelfHostedDirect.sql` | D-248: Self-Hosted Direct. `web.cyberark_source_config` gets `SelfHostedSource` (`Evd`/`Direct`), `PvwaBaseUrl`, `PvwaCredentialKey`, `PvwaLogonMethod`, `DirectPullTime` and `DirectMaxChangePercent`; new `dbo.cyberark_direct_pull` (pull log) and `dbo.stg_sh_platforms`; `usp_Clear_Staging_SelfHosted`, `usp_Load_DimPlatform`, `usp_Import_All` (`@SelfHostedStaged`) and `usp_Import_Configured` (checks the latest pull when the source is Direct) are replaced. |
 | 39 | `39_BlueTrack_DirectPullNotification.sql` | D-250: notification type `SelfHostedPullFailed` (a Self-Hosted Direct pull that failed, was rejected, or has not finished after 2 hours), added disabled. |
+| 40 | `40_BlueTrack_DecomSafeApplicationKey.sql` | D-267: `web.vw_decom_safe` also returns `ApplicationKey`, so the Safes Flagged for Deletion report can link the application name to its edit page. |
 
 ## The baseline (D-195)
 
@@ -79,7 +80,7 @@ scripts but not up to `51` is refused; upgrade it first from the
 
 ## Adding a script
 
-1. Name it `NN_BlueTrack_<Topic>.sql`, with `NN` the next number (`30` is next).
+1. Name it `NN_BlueTrack_<Topic>.sql`, with `NN` the next number (`41` is next).
 2. Start with a header comment: the file name, `RUN THIS AFTER 01-NN.`, what
    it changes and why (with the `D-n` decision), and whether it's safe to
    re-run.

@@ -60,27 +60,17 @@ Works well: link and unlink confirmations that say what will happen, the delete 
 
 | ID | Finding | Effort |
 |---|---|---|
-| W5-2 | Discovered Accounts has no empty state. | S |
 | W5-4 | Dismiss on Possible Matches and Discovered Accounts has no undo or "show dismissed" view (it now confirms). | M |
 
 Works well: Link's confirm names both accounts; Unresolved Members pre-fills the exact match and offers Undo; Account Classification reports how many accounts it changed.
 
 ## Workflow 6: Decommissioning
 
-Read-only reports; the admin acts in CyberArk. Rows link to the account detail.
-
-| ID | Finding | Effort |
-|---|---|---|
-| W6-1 | The Safes report can't show which accounts are in a flagged Safe; the Accounts report has no Safe filter. | M |
-| W6-2 | The Accounts report loads every row, with no sorting, paging, search or count. | M |
-| W6-4 | The Application name isn't linked to its edit page. | S |
+Read-only reports; the admin acts in CyberArk. Rows link to the account detail. Every finding for this workflow has shipped (D-262, D-267).
 
 ## Workflow 7: Reporting
 
-| ID | Finding | Effort |
-|---|---|---|
-| W7-4 | Overdue/At-Risk can't be sorted, filtered or paged, and shows no days overdue. | M |
-| W7-5 | Trends doesn't validate the date range and refetches on every keystroke. | S |
+Every finding for this workflow has shipped (D-261, D-263, D-267).
 
 Works well: exports respect the active filters and sort and relay the API's error; Trends has chart text alternatives and a data table behind each chart.
 
@@ -95,8 +85,6 @@ Works well: exports respect the active filters and sort and relay the API's erro
 | ID | Finding | Effort |
 |---|---|---|
 | W9-4 | Failed runs, Unhealthy checks and failed backups aren't marked in the run history, health checks or backup table. | S |
-| W9-5 | Add-recipient failure shows only the status code. | S |
-| W9-8 | No "Saved" message after a feed or recipient save. | S |
 
 Works well: the business-hours guard on Run now, Test on unsaved feed values, Global Application Configuration's save feedback and pattern tester.
 

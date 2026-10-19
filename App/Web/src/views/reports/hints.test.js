@@ -1,6 +1,7 @@
-import { describe, it, expect, vi, afterEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
 import { createRouter, createMemoryHistory } from 'vue-router'
+import { createPinia, setActivePinia } from 'pinia'
 import ReconciliationReviewQueue from './ReconciliationReviewQueue.vue'
 import DecomSafes from './DecomSafes.vue'
 import DecomAccounts from './DecomAccounts.vue'
@@ -23,6 +24,7 @@ function mountPage(component) {
 }
 
 describe('report hints', () => {
+  beforeEach(() => setActivePinia(createPinia()))
   afterEach(() => vi.restoreAllMocks())
 
   it('Reconciliation Review says it is read-only and links to Possible Account Matches', async () => {
