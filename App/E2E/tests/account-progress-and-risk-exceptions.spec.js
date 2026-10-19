@@ -149,6 +149,7 @@ test.describe('Account Progress bulk edit (D-182)', () => {
       await page.getByLabel('Change Business Unit').check()
       await page.getByLabel('Business Unit', { exact: true }).fill('E2E Bulk Unit')
       await page.getByRole('button', { name: 'Apply to 2 accounts' }).click()
+      await confirmDelete(page, 'Apply') // applying asks first (UI review W2-6)
       await expect(page.getByText('2 updated, 0 already had these values, 0 skipped.')).toBeVisible()
 
       // Back to Accounts returns to the list as it was left (D-252): the search is still in the address and the box.

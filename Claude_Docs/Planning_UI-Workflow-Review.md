@@ -7,7 +7,7 @@ The Self-Hosted Direct setup workflow (Credentials, CyberArk sources, Data Sourc
 ## Themes that cut across the workflows
 
 1. **A failed save says only a status code: shipped (D-251, D-253)** for the edit pages. Still open: Credentials LDAP save, Notifications and Account Detail's other-status branch still show their own status text. (W9-5)
-2. **Destructive or live-changing buttons that don't confirm**, next to ones that do. Still open: Dismiss a possible match, Rotate an API key, Bulk Apply on accounts. (Revoke, Ignore, Force Release and Make active shipped in D-251.) (W2-6, W5-4, W10-4)
+2. **Destructive or live-changing buttons that don't confirm**, next to ones that do. Shipped (D-251, D-256): Revoke, Ignore, Force Release, Make active, Dismiss, Rotate and Bulk Apply. Still open: no undo or "show dismissed" view (W5-4).
 3. **"Saved" message after a save that navigates away: shipped (D-253)** on every edit page that returns to a list and on Account Detail.
 4. **List state in the URL and drill-down: shipped (D-252)** for the Accounts list, Trends, Discovered Accounts and Risk Score, and for the Dashboard and stage-by-status counts. Still open: the KPI counts (W7-1); and the other lists (Targets, Access Groups, Risk Exceptions, Audit Log) still keep their filters only in the page.
 5. **Missing empty states: shipped (D-253)** for Targets, Access Groups, Accounts, Discovered Accounts and the admin lists. Still open: Risk Score report (a report, not the Bands list), a Clear filters button on the Accounts list (W2-7), and a failed load keeping the stale table on Targets and Access Groups (W4-6).
@@ -34,7 +34,7 @@ Today: Dashboard, then the Accounts list (seven filters, multi-sort, paging), th
 |---|---|---|
 | W2-3 | The edit lock can be lost silently: the heartbeat ignores its response, and the user learns at Save. Warn at once; offer a re-acquire that keeps the form. | M |
 | W2-5 | A view-only user isn't told why there is no edit form (`:542,651`). | S |
-| W2-6 | Bulk Apply has no confirmation or summary, and doesn't use the shared bulk components; a ticked Date or text field left empty clears that field on every selected account. | M |
+| W2-6 | Bulk Apply has no result summary on the shared bulk components; a ticked Date or text field left empty clears that field on every selected account (the confirmation now lists the fields). | S |
 | W2-7 | No empty state and no Clear filters button on a seven-filter list. | S |
 | W2-8 | No confirmation after Save; the risk override saves on its own, unexplained (Cancel won't undo it). | S |
 | W2-9 | A reference-data load failure in bulk edit is silent (empty dropdowns). | S |
@@ -76,7 +76,7 @@ Works well: link and unlink confirmations that say what will happen, the delete 
 |---|---|---|
 | W5-2 | Discovered Accounts has no empty state. | S |
 | W5-3 | Reconciliation Review is a dead end: no hint, read-only ("actions aren't wired up yet" in its own comment), and nothing links it to Possible Matches, which does the linking. Add a hint and link, or retire it if superseded (unverified). | S |
-| W5-4 | Dismiss on Possible Matches and on Discovered Accounts has no confirm, undo or "show dismissed" view, while Link confirms. | M |
+| W5-4 | Dismiss on Possible Matches and Discovered Accounts has no undo or "show dismissed" view (it now confirms). | M |
 | W5-5 | The Resolve form on Unresolved Members opens at the top of the page, away from the row, with no focus move and no message on save. | S |
 | W5-6 | The account-name toggle has no `aria-expanded`; the Classify form opens without moving focus. | S |
 | W5-7 | The "possible match" note names the account without linking to it; Account Classification doesn't link to Discovered Accounts, where its effect shows. | S |
@@ -138,7 +138,7 @@ Works well: the business-hours guard on Run now, Test on unsaved feed values, Gl
 |---|---|---|
 | W10-2 | Identity Provider pages never say OIDC changes need an app restart. | S |
 | W10-3 | No lock-out warning when deleting an identity provider. | S |
-| W10-4 | Rotate an API key has no confirmation and no leave-page guard on the reveal screen. | S |
+| W10-4 | No leave-page guard on the API key reveal screen (Rotate now confirms). | S |
 | W10-5 | Copy failure is silent on plain-HTTP hosts (`ApiKeyReveal.vue`). | S |
 | W10-7 | SIEM Save and Test messages appear at the top of a long form, away from the buttons. | S |
 | W10-8 | Secrets Store credential inputs have no label; the Role permission list isn't a fieldset. | S |
@@ -170,7 +170,7 @@ Works well: the user menu is a proper disclosure (Escape returns focus, closes o
 
 ## Suggested order
 
-1. ~~Quick, high-value fixes: the bugs and the missing confirmations.~~ Shipped (D-251). Still open from that group: Bulk Apply on accounts has no confirmation (W2-6), Dismiss on Possible Matches and Discovered Accounts (W5-4), Rotate an API key (W10-4).
+1. ~~Quick, high-value fixes: the bugs and the missing confirmations.~~ Shipped (D-251). The last three confirmations shipped in D-256.
 2. ~~List state in the URL and drill-down.~~ Shipped (D-252). Still open from that group: the KPI counts (W7-1), and the same treatment for Targets, Access Groups, Risk Exceptions and the Audit Log.
 3. ~~One shared error helper, empty states and "saved" messages.~~ Shipped (D-253). Still open from that group: see themes 1 and 5.
 4. ~~No-access experience (W1-1, W1-2).~~ Shipped (D-254, D-255). Still open: pages without a route-level permission still show "Request failed: 403" to a user who holds some roles but not that page's permission.

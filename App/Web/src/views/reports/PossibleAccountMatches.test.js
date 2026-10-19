@@ -86,10 +86,23 @@ describe('PossibleAccountMatches.vue', () => {
     const wrapper = mount(PossibleAccountMatches, { global: { plugins: [makeRouter()] } })
     await flushPromises()
 
+    confirmDelete.mockResolvedValue(true)
     await wrapper.findAll('button').find(b => b.text() === 'Dismiss').trigger('click')
     await flushPromises()
 
-    expect(confirmDelete).not.toHaveBeenCalled()
     expect(wrapper.find('[role="alert"]').text()).toContain('already linked or dismissed')
+  })
+
+  it('Dismiss asks first, and does nothing when the confirmation is cancelled', async () => {
+    globalThis.fetch = vi.fn(() => Promise.resolve(jsonResponse([row], { count: 1 })))
+    const wrapper = mount(PossibleAccountMatches, { global: { plugins: [makeRouter()] } })
+    await flushPromises()
+
+    confirmDelete.mockResolvedValue(false)
+    await wrapper.findAll('button').find(b => b.text() === 'Dismiss').trigger('click')
+    await flushPromises()
+
+    expect(confirmDelete).toHaveBeenLastCalledWith(expect.stringContaining('as a different account from CyberArk account'), 'Dismiss')
+    expect(globalThis.fetch.mock.calls.some(([, init]) => init?.method === 'POST')).toBe(false)
   })
 })

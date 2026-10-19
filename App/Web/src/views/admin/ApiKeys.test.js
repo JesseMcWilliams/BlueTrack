@@ -130,6 +130,17 @@ describe('ApiKeys.vue', () => {
     expect(call[0]).toBe('/api/admin/api-keys/1')
   })
 
+  it('Rotate does nothing when the confirmation is cancelled', async () => {
+    const { wrapper } = await mountPage()
+    confirmDelete.mockResolvedValueOnce(false)
+    globalThis.fetch.mockClear()
+
+    await wrapper.findAll('tbody tr')[0].findAll('button').find(b => b.text() === 'Rotate').trigger('click')
+    await flushPromises()
+
+    expect(globalThis.fetch).not.toHaveBeenCalled()
+  })
+
   it('Rotate makes a new key with the same role, shows it once, and Done returns to the list', async () => {
     const rotatedBody = { apiKeyKey: 9, apiKey: 'bt_ROTATEDKEYROTATEDKEY', keyPrefix: 'bt_ROTATEDK', expiresAt: '2027-01-15T21:59:02Z', displayName: 'Nightly sync (rotated 2026-10-17)', rotatedFrom: 'Nightly sync' }
     const { wrapper } = await mountPage()
@@ -138,6 +149,7 @@ describe('ApiKeys.vue', () => {
     await wrapper.findAll('tbody tr')[0].findAll('button').find(b => b.text() === 'Rotate').trigger('click')
     await flushPromises()
 
+    expect(confirmDelete).toHaveBeenLastCalledWith(expect.stringContaining('Rotate the API key "Nightly sync"?'), 'Rotate')
     const post = globalThis.fetch.mock.calls.find(([, init]) => init?.method === 'POST')
     expect(post[0]).toBe('/api/admin/api-keys/1/rotate')
     expect(wrapper.get('input.api-key-value').element.value).toBe('bt_ROTATEDKEYROTATEDKEY')

@@ -65,6 +65,11 @@ async function act(row, action) {
     t('reports.possibleAccountMatches.linkConfirm', { user: row.feedUserName, address: row.feedAddress, source: row.feedSourceName, account: row.cyberArkAccountName }),
     t('reports.possibleAccountMatches.link')
   ))) return
+  // UI review W5-4: the pair isn't suggested again, so Dismiss asks first.
+  if (action === 'dismiss' && !(await confirmDelete(
+    t('reports.possibleAccountMatches.dismissConfirm', { user: row.feedUserName, address: row.feedAddress, source: row.feedSourceName, account: row.cyberArkAccountName }),
+    t('reports.possibleAccountMatches.dismiss')
+  ))) return
 
   actionError.value = null
   busyKey.value = row.reconciliationKey

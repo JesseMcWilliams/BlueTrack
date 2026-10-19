@@ -11,6 +11,7 @@ import { useAccountSelectionStore } from '../stores/accountSelection'
 import { useListStateStore } from '../stores/listState'
 import { formatCount } from '../utils/formatCount'
 import { useI18n } from 'vue-i18n'
+import { confirmDelete } from '../composables/useConfirmDialog'
 
 const { t } = useI18n()
 
@@ -50,6 +51,13 @@ onMounted(async () => {
 })
 
 async function apply() {
+  // UI review W2-6: this overwrites fields on every selected account, so it asks first.
+  const confirmed = await confirmDelete({
+    title: t('pages.accountProgressBulkEdit.confirmTitle', { count: formatCount(selection.count) }),
+    details: fields.filter(f => change.value[f.field]).map(f => t(f.labelKey)),
+    warning: t('pages.accountProgressBulkEdit.confirmWarning')
+  }, t('pages.accountProgressBulkEdit.confirmButton'))
+  if (!confirmed) return
   error.value = null
   result.value = null
   saving.value = true
