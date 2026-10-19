@@ -31,6 +31,10 @@ public sealed class AuditLogController(AuditRepository repository, ReportExportS
         return Ok(results);
     }
 
+    /// <summary>UI review W11-1: the event types the log can hold, so the viewer offers a choice instead of free text.</summary>
+    [HttpGet("event-types")]
+    public async Task<IActionResult> GetEventTypes() => Ok(await repository.GetEventTypeNamesAsync());
+
     /// <summary>
     /// D-231: the viewer's Export CSV / Export Excel (D-220's shared export): every
     /// event the filters match (all pages) in the viewer's sort order, refused above

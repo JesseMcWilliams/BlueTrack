@@ -12,6 +12,7 @@ import FilterCountSummary from '../../components/FilterCountSummary.vue'
 import Pager from '../../components/Pager.vue'
 import ReportExportButtons from '../../components/ReportExportButtons.vue'
 import { useI18n } from 'vue-i18n'
+import { formatUtcDateTime } from '../../utils/formatLocale'
 
 const { t } = useI18n()
 
@@ -23,6 +24,12 @@ const error = ref(null)
 const loading = ref(true)
 
 const eventTypeFilter = ref('')
+// UI review W11-1: the event types the log can hold, for the Event Type choice; empty if the list can't be read, and the
+// box is then free text as before.
+const eventTypes = ref([])
+const eventTypeOptions = computed(() => (eventTypeFilter.value && !eventTypes.value.includes(eventTypeFilter.value)
+  ? [eventTypeFilter.value, ...eventTypes.value]
+  : eventTypes.value))
 const entityNameFilter = ref('')
 const fromDateFilter = ref('')
 const toDateFilter = ref('')
@@ -170,7 +177,30 @@ const { isApplying } = useAddressState({
   onApplied: load
 })
 
+onMounted(async () => {
+  try {
+    const response = await fetch('/api/audit-log/event-types')
+    if (response.ok) {
+      const names = await response.json()
+      if (Array.isArray(names)) eventTypes.value = names
+    }
+  } catch {
+    // Free text still works.
+  }
+})
 onMounted(load)
+
+// UI review W11-5: back to no filters, applied at once.
+const anyFilter = computed(() => !!(eventTypeFilter.value || entityNameFilter.value || fromDateFilter.value || toDateFilter.value
+  || appliedFilters.value.eventType || appliedFilters.value.entityName || appliedFilters.value.fromDate || appliedFilters.value.toDate))
+
+function clearFilters() {
+  eventTypeFilter.value = ''
+  entityNameFilter.value = ''
+  fromDateFilter.value = ''
+  toDateFilter.value = ''
+  loadFiltered()
+}
 // D-124 Phase 3: a sort change resets to page 1 -- see Targets.vue's
 // identical comment for why page-size/Prev/Next changes are handled separately.
 watch(sortQueryParam, () => {
@@ -203,11 +233,16 @@ async function toggleFieldChanges(event) {
     <h2>{{ t('admin.auditLogViewer.title') }}</h2>
 
     <form class="filter-row" @submit.prevent="loadFiltered">
-      <label class="field-label"><span class="field-label-text">{{ t('admin.auditLogViewer.eventTypeLabel') }}</span> <input v-model="eventTypeFilter" :placeholder="t('admin.auditLogViewer.eventTypePlaceholder')" /></label>
+      <label class="field-label"><span class="field-label-text">{{ t('admin.auditLogViewer.eventTypeLabel') }}</span> <select v-if="eventTypes.length > 0" v-model="eventTypeFilter">
+          <option value="">{{ t('admin.auditLogViewer.allEventTypes') }}</option>
+          <option v-for="name in eventTypeOptions" :key="name" :value="name">{{ name }}</option>
+        </select>
+        <input v-else v-model="eventTypeFilter" :placeholder="t('admin.auditLogViewer.eventTypePlaceholder')" /></label>
       <label class="field-label"><span class="field-label-text">{{ t('admin.auditLogViewer.entityLabel') }}</span> <input v-model="entityNameFilter" :placeholder="t('admin.auditLogViewer.entityPlaceholder')" /></label>
       <label class="field-label"><span class="field-label-text">{{ t('admin.auditLogViewer.fromLabel') }}</span> <input v-model="fromDateFilter" type="date" /></label>
       <label class="field-label"><span class="field-label-text">{{ t('admin.auditLogViewer.toLabel') }}</span> <input v-model="toDateFilter" type="date" /></label>
       <button type="submit" class="btn-primary">{{ t('admin.auditLogViewer.filter') }}</button>
+      <button v-if="anyFilter" type="button" @click="clearFilters">{{ t('admin.auditLogViewer.clearFilters') }}</button>
     </form>
 
     <ReportExportButtons path="/api/audit-log/export" :params="exportParams" />
@@ -238,7 +273,8 @@ async function toggleFieldChanges(event) {
                 :aria-controls="`audit-detail-${event.auditEventKey}`"
                 @click="toggleFieldChanges(event)"
               >
-                {{ event.occurredAt }}
+                <!-- UI review W11-4: local date and time (the stored time is UTC); the stored value is the tooltip. -->
+                <time :datetime="event.occurredAt" :title="t('admin.auditLogViewer.storedUtc', { value: event.occurredAt })">{{ formatUtcDateTime(event.occurredAt) }}</time>
               </button>
             </td>
             <td>{{ event.eventTypeName }}</td>

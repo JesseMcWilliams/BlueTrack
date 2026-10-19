@@ -24,8 +24,16 @@ const saving = ref(false)
 const loadError = ref(null)
 const saveError = ref(null)
 
-const editing = ref({ fieldName: '', displayLabel: '', fieldType: 'text', referenceTable: '', isRequired: false, requiredPermission: null, displayOrder: 0 })
+const editing = ref({ fieldName: '', displayLabel: '', fieldType: 'Text', referenceTable: '', isRequired: false, requiredPermission: null, displayOrder: 0 })
 const permissions = ref([])
+// UI review W11-2: the types the Account Progress edit form knows how to draw, and the reference tables it can fill a
+// dropdown from (the keys of /api/account-progress/reference-data). A typo in either used to break that form.
+const FIELD_TYPES = ['Text', 'TextArea', 'Dropdown', 'Date']
+const referenceTables = ref([])
+const typeOptions = computed(() => (FIELD_TYPES.includes(editing.value.fieldType) ? FIELD_TYPES : [editing.value.fieldType, ...FIELD_TYPES]))
+const tableOptions = computed(() => (!editing.value.referenceTable || referenceTables.value.includes(editing.value.referenceTable)
+  ? referenceTables.value
+  : [editing.value.referenceTable, ...referenceTables.value]))
 
 onMounted(async () => {
   try {
@@ -34,6 +42,15 @@ onMounted(async () => {
     permissions.value = await response.json()
   } catch (err) {
     loadError.value = err.message
+  }
+  try {
+    const response = await fetch('/api/account-progress/reference-data')
+    if (response.ok) {
+      const tables = await response.json()
+      if (tables && typeof tables === 'object' && !Array.isArray(tables)) referenceTables.value = Object.keys(tables).sort()
+    }
+  } catch {
+    // The Reference Table box stays free text.
   }
   if (isEditMode.value && !loadError.value) {
     try {
@@ -58,7 +75,7 @@ async function save() {
     const response = await fetch(url, {
       method: isEditMode.value ? 'PUT' : 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(editing.value)
+      body: JSON.stringify({ ...editing.value, referenceTable: editing.value.fieldType === 'Dropdown' ? editing.value.referenceTable : '' })
     })
     if (!response.ok) {
       saveError.value = await problemMessage(response, t('common.saveFailed', { status: response.status }))
@@ -85,8 +102,18 @@ function cancel() {
     <form v-else @submit.prevent="save">
       <p><label class="field-label"><span class="field-label-text">{{ t('admin.fieldMetadataEdit.fieldName') }}</span> <input v-model="editing.fieldName" required /></label></p>
       <p><label class="field-label"><span class="field-label-text">{{ t('admin.fieldMetadataEdit.displayLabel') }}</span> <input v-model="editing.displayLabel" required /></label></p>
-      <p><label class="field-label"><span class="field-label-text">{{ t('admin.fieldMetadataEdit.fieldType') }}</span> <input v-model="editing.fieldType" required /></label></p>
-      <p><label class="field-label"><span class="field-label-text">{{ t('admin.fieldMetadataEdit.referenceTable') }}</span> <input v-model="editing.referenceTable" /></label></p>
+      <p><label class="field-label"><span class="field-label-text">{{ t('admin.fieldMetadataEdit.fieldType') }}</span> <select v-model="editing.fieldType" required>
+        <option v-for="type in typeOptions" :key="type" :value="type">{{ type }}</option>
+      </select></label></p>
+      <p v-if="editing.fieldType === 'Dropdown'">
+        <label class="field-label"><span class="field-label-text">{{ t('admin.fieldMetadataEdit.referenceTable') }}</span>
+          <select v-if="tableOptions.length > 0" v-model="editing.referenceTable" required>
+            <option value="" disabled>{{ t('admin.fieldMetadataEdit.chooseTable') }}</option>
+            <option v-for="table in tableOptions" :key="table" :value="table">{{ table }}</option>
+          </select>
+          <input v-else v-model="editing.referenceTable" required />
+        </label>
+      </p>
       <p><label><input v-model="editing.isRequired" type="checkbox" /> {{ t('admin.fieldMetadataEdit.required') }}</label></p>
       <p>
         <label class="field-label">

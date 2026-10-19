@@ -290,6 +290,33 @@ describe('AccountProgressDetail.vue', () => {
     expect(wrapper.find('#account-progress-tab-risk-exception').exists()).toBe(true)
   })
 
+  // UI review W2-8
+  it('explains that the risk override saves on its own, and says when it has saved', async () => {
+    mockLoad()
+    const wrapper = await mountEditable()
+    await wrapper.get('#account-progress-tab-risk-score').trigger('click')
+    expect(wrapper.text()).toContain('saved on its own with Save Override')
+    const base = globalThis.fetch.getMockImplementation()
+    globalThis.fetch = vi.fn((url, options) => (url === '/api/account-progress/42/risk-score-override' && options?.method === 'PUT'
+      ? Promise.resolve({ ok: true, status: 204, json: () => Promise.resolve(null) })
+      : base(url, options)))
+
+    await wrapper.findAll('button').find(b => b.text() === 'Save Override').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('Risk score override saved.')
+  })
+
+  // UI review W2-5
+  it('tells a view-only user why there is no edit form', async () => {
+    const rights = useRightsStore()
+    rights.permissionNames = []
+    mockLoad()
+    const wrapper = await mountEditable()
+    expect(wrapper.find('form').exists()).toBe(false)
+    expect(wrapper.text()).toContain('You can view this account but not change it')
+  })
+
   // D-131: a per-account "Recalculate" action on the Risk Score tab --
   // posts to its own dedicated endpoint (distinct from the Risk Score
   // report's bulk "Recalculate Now") and refreshes this one account's

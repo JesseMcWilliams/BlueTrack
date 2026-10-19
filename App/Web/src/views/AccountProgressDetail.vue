@@ -76,6 +76,7 @@ const overrideScoreInput = ref(null)
 const overrideReasonInput = ref('')
 const overrideError = ref(null)
 const overrideSaving = ref(false)
+const overrideSaved = ref(false) // UI review W2-8: the override saves on its own, so say so
 const recalculating = ref(false)
 const recalculateError = ref(null)
 
@@ -139,6 +140,7 @@ async function recalculate() {
 
 async function saveOverride() {
   overrideError.value = null
+  overrideSaved.value = false
   // v-model.number leaves an emptied input as '' rather than null.
   const score = overrideScoreInput.value === '' || overrideScoreInput.value === undefined || Number.isNaN(overrideScoreInput.value)
     ? null
@@ -161,6 +163,7 @@ async function saveOverride() {
     }
     overrideReasonInput.value = ''
     await refreshDetail()
+    overrideSaved.value = true
   } finally {
     overrideSaving.value = false
   }
@@ -576,6 +579,8 @@ onUnmounted(releaseLock)
           <template #date>{{ formatDate(ex.reviewDate) }}</template>
         </i18n-t>
       </div>
+      <!-- UI review W2-5: say why there is no edit form. -->
+      <p v-if="rights.loaded && !rights.hasPermission('EditAccountProgress')" class="hint">{{ t('pages.accountProgressDetail.viewOnly') }}</p>
       <p v-if="lockStatus && !lockedByMe">
         {{ t('pages.accountProgressDetail.lockedBy', { name: lockStatus.lockedByName, since: formatUtcDateTime(lockStatus.lockedAt) }) }}
         <button v-if="rights.hasPermission('EditAccountProgress')" @click="forceRelease">{{ t('pages.accountProgressDetail.forceRelease') }}</button>
@@ -653,6 +658,8 @@ onUnmounted(releaseLock)
             <button type="button" class="account-progress-recalculate" :disabled="recalculating" @click="recalculate">{{ recalculating ? t('pages.accountProgressDetail.recalculating') : t('pages.accountProgressDetail.recalculate') }}</button>
           </p>
           <p v-if="overrideError" role="alert">{{ overrideError }}</p>
+          <p v-if="overrideSaved" role="status">{{ t('pages.accountProgressDetail.overrideSaved') }}</p>
+          <p><small>{{ t('pages.accountProgressDetail.overrideHint') }}</small></p>
           <p>
             <label class="field-label"><span class="field-label-text">{{ t('pages.accountProgressDetail.overrideScore') }}</span>
               <input v-model.number="overrideScoreInput" type="number" min="0" max="1000" />
