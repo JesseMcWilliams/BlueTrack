@@ -130,7 +130,13 @@ onMounted(async () => {
   }
 })
 
-watch(queryParams, load, { immediate: true, deep: true })
+// UI review W7-5: a range with a missing date (a half-typed one) or From after To is not sent; the page says so and keeps the
+// last report, instead of asking the API (and showing its error) on every keystroke.
+const rangeError = computed(() => (filters.from && filters.to && filters.from > filters.to ? t('reports.trends.rangeBackwards') : null))
+watch(queryParams, () => {
+  if (!filters.from || !filters.to || rangeError.value) return
+  load()
+}, { immediate: true, deep: true })
 
 // Dates and percentages in the active format locale, as counts are (D-218,
 // D-227: utils/formatLocale.js -- the browser's language unless the user
@@ -231,6 +237,7 @@ const percentOptions = computed(() => baseOptions(theme.value, { stacked: false,
     <h2>{{ t('reports.trends.title') }}</h2>
     <p>{{ t('reports.trends.intro') }}</p>
 
+    <p v-if="rangeError" role="alert">{{ rangeError }}</p>
     <p class="filter-row">
       <label class="field-label"><span class="field-label-text">{{ t('reports.trends.from') }}</span>
         <input v-model="filters.from" type="date" name="from" required>

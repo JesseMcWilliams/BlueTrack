@@ -14,6 +14,8 @@ public sealed class DecomSafeRow
     public required string SafeName { get; init; }
     public required string SourceSystemName { get; init; }
     public string? ApplicationName { get; init; }
+    /// <summary>UI review W6-4: for the link to the application's edit page (null when the Safe has none).</summary>
+    public int? ApplicationKey { get; init; }
     public int ActiveAccountCount { get; init; }
     public int DeletedAccountCount { get; init; }
 }

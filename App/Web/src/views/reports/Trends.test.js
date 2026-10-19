@@ -102,6 +102,29 @@ describe('Trends.vue', () => {
     expect(lastQuery().has('safeKey')).toBe(false)
   })
 
+  // UI review W7-5
+  it('does not ask for a range that is backwards or half typed, says so, and asks again once it is valid', async () => {
+    mockApi()
+    const wrapper = mount(Trends)
+    await flushPromises()
+    const before = trendsCalls().length
+
+    await wrapper.get('input[name="from"]').setValue('2099-01-01')
+    await flushPromises()
+    expect(wrapper.get('[role="alert"]').text()).toContain('From must not be after To')
+    expect(trendsCalls()).toHaveLength(before)
+
+    await wrapper.get('input[name="from"]').setValue('')
+    await flushPromises()
+    expect(trendsCalls()).toHaveLength(before)
+    expect(wrapper.find('[role="alert"]').exists()).toBe(false)
+
+    await wrapper.get('input[name="from"]').setValue('2020-01-01')
+    await flushPromises()
+    expect(trendsCalls()).toHaveLength(before + 1)
+    expect(lastQuery().get('from')).toBe('2020-01-01')
+  })
+
   it('draws the three charts, each with a title and its series', async () => {
     mockApi()
     const wrapper = mount(Trends)

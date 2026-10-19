@@ -76,6 +76,8 @@ public class DecommissionPatternTests : IClassFixture<BlueTrackWebApplicationFac
 
             var safes = await admin.GetFromJsonAsync<JsonArray>("/api/reports/decom-safes");
             var safe = Assert.Single(safes!, s => s!["safeName"]!.GetValue<string>() == $"DCM{tag}_Old")!;
+            Assert.True(safe.AsObject().ContainsKey("applicationKey")); // UI review W6-4 (script 40): present, null for a Safe with no application
+            Assert.Null(safe["applicationKey"]);
             Assert.Equal(1, safe["activeAccountCount"]!.GetValue<int>());
             Assert.Equal(1, safe["deletedAccountCount"]!.GetValue<int>());
             Assert.DoesNotContain(safes!, s => s!["safeName"]!.GetValue<string>() == $"NEW{tag}_Safe");

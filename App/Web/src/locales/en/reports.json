@@ -24,6 +24,10 @@
     "whatNext": "BlueTrack only reports these. Delete them in CyberArk; this report updates after the next data load.",
     "loadFailed": "Could not load the report: {error}",
     "onlyNotDeleted": "Only accounts not yet deleted",
+    "search": "Search:",
+    "safeFilter": "Only Safe {safe}.",
+    "clearSafe": "Show all Safes",
+    "emptyFiltered": "No accounts match the search and filters.",
     "empty": "No accounts are flagged for deletion.",
     "colUsername": "Username",
     "colAddress": "Address",
@@ -45,6 +49,7 @@
     "hintPattern": "safe decommission pattern",
     "hintAccountsLink": "Accounts Flagged for Deletion",
     "whatNext": "BlueTrack only reports these. Delete or move them in CyberArk; this report updates after the next data load.",
+    "showAccounts": "Show the accounts in Safe {safe}",
     "loadFailed": "Could not load the report: {error}",
     "empty": "No safes are flagged for deletion. If you expected some, check the safe decommission pattern.",
     "colSafe": "Safe",
@@ -144,7 +149,10 @@
     "colStatus": "Status",
     "colRiskLevel": "Risk Level",
     "colOwner": "Owner",
-    "colTargetDate": "Target Remediation Date"
+    "colTargetDate": "Target Remediation Date",
+    "colDaysOverdue": "Days overdue",
+    "search": "Search:",
+    "emptyFiltered": "No accounts match the search."
   },
   "possibleAccountMatches": {
     "title": "Possible Account Matches",
@@ -222,6 +230,7 @@
     "colTotal": "Total"
   },
   "trends": {
+    "rangeBackwards": "From must not be after To. The report below is for the last valid range.",
     "title": "Trends",
     "intro": "How accounts have moved over time, from the nightly progress snapshot. % complete uses the KPI Summary's rule: accounts at the final stage with status Complete, out of the accounts in scope (not Risk Accepted / Excluded).",
     "from": "From:",
