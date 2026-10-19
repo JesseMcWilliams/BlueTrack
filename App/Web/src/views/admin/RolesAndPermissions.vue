@@ -67,7 +67,7 @@ async function remove(role) {
             <td>{{ role.notificationEmail }}</td>
             <td>{{ role.permissionNames.join(', ') }}</td>
             <td>
-              <button @click="remove(role)">{{ t('common.delete') }}</button>
+              <button @click="remove(role)" :aria-label="t('common.deleteNamed', { name: role.roleName })">{{ t('common.delete') }}</button>
             </td>
           </tr>
         </tbody>

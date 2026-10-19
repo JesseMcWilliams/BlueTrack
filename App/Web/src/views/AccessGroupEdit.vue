@@ -14,6 +14,7 @@
 // identical reasoning -- Create/Update/Delete are otherwise unchanged.
 import { ref, computed, watch, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { useListStateStore } from '../stores/listState'
 import { flash, savedMessage } from '../composables/useFlash'
 import Combobox from '../components/Combobox.vue'
 import { useI18n } from 'vue-i18n'
@@ -22,6 +23,7 @@ const { t } = useI18n()
 
 const props = defineProps({ accessGroupKey: { type: [String, Number], required: false, default: null } })
 const router = useRouter()
+const listState = useListStateStore()
 const isEditMode = computed(() => props.accessGroupKey !== null && props.accessGroupKey !== undefined)
 
 const loading = ref(true)
@@ -98,14 +100,14 @@ async function save() {
       return
     }
     flash(savedMessage(t, editing.value.groupName))
-    router.push({ name: 'access-groups' })
+    router.push({ name: 'access-groups', query: listState.queryFor('access-groups') })
   } finally {
     saving.value = false
   }
 }
 
 function cancel() {
-  router.push({ name: 'access-groups' })
+  router.push({ name: 'access-groups', query: listState.queryFor('access-groups') })
 }
 </script>
 

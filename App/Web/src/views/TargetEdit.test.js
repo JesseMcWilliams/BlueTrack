@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
 import { createRouter, createMemoryHistory } from 'vue-router'
+import { createPinia, setActivePinia } from 'pinia'
 import TargetEdit from './TargetEdit.vue'
 import { useFlashState } from '../composables/useFlash'
 
@@ -61,6 +62,8 @@ function makeRouter() {
 }
 
 describe('TargetEdit.vue', () => {
+  beforeEach(() => setActivePinia(createPinia()))
+
   afterEach(() => {
     vi.restoreAllMocks()
   })
@@ -112,7 +115,7 @@ describe('TargetEdit.vue', () => {
     const [url, options] = globalThis.fetch.mock.calls.at(-1)
     expect(url).toBe('/api/admin/targets')
     expect(options.method).toBe('POST')
-    expect(pushSpy).toHaveBeenCalledWith({ name: 'targets' })
+    expect(pushSpy).toHaveBeenCalledWith({ name: 'targets', query: {} })
     expect(useFlashState().message).toBe('new-target saved.') // UI review theme 3: a saved line on the list
   })
 

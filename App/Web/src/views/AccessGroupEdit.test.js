@@ -1,6 +1,7 @@
-import { describe, it, expect, afterEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
 import { createRouter, createMemoryHistory } from 'vue-router'
+import { createPinia, setActivePinia } from 'pinia'
 import AccessGroupEdit from './AccessGroupEdit.vue'
 import { useFlashState } from '../composables/useFlash'
 
@@ -54,6 +55,8 @@ function makeRouter() {
 }
 
 describe('AccessGroupEdit.vue', () => {
+  beforeEach(() => setActivePinia(createPinia()))
+
   afterEach(() => {
     vi.restoreAllMocks()
   })
@@ -94,7 +97,7 @@ describe('AccessGroupEdit.vue', () => {
     const [url, options] = globalThis.fetch.mock.calls.at(-1)
     expect(url).toBe('/api/admin/access-groups')
     expect(options.method).toBe('POST')
-    expect(pushSpy).toHaveBeenCalledWith({ name: 'access-groups' })
+    expect(pushSpy).toHaveBeenCalledWith({ name: 'access-groups', query: {} })
     expect(useFlashState().message).toBe('New Group saved.') // UI review theme 3: a saved line on the list
   })
 

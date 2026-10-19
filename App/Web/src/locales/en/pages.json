@@ -347,7 +347,10 @@
     "linked": "Linked.",
     "accountName": "Account Name:",
     "target": "Target:",
-    "choose": "(choose)",
+    "accountPlaceholder": "Type part of the user name, account name or address",
+    "targetPlaceholder": "Type part of the target name or an identifier",
+    "searchFailed": "Search failed: {status}",
+    "linkChoose": "Choose both an account and a target from the lists.",
     "link": "Link"
   },
   "targetEdit": {
