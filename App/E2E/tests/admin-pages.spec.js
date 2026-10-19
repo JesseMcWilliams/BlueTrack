@@ -270,10 +270,12 @@ test.describe('Secrets Store Configuration admin page', () => {
     try {
       const cyberArkRow = page.locator('tbody tr', { hasText: 'CyberArkCP' })
       await cyberArkRow.getByRole('button', { name: 'Make Active' }).click()
+      await confirmDelete(page, 'Make Active') // switching the active backend asks first (D-251)
       await expect(cyberArkRow).toContainText('Yes')
       await expect(dpapiRow).not.toContainText('Yes')
     } finally {
       await dpapiRow.getByRole('button', { name: 'Make Active' }).click()
+      await confirmDelete(page, 'Make Active')
       await expect(dpapiRow).toContainText('Yes')
     }
   })
@@ -292,12 +294,14 @@ test.describe('Secrets Store Configuration admin page', () => {
     try {
       await cyberArkRow.getByLabel('App ID:').fill('e2e-app-id')
       await cyberArkRow.getByRole('button', { name: 'Make Active' }).click()
+      await confirmDelete(page, 'Make Active')
       await expect(cyberArkRow).toContainText('Yes')
 
       await page.reload()
       await expect(page.locator('tbody tr', { hasText: 'CyberArkCP' }).getByLabel('App ID:')).toHaveValue('e2e-app-id')
     } finally {
       await dpapiRow.getByRole('button', { name: 'Make Active' }).click()
+      await confirmDelete(page, 'Make Active')
       await expect(dpapiRow).toContainText('Yes')
     }
   })

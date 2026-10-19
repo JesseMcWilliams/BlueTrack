@@ -328,14 +328,14 @@ onMounted(load)
               </template>
               <template v-else>{{ '—' }}</template>
             </td>
-            <td>
-              {{ matchedBy(row) }}
-              <span v-if="OWNER_SOURCE_KEYS[row.ownerSource]" class="owner-source">{{ t(OWNER_SOURCE_KEYS[row.ownerSource]) }}</span>
-            </td>
             <td>{{ row.computedRiskScore ?? '—' }}</td>
             <td>{{ row.riskScoreBandName ?? '—' }}</td>
             <td>{{ formatDate(row.discoveredDate) }}</td>
             <td>{{ formatDate(row.lastSeenDate) }}</td>
+            <td>
+              {{ matchedBy(row) }}
+              <span v-if="OWNER_SOURCE_KEYS[row.ownerSource]" class="owner-source">{{ t(OWNER_SOURCE_KEYS[row.ownerSource]) }}</span>
+            </td>
             <td v-if="rights.hasPermission('ManageDiscoveredAccounts')">
               <button type="button" :disabled="busyKey === row.discoveredAccountKey" @click="accept(row)">{{ t('reports.discoveredAccounts.accept') }}</button>
               <button type="button" :disabled="busyKey === row.discoveredAccountKey" @click="dismiss(row)">{{ t('reports.discoveredAccounts.dismiss') }}</button>

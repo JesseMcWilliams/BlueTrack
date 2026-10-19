@@ -250,7 +250,7 @@ test.describe('Target Match Review typeahead and CSV header detection (D-225)', 
       await expect(combobox).toHaveValue(`${destName} (Server)`)
       await expect(combobox).toHaveAttribute('aria-expanded', 'false')
 
-      await page.locator('tbody tr', { hasText: ip }).getByRole('button', { name: 'Link', exact: true }).click()
+      await page.locator('tbody tr', { hasText: ip }).getByRole('button', { name: `Link IPAddress = ${ip}`, exact: true }).click()
       await expect(page.locator('tbody tr', { hasText: ip })).toHaveCount(0)
 
       // D-229: the incoming row is its own target, linked to the chosen one; the IP stays on the candidate.
@@ -290,7 +290,7 @@ test.describe('Target Match Review typeahead and CSV header detection (D-225)', 
       await expect(row).toContainText(`${linkedName} (Database)`)
       await expect(row).toContainText('Source: E2E CMDB, Risk Score: 300')
       await expect(row).toContainText(`Hostname: e2e-linkdb-${stamp}`)
-      await row.getByRole('button', { name: 'Link', exact: true }).click()
+      await row.getByRole('button', { name: `Link IPAddress = ${ip}`, exact: true }).click()
       await expect(row).toHaveCount(0)
 
       await page.goto('/targets')

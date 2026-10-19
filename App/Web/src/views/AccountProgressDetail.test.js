@@ -5,6 +5,12 @@ import { createRouter, createMemoryHistory } from 'vue-router'
 import { useRightsStore } from '../stores/rights'
 import AccountProgressDetail from './AccountProgressDetail.vue'
 
+// UI review W2-4: Force Release asks first (the shared dialog is mocked, as on the other pages).
+vi.mock('../composables/useConfirmDialog', () => ({
+  confirmDelete: vi.fn().mockResolvedValue(true)
+}))
+import { confirmDelete } from '../composables/useConfirmDialog'
+
 function makeRouter() {
   return createRouter({
     history: createMemoryHistory(),
@@ -131,6 +137,7 @@ describe('AccountProgressDetail.vue', () => {
     const rights = useRightsStore()
     rights.loaded = true
     rights.permissionNames = ['EditAccountProgress']
+    confirmDelete.mockResolvedValue(true)
   })
 
   afterEach(() => {
@@ -280,5 +287,58 @@ describe('AccountProgressDetail.vue', () => {
     expect(text).toContain('Effective Risk Score400')
     expect(text).toContain('Override Risk Score400')
     expect(text).toContain('Risk ExceptionEX-7 (Active) — Approved by CISO, reviewed 2026-06-01')
+  })
+
+  describe('Force Release Lock (UI review W2-4)', () => {
+    const heldByOther = { lockedByUserKey: 2, lockedByName: 'Other User', lockedAt: '2026-01-01T00:00:00' }
+    const releaseButton = (wrapper) => wrapper.findAll('button').find(b => b.text() === 'Force Release Lock')
+    const posts = (suffix) => globalThis.fetch.mock.calls.filter(([url, options]) => url === `/api/account-progress/42/${suffix}` && options?.method === 'POST')
+
+    it('shows when the lock was taken as a local date and time, not the raw stored text', async () => {
+      useRightsStore().userKey = 1
+      mockLoad({ existingLock: heldByOther })
+      const wrapper = await mountEditable()
+
+      const text = wrapper.text()
+      expect(text).toContain('Currently being edited by Other User since')
+      expect(text).not.toContain('2026-01-01T00:00:00')
+    })
+
+    it('asks first, naming the holder, and does nothing when declined', async () => {
+      confirmDelete.mockResolvedValue(false)
+      useRightsStore().userKey = 1
+      mockLoad({ existingLock: heldByOther })
+      const wrapper = await mountEditable()
+
+      await releaseButton(wrapper).trigger('click')
+      await flushPromises()
+
+      expect(confirmDelete).toHaveBeenCalledTimes(1)
+      const [message, label] = confirmDelete.mock.calls[0]
+      expect(message.title).toBe('Take over editing from Other User?')
+      expect(message.details[0]).toContain('Other User has had this account open for editing since')
+      expect(message.warning).toBe('Anything Other User has typed and not saved will be lost.')
+      expect(label).toBe('Force Release Lock')
+      expect(posts('lock/force-release')).toHaveLength(0)
+      expect(wrapper.text()).toContain('Currently being edited by Other User')
+    })
+
+    it('a confirmed release takes the lock and opens the edit form', async () => {
+      useRightsStore().userKey = 1
+      mockLoad({ existingLock: heldByOther })
+      const base = globalThis.fetch.getMockImplementation()
+      globalThis.fetch.mockImplementation((url, options) => url === '/api/account-progress/42/lock/force-release' && options?.method === 'POST'
+        ? Promise.resolve({ ok: true, status: 204, json: () => Promise.resolve(null) })
+        : base(url, options))
+      const wrapper = await mountEditable()
+
+      await releaseButton(wrapper).trigger('click')
+      await flushPromises()
+      await flushPromises()
+
+      expect(posts('lock/force-release')).toHaveLength(1)
+      expect(posts('lock')).toHaveLength(1)   // it then takes the lock for itself
+      expect(wrapper.find('form button[type="submit"]').exists()).toBe(true)
+    })
   })
 })

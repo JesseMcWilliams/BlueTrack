@@ -70,4 +70,104 @@ describe('ApplicationSafeMapping.vue', () => {
     const urls = globalThis.fetch.mock.calls.map(c => c[0])
     expect(urls).toEqual(['/api/safes?page=2&pageSize=50'])
   })
+
+  // UI review W8-1: a failed assignment left the select on the value that was not saved, with the error only at the
+  // top of the page; a successful one said nothing.
+  describe('assigning a Safe to an application', () => {
+    function mockAssign(putResponse) {
+      let saved = null
+      globalThis.fetch = vi.fn((url, init) => {
+        if (init?.method === 'PUT') return putResponse instanceof Error ? Promise.reject(putResponse) : Promise.resolve(putResponse)
+        if (url === '/api/applications/detailed') return Promise.resolve(jsonResponse([app(1), app(2), app(3)]))
+        if (url.startsWith('/api/applications/detailed?')) return Promise.resolve(jsonResponse([app(1)], 1))
+        if (url.startsWith('/api/safes?')) return Promise.resolve(jsonResponse([{ ...safe(1), applicationKey: saved }], 1))
+        return Promise.resolve({ ok: false, status: 404, json: () => Promise.resolve(null) })
+      })
+      return (value) => { saved = value }
+    }
+
+    async function pick(wrapper, value) {
+      const select = wrapper.get('select[aria-label="Application for safe Safe1"]')
+      select.element.value = String(value)
+      await select.trigger('change')
+      await flushPromises()
+      return select
+    }
+
+    it('says what was assigned, next to the Safes table', async () => {
+      mockAssign({ ok: true, status: 204, json: () => Promise.resolve(null) })
+      const wrapper = mount(ApplicationSafeMapping, { global: { plugins: [makeRouter()] } })
+      await flushPromises()
+
+      await pick(wrapper, 2)
+
+      expect(wrapper.find('.assign-notice').text()).toBe('Safe1 is now assigned to App 2.')
+      expect(wrapper.find('.assign-error').exists()).toBe(false)
+      const put = globalThis.fetch.mock.calls.find(([, init]) => init?.method === 'PUT')
+      expect(put[0]).toBe('/api/safes/1/application')
+      expect(put[1].body).toBe('2')
+    })
+
+    it('says so when the Safe is unassigned', async () => {
+      mockAssign({ ok: true, status: 204, json: () => Promise.resolve(null) })
+      const wrapper = mount(ApplicationSafeMapping, { global: { plugins: [makeRouter()] } })
+      await flushPromises()
+
+      await pick(wrapper, '')
+
+      expect(wrapper.find('.assign-notice').text()).toBe('Safe1 no longer has an application.')
+    })
+
+    it('a refused assignment shows the reason and puts the select back on what is saved', async () => {
+      mockAssign({ ok: false, status: 403, json: () => Promise.resolve({ detail: 'You cannot change this Safe.' }) })
+      const wrapper = mount(ApplicationSafeMapping, { global: { plugins: [makeRouter()] } })
+      await flushPromises()
+
+      const select = await pick(wrapper, 2)
+
+      expect(wrapper.find('.assign-error').text()).toContain('wasn\'t changed: You cannot change this Safe.')
+      expect(select.element.value).toBe('')   // reloaded: nothing was saved
+    })
+
+    it('a refusal with no reason gives the status', async () => {
+      mockAssign({ ok: false, status: 500, json: () => Promise.reject(new Error('no body')) })
+      const wrapper = mount(ApplicationSafeMapping, { global: { plugins: [makeRouter()] } })
+      await flushPromises()
+
+      await pick(wrapper, 2)
+
+      expect(wrapper.find('.assign-error').text()).toContain('Request failed: 500')
+    })
+
+    it('no answer at all is reported, and the select goes back', async () => {
+      mockAssign(new TypeError('Failed to fetch'))
+      const wrapper = mount(ApplicationSafeMapping, { global: { plugins: [makeRouter()] } })
+      await flushPromises()
+
+      const select = await pick(wrapper, 3)
+
+      expect(wrapper.find('.assign-error').text()).toContain("the server didn't answer")
+      expect(select.element.value).toBe('')
+    })
+
+    it('the next successful assignment clears the earlier error', async () => {
+      const setSaved = mockAssign({ ok: false, status: 500, json: () => Promise.reject(new Error('x')) })
+      const wrapper = mount(ApplicationSafeMapping, { global: { plugins: [makeRouter()] } })
+      await flushPromises()
+      await pick(wrapper, 2)
+      expect(wrapper.find('.assign-error').exists()).toBe(true)
+
+      setSaved(2)
+      globalThis.fetch.mockImplementation((url, init) => {
+        if (init?.method === 'PUT') return Promise.resolve({ ok: true, status: 204, json: () => Promise.resolve(null) })
+        if (url === '/api/applications/detailed') return Promise.resolve(jsonResponse([app(1), app(2), app(3)]))
+        if (url.startsWith('/api/applications/detailed?')) return Promise.resolve(jsonResponse([app(1)], 1))
+        return Promise.resolve(jsonResponse([{ ...safe(1), applicationKey: 2 }], 1))
+      })
+      await pick(wrapper, 2)
+
+      expect(wrapper.find('.assign-error').exists()).toBe(false)
+      expect(wrapper.find('.assign-notice').text()).toContain('is now assigned to App 2')
+    })
+  })
 })

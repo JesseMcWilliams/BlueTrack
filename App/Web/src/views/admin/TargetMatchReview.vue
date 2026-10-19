@@ -10,12 +10,14 @@
 // no stored name, so it asks for one (blank = the identifier value).
 import { ref, onMounted } from 'vue'
 import Combobox from '../../components/Combobox.vue'
+import { confirmDelete } from '../../composables/useConfirmDialog'
 import { useI18n } from 'vue-i18n'
 
 const { t } = useI18n()
 
 const items = ref([])
 const error = ref(null)
+const notice = ref(null)
 const loading = ref(true)
 const linkTargetByRow = ref({})
 const nameByRow = ref({})
@@ -49,8 +51,22 @@ function otherIdentifiers(item) {
   return (item.identifiers ?? []).filter(i => !(i.identifierType === item.identifierType && i.identifierValue === item.identifierValue))
 }
 
+function identifierText(item) {
+  return `${item.identifierType} = ${item.identifierValue}`
+}
+
 async function resolve(item, resolution) {
   error.value = null
+  notice.value = null
+  // UI review W4-4: Ignore is remembered (the same row is never queued again), so it asks first.
+  if (resolution === 'Ignored') {
+    const confirmed = await confirmDelete({
+      title: t('admin.targetMatchReview.ignoreTitle', { identifier: identifierText(item) }),
+      details: item.targetName ? [t('admin.targetMatchReview.ignoreDetail', { name: item.targetName })] : [],
+      warning: t('admin.targetMatchReview.ignoreWarning')
+    }, t('admin.targetMatchReview.ignore'))
+    if (!confirmed) return
+  }
   const body = { resolution }
   if (resolution === 'Linked') {
     body.primaryTargetKey = linkTargetByRow.value[item.targetMatchReviewKey]?.targetKey ?? item.candidateTargetKey
@@ -67,6 +83,13 @@ async function resolve(item, resolution) {
     error.value = problem?.detail ?? t('admin.targetMatchReview.resolveFailed', { status: response.status })
     return
   }
+  // What was decided, said once the row has gone from the list.
+  const primaryName = linkTargetByRow.value[item.targetMatchReviewKey]?.targetName ?? item.candidateTargetName ?? `#${body.primaryTargetKey}`
+  notice.value = resolution === 'Linked'
+    ? t('admin.targetMatchReview.linkedNotice', { identifier: identifierText(item), target: primaryName })
+    : resolution === 'NewTarget'
+      ? t('admin.targetMatchReview.newTargetNotice', { identifier: identifierText(item) })
+      : t('admin.targetMatchReview.ignoredNotice', { identifier: identifierText(item) })
   delete linkTargetByRow.value[item.targetMatchReviewKey]
   delete nameByRow.value[item.targetMatchReviewKey]
   await load()
@@ -78,7 +101,8 @@ async function resolve(item, resolution) {
     <h2>{{ t('admin.targetMatchReview.title') }}</h2>
     <p>{{ t('admin.targetMatchReview.intro') }}</p>
     <p>{{ t('admin.targetMatchReview.linkHint') }}</p>
-    <p role="alert">{{ error }}</p>
+    <p v-if="error" role="alert">{{ error }}</p>
+    <p v-if="notice" role="status" class="resolve-notice">{{ notice }}</p>
     <p v-if="loading" role="status">{{ t('common.loading') }}</p>
 
     <template v-else>
@@ -125,9 +149,9 @@ async function resolve(item, resolution) {
               </Combobox>
             </td>
             <td>
-              <button @click="resolve(item, 'Linked')">{{ t('admin.targetMatchReview.link') }}</button>
-              <button @click="resolve(item, 'NewTarget')">{{ t('admin.targetMatchReview.newTarget') }}</button>
-              <button @click="resolve(item, 'Ignored')">{{ t('admin.targetMatchReview.ignore') }}</button>
+              <button :aria-label="t('admin.targetMatchReview.linkFor', { identifier: identifierText(item) })" @click="resolve(item, 'Linked')">{{ t('admin.targetMatchReview.link') }}</button>
+              <button :aria-label="t('admin.targetMatchReview.newTargetFor', { identifier: identifierText(item) })" @click="resolve(item, 'NewTarget')">{{ t('admin.targetMatchReview.newTarget') }}</button>
+              <button :aria-label="t('admin.targetMatchReview.ignoreFor', { identifier: identifierText(item) })" @click="resolve(item, 'Ignored')">{{ t('admin.targetMatchReview.ignore') }}</button>
             </td>
           </tr>
         </tbody>

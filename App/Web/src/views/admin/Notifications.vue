@@ -183,7 +183,10 @@ async function setTargetRole(type) {
     body: JSON.stringify({ targetRoleKey: type.targetRoleKey })
   })
   if (!response.ok) {
-    typesError.value = t('common.saveFailed', { status: response.status })
+    // UI review W9-6: the select already shows the role that was picked; reload so it shows what is saved.
+    const message = t('common.saveFailed', { status: response.status })
+    await load()
+    typesError.value = message
     return
   }
   await load()

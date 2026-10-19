@@ -61,6 +61,7 @@ function loadFiltered() {
 
 const expandedEventKey = ref(null)
 const fieldChanges = ref([])
+const fieldChangesError = ref(null)
 
 // D-42: multi-column sort, same click/shift-click pattern as Account
 // Progress List and the Risk Exceptions list.
@@ -154,8 +155,16 @@ async function toggleFieldChanges(event) {
     expandedEventKey.value = null
     return
   }
-  const response = await fetch(`/api/audit-log/${event.auditEventKey}/field-changes`)
-  fieldChanges.value = response.ok ? await response.json() : []
+  // UI review W11-3: a failed load used to be shown as "no field-level changes recorded".
+  fieldChangesError.value = null
+  fieldChanges.value = []
+  try {
+    const response = await fetch(`/api/audit-log/${event.auditEventKey}/field-changes`)
+    if (response.ok) fieldChanges.value = await response.json()
+    else fieldChangesError.value = t('admin.auditLogViewer.fieldChangesFailed', { reason: t('common.requestFailed', { status: response.status }) })
+  } catch {
+    fieldChangesError.value = t('admin.auditLogViewer.fieldChangesFailed', { reason: t('admin.auditLogViewer.noResponse') })
+  }
   expandedEventKey.value = event.auditEventKey
 }
 </script>
@@ -211,7 +220,8 @@ async function toggleFieldChanges(event) {
           <tr v-if="expandedEventKey === event.auditEventKey" :id="`audit-detail-${event.auditEventKey}`">
             <td colspan="5">
               <p v-if="event.reason"><strong>{{ t('admin.auditLogViewer.reason') }}</strong> {{ event.reason }}</p>
-              <p v-if="fieldChanges.length === 0">{{ t('admin.auditLogViewer.noFieldChanges') }}</p>
+              <p v-if="fieldChangesError" role="alert">{{ fieldChangesError }}</p>
+              <p v-else-if="fieldChanges.length === 0">{{ t('admin.auditLogViewer.noFieldChanges') }}</p>
               <table v-else>
                 <thead><tr><th>{{ t('admin.auditLogViewer.field') }}</th><th>{{ t('admin.auditLogViewer.oldValue') }}</th><th>{{ t('admin.auditLogViewer.newValue') }}</th></tr></thead>
                 <tbody>

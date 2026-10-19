@@ -21,6 +21,10 @@ const form = ref({ displayName: '', appRoleKey: null, expiresOn: '', ownerEmail:
 const originalExpiresOn = ref('')
 
 const today = computed(() => new Date().toISOString().slice(0, 10))
+// UI review W10-6: an expired key's own date is in the past, so `min=today` made the browser refuse to save it at
+// all, even to rename it. The minimum applies only to a date the person has changed (an unchanged date isn't sent).
+const minExpiry = computed(() => (form.value.expiresOn === originalExpiresOn.value ? undefined : today.value))
+const isExpired = computed(() => !!originalExpiresOn.value && originalExpiresOn.value < today.value)
 const latest = computed(() => new Date(Date.now() + options.value.maxLifetimeDays * 86400000).toISOString().slice(0, 10))
 
 onMounted(async () => {
@@ -95,8 +99,9 @@ function cancel() {
         <small>{{ t('admin.apiKeyEdit.roleHint') }}</small>
       </p>
       <p>
-        <label class="field-label"><span class="field-label-text">{{ t('admin.apiKeyEdit.expiresLabel') }}</span> <input v-model="form.expiresOn" type="date" :min="today" :max="latest" required /></label>
+        <label class="field-label"><span class="field-label-text">{{ t('admin.apiKeyEdit.expiresLabel') }}</span> <input v-model="form.expiresOn" type="date" :min="minExpiry" :max="latest" required /></label>
         <small>{{ t('admin.apiKeyEdit.expiresHint', { max: options.maxLifetimeDays }) }}</small>
+        <small v-if="isExpired" role="status">{{ ' ' + t('admin.apiKeyEdit.expiredNote', { date: originalExpiresOn }) }}</small>
       </p>
       <p>
         <label class="field-label"><span class="field-label-text">{{ t('admin.apiKeyCreate.ownerLabel') }}</span> <input v-model="form.ownerEmail" type="email" maxlength="320" /></label>

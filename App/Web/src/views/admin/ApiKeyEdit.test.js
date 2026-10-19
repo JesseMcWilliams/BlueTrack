@@ -114,4 +114,44 @@ describe('ApiKeyEdit.vue', () => {
     expect(router.currentRoute.value.name).toBe('admin-api-keys')
     expect(globalThis.fetch.mock.calls.some(([, init]) => init?.method === 'PUT')).toBe(false)
   })
+
+  // UI review W10-6: the date input had min=today, so the browser refused to save an expired key even for a rename.
+  describe('an expired key', () => {
+    const expired = { ...key, expiresAt: '2020-01-15T23:59:59' }
+
+    it('can be saved untouched: the date input has no minimum, and says the key expired', async () => {
+      const { wrapper } = await mountPage({ keyResponse: jsonResponse(expired) })
+
+      const date = wrapper.get('input[type="date"]')
+      expect(date.attributes('min')).toBeUndefined()
+      expect(wrapper.text()).toContain('This key expired on 2020-01-15.')
+    })
+
+    it('sends no expiry when only the name changed', async () => {
+      const { wrapper } = await mountPage({ keyResponse: jsonResponse(expired) })
+      await wrapper.get('input[maxlength="100"]').setValue('Renamed')
+
+      await wrapper.get('form').trigger('submit')
+      await flushPromises()
+
+      const put = globalThis.fetch.mock.calls.find(([, init]) => init?.method === 'PUT')
+      expect(JSON.parse(put[1].body)).toMatchObject({ displayName: 'Renamed', expiresOn: null })
+    })
+
+    it('requires today or later once a new date is being chosen', async () => {
+      const { wrapper } = await mountPage({ keyResponse: jsonResponse(expired) })
+
+      await wrapper.get('input[type="date"]').setValue('2020-02-01')
+
+      expect(wrapper.get('input[type="date"]').attributes('min')).toBe(new Date().toISOString().slice(0, 10))
+    })
+  })
+
+  it('a key that has not expired has no expired note, and a changed date must be today or later', async () => {
+    const { wrapper } = await mountPage()
+
+    expect(wrapper.text()).not.toContain('expired on')
+    await wrapper.get('input[type="date"]').setValue('2020-02-01')
+    expect(wrapper.get('input[type="date"]').attributes('min')).toBe(new Date().toISOString().slice(0, 10))
+  })
 })

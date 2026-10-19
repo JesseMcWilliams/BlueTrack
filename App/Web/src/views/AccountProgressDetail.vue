@@ -6,6 +6,8 @@ import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { useRightsStore } from '../stores/rights'
 import { formatDate } from '../utils/formatDate'
+import { formatUtcDateTime } from '../utils/formatLocale'
+import { confirmDelete } from '../composables/useConfirmDialog'
 import { decomNote } from '../utils/decomNote'
 import { formatCount } from '../utils/formatCount'
 import { useI18n } from 'vue-i18n'
@@ -356,6 +358,13 @@ async function sendHeartbeat() {
 }
 
 async function forceRelease() {
+  // UI review W2-4: this takes the account from a colleague who may be mid-edit; their unsaved changes are lost.
+  const confirmed = await confirmDelete({
+    title: t('pages.accountProgressDetail.forceReleaseTitle', { name: lockStatus.value.lockedByName }),
+    details: [t('pages.accountProgressDetail.forceReleaseDetail', { name: lockStatus.value.lockedByName, since: formatUtcDateTime(lockStatus.value.lockedAt) })],
+    warning: t('pages.accountProgressDetail.forceReleaseWarning', { name: lockStatus.value.lockedByName })
+  }, t('pages.accountProgressDetail.forceRelease'))
+  if (!confirmed) return
   const response = await fetch(`/api/account-progress/${props.accountKey}/lock/force-release`, { method: 'POST' })
   if (response.ok) {
     lockStatus.value = null
@@ -527,7 +536,7 @@ onUnmounted(releaseLock)
         </i18n-t>
       </div>
       <p v-if="lockStatus && !lockedByMe">
-        {{ t('pages.accountProgressDetail.lockedBy', { name: lockStatus.lockedByName, since: lockStatus.lockedAt }) }}
+        {{ t('pages.accountProgressDetail.lockedBy', { name: lockStatus.lockedByName, since: formatUtcDateTime(lockStatus.lockedAt) }) }}
         <button v-if="rights.hasPermission('EditAccountProgress')" @click="forceRelease">{{ t('pages.accountProgressDetail.forceRelease') }}</button>
       </p>
 
