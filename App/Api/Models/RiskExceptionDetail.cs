@@ -11,6 +11,11 @@ public sealed class RiskExceptionDetail
     public required string ExceptionID { get; init; }
     public long? AccountKey { get; init; }
     public int? ApplicationKey { get; init; }
+
+    /// <summary>UI review W3-4: the scope's display names, so the detail page can name what the exception covers (the account's user name, else its account name).</summary>
+    public string? AccountName { get; init; }
+    public string? AccountAddress { get; init; }
+    public string? ApplicationName { get; init; }
     public required string Justification { get; init; }
 
     /// <summary>UserKey who approved this exception -- used by the Risk Exception segregation-of-duties check (AccountProgressController.Update).</summary>

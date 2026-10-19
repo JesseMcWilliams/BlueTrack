@@ -4,6 +4,8 @@
 // field-level changes (Design_Audit-Logging.md's Admin UI Requirements).
 import { ref, computed, watch, onMounted } from 'vue'
 import { useTotalCount } from '../../composables/useTotalCount'
+import { useAddressState } from '../../composables/useAddressState'
+import { readText, readPage, readDate, parseSort, compactQuery } from '../../utils/listQuery'
 import { useLatestRequest } from '../../composables/useLatestRequest'
 import { usePageSizeStore } from '../../stores/pageSize'
 import FilterCountSummary from '../../components/FilterCountSummary.vue'
@@ -142,10 +144,37 @@ async function load() {
   }
 }
 
+// UI review W4 (D-252's pattern): the applied filters, sort and page are in the page address, so a view can be shared,
+// repeated and reloaded.
+const { isApplying } = useAddressState({
+  sources: () => [appliedFilters.value, sortQueryParam.value, page.value],
+  apply(query) {
+    const applied = {
+      eventType: readText(query, 'eventType'),
+      entityName: readText(query, 'entityName'),
+      fromDate: readDate(query, 'from'),
+      toDate: readDate(query, 'to')
+    }
+    appliedFilters.value = applied
+    eventTypeFilter.value = applied.eventType
+    entityNameFilter.value = applied.entityName
+    fromDateFilter.value = applied.fromDate
+    toDateFilter.value = applied.toDate
+    sortColumns.value = parseSort(readText(query, 'sort'), columns.map(c => c.field))
+    page.value = readPage(query)
+  },
+  current: () => compactQuery({
+    eventType: appliedFilters.value.eventType, entityName: appliedFilters.value.entityName,
+    from: appliedFilters.value.fromDate, to: appliedFilters.value.toDate, sort: sortQueryParam.value, page: page.value
+  }, { page: 1 }),
+  onApplied: load
+})
+
 onMounted(load)
 // D-124 Phase 3: a sort change resets to page 1 -- see Targets.vue's
 // identical comment for why page-size/Prev/Next changes are handled separately.
 watch(sortQueryParam, () => {
+  if (isApplying()) return
   page.value = 1
   load()
 })

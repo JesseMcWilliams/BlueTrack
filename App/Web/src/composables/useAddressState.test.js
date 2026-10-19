@@ -14,12 +14,14 @@ function makeRouter() {
   })
 }
 
-function harness({ onApplied } = {}) {
+function harness({ onApplied, remember } = {}) {
   const state = { name: ref(''), page: ref(1) }
   const applied = []
+  let handle = null
   const Page = defineComponent({
     setup() {
-      useAddressState({
+      handle = useAddressState({
+        remember,
         sources: () => [state.name.value, state.page.value],
         apply(query) {
           applied.push({ ...query })
@@ -32,7 +34,7 @@ function harness({ onApplied } = {}) {
       return () => h('div')
     }
   })
-  return { Page, state, applied }
+  return { Page, state, applied, handle: () => handle }
 }
 
 async function mountAt(path, options) {
@@ -136,5 +138,31 @@ describe('useAddressState', () => {
     await flushPromises()
 
     expect(applied).toHaveLength(0)
+  })
+})
+
+describe('useAddressState: remember and isApplying', () => {
+  it('tells remember the starting query, every change, and an address change that was applied', async () => {
+    const remember = vi.fn()
+    const { router, state } = await mountAt('/report?name=abc', { remember })
+    expect(remember).toHaveBeenLastCalledWith({ name: 'abc' })
+
+    state.page.value = 2
+    await flushPromises()
+    expect(remember).toHaveBeenLastCalledWith({ name: 'abc', page: '2' })
+
+    await router.push('/report?name=zzz')
+    await flushPromises()
+    expect(remember).toHaveBeenLastCalledWith({ name: 'zzz' })
+  })
+
+  it('is applying only while an address change is being applied', async () => {
+    const { router, handle } = await mountAt('/report?name=abc')
+    expect(handle().isApplying()).toBe(false)
+
+    const pending = router.push('/report?name=zzz')
+    await pending
+    await flushPromises()
+    expect(handle().isApplying()).toBe(false)
   })
 })

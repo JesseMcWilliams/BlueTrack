@@ -199,7 +199,12 @@ async function revoke() {
       <p v-if="notice" role="status">{{ notice }}</p>
       <dl>
         <dt>{{ t('pages.riskExceptionEdit.scope') }}</dt>
-        <dd>{{ detail.accountKey ? t('pages.riskExceptionEdit.scopeAccount', { key: detail.accountKey }) : t('pages.riskExceptionEdit.scopeApplication', { key: detail.applicationKey }) }}</dd>
+        <!-- UI review W3-4: the account or application by name, the account as a link to it; the key is the fallback. -->
+        <dd v-if="detail.accountKey">
+          <router-link v-if="detail.accountName" :to="{ name: 'account-progress-detail', params: { accountKey: detail.accountKey } }">{{ detail.accountAddress ? `${detail.accountName} (${detail.accountAddress})` : detail.accountName }}</router-link>
+          <template v-else>{{ t('pages.riskExceptionEdit.scopeAccount', { key: detail.accountKey }) }}</template>
+        </dd>
+        <dd v-else>{{ detail.applicationName ? t('pages.riskExceptionEdit.scopeApplicationNamed', { name: detail.applicationName }) : t('pages.riskExceptionEdit.scopeApplication', { key: detail.applicationKey }) }}</dd>
         <dt>{{ t('pages.riskExceptionEdit.justification') }}</dt>
         <dd>{{ detail.justification }}</dd>
         <dt>{{ t('pages.riskExceptionEdit.approvalDate') }}</dt>
