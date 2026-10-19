@@ -128,4 +128,42 @@ describe('DataFeedEdit.vue source system (D-212)', () => {
 
     expect(wrapper.find('[role="alert"]').text()).toContain('already exists')
   })
+
+  // UI review W9-2: these inputs sit inside the feed's form, so Enter used to save the whole feed and leave the page
+  // instead of adding the source system.
+  it('Enter in the new source system boxes adds the source system, and does not save the feed', async () => {
+    routeFetch({
+      'GET /api/admin/data-feeds/options': jsonResponse(options),
+      'POST /api/admin/data-feeds/source-systems': jsonResponse({ sourceSystemKey: 12, sourceSystemCode: 'LINUX', sourceSystemName: 'Linux servers' }, true, 201)
+    })
+    const { wrapper, router } = await mountNew()
+    await wrapper.findAll('select')[0].setValue('AccountInventory')
+    await wrapper.findAll('button').find(b => b.text() === '+ New source system').trigger('click')
+    await wrapper.find('input[placeholder="Linux servers (CMDB)"]').setValue('Linux servers')
+    await wrapper.find('input[placeholder="LINUX_CMDB"]').setValue('LINUX')
+
+    await wrapper.find('input[placeholder="LINUX_CMDB"]').trigger('keydown', { key: 'Enter' })
+    await flushPromises()
+
+    expect(globalThis.fetch.mock.calls.some(([url, init]) => url === '/api/admin/data-feeds/source-systems' && init?.method === 'POST')).toBe(true)
+    expect(globalThis.fetch.mock.calls.some(([url, init]) => url === '/api/admin/data-feeds' && init?.method === 'POST')).toBe(false)
+    expect(router.currentRoute.value.name).toBe('home')   // still on the feed page
+    expect(wrapper.findAll('select')[1].element.value).toBe('12')
+  })
+
+  it('Enter in the name box does the same', async () => {
+    routeFetch({
+      'GET /api/admin/data-feeds/options': jsonResponse(options),
+      'POST /api/admin/data-feeds/source-systems': jsonResponse({ detail: 'Both a code and a name are needed.' }, false, 400)
+    })
+    const { wrapper } = await mountNew()
+    await wrapper.findAll('select')[0].setValue('AccountInventory')
+    await wrapper.findAll('button').find(b => b.text() === '+ New source system').trigger('click')
+
+    await wrapper.find('input[placeholder="Linux servers (CMDB)"]').trigger('keydown', { key: 'Enter' })
+    await flushPromises()
+
+    expect(wrapper.find('[role="alert"]').text()).toContain('Both a code and a name are needed.')
+    expect(globalThis.fetch.mock.calls.some(([url, init]) => url === '/api/admin/data-feeds' && init?.method === 'POST')).toBe(false)
+  })
 })

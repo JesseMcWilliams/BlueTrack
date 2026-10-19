@@ -11,6 +11,7 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { formatDate } from '../utils/formatDate'
+import { confirmDelete } from '../composables/useConfirmDialog'
 import { useI18n } from 'vue-i18n'
 
 const { t } = useI18n()
@@ -21,7 +22,11 @@ const isEditMode = computed(() => props.exceptionKey !== null && props.exception
 
 const loading = ref(isEditMode.value)
 const saving = ref(false)
+// UI review W3-1: a load failure has nothing to show but the error; a failed save, extend or revoke keeps the form or
+// the detail on screen (nothing to retype) with its error beside it. `notice` confirms what worked (W3-3).
+const loadError = ref(null)
 const error = ref(null)
+const notice = ref(null)
 const applications = ref([])
 
 const detail = ref(null) // populated in edit mode
@@ -37,6 +42,7 @@ const newReviewDate = ref('')
 
 async function loadDetail() {
   loading.value = true
+  loadError.value = null
   error.value = null
   try {
     const response = await fetch(`/api/risk-exceptions/${props.exceptionKey}`)
@@ -46,7 +52,7 @@ async function loadDetail() {
     detail.value = await response.json()
     newReviewDate.value = detail.value.reviewDate?.slice(0, 10) ?? ''
   } catch (err) {
-    error.value = err.message
+    loadError.value = err.message
   } finally {
     loading.value = false
   }
@@ -78,6 +84,7 @@ watch(() => props.exceptionKey, (newKey) => {
 
 async function createException() {
   error.value = null
+  notice.value = null
   saving.value = true
   try {
     const body = {
@@ -93,9 +100,10 @@ async function createException() {
       body: JSON.stringify(body)
     })
     if (!response.ok) {
+      const problem = response.status === 403 ? null : await response.json().catch(() => null)
       throw new Error(response.status === 403
         ? t('pages.riskExceptionEdit.noPermission')
-        : t('common.requestFailed', { status: response.status }))
+        : problem?.detail ?? t('common.requestFailed', { status: response.status }))
     }
     const created = await response.json()
     router.push({ name: 'risk-exception-edit', params: { exceptionKey: created.exceptionKey } })
@@ -108,6 +116,7 @@ async function createException() {
 
 async function extendReview() {
   error.value = null
+  notice.value = null
   saving.value = true
   try {
     const response = await fetch(`/api/risk-exceptions/${props.exceptionKey}/extend-review`, {
@@ -120,6 +129,7 @@ async function extendReview() {
       throw new Error(problem?.detail ?? t('common.requestFailed', { status: response.status }))
     }
     detail.value.reviewDate = newReviewDate.value
+    notice.value = t('pages.riskExceptionEdit.reviewExtended', { date: formatDate(newReviewDate.value) })
   } catch (err) {
     error.value = err.message
   } finally {
@@ -132,6 +142,14 @@ const revokeReason = ref('')
 
 async function revoke() {
   error.value = null
+  notice.value = null
+  // UI review W3-3: revoking ends the exception and its accounts lose the cover at the next evaluation; ask first.
+  const confirmed = await confirmDelete({
+    title: t('pages.riskExceptionEdit.revokeConfirmTitle', { id: detail.value?.exceptionID ?? props.exceptionKey }),
+    details: [t('pages.riskExceptionEdit.revokeConfirmReason', { reason: revokeReason.value.trim() })],
+    warning: t('pages.riskExceptionEdit.revokeConfirmWarning')
+  }, t('pages.riskExceptionEdit.revokeException'))
+  if (!confirmed) return
   saving.value = true
   try {
     const response = await fetch(`/api/risk-exceptions/${props.exceptionKey}/revoke`, {
@@ -144,6 +162,7 @@ async function revoke() {
       throw new Error(problem?.detail ?? t('common.requestFailed', { status: response.status }))
     }
     detail.value.statusName = 'Revoked'
+    notice.value = t('pages.riskExceptionEdit.revoked')
   } catch (err) {
     error.value = err.message
   } finally {
@@ -156,9 +175,11 @@ async function revoke() {
   <div>
     <h1>{{ isEditMode ? t('pages.riskExceptionEdit.titleEdit', { id: detail?.exceptionID ?? exceptionKey }) : t('pages.riskExceptionEdit.titleNew') }}</h1>
     <p v-if="loading" role="status">{{ t('common.loading') }}</p>
-    <p v-else-if="error" role="alert">{{ error }}</p>
+    <p v-else-if="loadError" role="alert">{{ loadError }}</p>
 
     <template v-else-if="isEditMode && detail">
+      <p v-if="error" role="alert">{{ error }}</p>
+      <p v-if="notice" role="status">{{ notice }}</p>
       <dl>
         <dt>{{ t('pages.riskExceptionEdit.scope') }}</dt>
         <dd>{{ detail.accountKey ? t('pages.riskExceptionEdit.scopeAccount', { key: detail.accountKey }) : t('pages.riskExceptionEdit.scopeApplication', { key: detail.applicationKey }) }}</dd>
@@ -198,6 +219,7 @@ async function revoke() {
 
     <template v-else>
       <form @submit.prevent="createException">
+        <p v-if="error" role="alert">{{ error }}</p>
         <p>
           <label><input v-model="scopeType" type="radio" value="Account" /> {{ t('pages.riskExceptionEdit.account') }}</label>
           <label><input v-model="scopeType" type="radio" value="Application" /> {{ t('pages.riskExceptionEdit.application') }}</label>

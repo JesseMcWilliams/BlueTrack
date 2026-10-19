@@ -6,10 +6,16 @@ What changed in each BlueTrack release, newest first, for users and administrato
 
 ### New
 
+- **Filters, sort and page are kept in the page address** on the Accounts list, and on the Trends, Discovered Accounts and Risk Score reports. Opening an account and coming back (Save, Cancel, or the Accounts breadcrumb) returns you to the list as you left it, and a copied address opens the same view.
+- **The stage counts on the Dashboard, and the counts on Reports > Stage / Status Summary, open the accounts behind them.** (They show the Accounts list's default view, which hides deleted accounts, as the counts do. The KPI counts don't open a list yet.)
+
 - **Self-Hosted Direct.** BlueTrack can read your Self-Hosted CyberArk Vault straight from PVWA's REST API instead of the EVD database (PAM Self-Hosted 14.2 or later). On Admin > Data Sources > Edit CyberArk sources, choose the Self-Hosted source, then give the PVWA address, a credential from Admin > Credentials (a CyberArk CP or CCP credential is fetched from the Vault at each pull), the logon method (CyberArk or LDAP), the pull time and how much the Safe or account count may change. It reads Safes, accounts, Safe members, users, groups and platforms (platform names and descriptions now come from PVWA). Pending (discovered) accounts are not read.
 - **A pull that looks wrong is stopped.** PVWA only returns what the service account can see. If the number of Safes or accounts changes by more than the allowed percentage from the last good pull, the pull is rejected, the nightly import fails and you get the usual failed-import email. Data Sources lists recent pulls, with **Pull now** and, after a rejection, **Accept the change and pull**.
 
 ### Changed
+
+- These now ask before they act: **Revoke** on a risk exception, **Make active** on Secrets Store, **Ignore** on Target Match Review (it is remembered), and **Force Release Lock** on an account being edited by someone else.
+- Target Match Review says what it decided (linked, new target, ignored), and its buttons name the row for screen readers. An account's "being edited since" time is now a local date and time.
 
 - Self-Hosted Direct: a pull that fails or is rejected is now emailed when it happens (turn on the new **SelfHostedPullFailed** type on Admin > Notifications and add recipients; it starts off), shown as a banner on Data Sources, and marked with a warning on the Admin menu. A rejected pull lists the Safes it no longer sees, and the log shows how the Safe and account counts changed.
 - Self-Hosted Direct: the CyberArk sources page warns when the chosen CyberArk CP or CCP credential's backend has no settings yet (for CP, the AppID on Admin > Secrets Store), with a link to fix it. Admin > Credentials shows what uses each credential and won't delete one that is in use, shows the reason when a save fails, and offers **Cancel and return to CyberArk sources** when you came from there.
@@ -19,6 +25,16 @@ What changed in each BlueTrack release, newest first, for users and administrato
 - Self-Hosted Direct: each pull in the Data Sources log has a **Details** button with the whole message, the counts, and what to do.
 
 ### Fixed
+
+- **Discovered Accounts**: the columns now line up under their headings (Risk Score, Risk Band, First Discovered, Last Seen and Matched by were shifted).
+- **Bulk imports** on Targets and Access Groups now show why an import failed, instead of a summary of blanks.
+- **Access Group > Found On Target** is now a search by name or identifier. It used to list only the first 50 targets.
+- **Risk Exceptions**: a failed create, extend or revoke keeps what you typed and shows the reason; a successful extend or revoke says so.
+- **Sign-in**: after a Windows sign-in that didn't complete, the other sign-in methods and Continue stay on the page. "No identity providers are enabled" no longer flashes while the page loads.
+- **Data feeds**: pressing Enter in the New source system boxes adds the source system instead of saving the feed.
+- **API keys**: an expired key can be edited and saved; the page says it has expired.
+- **Application Safe Mapping** and **Notifications**: after a refused change, the dropdown goes back to what is saved, and Safe Mapping says what was assigned.
+- **Audit Log**: an error loading an event's field-level changes is shown as an error, not as "no changes".
 
 - Self-Hosted Direct no longer fails with "PVWA reported 44 users but returned 43". PVWA's detailed user list leaves out the built-in Master user; BlueTrack now reads the plain list, and a remaining difference is a warning.
 

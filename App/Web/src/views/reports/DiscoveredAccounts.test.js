@@ -199,8 +199,9 @@ describe('DiscoveredAccounts.vue', () => {
     const cells = wrapper.findAll('tbody tr')[0].findAll('td').map(td => td.text())
     expect(cells[2]).toBe('Admin')
     expect(cells[3]).toBe('jsmith (John Smith)')
-    expect(cells[4]).toContain('sAMAccountName starts with "adm."')
-    expect(cells[4]).toContain('Owner by name')
+    // "Matched by" is the last column, as its heading is (UI review W5-1).
+    expect(cells[cells.length - 1]).toContain('sAMAccountName starts with "adm."')
+    expect(cells[cells.length - 1]).toContain('Owner by name')
   })
 
   it('shows Ambiguous, the default and a manual class in words', async () => {
@@ -360,5 +361,22 @@ describe('DiscoveredAccounts.vue', () => {
 
       expect(router.currentRoute.value.query).toEqual({ class: 'Admin' })
     })
+  })
+
+  // UI review W5-1: "Matched by" sat in the fifth body column but is the last header, so every value from there on
+  // was under the wrong heading.
+  it('puts each value under its own column heading', async () => {
+    mockInitialLoad()
+    const wrapper = mount(DiscoveredAccounts)
+    await flushPromises()
+
+    const headers = wrapper.findAll('thead th').map(th => th.text().replace(/[▲▼↑↓]/g, '').trim())
+    const cells = wrapper.findAll('tbody tr')[0].findAll('td').map(td => td.text())
+    expect(cells).toHaveLength(headers.length)
+    expect(cells[headers.indexOf('Risk Score')]).toBe('400')
+    expect(cells[headers.indexOf('Risk Band')]).toBe('Medium')
+    expect(headers[headers.length - 1]).toBe('Matched by')
+    expect(cells[headers.indexOf('Account')]).toContain('jsmith')
+    expect(cells[headers.indexOf('Domain')]).toBe('company.local')
   })
 })

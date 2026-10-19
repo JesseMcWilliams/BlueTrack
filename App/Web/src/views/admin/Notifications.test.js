@@ -24,7 +24,7 @@ function respond(overrides = {}) {
     if (overrides[key]) return Promise.resolve(overrides[key])
     if (method !== 'GET') return Promise.resolve(jsonResponse(null, true, 204))
     if (url === '/api/admin/notifications/config') return Promise.resolve(jsonResponse({ smtpPort: 587, authMethod: 'None', enableStartTls: true }))
-    if (url === '/api/admin/notifications/types') return Promise.resolve(jsonResponse(types))
+    if (url === '/api/admin/notifications/types') return Promise.resolve(jsonResponse(types.map(t => ({ ...t })))) // copies: the page edits what it is given
     if (url === '/api/admin/notifications/schedule') return Promise.resolve(jsonResponse({ ...schedule }))
     return Promise.resolve(jsonResponse([]))
   })
@@ -148,5 +148,39 @@ describe('Notifications.vue', () => {
     const put = globalThis.fetch.mock.calls.find(([url, init]) => url === '/api/admin/notifications/schedule' && init?.method === 'PUT')
     expect(JSON.parse(put[1].body)).toEqual({ dailyDigestTime: '06:45', weeklySummaryDay: 'Mon', weeklySummaryTime: '07:30' })
     expect(wrapper.text()).toContain('Save failed: 400 -- WeeklySummaryDay must be one of')
+  })
+
+  // UI review W9-6: a refused target-role change left the select on the role that was not saved.
+  it('a refused target-role change shows the error and puts the select back on the saved role', async () => {
+    globalThis.fetch = respond({
+      'GET /api/admin/roles': jsonResponse([{ appRoleKey: 3, roleName: 'Admin' }]),
+      'PUT /api/admin/notifications/types/6/target-role': jsonResponse(null, false, 500)
+    })
+    const wrapper = mount(Notifications, { global: { stubs: { 'router-link': true } } })
+    await flushPromises()
+    const row = () => wrapper.findAll('tbody tr').find(r => r.text().includes('WeeklySummary'))
+
+    const select = row().find('select')
+    select.element.value = '3'
+    await select.trigger('change')
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('Save failed: 500')
+    expect(row().find('select').element.selectedIndex).toBe(0) // reloaded: back on the "none" option, nothing was saved
+  })
+
+  it('a target-role change that is saved sends the role and shows no error', async () => {
+    globalThis.fetch = respond({ 'GET /api/admin/roles': jsonResponse([{ appRoleKey: 3, roleName: 'Admin' }]) })
+    const wrapper = mount(Notifications, { global: { stubs: { 'router-link': true } } })
+    await flushPromises()
+
+    const select = wrapper.findAll('tbody tr').find(r => r.text().includes('WeeklySummary')).find('select')
+    select.element.value = '3'
+    await select.trigger('change')
+    await flushPromises()
+
+    const put = globalThis.fetch.mock.calls.find(([url, init]) => url === '/api/admin/notifications/types/6/target-role' && init?.method === 'PUT')
+    expect(JSON.parse(put[1].body)).toEqual({ targetRoleKey: 3 })
+    expect(wrapper.text()).not.toContain('Save failed')
   })
 })

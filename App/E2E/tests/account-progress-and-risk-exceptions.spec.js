@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test'
 import { signInAs } from './auth.js'
+import { confirmDelete } from './confirmDialog.js'
 
 // Layer 4: the real Account Progress edit form (locking, D-51-adjacent
 // save flow) and the real Risk Exception create/extend/revoke workflow,
@@ -190,11 +191,15 @@ test.describe('Risk Exception create/extend/revoke workflow', () => {
     const newReviewDate = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
     await page.fill('input[type="date"]', newReviewDate)
     await page.click('button:has-text("Extend Review Date")')
-    await expect(page.getByText(newReviewDate)).toBeVisible()
+    // The detail shows the date, and a status line now says it changed; check the detail's own entry.
+    await expect(page.locator('dd', { hasText: newReviewDate })).toBeVisible()
+    await expect(page.getByText('The review date is now')).toBeVisible()
 
     await page.getByLabel('Reason to revoke:').fill('E2E: no longer needed')
     await page.click('button:has-text("Revoke Exception")')
-    await expect(page.getByText('Revoked')).toBeVisible()
+    await confirmDelete(page, 'Revoke Exception') // revoking asks first (D-251)
+    await expect(page.locator('dd', { hasText: /^Revoked$/ })).toBeVisible()
+    await expect(page.getByText('The exception was revoked.')).toBeVisible()
   })
 
   test('Viewer is denied creating an exception with the permission-specific message', async ({ page }) => {
