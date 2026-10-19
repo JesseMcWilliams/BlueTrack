@@ -5,20 +5,21 @@
 // D-121 added Targets/Access Groups as two more top-level entries (each
 // gated on its own ManageTargets/ManageAccessGroups permission), promoted
 // out of the Admin hub now that Analyst holds those permissions too.
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import Breadcrumbs from './components/Breadcrumbs.vue'
 import ConfirmDialog from './components/ConfirmDialog.vue'
 import UserMenu from './components/UserMenu.vue'
 import { useIdleSignOut } from './composables/useIdleSignOut'
 import FlashMessage from './components/FlashMessage.vue'
-import NoAccessNotice from './components/NoAccessNotice.vue'
 import { useRightsStore } from './stores/rights'
 import { flashNavigated } from './composables/useFlash'
 import { useRouter } from 'vue-router'
 
 const { t } = useI18n()
 const rights = useRightsStore()
+// UI review step 4b: a signed-in user with no permissions gets no menu entries, only the user menu.
+const hasAccess = computed(() => !(rights.loaded && rights.authenticated === true && rights.permissionNames.length === 0))
 // UI review theme 3: a "saved" line set before a navigation shows on the page it lands on, and goes at the next one.
 useRouter().afterEach(() => flashNavigated())
 useIdleSignOut() // D-209: sign out after Idle Timeout without activity
@@ -102,6 +103,7 @@ onMounted(async () => {
          user's name, with Profile & Preferences, About and Sign out) stays
          pinned right. -->
     <nav class="top-nav" :aria-label="t('shell.nav.ariaLabel')">
+      <template v-if="hasAccess">
       <router-link :to="{ name: 'dashboard' }">{{ t('shell.nav.dashboard') }}</router-link>
       <!-- D-121: Targets/Access Groups gated per-permission here (unlike
            Dashboard/Accounts/Exceptions/Reports/Admin, which need no gate
@@ -113,11 +115,11 @@ onMounted(async () => {
       <router-link v-if="rights.hasPermission('ManageTargets')" :to="{ name: 'targets' }">{{ t('shell.nav.targets') }}</router-link>
       <router-link :to="{ name: 'reports' }">{{ t('shell.nav.reports') }}</router-link>
       <router-link :to="{ name: 'admin' }">{{ t('shell.nav.admin') }}</router-link>
+      </template>
       <UserMenu v-if="rights.authenticated" />
     </nav>
     <Breadcrumbs />
     <FlashMessage />
-    <NoAccessNotice />
     <p v-if="negotiateDisabled" role="alert" class="dev-fake-auth-warning">{{ t('shell.app.negotiateDisabledWarning') }}</p>
     <p v-if="devFakeAuthSince" role="alert" class="dev-fake-auth-warning">{{ t('shell.app.devFakeAuthWarning', { days: DEV_FAKE_AUTH_STALE_DAYS, since: devFakeAuthSince }) }}</p>
     <!-- D-92: route-change focus target (router/index.js's afterEach hook

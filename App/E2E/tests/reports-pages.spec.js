@@ -70,7 +70,7 @@ test.describe('Reconciliation Review Queue', () => {
     await signInAs(page, 'TestUser.Viewer')
     await page.goto('/reports/reconciliation-review')
 
-    await expect(page.getByText(/Could not load queue:.*403/)).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Access Denied' })).toBeVisible() // D-254: the router, not the API's 403 text
   })
 })
 

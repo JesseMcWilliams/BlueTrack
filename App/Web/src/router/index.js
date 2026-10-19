@@ -21,6 +21,8 @@ import { useRightsStore } from '../stores/rights'
 // route.matched approach also duplicated 'Dashboard' on the dashboard page
 // itself, since route.matched there is exactly [dashboard], appended after
 // Breadcrumbs.vue's own hardcoded "Dashboard" root link.
+import { accessRedirect } from './routePermissions'
+
 const routes = [
   {
     path: '/login',
@@ -554,6 +556,12 @@ const routes = [
     ]
   },
   {
+    path: '/no-access',
+    name: 'no-access',
+    meta: { breadcrumb: 'shell.routes.noAccess' },
+    component: () => import('../views/NoAccess.vue')
+  },
+  {
     path: '/access-denied',
     name: 'access-denied',
     meta: { breadcrumb: 'shell.routes.accessDenied' },
@@ -587,7 +595,8 @@ router.beforeEach(async (to) => {
     return { name: 'login', query: { returnUrl: to.fullPath } }
   }
 
-  return true
+  // UI review step 4b: no permissions at all -> the no-access page; a page the user's permissions don't cover -> Access Denied.
+  return accessRedirect(rights, to) ?? true
 })
 
 // D-92: a client-routed SPA gives assistive tech no "page changed" signal

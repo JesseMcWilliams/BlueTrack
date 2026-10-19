@@ -86,6 +86,7 @@
     "adminRiskScoreBandCreate": "New Band",
     "adminRiskScoreBandEdit": "Edit Band",
     "accessDenied": "Access Denied",
+    "noAccess": "No Access",
     "notFound": "Not Found",
     "adminAccountClassification": "Account Classification",
     "adminAccountClassificationRuleCreate": "New Rule",
@@ -138,8 +139,15 @@
     "home": "Go to the Dashboard"
   },
   "noAccess": {
-    "message": "Your account has no roles in BlueTrack, so most pages will show nothing or refuse you. Ask an administrator to give your account a role.",
-    "profile": "See my profile"
+    "title": "You don't have access to BlueTrack yet",
+    "signedInAs": "You are signed in as {name}, but your account has no roles in BlueTrack, so there is nothing here for you to open.",
+    "whatToDo": "What to do",
+    "step1": "Ask a BlueTrack administrator to give your account a role, either directly or through a group you belong to. Tell them the name shown above.",
+    "step2": "Once that is done, choose Check again. If it still shows no access, sign out and sign in again.",
+    "checkAgain": "Check again",
+    "stillNone": "Your account still has no roles.",
+    "profile": "See my profile",
+    "signOut": "Sign out"
   },
   "login": {
     "title": "Sign in",
