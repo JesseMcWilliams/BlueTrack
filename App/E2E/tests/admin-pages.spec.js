@@ -396,7 +396,7 @@ test.describe('Audit Log Viewer admin page', () => {
     await signInAs(page, 'TestUser.DoesNotExist')
     await page.goto('/admin/audit-log')
 
-    await expect(page.getByText(/Request failed: 403/)).toBeVisible()
+    await expect(page.getByRole('heading', { name: "You don't have access to BlueTrack yet" })).toBeVisible() // D-254
   })
 })
 
@@ -428,7 +428,7 @@ test.describe('Deployment admin page', () => {
     await signInAs(page, 'TestUser.Viewer')
     await page.goto('/admin/deployment')
 
-    await expect(page.getByText(/Request failed: 403/)).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Access Denied' })).toBeVisible() // D-254: the router, not the API's 403 text
   })
 })
 
@@ -515,8 +515,7 @@ test.describe('Credentials & LDAP admin page', () => {
     await signInAs(page, 'TestUser.Viewer')
     await page.goto('/admin/credentials')
 
-    // Credentials.vue's own error text is "Credentials request failed: 403", not the generic "Request failed: 403" other pages use.
-    await expect(page.getByText(/request failed: 403/)).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Access Denied' })).toBeVisible() // D-254: the router, not the API's 403 text
   })
 })
 
@@ -622,8 +621,7 @@ test.describe('Notifications admin page', () => {
     await signInAs(page, 'TestUser.Viewer')
     await page.goto('/admin/notifications')
 
-    // Notifications.vue's own error text is "Config request failed: 403", not the generic "Request failed: 403" other pages use.
-    await expect(page.getByText(/request failed: 403/)).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Access Denied' })).toBeVisible() // D-254: the router, not the API's 403 text
   })
 })
 
@@ -690,7 +688,7 @@ test.describe('Risk Score Bands admin page', () => {
     await signInAs(page, 'TestUser.Viewer')
     await page.goto('/admin/risk-score-bands')
 
-    await expect(page.getByText(/Request failed: 403/)).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Access Denied' })).toBeVisible() // D-254: the router, not the API's 403 text
   })
 })
 
@@ -772,7 +770,7 @@ test.describe('Data Sources admin page (D-181)', () => {
     await signInAs(page, 'TestUser.Viewer')
     await page.goto('/admin/data-sources')
 
-    await expect(page.getByText(/Request failed: 403/)).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Access Denied' })).toBeVisible() // D-254: the router, not the API's 403 text
   })
 })
 

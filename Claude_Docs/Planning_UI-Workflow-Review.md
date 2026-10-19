@@ -173,5 +173,5 @@ Works well: the user menu is a proper disclosure (Escape returns focus, closes o
 1. ~~Quick, high-value fixes: the bugs and the missing confirmations.~~ Shipped (D-251). Still open from that group: Bulk Apply on accounts has no confirmation (W2-6), Dismiss on Possible Matches and Discovered Accounts (W5-4), Rotate an API key (W10-4).
 2. ~~List state in the URL and drill-down.~~ Shipped (D-252). Still open from that group: the KPI counts (W7-1), and the same treatment for Targets, Access Groups, Risk Exceptions and the Audit Log.
 3. ~~One shared error helper, empty states and "saved" messages.~~ Shipped (D-253). Still open from that group: see themes 1 and 5.
-4. ~~No-access experience (W1-1, W1-2).~~ Shipped (D-254). Still open: pages still show "Request failed: 403" to a user who holds some roles but not that page's permission.
+4. ~~No-access experience (W1-1, W1-2).~~ Shipped (D-254, D-255). Still open: pages without a route-level permission still show "Request failed: 403" to a user who holds some roles but not that page's permission.
 5. The rest by workflow.
