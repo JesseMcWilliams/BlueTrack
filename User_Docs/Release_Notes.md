@@ -11,6 +11,9 @@ What changed in each BlueTrack release, newest first, for users and administrato
 
 ### Changed
 
+- Self-Hosted Direct: a pull that fails or is rejected is now emailed when it happens (turn on the new **SelfHostedPullFailed** type on Admin > Notifications and add recipients; it starts off), shown as a banner on Data Sources, and marked with a warning on the Admin menu. A rejected pull lists the Safes it no longer sees, and the log shows how the Safe and account counts changed.
+- Self-Hosted Direct: the CyberArk sources page warns when the chosen CyberArk CP or CCP credential's backend has no settings yet (for CP, the AppID on Admin > Secrets Store), with a link to fix it. Admin > Credentials shows what uses each credential and won't delete one that is in use, shows the reason when a save fails, and offers **Cancel and return to CyberArk sources** when you came from there.
+
 - A CyberArk CP or CCP credential with the Folder left blank now uses Root, instead of being refused by CP.
 - Self-Hosted Direct: setting it up is quicker. **Create a credential** on the CyberArk sources page opens Admin > Credentials and brings you back with the new credential chosen, and each credential has **Use for Self-Hosted Direct**.
 - Self-Hosted Direct: each pull in the Data Sources log has a **Details** button with the whole message, the counts, and what to do.

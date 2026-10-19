@@ -354,7 +354,7 @@ public class CyberArkSourcesControllerTests : IClassFixture<BlueTrackWebApplicat
             var row = body.Single(c => c!["credentialName"]!.GetValue<string>() == name)!.AsObject();
             Assert.Equal(key, row["credentialKey"]!.GetValue<int>());
             Assert.Equal("CyberArkCP", row["backendType"]!.GetValue<string>());
-            Assert.Equal(["credentialKey", "credentialName", "backendType"], row.Select(p => p.Key));   // nothing about the Safe, object or password
+            Assert.Equal(["credentialKey", "credentialName", "backendType", "backendReady", "backendNote"], row.Select(p => p.Key));   // nothing about the Safe, object or password
 
             Assert.Equal(HttpStatusCode.Forbidden, (await Client("TestUser.Viewer").GetAsync("/api/admin/cyberark-sources/credentials")).StatusCode);
         }
@@ -362,6 +362,90 @@ public class CyberArkSourcesControllerTests : IClassFixture<BlueTrackWebApplicat
         {
             await using var connection = new SqlConnection(TestDatabase.ConnectionString);
             await connection.ExecuteAsync("DELETE FROM web.credential WHERE CredentialKey = @key", new { key });
+        }
+    }
+
+    // ---- D-250 ----
+
+    [Fact]
+    public async Task Credentials_SayWhetherTheirBackendIsSetUp()
+    {
+        var name = "ReadyTest" + Guid.NewGuid().ToString("N")[..8];
+        var key = await AddCredentialAsync(name);
+        await using var connection = new SqlConnection(TestDatabase.ConnectionString);
+        var saved = await connection.QuerySingleOrDefaultAsync<string?>("SELECT BackendSettings FROM web.secrets_store WHERE BackendType = 'CyberArkCP'");
+        var client = Client("TestUser.Admin");
+        async Task<JsonObject> Mine() =>
+            (await client.GetFromJsonAsync<JsonArray>("/api/admin/cyberark-sources/credentials"))!.Single(c => c!["credentialKey"]!.GetValue<int>() == key)!.AsObject();
+        try
+        {
+            await connection.ExecuteAsync("UPDATE web.secrets_store SET BackendSettings = NULL WHERE BackendType = 'CyberArkCP'");
+            var notReady = await Mine();
+            Assert.False(notReady["backendReady"]!.GetValue<bool>());
+            Assert.Contains("no AppID", notReady["backendNote"]!.GetValue<string>());
+
+            await connection.ExecuteAsync("UPDATE web.secrets_store SET BackendSettings = N'{\"AppId\":\"APP_Test\"}' WHERE BackendType = 'CyberArkCP'");
+            var ready = await Mine();
+            Assert.True(ready["backendReady"]!.GetValue<bool>());
+            Assert.Null(ready["backendNote"]);
+        }
+        finally
+        {
+            await connection.ExecuteAsync("UPDATE web.secrets_store SET BackendSettings = @saved WHERE BackendType = 'CyberArkCP'; DELETE FROM web.credential WHERE CredentialKey = @key", new { saved, key });
+        }
+    }
+
+    [Fact]
+    public async Task DirectStatus_IsOffUnlessDirectIsSaved_ThenShowsTheLatestPull()
+    {
+        var client = Client("TestUser.Admin");
+        var saved = await SavedRowJsonAsync();
+        var credentialKey = await AddCredentialAsync("StatusTest" + Guid.NewGuid().ToString("N")[..8]);
+        await using var connection = new SqlConnection(TestDatabase.ConnectionString);
+        var maxBefore = await connection.QuerySingleAsync<long>("SELECT ISNULL(MAX(PullKey), 0) FROM dbo.cyberark_direct_pull");
+        try
+        {
+            Assert.Equal(HttpStatusCode.NoContent, (await client.PutAsJsonAsync("/api/admin/cyberark-sources", Settings(false, null, true, "BlueTrackTest"))).StatusCode);
+            var off = (await client.GetFromJsonAsync<JsonObject>("/api/admin/cyberark-sources/direct/status"))!;
+            Assert.False(off["enabled"]!.GetValue<bool>());
+
+            Assert.Equal(HttpStatusCode.NoContent, (await client.PutAsJsonAsync("/api/admin/cyberark-sources", DirectSettings("https://pvwa.example.com", credentialKey))).StatusCode);
+            await connection.ExecuteAsync("INSERT INTO dbo.cyberark_direct_pull (Status, CompletedAt, TriggeredBy, Message) VALUES ('Rejected', SYSUTCDATETIME(), 'schedule', 'Safes went from 40 to 10')");
+            var on = (await client.GetFromJsonAsync<JsonObject>("/api/admin/cyberark-sources/direct/status"))!;
+            Assert.True(on["enabled"]!.GetValue<bool>());
+            Assert.Equal("Rejected", on["latestStatus"]!.GetValue<string>());
+            Assert.Equal("Safes went from 40 to 10", on["latestMessage"]!.GetValue<string>());
+
+            Assert.Equal(HttpStatusCode.Forbidden, (await Client("TestUser.Viewer").GetAsync("/api/admin/cyberark-sources/direct/status")).StatusCode);
+        }
+        finally
+        {
+            await connection.ExecuteAsync("DELETE FROM dbo.cyberark_direct_pull WHERE PullKey > @maxBefore", new { maxBefore });
+            await RestoreAsync(saved);
+            await connection.ExecuteAsync("DELETE FROM web.credential WHERE CredentialKey = @credentialKey", new { credentialKey });
+        }
+    }
+
+    [Fact]
+    public async Task AdminCredentialsList_ShowsWhatUsesACredential()
+    {
+        var client = Client("TestUser.Admin");
+        var saved = await SavedRowJsonAsync();
+        var credentialKey = await AddCredentialAsync("UsedByTest" + Guid.NewGuid().ToString("N")[..8]);
+        try
+        {
+            Assert.Equal(HttpStatusCode.NoContent, (await client.PutAsJsonAsync("/api/admin/cyberark-sources", DirectSettings("https://pvwa.example.com", credentialKey))).StatusCode);
+
+            var all = (await client.GetFromJsonAsync<JsonArray>("/api/admin/credentials"))!;
+
+            var usedBy = all.Single(c => c!["credentialKey"]!.GetValue<int>() == credentialKey)!["usedBy"]!.AsArray().Select(u => u!.GetValue<string>());
+            Assert.Equal(["CyberArk sources (Self-Hosted Direct)"], usedBy);
+        }
+        finally
+        {
+            await RestoreAsync(saved);
+            await using var connection = new SqlConnection(TestDatabase.ConnectionString);
+            await connection.ExecuteAsync("DELETE FROM web.credential WHERE CredentialKey = @credentialKey", new { credentialKey });
         }
     }
 }

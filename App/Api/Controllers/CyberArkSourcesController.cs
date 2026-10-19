@@ -6,6 +6,7 @@ using BlueTrack.Api.CyberArkDirect;
 using BlueTrack.Api.Data;
 using BlueTrack.Api.DataFeeds;
 using BlueTrack.Api.Models;
+using BlueTrack.Api.Secrets;
 
 namespace BlueTrack.Api.Controllers;
 
@@ -30,7 +31,8 @@ public sealed class CyberArkSourcesController(
     SelfHostedDirectRepository directRepository,
     SelfHostedDirectRunner directRunner,
     SelfHostedDirectPullService directPullService,
-    CredentialRepository credentialRepository) : ControllerBase
+    CredentialRepository credentialRepository,
+    SecretsStoreRepository secretsStoreRepository) : ControllerBase
 {
     [HttpGet]
     public async Task<IActionResult> Get() => Ok(await repository.GetAsync());
@@ -150,8 +152,30 @@ public sealed class CyberArkSourcesController(
     /// it needs a different permission than this page does, and a secret never leaves the server either way.
     /// </summary>
     [HttpGet("credentials")]
-    public async Task<IActionResult> Credentials() =>
-        Ok((await credentialRepository.GetAllAsync()).Select(c => new { c.CredentialKey, c.CredentialName, c.BackendType }));
+    public async Task<IActionResult> Credentials()
+    {
+        var result = new List<object>();
+        foreach (var c in await credentialRepository.GetAllAsync())
+        {
+            // D-250: whether the backend this credential uses is set up (CP needs an AppID), so the page can say so.
+            var (ready, note) = await CredentialBackendCheck.CheckAsync(secretsStoreRepository, c.BackendType);
+            result.Add(new { c.CredentialKey, c.CredentialName, c.BackendType, BackendReady = ready, BackendNote = note });
+        }
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// D-250: just enough for a warning marker on the admin menu: whether Self-Hosted Direct is the saved source and how
+    /// the latest pull ended. Cheap, so the menu can ask on every admin page.
+    /// </summary>
+    [HttpGet("direct/status")]
+    public async Task<IActionResult> DirectStatus()
+    {
+        var settings = (await repository.GetAsync()).Settings;
+        if (!settings.ImportSelfHosted || settings.SelfHostedSource != "Direct") return Ok(new { enabled = false });
+        var latest = (await directRepository.GetRecentAsync(1)).FirstOrDefault();
+        return Ok(new { enabled = true, latestStatus = latest?.Status, latestMessage = latest?.Message });
+    }
 
     /// <summary>D-248: the latest Self-Hosted Direct pulls, newest first, and whether one is running now.</summary>
     [HttpGet("direct/pulls")]

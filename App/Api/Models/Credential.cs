@@ -21,6 +21,9 @@ public sealed class Credential
     public string? VaultFolder { get; init; }
     public string? VaultObject { get; init; }
     public DateTime? ModifiedDate { get; init; }
+
+    /// <summary>D-250: what points at this credential (the CyberArk sources page, Notifications' SMTP login, an LDAP domain), so the page can say why it can't be deleted.</summary>
+    public IReadOnlyList<string> UsedBy { get; init; } = [];
 }
 
 public sealed class SaveCredentialRequest

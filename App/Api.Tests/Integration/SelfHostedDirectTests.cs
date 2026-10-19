@@ -295,4 +295,116 @@ public class SelfHostedDirectTests
             await connection.ExecuteAsync("DELETE FROM dbo.dim_location WHERE LocationName IN (@name, @name + 'x')", new { name });
         }
     }
+
+    // ---- D-250 ----
+
+    [Fact]
+    public async Task GetRecent_GivesEachPullTheCountsOfTheLastSuccessBeforeIt()
+    {
+        var repository = new SelfHostedDirectRepository(new TestDbConnectionFactory());
+        await using var connection = new SqlConnection(TestDatabase.ConnectionString);
+        var maxBefore = await connection.QuerySingleAsync<long>("SELECT ISNULL(MAX(PullKey), 0) FROM dbo.cyberark_direct_pull");
+        try
+        {
+            await connection.ExecuteAsync("""
+                INSERT INTO dbo.cyberark_direct_pull (Status, CompletedAt, TriggeredBy, SafeCount, AccountCount) VALUES ('Succeeded', SYSUTCDATETIME(), 't', 40, 2452);
+                INSERT INTO dbo.cyberark_direct_pull (Status, CompletedAt, TriggeredBy, SafeCount, AccountCount) VALUES ('Rejected', SYSUTCDATETIME(), 't', 10, 100);
+                INSERT INTO dbo.cyberark_direct_pull (Status, CompletedAt, TriggeredBy, SafeCount, AccountCount) VALUES ('Succeeded', SYSUTCDATETIME(), 't', 42, 2460);
+                INSERT INTO dbo.cyberark_direct_pull (Status, CompletedAt, TriggeredBy) VALUES ('Failed', SYSUTCDATETIME(), 't');
+                """);
+
+            var recent = (await repository.GetRecentAsync(4)).Select(p => (p.Status, p.BaselineSafeCount, p.BaselineAccountCount)).ToList();
+
+            Assert.Equal(
+                [("Failed", (int?)42, (int?)2460), ("Succeeded", 40, 2452), ("Rejected", 40, 2452), ("Succeeded", null, null)],
+                recent);
+        }
+        finally
+        {
+            await connection.ExecuteAsync("DELETE FROM dbo.cyberark_direct_pull WHERE PullKey > @maxBefore", new { maxBefore });
+        }
+    }
+
+    [Fact]
+    public async Task GetStagedSafes_ReturnsTheSafesTheLastPullStaged()
+    {
+        var repository = new SelfHostedDirectRepository(new TestDbConnectionFactory());
+        await using var connection = new SqlConnection(TestDatabase.ConnectionString);
+        try
+        {
+            await connection.ExecuteAsync("""
+                DELETE FROM stg_sh_safes;
+                INSERT INTO stg_sh_safes (ImportBatchId, SourceFileName, CASSafeID, CASSafeName) VALUES (NEWID(), 'x', 987001, 'One'), (NEWID(), 'x', 987002, 'Two');
+                """);
+
+            var safes = await repository.GetStagedSafesAsync();
+
+            Assert.Equal([(987001L, "One"), (987002L, "Two")], safes.OrderBy(s => s.Number));
+        }
+        finally
+        {
+            await connection.ExecuteAsync("DELETE FROM stg_sh_safes");
+        }
+    }
+
+    [Fact]
+    public async Task CredentialBackendCheck_CpNeedsAnAppId_CcpNeedsABaseUrlAndAnAppId_OthersNeedNothing()
+    {
+        var repository = new BlueTrack.Api.Data.SecretsStoreRepository(new TestDbConnectionFactory(), new BlueTrack.Api.Secrets.WindowsDpapiProtector());
+        await using var connection = new SqlConnection(TestDatabase.ConnectionString);
+        var saved = (await connection.QueryAsync<(string BackendType, string? Settings)>(
+            "SELECT BackendType, BackendSettings FROM web.secrets_store WHERE BackendType IN ('CyberArkCP', 'CyberArkCCP')")).ToList();
+        async Task Set(string type, string? settings) =>
+            await connection.ExecuteAsync("UPDATE web.secrets_store SET BackendSettings = @settings WHERE BackendType = @type", new { type, settings });
+        try
+        {
+            await Set("CyberArkCP", null);
+            await Set("CyberArkCCP", """{"BaseUrl":"https://ccp.example.com","AppId":""}""");
+
+            var cpNone = await BlueTrack.Api.Secrets.CredentialBackendCheck.CheckAsync(repository, "CyberArkCP");
+            Assert.Equal(false, cpNone.Ready);
+            Assert.Contains("no AppID", cpNone.Note);
+            Assert.Contains("Admin > Secrets Store", cpNone.Note);
+            Assert.Equal(false, (await BlueTrack.Api.Secrets.CredentialBackendCheck.CheckAsync(repository, "CyberArkCCP")).Ready);
+
+            await Set("CyberArkCP", """{"AppId":"APP_Test"}""");
+            await Set("CyberArkCCP", """{"BaseUrl":"https://ccp.example.com","AppId":"APP_Test"}""");
+            Assert.Equal((true, (string?)null), await BlueTrack.Api.Secrets.CredentialBackendCheck.CheckAsync(repository, "CyberArkCP"));
+            Assert.Equal((true, (string?)null), await BlueTrack.Api.Secrets.CredentialBackendCheck.CheckAsync(repository, "CyberArkCCP"));
+
+            await Set("CyberArkCP", "not json");
+            Assert.Equal(false, (await BlueTrack.Api.Secrets.CredentialBackendCheck.CheckAsync(repository, "CyberArkCP")).Ready);
+
+            Assert.Equal((null, null), await BlueTrack.Api.Secrets.CredentialBackendCheck.CheckAsync(repository, "WindowsDpapi"));
+            Assert.Equal((null, null), await BlueTrack.Api.Secrets.CredentialBackendCheck.CheckAsync(repository, "AzureKeyVault"));
+        }
+        finally
+        {
+            foreach (var (type, settings) in saved) await Set(type, settings);
+        }
+    }
+
+    [Fact]
+    public async Task Credentials_ListWhatUsesThem()
+    {
+        var credentials = new BlueTrack.Api.Data.CredentialRepository(
+            new TestDbConnectionFactory(), new BlueTrack.Api.Secrets.WindowsDpapiProtector(), null!, null!);
+        var key = await credentials.CreateAsync(new BlueTrack.Api.Models.SaveCredentialRequest { CredentialName = "UsedBy" + Guid.NewGuid().ToString("N")[..8], BackendType = "CyberArkCP", VaultSafe = "S", VaultFolder = "", VaultObject = "O" }, null);
+        var unused = await credentials.CreateAsync(new BlueTrack.Api.Models.SaveCredentialRequest { CredentialName = "Unused" + Guid.NewGuid().ToString("N")[..8], BackendType = "CyberArkCP", VaultSafe = "S", VaultFolder = "", VaultObject = "O" }, null);
+        await using var connection = new SqlConnection(TestDatabase.ConnectionString);
+        var domain = "usedby" + Guid.NewGuid().ToString("N")[..6] + ".test";
+        try
+        {
+            await connection.ExecuteAsync("INSERT INTO web.ldap_config (IsEnabled, DomainName, CredentialKey) VALUES (0, @domain, @key)", new { domain, key });
+
+            var all = await credentials.GetAllAsync();
+
+            Assert.Equal([$"LDAP configuration ({domain})"], all.Single(c => c.CredentialKey == key).UsedBy);
+            Assert.Empty(all.Single(c => c.CredentialKey == unused).UsedBy);
+        }
+        finally
+        {
+            await connection.ExecuteAsync("DELETE FROM web.ldap_config WHERE DomainName = @domain; DELETE FROM web.credential WHERE CredentialKey IN (@key, @unused)", new { domain, key, unused });
+        }
+    }
 }

@@ -3,7 +3,7 @@
 // per the signed-in user's permissions -- mirrors the API's own real
 // [Authorize(Policy = ...)] gates on each admin controller, not a
 // separately-invented list.
-import { computed } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRightsStore } from '../../stores/rights'
 import { useI18n } from 'vue-i18n'
 
@@ -34,12 +34,28 @@ const sections = [
 ]
 
 const visibleSections = computed(() => sections.filter(s => rights.hasPermission(s.permission)))
+
+// D-250: a marker on Data Sources while the latest Self-Hosted Direct pull is failed or rejected, since the nightly
+// import then fails too. Only asked of people who can open that page, and a failed request just shows no marker.
+const pullProblem = ref(false)
+onMounted(async () => {
+  try {
+    await rights.ensureLoaded()
+    if (!rights.hasPermission('ManageDataSources')) return
+    const response = await fetch('/api/admin/cyberark-sources/direct/status')
+    if (!response.ok) return
+    const status = await response.json()
+    pullProblem.value = !!status.enabled && (status.latestStatus === 'Failed' || status.latestStatus === 'Rejected')
+  } catch {
+    /* no marker */
+  }
+})
 </script>
 
 <template>
   <div class="admin-layout">
     <nav class="admin-subnav">
-      <router-link v-for="s in visibleSections" :key="s.name" :to="{ name: s.name }">{{ t(s.labelKey) }}</router-link>
+      <router-link v-for="s in visibleSections" :key="s.name" :to="{ name: s.name }">{{ t(s.labelKey) }}<span v-if="s.name === 'admin-data-sources' && pullProblem" class="nav-warning" role="img" :aria-label="t('admin.adminHub.pullProblem')" :title="t('admin.adminHub.pullProblem')">{{ ' ⚠' }}</span></router-link>
       <p v-if="rights.loaded && visibleSections.length === 0">{{ t('admin.adminHub.noSections') }}</p>
     </nav>
     <router-view />

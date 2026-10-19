@@ -54,6 +54,7 @@ instead.
 | 36 | `36_BlueTrack_SelfHostedPlatformsAndProperties.sql` | D-244: `usp_Load_DimPlatform` adds a Self-Hosted platform per distinct PolicyID; `usp_Load_FactAccount` fills the Self-Hosted `PlatformKey`, `PlatformLogonDomain` (LogonDomain) and `AutoManaged`/`ManualReason` (CPMDisabled); drops `dbo.stg_discovered_accounts`. |
 | 37 | `37_BlueTrack_ManualTargetLinks.sql` | D-245: `target_link.LinkMethod` may also be `'Manual'` (two existing targets linked from Edit Target). |
 | 38 | `38_BlueTrack_SelfHostedDirect.sql` | D-248: Self-Hosted Direct. `web.cyberark_source_config` gets `SelfHostedSource` (`Evd`/`Direct`), `PvwaBaseUrl`, `PvwaCredentialKey`, `PvwaLogonMethod`, `DirectPullTime` and `DirectMaxChangePercent`; new `dbo.cyberark_direct_pull` (pull log) and `dbo.stg_sh_platforms`; `usp_Clear_Staging_SelfHosted`, `usp_Load_DimPlatform`, `usp_Import_All` (`@SelfHostedStaged`) and `usp_Import_Configured` (checks the latest pull when the source is Direct) are replaced. |
+| 39 | `39_BlueTrack_DirectPullNotification.sql` | D-250: notification type `SelfHostedPullFailed` (a Self-Hosted Direct pull that failed, was rejected, or has not finished after 2 hours), added disabled. |
 
 ## The baseline (D-195)
 

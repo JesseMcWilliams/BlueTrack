@@ -31,9 +31,13 @@ const seconds = computed(() => {
 })
 
 // Keys are written out in full (D-227's key coverage check forbids building one at run time).
+// D-250: Safes and accounts also show what the last good pull had, which is what the change guard compared with.
+function withBaseline(value, baseline) {
+  return baseline === null || baseline === undefined || baseline === value ? value : `${value} ${t('admin.dataSources.pullWas', { n: baseline })}`
+}
 const counts = computed(() => props.pull.safeCount === null || props.pull.safeCount === undefined ? [] : [
-  [t('admin.dataSources.pullCount_safes'), props.pull.safeCount],
-  [t('admin.dataSources.pullCount_accounts'), props.pull.accountCount],
+  [t('admin.dataSources.pullCount_safes'), withBaseline(props.pull.safeCount, props.pull.baselineSafeCount)],
+  [t('admin.dataSources.pullCount_accounts'), withBaseline(props.pull.accountCount, props.pull.baselineAccountCount)],
   [t('admin.dataSources.pullCount_members'), props.pull.memberCount],
   [t('admin.dataSources.pullCount_users'), props.pull.userCount],
   [t('admin.dataSources.pullCount_groups'), props.pull.groupCount],

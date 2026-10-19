@@ -14,6 +14,7 @@ public static class SiteLinks
 
     public static readonly SitePage OverdueReviews = new("Risk Exceptions > Overdue Reviews", "/exceptions/overdue");
     public static readonly SitePage CyberArkSources = new("Admin > Data Sources > CyberArk Sources", "/admin/data-sources/cyberark");
+    public static readonly SitePage DataSources = new("Admin > Data Sources", "/admin/data-sources");   // D-250
     public static readonly SitePage KpiSummary = new("Reports > KPI Summary", "/reports/kpi-summary");
     public static readonly SitePage Trends = new("Reports > Trends", "/reports/trends");
     public static readonly SitePage OverdueAtRisk = new("Reports > Overdue / At-Risk", "/reports/overdue");

@@ -9,7 +9,7 @@
 // D-248: when Self-Hosted comes from PVWA directly (Self-Hosted Direct), this page
 // also shows the pull log and has Pull now. A pull rejected for changing the Safe or
 // account count too much can be accepted from here; the page polls while one runs.
-import { ref, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import { confirmDelete } from '../../composables/useConfirmDialog'
 import { feedTypeLabel, formatRunTime } from './dataFeedFormat'
@@ -49,6 +49,12 @@ async function loadCyberArk() {
   if (!response.ok) throw new Error(t('common.requestFailed', { status: response.status }))
   cyberArk.value = await response.json()
 }
+
+// D-250: the newest pull, when it is one that stops tonight's import.
+const latestPullProblem = computed(() => {
+  const latest = directPulls.value?.pulls?.[0]
+  return latest && (latest.status === 'Failed' || latest.status === 'Rejected') ? latest : null
+})
 
 function isDirect() {
   const s = cyberArk.value?.settings
@@ -217,6 +223,7 @@ async function remove(feed) {
       </template>
       <div v-if="isDirect() && directPulls" class="direct-pulls">
         <h4>{{ t('admin.dataSources.directHeading') }}</h4>
+        <p v-if="latestPullProblem" role="alert" class="pull-banner">{{ latestPullProblem.status === 'Rejected' ? t('admin.dataSources.bannerRejected') : t('admin.dataSources.bannerFailed') }}</p>
         <p v-if="directPulls.running" role="status">{{ t('admin.dataSources.pullRunning') }}</p>
         <p v-if="directPulls.pulls.length === 0">{{ t('admin.dataSources.noPulls') }}</p>
         <table v-else>
@@ -231,7 +238,10 @@ async function remove(feed) {
                 <strong :class="`outcome-${p.status}`">{{ p.status }}</strong>
                 <br /><small v-if="p.message">{{ p.message }}</small>
               </td>
-              <td><template v-if="p.safeCount !== null">{{ t('admin.dataSources.pullCountsValue', { safes: p.safeCount, accounts: p.accountCount, users: p.userCount ?? 0, groups: p.groupCount ?? 0 }) }}</template></td>
+              <td>
+                <template v-if="p.status === 'Rejected' && p.safeCount !== null && p.baselineSafeCount !== null">{{ t('admin.dataSources.pullCountsChange', { safesBefore: p.baselineSafeCount, safes: p.safeCount, accountsBefore: p.baselineAccountCount, accounts: p.accountCount }) }}</template>
+                <template v-else-if="p.safeCount !== null">{{ t('admin.dataSources.pullCountsValue', { safes: p.safeCount, accounts: p.accountCount, users: p.userCount ?? 0, groups: p.groupCount ?? 0 }) }}</template>
+              </td>
               <td><button type="button" @click="selectedPull = p">{{ t('admin.dataSources.pullDetails') }}</button></td>
             </tr>
           </tbody>
@@ -294,5 +304,5 @@ async function remove(feed) {
 </template>
 
 <style scoped>
-.outcome-Failed, .outcome-Rejected { color: var(--color-error, #b00020); }
+.outcome-Failed, .outcome-Rejected, .pull-banner { color: var(--color-error, #b00020); }
 </style>
