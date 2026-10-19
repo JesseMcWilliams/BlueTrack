@@ -1,4 +1,4 @@
-import { onMounted, onBeforeUnmount } from 'vue'
+import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { useRightsStore } from '../stores/rights'
 import { useSignOut } from './useSignOut'
 
@@ -11,6 +11,9 @@ import { useSignOut } from './useSignOut'
 export const LAST_ACTIVITY_KEY = 'bluetrack.lastActivity'
 const ACTIVITY_EVENTS = ['pointerdown', 'keydown', 'wheel', 'touchstart', 'mousemove']
 const SHARE_EVERY_MS = 5000
+// UI review W12-1: a warning shows for the last two minutes before the sign-out (or the last half of a timeout shorter
+// than four minutes), so a user part-way through a form can act before the page is taken away.
+const WARN_MS = 120000
 
 export function useIdleSignOut({ now = () => Date.now(), checkEveryMs = 30000 } = {}) {
   const rights = useRightsStore()
@@ -19,6 +22,8 @@ export function useIdleSignOut({ now = () => Date.now(), checkEveryMs = 30000 } 
   let lastShared = 0
   let signingOut = false
   let timer = null
+  // null, or { minutesLeft }: shown by IdleWarning.vue in App.vue. Any activity (including its Stay signed in button) clears it.
+  const warning = ref(null)
 
   function sharedLastActivity() {
     try {
@@ -31,6 +36,7 @@ export function useIdleSignOut({ now = () => Date.now(), checkEveryMs = 30000 } 
 
   function touch() {
     lastActivity = now()
+    warning.value = null
     if (lastActivity - lastShared >= SHARE_EVERY_MS) {
       lastShared = lastActivity
       try { localStorage.setItem(LAST_ACTIVITY_KEY, String(lastActivity)) } catch { /* private window: this tab only */ }
@@ -40,7 +46,12 @@ export function useIdleSignOut({ now = () => Date.now(), checkEveryMs = 30000 } 
   async function check() {
     const minutes = rights.idleTimeoutMinutes
     if (!rights.authenticated || !minutes || signingOut) return
-    if (now() - sharedLastActivity() <= minutes * 60000) return
+    const remaining = minutes * 60000 - (now() - sharedLastActivity())
+    if (remaining > 0) {
+      warning.value = remaining <= Math.min(WARN_MS, minutes * 30000) ? { minutesLeft: Math.max(1, Math.ceil(remaining / 60000)) } : null
+      return
+    }
+    warning.value = null
     signingOut = true
     try {
       await signOut('idle')
@@ -62,5 +73,5 @@ export function useIdleSignOut({ now = () => Date.now(), checkEveryMs = 30000 } 
     clearInterval(timer)
   })
 
-  return { touch, check }
+  return { touch, check, warning }
 }

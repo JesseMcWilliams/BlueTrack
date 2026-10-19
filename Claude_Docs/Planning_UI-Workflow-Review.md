@@ -31,7 +31,6 @@ Today: Dashboard, then the Accounts list (seven filters, multi-sort, paging), th
 
 | ID | Finding | Effort |
 |---|---|---|
-| W2-3 | The edit lock can be lost silently: the heartbeat ignores its response, and the user learns at Save. Warn at once; offer a re-acquire that keeps the form. | M |
 | W2-5 | A view-only user isn't told why there is no edit form (`:542,651`). | S |
 | W2-6 | Bulk Apply has no result summary on the shared bulk components; a ticked Date or text field left empty clears that field on every selected account (the confirmation now lists the fields). | S |
 | W2-8 | No confirmation after Save; the risk override saves on its own, unexplained (Cancel won't undo it). | S |
@@ -150,7 +149,7 @@ Works well: the API key reveal (shown once, select on focus, Copy), the keys lis
 
 | ID | Finding | Effort |
 |---|---|---|
-| W12-1 | Idle sign-out gives no warning and no "Stay signed in", and a user mid-form loses the edits (`useIdleSignOut.js:40-52`). Unverified: whether sign-in returns to the page. | M |
+| W12-1 | Edits typed in a form are lost when the idle sign-out happens (the warning now gives two minutes). Unverified: whether sign-in returns to the page. | M |
 | W12-2 | Reload My Rights replaces the whole page with "Loading" and gives no confirmation; a failure replaces the page with an alert. | S |
 | W12-3 | Theme, language and page-size saves ignore failures and show no "Saved". | S |
 | W12-4 | Page size can be set only from list pagers, not on the profile page. | S |

@@ -138,6 +138,10 @@
     "message": "There is no page at this address. It may have moved, or the address may be mistyped.",
     "home": "Go to the Dashboard"
   },
+  "idleWarning": {
+    "message": "You will be signed out in about {count} minute because you have not been active. | You will be signed out in about {count} minutes because you have not been active.",
+    "stay": "Stay signed in"
+  },
   "noAccess": {
     "title": "You don't have access to BlueTrack yet",
     "signedInAs": "You are signed in as {name}, but your account has no roles in BlueTrack, so there is nothing here for you to open.",
