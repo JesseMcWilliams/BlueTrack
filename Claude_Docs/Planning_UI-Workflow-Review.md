@@ -20,8 +20,6 @@ Today: the router guard sends an unauthenticated user to `/login`; Login lists o
 
 | ID | Finding | Effort |
 |---|---|---|
-| W1-1 | **High.** A user with no access is never told why: no page names them, their roles or who to contact; pages show "Request failed: 403" (`Dashboard.vue:26,164`, `AccountProgressList.vue:314`). Show a no-access state when `permissionNames` is empty. | M |
-| W1-2 | The access-denied page is also the 404 page and offers no next step (`shell.json:131`). Split them; add links home and to My Profile. | S |
 | W1-5 | The Identity Provider pages never say OIDC changes need an app restart (a code comment only). Unverified: wording elsewhere. | S |
 | W1-6 | No empty states; Enabled prints raw true/false; row-less Delete labels (`IdentityProviders.vue:119-127`, `GroupRoleMapping.vue:137`, `RolesAndPermissions.vue:68`). | S |
 | W1-7 | No lock-out warning when deleting the default or last enabled provider, or your own role. Unverified: the server may refuse. | M |
@@ -175,5 +173,5 @@ Works well: the user menu is a proper disclosure (Escape returns focus, closes o
 1. ~~Quick, high-value fixes: the bugs and the missing confirmations.~~ Shipped (D-251). Still open from that group: Bulk Apply on accounts has no confirmation (W2-6), Dismiss on Possible Matches and Discovered Accounts (W5-4), Rotate an API key (W10-4).
 2. ~~List state in the URL and drill-down.~~ Shipped (D-252). Still open from that group: the KPI counts (W7-1), and the same treatment for Targets, Access Groups, Risk Exceptions and the Audit Log.
 3. ~~One shared error helper, empty states and "saved" messages.~~ Shipped (D-253). Still open from that group: see themes 1 and 5.
-4. **No-access experience** (W1-1, W1-2).
+4. ~~No-access experience (W1-1, W1-2).~~ Shipped (D-254). Still open: pages still show "Request failed: 403" to a user who holds some roles but not that page's permission.
 5. The rest by workflow.

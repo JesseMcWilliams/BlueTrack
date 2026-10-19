@@ -563,7 +563,7 @@ const routes = [
     path: '/:pathMatch(.*)*',
     name: 'not-found',
     meta: { breadcrumb: 'shell.routes.notFound' },
-    component: () => import('../views/AccessDenied.vue')
+    component: () => import('../views/NotFound.vue')
   }
 ]
 

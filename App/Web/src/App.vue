@@ -12,6 +12,7 @@ import ConfirmDialog from './components/ConfirmDialog.vue'
 import UserMenu from './components/UserMenu.vue'
 import { useIdleSignOut } from './composables/useIdleSignOut'
 import FlashMessage from './components/FlashMessage.vue'
+import NoAccessNotice from './components/NoAccessNotice.vue'
 import { useRightsStore } from './stores/rights'
 import { flashNavigated } from './composables/useFlash'
 import { useRouter } from 'vue-router'
@@ -116,6 +117,7 @@ onMounted(async () => {
     </nav>
     <Breadcrumbs />
     <FlashMessage />
+    <NoAccessNotice />
     <p v-if="negotiateDisabled" role="alert" class="dev-fake-auth-warning">{{ t('shell.app.negotiateDisabledWarning') }}</p>
     <p v-if="devFakeAuthSince" role="alert" class="dev-fake-auth-warning">{{ t('shell.app.devFakeAuthWarning', { days: DEV_FAKE_AUTH_STALE_DAYS, since: devFakeAuthSince }) }}</p>
     <!-- D-92: route-change focus target (router/index.js's afterEach hook
