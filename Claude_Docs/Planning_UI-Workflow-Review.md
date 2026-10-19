@@ -9,7 +9,7 @@ The Self-Hosted Direct setup workflow (Credentials, CyberArk sources, Data Sourc
 1. **A failed save says only a status code: shipped (D-251, D-253)** for the edit pages. Still open: Credentials LDAP save, Notifications and Account Detail's other-status branch still show their own status text. (W9-5)
 2. **Destructive or live-changing buttons that don't confirm**, next to ones that do. Shipped (D-251, D-256): Revoke, Ignore, Force Release, Make active, Dismiss, Rotate and Bulk Apply. Still open: no undo or "show dismissed" view (W5-4).
 3. **"Saved" message after a save that navigates away: shipped (D-253)** on every edit page that returns to a list and on Account Detail.
-4. **List state in the URL and drill-down: shipped (D-252)** for the Accounts list, Trends, Discovered Accounts and Risk Score, and for the Dashboard and stage-by-status counts. Still open: the KPI counts (W7-1).
+4. **List state in the URL and drill-down: shipped (D-252)** for the Accounts list, Trends, Discovered Accounts and Risk Score, and for the Dashboard and stage-by-status counts. The KPI counts shipped in D-261.
 5. **Missing empty states: shipped (D-253)** for Targets, Access Groups, Accounts, Discovered Accounts and the admin lists. Still open: Risk Score report (a report, not the Bands list).
 6. **Silent failures**: bulk-import HTTP errors on Application mapping render nothing (Targets and Access Groups shipped in D-251); theme, language and page-size saves ignore failures. (W8-3, W12-3)
 7. **Accessibility basics** (worklist row links and named Delete buttons shipped, D-257 and D-258): toggles without `aria-expanded`, forms that open away from the control without moving focus. (W3-5, W4-7, W5-5, W5-6, W9-9, W10-8)
@@ -89,7 +89,6 @@ Read-only reports; the admin acts in CyberArk. Rows link to the account detail.
 
 | ID | Finding | Effort |
 |---|---|---|
-| W7-1 | KPI Summary and the Dashboard KPI counts (in scope, onboarded, managed, compliant) don't open the accounts behind them: the Accounts list has no filter that matches those definitions (D-143), so they need server-side filters first. The stage and stage-by-status counts do (D-252). | M |
 | W7-3 | KPI Summary doesn't say what Onboarded, Managed or Compliant mean, or give an "as of" date (the definitions are in a code comment, D-143). | S |
 | W7-4 | Overdue/At-Risk can't be sorted, filtered or paged, and shows no days overdue. | M |
 | W7-5 | Trends doesn't validate the date range and refetches on every keystroke. | S |
@@ -160,7 +159,7 @@ Works well: the user menu is a proper disclosure (Escape returns focus, closes o
 ## Suggested order
 
 1. ~~Quick, high-value fixes: the bugs and the missing confirmations.~~ Shipped (D-251). The last three confirmations shipped in D-256.
-2. ~~List state in the URL and drill-down.~~ Shipped (D-252). Still open from that group: the KPI counts (W7-1), and the same treatment for Targets, Access Groups, Risk Exceptions and the Audit Log.
+2. ~~List state in the URL and drill-down.~~ Shipped (D-252, D-258, D-259, D-261).
 3. ~~One shared error helper, empty states and "saved" messages.~~ Shipped (D-253). Still open from that group: see themes 1 and 5.
 4. ~~No-access experience (W1-1, W1-2).~~ Shipped (D-254, D-255). Still open: pages without a route-level permission still show "Request failed: 403" to a user who holds some roles but not that page's permission.
 5. The rest by workflow.

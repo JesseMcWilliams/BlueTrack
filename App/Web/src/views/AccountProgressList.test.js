@@ -84,6 +84,42 @@ describe('AccountProgressList.vue', () => {
     expect(wrapper.text()).toContain('web01.example.com')
   })
 
+  // UI review W7-1
+  it('sends the kpi filter from the address, says what is shown, and Show all accounts removes it', async () => {
+    mockInitialLoad()
+    const router = makeRouter()
+    router.push('/accounts?kpi=managed')
+    await router.isReady()
+    const wrapper = mount(AccountProgressList, { global: { plugins: [router] } })
+    await flushPromises()
+
+    const firstLoad = globalThis.fetch.mock.calls.map(c => c[0]).find(u => u.startsWith('/api/account-progress?'))
+    expect(firstLoad).toContain('kpi=managed')
+    expect(wrapper.find('.kpi-filter').text()).toContain('Managed (stage 4 or later, in scope)')
+    expect(wrapper.findAll('button').some(b => b.text() === 'Clear filters')).toBe(true)
+    globalThis.fetch.mockClear()
+
+    await wrapper.findAll('button').find(b => b.text() === 'Show all accounts').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('.kpi-filter').exists()).toBe(false)
+    const reload = globalThis.fetch.mock.calls.map(c => c[0]).find(u => u.startsWith('/api/account-progress?'))
+    expect(reload).not.toContain('kpi=')
+    expect(router.currentRoute.value.query.kpi).toBeUndefined()
+  })
+
+  it('ignores a kpi value it does not have', async () => {
+    mockInitialLoad()
+    const router = makeRouter()
+    router.push('/accounts?kpi=nonsense')
+    await router.isReady()
+    const wrapper = mount(AccountProgressList, { global: { plugins: [router] } })
+    await flushPromises()
+
+    expect(globalThis.fetch.mock.calls.map(c => c[0]).find(u => u.startsWith('/api/account-progress?'))).not.toContain('kpi=')
+    expect(wrapper.find('.kpi-filter').exists()).toBe(false)
+  })
+
   // UI review W2-7
   it('offers Clear filters only while a filter is set, and clearing reloads once with the defaults', async () => {
     mockInitialLoad({ accounts: [sampleAccount], totalCount: 5, filteredCount: 1 })

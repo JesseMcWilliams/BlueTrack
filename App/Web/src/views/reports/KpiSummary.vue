@@ -39,10 +39,10 @@ const kpis = computed(() => {
   if (!summary.value) return []
   const s = summary.value
   return [
-    { label: t('reports.kpiSummary.inScopeVsAll'), numerator: s.inScopeAccounts, denominator: s.totalAccounts },
-    { label: t('reports.kpiSummary.onboardedVsInScope'), numerator: s.onboardedAccounts, denominator: s.inScopeAccounts },
-    { label: t('reports.kpiSummary.managedVsOnboarded'), numerator: s.managedAccounts, denominator: s.onboardedAccounts },
-    { label: t('reports.kpiSummary.compliantVsManaged'), numerator: s.compliantAccounts, denominator: s.managedAccounts }
+    { label: t('reports.kpiSummary.inScopeVsAll'), numerator: s.inScopeAccounts, denominator: s.totalAccounts, numeratorKpi: 'inScope', denominatorKpi: 'total' },
+    { label: t('reports.kpiSummary.onboardedVsInScope'), numerator: s.onboardedAccounts, denominator: s.inScopeAccounts, numeratorKpi: 'onboarded', denominatorKpi: 'inScope' },
+    { label: t('reports.kpiSummary.managedVsOnboarded'), numerator: s.managedAccounts, denominator: s.onboardedAccounts, numeratorKpi: 'managed', denominatorKpi: 'onboarded' },
+    { label: t('reports.kpiSummary.compliantVsManaged'), numerator: s.compliantAccounts, denominator: s.managedAccounts, numeratorKpi: 'compliant', denominatorKpi: 'managed' }
   ]
 })
 </script>
@@ -65,12 +65,20 @@ const kpis = computed(() => {
         <tbody>
           <tr v-for="kpi in kpis" :key="kpi.label">
             <td>{{ kpi.label }}</td>
-            <td>{{ formatCount(kpi.numerator) }} / {{ formatCount(kpi.denominator) }}</td>
+            <!-- UI review W7-1: each count opens the accounts behind it (the Accounts list's kpi filter); zero isn't a link. -->
+            <td>
+              <router-link v-if="kpi.numerator > 0" :to="{ name: 'account-progress-list', query: { kpi: kpi.numeratorKpi } }">{{ formatCount(kpi.numerator) }}</router-link>
+              <template v-else>{{ formatCount(kpi.numerator) }}</template>
+              /
+              <router-link v-if="kpi.denominator > 0" :to="{ name: 'account-progress-list', query: { kpi: kpi.denominatorKpi } }">{{ formatCount(kpi.denominator) }}</router-link>
+              <template v-else>{{ formatCount(kpi.denominator) }}</template>
+            </td>
             <td>{{ pct(kpi.numerator, kpi.denominator) === null ? t('reports.kpiSummary.notApplicable') : t('reports.kpiSummary.percent', { value: pct(kpi.numerator, kpi.denominator) }) }}</td>
           </tr>
         </tbody>
       </table>
       <p>{{ t('reports.kpiSummary.totalAccounts', { count: formatCount(summary.totalAccounts) }) }}</p>
+      <p><small>{{ t('reports.kpiSummary.listNote') }}</small></p>
     </template>
   </div>
 </template>
