@@ -58,7 +58,12 @@ onMounted(async () => {
         >
           <!-- UI review W3-5: a real link, so the row can be opened by keyboard and from a new tab; the row click stays. -->
           <td><router-link :to="{ name: 'risk-exception-edit', params: { exceptionKey: exception.exceptionKey } }" @click.stop>{{ exception.exceptionID }}</router-link></td>
-          <td>{{ exception.scopeType }}: {{ exception.scopeName }}</td>
+          <td>
+            {{ exception.scopeType }}:
+            <!-- UI review W3-6: the account is one click away; an application has no page of its own here. -->
+            <router-link v-if="exception.accountKey" :to="{ name: 'account-progress-detail', params: { accountKey: exception.accountKey } }" @click.stop>{{ exception.scopeName }}</router-link>
+            <template v-else>{{ exception.scopeName }}</template>
+          </td>
           <td>{{ exception.justification }}</td>
           <td>{{ exception.approvedByName }}</td>
           <td>{{ formatDate(exception.reviewDate) }}</td>

@@ -50,6 +50,18 @@ describe('Account bulk edit', () => {
     expect(globalThis.fetch.mock.calls.some(([url, init]) => url === '/api/account-progress/bulk-edit' && init?.method === 'POST')).toBe(true)
   })
 
+  // UI review W2-6
+  it('says in the confirmation that a ticked field left empty will be cleared', async () => {
+    confirmDelete.mockResolvedValue(false)
+    const wrapper = await mountPage()
+    await wrapper.find('input[aria-label="Owner"]').setValue('')
+
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+
+    expect(confirmDelete.mock.calls[0][0].details).toEqual(['Owner (will be cleared)'])
+  })
+
   // UI review W2-9
   it('says so when the dropdown choices could not be loaded', async () => {
     const wrapper = await mountPage()

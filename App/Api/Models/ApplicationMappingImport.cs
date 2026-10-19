@@ -3,6 +3,8 @@ namespace BlueTrack.Api.Models;
 /// <summary>D-180: result of the Applications CSV import -- per-row errors, not an all-or-nothing failure.</summary>
 public sealed class ApplicationImportResult
 {
+    /// <summary>UI review W8-3: true when this was a preview (dryRun=true): the counts are what the file would do, and nothing was changed.</summary>
+    public bool DryRun { get; init; }
     public int TotalRows { get; init; }
     public int CreatedCount { get; init; }
     public int UpdatedCount { get; init; }
@@ -17,6 +19,7 @@ public sealed class ApplicationImportResult
 /// </summary>
 public sealed class SafeAssignmentImportResult
 {
+    public bool DryRun { get; init; }
     public int TotalRows { get; init; }
     public int AssignedCount { get; init; }   // had no application before
     public int ChangedCount { get; init; }    // had a different application (overwritten)
@@ -31,6 +34,7 @@ public sealed class SafeAssignmentImportResult
 /// </summary>
 public sealed class AccountAssignmentImportResult
 {
+    public bool DryRun { get; init; }
     public int TotalRows { get; init; }
     public int AssignedCount { get; init; }   // had no application of its own before
     public int ChangedCount { get; init; }    // had a different application (overwritten)

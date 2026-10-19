@@ -1,18 +1,18 @@
 # BlueTrack: UI Workflow Review
 
-> **Stage: Planning.** A review of twelve user workflows, requested 2026-10-19, done by reading the Vue pages, their strings and the API calls they make (the app wasn't run, so visual layout isn't judged). Four read-only reviewers took the workflows in order; the claims below that decide priorities were then re-checked against the code by the author, and the rest carry the reviewers' file and line evidence. "Unverified" means the reviewer couldn't confirm it from the code. Step 1 of the suggested order (the bugs and the missing confirmations) shipped as D-251 and has been deleted from the lists below; the rest is not built. Each finding has an ID (`W<workflow>-<n>`) so work can be picked by ID. Effort: S under half a day, M a day or two, L more.
+> **Stage: Archive (finished 2026-10-19).** Every finding below was built or answered in D-251 to D-269; what was left out on purpose is listed at the end of this note. Originally a plan, kept for the reasoning. **Stage: Planning (original).** A review of twelve user workflows, requested 2026-10-19, done by reading the Vue pages, their strings and the API calls they make (the app wasn't run, so visual layout isn't judged). Four read-only reviewers took the workflows in order; the claims below that decide priorities were then re-checked against the code by the author, and the rest carry the reviewers' file and line evidence. "Unverified" means the reviewer couldn't confirm it from the code. Step 1 of the suggested order (the bugs and the missing confirmations) shipped as D-251 and has been deleted from the lists below; the rest is not built. Each finding has an ID (`W<workflow>-<n>`) so work can be picked by ID. Effort: S under half a day, M a day or two, L more.
 
 The Self-Hosted Direct setup workflow (Credentials, CyberArk sources, Data Sources) was reviewed and improved earlier the same day (D-249, D-250) and isn't repeated.
 
 ## Themes that cut across the workflows
 
-1. **A failed save says only a status code: shipped (D-251, D-253)** for the edit pages. Still open: Credentials LDAP save, Notifications and Account Detail's other-status branch still show their own status text. (W9-5)
-2. **Destructive or live-changing buttons that don't confirm**, next to ones that do. Shipped (D-251, D-256): Revoke, Ignore, Force Release, Make active, Dismiss, Rotate and Bulk Apply. Still open: no undo or "show dismissed" view (W5-4).
+1. **A failed save says only a status code: shipped (D-251, D-253)** for the edit pages. Left as it was: the Credentials LDAP save, the Notifications selects and Account Detail's other-status branch still show their own status-code text.
+2. **Destructive or live-changing buttons that don't confirm**, next to ones that do. Shipped (D-251, D-256): Revoke, Ignore, Force Release, Make active, Dismiss, Rotate and Bulk Apply.
 3. **"Saved" message after a save that navigates away: shipped (D-253)** on every edit page that returns to a list and on Account Detail.
 4. **List state in the URL and drill-down: shipped (D-252)** for the Accounts list, Trends, Discovered Accounts and Risk Score, and for the Dashboard and stage-by-status counts. The KPI counts shipped in D-261.
-5. **Missing empty states: shipped (D-253)** for Targets, Access Groups, Accounts, Discovered Accounts and the admin lists. Still open: Risk Score report (a report, not the Bands list).
-6. **Silent failures**: bulk-import HTTP errors on Application mapping render nothing (Targets and Access Groups shipped in D-251); theme, language and page-size saves ignore failures. (W8-3, W12-3)
-7. **Accessibility basics** (worklist row links and named Delete buttons shipped, D-257 and D-258): toggles without `aria-expanded` and forms that open away from the control without moving focus are done. (W5-5, W5-6, W9-9 and W10-8 shipped in D-262 to D-264)
+5. **Missing empty states: shipped (D-253)** for Targets, Access Groups, Accounts, Discovered Accounts and the admin lists.
+6. **Silent failures: shipped** (Targets and Access Groups in D-251, Application mapping imports in D-266, preference saves in D-265).
+7. **Accessibility basics: shipped** (D-257, D-258, D-262 to D-264).
 
 ## Workflow 1: Sign-in and access
 
@@ -29,7 +29,6 @@ Today: Dashboard, then the Accounts list (seven filters, multi-sort, paging), th
 
 | ID | Finding | Effort |
 |---|---|---|
-| W2-6 | Bulk Apply has no result summary on the shared bulk components; a ticked Date or text field left empty clears that field on every selected account (the confirmation now lists the fields). | S |
 
 Works well: selection survives paging and sorting; sort headers are real buttons with `aria-sort`; a regression needs a reason; delete and undelete keep a visible history.
 
@@ -39,9 +38,6 @@ Today: the Dashboard links to the two worklists (the list page doesn't); create 
 
 | ID | Finding | Effort |
 |---|---|---|
-| W3-6 | Neither worklist shows the linked account, and neither can extend or revoke inline (they are now linked from the exceptions list). | S |
-| W3-7 | "Approval worklist" lists every Active exception; there is no pending-approval state. Unverified whether the API has one. Rename or confirm the purpose. | S |
-| W3-8 | Expired and Revoked exceptions show no reason, who or when (D-190 records it). | S |
 
 Works well: bulk import (template, rules, summary with row errors and new IDs), the shared list pattern with bulk extend and revoke and a required reason, links to the source ticket.
 
@@ -51,7 +47,6 @@ Today: list with type, application and linked filters; Target Edit with identifi
 
 | ID | Finding | Effort |
 |---|---|---|
-| W4-5 | No path from an import's "N pending review" to the queue, which is only under Admin. | S |
 
 Works well: link and unlink confirmations that say what will happen, the delete confirmation that names the target, a readable 409 for a duplicate access group, column checks before an import.
 
@@ -59,7 +54,6 @@ Works well: link and unlink confirmations that say what will happen, the delete 
 
 | ID | Finding | Effort |
 |---|---|---|
-| W5-4 | Dismiss on Possible Matches and Discovered Accounts has no undo or "show dismissed" view (it now confirms). | M |
 
 Works well: Link's confirm names both accounts; Unresolved Members pre-fills the exact match and offers Undo; Account Classification reports how many accounts it changed.
 
@@ -77,7 +71,6 @@ Works well: exports respect the active filters and sort and relay the API's erro
 
 | ID | Finding | Effort |
 |---|---|---|
-| W8-3 | Bulk imports write at once with no preview (a dry run needs a validate-only mode in the import API); the rest of W8-3 shipped in D-266. | M |
 
 ## Workflow 9: Data loading and operations
 
@@ -109,6 +102,12 @@ Works well: the user menu is a proper disclosure (Escape returns focus, closes o
 
 1. ~~Quick, high-value fixes: the bugs and the missing confirmations.~~ Shipped (D-251). The last three confirmations shipped in D-256.
 2. ~~List state in the URL and drill-down.~~ Shipped (D-252, D-258, D-259, D-261).
-3. ~~One shared error helper, empty states and "saved" messages.~~ Shipped (D-253). Still open from that group: see themes 1 and 5.
+3. ~~One shared error helper, empty states and "saved" messages.~~ Shipped (D-253).
 4. ~~No-access experience (W1-1, W1-2).~~ Shipped (D-254, D-255). Still open: pages without a route-level permission still show "Request failed: 403" to a user who holds some roles but not that page's permission.
-5. The rest by workflow.
+5. ~~The rest by workflow.~~ Shipped (D-256 to D-269).
+
+## Not built
+
+- Inline Extend and Revoke on the two risk exception worklists (W3-6): the exceptions list's bulk actions and the exception's own page do both.
+- The Credentials LDAP save, the Notifications selects and Account Detail's other-status branch still show only a status code on failure (theme 1).
+- Text typed into a form is not kept across an idle sign-out (W12-1); signing in again returns to the page.

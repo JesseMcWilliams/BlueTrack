@@ -217,6 +217,23 @@ public sealed class DiscoveredAccountRepository(IDbConnectionFactory connectionF
         if (status == "Accepted") throw ApiProblemException.Conflict("This discovered account was already accepted into tracking, so it can't be dismissed.");
     }
 
+    /// <summary>UI review W5-4: undoes a dismiss -- a Dismissed candidate is New again. 404 when it doesn't exist, 409 when it isn't dismissed.</summary>
+    public async Task RestoreAsync(int discoveredAccountKey, int reviewedByUserKey)
+    {
+        using var connection = connectionFactory.Create();
+        var status = await connection.QuerySingleOrDefaultAsync<string?>(
+            """
+            DECLARE @Status NVARCHAR(50) = (SELECT Status FROM web.discovered_account WHERE DiscoveredAccountKey = @DiscoveredAccountKey);
+            UPDATE web.discovered_account
+            SET Status = 'New', ReviewedBy = @ReviewedByUserKey, ReviewedDate = SYSUTCDATETIME()
+            WHERE DiscoveredAccountKey = @DiscoveredAccountKey AND Status = 'Dismissed';
+            SELECT @Status;
+            """,
+            new { ReviewedByUserKey = reviewedByUserKey, DiscoveredAccountKey = discoveredAccountKey });
+        if (status is null) throw ApiProblemException.NotFound($"Discovered account {discoveredAccountKey} doesn't exist.");
+        if (status != "Dismissed") throw ApiProblemException.Conflict("This discovered account isn't dismissed, so there is nothing to restore.");
+    }
+
     /// <summary>Replace-all-on-save -- mirrors TargetRepository's own convention for a Target's identifiers (small nested collection, no incremental diffing).</summary>
     public async Task ReplaceAccessGroupMappingsAsync(int discoveredAccountKey, IReadOnlyList<int> accessGroupKeys)
     {

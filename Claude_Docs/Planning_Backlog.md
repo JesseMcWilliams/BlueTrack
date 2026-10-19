@@ -3,7 +3,6 @@
 > **Stage: Planning.** Work that isn't built or proven yet. Carried forward from the 2026-09-16 survey (`Archive_Planning_Outstanding-Work-Survey-2026-09-16.md`); items that survey listed but the audit tracker records as resolved were left in the archive. Items tagged *(verify)* may already be done; confirm before starting. When an item ships, delete it here and record it in the relevant `Design_` doc.
 
 ## Requested, not started
-- **UI workflow review findings** (requested 2026-10-19): twelve workflows reviewed from the code, with IDs and effort; ten bugs, seven cross-cutting themes and a suggested order are in `Planning_UI-Workflow-Review.md`. Nothing built yet; delete items there as they ship.
 - **Privilege Cloud Direct** (requested 2026-10-19, with Self-Hosted Direct, D-248): read Privilege Cloud through its API into `stg_pc_*` instead of the export folder, as a fourth option on the CyberArk sources page (already listed there, unavailable). Needs the Privilege Cloud API's logon (an Identity OAuth client, `Platform/Developer` and `PAM/Privilege-Cloud-Standard` in the Idira reference), a lab tenant, and the same change guard.
 
 ## Requested, deferred

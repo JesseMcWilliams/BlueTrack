@@ -21,12 +21,13 @@ public sealed class PossibleMatchesController(
     AuditLogger auditLogger) : ControllerBase
 {
     [HttpGet]
-    public async Task<IActionResult> GetOpen([FromQuery] int? page = null, [FromQuery] int? pageSize = null)
+    public async Task<IActionResult> GetOpen([FromQuery] int? page = null, [FromQuery] int? pageSize = null, [FromQuery] bool dismissed = false)
     {
-        var count = (await repository.GetOpenCountAsync()).ToString();
+        // UI review W5-4: dismissed=true lists the dismissed pairs (that can be restored) instead of the open matches.
+        var count = (await repository.GetOpenCountAsync(dismissed)).ToString();
         Response.Headers["X-Total-Count"] = count;
         Response.Headers["X-Filtered-Count"] = count;
-        return Ok(await repository.GetOpenAsync(page, pageSize));
+        return Ok(await repository.GetOpenAsync(page, pageSize, dismissed));
     }
 
     /// <summary>D-220: every open match (all pages), under the class's ConfirmReconciliation policy like the report.</summary>
@@ -53,6 +54,19 @@ public sealed class PossibleMatchesController(
             detail: AuditLogger.ClipDetail($"Linked to CyberArk account '{match.CyberArkAccountName}' (key {match.CyberArkAccountKey}) from the Possible Account Matches report"
                 + (changes is null ? "" : "; moved to Onboarded to Vault")),
             fieldChanges: changes);
+        return NoContent();
+    }
+
+    /// <summary>UI review W5-4: undoes a dismiss; the pair is open again.</summary>
+    [HttpPost("{reconciliationKey:long}/restore")]
+    public async Task<IActionResult> Restore(long reconciliationKey)
+    {
+        var user = await currentUserResolver.ResolveAsync(User);
+        if (user is null) return Unauthorized();
+
+        if (!await repository.RestoreAsync(reconciliationKey, ReviewedBy(user))) return NotOpen();
+        await auditLogger.LogAsync("FieldEdit", user.UserKey, "account_reconciliation", reconciliationKey.ToString(),
+            detail: "Dismissed possible account match restored");
         return NoContent();
     }
 

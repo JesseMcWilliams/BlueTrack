@@ -160,6 +160,28 @@ function matchedBy(row) {
   return ''
 }
 
+// UI review W5-4: the dismissed candidates, with Restore, so a dismiss can be undone.
+const showDismissed = ref(false)
+
+function onShowDismissedChange() {
+  page.value = 1
+  load()
+}
+
+async function restore(row) {
+  actionError.value = null
+  busyKey.value = row.discoveredAccountKey
+  try {
+    const response = await fetch(`/api/reports/discovered-accounts/${row.discoveredAccountKey}/restore`, { method: 'POST' })
+    if (!response.ok) throw new Error((await response.json().catch(() => null))?.detail ?? t('common.requestFailed', { status: response.status }))
+    await load()
+  } catch (err) {
+    actionError.value = err.message
+  } finally {
+    busyKey.value = null
+  }
+}
+
 function onClassFilterChange() {
   page.value = 1
   load()
@@ -208,6 +230,7 @@ async function load() {
     const params = new URLSearchParams()
     if (sortQueryParam.value) params.set('sort', sortQueryParam.value)
     if (classFilter.value) params.set('accountClass', classFilter.value)
+    if (showDismissed.value) params.set('dismissed', 'true')
     params.set('page', page.value)
     params.set('pageSize', pageSizeStore.current)
     const response = await fetch(`/api/reports/discovered-accounts?${params.toString()}`)
@@ -311,8 +334,9 @@ onMounted(load)
           <option v-for="c in CLASSES" :key="c" :value="c">{{ t(CLASS_KEYS[c]) }}</option>
         </select>
       </label>
+      <label><input v-model="showDismissed" type="checkbox" @change="onShowDismissedChange" /> {{ t('reports.discoveredAccounts.showDismissed') }}</label>
     </p>
-    <ReportExportButtons path="/api/reports/discovered-accounts/export" :params="{ sort: sortQueryParam, accountClass: classFilter || null }" />
+    <ReportExportButtons v-if="!showDismissed" path="/api/reports/discovered-accounts/export" :params="{ sort: sortQueryParam, accountClass: classFilter || null }" />
     <FilterCountSummary :shown="rows.length" :filtered-count="filteredCount" :total="totalCount" :page="page" :page-size="pageSizeStore.current" />
     <Pager :page="page" :page-count="pageCount" @update:page="onPageChange" @page-size-change="onPageSizeChange" />
     <p v-if="actionError" role="alert">{{ actionError }}</p>
@@ -360,8 +384,11 @@ onMounted(load)
               <span v-if="OWNER_SOURCE_KEYS[row.ownerSource]" class="owner-source">{{ t(OWNER_SOURCE_KEYS[row.ownerSource]) }}</span>
             </td>
             <td v-if="rights.hasPermission('ManageDiscoveredAccounts')">
+              <button v-if="showDismissed" type="button" :disabled="busyKey === row.discoveredAccountKey" @click="restore(row)">{{ t('reports.discoveredAccounts.restore') }}</button>
+              <template v-else>
               <button type="button" :disabled="busyKey === row.discoveredAccountKey" @click="accept(row)">{{ t('reports.discoveredAccounts.accept') }}</button>
               <button type="button" :disabled="busyKey === row.discoveredAccountKey" @click="dismiss(row)">{{ t('reports.discoveredAccounts.dismiss') }}</button>
+              </template>
               <button type="button" :disabled="busyKey === row.discoveredAccountKey" :aria-label="t('reports.discoveredAccounts.classifyLabel', { account: row.samAccountName })" @click="startClassify(row)">{{ t('reports.discoveredAccounts.classify') }}</button>
             </td>
           </tr>

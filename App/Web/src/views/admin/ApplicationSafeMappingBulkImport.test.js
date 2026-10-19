@@ -115,3 +115,26 @@ describe('ApplicationSafeMappingBulkImport.vue: failures (UI review W8-3)', () =
     expect(wrapper.get('[data-testid="applications-result"]').text()).toBe('The file has no header row.')
   })
 })
+
+describe('ApplicationSafeMappingBulkImport.vue: preview (UI review W8-3)', () => {
+  afterEach(() => vi.restoreAllMocks())
+
+  it.each([
+    ['Applications', 'Applications CSV file', '/api/admin/application-mapping/import/applications', 'applications-result', 0],
+    ['Safe assignments', 'Safe assignments CSV file', '/api/admin/application-mapping/import/safe-assignments', 'assignments-result', 1],
+    ['Account assignments', 'Account assignments CSV file', '/api/admin/application-mapping/import/account-assignments', 'account-assignments-result', 2]
+  ])('%s: Check file posts with dryRun and says nothing was changed', async (_name, fileLabel, url, testId, index) => {
+    globalThis.fetch = vi.fn(() => Promise.resolve(jsonResponse({
+      dryRun: true, totalRows: 2, createdCount: 1, updatedCount: 0, unchangedCount: 0, assignedCount: 1, changedCount: 0, errors: []
+    })))
+    const wrapper = mount(ApplicationSafeMappingBulkImport)
+    await selectFile(wrapper.get(`input[aria-label="${fileLabel}"]`), new File(['x'], 'f.csv', { type: 'text/csv' }))
+
+    const check = wrapper.findAll('button').filter(b => b.text() === 'Check file')[index]
+    await check.trigger('click')
+    await flushPromises()
+
+    expect(globalThis.fetch).toHaveBeenCalledWith(`${url}?dryRun=true`, expect.objectContaining({ method: 'POST' }))
+    expect(wrapper.get(`[data-testid="${testId}"]`).text()).toContain('Preview: nothing was changed.')
+  })
+})

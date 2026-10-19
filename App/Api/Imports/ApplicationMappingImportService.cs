@@ -43,7 +43,10 @@ public sealed class ApplicationMappingImportService(
         ["SelfHosted"] = "CyberArk Self-Hosted Vault"
     };
 
-    public async Task<ApplicationImportResult> ImportApplicationsAsync(IReadOnlyList<IReadOnlyDictionary<string, string>> rows, int userKey)
+    // UI review W8-3: with dryRun every row is read, checked and counted as usual, but nothing is written or audited, so the
+    // file can be checked before it is imported. (Counts are what the file would do to the data as it is now; two rows of one
+    // file for the same account see each other only in a real import.)
+    public async Task<ApplicationImportResult> ImportApplicationsAsync(IReadOnlyList<IReadOnlyDictionary<string, string>> rows, int userKey, bool dryRun = false)
     {
         var applications = (await repository.GetAllDetailedAsync()).ToList();
         int created = 0, updated = 0, unchanged = 0;
@@ -87,9 +90,12 @@ public sealed class ApplicationMappingImportService(
 
                 if (existing is null)
                 {
-                    var key = await repository.CreateAsync(request);
-                    await auditLogger.LogAsync("FieldEdit", userKey, "dim_application", key.ToString(),
-                        detail: $"Application '{request.ApplicationName}' created (CSV import)");
+                    var key = dryRun ? -(created + 1) : await repository.CreateAsync(request);
+                    if (!dryRun)
+                    {
+                        await auditLogger.LogAsync("FieldEdit", userKey, "dim_application", key.ToString(),
+                            detail: $"Application '{request.ApplicationName}' created (CSV import)");
+                    }
                     applications.Add(ToDetail(key, request));
                     created++;
                 }
@@ -99,9 +105,12 @@ public sealed class ApplicationMappingImportService(
                 }
                 else
                 {
-                    await repository.UpdateAsync(existing.ApplicationKey, request);
-                    await auditLogger.LogAsync("FieldEdit", userKey, "dim_application", existing.ApplicationKey.ToString(),
-                        detail: $"Application '{request.ApplicationName}' updated (CSV import)");
+                    if (!dryRun)
+                    {
+                        await repository.UpdateAsync(existing.ApplicationKey, request);
+                        await auditLogger.LogAsync("FieldEdit", userKey, "dim_application", existing.ApplicationKey.ToString(),
+                            detail: $"Application '{request.ApplicationName}' updated (CSV import)");
+                    }
                     applications[applications.IndexOf(existing)] = ToDetail(existing.ApplicationKey, request);
                     updated++;
                 }
@@ -114,11 +123,11 @@ public sealed class ApplicationMappingImportService(
 
         return new ApplicationImportResult
         {
-            TotalRows = rows.Count, CreatedCount = created, UpdatedCount = updated, UnchangedCount = unchanged, Errors = errors
+            DryRun = dryRun, TotalRows = rows.Count, CreatedCount = created, UpdatedCount = updated, UnchangedCount = unchanged, Errors = errors
         };
     }
 
-    public async Task<SafeAssignmentImportResult> ImportSafeAssignmentsAsync(IReadOnlyList<IReadOnlyDictionary<string, string>> rows, int userKey)
+    public async Task<SafeAssignmentImportResult> ImportSafeAssignmentsAsync(IReadOnlyList<IReadOnlyDictionary<string, string>> rows, int userKey, bool dryRun = false)
     {
         var applications = await repository.GetAllDetailedAsync();
         var safes = await repository.GetSafesForMatchingAsync();
@@ -170,9 +179,12 @@ public sealed class ApplicationMappingImportService(
                         continue;
                     }
                     var previous = safe.ApplicationKey;
-                    await repository.AssignSafeApplicationAsync(safe.SafeKey, application.ApplicationKey);
-                    await auditLogger.LogAsync("FieldEdit", userKey, "dim_safe", safe.SafeKey.ToString(),
-                        detail: $"ApplicationKey set to {application.ApplicationKey} (CSV import; was {(previous?.ToString() ?? "null")})");
+                    if (!dryRun)
+                    {
+                        await repository.AssignSafeApplicationAsync(safe.SafeKey, application.ApplicationKey);
+                        await auditLogger.LogAsync("FieldEdit", userKey, "dim_safe", safe.SafeKey.ToString(),
+                            detail: $"ApplicationKey set to {application.ApplicationKey} (CSV import; was {(previous?.ToString() ?? "null")})");
+                    }
                     safe.ApplicationKey = application.ApplicationKey;
                     if (previous is null) assigned++; else changed++;
                 }
@@ -185,7 +197,7 @@ public sealed class ApplicationMappingImportService(
 
         return new SafeAssignmentImportResult
         {
-            TotalRows = rows.Count, AssignedCount = assigned, ChangedCount = changed, UnchangedCount = unchanged, Errors = errors
+            DryRun = dryRun, TotalRows = rows.Count, AssignedCount = assigned, ChangedCount = changed, UnchangedCount = unchanged, Errors = errors
         };
     }
 
@@ -199,7 +211,7 @@ public sealed class ApplicationMappingImportService(
     /// not in the file are never touched. Audited as the edit form's change
     /// is (a FieldEdit of ApplicationKey on fact_account_progress).
     /// </summary>
-    public async Task<AccountAssignmentImportResult> ImportAccountAssignmentsAsync(IReadOnlyList<IReadOnlyDictionary<string, string>> rows, int userKey)
+    public async Task<AccountAssignmentImportResult> ImportAccountAssignmentsAsync(IReadOnlyList<IReadOnlyDictionary<string, string>> rows, int userKey, bool dryRun = false)
     {
         var applications = await repository.GetAllDetailedAsync();
         int assigned = 0, changed = 0, unchanged = 0;
@@ -243,10 +255,13 @@ public sealed class ApplicationMappingImportService(
                         unchanged++;
                         continue;
                     }
-                    await repository.AssignAccountApplicationAsync(account.AccountKey, application.ApplicationKey);
-                    await auditLogger.LogAsync("FieldEdit", userKey, "fact_account_progress", account.AccountKey.ToString(),
-                        detail: "Application set by the Account assignments CSV import",
-                        fieldChanges: [new FieldChange("ApplicationKey", account.ApplicationKey?.ToString(), application.ApplicationKey.ToString())]);
+                    if (!dryRun)
+                    {
+                        await repository.AssignAccountApplicationAsync(account.AccountKey, application.ApplicationKey);
+                        await auditLogger.LogAsync("FieldEdit", userKey, "fact_account_progress", account.AccountKey.ToString(),
+                            detail: "Application set by the Account assignments CSV import",
+                            fieldChanges: [new FieldChange("ApplicationKey", account.ApplicationKey?.ToString(), application.ApplicationKey.ToString())]);
+                    }
                     if (account.ApplicationKey is null) assigned++; else changed++;
                 }
             }
@@ -258,7 +273,7 @@ public sealed class ApplicationMappingImportService(
 
         return new AccountAssignmentImportResult
         {
-            TotalRows = rows.Count, AssignedCount = assigned, ChangedCount = changed, UnchangedCount = unchanged, Errors = errors
+            DryRun = dryRun, TotalRows = rows.Count, AssignedCount = assigned, ChangedCount = changed, UnchangedCount = unchanged, Errors = errors
         };
     }
 
