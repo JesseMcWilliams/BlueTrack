@@ -11,10 +11,15 @@ import Breadcrumbs from './components/Breadcrumbs.vue'
 import ConfirmDialog from './components/ConfirmDialog.vue'
 import UserMenu from './components/UserMenu.vue'
 import { useIdleSignOut } from './composables/useIdleSignOut'
+import FlashMessage from './components/FlashMessage.vue'
 import { useRightsStore } from './stores/rights'
+import { flashNavigated } from './composables/useFlash'
+import { useRouter } from 'vue-router'
 
 const { t } = useI18n()
 const rights = useRightsStore()
+// UI review theme 3: a "saved" line set before a navigation shows on the page it lands on, and goes at the next one.
+useRouter().afterEach(() => flashNavigated())
 useIdleSignOut() // D-209: sign out after Idle Timeout without activity
 
 // DevFakeAuth-enabled-too-long warning (added 2026-09-06, user-requested):
@@ -110,6 +115,7 @@ onMounted(async () => {
       <UserMenu v-if="rights.authenticated" />
     </nav>
     <Breadcrumbs />
+    <FlashMessage />
     <p v-if="negotiateDisabled" role="alert" class="dev-fake-auth-warning">{{ t('shell.app.negotiateDisabledWarning') }}</p>
     <p v-if="devFakeAuthSince" role="alert" class="dev-fake-auth-warning">{{ t('shell.app.devFakeAuthWarning', { days: DEV_FAKE_AUTH_STALE_DAYS, since: devFakeAuthSince }) }}</p>
     <!-- D-92: route-change focus target (router/index.js's afterEach hook

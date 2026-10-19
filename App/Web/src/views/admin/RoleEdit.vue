@@ -7,6 +7,8 @@
 // endpoint -- no API contract change for this page.
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { flash, savedMessage } from '../../composables/useFlash'
+import { problemMessage } from '../../utils/problemText'
 import { useI18n } from 'vue-i18n'
 
 const { t } = useI18n()
@@ -63,9 +65,10 @@ async function save() {
       body: JSON.stringify(editing.value)
     })
     if (!response.ok) {
-      saveError.value = t('common.saveFailed', { status: response.status })
+      saveError.value = await problemMessage(response, t('common.saveFailed', { status: response.status }))
       return
     }
+    flash(savedMessage(t, editing.value.roleName))
     router.push({ name: 'admin-roles-permissions' })
   } finally {
     saving.value = false

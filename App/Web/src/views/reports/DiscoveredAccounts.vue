@@ -33,6 +33,7 @@ import FilterCountSummary from '../../components/FilterCountSummary.vue'
 import Pager from '../../components/Pager.vue'
 import ReportExportButtons from '../../components/ReportExportButtons.vue'
 import { useI18n } from 'vue-i18n'
+import EmptyListMessage from '../../components/EmptyListMessage.vue'
 
 const { t } = useI18n()
 
@@ -390,6 +391,7 @@ onMounted(load)
         </template>
       </tbody>
     </table>
+    <EmptyListMessage :show="!loading && !error && rows.length === 0" :message="totalCount === 0 ? t('reports.discoveredAccounts.emptyNone') : t('reports.discoveredAccounts.emptyFiltered')" />
     <Pager :page="page" :page-count="pageCount" @update:page="onPageChange" @page-size-change="onPageSizeChange" />
     <p><small>{{ t('reports.discoveredAccounts.sortHelp') }}</small></p>
   </div>

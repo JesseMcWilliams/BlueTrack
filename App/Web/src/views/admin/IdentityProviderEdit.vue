@@ -8,6 +8,8 @@
 // endpoint -- no API contract change for this page.
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { flash, savedMessage } from '../../composables/useFlash'
+import { problemMessage } from '../../utils/problemText'
 import { mergeProviderSettings } from '../../utils/providerSettings'
 import { useI18n } from 'vue-i18n'
 
@@ -95,9 +97,10 @@ async function save() {
       body: JSON.stringify({ providerType, displayName, isEnabled, displayOrder, configurationValues, plaintextSecret: plaintextSecret || null })
     })
     if (!response.ok) {
-      saveError.value = t('common.saveFailed', { status: response.status })
+      saveError.value = await problemMessage(response, t('common.saveFailed', { status: response.status }))
       return
     }
+    flash(savedMessage(t, editing.value.displayName))
     router.push({ name: 'admin-identity-providers' })
   } finally {
     saving.value = false

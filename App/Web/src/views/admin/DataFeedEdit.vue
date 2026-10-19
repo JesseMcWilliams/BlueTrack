@@ -6,6 +6,7 @@
 // row errors.
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { flash, savedMessage } from '../../composables/useFlash'
 import { formatRunTime } from './dataFeedFormat'
 import { formatCount } from '../../utils/formatCount'
 import { useI18n } from 'vue-i18n'
@@ -157,6 +158,7 @@ async function save() {
       saveError.value = problem?.detail ?? t('common.saveFailed', { status: response.status })
       return
     }
+    flash(savedMessage(t, editing.value.displayName))
     router.push({ name: 'admin-data-sources' })
   } finally {
     saving.value = false

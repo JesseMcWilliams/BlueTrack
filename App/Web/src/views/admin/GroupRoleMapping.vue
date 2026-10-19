@@ -14,6 +14,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { confirmDelete } from '../../composables/useConfirmDialog'
 import { useI18n } from 'vue-i18n'
+import EmptyListMessage from '../../components/EmptyListMessage.vue'
 
 const { t } = useI18n()
 
@@ -146,6 +147,7 @@ async function remove(mapping) {
           </tr>
         </tbody>
       </table>
+      <EmptyListMessage :show="!loading && mappings.length === 0" :message="t('admin.groupRoleMapping.emptyNone')" />
 
       <h3>{{ t('admin.groupRoleMapping.lookupHeading') }}</h3>
       <p>{{ t('admin.groupRoleMapping.lookupIntro') }}</p>

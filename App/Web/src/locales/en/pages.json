@@ -30,6 +30,8 @@
     "activeExceptionsCount": "{count} active exception(s) awaiting approval."
   },
   "accountProgressList": {
+    "emptyNone": "No accounts have been loaded yet. They appear after a data feed or CyberArk pull has run.",
+    "emptyFiltered": "No accounts match the current filters.",
     "title": "Account Progress",
     "failed": "Failed: {status}",
     "deletedBy": "Deleted in BlueTrack by {name}",
@@ -292,6 +294,8 @@
     "newIds": "New IDs: {ids}"
   },
   "targets": {
+    "emptyNone": "No targets yet. Use Add Target or Bulk Import to create some.",
+    "emptyFiltered": "No targets match the current filters.",
     "title": "Targets",
     "intro": "Any final destination an account's access leads to -- a server, database, application, or other endpoint. Risk score (0-1000) is always analyst-set here, regardless of how the row itself was created.",
     "linkFailed": "Link failed: {status}",
@@ -390,6 +394,8 @@
     "linksSummary": "{total} rows -- {created} created, {merged} already linked, {errors} errors."
   },
   "accessGroups": {
+    "emptyNone": "No access groups yet. Use Add Access Group or Bulk Import to create some.",
+    "emptyFiltered": "No access groups match the current filters.",
     "title": "Access Groups",
     "intro": "Privileged-access groups in the managed environment (e.g. an AD \"Server Admins\" group) -- not this app's own Safe-permission groups or its login/role mapping. Base risk score (0-1000) is analyst-set; the computed score (base plus reachable Targets) is calculated separately.",
     "colName": "Name",

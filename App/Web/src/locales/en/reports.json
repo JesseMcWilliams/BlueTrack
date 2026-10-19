@@ -52,6 +52,8 @@
     "colDeletedAccounts": "Deleted accounts"
   },
   "discoveredAccounts": {
+    "emptyNone": "No discovered accounts yet. They appear after a discovery data feed has run.",
+    "emptyFiltered": "No discovered accounts match the current filters.",
     "title": "Discovered Accounts",
     "hint": "Real Active Directory accounts not yet onboarded into CyberArk, found by matching AD group membership against the Access Group inventory -- risk-scored the same way an onboarded account would be. Click a row's account name to see which Access Groups it matched. Accept moves an account into onboarding tracking (visible immediately in the Account Progress list); Dismiss clears a false positive or an already-onboarded match without creating a tracked account. Neither talks to CyberArk directly -- actual Vault onboarding still happens there.",
     "colAccount": "Account",

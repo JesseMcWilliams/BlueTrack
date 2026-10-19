@@ -18,6 +18,8 @@
   "loading": "Loading...",
   "importing": "Importing...",
   "saved": "Saved.",
+  "savedItem": "{name} saved.",
+  "dismiss": "Dismiss",
   "downloadTemplate": "Download template",
   "exportCsv": "Export CSV",
   "exportExcel": "Export Excel",

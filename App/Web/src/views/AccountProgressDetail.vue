@@ -9,6 +9,7 @@ import { useRightsStore } from '../stores/rights'
 import { formatDate } from '../utils/formatDate'
 import { formatUtcDateTime } from '../utils/formatLocale'
 import { confirmDelete } from '../composables/useConfirmDialog'
+import { flash, savedMessage } from '../composables/useFlash'
 import { decomNote } from '../utils/decomNote'
 import { formatCount } from '../utils/formatCount'
 import { useI18n } from 'vue-i18n'
@@ -425,6 +426,7 @@ async function save() {
     // A save returns to the Accounts list (2026-09-06, user-requested) --
     // no need to refetch/reset this page's own form first, since the
     // component is about to unmount. UI review W2-2: to the list as it was left (its filters, sort and page).
+    flash(savedMessage(t, detail.value?.accountName))
     backToList()
   } finally {
     saving.value = false

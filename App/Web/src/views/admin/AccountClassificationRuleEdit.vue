@@ -5,6 +5,7 @@
 // server validates again (400 with the reason). Saving reclassifies.
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { flash } from '../../composables/useFlash'
 import { useI18n } from 'vue-i18n'
 
 const { t } = useI18n()
@@ -95,6 +96,7 @@ async function save() {
       saveError.value = problem?.detail ?? t('common.saveFailed', { status: response.status })
       return
     }
+    flash(t('common.saved'))
     router.push({ name: 'admin-account-classification' })
   } finally {
     saving.value = false

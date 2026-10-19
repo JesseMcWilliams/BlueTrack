@@ -7,6 +7,7 @@
 // new GET-by-id endpoint -- no API contract change for this page.
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { flash, savedMessage } from '../../composables/useFlash'
 import { useI18n } from 'vue-i18n'
 
 const { t } = useI18n()
@@ -53,6 +54,7 @@ async function save() {
       saveError.value = problem?.detail ?? problem?.message ?? t('common.saveFailed', { status: response.status })
       return
     }
+    flash(savedMessage(t, editing.value.bandName))
     router.push({ name: 'admin-risk-score-bands' })
   } finally {
     saving.value = false

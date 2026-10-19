@@ -9,6 +9,8 @@
 // this field -- is chosen from GET /api/admin/field-metadata/permission-options.
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { flash, savedMessage } from '../../composables/useFlash'
+import { problemMessage } from '../../utils/problemText'
 import { useI18n } from 'vue-i18n'
 
 const { t } = useI18n()
@@ -59,10 +61,10 @@ async function save() {
       body: JSON.stringify(editing.value)
     })
     if (!response.ok) {
-      const problem = await response.json().catch(() => null)
-      saveError.value = problem?.detail ?? t('common.saveFailed', { status: response.status })
+      saveError.value = await problemMessage(response, t('common.saveFailed', { status: response.status }))
       return
     }
+    flash(savedMessage(t, editing.value.displayLabel || editing.value.fieldName))
     router.push({ name: 'admin-field-metadata' })
   } finally {
     saving.value = false
