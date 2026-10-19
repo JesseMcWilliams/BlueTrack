@@ -4,6 +4,9 @@ import { createPinia, setActivePinia } from 'pinia'
 import { createRouter, createMemoryHistory } from 'vue-router'
 import ApplicationSafeMapping from './ApplicationSafeMapping.vue'
 
+vi.mock('../../composables/useConfirmDialog', () => ({ confirmDelete: vi.fn().mockResolvedValue(true) }))
+import { confirmDelete } from '../../composables/useConfirmDialog'
+
 // D-213: both tables page server-side at the user's page size; the Safes
 // rows' select still offers every application.
 
@@ -169,5 +172,85 @@ describe('ApplicationSafeMapping.vue', () => {
       expect(wrapper.find('.assign-error').exists()).toBe(false)
       expect(wrapper.find('.assign-notice').text()).toContain('is now assigned to App 2')
     })
+  })
+})
+
+describe('ApplicationSafeMapping.vue: usage, delete and Safe search (UI review W8-2, W8-5, W8-6)', () => {
+  const used = { ...app(1), safeCount: 2, accountCount: 5, targetCount: 0, exceptionCount: 1 }
+  const unused = { ...app(2), safeCount: 0, accountCount: 0, targetCount: 0, exceptionCount: 0 }
+
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    confirmDelete.mockResolvedValue(true)
+  })
+  afterEach(() => {
+    vi.useRealTimers()
+    vi.restoreAllMocks()
+  })
+
+  function mockApi({ onDelete } = {}) {
+    globalThis.fetch = vi.fn((url, init) => {
+      if (init?.method === 'DELETE') return Promise.resolve(onDelete ?? { ok: true, status: 204, json: () => Promise.resolve(null) })
+      if (url === '/api/applications/detailed') return Promise.resolve(jsonResponse([used, unused]))
+      if (url.startsWith('/api/applications/detailed?')) return Promise.resolve(jsonResponse([used, unused], 2))
+      if (url.startsWith('/api/safes?')) return Promise.resolve(jsonResponse([safe(1)], 1))
+      return Promise.resolve({ ok: false, status: 404, json: () => Promise.resolve(null) })
+    })
+  }
+
+  it('shows what uses each application and only lets an unused one be deleted', async () => {
+    mockApi()
+    const wrapper = mount(ApplicationSafeMapping, { global: { plugins: [makeRouter()] } })
+    await flushPromises()
+
+    const rows = wrapper.findAll('.applications-table tbody tr')
+    expect(rows[0].text()).toContain('2 Safes, 5 accounts, 0 targets, 1 exceptions')
+    expect(rows[0].find('button').attributes('disabled')).toBeDefined()
+    expect(rows[1].find('button').attributes('disabled')).toBeUndefined()
+
+    await rows[1].find('button').trigger('click')
+    await flushPromises()
+    expect(confirmDelete).toHaveBeenCalledWith('Delete the application "App 2"? Nothing uses it.')
+    expect(globalThis.fetch.mock.calls.some(([url, init]) => url === '/api/applications/2' && init?.method === 'DELETE')).toBe(true)
+  })
+
+  it("shows the API's reason when a delete is refused, and does nothing when cancelled", async () => {
+    mockApi({ onDelete: { ok: false, status: 409, json: () => Promise.resolve({ detail: 'It is still used by a Safe.' }) } })
+    const wrapper = mount(ApplicationSafeMapping, { global: { plugins: [makeRouter()] } })
+    await flushPromises()
+
+    await wrapper.findAll('.applications-table tbody tr')[1].find('button').trigger('click')
+    await flushPromises()
+    expect(wrapper.find('[role="alert"]').text()).toBe('It is still used by a Safe.')
+
+    globalThis.fetch.mockClear()
+    confirmDelete.mockResolvedValueOnce(false)
+    await wrapper.findAll('.applications-table tbody tr')[1].find('button').trigger('click')
+    await flushPromises()
+    expect(globalThis.fetch.mock.calls.some(([, init]) => init?.method === 'DELETE')).toBe(false)
+  })
+
+  it('searches the Safes by name and can narrow them to those with no application', async () => {
+    vi.useFakeTimers()
+    mockApi()
+    const wrapper = mount(ApplicationSafeMapping, { global: { plugins: [makeRouter()] } })
+    await vi.advanceTimersByTimeAsync(0)
+    await flushPromises()
+    globalThis.fetch.mockClear()
+
+    await wrapper.find('input[type="search"]').setValue('prod')
+    await wrapper.findAll('input[type="checkbox"]').at(-1).setValue(true)
+    await vi.advanceTimersByTimeAsync(300)
+    await flushPromises()
+
+    const safeCalls = globalThis.fetch.mock.calls.map(c => c[0]).filter(u => u.startsWith('/api/safes?'))
+    expect(safeCalls).toEqual(['/api/safes?page=1&pageSize=50&search=prod&unassigned=true'])
+  })
+
+  it('explains the four ways an application gets onto an account', async () => {
+    mockApi()
+    const wrapper = mount(ApplicationSafeMapping, { global: { plugins: [makeRouter()] } })
+    await flushPromises()
+    expect(wrapper.find('.intro').text()).toContain('four ways')
   })
 })

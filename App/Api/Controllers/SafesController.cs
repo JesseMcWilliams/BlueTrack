@@ -16,15 +16,15 @@ public sealed class SafesController(
 {
     /// <summary>Every safe, or (D-213) one page of them with the X-Total-Count / X-Filtered-Count headers when page is given.</summary>
     [HttpGet]
-    public async Task<IActionResult> GetAll([FromQuery] int? page = null, [FromQuery] int? pageSize = null)
+    public async Task<IActionResult> GetAll([FromQuery] int? page = null, [FromQuery] int? pageSize = null,
+        [FromQuery] string? search = null, [FromQuery] bool unassigned = false)
     {
         if (page is not null)
         {
-            var count = (await repository.GetSafeCountAsync()).ToString();
-            Response.Headers["X-Total-Count"] = count;
-            Response.Headers["X-Filtered-Count"] = count;
+            Response.Headers["X-Total-Count"] = (await repository.GetSafeCountAsync()).ToString();
+            Response.Headers["X-Filtered-Count"] = (await repository.CountSafesAsync(search, unassigned)).ToString();
         }
-        return Ok(await repository.GetAllSafesAsync(page, pageSize));
+        return Ok(await repository.GetAllSafesAsync(page, pageSize, search, unassigned));
     }
 
     [HttpPut("{safeKey:int}/application")]

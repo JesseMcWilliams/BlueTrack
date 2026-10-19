@@ -137,6 +137,30 @@ describe('PlatformMapping.vue', () => {
     expect(wrapper.get('[role="alert"]').text()).toBe('Choose an account type.')
   })
 
+  // UI review W8-7
+  it('says why Save is off, and Remove cannot be sent twice', async () => {
+    const wrapper = await mountPage()
+    const row = wrapper.findAll('tbody tr')[0]
+    const save = row.findAll('button').find(b => b.text() === 'Save')
+    expect(save.attributes('title')).toBe('Choose an account type to save.')
+
+    const mapped = wrapper.findAll('tbody tr')[1]
+    expect(mapped.findAll('button').find(b => b.text() === 'Save').attributes('title')).toBe('Nothing has changed yet.')
+
+    let release
+    globalThis.fetch = vi.fn((url, init = {}) => (init.method === 'DELETE'
+      ? new Promise(resolve => { release = () => resolve(jsonResponse(null, true, 204)) })
+      : Promise.resolve(jsonResponse(url.endsWith('/options') ? options : rows))))
+    const remove = mapped.findAll('button').find(b => b.text() === 'Remove')
+    await remove.trigger('click')
+    await flushPromises()
+    expect(remove.attributes('disabled')).toBeDefined()
+    await remove.trigger('click')
+    expect(globalThis.fetch.mock.calls.filter(([, init]) => init?.method === 'DELETE')).toHaveLength(1)
+    release()
+    await flushPromises()
+  })
+
   it('says so when there are no platforms', async () => {
     const wrapper = await mountPage([])
     expect(wrapper.text()).toContain('No platforms to show.')

@@ -63,4 +63,29 @@ public sealed class ApplicationsController(
             detail: $"Application '{request.ApplicationName}' updated");
         return NoContent();
     }
+
+    /// <summary>
+    /// UI review W8-5: deletes an application that nothing uses. One that a Safe, an account, a target or a risk
+    /// exception still points at is refused (409) with the counts, so nothing is orphaned.
+    /// </summary>
+    [HttpDelete("{applicationKey:int}")]
+    [Authorize(Policy = Permissions.CurateApplicationMapping)]
+    public async Task<IActionResult> Delete(int applicationKey)
+    {
+        var user = await currentUserResolver.ResolveAsync(User);
+        if (user is null) return Unauthorized();
+
+        var result = await repository.DeleteIfUnusedAsync(applicationKey);
+        if (result is null) return NotFound();
+        var (name, safes, accounts, targets, exceptions) = result.Value;
+        if (safes + accounts + targets + exceptions > 0)
+        {
+            return Problem(title: "Application is in use",
+                detail: $"'{name}' is still used by {safes} Safe(s), {accounts} account(s), {targets} target(s) and {exceptions} risk exception(s). Move or remove those first.",
+                statusCode: StatusCodes.Status409Conflict);
+        }
+        await auditLogger.LogAsync("FieldEdit", user.UserKey, "dim_application", applicationKey.ToString(),
+            detail: $"Application '{name}' deleted");
+        return NoContent();
+    }
 }

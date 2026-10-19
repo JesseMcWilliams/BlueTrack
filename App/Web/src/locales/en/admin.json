@@ -36,6 +36,15 @@
     "notes": "Notes:"
   },
   "applicationSafeMapping": {
+    "intro": "An account's application can be set four ways: per Safe in the Safes table below (every account in that Safe), from a CSV with Bulk Actions, for one account on its Account Detail page, or for many accounts with Bulk Edit on the Accounts list.",
+    "usedBy": "In use",
+    "actions": "Actions",
+    "usage": "{safes} Safes, {accounts} accounts, {targets} targets, {exceptions} exceptions",
+    "inUse": "Move or remove what uses this application first.",
+    "confirmDelete": "Delete the application \"{name}\"? Nothing uses it.",
+    "searchSafes": "Find a Safe:",
+    "unassignedOnly": "Only Safes with no application",
+    "noSafesMatch": "No Safes match.",
     "applicationsRequestFailed": "Applications request failed: {status}",
     "safesRequestFailed": "Safes request failed: {status}",
     "assignFailedFor": "The application for {name} wasn't changed: {reason}. The list shows what is saved.",
@@ -54,6 +63,7 @@
     "applicationForSafe": "Application for safe {name}"
   },
   "applicationSafeMappingBulkImport": {
+    "noResponse": "The server did not answer, so nothing was imported.",
     "rowError": "Row {row}: {error}",
     "title": "Application Mapping: Bulk Actions",
     "applicationsHeading": "Bulk Import: Applications",
@@ -1077,6 +1087,8 @@
     "expiresHint": "The last day the key works (up to {max} days from today). Change it to renew the key or to shorten it; to stop a key now, disable or delete it."
   },
   "platformMapping": {
+    "saveNeedsType": "Choose an account type to save.",
+    "saveNothingChanged": "Nothing has changed yet.",
     "title": "Platform Mapping",
     "intro": "Each CyberArk platform (Privilege Cloud's own list; for Self-Hosted, one platform per policy ID) can be given the account type and source of record its accounts start with. A new account gets them when BlueTrack first tracks it, and both can still be changed on each account. Platforms with no mapping are listed first.",
     "unmappedCount": "{count} platform(s) have no mapping yet.",
