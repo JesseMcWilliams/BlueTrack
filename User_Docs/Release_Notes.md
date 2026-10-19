@@ -6,6 +6,16 @@ What changed in each BlueTrack release, newest first, for users and administrato
 
 ### New
 
+### Changed
+
+### Fixed
+
+### Upgrading
+
+## 1.3.0 (2026-10-19)
+
+### New
+
 - **Filters, sort and page are kept in the page address** on the Accounts list, and on the Trends, Discovered Accounts and Risk Score reports. Opening an account and coming back (Save, Cancel, or the Accounts breadcrumb) returns you to the list as you left it, and a copied address opens the same view.
 - **The stage counts on the Dashboard, and the counts on Reports > Stage / Status Summary, open the accounts behind them.** (They show the Accounts list's default view, which hides deleted accounts, as the counts do. The KPI counts don't open a list yet.)
 - **Saving now says so.** After you save and return to a list, a line such as "Payroll saved." shows under the page title until you move on or dismiss it. When a save is refused, the Application, Role, Identity Provider, Import Mapping Profile, Notification recipient and Field definition pages now show the reason instead of only a status number.
