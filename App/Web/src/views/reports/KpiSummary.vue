@@ -7,12 +7,14 @@
 // requires both the final stage and status Complete specifically.
 import { ref, computed, onMounted } from 'vue'
 import { formatCount } from '../../utils/formatCount'
+import { formatUtcDateTime } from '../../utils/formatLocale'
 import ReportExportButtons from '../../components/ReportExportButtons.vue'
 import { useI18n } from 'vue-i18n'
 
 const { t } = useI18n()
 
 const summary = ref(null)
+const asOf = ref(null) // UI review W7-3: when these numbers were read
 const error = ref(null)
 const loading = ref(true)
 
@@ -23,6 +25,7 @@ onMounted(async () => {
       throw new Error(t('common.requestFailed', { status: response.status }))
     }
     summary.value = await response.json()
+    asOf.value = new Date()
   } catch (err) {
     error.value = err.message
   } finally {
@@ -78,6 +81,16 @@ const kpis = computed(() => {
         </tbody>
       </table>
       <p>{{ t('reports.kpiSummary.totalAccounts', { count: formatCount(summary.totalAccounts) }) }}</p>
+      <p v-if="asOf"><small>{{ t('reports.kpiSummary.asOf', { time: formatUtcDateTime(asOf.toISOString()) }) }}</small></p>
+      <!-- UI review W7-3: what the words mean (D-143). -->
+      <h3>{{ t('reports.kpiSummary.definitionsHeading') }}</h3>
+      <dl>
+        <dt>{{ t('reports.kpiSummary.defAllTerm') }}</dt><dd>{{ t('reports.kpiSummary.defAll') }}</dd>
+        <dt>{{ t('reports.kpiSummary.defInScopeTerm') }}</dt><dd>{{ t('reports.kpiSummary.defInScope') }}</dd>
+        <dt>{{ t('reports.kpiSummary.defOnboardedTerm') }}</dt><dd>{{ t('reports.kpiSummary.defOnboarded') }}</dd>
+        <dt>{{ t('reports.kpiSummary.defManagedTerm') }}</dt><dd>{{ t('reports.kpiSummary.defManaged') }}</dd>
+        <dt>{{ t('reports.kpiSummary.defCompliantTerm') }}</dt><dd>{{ t('reports.kpiSummary.defCompliant') }}</dd>
+      </dl>
       <p><small>{{ t('reports.kpiSummary.listNote') }}</small></p>
     </template>
   </div>

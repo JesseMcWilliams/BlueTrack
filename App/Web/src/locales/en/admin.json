@@ -362,6 +362,8 @@
     "neverRun": "Never run"
   },
   "deploymentInfo": {
+    "backupConfirm": "Back up the application now? This runs a database backup on the server and downloads a zip of the appsettings files.",
+    "backupDone": "Backup complete. Downloaded {file}.",
     "backupFailed": "Backup failed: {status}",
     "title": "Deployment",
     "environment": "Environment",

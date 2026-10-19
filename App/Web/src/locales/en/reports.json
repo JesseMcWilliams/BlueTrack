@@ -119,6 +119,18 @@
     "colCount": "Count",
     "colPercentage": "Percentage",
     "notApplicable": "N/A",
+    "asOf": "Counts read {time}.",
+    "definitionsHeading": "What the counts mean",
+    "defAllTerm": "All Accounts",
+    "defAll": "Every inventory account that is not deleted, excluding feed accounts linked to a CyberArk account.",
+    "defInScopeTerm": "In Scope",
+    "defInScope": "All Accounts except those with the status Risk Accepted / Excluded.",
+    "defOnboardedTerm": "Onboarded",
+    "defOnboarded": "In Scope accounts at Blueprint stage 3 or later.",
+    "defManagedTerm": "Managed",
+    "defManaged": "In Scope accounts at Blueprint stage 4 or later.",
+    "defCompliantTerm": "Compliant",
+    "defCompliant": "Accounts at the final stage (5) with the status Complete.",
     "percent": "{value}%",
     "listNote": "Each count opens the Accounts list showing those accounts. The Accounts list shows accounts that have progress tracking, so an In Scope or All Accounts count can be higher than the list if some accounts have none yet.",
     "totalAccounts": "{count} account(s) total."
@@ -177,6 +189,8 @@
     "colLinkedOn": "Linked On"
   },
   "riskScoreReport": {
+    "openAccount": "Open {name}",
+    "emptyNone": "No accounts have a risk score yet.",
     "title": "Risk Score",
     "hint": "EffectiveRiskScore is the Override (if set) or otherwise the Computed score. Click a row's Account name to see the real Targets/Access Groups behind its score.",
     "colAccount": "Account",

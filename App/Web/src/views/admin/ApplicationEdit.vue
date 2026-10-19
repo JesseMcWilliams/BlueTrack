@@ -80,9 +80,9 @@ function cancel() {
       <p><label class="field-label"><span class="field-label-text">{{ t('admin.applicationEdit.name') }}</span> <input v-model="editing.applicationName" required /></label></p>
       <p><label class="field-label"><span class="field-label-text">{{ t('admin.applicationEdit.description') }}</span> <input v-model="editing.description" /></label></p>
       <p><label class="field-label"><span class="field-label-text">{{ t('admin.applicationEdit.ownerName') }}</span> <input v-model="editing.ownerName" /></label></p>
-      <p><label class="field-label"><span class="field-label-text">{{ t('admin.applicationEdit.ownerEmail') }}</span> <input v-model="editing.ownerEmail" /></label></p>
+      <p><label class="field-label"><span class="field-label-text">{{ t('admin.applicationEdit.ownerEmail') }}</span> <input v-model="editing.ownerEmail" type="email" /></label></p>
       <p><label class="field-label"><span class="field-label-text">{{ t('admin.applicationEdit.technicalName') }}</span> <input v-model="editing.technicalName" /></label></p>
-      <p><label class="field-label"><span class="field-label-text">{{ t('admin.applicationEdit.technicalEmail') }}</span> <input v-model="editing.technicalEmail" /></label></p>
+      <p><label class="field-label"><span class="field-label-text">{{ t('admin.applicationEdit.technicalEmail') }}</span> <input v-model="editing.technicalEmail" type="email" /></label></p>
       <p><label class="field-label"><span class="field-label-text">{{ t('admin.applicationEdit.notes') }}</span> <input v-model="editing.notes" /></label></p>
       <p v-if="saveError" role="alert">{{ saveError }}</p>
       <button type="submit" class="btn-primary" :disabled="saving">{{ t('common.save') }}</button>

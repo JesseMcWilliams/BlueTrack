@@ -12,7 +12,7 @@ The Self-Hosted Direct setup workflow (Credentials, CyberArk sources, Data Sourc
 4. **List state in the URL and drill-down: shipped (D-252)** for the Accounts list, Trends, Discovered Accounts and Risk Score, and for the Dashboard and stage-by-status counts. The KPI counts shipped in D-261.
 5. **Missing empty states: shipped (D-253)** for Targets, Access Groups, Accounts, Discovered Accounts and the admin lists. Still open: Risk Score report (a report, not the Bands list).
 6. **Silent failures**: bulk-import HTTP errors on Application mapping render nothing (Targets and Access Groups shipped in D-251); theme, language and page-size saves ignore failures. (W8-3, W12-3)
-7. **Accessibility basics** (worklist row links and named Delete buttons shipped, D-257 and D-258): toggles without `aria-expanded` and forms that open away from the control without moving focus remain on the Notifications run history (W9-9) and the Secrets Store (W10-8). (W9-9, W10-8; W5-5 and W5-6 shipped in D-262)
+7. **Accessibility basics** (worklist row links and named Delete buttons shipped, D-257 and D-258): toggles without `aria-expanded` and forms that open away from the control without moving focus remain on the Secrets Store (W10-8). (W10-8; W5-5, W5-6 and W9-9 shipped in D-262 and D-263)
 
 ## Workflow 1: Sign-in and access
 
@@ -84,11 +84,8 @@ Read-only reports; the admin acts in CyberArk. Rows link to the account detail.
 
 | ID | Finding | Effort |
 |---|---|---|
-| W7-3 | KPI Summary doesn't say what Onboarded, Managed or Compliant mean, or give an "as of" date (the definitions are in a code comment, D-143). | S |
 | W7-4 | Overdue/At-Risk can't be sorted, filtered or paged, and shows no days overdue. | M |
 | W7-5 | Trends doesn't validate the date range and refetches on every keystroke. | S |
-| W7-6 | The Risk Score account name expands a panel instead of linking to the account. | S |
-| W7-7 | The Risk Score report has no empty state (the Bands list does). | S |
 
 Works well: exports respect the active filters and sort and relay the API's error; Trends has chart text alternatives and a data table behind each chart.
 
@@ -98,7 +95,6 @@ Works well: exports respect the active filters and sort and relay the API's erro
 |---|---|---|
 | W8-2 | The Safes table can't be searched or filtered to unassigned only. | M |
 | W8-3 | Bulk imports write at once with no preview; a network error is silent; row errors are one semicolon-joined string. | S |
-| W8-4 | The Application edit page shows only a status code on a failed save (a 409 for a duplicate code); email fields aren't `type="email"`. | S |
 | W8-5 | No way to delete an application and nothing shows how many Safes or accounts use it. Unverified: delete may exist elsewhere. | M |
 | W8-6 | The account-to-application relationship is hard to find (Safe mapping, a CSV, the detail form, Bulk Edit). Add an intro with links. | S |
 | W8-7 | Platform Mapping: Remove can be double-clicked; Save is silently disabled. | S |
@@ -111,9 +107,7 @@ Works well: exports respect the active filters and sort and relay the API's erro
 | W9-3 | The SMTP Test email uses the saved settings but stays enabled while the form is dirty. | S |
 | W9-4 | Failed runs, Unhealthy checks and failed backups aren't marked in the run history, health checks or backup table. | S |
 | W9-5 | Add-recipient failure shows only the status code. | S |
-| W9-7 | Backup App has no confirmation and no success line naming the file. | S |
 | W9-8 | No "Saved" message after a feed or recipient save. | S |
-| W9-9 | The run-history time is an `<a href="#">` toggle with no `aria-expanded`. | S |
 
 Works well: the business-hours guard on Run now, Test on unsaved feed values, Global Application Configuration's save feedback and pattern tester.
 

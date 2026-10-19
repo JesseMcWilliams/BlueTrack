@@ -15,6 +15,7 @@ import { useRightsStore } from '../../stores/rights'
 import FilterCountSummary from '../../components/FilterCountSummary.vue'
 import Pager from '../../components/Pager.vue'
 import ReportExportButtons from '../../components/ReportExportButtons.vue'
+import EmptyListMessage from '../../components/EmptyListMessage.vue'
 import { useI18n } from 'vue-i18n'
 
 const { t } = useI18n()
@@ -205,7 +206,7 @@ onMounted(load)
         <template v-for="row in rows" :key="row.accountKey">
           <tr>
             <td>
-              <button type="button" class="link-button" @click="toggleDrilldown(row.accountKey)">
+              <button type="button" class="link-button" :aria-expanded="expandedAccountKey === row.accountKey" @click="toggleDrilldown(row.accountKey)">
                 {{ row.accountName }}
               </button>
             </td>
@@ -218,6 +219,8 @@ onMounted(load)
           </tr>
           <tr v-if="expandedAccountKey === row.accountKey">
             <td colspan="7">
+              <!-- UI review W7-6: the account name expands this panel, so the account itself is one link away. -->
+              <p><router-link :to="{ name: 'account-progress-detail', params: { accountKey: row.accountKey } }">{{ t('reports.riskScoreReport.openAccount', { name: row.accountName }) }}</router-link></p>
               <p v-if="contributorsLoading" role="status">{{ t('reports.riskScoreReport.loadingContributors') }}</p>
               <p v-else-if="contributorsError" role="alert">{{ contributorsError }}</p>
               <p v-else-if="contributors.length === 0">{{ t('reports.riskScoreReport.noContributors') }}</p>
@@ -242,6 +245,7 @@ onMounted(load)
         </template>
       </tbody>
     </table>
+    <EmptyListMessage :show="!loading && !error && rows.length === 0" :message="t('reports.riskScoreReport.emptyNone')" />
     <Pager :page="page" :page-count="pageCount" @update:page="onPageChange" @page-size-change="onPageSizeChange" />
     <p><small>{{ t('reports.riskScoreReport.sortHelp') }}</small></p>
   </div>
