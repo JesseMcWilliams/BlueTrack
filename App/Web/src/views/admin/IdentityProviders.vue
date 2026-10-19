@@ -123,7 +123,7 @@ async function remove(provider) {
             <td>{{ provider.isEnabled ? t('common.yes') : t('common.no') }}</td>
             <td>{{ provider.displayOrder }}</td>
             <td>
-              <button @click="remove(provider)">{{ t('common.delete') }}</button>
+              <button @click="remove(provider)" :aria-label="t('common.deleteNamed', { name: provider.displayName })">{{ t('common.delete') }}</button>
             </td>
           </tr>
         </tbody>

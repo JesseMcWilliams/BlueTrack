@@ -9,10 +9,10 @@ The Self-Hosted Direct setup workflow (Credentials, CyberArk sources, Data Sourc
 1. **A failed save says only a status code: shipped (D-251, D-253)** for the edit pages. Still open: Credentials LDAP save, Notifications and Account Detail's other-status branch still show their own status text. (W9-5)
 2. **Destructive or live-changing buttons that don't confirm**, next to ones that do. Shipped (D-251, D-256): Revoke, Ignore, Force Release, Make active, Dismiss, Rotate and Bulk Apply. Still open: no undo or "show dismissed" view (W5-4).
 3. **"Saved" message after a save that navigates away: shipped (D-253)** on every edit page that returns to a list and on Account Detail.
-4. **List state in the URL and drill-down: shipped (D-252)** for the Accounts list, Trends, Discovered Accounts and Risk Score, and for the Dashboard and stage-by-status counts. Still open: the KPI counts (W7-1); and the other lists (Targets, Access Groups, Risk Exceptions, Audit Log) still keep their filters only in the page.
-5. **Missing empty states: shipped (D-253)** for Targets, Access Groups, Accounts, Discovered Accounts and the admin lists. Still open: Risk Score report (a report, not the Bands list), a Clear filters button on the Accounts list (W2-7), and a failed load keeping the stale table on Targets and Access Groups (W4-6).
+4. **List state in the URL and drill-down: shipped (D-252)** for the Accounts list, Trends, Discovered Accounts and Risk Score, and for the Dashboard and stage-by-status counts. Still open: the KPI counts (W7-1); Risk Exceptions and the Audit Log still keep their filters only in the page (Targets and Access Groups shipped in D-258).
+5. **Missing empty states: shipped (D-253)** for Targets, Access Groups, Accounts, Discovered Accounts and the admin lists. Still open: Risk Score report (a report, not the Bands list).
 6. **Silent failures**: bulk-import HTTP errors on Application mapping render nothing (Targets and Access Groups shipped in D-251); theme, language and page-size saves ignore failures. (W8-3, W12-3)
-7. **Accessibility basics**: a worklist that opens only on row click, "Delete" repeated with no row name, toggles without `aria-expanded`, forms that open away from the control without moving focus. (W3-5, W4-7, W5-5, W5-6, W9-9, W10-8)
+7. **Accessibility basics** (worklist row links and named Delete buttons shipped, D-257 and D-258): toggles without `aria-expanded`, forms that open away from the control without moving focus. (W3-5, W4-7, W5-5, W5-6, W9-9, W10-8)
 
 ## Workflow 1: Sign-in and access
 
@@ -21,7 +21,6 @@ Today: the router guard sends an unauthenticated user to `/login`; Login lists o
 | ID | Finding | Effort |
 |---|---|---|
 | W1-5 | The Identity Provider pages never say OIDC changes need an app restart (a code comment only). Unverified: wording elsewhere. | S |
-| W1-6 | Row-less Delete labels (`IdentityProviders.vue:119-127`, `GroupRoleMapping.vue:137`, `RolesAndPermissions.vue:68`). | S |
 | W1-7 | No lock-out warning when deleting the default or last enabled provider, or your own role. Unverified: the server may refuse. | M |
 
 Works well: distinct idle and signed-out messages, an open-redirect-safe `returnUrl`, group names resolved with a Lookup tool that explains effective rights.
@@ -59,11 +58,7 @@ Today: list with type, application and linked filters; Target Edit with identifi
 
 | ID | Finding | Effort |
 |---|---|---|
-| W4-3 | "Link account to target" on Targets can only pick a target on the current page, with a free-text account name and a status-code-only error (`Targets.vue:359-364`). Use the search Combobox. | M |
 | W4-5 | No path from an import's "N pending review" to the queue, which is only under Admin. | S |
-| W4-6 | No empty states on Targets and Access Groups; a failed load keeps the stale table. | S |
-| W4-7 | Delete buttons have no row label (`Targets.vue:347`, `AccessGroups.vue:283`). | S |
-| W4-8 | No "saved" message on return to the list, and list state isn't kept. | S |
 
 Works well: link and unlink confirmations that say what will happen, the delete confirmation that names the target, a readable 409 for a duplicate access group, column checks before an import.
 

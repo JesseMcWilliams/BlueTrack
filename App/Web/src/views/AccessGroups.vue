@@ -25,8 +25,10 @@
 // their importState/onFileChange/importFile script logic) moved off this
 // page onto AccessGroupsBulkImport.vue, reached via the "Bulk Actions"
 // header link below.
-import { ref, computed, onMounted, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, computed, onMounted, watch, nextTick } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { useListStateStore } from '../stores/listState'
+import { readText, readOneOf, readPage, parseSort, compactQuery, sameQuery } from '../utils/listQuery'
 import { useTotalCount } from '../composables/useTotalCount'
 import { useLatestRequest } from '../composables/useLatestRequest'
 import { confirmDelete } from '../composables/useConfirmDialog'
@@ -46,6 +48,8 @@ import EmptyListMessage from '../components/EmptyListMessage.vue'
 const { t } = useI18n()
 
 const router = useRouter()
+const route = useRoute()
+const listState = useListStateStore()
 const items = ref([])
 const sorTypes = ref([])
 const error = ref(null)
@@ -119,9 +123,37 @@ function toggleSort(field, event) {
 const sortQueryParam = computed(() =>
   sortColumns.value.map(s => `${s.field}:${s.descending ? 'desc' : 'asc'}`).join(','))
 
+// UI review W4 (D-252's pattern): the filters, sort and page are in the page address, so a filtered list survives
+// opening a record and coming back, a reload and a pasted link.
+const LIST_ROUTE = 'access-groups'
+const QUERY_DEFAULTS = { page: 1 }
+let applyingAddress = false
+
+function applyAddress(query) {
+  scopeFilter.value = readOneOf(query, 'scope', ['Domain', 'Local'], '')
+  sorTypeFilter.value = readText(query, 'sorType')
+  sortColumns.value = parseSort(readText(query, 'sort'), columns.map(c => c.field))
+  page.value = readPage(query)
+}
+
+function currentAddress() {
+  return compactQuery({ scope: scopeFilter.value, sorType: sorTypeFilter.value, sort: sortQueryParam.value, page: page.value }, QUERY_DEFAULTS)
+}
+
+applyAddress(route.query)
+listState.remember(LIST_ROUTE, currentAddress())
+
+function writeAddress() {
+  if (applyingAddress) return
+  const query = currentAddress()
+  listState.remember(LIST_ROUTE, query)
+  if (!sameQuery(query, route.query)) router.replace({ query })
+}
+
 async function load() {
   const request = latestRequest.begin()
   loading.value = true
+  error.value = null // UI review W4-6: a retry clears the last failure
   try {
     const params = new URLSearchParams()
     if (scopeFilter.value) params.set('groupScope', scopeFilter.value)
@@ -137,7 +169,10 @@ async function load() {
     readTotalCount(groupsResponse)
     items.value = body
   } catch (err) {
-    if (latestRequest.isCurrent(request)) error.value = err.message
+    if (latestRequest.isCurrent(request)) {
+      error.value = err.message
+      items.value = [] // UI review W4-6: not the stale rows of the last good load
+    }
   } finally {
     if (latestRequest.isCurrent(request)) loading.value = false
   }
@@ -156,7 +191,21 @@ onMounted(async () => {
 // D-124 Phase 3: a filter/sort change resets to page 1 -- see Targets.vue's
 // identical comment for why page-size/Prev/Next changes are handled separately.
 watch([scopeFilter, sorTypeFilter, sortQueryParam], () => {
+  if (applyingAddress) return
   page.value = 1
+  load()
+})
+
+watch([scopeFilter, sorTypeFilter, sortQueryParam, page], writeAddress, { flush: 'post' })
+
+// Back and Forward (or a link to this list while it is open) change the address under the page: show what it says.
+watch(() => route.query, async (query) => {
+  if (route.name !== LIST_ROUTE || sameQuery(query, currentAddress())) return
+  applyingAddress = true
+  applyAddress(query)
+  await nextTick()
+  applyingAddress = false
+  listState.remember(LIST_ROUTE, currentAddress())
   load()
 })
 
@@ -281,12 +330,12 @@ async function remove(item) {
             <td>{{ item.sorAddress ?? '—' }}</td>
             <td>{{ item.discoverySource ?? '—' }}</td>
             <td>
-              <button @click="remove(item)">{{ t('common.delete') }}</button>
+              <button @click="remove(item)" :aria-label="t('common.deleteNamed', { name: item.groupName })">{{ t('common.delete') }}</button>
             </td>
           </tr>
         </tbody>
       </table>
-      <EmptyListMessage :show="!loading && items.length === 0" :message="totalCount === 0 ? t('pages.accessGroups.emptyNone') : t('pages.accessGroups.emptyFiltered')" />
+      <EmptyListMessage :show="!loading && !error && items.length === 0" :message="totalCount === 0 ? t('pages.accessGroups.emptyNone') : t('pages.accessGroups.emptyFiltered')" />
       <Pager :page="page" :page-count="pageCount" @update:page="onPageChange" @page-size-change="onPageSizeChange" />
       <p><small>{{ t('pages.accessGroups.sortHint') }}</small></p>
     </template>

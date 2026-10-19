@@ -22,6 +22,7 @@
 // first) is offered on both; a pair is never linked again automatically.
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { useListStateStore } from '../stores/listState'
 import { flash, savedMessage } from '../composables/useFlash'
 import { useI18n } from 'vue-i18n'
 import Combobox from '../components/Combobox.vue'
@@ -32,6 +33,7 @@ const { t } = useI18n()
 
 const props = defineProps({ targetKey: { type: [String, Number], required: false, default: null } })
 const router = useRouter()
+const listState = useListStateStore()
 const isEditMode = computed(() => props.targetKey !== null && props.targetKey !== undefined)
 
 const loading = ref(true)
@@ -171,14 +173,14 @@ async function save() {
       return
     }
     flash(savedMessage(t, editing.value.targetName))
-    router.push({ name: 'targets' })
+    router.push({ name: 'targets', query: listState.queryFor('targets') })
   } finally {
     saving.value = false
   }
 }
 
 function cancel() {
-  router.push({ name: 'targets' })
+  router.push({ name: 'targets', query: listState.queryFor('targets') })
 }
 </script>
 

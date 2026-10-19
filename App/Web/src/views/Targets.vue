@@ -36,8 +36,10 @@
 // D-229: a target linked to another (Target Match Review's Link) is hidden
 // unless "Linked targets: Show" is chosen, as Account Progress's linked feed
 // accounts (D-212); a shown one carries a Linked badge to its primary.
-import { ref, computed, onMounted, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, computed, onMounted, watch, nextTick } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { useListStateStore } from '../stores/listState'
+import { readText, readOneOf, readPage, parseSort, compactQuery, sameQuery } from '../utils/listQuery'
 import { useTotalCount } from '../composables/useTotalCount'
 import { useLatestRequest } from '../composables/useLatestRequest'
 import { confirmDelete } from '../composables/useConfirmDialog'
@@ -53,31 +55,59 @@ import { useBulkAction } from '../composables/useBulkAction'
 import { formatCount } from '../utils/formatCount'
 import { useI18n } from 'vue-i18n'
 import EmptyListMessage from '../components/EmptyListMessage.vue'
+import Combobox from '../components/Combobox.vue'
+import { problemMessage } from '../utils/problemText'
 
 const { t } = useI18n()
 
 const router = useRouter()
+const route = useRoute()
+const listState = useListStateStore()
 
-const linkAccountName = ref('')
-const linkTargetKey = ref(null)
+// UI review W4-3: both ends of the link are found by typing, not picked from the current page or typed blind.
+const linkAccount = ref(null)
+const linkTarget = ref(null)
 const linkError = ref(null)
+const linkResetKey = ref(0) // remounts the two searches so their text clears after a link is made
 const linkSaved = ref(false)
+
+async function searchLinkAccounts(text) {
+  const response = await fetch(`/api/account-progress?search=${encodeURIComponent(text)}&pageSize=10`)
+  if (!response.ok) throw new Error(t('pages.targets.searchFailed', { status: response.status }))
+  return response.json()
+}
+
+async function searchLinkTargets(text) {
+  const response = await fetch(`/api/admin/targets/search?q=${encodeURIComponent(text)}`)
+  if (!response.ok) throw new Error(t('pages.targets.searchFailed', { status: response.status }))
+  return response.json()
+}
+
+function linkAccountLabel(account) {
+  const name = account.userName || account.accountName
+  return account.address ? `${name} (${account.address})` : name
+}
 
 async function createAccountTargetLink() {
   linkError.value = null
   linkSaved.value = false
+  if (!linkAccount.value || !linkTarget.value) {
+    linkError.value = t('pages.targets.linkChoose')
+    return
+  }
   const response = await fetch('/api/admin/risk-scoring/account-target-links', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ accountName: linkAccountName.value, targetKey: linkTargetKey.value })
+    body: JSON.stringify({ accountName: linkAccount.value.accountName, targetKey: linkTarget.value.targetKey })
   })
   if (!response.ok) {
-    linkError.value = t('pages.targets.linkFailed', { status: response.status })
+    linkError.value = await problemMessage(response, t('pages.targets.linkFailed', { status: response.status }))
     return
   }
   linkSaved.value = true
-  linkAccountName.value = ''
-  linkTargetKey.value = null
+  linkAccount.value = null
+  linkTarget.value = null
+  linkResetKey.value += 1
 }
 
 const items = ref([])
@@ -159,9 +189,38 @@ function toggleSort(field, event) {
 const sortQueryParam = computed(() =>
   sortColumns.value.map(s => `${s.field}:${s.descending ? 'desc' : 'asc'}`).join(','))
 
+// UI review W4 (D-252's pattern): the filters, sort and page are in the page address, so a filtered list survives
+// opening a record and coming back, a reload and a pasted link.
+const LIST_ROUTE = 'targets'
+const QUERY_DEFAULTS = { linked: 'Hide', page: 1 }
+let applyingAddress = false
+
+function applyAddress(query) {
+  typeFilter.value = readText(query, 'type')
+  applicationFilter.value = readText(query, 'application')
+  linkedFilter.value = readOneOf(query, 'linked', ['Hide', 'Show'], 'Hide')
+  sortColumns.value = parseSort(readText(query, 'sort'), columns.map(c => c.field))
+  page.value = readPage(query)
+}
+
+function currentAddress() {
+  return compactQuery({ type: typeFilter.value, application: applicationFilter.value, linked: linkedFilter.value, sort: sortQueryParam.value, page: page.value }, QUERY_DEFAULTS)
+}
+
+applyAddress(route.query)
+listState.remember(LIST_ROUTE, currentAddress())
+
+function writeAddress() {
+  if (applyingAddress) return
+  const query = currentAddress()
+  listState.remember(LIST_ROUTE, query)
+  if (!sameQuery(query, route.query)) router.replace({ query })
+}
+
 async function load() {
   const request = latestRequest.begin()
   loading.value = true
+  error.value = null // UI review W4-6: a retry clears the last failure
   try {
     const params = new URLSearchParams()
     if (typeFilter.value) params.set('targetTypeKey', typeFilter.value)
@@ -184,7 +243,10 @@ async function load() {
     items.value = targetsBody
     identifierTypes.value = typesBody
   } catch (err) {
-    if (latestRequest.isCurrent(request)) error.value = err.message
+    if (latestRequest.isCurrent(request)) {
+      error.value = err.message
+      items.value = [] // UI review W4-6: not the stale rows of the last good load
+    }
   } finally {
     if (latestRequest.isCurrent(request)) loading.value = false
   }
@@ -211,7 +273,21 @@ onMounted(async () => {
 // is handled separately by onPageSizeChange, and a plain Prev/Next click by
 // onPageChange, neither of which should reset anything else.
 watch([typeFilter, applicationFilter, linkedFilter, sortQueryParam], () => {
+  if (applyingAddress) return
   page.value = 1
+  load()
+})
+
+watch([typeFilter, applicationFilter, linkedFilter, sortQueryParam, page], writeAddress, { flush: 'post' })
+
+// Back and Forward (or a link to this list while it is open) change the address under the page: show what it says.
+watch(() => route.query, async (query) => {
+  if (route.name !== LIST_ROUTE || sameQuery(query, currentAddress())) return
+  applyingAddress = true
+  applyAddress(query)
+  await nextTick()
+  applyingAddress = false
+  listState.remember(LIST_ROUTE, currentAddress())
   load()
 })
 
@@ -345,12 +421,12 @@ async function remove(item) {
             <td>{{ item.riskScore }}</td>
             <td>{{ item.identifiers.map(i => `${i.identifierType}=${i.identifierValue}`).join(', ') }}</td>
             <td>
-              <button @click="remove(item)">{{ t('common.delete') }}</button>
+              <button @click="remove(item)" :aria-label="t('common.deleteNamed', { name: item.targetName })">{{ t('common.delete') }}</button>
             </td>
           </tr>
         </tbody>
       </table>
-      <EmptyListMessage :show="!loading && items.length === 0" :message="totalCount === 0 ? t('pages.targets.emptyNone') : t('pages.targets.emptyFiltered')" />
+      <EmptyListMessage :show="!loading && !error && items.length === 0" :message="totalCount === 0 ? t('pages.targets.emptyNone') : t('pages.targets.emptyFiltered')" />
       <Pager :page="page" :page-count="pageCount" @update:page="onPageChange" @page-size-change="onPageSizeChange" />
       <p><small>{{ t('pages.targets.sortHint') }}</small></p>
 
@@ -358,14 +434,12 @@ async function remove(item) {
       <p v-if="linkError" role="alert">{{ linkError }}</p>
       <p v-if="linkSaved" role="status">{{ t('pages.targets.linked') }}</p>
       <form class="filter-row" @submit.prevent="createAccountTargetLink">
-        <label class="field-label"><span class="field-label-text">{{ t('pages.targets.accountName') }}</span> <input v-model="linkAccountName" required /></label>
-        <label class="field-label">
-          <span class="field-label-text">{{ t('pages.targets.target') }}</span>
-          <select v-model="linkTargetKey" required>
-            <option :value="null" disabled>{{ t('pages.targets.choose') }}</option>
-            <option v-for="item in items" :key="item.targetKey" :value="item.targetKey">{{ item.targetName }}</option>
-          </select>
-        </label>
+        <span class="field-label-text">{{ t('pages.targets.accountName') }}</span>
+        <Combobox :key="`account-${linkResetKey}`" v-model="linkAccount" :label="t('pages.targets.accountName')" :search="searchLinkAccounts"
+                  :item-key="account => account.accountKey" :item-label="linkAccountLabel" :placeholder="t('pages.targets.accountPlaceholder')" />
+        <span class="field-label-text">{{ t('pages.targets.target') }}</span>
+        <Combobox :key="`target-${linkResetKey}`" v-model="linkTarget" :label="t('pages.targets.target')" :search="searchLinkTargets"
+                  :item-key="target => target.targetKey" :item-label="target => `${target.targetName} (${target.targetTypeDisplayName})`" :placeholder="t('pages.targets.targetPlaceholder')" />
         <button type="submit" class="btn-primary">{{ t('pages.targets.link') }}</button>
       </form>
     </template>

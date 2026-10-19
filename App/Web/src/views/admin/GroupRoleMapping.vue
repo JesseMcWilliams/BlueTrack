@@ -143,7 +143,7 @@ async function remove(mapping) {
               <span v-else-if="mapping.providerType === 'WindowsIntegrated'" class="group-identifier">{{ t('admin.groupRoleMapping.nameNotResolved') }}</span>
             </td>
             <td>{{ mapping.roleName }}</td>
-            <td><button @click="remove(mapping)">{{ t('common.delete') }}</button></td>
+            <td><button @click="remove(mapping)" :aria-label="t('common.deleteNamed', { name: groupLabel(mapping) })">{{ t('common.delete') }}</button></td>
           </tr>
         </tbody>
       </table>

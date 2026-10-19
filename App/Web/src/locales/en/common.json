@@ -2,6 +2,7 @@
   "save": "Save",
   "cancel": "Cancel",
   "delete": "Delete",
+  "deleteNamed": "Delete {name}",
   "edit": "Edit",
   "add": "Add",
   "remove": "Remove",
