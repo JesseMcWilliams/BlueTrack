@@ -39,7 +39,6 @@ Today: the Dashboard links to the two worklists (the list page doesn't); create 
 
 | ID | Finding | Effort |
 |---|---|---|
-| W3-4 | An application-scoped exception doesn't list the accounts it covers (the detail now names the account or application, D-259). | M |
 | W3-6 | Neither worklist shows the linked account, and neither can extend or revoke inline (they are now linked from the exceptions list). | S |
 | W3-7 | "Approval worklist" lists every Active exception; there is no pending-approval state. Unverified whether the API has one. Rename or confirm the purpose. | S |
 | W3-8 | Expired and Revoked exceptions show no reason, who or when (D-190 records it). | S |
@@ -84,7 +83,6 @@ Works well: exports respect the active filters and sort and relay the API's erro
 
 | ID | Finding | Effort |
 |---|---|---|
-| W9-4 | Failed runs, Unhealthy checks and failed backups aren't marked in the run history, health checks or backup table. | S |
 
 Works well: the business-hours guard on Run now, Test on unsaved feed values, Global Application Configuration's save feedback and pattern tester.
 
@@ -92,7 +90,6 @@ Works well: the business-hours guard on Run now, Test on unsaved feed values, Gl
 
 | ID | Finding | Effort |
 |---|---|---|
-| W10-4 | No leave-page guard on the API key reveal screen (Rotate now confirms). | S |
 
 Works well: the API key reveal (shown once, select on focus, Copy), the keys list (status, last used, where from), SIEM status and "Test first" hint.
 
@@ -100,13 +97,11 @@ Works well: the API key reveal (shown once, select on focus, Copy), the keys lis
 
 | ID | Finding | Effort |
 |---|---|---|
-| W11-1 | There is no filter for who did it: the API takes `performedByUserKey`, but the viewer has no user lookup to pick one (the event type is now a choice, D-265). | M |
 
 ## Workflow 12: Personal settings
 
 | ID | Finding | Effort |
 |---|---|---|
-| W12-1 | Edits typed in a form are lost when the idle sign-out happens (the warning now gives two minutes). Unverified: whether sign-in returns to the page. | M |
 
 Works well: the user menu is a proper disclosure (Escape returns focus, closes on route change), the About dialog is modal with focus handled, the idle timer is shared across tabs.
 

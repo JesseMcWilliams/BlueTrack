@@ -13,6 +13,7 @@ import Pager from '../../components/Pager.vue'
 import ReportExportButtons from '../../components/ReportExportButtons.vue'
 import { useI18n } from 'vue-i18n'
 import { formatUtcDateTime } from '../../utils/formatLocale'
+import Combobox from '../../components/Combobox.vue'
 
 const { t } = useI18n()
 
@@ -36,7 +37,15 @@ const toDateFilter = ref('')
 
 // D-231: the filters last submitted (Filter button). The grid's paging/sort
 // reloads and the Export buttons both use these, never unsubmitted form edits.
-const appliedFilters = ref({ eventType: '', entityName: '', fromDate: '', toDate: '' })
+const appliedFilters = ref({ eventType: '', entityName: '', fromDate: '', toDate: '', performedByUserKey: '', performedByName: '' })
+// UI review W11-1: who did it. The picked person (applied with the Filter button like the other filters).
+const performerChoice = ref(null)
+
+async function searchPerformers(text) {
+  const response = await fetch(`/api/audit-log/performers?q=${encodeURIComponent(text)}`)
+  if (!response.ok) throw new Error(t('admin.auditLogViewer.performersFailed', { status: response.status }))
+  return response.json()
+}
 
 // D-124 Phase 3: pagination -- page is local to this page (not persisted);
 // pageSize comes from the shared, server-persisted pageSize store.
@@ -62,7 +71,9 @@ function loadFiltered() {
     eventType: eventTypeFilter.value,
     entityName: entityNameFilter.value,
     fromDate: fromDateFilter.value,
-    toDate: toDateFilter.value
+    toDate: toDateFilter.value,
+    performedByUserKey: performerChoice.value ? String(performerChoice.value.userKey) : '',
+    performedByName: performerChoice.value?.displayName ?? ''
   }
   page.value = 1
   load()
@@ -121,7 +132,10 @@ const sortQueryParam = computed(() =>
   sortColumns.value.map(s => `${s.field}:${s.descending ? 'desc' : 'asc'}`).join(','))
 
 // D-231: what Export CSV / Export Excel send -- the applied filters and the current sort.
-const exportParams = computed(() => ({ ...appliedFilters.value, sort: sortQueryParam.value }))
+const exportParams = computed(() => {
+  const { performedByName, ...filters } = appliedFilters.value // the name is only for the page's own label
+  return { ...filters, sort: sortQueryParam.value }
+})
 
 async function load() {
   const request = latestRequest.begin()
@@ -134,6 +148,7 @@ async function load() {
     if (applied.entityName) params.set('entityName', applied.entityName)
     if (applied.fromDate) params.set('fromDate', applied.fromDate)
     if (applied.toDate) params.set('toDate', applied.toDate)
+    if (applied.performedByUserKey) params.set('performedByUserKey', applied.performedByUserKey)
     if (sortQueryParam.value) params.set('sort', sortQueryParam.value)
     params.set('page', page.value)
     params.set('pageSize', pageSizeStore.current)
@@ -160,9 +175,12 @@ const { isApplying } = useAddressState({
       eventType: readText(query, 'eventType'),
       entityName: readText(query, 'entityName'),
       fromDate: readDate(query, 'from'),
-      toDate: readDate(query, 'to')
+      toDate: readDate(query, 'to'),
+      performedByUserKey: /^\d+$/.test(readText(query, 'by')) ? readText(query, 'by') : '',
+      performedByName: readText(query, 'byName')
     }
     appliedFilters.value = applied
+    performerChoice.value = applied.performedByUserKey ? { userKey: Number(applied.performedByUserKey), displayName: applied.performedByName || applied.performedByUserKey } : null
     eventTypeFilter.value = applied.eventType
     entityNameFilter.value = applied.entityName
     fromDateFilter.value = applied.fromDate
@@ -172,7 +190,7 @@ const { isApplying } = useAddressState({
   },
   current: () => compactQuery({
     eventType: appliedFilters.value.eventType, entityName: appliedFilters.value.entityName,
-    from: appliedFilters.value.fromDate, to: appliedFilters.value.toDate, sort: sortQueryParam.value, page: page.value
+    from: appliedFilters.value.fromDate, to: appliedFilters.value.toDate, by: appliedFilters.value.performedByUserKey, byName: appliedFilters.value.performedByName, sort: sortQueryParam.value, page: page.value
   }, { page: 1 }),
   onApplied: load
 })
@@ -192,13 +210,14 @@ onMounted(load)
 
 // UI review W11-5: back to no filters, applied at once.
 const anyFilter = computed(() => !!(eventTypeFilter.value || entityNameFilter.value || fromDateFilter.value || toDateFilter.value
-  || appliedFilters.value.eventType || appliedFilters.value.entityName || appliedFilters.value.fromDate || appliedFilters.value.toDate))
+  || appliedFilters.value.eventType || appliedFilters.value.entityName || appliedFilters.value.fromDate || appliedFilters.value.toDate || performerChoice.value || appliedFilters.value.performedByUserKey))
 
 function clearFilters() {
   eventTypeFilter.value = ''
   entityNameFilter.value = ''
   fromDateFilter.value = ''
   toDateFilter.value = ''
+  performerChoice.value = null
   loadFiltered()
 }
 // D-124 Phase 3: a sort change resets to page 1 -- see Targets.vue's
@@ -239,6 +258,8 @@ async function toggleFieldChanges(event) {
         </select>
         <input v-else v-model="eventTypeFilter" :placeholder="t('admin.auditLogViewer.eventTypePlaceholder')" /></label>
       <label class="field-label"><span class="field-label-text">{{ t('admin.auditLogViewer.entityLabel') }}</span> <input v-model="entityNameFilter" :placeholder="t('admin.auditLogViewer.entityPlaceholder')" /></label>
+      <span class="field-label-text">{{ t('admin.auditLogViewer.byLabel') }}</span>
+      <Combobox v-model="performerChoice" :label="t('admin.auditLogViewer.byLabel')" :search="searchPerformers" :item-key="p => p.userKey" :item-label="p => p.displayName" :placeholder="t('admin.auditLogViewer.byPlaceholder')" />
       <label class="field-label"><span class="field-label-text">{{ t('admin.auditLogViewer.fromLabel') }}</span> <input v-model="fromDateFilter" type="date" /></label>
       <label class="field-label"><span class="field-label-text">{{ t('admin.auditLogViewer.toLabel') }}</span> <input v-model="toDateFilter" type="date" /></label>
       <button type="submit" class="btn-primary">{{ t('admin.auditLogViewer.filter') }}</button>

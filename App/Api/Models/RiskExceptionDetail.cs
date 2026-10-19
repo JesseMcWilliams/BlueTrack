@@ -35,6 +35,16 @@ public sealed class RiskExceptionDetail
     public DateTime? ImportedDate { get; init; }
 }
 
+/// <summary>UI review W3-4: an account an application-scoped exception covers (its Safe's application or its own application).</summary>
+public sealed class CoveredAccount
+{
+    public long AccountKey { get; init; }
+    public required string AccountName { get; init; }
+    public string? UserName { get; init; }
+    public string? Address { get; init; }
+    public string? SafeName { get; init; }
+}
+
 /// <summary>D-183: one row of the Risk Exceptions import, validated and resolved.</summary>
 public sealed class ImportedRiskException
 {

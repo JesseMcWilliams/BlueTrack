@@ -2,7 +2,9 @@
 // D-243: a new API key, shown once. The key is in the response to the create
 // (or the rotate) and nowhere else (only its hash is stored), so whoever
 // creates it must copy it before leaving the page.
-import { ref } from 'vue'
+import { ref, inject, onMounted, onBeforeUnmount } from 'vue'
+import { routerKey } from 'vue-router'
+import { confirmDelete } from '../composables/useConfirmDialog'
 import { useI18n } from 'vue-i18n'
 import { formatDate } from '../utils/formatDate'
 
@@ -16,6 +18,40 @@ const props = defineProps({
 const emit = defineEmits(['done'])
 
 const copied = ref(false)
+
+// UI review W10-4: the key can't be shown again, so leaving the page (a link, Back, closing the tab) before copying it asks
+// first. Choosing Done is leaving on purpose, and a copied key is safe, so neither asks. (The router is optional so
+// the component also mounts alone, as in a test.)
+const router = inject(routerKey, null)
+let leavingOnPurpose = false
+let removeGuard = null
+
+function onBeforeUnload(event) {
+  if (copied.value || leavingOnPurpose) return
+  event.preventDefault()
+  event.returnValue = ''
+}
+
+onMounted(() => {
+  removeGuard = router?.beforeEach(async () => {
+    if (copied.value || leavingOnPurpose) return true
+    return confirmDelete({
+      title: t('admin.apiKeyCreate.leaveTitle'),
+      details: [],
+      warning: t('admin.apiKeyCreate.leaveWarning')
+    }, t('admin.apiKeyCreate.leave'))
+  })
+  window.addEventListener('beforeunload', onBeforeUnload)
+})
+onBeforeUnmount(() => {
+  removeGuard?.()
+  window.removeEventListener('beforeunload', onBeforeUnload)
+})
+
+function done() {
+  leavingOnPurpose = true
+  emit('done')
+}
 const copyFailed = ref(false) // UI review W10-5: copying can be refused (a plain-HTTP host has no clipboard)
 
 async function copyKey() {
@@ -41,7 +77,7 @@ async function copyKey() {
       <span v-if="copyFailed" role="alert">{{ ' ' + t('admin.apiKeyCreate.copyFailed') }}</span>
     </p>
     <p>{{ t('admin.apiKeyCreate.expiresOn', { date: formatDate(expiresAt) }) }}</p>
-    <button type="button" class="btn-primary" @click="emit('done')">{{ t('admin.apiKeyCreate.done') }}</button>
+    <button type="button" class="btn-primary" @click="done">{{ t('admin.apiKeyCreate.done') }}</button>
   </section>
 </template>
 

@@ -60,7 +60,7 @@ describe('useIdleSignOut', () => {
 
     expect(globalThis.fetch).toHaveBeenCalledWith('/api/auth/logout', { method: 'POST' })
     expect(router.currentRoute.value.name).toBe('login')
-    expect(router.currentRoute.value.query).toEqual({ signedOut: '1', reason: 'idle' })
+    expect(router.currentRoute.value.query).toEqual({ signedOut: '1', reason: 'idle', returnUrl: '/' }) // UI review W12-1: back to the page after signing in
     expect(useRightsStore().authenticated).toBeNull()
     wrapper.unmount()
   })

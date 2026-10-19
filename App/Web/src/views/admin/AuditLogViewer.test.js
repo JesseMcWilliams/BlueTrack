@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import AuditLogViewer from './AuditLogViewer.vue'
+import Combobox from '../../components/Combobox.vue'
 import ReportExportButtons from '../../components/ReportExportButtons.vue'
 
 // D-124 Phase 3: this page had no component-level Vitest coverage before
@@ -122,7 +123,7 @@ describe('AuditLogViewer.vue', () => {
 
     const exportButtons = wrapper.getComponent(ReportExportButtons)
     expect(exportButtons.props('path')).toBe('/api/audit-log/export')
-    expect(exportButtons.props('params')).toEqual({ eventType: '', entityName: '', fromDate: '', toDate: '', sort: '' })
+    expect(exportButtons.props('params')).toEqual({ eventType: '', entityName: '', fromDate: '', toDate: '', performedByUserKey: '', sort: '' })
 
     await wrapper.get('input[placeholder="e.g. FieldEdit"]').setValue('FieldEdit')
     await wrapper.get('input[placeholder="e.g. risk_exception"]').setValue('risk_exception')
@@ -134,7 +135,7 @@ describe('AuditLogViewer.vue', () => {
     await wrapper.get('input[placeholder="e.g. FieldEdit"]').setValue('Logon')
 
     expect(wrapper.getComponent(ReportExportButtons).props('params')).toEqual({
-      eventType: 'FieldEdit', entityName: 'risk_exception', fromDate: '', toDate: '', sort: 'occurredAt:asc'
+      eventType: 'FieldEdit', entityName: 'risk_exception', fromDate: '', toDate: '', performedByUserKey: '', sort: 'occurredAt:asc'
     })
   })
 
@@ -256,6 +257,22 @@ describe('AuditLogViewer.vue: event types, local times and Clear filters (UI rev
     expect(time.text()).not.toBe('2026-09-09T12:00:00Z')
     expect(time.text()).toMatch(/2026|9\/9|9\.9|09/)
     expect(time.attributes('title')).toBe('Stored as 2026-09-09T12:00:00Z (UTC)')
+  })
+
+  it('filters by who did it, sending the chosen person with the list and the export', async () => {
+    mockWithTypes()
+    const wrapper = mount(AuditLogViewer)
+    await flushPromises()
+    wrapper.findComponent(Combobox).vm.$emit('update:modelValue', { userKey: 12, displayName: 'Jane Analyst' })
+
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+
+    const call = globalThis.fetch.mock.calls.map(c => c[0]).filter(u => u.startsWith('/api/audit-log?')).at(-1)
+    expect(call).toContain('performedByUserKey=12')
+    const exportParams = wrapper.findComponent({ name: 'ReportExportButtons' }).props('params')
+    expect(exportParams.performedByUserKey).toBe('12')
+    expect(exportParams).not.toHaveProperty('performedByName')
   })
 
   it('Clear filters appears with a filter set and reloads with none', async () => {

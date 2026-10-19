@@ -87,6 +87,23 @@ public sealed class AuditRepository(IDbConnectionFactory connectionFactory)
     }
 
     /// <summary>D-121: the grand total row count with no filter applied -- backs the X-Total-Count response header on GetEventsAsync's own endpoint.</summary>
+    /// <summary>
+    /// UI review W11-1: the people who appear in the log as having done something, whose name contains <paramref name="search"/>
+    /// (at most 10), for the viewer's By choice.
+    /// </summary>
+    public async Task<IReadOnlyList<AuditPerformer>> GetPerformersAsync(string? search)
+    {
+        using var connection = connectionFactory.Create();
+        var text = (search ?? "").Trim().Replace("[", "[[]").Replace("%", "[%]").Replace("_", "[_]");
+        return (await connection.QueryAsync<AuditPerformer>("""
+            SELECT TOP (10) u.UserKey, u.DisplayName
+            FROM web.app_user u
+            WHERE u.DisplayName LIKE '%' + @Search + '%'
+              AND EXISTS (SELECT 1 FROM web.audit_event ae WHERE ae.PerformedByUserKey = u.UserKey)
+            ORDER BY u.DisplayName, u.UserKey
+            """, new { Search = text })).AsList();
+    }
+
     /// <summary>UI review W11-1: the event type names, for the viewer's Event Type choice.</summary>
     public async Task<IReadOnlyList<string>> GetEventTypeNamesAsync()
     {
@@ -144,4 +161,11 @@ public sealed class AuditRepository(IDbConnectionFactory connectionFactory)
         var rows = await connection.QueryAsync<AuditFieldChangeSummary>(sql, new { AuditEventKey = auditEventKey });
         return rows.AsList();
     }
+}
+
+/// <summary>UI review W11-1: one person in the audit log's By choice.</summary>
+public sealed class AuditPerformer
+{
+    public int UserKey { get; init; }
+    public required string DisplayName { get; init; }
 }

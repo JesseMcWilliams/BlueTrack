@@ -102,7 +102,8 @@ async function backupApp() {
           <tbody>
             <tr v-for="check in info.healthChecks" :key="check.name">
               <td>{{ check.name }}</td>
-              <td>{{ check.status }}</td>
+              <!-- UI review W9-4: anything but Healthy stands out -->
+              <td :class="{ 'status-bad': check.status !== 'Healthy' }"><span v-if="check.status !== 'Healthy'" aria-hidden="true">⚠ </span>{{ check.status }}</td>
               <td>{{ check.description }}</td>
             </tr>
           </tbody>
@@ -138,7 +139,7 @@ async function backupApp() {
             <tr v-for="run in recentBackups" :key="run.backupRunKey">
               <td>{{ run.startedAt.replace('T', ' ').slice(0, 19) }}</td>
               <td>{{ run.triggerType === 'Schedule' ? t('admin.deploymentInfo.scheduled') : (run.triggeredByName ? t('admin.deploymentInfo.manualBy', { name: run.triggeredByName }) : t('admin.deploymentInfo.manual')) }}</td>
-              <td>{{ run.outcome }}</td>
+              <td :class="{ 'status-bad': run.outcome === 'Failed' }"><span v-if="run.outcome === 'Failed'" aria-hidden="true">⚠ </span>{{ run.outcome }}</td>
               <td>{{ run.filePath ?? '' }}</td>
               <td>{{ formatCount(run.filesDeleted) }}</td>
               <td>{{ run.errorMessage ?? '' }}</td>
