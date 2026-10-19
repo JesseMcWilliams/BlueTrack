@@ -84,6 +84,18 @@ describe('reports and operations fixes', () => {
     expect(wrapper.find('[role="status"]').text()).toBe('Backup complete. Downloaded BlueTrack_ConfigBackup_1.zip.')
   })
 
+  it('marks a failed backup and a health check that is not Healthy (W9-4)', async () => {
+    globalThis.fetch = vi.fn((url) => Promise.resolve(answer(url.endsWith('/backups')
+      ? [{ backupRunKey: 1, startedAt: '2026-10-19T10:00:00', triggerType: 'Schedule', outcome: 'Failed', filePath: null, filesDeleted: 0, errorMessage: 'disk full' },
+        { backupRunKey: 2, startedAt: '2026-10-18T10:00:00', triggerType: 'Schedule', outcome: 'Succeeded', filePath: 'x.bak', filesDeleted: 0, errorMessage: null }]
+      : { environment: 'Development', version: '1', healthChecks: [{ name: 'SQL Server', status: 'Healthy', description: 'ok' }, { name: 'Secrets', status: 'Unhealthy', description: 'down' }], backupStatus: { available: true, entries: [] } })))
+    const wrapper = mount(DeploymentInfo, { global: { plugins: [makeRouter()] } })
+    await flushPromises()
+
+    const bad = wrapper.findAll('td.status-bad').map(td => td.text().replace('⚠', '').trim())
+    expect(bad).toEqual(['Unhealthy', 'Failed'])
+  })
+
   it('Application email fields are email inputs (W8-4)', async () => {
     globalThis.fetch = vi.fn(() => Promise.resolve(answer([])))
     const wrapper = mount(ApplicationEdit, { global: { plugins: [makeRouter()] } })

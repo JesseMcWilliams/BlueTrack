@@ -364,3 +364,9 @@ input[type="checkbox"], input[type="radio"] {
 .filter-row .field-label {
   margin-bottom: 0;
 }
+
+/* UI review W9-4: a failed run, a failed backup or a health check that is not Healthy. The mark is added by the page (aria-hidden); the word stays. */
+.status-bad {
+  color: var(--color-error-text);
+  font-weight: bold;
+}

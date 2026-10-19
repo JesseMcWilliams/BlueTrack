@@ -31,6 +31,8 @@ const notice = ref(null)
 const applications = ref([])
 
 const detail = ref(null) // populated in edit mode
+// UI review W3-4: for an application-scoped exception, the accounts it covers (the first 200) and how many there are
+const covered = ref({ accounts: [], total: 0, error: null })
 
 const scopeType = ref('Account')
 const accountChoice = ref(null) // UI review W3-2: picked by typing, not by a raw AccountKey
@@ -40,6 +42,17 @@ const reviewDate = ref('')
 const externalTicketReference = ref('')
 
 const newReviewDate = ref('')
+
+async function loadCovered() {
+  try {
+    const response = await fetch(`/api/risk-exceptions/${props.exceptionKey}/accounts`)
+    if (!response.ok) throw new Error(t('common.requestFailed', { status: response.status }))
+    const accounts = await response.json()
+    covered.value = { accounts, total: Number(response.headers.get('X-Total-Count') ?? accounts.length), error: null }
+  } catch (err) {
+    covered.value = { accounts: [], total: 0, error: err.message }
+  }
+}
 
 async function loadDetail() {
   loading.value = true
@@ -51,6 +64,8 @@ async function loadDetail() {
       throw new Error(t('common.requestFailed', { status: response.status }))
     }
     detail.value = await response.json()
+    covered.value = { accounts: [], total: 0, error: null }
+    if (detail.value.applicationKey) await loadCovered()
     newReviewDate.value = detail.value.reviewDate?.slice(0, 10) ?? ''
   } catch (err) {
     loadError.value = err.message
@@ -205,6 +220,23 @@ async function revoke() {
           <template v-else>{{ t('pages.riskExceptionEdit.scopeAccount', { key: detail.accountKey }) }}</template>
         </dd>
         <dd v-else>{{ detail.applicationName ? t('pages.riskExceptionEdit.scopeApplicationNamed', { name: detail.applicationName }) : t('pages.riskExceptionEdit.scopeApplication', { key: detail.applicationKey }) }}</dd>
+        <template v-if="detail.applicationKey">
+          <dt>{{ t('pages.riskExceptionEdit.coveredHeading') }}</dt>
+          <dd>
+            <p v-if="covered.error" role="alert">{{ t('pages.riskExceptionEdit.coveredFailed', { error: covered.error }) }}</p>
+            <template v-else-if="covered.total === 0">{{ t('pages.riskExceptionEdit.coveredNone') }}</template>
+            <template v-else>
+              <span>{{ covered.total > covered.accounts.length ? t('pages.riskExceptionEdit.coveredFirst', { shown: covered.accounts.length, total: covered.total }) : t('pages.riskExceptionEdit.coveredAll', { total: covered.total }) }}</span>
+              <ul class="covered-accounts">
+                <li v-for="account in covered.accounts" :key="account.accountKey">
+                  <router-link :to="{ name: 'account-progress-detail', params: { accountKey: account.accountKey } }">{{ account.userName || account.accountName }}</router-link>
+                  <span v-if="account.address">{{ ' (' + account.address + ')' }}</span>
+                  <span v-if="account.safeName">{{ ' ' + t('pages.riskExceptionEdit.coveredSafe', { safe: account.safeName }) }}</span>
+                </li>
+              </ul>
+            </template>
+          </dd>
+        </template>
         <dt>{{ t('pages.riskExceptionEdit.justification') }}</dt>
         <dd>{{ detail.justification }}</dd>
         <dt>{{ t('pages.riskExceptionEdit.approvalDate') }}</dt>

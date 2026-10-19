@@ -27,6 +27,11 @@ export function useSignOut() {
       navigateAway(reason ? `${body.singleLogoutUrl}?reason=${encodeURIComponent(reason)}` : body.singleLogoutUrl)
       return
     }
-    await router.push({ name: 'login', query: reason ? { signedOut: '1', reason } : { signedOut: '1' } })
+    // UI review W12-1: an idle sign-out remembers the page, so signing in again returns there (the sign-in page passes
+    // it on whichever method is chosen). What was typed into a form is not kept.
+    const current = router.currentRoute.value
+    const query = reason ? { signedOut: '1', reason } : { signedOut: '1' }
+    if (reason === 'idle' && current.name !== 'login' && current.name !== 'login-provider') query.returnUrl = current.fullPath
+    await router.push({ name: 'login', query })
   }
 }

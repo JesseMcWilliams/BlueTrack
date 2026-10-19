@@ -31,6 +31,10 @@ public sealed class AuditLogController(AuditRepository repository, ReportExportS
         return Ok(results);
     }
 
+    /// <summary>UI review W11-1: people in the log whose name contains <c>q</c>, for the viewer's By choice (at most 10).</summary>
+    [HttpGet("performers")]
+    public async Task<IActionResult> GetPerformers([FromQuery] string? q = null) => Ok(await repository.GetPerformersAsync(q));
+
     /// <summary>UI review W11-1: the event types the log can hold, so the viewer offers a choice instead of free text.</summary>
     [HttpGet("event-types")]
     public async Task<IActionResult> GetEventTypes() => Ok(await repository.GetEventTypeNamesAsync());

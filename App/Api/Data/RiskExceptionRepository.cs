@@ -122,6 +122,33 @@ public sealed class RiskExceptionRepository(IDbConnectionFactory connectionFacto
         return rows.AsList();
     }
 
+    /// <summary>
+    /// UI review W3-4: the accounts an application-scoped exception covers, the same two routes as
+    /// web.vw_account_application_exception (the account's Safe belongs to the application, or the account itself was given
+    /// it), not deleted, whatever the exception's status. At most <paramref name="limit"/>, with the full count.
+    /// Null when there is no such exception; empty when it is scoped to one account.
+    /// </summary>
+    public async Task<(IReadOnlyList<CoveredAccount> Accounts, int Total)?> GetCoveredAccountsAsync(int exceptionKey, int limit)
+    {
+        using var connection = connectionFactory.Create();
+        var exists = await connection.QuerySingleAsync<int>("SELECT COUNT(*) FROM web.risk_exception WHERE ExceptionKey = @ExceptionKey", new { ExceptionKey = exceptionKey });
+        if (exists == 0) return null;
+        var applicationKey = await connection.QuerySingleAsync<int?>("SELECT ApplicationKey FROM web.risk_exception WHERE ExceptionKey = @ExceptionKey", new { ExceptionKey = exceptionKey });
+        if (applicationKey is null) return (Array.Empty<CoveredAccount>(), 0);
+
+        const string from = """
+            FROM dbo.fact_account fa
+            LEFT JOIN dbo.dim_safe ds ON ds.SafeKey = fa.SafeKey
+            LEFT JOIN dbo.fact_account_progress fap ON fap.AccountKey = fa.AccountKey
+            WHERE fa.IsDeleted = 0 AND (ds.ApplicationKey = @ApplicationKey OR fap.ApplicationKey = @ApplicationKey)
+            """;
+        var total = await connection.QuerySingleAsync<int>("SELECT COUNT(*) " + from, new { ApplicationKey = applicationKey });
+        var rows = await connection.QueryAsync<CoveredAccount>(
+            "SELECT TOP (@Limit) fa.AccountKey, fa.AccountName, fa.UserName, fa.Address, ds.SafeName " + from + " ORDER BY fa.AccountName, fa.AccountKey",
+            new { ApplicationKey = applicationKey, Limit = limit });
+        return (rows.AsList(), total);
+    }
+
     public async Task<RiskExceptionDetail?> GetByKeyAsync(int exceptionKey)
     {
         using var connection = connectionFactory.Create();

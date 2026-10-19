@@ -177,6 +177,34 @@ describe('RiskExceptionEdit.vue', () => {
       expect(application.text()).toContain('Application: Payroll')
     })
 
+    // UI review W3-4
+    it('lists the accounts an application-scoped exception covers, and says when there are more', async () => {
+      const accounts = [
+        { accountKey: 11, accountName: 'svc_pay', userName: 'svc_pay', address: 'pay01', safeName: 'PayrollSafe' },
+        { accountKey: 12, accountName: 'svc_bill', userName: null, address: null, safeName: null }
+      ]
+      routeFetch({
+        'GET /api/applications': jsonResponse([]),
+        'GET /api/risk-exceptions/5': jsonResponse({ ...active, accountKey: null, applicationKey: 3, applicationName: 'Payroll' }),
+        'GET /api/risk-exceptions/5/accounts': { ok: true, status: 200, headers: { get: () => '250' }, json: () => Promise.resolve(accounts) }
+      })
+      const wrapper = await mountEdit({ exceptionKey: 5 })
+
+      expect(wrapper.text()).toContain('The first 2 of 250 accounts:')
+      expect(wrapper.findAll('.covered-accounts li').map(li => li.text())).toEqual(['svc_pay (pay01) in Safe PayrollSafe', 'svc_bill'])
+      expect(wrapper.find('.covered-accounts a').attributes('href')).toBe('/accounts/11')
+    })
+
+    it('says so when an application-scoped exception covers no accounts yet', async () => {
+      routeFetch({
+        'GET /api/applications': jsonResponse([]),
+        'GET /api/risk-exceptions/5': jsonResponse({ ...active, accountKey: null, applicationKey: 3, applicationName: 'Payroll' }),
+        'GET /api/risk-exceptions/5/accounts': { ok: true, status: 200, headers: { get: () => '0' }, json: () => Promise.resolve([]) }
+      })
+      const wrapper = await mountEdit({ exceptionKey: 5 })
+      expect(wrapper.text()).toContain('No accounts are covered right now')
+    })
+
     it('falls back to the key when the name is missing', async () => {
       routeFetch({ 'GET /api/applications': jsonResponse([]), 'GET /api/risk-exceptions/5': jsonResponse({ ...active }) })
       const wrapper = await mountEdit({ exceptionKey: 5 })

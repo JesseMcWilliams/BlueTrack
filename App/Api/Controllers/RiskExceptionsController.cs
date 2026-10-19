@@ -69,6 +69,20 @@ public sealed class RiskExceptionsController(
         return Ok(await repository.GetOverdueReviewAsync());
     }
 
+    /// <summary>
+    /// UI review W3-4: the accounts an application-scoped exception covers (the first 200, with the full count in
+    /// X-Total-Count). Empty for an account-scoped exception; 404 for an unknown one.
+    /// </summary>
+    [Authorize(Policy = Permissions.ViewDashboard)]
+    [HttpGet("{exceptionKey:int}/accounts")]
+    public async Task<IActionResult> GetCoveredAccounts(int exceptionKey)
+    {
+        var result = await repository.GetCoveredAccountsAsync(exceptionKey, 200);
+        if (result is null) return NotFound();
+        Response.Headers["X-Total-Count"] = result.Value.Total.ToString();
+        return Ok(result.Value.Accounts);
+    }
+
     [Authorize(Policy = Permissions.ViewDashboard)]   // D-197: reading tracked data needs ViewDashboard, not just a sign-in
     [HttpGet("{exceptionKey:int}")]
     public async Task<IActionResult> GetByKey(int exceptionKey)

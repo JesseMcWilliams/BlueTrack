@@ -276,7 +276,8 @@ function cancel() {
                 <td><a href="#" :aria-expanded="selectedRun?.dataFeedRunKey === run.dataFeedRunKey" @click.prevent="showRun(run)">{{ formatRunTime(run.startedAt) }}</a></td>
                 <td>{{ run.triggerType === 'RunNow' ? t('admin.dataFeedEdit.triggerRunNow') : t('admin.dataFeedEdit.triggerNightly') }}</td>
                 <td>{{ run.triggeredByName }}</td>
-                <td>{{ run.outcome }}</td>
+                <!-- UI review W9-4: a failed run stands out -->
+                <td :class="{ 'status-bad': run.outcome === 'Failed' }"><span v-if="run.outcome === 'Failed'" aria-hidden="true">⚠ </span>{{ run.outcome }}</td>
                 <td>{{ run.fileName }}</td>
                 <td>{{ formatCount(run.totalRows) }}<template v-if="run.errorRows">{{ ' ' + t('admin.dataFeedEdit.errorRows', { count: formatCount(run.errorRows) }) }}</template></td>
                 <td>{{ run.summary ?? run.errorMessage }}</td>
