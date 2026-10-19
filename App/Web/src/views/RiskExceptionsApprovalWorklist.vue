@@ -56,7 +56,8 @@ onMounted(async () => {
           :key="exception.exceptionKey"
           @click="$router.push({ name: 'risk-exception-edit', params: { exceptionKey: exception.exceptionKey } })"
         >
-          <td>{{ exception.exceptionID }}</td>
+          <!-- UI review W3-5: a real link, so the row can be opened by keyboard and from a new tab; the row click stays. -->
+          <td><router-link :to="{ name: 'risk-exception-edit', params: { exceptionKey: exception.exceptionKey } }" @click.stop>{{ exception.exceptionID }}</router-link></td>
           <td>{{ exception.scopeType }}: {{ exception.scopeName }}</td>
           <td>{{ exception.justification }}</td>
           <td>{{ exception.approvedByName }}</td>

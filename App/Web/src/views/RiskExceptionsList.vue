@@ -169,6 +169,14 @@ watch([statusFilter, scopeTypeFilter, sortQueryParam], () => {
       <button type="button" class="btn-primary" @click="router.push({ name: 'risk-exception-create' })">{{ t('pages.riskExceptionsList.newException') }}</button>
       <button type="button" @click="router.push({ name: 'risk-exceptions-bulk-import' })">{{ t('pages.riskExceptionsList.bulkActions') }}</button>
     </p>
+    <!-- UI review W3-6: the two worklists are reachable from here, not only from the Dashboard. -->
+    <p>
+      <router-link :to="{ name: 'risk-exceptions-overdue-worklist' }">{{ t('pages.riskExceptionsList.overdueLink') }}</router-link>
+      <template v-if="rights.hasPermission('ApproveExceptions')">
+        |
+        <router-link :to="{ name: 'risk-exceptions-approval-worklist' }">{{ t('pages.riskExceptionsList.approvalLink') }}</router-link>
+      </template>
+    </p>
     <p class="filter-row">
       <label class="field-label"><span class="field-label-text">{{ t('pages.riskExceptionsList.status') }}</span>
         <select v-model="statusFilter">

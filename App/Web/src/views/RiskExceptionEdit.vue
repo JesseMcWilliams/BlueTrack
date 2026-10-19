@@ -13,6 +13,7 @@ import { useRouter } from 'vue-router'
 import { formatDate } from '../utils/formatDate'
 import { confirmDelete } from '../composables/useConfirmDialog'
 import { useI18n } from 'vue-i18n'
+import Combobox from '../components/Combobox.vue'
 
 const { t } = useI18n()
 
@@ -32,7 +33,7 @@ const applications = ref([])
 const detail = ref(null) // populated in edit mode
 
 const scopeType = ref('Account')
-const accountKey = ref('')
+const accountChoice = ref(null) // UI review W3-2: picked by typing, not by a raw AccountKey
 const applicationKey = ref('')
 const justification = ref('')
 const reviewDate = ref('')
@@ -82,13 +83,29 @@ watch(() => props.exceptionKey, (newKey) => {
   }
 })
 
+// UI review W3-2: the account is found by typing part of its user name, account name or address.
+async function searchAccounts(text) {
+  const response = await fetch(`/api/account-progress?search=${encodeURIComponent(text)}&pageSize=10`)
+  if (!response.ok) throw new Error(t('pages.riskExceptionEdit.accountSearchFailed', { status: response.status }))
+  return response.json()
+}
+
+function accountLabel(account) {
+  const name = account.userName || account.accountName
+  return account.address ? `${name} (${account.address})` : name
+}
+
 async function createException() {
   error.value = null
   notice.value = null
+  if (scopeType.value === 'Account' && !accountChoice.value) {
+    error.value = t('pages.riskExceptionEdit.chooseAccount')
+    return
+  }
   saving.value = true
   try {
     const body = {
-      accountKey: scopeType.value === 'Account' ? Number(accountKey.value) : null,
+      accountKey: scopeType.value === 'Account' ? accountChoice.value.accountKey : null,
       applicationKey: scopeType.value === 'Application' ? Number(applicationKey.value) : null,
       justification: justification.value,
       reviewDate: reviewDate.value,
@@ -225,7 +242,21 @@ async function revoke() {
           <label><input v-model="scopeType" type="radio" value="Application" /> {{ t('pages.riskExceptionEdit.application') }}</label>
         </p>
         <p v-if="scopeType === 'Account'">
-          <label class="field-label"><span class="field-label-text">{{ t('pages.riskExceptionEdit.accountKey') }}</span> <input v-model="accountKey" type="number" required /></label>
+          <span class="field-label-text">{{ t('pages.riskExceptionEdit.accountLabel') }}</span>
+          <Combobox
+            v-model="accountChoice"
+            :label="t('pages.riskExceptionEdit.accountLabel')"
+            :search="searchAccounts"
+            :item-key="account => account.accountKey"
+            :item-label="accountLabel"
+            :placeholder="t('pages.riskExceptionEdit.accountPlaceholder')"
+          >
+            <template #option="{ item: account }">
+              <strong>{{ account.userName || account.accountName }}</strong>
+              <span v-if="account.address"> ({{ account.address }})</span>
+              <br /><small>{{ account.stageName }}</small>
+            </template>
+          </Combobox>
         </p>
         <p v-else>
           <label class="field-label">

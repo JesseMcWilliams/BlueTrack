@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test'
 import { signInAs } from './auth.js'
 import { confirmDelete } from './confirmDialog.js'
+import { pickAccount } from './accountPicker.js'
 
 // Layer 4: the real Account Progress edit form (locking, D-51-adjacent
 // save flow) and the real Risk Exception create/extend/revoke workflow,
@@ -179,7 +180,7 @@ test.describe('Risk Exception create/extend/revoke workflow', () => {
     const accountKey = await getTestAccountKey(page, 'TestAccount03')
 
     await page.goto('/exceptions/new')
-    await page.fill('input[type="number"]', String(accountKey))
+    await pickAccount(page, 'TestAccount03')
     await page.fill('textarea', 'Playwright E2E justification')
     const reviewDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
     await page.fill('input[type="date"]', reviewDate)
@@ -207,7 +208,7 @@ test.describe('Risk Exception create/extend/revoke workflow', () => {
     await signInAs(page, 'TestUser.Viewer')
 
     await page.goto('/exceptions/new')
-    await page.fill('input[type="number"]', '1')
+    await pickAccount(page, 'TestAccount03')
     await page.fill('textarea', 'Should be rejected')
     const reviewDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
     await page.fill('input[type="date"]', reviewDate)

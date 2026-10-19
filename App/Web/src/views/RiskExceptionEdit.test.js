@@ -2,6 +2,7 @@ import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
 import { createRouter, createMemoryHistory } from 'vue-router'
 import RiskExceptionEdit from './RiskExceptionEdit.vue'
+import Combobox from '../components/Combobox.vue'
 
 // UI review W3-1 and W3-3: a failed save, extend or revoke keeps the form or detail on screen with its error beside
 // it, and what worked is confirmed. Revoke asks first.
@@ -53,11 +54,14 @@ describe('RiskExceptionEdit.vue', () => {
     vi.restoreAllMocks()
   })
 
+  const picked = { accountKey: 1234, userName: 'svc_payroll', accountName: 'svc_payroll', address: 'pay01.example.com', stageName: 'Discovery' }
+  const ticketInput = (wrapper) => wrapper.findAll('label').find(l => l.text().startsWith('External Ticket')).find('input')
+
   async function fillCreateForm(wrapper) {
-    await wrapper.find('input[type="number"]').setValue('1234')
+    wrapper.findComponent(Combobox).vm.$emit('update:modelValue', picked) // what choosing a result does
     await wrapper.find('textarea').setValue('Legacy system, retiring Q3')
     await wrapper.find('input[type="date"]').setValue('2026-12-31')
-    await wrapper.find('input[type="text"]').setValue('CHG-77')
+    await ticketInput(wrapper).setValue('CHG-77')
   }
 
   describe('create', () => {
@@ -75,10 +79,49 @@ describe('RiskExceptionEdit.vue', () => {
 
       expect(wrapper.find('[role="alert"]').text()).toBe(message)
       expect(wrapper.find('form').exists()).toBe(true)
-      expect(wrapper.find('input[type="number"]').element.value).toBe('1234')
+      expect(wrapper.findComponent(Combobox).props('modelValue')).toEqual(picked)
       expect(wrapper.find('textarea').element.value).toBe('Legacy system, retiring Q3')
-      expect(wrapper.find('input[type="text"]').element.value).toBe('CHG-77')
+      expect(ticketInput(wrapper).element.value).toBe('CHG-77')
       expect(wrapper.find('button[type="submit"]').attributes('disabled')).toBeUndefined() // can try again
+    })
+
+    it('asks for an account to be chosen instead of sending a blank one', async () => {
+      routeFetch({ 'GET /api/applications': jsonResponse([]) })
+      const wrapper = await mountEdit()
+      await wrapper.find('textarea').setValue('Legacy system')
+      await wrapper.find('input[type="date"]').setValue('2026-12-31')
+
+      await wrapper.find('form').trigger('submit')
+      await flushPromises()
+
+      expect(wrapper.find('[role="alert"]').text()).toBe('Choose an account from the list.')
+      expect(globalThis.fetch.mock.calls.some(([, init]) => init?.method === 'POST')).toBe(false)
+    })
+
+    it('sends the key of the chosen account', async () => {
+      routeFetch({ 'GET /api/applications': jsonResponse([]), 'POST /api/risk-exceptions': jsonResponse({ exceptionKey: 9 }, { status: 201 }) })
+      const wrapper = await mountEdit()
+      await fillCreateForm(wrapper)
+
+      await wrapper.find('form').trigger('submit')
+      await flushPromises()
+
+      const post = globalThis.fetch.mock.calls.find(([, init]) => init?.method === 'POST')
+      expect(JSON.parse(post[1].body).accountKey).toBe(1234)
+    })
+
+    it('finds accounts by what is typed, and shows who and where each one is', async () => {
+      vi.useFakeTimers()
+      globalThis.fetch = vi.fn((url) => Promise.resolve(url === '/api/applications' ? jsonResponse([]) : jsonResponse([picked])))
+      const wrapper = mount(RiskExceptionEdit, { global: { plugins: [makeRouter()] } })
+      await vi.advanceTimersByTimeAsync(0)
+      await wrapper.find('input[role="combobox"]').setValue('payroll')
+      await vi.advanceTimersByTimeAsync(300)
+      await flushPromises()
+
+      expect(globalThis.fetch).toHaveBeenCalledWith('/api/account-progress?search=payroll&pageSize=10')
+      expect(wrapper.find('[role="option"]').text()).toContain('svc_payroll (pay01.example.com)')
+      vi.useRealTimers()
     })
 
     it('goes to the new exception when it is created', async () => {

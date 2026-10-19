@@ -65,7 +65,7 @@ async function remove(item) {
             <td><router-link :to="{ name: 'admin-field-metadata-edit', params: { fieldMetadataKey: item.fieldMetadataKey } }">{{ item.fieldName }}</router-link></td>
             <td>{{ item.displayLabel }}</td>
             <td>{{ item.fieldType }}</td>
-            <td>{{ item.isRequired }}</td>
+            <td>{{ item.isRequired ? t('common.yes') : t('common.no') }}</td>
             <td>{{ item.requiredPermissionName ?? '' }}</td>
             <td>{{ item.displayOrder }}</td>
             <td>
