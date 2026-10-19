@@ -132,6 +132,8 @@ function cancel() {
       <p><label class="field-label"><span class="field-label-text">{{ t('admin.identityProviderEdit.displayOrder') }}</span> <input v-model.number="editing.displayOrder" type="number" /></label></p>
 
       <template v-if="editing.providerType === 'OIDC'">
+        <!-- UI review W1-5/W10-2: the OIDC scheme is registered once, at application startup (AuthController); SAML is read on every request. -->
+        <p class="hint">{{ t('admin.identityProviderEdit.oidcRestartNote') }}</p>
         <p><label class="field-label"><span class="field-label-text">{{ t('admin.identityProviderEdit.authority') }}</span> <input v-model="configFields.authority" :placeholder="t('admin.identityProviderEdit.authorityPlaceholder')" /></label></p>
         <p><label class="field-label"><span class="field-label-text">{{ t('admin.identityProviderEdit.clientId') }}</span> <input v-model="configFields.clientId" /></label></p>
         <p><label class="field-label"><span class="field-label-text">{{ t('admin.identityProviderEdit.callbackPath') }}</span> <input v-model="configFields.callbackPath" /></label></p>

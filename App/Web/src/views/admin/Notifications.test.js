@@ -61,6 +61,35 @@ describe('Notifications.vue', () => {
     expect(JSON.parse(put[1].body)).toEqual({ isEnabled: true })
   })
 
+  // UI review W9-1
+  it('toggling a type reloads only the types, so unsaved SMTP edits stay', async () => {
+    globalThis.fetch = respond()
+    const wrapper = mount(Notifications, { global: { stubs: { 'router-link': true } } })
+    await flushPromises()
+    await wrapper.find('input[placeholder]').setValue('smtp.example.com')
+    globalThis.fetch.mockClear()
+
+    await wrapper.find('input[aria-label="WeeklySummary enabled"]').setValue(true)
+    await flushPromises()
+
+    const gets = globalThis.fetch.mock.calls.filter(([, init]) => !init?.method).map(c => c[0])
+    expect(gets).toEqual(['/api/admin/notifications/types'])
+    expect(wrapper.find('input[placeholder]').element.value).toBe('smtp.example.com')
+  })
+
+  // UI review W9-3
+  it('Send test email waits for the SMTP settings to be saved', async () => {
+    globalThis.fetch = respond()
+    const wrapper = mount(Notifications, { global: { stubs: { 'router-link': true } } })
+    await flushPromises()
+    const testButton = () => wrapper.findAll('button').find(b => b.text() === 'Send Test Email')
+    expect(testButton().attributes('disabled')).toBeUndefined()
+
+    await wrapper.find('input[placeholder]').setValue('smtp.example.com')
+    expect(testButton().attributes('disabled')).toBeDefined()
+    expect(wrapper.text()).toContain('Save your changes first.')
+  })
+
   // D-223: OAuth2 auth modes.
   function smtpForm(wrapper) {
     return wrapper.findAll('form').find(f => f.text().includes('Auth Method'))

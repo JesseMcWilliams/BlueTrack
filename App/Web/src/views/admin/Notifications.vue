@@ -35,6 +35,9 @@ const { t } = useI18n()
 const router = useRouter()
 
 const config = ref(null)
+// UI review W9-3: the SMTP settings as last loaded or saved; Send test email uses those, never unsaved form edits.
+const configSnapshot = ref('')
+const configDirty = computed(() => !!config.value && JSON.stringify(config.value) !== configSnapshot.value)
 const configError = ref(null)
 const configSaved = ref(false)
 
@@ -132,6 +135,7 @@ async function load() {
     if (!configResponse.ok) throw new Error(t('admin.notifications.configRequestFailed', { status: configResponse.status }))
     if (!recipientsResponse.ok) throw new Error(t('admin.notifications.recipientsRequestFailed', { status: recipientsResponse.status }))
     config.value = await configResponse.json()
+    configSnapshot.value = JSON.stringify(config.value)
     recipients.value = await recipientsResponse.json()
     credentials.value = credentialsResponse.ok ? await credentialsResponse.json() : []
     notificationTypes.value = typesResponse.ok ? await typesResponse.json() : []
@@ -145,6 +149,25 @@ async function load() {
 }
 
 onMounted(load)
+
+// UI review W9-1: an action reloads only the part of the page it changed. Reloading everything (and showing
+// "Loading") remounted the page and threw away whatever had been typed into the other sections.
+async function loadConfig() {
+  const response = await fetch('/api/admin/notifications/config')
+  if (!response.ok) return
+  config.value = await response.json()
+  configSnapshot.value = JSON.stringify(config.value)
+}
+
+async function loadTypes() {
+  const response = await fetch('/api/admin/notifications/types')
+  if (response.ok) notificationTypes.value = await response.json()
+}
+
+async function loadRecipients() {
+  const response = await fetch('/api/admin/notifications/recipients')
+  if (response.ok) recipients.value = await response.json()
+}
 
 async function saveConfig() {
   configError.value = null
@@ -172,7 +195,7 @@ async function saveConfig() {
     return
   }
   configSaved.value = true
-  await load()
+  await loadConfig()
 }
 
 async function setTargetRole(type) {
@@ -185,11 +208,11 @@ async function setTargetRole(type) {
   if (!response.ok) {
     // UI review W9-6: the select already shows the role that was picked; reload so it shows what is saved.
     const message = t('common.saveFailed', { status: response.status })
-    await load()
+    await loadTypes()
     typesError.value = message
     return
   }
-  await load()
+  await loadTypes()
 }
 
 async function setTypeEnabled(type, isEnabled) {
@@ -203,7 +226,7 @@ async function setTypeEnabled(type, isEnabled) {
     typesError.value = t('common.saveFailed', { status: response.status })
     return
   }
-  await load()
+  await loadTypes()
 }
 
 async function saveSchedule() {
@@ -238,7 +261,7 @@ async function toggleRecipientActive(recipient) {
     recipientsError.value = t('admin.notifications.updateFailed', { status: response.status })
     return
   }
-  await load()
+  await loadRecipients()
 }
 
 async function removeRecipient(recipient) {
@@ -249,7 +272,7 @@ async function removeRecipient(recipient) {
     recipientsError.value = t('common.deleteFailed', { status: response.status })
     return
   }
-  await load()
+  await loadRecipients()
 }
 
 async function sendTestEmail() {
@@ -406,7 +429,8 @@ async function sendTestEmail() {
 
       <h3>{{ t('admin.notifications.testHeading') }}</h3>
       <p>{{ t('admin.notifications.testIntro') }}</p>
-      <button :disabled="testing" @click="sendTestEmail">{{ t('admin.notifications.sendTestEmail') }}</button>
+      <button :disabled="testing || configDirty" @click="sendTestEmail">{{ t('admin.notifications.sendTestEmail') }}</button>
+      <small v-if="configDirty">{{ ' ' + t('admin.notifications.testNeedsSave') }}</small>
       <p v-if="testResult?.success" role="status">{{ t('admin.notifications.sentTo', { count: formatCount(testResult.recipientCount) }) }}</p>
       <p v-else-if="testResult" role="alert">{{ t('admin.notifications.failed', { error: testResult.error }) }}</p>
 

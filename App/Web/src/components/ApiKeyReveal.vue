@@ -16,13 +16,16 @@ const props = defineProps({
 const emit = defineEmits(['done'])
 
 const copied = ref(false)
+const copyFailed = ref(false) // UI review W10-5: copying can be refused (a plain-HTTP host has no clipboard)
 
 async function copyKey() {
   try {
     await navigator.clipboard.writeText(props.apiKey)
     copied.value = true
+    copyFailed.value = false
   } catch {
     copied.value = false   // the key is selectable on the page; copying by hand still works
+    copyFailed.value = true
   }
 }
 </script>
@@ -35,6 +38,7 @@ async function copyKey() {
     <p>
       <button type="button" @click="copyKey">{{ t('admin.apiKeyCreate.copy') }}</button>
       <span v-if="copied" role="status">{{ ' ' + t('admin.apiKeyCreate.copied') }}</span>
+      <span v-if="copyFailed" role="alert">{{ ' ' + t('admin.apiKeyCreate.copyFailed') }}</span>
     </p>
     <p>{{ t('admin.apiKeyCreate.expiresOn', { date: formatDate(expiresAt) }) }}</p>
     <button type="button" class="btn-primary" @click="emit('done')">{{ t('admin.apiKeyCreate.done') }}</button>
