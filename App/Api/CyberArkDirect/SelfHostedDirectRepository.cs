@@ -21,6 +21,10 @@ public sealed class DirectPullRecord
     public int? MemberCount { get; init; }
     public int? PlatformCount { get; init; }
     public string? Message { get; init; }
+
+    /// <summary>D-250: the Safe and account counts of the last pull that Succeeded before this one, so a rejected row can show "40 to 10".</summary>
+    public int? BaselineSafeCount { get; init; }
+    public int? BaselineAccountCount { get; init; }
 }
 
 /// <summary>D-248: the pull log, and the one place that writes the stg_sh_* tables from a pull.</summary>
@@ -72,8 +76,29 @@ public sealed class SelfHostedDirectRepository(IDbConnectionFactory connectionFa
     public async Task<IReadOnlyList<DirectPullRecord>> GetRecentAsync(int count)
     {
         using var connection = connectionFactory.Create();
-        return (await connection.QueryAsync<DirectPullRecord>(
-            $"SELECT TOP (@count) {Columns} FROM dbo.cyberark_direct_pull ORDER BY PullKey DESC", new { count })).ToList();
+        return (await connection.QueryAsync<DirectPullRecord>($"""
+            SELECT TOP (@count) p.PullKey, p.StartedAt, p.CompletedAt, p.Status, p.TriggeredBy, p.AcceptedChange, p.SafeCount, p.AccountCount,
+                   p.UserCount, p.GroupCount, p.MemberCount, p.PlatformCount, p.Message,
+                   b.SafeCount AS BaselineSafeCount, b.AccountCount AS BaselineAccountCount
+            FROM dbo.cyberark_direct_pull p
+            OUTER APPLY (SELECT TOP (1) SafeCount, AccountCount FROM dbo.cyberark_direct_pull
+                         WHERE Status = N'Succeeded' AND PullKey < p.PullKey ORDER BY PullKey DESC) b
+            ORDER BY p.PullKey DESC
+            """, new { count })).ToList();
+    }
+
+    /// <summary>The Safes the last good pull staged (a rejected or failed pull leaves staging alone), for naming what disappeared.</summary>
+    public async Task<IReadOnlyList<(long Number, string Name)>> GetStagedSafesAsync()
+    {
+        using var connection = connectionFactory.Create();
+        var rows = await connection.QueryAsync<StagedSafe>("SELECT CASSafeID AS Number, CASSafeName AS Name FROM dbo.stg_sh_safes WHERE CASSafeName IS NOT NULL");
+        return rows.Select(r => (r.Number, r.Name)).ToList();
+    }
+
+    private sealed class StagedSafe
+    {
+        public long Number { get; init; }
+        public string Name { get; init; } = "";
     }
 
     public async Task<int> PurgeAsync(int keepDays)

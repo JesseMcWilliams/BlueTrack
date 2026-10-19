@@ -224,6 +224,7 @@ builder.Services.AddScoped<BreakGlassAccountRepository>();
 builder.Services.AddSingleton<BreakGlassAlerter>();
 builder.Services.AddScoped<INotificationCheck, DevFakeAuthEnabledCheck>();
 builder.Services.AddScoped<INotificationCheck, NightlyImportFailedCheck>();     // D-222
+builder.Services.AddScoped<INotificationCheck, BlueTrack.Api.CyberArkDirect.SelfHostedPullFailedCheck>();   // D-250
 builder.Services.AddScoped<INotificationCheck, OverdueRiskExceptionsCheck>();   // D-222
 builder.Services.AddScoped<INotificationCheck, WeeklySummaryCheck>();           // D-222
 builder.Services.AddScoped<INotificationCheck, ApiKeyExpiringCheck>();          // D-243

@@ -47,7 +47,21 @@ public sealed class CredentialRepository(
     {
         using var connection = connectionFactory.Create();
         var rows = await connection.QueryAsync<CredentialRow>($"{SelectSql} ORDER BY CredentialName");
-        return rows.Select(Redact).ToList();
+        var usage = (await connection.QueryAsync<UsageRow>("""
+            SELECT PvwaCredentialKey AS CredentialKey, N'CyberArk sources (Self-Hosted Direct)' AS UsedBy
+            FROM web.cyberark_source_config WHERE PvwaCredentialKey IS NOT NULL
+            UNION ALL
+            SELECT SmtpCredentialKey, N'Notifications (SMTP login)' FROM web.notification_config WHERE SmtpCredentialKey IS NOT NULL
+            UNION ALL
+            SELECT CredentialKey, N'LDAP configuration (' + DomainName + N')' FROM web.ldap_config WHERE CredentialKey IS NOT NULL
+            """)).ToLookup(u => u.CredentialKey, u => u.UsedBy);
+        return rows.Select(r => Redact(r, usage[r.CredentialKey].ToList())).ToList();
+    }
+
+    private sealed class UsageRow
+    {
+        public int CredentialKey { get; init; }
+        public string UsedBy { get; init; } = "";
     }
 
     public async Task<int> CreateAsync(SaveCredentialRequest request, int? modifiedByUserKey)
@@ -192,8 +206,9 @@ public sealed class CredentialRepository(
         };
     }
 
-    private static Credential Redact(CredentialRow row) => new()
+    private static Credential Redact(CredentialRow row, IReadOnlyList<string>? usedBy = null) => new()
     {
+        UsedBy = usedBy ?? [],
         CredentialKey = row.CredentialKey,
         CredentialName = row.CredentialName,
         BackendType = row.BackendType,

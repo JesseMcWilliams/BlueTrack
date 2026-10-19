@@ -291,6 +291,44 @@ describe('DataSources.vue', () => {
     expect(document.body.querySelector('[role="dialog"]')).toBeNull()
     wrapper.unmount()
   })
+
+  // D-250
+  it('shows a warning banner when the latest pull failed or was rejected, and not after a good one', async () => {
+    routeFetch(directHandlers([pull({ status: 'Failed', message: 'boom', safeCount: null }), pull({ pullKey: 4 })]))
+    const failed = mount(DataSources, { global: { plugins: [makeRouter()] } })
+    await flushPromises()
+    expect(failed.find('.pull-banner').text()).toContain('The latest pull failed')
+    failed.unmount()
+
+    routeFetch(directHandlers([pull({ status: 'Rejected', message: 'x' })]))
+    const rejected = mount(DataSources, { global: { plugins: [makeRouter()] } })
+    await flushPromises()
+    expect(rejected.find('.pull-banner').text()).toContain('rejected')
+    rejected.unmount()
+
+    routeFetch(directHandlers([pull(), pull({ pullKey: 4, status: 'Failed', message: 'older' })]))
+    const good = mount(DataSources, { global: { plugins: [makeRouter()] } })
+    await flushPromises()
+    expect(good.find('.pull-banner').exists()).toBe(false)   // only the newest pull counts
+    good.unmount()
+  })
+
+  it('shows what a rejected pull changed, before and after', async () => {
+    routeFetch(directHandlers([pull({ status: 'Rejected', safeCount: 10, accountCount: 100, baselineSafeCount: 40, baselineAccountCount: 2452, message: 'm' })]))
+    const wrapper = mount(DataSources, { global: { plugins: [makeRouter()] } })
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('Safes 40 → 10, accounts 2452 → 100')
+  })
+
+  it('shows the counts as they are for a pull that was not rejected', async () => {
+    routeFetch(directHandlers([pull({ baselineSafeCount: 39, baselineAccountCount: 2400 })]))
+    const wrapper = mount(DataSources, { global: { plugins: [makeRouter()] } })
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('40 Safes, 2452 accounts')
+    expect(wrapper.text()).not.toContain('→')
+  })
 })
 
 describe('dataFeedFormat', () => {

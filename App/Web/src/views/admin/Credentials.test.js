@@ -1,7 +1,9 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
 import { createRouter, createMemoryHistory } from 'vue-router'
+import { createPinia } from 'pinia'
 import Credentials from './Credentials.vue'
+import { useRightsStore } from '../../stores/rights'
 
 // D-248: the links between Credentials and the CyberArk sources page, and the blank-folder hint.
 
@@ -36,10 +38,12 @@ function routeFetch(extra = {}) {
   })
 }
 
-async function mountAt(path) {
+async function mountAt(path, permissions = ['ManageDataSources']) {
   const router = makeRouter()
   await router.push(path)
-  const wrapper = mount(Credentials, { global: { plugins: [router] } })
+  const pinia = createPinia()
+  const wrapper = mount(Credentials, { global: { plugins: [router, pinia] } })
+  useRightsStore(pinia).permissionNames = permissions
   await flushPromises()
   return { wrapper, router }
 }
@@ -100,5 +104,67 @@ describe('Credentials.vue', () => {
 
     expect(wrapper.find('select').element.value).toBe('CyberArkConjur')
     expect(wrapper.text()).not.toContain('leave blank for Root')
+  })
+
+  // D-250
+  it('hides the link to the sources page from someone who cannot open it', async () => {
+    routeFetch()
+    const { wrapper } = await mountAt('/admin/credentials', ['ManageCredentials'])
+
+    expect(wrapper.findAll('a').some(a => a.text() === 'Use for Self-Hosted Direct')).toBe(false)
+  })
+
+  it('shows what uses each credential, and will not delete one that is in use', async () => {
+    routeFetch({
+      'GET /api/admin/credentials': jsonResponse([
+        { ...credential, usedBy: ['CyberArk sources (Self-Hosted Direct)', 'LDAP configuration (company.com)'] },
+        { ...credential, credentialKey: 6, credentialName: 'Spare', usedBy: [] }
+      ])
+    })
+    const { wrapper } = await mountAt('/admin/credentials')
+
+    const rows = wrapper.findAll('tbody tr')
+    expect(rows[0].text()).toContain('CyberArk sources (Self-Hosted Direct); LDAP configuration (company.com)')
+    const deleteButtons = rows.map(r => r.findAll('button').find(b => b.text() === 'Delete'))
+    expect(deleteButtons[0].attributes('disabled')).toBeDefined()
+    expect(deleteButtons[0].attributes('title')).toBe('In use. Change what uses it first.')
+    expect(deleteButtons[1].attributes('disabled')).toBeUndefined()
+  })
+
+  it('offers to cancel and return to the sources page when it was opened from there', async () => {
+    routeFetch()
+    const { wrapper } = await mountAt('/admin/credentials?new=CyberArkCP&returnTo=cyberark-sources')
+
+    const link = wrapper.findAll('a').find(a => a.text() === 'Cancel and return to CyberArk sources')
+    expect(link.attributes('href')).toBe('/admin/data-sources/cyberark')
+  })
+
+  it('has no return link when opened on its own', async () => {
+    routeFetch()
+    const { wrapper } = await mountAt('/admin/credentials?new=CyberArkCP')
+
+    expect(wrapper.findAll('a').some(a => a.text() === 'Cancel and return to CyberArk sources')).toBe(false)
+  })
+
+  it('shows the API\'s reason when a save is refused', async () => {
+    routeFetch({ 'POST /api/admin/credentials': { ok: false, status: 400, json: () => Promise.resolve({ detail: 'A credential with that name already exists.' }) } })
+    const { wrapper } = await mountAt('/admin/credentials?new=CyberArkCP')
+
+    await wrapper.findAll('form input')[0].setValue('PVWA_REST')
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+
+    expect(wrapper.find('[role="alert"]').text()).toContain('A credential with that name already exists.')
+  })
+
+  it('falls back to the status when the refusal has no reason', async () => {
+    routeFetch({ 'POST /api/admin/credentials': { ok: false, status: 500, json: () => Promise.reject(new Error('not json')) } })
+    const { wrapper } = await mountAt('/admin/credentials?new=CyberArkCP')
+
+    await wrapper.findAll('form input')[0].setValue('X')
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+
+    expect(wrapper.find('[role="alert"]').text()).toContain('500')
   })
 })

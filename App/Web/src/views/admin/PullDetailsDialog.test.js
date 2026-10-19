@@ -74,4 +74,22 @@ describe('PullDetailsDialog.vue', () => {
 
     expect(wrapper.emitted('close')).toHaveLength(3)
   })
+
+  // D-250
+  it('shows what the last good pull had next to a Safe or account count that changed', () => {
+    const wrapper = mount(PullDetailsDialog, { props: { pull: pull({ status: 'Rejected', safeCount: 10, accountCount: 100, baselineSafeCount: 40, baselineAccountCount: 2452 }) } })
+
+    const rows = wrapper.findAll('.pull-details-counts tr').map(r => r.text())
+    expect(rows).toContain('Safes10 (was 40)')
+    expect(rows).toContain('Accounts100 (was 2452)')
+    expect(rows).toContain('Users43')   // not compared
+  })
+
+  it('leaves out "was" when the count did not change or there is no earlier pull', () => {
+    const same = mount(PullDetailsDialog, { props: { pull: pull({ baselineSafeCount: 40, baselineAccountCount: 2452 }) } })
+    const none = mount(PullDetailsDialog, { props: { pull: pull({ baselineSafeCount: null, baselineAccountCount: null }) } })
+
+    expect(same.text()).not.toContain('(was')
+    expect(none.text()).not.toContain('(was')
+  })
 })

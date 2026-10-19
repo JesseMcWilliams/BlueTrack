@@ -6,7 +6,7 @@
 // D-248: Self-Hosted can come from the EVD database or straight from PVWA's REST
 // API (Self-Hosted Direct, pulled by the API each night at the pull time); for
 // Direct, Test logs on with the chosen credential and counts what it can see.
-import { ref, watch, onMounted } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 
@@ -16,7 +16,8 @@ const router = useRouter()
 const route = useRoute()
 
 // D-248: "Create a credential" leaves this page, so the unsaved values wait in sessionStorage for the way back
-// (the Credentials page returns here with ?credentialKey=). A draft older than an hour is ignored.
+// (the Credentials page returns here with ?credentialKey=), and the same goes for the link to Secrets Store. A draft
+// older than an hour is ignored, and one is used once; a note says when values were restored.
 const DRAFT_KEY = 'cyberArkSourcesDraft'
 function rememberDraft() {
   try { sessionStorage.setItem(DRAFT_KEY, JSON.stringify({ at: Date.now(), editing: editing.value })) } catch { /* private window: the values are simply not kept */ }
@@ -51,6 +52,10 @@ const isConfigured = ref(true)
 const editing = ref(null)
 const credentials = ref(null)
 const credentialsError = ref(null)
+const restoredDraft = ref(false)
+
+// D-250: a CyberArk CP or CCP credential only works once its backend has settings (the AppID); say so here, with a link.
+const selectedCredential = computed(() => credentials.value?.find(c => c.credentialKey === editing.value?.pvwaCredentialKey) ?? null)
 
 const selfHostedSources = [
   { value: 'Evd', labelKey: 'admin.cyberArkSourcesEdit.sourceEvd' },
@@ -89,9 +94,12 @@ onMounted(async () => {
     // Arriving from a credential ("Use for Self-Hosted Direct", or after creating one): pick Direct with that
     // credential, keeping whatever was typed before leaving this page. Nothing is saved until Save.
     const credentialKey = Number(route?.query?.credentialKey) || null
+    const draft = takeDraft()
+    if (draft) {
+      editing.value = draft
+      restoredDraft.value = true
+    }
     if (credentialKey) {
-      const draft = takeDraft()
-      if (draft) editing.value = draft
       editing.value.importSelfHosted = true
       editing.value.selfHostedSource = 'Direct'
       editing.value.pvwaCredentialKey = credentialKey
@@ -158,6 +166,7 @@ function cancel() {
       <p>
         {{ t('admin.cyberArkSourcesEdit.intro') }}
       </p>
+      <p v-if="restoredDraft" role="status">{{ t('admin.cyberArkSourcesEdit.restoredDraft') }}</p>
       <p v-if="!isConfigured" role="status">
         {{ t('admin.cyberArkSourcesEdit.notConfigured') }}
       </p>
@@ -209,6 +218,10 @@ function cancel() {
               <p>
                 <router-link :to="{ name: 'admin-credentials', query: { new: 'CyberArkCP', returnTo: 'cyberark-sources' } }" @click="rememberDraft">{{ t('admin.cyberArkSourcesEdit.createCredential') }}</router-link>
                 <small>{{ ' ' + t('admin.cyberArkSourcesEdit.createCredentialHint') }}</small>
+              </p>
+              <p v-if="selectedCredential && selectedCredential.backendReady === false" role="alert" class="backend-warning">
+                {{ selectedCredential.backendNote }}
+                <router-link :to="{ name: 'admin-secrets-store' }" @click="rememberDraft">{{ t('admin.cyberArkSourcesEdit.openSecretsStore') }}</router-link>
               </p>
               <p v-if="credentialsError" role="alert">{{ credentialsError }}</p>
               <p>

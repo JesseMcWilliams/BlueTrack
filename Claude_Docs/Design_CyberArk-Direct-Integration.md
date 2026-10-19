@@ -26,6 +26,10 @@ The Load (`usp_RunFullLoad`) and everything after it are unchanged: they read `s
 
 **Setting it up (D-249).** Edit CyberArk sources has **Create a credential** (opens Admin > Credentials with a new CyberArk CP credential and comes back with it chosen; unsaved values are kept for an hour), and every credential has **Use for Self-Hosted Direct**. A CyberArk CP or CCP credential with a blank folder uses `Root`.
 
+**Seeing a problem (D-250).** A failed or rejected pull shows as a banner on Data Sources, as a warning on the admin menu's Data Sources entry, and, once the `SelfHostedPullFailed` notification type is switched on (it starts disabled) and has recipients, as an email when it happens rather than at the 02:00 import. A rejected pull's message names the Safes that are no longer returned (and new ones), by number against the Safes the last good pull staged, and the log shows before and after counts.
+
+**Credential checks (D-250).** The credential list on the sources page says whether a CP or CCP credential's backend has its settings (CP: an AppID; CCP: a base URL and an AppID) and links to Admin > Secrets Store when it doesn't; Test says so first. Admin > Credentials shows what uses each credential and won't delete one in use; **Cancel and return to CyberArk sources** appears when it was opened from there.
+
 **Pull details.** Each pull in the Data Sources log has a **Details** button: a modal with the outcome, who started it and how long it took, every message on its own line, all the counts, what the outcome means and what to do about it.
 
 **Pull now** (Admin > Data Sources, `ManageDataSources`; the EVD and the folder still have no Run now) starts a pull in the background and the page polls the log. After a **Rejected** pull the page offers **Accept the change and pull**, which pulls again and accepts whatever PVWA returns, after a confirmation (always, not only in business hours). Both are audit-logged. The nightly pull skips quietly if one is running.

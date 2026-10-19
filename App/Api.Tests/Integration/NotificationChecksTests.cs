@@ -34,7 +34,9 @@ public class NotificationChecksTests : IClassFixture<BlueTrackWebApplicationFact
     private readonly List<long> _etlRunKeys = [];
     private string? _originalSiteUrl;
 
-    private static readonly string[] NewTypes = [NightlyImportFailedCheck.TypeName, OverdueRiskExceptionsCheck.TypeName, WeeklySummaryCheck.TypeName, ApiKeyExpiringCheck.TypeName, ApiKeyExpiredCheck.TypeName];
+    private readonly List<long> _pullKeys = [];
+
+    private static readonly string[] NewTypes = [BlueTrack.Api.CyberArkDirect.SelfHostedPullFailedCheck.TypeName, NightlyImportFailedCheck.TypeName, OverdueRiskExceptionsCheck.TypeName, WeeklySummaryCheck.TypeName, ApiKeyExpiringCheck.TypeName, ApiKeyExpiredCheck.TypeName];
 
     public NotificationChecksTests(BlueTrackWebApplicationFactory factory)
     {
@@ -83,7 +85,8 @@ public class NotificationChecksTests : IClassFixture<BlueTrackWebApplicationFact
             WHERE nt.NotificationTypeName IN @NewTypes AND nl.SentDate >= @Started;
             DELETE FROM dbo.import_log WHERE SourceFileName LIKE 'NotifyTest%';
             DELETE FROM dbo.etl_run_log WHERE EtlRunKey IN @Keys;
-            """, new { NewTypes, Started = _startedUtc, Keys = _etlRunKeys.DefaultIfEmpty(-1) });
+            DELETE FROM dbo.cyberark_direct_pull WHERE PullKey IN @PullKeys;
+            """, new { NewTypes, Started = _startedUtc, Keys = _etlRunKeys.DefaultIfEmpty(-1), PullKeys = _pullKeys.DefaultIfEmpty(-1) });
         await _factory.DisposeAsync();
     }
 
@@ -109,6 +112,21 @@ public class NotificationChecksTests : IClassFixture<BlueTrackWebApplicationFact
         _etlRunKeys.Add(key);
         return key;
     }
+
+    private async Task<long> InsertPullAsync(string status, int startedMinutesAgo, string? message = null, int? safes = 10, int? accounts = 100)
+    {
+        await using var connection = new SqlConnection(TestDatabase.ConnectionString);
+        var key = await connection.QuerySingleAsync<long>("""
+            INSERT INTO dbo.cyberark_direct_pull (StartedAt, CompletedAt, Status, TriggeredBy, Message, SafeCount, AccountCount)
+            OUTPUT inserted.PullKey
+            VALUES (DATEADD(MINUTE, -@startedMinutesAgo, SYSUTCDATETIME()), CASE WHEN @status = 'Started' THEN NULL ELSE SYSUTCDATETIME() END,
+                    @status, 'schedule', @message, @safes, @accounts)
+            """, new { status, startedMinutesAgo, message, safes, accounts });
+        _pullKeys.Add(key);
+        return key;
+    }
+
+    private static string PullMarker(long pullKey) => $"Pull: {pullKey}{Environment.NewLine}";
 
     private static string RunMarker(long runKey) => $"Run: {runKey}{Environment.NewLine}";
 
@@ -411,5 +429,68 @@ public class NotificationChecksTests : IClassFixture<BlueTrackWebApplicationFact
             await connection.ExecuteAsync("UPDATE web.app_config SET ApiKeyReminderLeadDays = @originalLead", new { originalLead });
             if (created.Count > 0) await connection.ExecuteAsync("DELETE FROM web.api_key WHERE ApiKeyKey IN @created", new { created });
         }
+    }
+
+    // ---- D-250: Self-Hosted Direct pull alerts ----
+
+    [Fact]
+    public async Task SelfHostedPullFailed_MailsARejectedPullOnce_WithTheMessagesAndTheBeforeAndAfterCounts()
+    {
+        await SetEnabledAsync(true, BlueTrack.Api.CyberArkDirect.SelfHostedPullFailedCheck.TypeName);
+        await SetSiteUrlAsync("https://bluetrack-test.example.com");
+        var good = await InsertPullAsync("Succeeded", 600, null, 40, 2452);
+        var rejected = await InsertPullAsync("Rejected", 10, "Safes went from 40 to 10 (-30; at most 8 allowed at 20%) | Safes no longer returned (30): <b>Alpha</b>, Beta", 10, 100);
+
+        await NewService().RunOnceAsync(CancellationToken.None);
+        await NewService().RunOnceAsync(CancellationToken.None);   // not re-sent
+
+        Assert.Empty(MessagesFor(PullMarker(good)));   // a success is never mailed
+        var message = Assert.Single(MessagesFor(PullMarker(rejected)));
+        Assert.Equal("BlueTrack: Self-Hosted Direct pull was rejected", message.Subject);
+        Assert.Contains(_recipient, message.To);
+        Assert.Contains("Safes went from 40 to 10", message.Body);
+        Assert.Contains("Safes no longer returned (30)", message.Body);
+        Assert.Contains("40 before, 10 now", message.Body);
+        Assert.Contains("2452 before, 100 now", message.Body);
+        Assert.Contains("Accept the change and pull", message.Body);
+        Assert.Contains("Admin > Data Sources (https://bluetrack-test.example.com/admin/data-sources)", message.Body);
+        Assert.Contains("&lt;b&gt;Alpha&lt;/b&gt;", message.Html);   // escaped
+        Assert.DoesNotContain("<b>Alpha</b>", message.Html);
+
+        var repository = new NotificationRepository(new TestDbConnectionFactory());
+        Assert.True(await repository.WasSentAsync(BlueTrack.Api.CyberArkDirect.SelfHostedPullFailedCheck.TypeName, BlueTrack.Api.CyberArkDirect.SelfHostedPullFailedCheck.DedupKeyFor(rejected)));
+    }
+
+    [Fact]
+    public async Task SelfHostedPullFailed_MailsAFailedPull_AndAPullStillStartedAfterTwoHours_ButNotARunningOne()
+    {
+        await SetEnabledAsync(true, BlueTrack.Api.CyberArkDirect.SelfHostedPullFailedCheck.TypeName);
+        var failed = await InsertPullAsync("Failed", 5, "PVWA refused to log on (401): the credential was refused.", null, null);
+        var stuck = await InsertPullAsync("Started", 3 * 60, null, null, null);
+        var running = await InsertPullAsync("Started", 30, null, null, null);
+
+        await NewService().RunOnceAsync(CancellationToken.None);
+
+        var failedMessage = Assert.Single(MessagesFor(PullMarker(failed)));
+        Assert.Equal("BlueTrack: Self-Hosted Direct pull failed", failedMessage.Subject);
+        Assert.Contains("the credential was refused", failedMessage.Body);
+        Assert.DoesNotContain("before, ", failedMessage.Body);   // a failed pull has no counts to compare
+        Assert.Equal("BlueTrack: Self-Hosted Direct pull has not finished", Assert.Single(MessagesFor(PullMarker(stuck))).Subject);
+        Assert.Empty(MessagesFor(PullMarker(running)));
+    }
+
+    [Fact]
+    public async Task SelfHostedPullFailed_ADisabledTypeSendsNothing_AndAnOldPullIsIgnored()
+    {
+        var recent = await InsertPullAsync("Failed", 5, "boom");
+        var old = await InsertPullAsync("Failed", 30 * 60, "old boom");
+
+        await NewService().RunOnceAsync(CancellationToken.None);   // type disabled
+        Assert.Empty(MessagesFor(PullMarker(recent)));
+
+        await SetEnabledAsync(true, BlueTrack.Api.CyberArkDirect.SelfHostedPullFailedCheck.TypeName);
+        await NewService().RunOnceAsync(CancellationToken.None);
+        Assert.Single(MessagesFor(PullMarker(recent)));
+        Assert.Empty(MessagesFor(PullMarker(old)));   // 30 hours old, past the 28-hour lookback
     }
 }

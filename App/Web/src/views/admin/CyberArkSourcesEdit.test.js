@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, afterEach } from 'vitest'
+import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
 import { createRouter, createMemoryHistory } from 'vue-router'
 import CyberArkSourcesEdit from './CyberArkSourcesEdit.vue'
@@ -16,6 +16,7 @@ function makeRouter() {
       { path: '/', name: 'home', component: { template: '<div />' } },
       { path: '/admin/data-sources', name: 'admin-data-sources', component: { template: '<div />' } },
       { path: '/admin/credentials', name: 'admin-credentials', component: { template: '<div />' } },
+      { path: '/admin/secrets-store', name: 'admin-secrets-store', component: { template: '<div />' } },
       { path: '/admin/data-sources/cyberark', name: 'admin-cyberark-sources-edit', component: { template: '<div />' } }
     ]
   })
@@ -57,6 +58,10 @@ async function mountPage(router = makeRouter()) {
 }
 
 describe('CyberArkSourcesEdit.vue', () => {
+  beforeEach(() => {
+    sessionStorage.clear()
+  })
+
   afterEach(() => {
     vi.restoreAllMocks()
   })
@@ -259,5 +264,63 @@ describe('CyberArkSourcesEdit.vue', () => {
     const wrapper = await mountPage(router)
 
     expect(wrapper.find('input[placeholder="https://pvwa.example.com"]').element.value).toBe('')
+  })
+
+  // D-250
+  it('warns, with a link to Secrets Store, when the chosen credential\'s backend has no settings', async () => {
+    routeFetch({
+      'GET /api/admin/cyberark-sources': jsonResponse({
+        isConfigured: true,
+        settings: { ...defaults, importSelfHosted: true, selfHostedSource: 'Direct', pvwaBaseUrl: 'https://pvwa.example.com', pvwaCredentialKey: 3 }
+      }),
+      'GET /api/admin/cyberark-sources/credentials': jsonResponse([
+        { credentialKey: 3, credentialName: 'PVWA service user', backendType: 'CyberArkCP', backendReady: false, backendNote: 'The CyberArk CP backend has no AppID. Set it on Admin > Secrets Store.' }
+      ])
+    })
+    const wrapper = await mountPage()
+
+    const warning = wrapper.find('.backend-warning')
+    expect(warning.text()).toContain('The CyberArk CP backend has no AppID.')
+    expect(warning.find('a').attributes('href')).toBe('/admin/secrets-store')
+    await warning.find('a').trigger('click')
+    expect(sessionStorage.getItem('cyberArkSourcesDraft')).not.toBeNull()   // what was typed waits for the way back
+  })
+
+  it('has no warning when the backend is set up, or when it needs nothing', async () => {
+    routeFetch({
+      'GET /api/admin/cyberark-sources': jsonResponse({
+        isConfigured: true,
+        settings: { ...defaults, importSelfHosted: true, selfHostedSource: 'Direct', pvwaBaseUrl: 'https://pvwa.example.com', pvwaCredentialKey: 4 }
+      }),
+      'GET /api/admin/cyberark-sources/credentials': jsonResponse([
+        { credentialKey: 3, credentialName: 'A', backendType: 'CyberArkCP', backendReady: true, backendNote: null },
+        { credentialKey: 4, credentialName: 'B', backendType: 'WindowsDpapi', backendReady: null, backendNote: null }
+      ])
+    })
+    const wrapper = await mountPage()
+
+    expect(wrapper.find('.backend-warning').exists()).toBe(false)
+  })
+
+  it('says when it restored what was typed before leaving the page', async () => {
+    sessionStorage.setItem('cyberArkSourcesDraft', JSON.stringify({
+      at: Date.now(), editing: { ...defaults, importSelfHosted: true, selfHostedSource: 'Direct', pvwaBaseUrl: 'https://typed.example.com' }
+    }))
+    routeFetch({
+      'GET /api/admin/cyberark-sources': jsonResponse({ isConfigured: true, settings: defaults }),
+      'GET /api/admin/cyberark-sources/credentials': jsonResponse(credentials)
+    })
+    const wrapper = await mountPage()   // arrived with no credentialKey, e.g. back from Secrets Store
+
+    expect(wrapper.text()).toContain('was restored')
+    expect(wrapper.find('input[placeholder="https://pvwa.example.com"]').element.value).toBe('https://typed.example.com')
+    expect(sessionStorage.getItem('cyberArkSourcesDraft')).toBeNull()
+  })
+
+  it('says nothing about a restore when there was no draft', async () => {
+    routeFetch({ 'GET /api/admin/cyberark-sources': jsonResponse({ isConfigured: true, settings: defaults }) })
+    const wrapper = await mountPage()
+
+    expect(wrapper.text()).not.toContain('was restored')
   })
 })

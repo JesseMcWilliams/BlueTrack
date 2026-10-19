@@ -21,6 +21,7 @@ public sealed class SelfHostedDirectPullService(
     CyberArkSourceConfigRepository configRepository,
     SelfHostedDirectRepository repository,
     CredentialRepository credentialRepository,
+    SecretsStoreRepository secretsStoreRepository,
     IHttpClientFactory httpClientFactory,
     ILogger<SelfHostedDirectPullService> logger)
 {
@@ -97,10 +98,16 @@ public sealed class SelfHostedDirectPullService(
             previous is null ? null : new PullCounts(previous.SafeCount ?? 0, previous.AccountCount ?? 0, previous.UserCount ?? 0,
                 previous.GroupCount ?? 0, previous.MemberCount ?? 0, previous.PlatformCount ?? 0),
             counts, s.DirectMaxChangePercent);
+        IReadOnlyList<string> whichSafes = [];
+        if (rejection is not null)
+        {
+            whichSafes = SafeDifference.Describe(await repository.GetStagedSafesAsync(), snapshot.Safes.Select(x => (x.SafeNumber, x.SafeName)));
+        }
         if (rejection is not null && !acceptChange)
         {
-            await repository.CompleteAsync(pullKey, "Rejected", counts, rejection, null);
-            return new PullOutcome("Rejected", rejection, counts);
+            var rejected = string.Join(" | ", new[] { rejection }.Concat(whichSafes));
+            await repository.CompleteAsync(pullKey, "Rejected", counts, rejected, null);
+            return new PullOutcome("Rejected", rejected, counts);
         }
 
         var batchId = Guid.NewGuid();
@@ -110,7 +117,11 @@ public sealed class SelfHostedDirectPullService(
         await repository.StageAsync(tables, ct);
 
         var notes = new List<string>();
-        if (rejection is not null) notes.Add($"An admin accepted this change: {rejection}");
+        if (rejection is not null)
+        {
+            notes.Add($"An admin accepted this change: {rejection}");
+            notes.AddRange(whichSafes);
+        }
         notes.AddRange(snapshot.Warnings);
         notes.AddRange(tables.Warnings);
         var message = notes.Count == 0 ? null : string.Join(" | ", notes);
@@ -129,6 +140,17 @@ public sealed class SelfHostedDirectPullService(
         {
             checks.Add(new Models.CyberArkSourceTestCheck { Item = "Credential", Ok = false, Message = "The credential no longer exists." });
             return checks;
+        }
+
+        var backendType = (await credentialRepository.GetAllAsync()).FirstOrDefault(c => c.CredentialKey == s.PvwaCredentialKey.Value)?.BackendType;
+        if (backendType is not null)
+        {
+            var (ready, note) = await CredentialBackendCheck.CheckAsync(secretsStoreRepository, backendType);
+            if (ready is not null)
+            {
+                checks.Add(new Models.CyberArkSourceTestCheck { Item = $"{backendType} backend", Ok = ready.Value, Message = ready.Value ? "Set up." : note! });
+                if (ready == false) return checks;   // the credential can't be fetched until it is; the logon below would only repeat that
+            }
         }
 
         try

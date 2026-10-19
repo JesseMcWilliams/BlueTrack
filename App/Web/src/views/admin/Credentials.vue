@@ -10,6 +10,7 @@
 // one; saving that new credential goes back there with it chosen.
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useRightsStore } from '../../stores/rights'
 import { confirmDelete } from '../../composables/useConfirmDialog'
 import { useI18n } from 'vue-i18n'
 
@@ -17,6 +18,9 @@ const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
 const returnToSources = ref(false)
+const rights = useRightsStore()
+// The link goes to a page that needs ManageDataSources; without it the link would only lead to "access denied".
+const canConfigureSources = computed(() => rights.hasPermission('ManageDataSources'))
 
 const BACKEND_TYPES = ['WindowsDpapi', 'CyberArkCP', 'CyberArkCCP', 'CyberArkConjur', 'AzureKeyVault', 'AwsSecretsManager']
 
@@ -82,7 +86,8 @@ async function save() {
     body: JSON.stringify({ ...editing.value, plaintextPassword: plaintextPassword.value || null })
   })
   if (!response.ok) {
-    error.value = t('common.saveFailed', { status: response.status })
+    const problem = await response.json().catch(() => null)
+    error.value = problem?.detail ?? problem?.title ?? t('common.saveFailed', { status: response.status })
     return
   }
   const created = isNew ? await response.json().catch(() => null) : null
@@ -162,7 +167,7 @@ async function removeLdapConfig(config) {
 
       <table>
         <thead>
-          <tr><th>{{ t('common.name') }}</th><th>{{ t('admin.credentials.backend') }}</th><th>{{ t('admin.credentials.username') }}</th><th>{{ t('admin.credentials.scope') }}</th><th></th></tr>
+          <tr><th>{{ t('common.name') }}</th><th>{{ t('admin.credentials.backend') }}</th><th>{{ t('admin.credentials.username') }}</th><th>{{ t('admin.credentials.scope') }}</th><th>{{ t('admin.credentials.usedBy') }}</th><th></th></tr>
         </thead>
         <tbody>
           <tr v-for="credential in credentials" :key="credential.credentialKey">
@@ -174,10 +179,11 @@ async function removeLdapConfig(config) {
                 {{ credential.currentScope }}<span v-if="credential.scopePreference !== credential.currentScope">{{ ' ' + t('admin.credentials.upgradingTo', { scope: credential.scopePreference }) }}</span>
               </template>
             </td>
+            <td>{{ (credential.usedBy ?? []).join('; ') }}</td>
             <td>
               <button @click="startEdit(credential)">{{ t('common.edit') }}</button>
-              <router-link :to="{ name: 'admin-cyberark-sources-edit', query: { credentialKey: credential.credentialKey } }">{{ t('admin.credentials.useForSelfHosted') }}</router-link>
-              <button @click="remove(credential)">{{ t('common.delete') }}</button>
+              <router-link v-if="canConfigureSources" :to="{ name: 'admin-cyberark-sources-edit', query: { credentialKey: credential.credentialKey } }">{{ t('admin.credentials.useForSelfHosted') }}</router-link>
+              <button @click="remove(credential)" :disabled="(credential.usedBy ?? []).length > 0" :title="(credential.usedBy ?? []).length > 0 ? t('admin.credentials.inUseCannotDelete') : ''">{{ t('common.delete') }}</button>
               <button @click="test(credential)" :disabled="testResults[credential.credentialKey]?.testing">{{ t('admin.credentials.test') }}</button>
               <span v-if="testResults[credential.credentialKey]?.success === true" role="status">{{ ' ' + t('admin.credentials.testOk', { username: testResults[credential.credentialKey].username }) }}</span>
               <span v-else-if="testResults[credential.credentialKey]?.success === false" role="alert"> {{ testResults[credential.credentialKey].error }}</span>
@@ -230,6 +236,7 @@ async function removeLdapConfig(config) {
 
         <button type="submit" class="btn-primary">{{ t('common.save') }}</button>
         <button type="button" @click="cancelEdit">{{ t('common.cancel') }}</button>
+        <router-link v-if="returnToSources" :to="{ name: 'admin-cyberark-sources-edit' }">{{ t('admin.credentials.cancelAndReturn') }}</router-link>
       </form>
 
       <h3>{{ t('admin.credentials.ldapHeading') }}</h3>
