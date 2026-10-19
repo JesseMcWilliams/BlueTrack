@@ -22,6 +22,7 @@
 // first) is offered on both; a pair is never linked again automatically.
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { flash, savedMessage } from '../composables/useFlash'
 import { useI18n } from 'vue-i18n'
 import Combobox from '../components/Combobox.vue'
 import { confirmDelete } from '../composables/useConfirmDialog'
@@ -169,6 +170,7 @@ async function save() {
       saveError.value = problem?.detail ?? t('common.saveFailed', { status: response.status })
       return
     }
+    flash(savedMessage(t, editing.value.targetName))
     router.push({ name: 'targets' })
   } finally {
     saving.value = false

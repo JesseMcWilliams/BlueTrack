@@ -12,6 +12,7 @@ import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { confirmDelete } from '../../composables/useConfirmDialog'
 import { useI18n } from 'vue-i18n'
+import EmptyListMessage from '../../components/EmptyListMessage.vue'
 
 const { t } = useI18n()
 
@@ -73,6 +74,7 @@ async function remove(item) {
           </tr>
         </tbody>
       </table>
+      <EmptyListMessage :show="!loading && items.length === 0" :message="t('admin.riskScoreBands.emptyNone')" />
     </template>
   </div>
 </template>

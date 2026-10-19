@@ -8,6 +8,7 @@
 // Direct, Test logs on with the chosen credential and counts what it can see.
 import { ref, computed, watch, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { flash } from '../../composables/useFlash'
 import { useI18n } from 'vue-i18n'
 
 const { t } = useI18n()
@@ -145,6 +146,7 @@ async function save() {
       saveError.value = problem?.detail ?? t('common.saveFailed', { status: response.status })
       return
     }
+    flash(t('common.saved'))
     router.push({ name: 'admin-data-sources' })
   } finally {
     saving.value = false

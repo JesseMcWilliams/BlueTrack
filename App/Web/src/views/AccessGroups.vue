@@ -41,6 +41,7 @@ import { useListSelectionStore } from '../stores/listSelection'
 import { useBulkAction } from '../composables/useBulkAction'
 import { formatCount } from '../utils/formatCount'
 import { useI18n } from 'vue-i18n'
+import EmptyListMessage from '../components/EmptyListMessage.vue'
 
 const { t } = useI18n()
 
@@ -285,6 +286,7 @@ async function remove(item) {
           </tr>
         </tbody>
       </table>
+      <EmptyListMessage :show="!loading && items.length === 0" :message="totalCount === 0 ? t('pages.accessGroups.emptyNone') : t('pages.accessGroups.emptyFiltered')" />
       <Pager :page="page" :page-count="pageCount" @update:page="onPageChange" @page-size-change="onPageSizeChange" />
       <p><small>{{ t('pages.accessGroups.sortHint') }}</small></p>
     </template>

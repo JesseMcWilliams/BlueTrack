@@ -10,6 +10,7 @@
 // provider's groups claim, so the name must match exactly.
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { flash, savedMessage } from '../../composables/useFlash'
 import { useI18n } from 'vue-i18n'
 
 const { t } = useI18n()
@@ -66,6 +67,7 @@ async function createMapping() {
           : t('admin.groupRoleMappingCreate.createFailed', { status: response.status })
       return
     }
+    flash(savedMessage(t, newGroupName.value))
     router.push({ name: 'admin-group-role-mapping' })
   } finally {
     saving.value = false

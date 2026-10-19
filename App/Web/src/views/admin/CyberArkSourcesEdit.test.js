@@ -2,6 +2,7 @@ import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
 import { createRouter, createMemoryHistory } from 'vue-router'
 import CyberArkSourcesEdit from './CyberArkSourcesEdit.vue'
+import { useFlashState } from '../../composables/useFlash'
 
 // D-211 (Data Sources phase 3): the CyberArk sources' settings page.
 
@@ -93,6 +94,7 @@ describe('CyberArkSourcesEdit.vue', () => {
     const putCall = globalThis.fetch.mock.calls.find(([, options]) => options?.method === 'PUT')
     expect(JSON.parse(putCall[1].body)).toMatchObject({ importSelfHosted: true, evdDatabaseName: 'CyberArkSH' })
     expect(router.currentRoute.value.name).toBe('admin-data-sources')
+    expect(useFlashState().message).toBe('Saved.') // UI review theme 3: saved line on Data Sources
   })
 
   it('shows the API\'s reason when a save is refused', async () => {

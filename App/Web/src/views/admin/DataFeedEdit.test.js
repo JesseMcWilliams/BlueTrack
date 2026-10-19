@@ -2,6 +2,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
 import { createRouter, createMemoryHistory } from 'vue-router'
 import DataFeedEdit from './DataFeedEdit.vue'
+import { useFlashState } from '../../composables/useFlash'
 
 // D-212 (Data Sources phase 4a): an account inventory feed names the source
 // system its accounts come from, and a new source system can be added here.
@@ -113,6 +114,7 @@ describe('DataFeedEdit.vue source system (D-212)', () => {
     const saveCall = globalThis.fetch.mock.calls.find(([url, init]) => url === '/api/admin/data-feeds' && init?.method === 'POST')
     expect(JSON.parse(saveCall[1].body)).toMatchObject({ feedType: 'AccountInventory', sourceSystemKey: 12 })
     expect(router.currentRoute.value.name).toBe('admin-data-sources')
+    expect(useFlashState().message).toBe('Saved.') // no name typed in this test, so the plain line (UI review theme 3)
   })
 
   it('shows why a new source system was refused', async () => {

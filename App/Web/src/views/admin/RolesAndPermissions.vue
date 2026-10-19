@@ -11,6 +11,7 @@ import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { confirmDelete } from '../../composables/useConfirmDialog'
 import { useI18n } from 'vue-i18n'
+import EmptyListMessage from '../../components/EmptyListMessage.vue'
 
 const { t } = useI18n()
 
@@ -71,6 +72,7 @@ async function remove(role) {
           </tr>
         </tbody>
       </table>
+      <EmptyListMessage :show="!loading && roles.length === 0" :message="t('admin.rolesAndPermissions.emptyNone')" />
     </template>
   </div>
 </template>

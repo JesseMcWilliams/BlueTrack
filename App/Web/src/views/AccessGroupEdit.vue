@@ -14,6 +14,7 @@
 // identical reasoning -- Create/Update/Delete are otherwise unchanged.
 import { ref, computed, watch, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { flash, savedMessage } from '../composables/useFlash'
 import Combobox from '../components/Combobox.vue'
 import { useI18n } from 'vue-i18n'
 
@@ -96,6 +97,7 @@ async function save() {
       saveError.value = problem?.message ?? t('common.saveFailed', { status: response.status })
       return
     }
+    flash(savedMessage(t, editing.value.groupName))
     router.push({ name: 'access-groups' })
   } finally {
     saving.value = false

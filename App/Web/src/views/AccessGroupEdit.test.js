@@ -2,6 +2,7 @@ import { describe, it, expect, afterEach, vi } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
 import { createRouter, createMemoryHistory } from 'vue-router'
 import AccessGroupEdit from './AccessGroupEdit.vue'
+import { useFlashState } from '../composables/useFlash'
 
 // D-124 Phase 4: Add/Edit moved off AccessGroups.vue's own inline form onto
 // this routed page -- establishes coverage for the create-vs-edit-by-
@@ -94,6 +95,7 @@ describe('AccessGroupEdit.vue', () => {
     expect(url).toBe('/api/admin/access-groups')
     expect(options.method).toBe('POST')
     expect(pushSpy).toHaveBeenCalledWith({ name: 'access-groups' })
+    expect(useFlashState().message).toBe('New Group saved.') // UI review theme 3: a saved line on the list
   })
 
   it('shows a save error and stays on the page when the save fails', async () => {

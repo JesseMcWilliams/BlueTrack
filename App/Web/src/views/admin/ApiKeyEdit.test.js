@@ -2,6 +2,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
 import { createRouter, createMemoryHistory } from 'vue-router'
 import ApiKeyEdit from './ApiKeyEdit.vue'
+import { useFlashState } from '../../composables/useFlash'
 
 // D-243: edit an API key in place.
 function jsonResponse(body, ok = true, status = 200) {
@@ -67,6 +68,7 @@ describe('ApiKeyEdit.vue', () => {
     expect(put[0]).toBe('/api/admin/api-keys/7')
     expect(JSON.parse(put[1].body)).toEqual({ displayName: 'Nightly sync', appRoleKey: 3, expiresOn: null, ownerEmail: 'new@example.com', rateLimitPerMinute: null })
     expect(router.currentRoute.value.name).toBe('admin-api-keys')
+    expect(useFlashState().message).toBe('Nightly sync saved.') // UI review theme 3: saved line on the list
   })
 
   it('sends a changed expiry date', async () => {

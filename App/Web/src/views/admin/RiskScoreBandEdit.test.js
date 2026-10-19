@@ -2,6 +2,7 @@ import { describe, it, expect, afterEach, vi } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
 import { createRouter, createMemoryHistory } from 'vue-router'
 import RiskScoreBandEdit from './RiskScoreBandEdit.vue'
+import { useFlashState } from '../../composables/useFlash'
 
 // D-124 Phase 4: Add/Edit moved off RiskScoreBands.vue's own inline form
 // onto this routed page -- establishes coverage for the create-vs-edit-by-
@@ -89,5 +90,6 @@ describe('RiskScoreBandEdit.vue', () => {
     await flushPromises()
 
     expect(pushSpy).toHaveBeenCalledWith({ name: 'admin-risk-score-bands' })
+    expect(useFlashState().message).toBe('New Band saved.') // UI review theme 3: a saved line on the list
   })
 })

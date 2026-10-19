@@ -7,6 +7,8 @@
 // where they are (confirmed untouched, not in scope for this phase).
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { flash, savedMessage } from '../../composables/useFlash'
+import { problemMessage } from '../../utils/problemText'
 import { useI18n } from 'vue-i18n'
 
 const { t } = useI18n()
@@ -27,9 +29,10 @@ async function addRecipient() {
       body: JSON.stringify(newRecipient.value)
     })
     if (!response.ok) {
-      saveError.value = t('admin.notificationRecipientCreate.addFailed', { status: response.status })
+      saveError.value = await problemMessage(response, t('admin.notificationRecipientCreate.addFailed', { status: response.status }))
       return
     }
+    flash(savedMessage(t, newRecipient.value.email))
     router.push({ name: 'admin-notifications' })
   } finally {
     saving.value = false

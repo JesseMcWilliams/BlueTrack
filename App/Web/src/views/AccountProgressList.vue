@@ -19,6 +19,7 @@ import { decomNote } from '../utils/decomNote'
 import { formatCount } from '../utils/formatCount'
 import SelectionBar from '../components/SelectionBar.vue'
 import { useI18n } from 'vue-i18n'
+import EmptyListMessage from '../components/EmptyListMessage.vue'
 
 const { t } = useI18n()
 
@@ -404,6 +405,7 @@ watch(() => route.query, async (query) => {
         </template>
       </tbody>
     </table>
+    <EmptyListMessage :show="!loading && !error && accounts.length === 0" :message="totalCount === 0 ? t('pages.accountProgressList.emptyNone') : t('pages.accountProgressList.emptyFiltered')" />
     <Pager :page="page" :page-count="pageCount" @update:page="onPageChange" @page-size-change="onPageSizeChange" />
     <p><small>{{ t('pages.accountProgressList.sortHint') }}</small></p>
   </div>

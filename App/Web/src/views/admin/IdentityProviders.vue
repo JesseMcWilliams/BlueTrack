@@ -27,6 +27,7 @@ import { useRouter } from 'vue-router'
 import { confirmDelete } from '../../composables/useConfirmDialog'
 import BreakGlassAccounts from './BreakGlassAccounts.vue'
 import { useI18n } from 'vue-i18n'
+import EmptyListMessage from '../../components/EmptyListMessage.vue'
 
 const { t } = useI18n()
 
@@ -127,6 +128,7 @@ async function remove(provider) {
           </tr>
         </tbody>
       </table>
+      <EmptyListMessage :show="!loading && providers.length === 0" :message="t('admin.identityProviders.emptyNone')" />
 
       <h3>{{ t('admin.identityProviders.signInHeading') }}</h3>
       <form class="filter-row" @submit.prevent="saveDefault">

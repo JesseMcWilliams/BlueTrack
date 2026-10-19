@@ -4,6 +4,7 @@
 // applies to those tokens at once.
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { flash, savedMessage } from '../../composables/useFlash'
 import { useI18n } from 'vue-i18n'
 import { formatDate } from '../../utils/formatDate'
 
@@ -70,6 +71,7 @@ async function save() {
       saveError.value = problem?.error ?? problem?.detail ?? t('common.saveFailed', { status: response.status })
       return
     }
+    flash(savedMessage(t, form.value.displayName))
     router.push({ name: 'admin-api-keys' })
   } finally {
     saving.value = false

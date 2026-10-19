@@ -405,6 +405,7 @@
     "displayOrder": "Display Order:"
   },
   "fieldMetadataManagement": {
+    "emptyNone": "No field definitions yet.",
     "confirmDelete": "Delete field \"{name}\"? This cannot be undone.",
     "title": "Field Metadata Management",
     "intro": "Governed field-definition list backing the Account Progress edit form (Design_Interface-Extensibility.md).",
@@ -496,6 +497,7 @@
     "apiKeyRetentionHint": "How many days an expired API key stays on the API Keys list before it is deleted automatically, from 1 to 3,650 (365 by default). 0 keeps them for ever. A key that is only disabled is never deleted automatically. Each deletion is in the Audit Log."
   },
   "groupRoleMapping": {
+    "emptyNone": "No group-to-role mappings yet. Until one is added, only users with direct roles can sign in with a role.",
     "couldNotResolve": "Could not resolve that group name.",
     "confirmDelete": "Delete mapping \"{group} → {role}\"? This cannot be undone.",
     "title": "Group → Role Mapping",
@@ -557,6 +559,7 @@
     "secretNoneSet": "(none set)"
   },
   "identityProviders": {
+    "emptyNone": "No identity providers are configured yet.",
     "saveDefaultFailed": "Saving the default sign-in method failed: {status}",
     "confirmDelete": "Delete Identity Provider \"{name}\"? This cannot be undone.",
     "title": "Identity Providers",
@@ -794,6 +797,7 @@
     "riskOrder": "Risk Order:"
   },
   "riskScoreBands": {
+    "emptyNone": "No risk score bands are defined yet.",
     "confirmDelete": "Delete band \"{name}\"? This cannot be undone.",
     "title": "Risk Score Bands",
     "intro": "Named ranges over the computed risk score (0-1000) -- e.g. Low/Medium/High/Critical. The resulting band name shows up on the Account Progress list and the Risk Score report. A new/edited range must not overlap any other existing band.",
@@ -813,6 +817,7 @@
     "permissions": "Permissions:"
   },
   "rolesAndPermissions": {
+    "emptyNone": "No roles are defined yet.",
     "rolesRequestFailed": "Roles request failed: {status}",
     "confirmDelete": "Delete role \"{name}\"? This cannot be undone.",
     "deleteFailedInUse": "Delete failed: {status} (a role still mapped to a group can't be deleted)",

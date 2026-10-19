@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
 import { createRouter, createMemoryHistory } from 'vue-router'
 import TargetEdit from './TargetEdit.vue'
+import { useFlashState } from '../composables/useFlash'
 
 vi.mock('../composables/useConfirmDialog', () => ({
   confirmDelete: vi.fn().mockResolvedValue(true)
@@ -112,6 +113,7 @@ describe('TargetEdit.vue', () => {
     expect(url).toBe('/api/admin/targets')
     expect(options.method).toBe('POST')
     expect(pushSpy).toHaveBeenCalledWith({ name: 'targets' })
+    expect(useFlashState().message).toBe('new-target saved.') // UI review theme 3: a saved line on the list
   })
 
   it('shows a save error and stays on the page when the save fails', async () => {
