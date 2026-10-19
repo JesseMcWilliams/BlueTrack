@@ -246,6 +246,15 @@ builder.Services.AddHostedService<AdAccountDiscoveryBackgroundService>();
 builder.Services.TryAddSingleton(TimeProvider.System);
 builder.Services.AddScoped<DataFeedRepository>();
 builder.Services.AddScoped<CyberArkSourceConfigRepository>();   // D-211
+// D-248: Self-Hosted Direct. The pull service and its repository are Scoped like the other repositories; the
+// runner is a Singleton so its one-at-a-time gate spans the nightly pull and Run now.
+builder.Services.AddScoped<BlueTrack.Api.CyberArkDirect.SelfHostedDirectRepository>();
+builder.Services.AddScoped<BlueTrack.Api.CyberArkDirect.SelfHostedDirectPullService>();
+builder.Services.AddSingleton<BlueTrack.Api.CyberArkDirect.SelfHostedDirectRunner>();
+builder.Services.AddHostedService<BlueTrack.Api.CyberArkDirect.SelfHostedDirectBackgroundService>();
+builder.Services.AddHttpClient(BlueTrack.Api.CyberArkDirect.SelfHostedDirectPullService.HttpClientName)
+    .ConfigureHttpClient(c => c.Timeout = TimeSpan.FromMinutes(5))
+    .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler { AllowAutoRedirect = false });
 builder.Services.AddScoped<AccountInventoryRepository>();   // D-212
 builder.Services.AddScoped<PossibleMatchRepository>();
 builder.Services.AddScoped<EntitlementMemberResolutionRepository>();   // D-232

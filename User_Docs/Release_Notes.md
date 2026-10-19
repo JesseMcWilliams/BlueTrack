@@ -6,11 +6,16 @@ What changed in each BlueTrack release, newest first, for users and administrato
 
 ### New
 
+- **Self-Hosted Direct.** BlueTrack can read your Self-Hosted CyberArk Vault straight from PVWA's REST API instead of the EVD database (PAM Self-Hosted 14.2 or later). On Admin > Data Sources > Edit CyberArk sources, choose the Self-Hosted source, then give the PVWA address, a credential from Admin > Credentials (a CyberArk CP or CCP credential is fetched from the Vault at each pull), the logon method (CyberArk or LDAP), the pull time and how much the Safe or account count may change. It reads Safes, accounts, Safe members, users, groups and platforms (platform names and descriptions now come from PVWA). Pending (discovered) accounts are not read.
+- **A pull that looks wrong is stopped.** PVWA only returns what the service account can see. If the number of Safes or accounts changes by more than the allowed percentage from the last good pull, the pull is rejected, the nightly import fails and you get the usual failed-import email. Data Sources lists recent pulls, with **Pull now** and, after a rejection, **Accept the change and pull**.
+
 ### Changed
 
 ### Fixed
 
 ### Upgrading
+
+- Nothing changes until you choose Self-Hosted Direct; the EVD stays the default. Script 38 (applied by the Migrator) adds the settings and a pull log. To use Direct, the credential's PVWA user needs List Accounts and View Safe Members in each Safe to read, and the Audit Users Vault authorization; set the pull time earlier than the nightly import job's time.
 
 ## 1.2.0 (2026-10-17)
 
