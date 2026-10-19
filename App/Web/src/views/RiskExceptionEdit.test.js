@@ -164,6 +164,17 @@ describe('RiskExceptionEdit.vue', () => {
   })
 
   describe('edit', () => {
+    // UI review W3-8
+    it('says who revoked an exception, when, and why', async () => {
+      routeFetch({
+        'GET /api/applications': jsonResponse([]),
+        'GET /api/risk-exceptions/5': jsonResponse({ ...active, statusName: 'Revoked', revokedByName: 'Pat Approver', revokedAt: '2026-10-01T12:00:00', revokeReason: 'System retired' })
+      })
+      const wrapper = await mountEdit({ exceptionKey: 5 })
+      expect(wrapper.text()).toContain('By Pat Approver on')
+      expect(wrapper.text()).toContain('Reason: System retired')
+    })
+
     // UI review W3-4
     it('names the account and links to it, or the application by name', async () => {
       routeFetch({ 'GET /api/applications': jsonResponse([]), 'GET /api/risk-exceptions/5': jsonResponse({ ...active, accountName: 'svc_payroll', accountAddress: 'pay01.example.com' }) })

@@ -34,34 +34,34 @@ public sealed class ApplicationMappingImportController(
 
     [HttpPost("applications")]
     [RequestSizeLimit(30_000_000)]   // D-198: also outside IIS, whose default is ~30 MB
-    public async Task<IActionResult> ImportApplications(IFormFile file)
+    public async Task<IActionResult> ImportApplications(IFormFile file, [FromQuery] bool dryRun = false)
     {
         var user = await currentUserResolver.ResolveAsync(User);
         if (user is null) return Unauthorized();
 
         var rows = await CsvFileReader.ReadRowsAsync(file.OpenReadStream());
-        return Ok(await importService.ImportApplicationsAsync(rows, user.UserKey));
+        return Ok(await importService.ImportApplicationsAsync(rows, user.UserKey, dryRun));
     }
 
     [HttpPost("safe-assignments")]
     [RequestSizeLimit(30_000_000)]   // D-198: also outside IIS, whose default is ~30 MB
-    public async Task<IActionResult> ImportSafeAssignments(IFormFile file)
+    public async Task<IActionResult> ImportSafeAssignments(IFormFile file, [FromQuery] bool dryRun = false)
     {
         var user = await currentUserResolver.ResolveAsync(User);
         if (user is null) return Unauthorized();
 
         var rows = await CsvFileReader.ReadRowsAsync(file.OpenReadStream());
-        return Ok(await importService.ImportSafeAssignmentsAsync(rows, user.UserKey));
+        return Ok(await importService.ImportSafeAssignmentsAsync(rows, user.UserKey, dryRun));
     }
 
     [HttpPost("account-assignments")]
     [RequestSizeLimit(30_000_000)]   // D-198: also outside IIS, whose default is ~30 MB
-    public async Task<IActionResult> ImportAccountAssignments(IFormFile file)
+    public async Task<IActionResult> ImportAccountAssignments(IFormFile file, [FromQuery] bool dryRun = false)
     {
         var user = await currentUserResolver.ResolveAsync(User);
         if (user is null) return Unauthorized();
 
         var rows = await CsvFileReader.ReadRowsAsync(file.OpenReadStream());
-        return Ok(await importService.ImportAccountAssignmentsAsync(rows, user.UserKey));
+        return Ok(await importService.ImportAccountAssignmentsAsync(rows, user.UserKey, dryRun));
     }
 }

@@ -60,7 +60,8 @@ async function apply() {
   // UI review W2-6: this overwrites fields on every selected account, so it asks first.
   const confirmed = await confirmDelete({
     title: t('pages.accountProgressBulkEdit.confirmTitle', { count: formatCount(selection.count) }),
-    details: fields.filter(f => change.value[f.field]).map(f => t(f.labelKey)),
+    // a ticked field left empty clears it on every selected account, so the confirmation says so
+    details: fields.filter(f => change.value[f.field]).map(f => (values.value[f.field] === '' || values.value[f.field] === null ? t('pages.accountProgressBulkEdit.confirmCleared', { field: t(f.labelKey) }) : t(f.labelKey))),
     warning: t('pages.accountProgressBulkEdit.confirmWarning')
   }, t('pages.accountProgressBulkEdit.confirmButton'))
   if (!confirmed) return

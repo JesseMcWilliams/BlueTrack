@@ -63,6 +63,8 @@
     "applicationForSafe": "Application for safe {name}"
   },
   "applicationSafeMappingBulkImport": {
+    "preview": "Check file",
+    "previewNote": "Preview: nothing was changed.",
     "noResponse": "The server did not answer, so nothing was imported.",
     "rowError": "Row {row}: {error}",
     "title": "Application Mapping: Bulk Actions",

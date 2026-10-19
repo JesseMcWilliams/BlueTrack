@@ -200,6 +200,9 @@ public class RiskExceptionsWorkflowTests : IClassFixture<BlueTrackWebApplication
         Assert.Equal("Revoked", detail!.StatusName);
         Assert.False(string.IsNullOrWhiteSpace(detail.AccountName)); // UI review W3-4: the detail names the account
         Assert.Null(detail.ApplicationName);
+        Assert.Equal("Contract test revoke", detail.RevokeReason); // UI review W3-8: who, when and why it was revoked
+        Assert.False(string.IsNullOrWhiteSpace(detail.RevokedByName));
+        Assert.NotNull(detail.RevokedAt);
 
         // D-194: a second revoke, or a re-approval, of a no-longer-Active exception is a conflict.
         Assert.Equal(HttpStatusCode.Conflict, (await client.PutAsJsonAsync($"/api/risk-exceptions/{created}/revoke", new { reason = "Again" })).StatusCode);
@@ -272,5 +275,8 @@ public class RiskExceptionsWorkflowTests : IClassFixture<BlueTrackWebApplication
         public string StatusName { get; set; } = "";
         public string? AccountName { get; set; }
         public string? ApplicationName { get; set; }
+        public string? RevokeReason { get; set; }
+        public string? RevokedByName { get; set; }
+        public DateTime? RevokedAt { get; set; }
     }
 }

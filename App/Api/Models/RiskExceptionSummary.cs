@@ -12,6 +12,10 @@ public sealed class RiskExceptionSummary
     public required string ExceptionID { get; init; }
     public required string ScopeType { get; init; } // "Account" or "Application"
     public required string ScopeName { get; init; }
+
+    /// <summary>UI review W3-6: the scope's key, so the pages can link the account (null for an application).</summary>
+    public long? AccountKey { get; init; }
+    public int? ApplicationKey { get; init; }
     public required string Justification { get; init; }
     public string? ApprovedByName { get; init; }
     public DateTime ApprovalDate { get; init; }

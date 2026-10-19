@@ -91,6 +91,40 @@ public class ApplicationMappingImportControllerTests : IClassFixture<BlueTrackWe
         }
     }
 
+    /// <summary>UI review W8-3: dryRun=true reads, checks and counts the file exactly as an import would, and changes and audits nothing.</summary>
+    [Fact]
+    public async Task ApplicationsImport_DryRun_CountsLikeAnImportButWritesNothing()
+    {
+        var client = AdminClient();
+        var id = Guid.NewGuid().ToString("N")[..8];
+        var code = $"DR{id}";
+        var csv = $"ApplicationCode,ApplicationName\n{code},Dry Run App {id}\n,No Code App\n";
+
+        var preview = await client.PostAsync("/api/admin/application-mapping/import/applications?dryRun=true", BuildCsvUpload(csv));
+        var result = (await preview.Content.ReadFromJsonAsync<ApplicationImportResponse>())!;
+
+        Assert.True(result.DryRun);
+        Assert.Equal((2, 1), (result.TotalRows, result.CreatedCount));
+        Assert.Contains(result.Errors, e => e.RowNumber == 3 && e.Error.Contains("ApplicationCode is required"));
+        await using (var connection = await OpenAsync())
+        {
+            Assert.Equal(0, await connection.QuerySingleAsync<int>("SELECT COUNT(*) FROM web.dim_application WHERE ApplicationCode = @Code", new { Code = code }));
+        }
+
+        try
+        {
+            var real = await client.PostAsync("/api/admin/application-mapping/import/applications", BuildCsvUpload(csv));
+            var imported = (await real.Content.ReadFromJsonAsync<ApplicationImportResponse>())!;
+            Assert.False(imported.DryRun);
+            Assert.Equal(result.CreatedCount, imported.CreatedCount);
+        }
+        finally
+        {
+            await using var connection = await OpenAsync();
+            await connection.ExecuteAsync("DELETE FROM web.dim_application WHERE ApplicationCode = @Code", new { Code = code });
+        }
+    }
+
     [Fact]
     public async Task SafeAssignmentsImport_AssignsEveryMatchingSafe_SourceNarrows_OverwritesAndReportsErrors()
     {
@@ -256,7 +290,7 @@ public class ApplicationMappingImportControllerTests : IClassFixture<BlueTrackWe
     }
 
     private sealed record RowError(int RowNumber, string Error);
-    private sealed record ApplicationImportResponse(int TotalRows, int CreatedCount, int UpdatedCount, int UnchangedCount, List<RowError> Errors);
+    private sealed record ApplicationImportResponse(int TotalRows, int CreatedCount, int UpdatedCount, int UnchangedCount, List<RowError> Errors, bool DryRun = false);
     private sealed record AccountAssignmentImportResponse(int TotalRows, int AssignedCount, int ChangedCount, int UnchangedCount, List<RowError> Errors);
     private sealed record SafeAssignmentImportResponse(int TotalRows, int AssignedCount, int ChangedCount, int UnchangedCount, List<RowError> Errors);
 }

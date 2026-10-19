@@ -471,6 +471,15 @@ public class AccountInventoryFeedTests : IClassFixture<BlueTrackWebApplicationFa
             Assert.DoesNotContain(rows, r => r.ReconciliationKey == linkRow.ReconciliationKey || r.ReconciliationKey == dismissRow.ReconciliationKey);
             var again = await RunAndWaitAsync(client, key);
             Assert.Contains("0 possible matches", again.Summary);
+
+            // UI review W5-4: the dismissed pair can be seen, and restored (it is open again, and Restore refuses an open one).
+            var dismissed = (await client.GetFromJsonAsync<List<MatchRow>>("/api/reports/possible-matches?dismissed=true&pageSize=200"))!;
+            Assert.Contains(dismissed, r => r.ReconciliationKey == dismissRow.ReconciliationKey);
+            Assert.DoesNotContain(dismissed, r => r.ReconciliationKey == linkRow.ReconciliationKey);
+            Assert.Equal(HttpStatusCode.NoContent, (await client.PostAsync($"/api/reports/possible-matches/{dismissRow.ReconciliationKey}/restore", null)).StatusCode);
+            Assert.Equal(HttpStatusCode.Conflict, (await client.PostAsync($"/api/reports/possible-matches/{dismissRow.ReconciliationKey}/restore", null)).StatusCode);
+            rows = (await client.GetFromJsonAsync<List<MatchRow>>("/api/reports/possible-matches?pageSize=200"))!;
+            Assert.Contains(rows, r => r.ReconciliationKey == dismissRow.ReconciliationKey);
         }
         finally
         {

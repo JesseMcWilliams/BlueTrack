@@ -87,6 +87,8 @@ async function importAccountTargetMap() {
     <p v-if="inventoryImportResult?.error" role="alert">{{ inventoryImportResult.error }}</p>
     <p v-else-if="inventoryImportResult">
       {{ t('pages.targetsBulkImport.inventorySummary', { total: formatCount(inventoryImportResult.totalRows), created: formatCount(inventoryImportResult.createdCount), merged: formatCount(inventoryImportResult.mergedCount), pending: formatCount(inventoryImportResult.pendingReviewCount), errors: formatCount(inventoryImportResult.errors?.length ?? 0) }) }}
+      <!-- UI review W4-5: the queue the pending rows wait in -->
+      <span v-if="inventoryImportResult.pendingReviewCount"><br /><router-link :to="{ name: 'admin-target-match-review' }">{{ t('pages.targetsBulkImport.reviewPending') }}</router-link></span>
       <span v-if="inventoryImportResult.ignoredCount"><br />{{ t('pages.targetsBulkImport.inventoryIgnored', { ignored: formatCount(inventoryImportResult.ignoredCount) }) }}</span>
       <span v-if="inventoryImportResult.errors?.length"><br />{{ inventoryImportResult.errors.map(e => t('pages.targetsBulkImport.rowError', { row: e.rowNumber, error: e.error })).join('; ') }}</span>
     </p>

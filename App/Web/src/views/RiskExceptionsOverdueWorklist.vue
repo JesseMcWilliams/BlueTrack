@@ -47,7 +47,12 @@ onMounted(async () => {
       <tbody>
         <tr v-for="exception in exceptions" :key="exception.exceptionKey">
           <td><router-link :to="{ name: 'risk-exception-edit', params: { exceptionKey: exception.exceptionKey } }">{{ exception.exceptionID }}</router-link></td>
-          <td>{{ exception.scopeType }}: {{ exception.scopeName }}</td>
+          <td>
+            {{ exception.scopeType }}:
+            <!-- UI review W3-6: the account is one click away; an application has no page of its own here. -->
+            <router-link v-if="exception.accountKey" :to="{ name: 'account-progress-detail', params: { accountKey: exception.accountKey } }" @click.stop>{{ exception.scopeName }}</router-link>
+            <template v-else>{{ exception.scopeName }}</template>
+          </td>
           <td>{{ exception.justification }}</td>
           <td>{{ formatDate(exception.reviewDate) }}</td>
         </tr>

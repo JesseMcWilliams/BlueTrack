@@ -16,6 +16,11 @@ public sealed class RiskExceptionDetail
     public string? AccountName { get; init; }
     public string? AccountAddress { get; init; }
     public string? ApplicationName { get; init; }
+
+    /// <summary>UI review W3-8: for a Revoked exception, who revoked it, when, and the reason (from its ExceptionRevoked audit event).</summary>
+    public string? RevokedByName { get; init; }
+    public DateTime? RevokedAt { get; init; }
+    public string? RevokeReason { get; init; }
     public required string Justification { get; init; }
 
     /// <summary>UserKey who approved this exception -- used by the Risk Exception segregation-of-duties check (AccountProgressController.Update).</summary>

@@ -156,6 +156,7 @@ public sealed class RiskExceptionRepository(IDbConnectionFactory connectionFacto
         const string sql = """
             SELECT re.ExceptionKey, re.ExceptionID, re.AccountKey, re.ApplicationKey,
                    COALESCE(NULLIF(fa.UserName, ''), fa.AccountName) AS AccountName, fa.Address AS AccountAddress, da.ApplicationName,
+                   rev.RevokedByName, rev.RevokedAt, rev.RevokeReason,
                    re.Justification, re.ApprovedBy, COALESCE(au.DisplayName, re.ApprovedByName) AS ApprovedByName,
                    re.ApprovalDate, re.ReviewDate, des.StatusName, re.ExternalTicketReference,
                    re.SourceTool, re.SourceExceptionId, re.SourceUrl, iu.DisplayName AS ImportedByName, re.ImportedDate
@@ -165,6 +166,14 @@ public sealed class RiskExceptionRepository(IDbConnectionFactory connectionFacto
             LEFT JOIN web.dim_application da ON da.ApplicationKey = re.ApplicationKey
             LEFT JOIN web.app_user au ON au.UserKey = re.ApprovedBy
             LEFT JOIN web.app_user iu ON iu.UserKey = re.ImportedBy
+            OUTER APPLY (
+                SELECT TOP (1) ru.DisplayName AS RevokedByName, ae.OccurredAt AS RevokedAt, ae.Reason AS RevokeReason
+                FROM web.audit_event ae
+                JOIN web.dim_audit_event_type aet ON aet.AuditEventTypeKey = ae.AuditEventTypeKey AND aet.EventTypeName = 'ExceptionRevoked'
+                LEFT JOIN web.app_user ru ON ru.UserKey = ae.PerformedByUserKey
+                WHERE des.StatusName = 'Revoked' AND ae.EntityName = 'risk_exception' AND ae.EntityKey = CAST(re.ExceptionKey AS NVARCHAR(100))
+                ORDER BY ae.OccurredAt DESC, ae.AuditEventKey DESC
+            ) rev
             WHERE re.ExceptionKey = @ExceptionKey
             """;
 
@@ -355,6 +364,8 @@ public sealed class RiskExceptionRepository(IDbConnectionFactory connectionFacto
             re.ExceptionID,
             CASE WHEN re.AccountKey IS NOT NULL THEN 'Account' ELSE 'Application' END AS ScopeType,
             COALESCE(fa.AccountName, da.ApplicationName) AS ScopeName,
+            re.AccountKey,
+            re.ApplicationKey,
             re.Justification,
             COALESCE(au.DisplayName, re.ApprovedByName) AS ApprovedByName,
             re.ApprovalDate,

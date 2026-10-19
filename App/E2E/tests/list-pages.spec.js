@@ -113,7 +113,7 @@ test.describe('Risk Exceptions List', () => {
     await expect(page.getByRole('columnheader', { name: /Exception ID/ })).toHaveAttribute('aria-sort', 'ascending')
 
     const firstRow = page.locator('tbody tr').first()
-    await firstRow.getByRole('link').click()
+    await firstRow.getByRole('link').first().click()
     await expect(page).toHaveURL(/\/exceptions\/\d+$/)
   })
 })
@@ -145,7 +145,7 @@ test.describe('Overdue Exception Reviews worklist', () => {
     await expect(page.locator('tbody tr', { hasText: justification })).toBeVisible()
 
     const overdueRow = page.locator('tbody tr', { hasText: justification })
-    await overdueRow.getByRole('link').click()
+    await overdueRow.getByRole('link').first().click()
     await expect(page).toHaveURL(/\/exceptions\/\d+$/)
   })
 })

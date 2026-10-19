@@ -187,6 +187,25 @@ describe('DiscoveredAccounts.vue', () => {
     expect(globalThis.fetch).toHaveBeenCalledWith('/api/reports/discovered-accounts/1/dismiss', { method: 'POST' })
   })
 
+  // UI review W5-4
+  it('Show dismissed lists the dismissed accounts with Restore, and Restore posts and reloads', async () => {
+    const rights = useRightsStore()
+    rights.permissionNames = ['ManageDiscoveredAccounts']
+    mockInitialLoad()
+    const wrapper = mount(DiscoveredAccounts)
+    await flushPromises()
+
+    await wrapper.find('input[type="checkbox"]').setValue(true)
+    await flushPromises()
+    const listUrl = globalThis.fetch.mock.calls.map(c => c[0]).filter(u => u.startsWith('/api/reports/discovered-accounts?')).at(-1)
+    expect(listUrl).toContain('dismissed=true')
+    expect(wrapper.findAll('button').map(b => b.text()).filter(t => ['Accept', 'Dismiss', 'Restore'].includes(t))).toEqual(['Restore'])
+
+    await wrapper.findAll('button').find(b => b.text() === 'Restore').trigger('click')
+    await flushPromises()
+    expect(globalThis.fetch).toHaveBeenCalledWith('/api/reports/discovered-accounts/1/restore', { method: 'POST' })
+  })
+
   it('Dismiss does nothing when the confirmation is cancelled', async () => {
     const rights = useRightsStore()
     rights.permissionNames = ['ManageDiscoveredAccounts']

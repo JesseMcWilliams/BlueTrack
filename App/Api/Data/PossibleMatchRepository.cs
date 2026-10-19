@@ -21,7 +21,7 @@ public sealed class PossibleMatchRepository(IDbConnectionFactory connectionFacto
         JOIN dbo.fact_account ca ON ca.AccountKey = r.CurrentAccountKey AND ca.IsDeleted = 0
         JOIN dbo.dim_source_system cs ON cs.SourceSystemKey = ca.SourceSystemKey
         WHERE r.MatchMethod IN ('FeedShortName', 'FeedDnsForward', 'FeedDnsReverse')
-          AND r.IsConfirmed = 0 AND r.RejectedFlag = 0
+          AND r.IsConfirmed = 0 AND r.RejectedFlag = @Rejected
           AND NOT EXISTS (SELECT 1 FROM dbo.vw_linked_feed_account l WHERE l.AccountKey = feed.AccountKey)
         """;
 
@@ -66,16 +66,17 @@ public sealed class PossibleMatchRepository(IDbConnectionFactory connectionFacto
             """, new { json = JsonSerializer.Serialize(candidates) });
     }
 
-    public async Task<IReadOnlyList<PossibleMatchRow>> GetOpenAsync(int? page, int? pageSize)
+    /// <summary>The open matches, or (UI review W5-4, <paramref name="dismissed"/>) the dismissed pairs that could still be restored.</summary>
+    public async Task<IReadOnlyList<PossibleMatchRow>> GetOpenAsync(int? page, int? pageSize, bool dismissed = false)
     {
         var (normalizedPage, normalizedPageSize) = PagingParams.Normalize(page, pageSize);
-        return await QueryOpenAsync(PagingParams.Offset(normalizedPage, normalizedPageSize), normalizedPageSize);
+        return await QueryOpenAsync(PagingParams.Offset(normalizedPage, normalizedPageSize), normalizedPageSize, dismissed);
     }
 
     /// <summary>D-220: every open match in the report's order (all pages), up to maxRows -- for the export.</summary>
     public Task<IReadOnlyList<PossibleMatchRow>> GetOpenExportRowsAsync(int maxRows) => QueryOpenAsync(0, maxRows);
 
-    private async Task<IReadOnlyList<PossibleMatchRow>> QueryOpenAsync(int offset, int fetch)
+    private async Task<IReadOnlyList<PossibleMatchRow>> QueryOpenAsync(int offset, int fetch, bool dismissed = false)
     {
         using var connection = connectionFactory.Create();
         return (await connection.QueryAsync<PossibleMatchRow>($"""
@@ -86,13 +87,13 @@ public sealed class PossibleMatchRepository(IDbConnectionFactory connectionFacto
             {OpenMatchesSql}
             ORDER BY r.MatchedDate DESC, r.ReconciliationKey DESC
             OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY
-            """, new { Offset = offset, PageSize = fetch })).ToList();
+            """, new { Offset = offset, PageSize = fetch, Rejected = dismissed ? 1 : 0 })).ToList();
     }
 
-    public async Task<int> GetOpenCountAsync()
+    public async Task<int> GetOpenCountAsync(bool dismissed = false)
     {
         using var connection = connectionFactory.Create();
-        return await connection.QuerySingleAsync<int>($"SELECT COUNT(*) {OpenMatchesSql}");
+        return await connection.QuerySingleAsync<int>($"SELECT COUNT(*) {OpenMatchesSql}", new { Rejected = dismissed ? 1 : 0 });
     }
 
     public sealed record ConfirmedMatch(long FeedAccountKey, long CyberArkAccountKey, string CyberArkAccountName, int? OldStageKey, int? NewStageKey);
@@ -112,7 +113,7 @@ public sealed class PossibleMatchRepository(IDbConnectionFactory connectionFacto
             SELECT feed.AccountKey, ca.AccountKey, ca.AccountName
             {OpenMatchesSql}
               AND r.ReconciliationKey = @reconciliationKey
-            """, new { reconciliationKey }, transaction);
+            """, new { reconciliationKey, Rejected = 0 }, transaction);
         if (match is not { } m)
         {
             return null;
@@ -143,6 +144,17 @@ public sealed class PossibleMatchRepository(IDbConnectionFactory connectionFacto
             UPDATE r SET RejectedFlag = 1, ReviewedBy = @reviewedBy, ReviewedDate = SYSUTCDATETIME()
             {OpenMatchesSql}
               AND r.ReconciliationKey = @reconciliationKey
-            """, new { reconciliationKey, reviewedBy }) > 0;
+            """, new { reconciliationKey, reviewedBy, Rejected = 0 }) > 0;
+    }
+
+    /// <summary>UI review W5-4: Restore puts a dismissed pair back among the open matches. False when it isn't a dismissed pair (any more).</summary>
+    public async Task<bool> RestoreAsync(long reconciliationKey, string reviewedBy)
+    {
+        using var connection = connectionFactory.Create();
+        return await connection.ExecuteAsync($"""
+            UPDATE r SET RejectedFlag = 0, ReviewedBy = @reviewedBy, ReviewedDate = SYSUTCDATETIME()
+            {OpenMatchesSql}
+              AND r.ReconciliationKey = @reconciliationKey
+            """, new { reconciliationKey, reviewedBy, Rejected = 1 }) > 0;
     }
 }

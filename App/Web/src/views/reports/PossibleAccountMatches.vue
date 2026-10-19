@@ -27,6 +27,8 @@ const error = ref(null)
 const actionError = ref(null)
 const loading = ref(true)
 const busyKey = ref(null)
+// UI review W5-4: the dismissed pairs, with Restore, so a dismiss can be undone.
+const showDismissed = ref(false)
 
 const methodLabelKeys = {
   FeedShortName: 'reports.possibleAccountMatches.methodShortName',
@@ -49,6 +51,7 @@ async function load() {
   error.value = null
   try {
     const params = new URLSearchParams({ page: page.value, pageSize: pageSizeStore.current })
+    if (showDismissed.value) params.set('dismissed', 'true')
     const response = await fetch(`/api/reports/possible-matches?${params.toString()}`)
     if (!response.ok) throw new Error(t('common.requestFailed', { status: response.status }))
     readTotalCount(response)
@@ -84,6 +87,11 @@ async function act(row, action) {
   }
 }
 
+function onShowDismissedChange() {
+  page.value = 1
+  load()
+}
+
 onMounted(load)
 </script>
 
@@ -94,13 +102,14 @@ onMounted(load)
       <template #link><strong>{{ t('reports.possibleAccountMatches.link') }}</strong></template>
       <template #dismiss><strong>{{ t('reports.possibleAccountMatches.dismiss') }}</strong></template>
     </i18n-t>
-    <ReportExportButtons path="/api/reports/possible-matches/export" />
+    <p><label><input v-model="showDismissed" type="checkbox" @change="onShowDismissedChange" /> {{ t('reports.possibleAccountMatches.showDismissed') }}</label></p>
+    <ReportExportButtons v-if="!showDismissed" path="/api/reports/possible-matches/export" />
     <FilterCountSummary :shown="rows.length" :filtered-count="filteredCount" :total="totalCount" :page="page" :page-size="pageSizeStore.current" />
     <Pager :page="page" :page-count="pageCount" @update:page="onPageChange" @page-size-change="onPageSizeChange" />
     <p v-if="actionError" role="alert">{{ actionError }}</p>
     <p v-if="loading" role="status">{{ t('common.loading') }}</p>
     <p v-else-if="error" role="alert">{{ t('reports.possibleAccountMatches.loadFailed', { error }) }}</p>
-    <p v-else-if="rows.length === 0">{{ t('reports.possibleAccountMatches.empty') }}</p>
+    <p v-else-if="rows.length === 0">{{ showDismissed ? t('reports.possibleAccountMatches.emptyDismissed') : t('reports.possibleAccountMatches.empty') }}</p>
     <table v-else>
       <thead>
         <tr><th>{{ t('reports.possibleAccountMatches.colOtherAccount') }}</th><th>{{ t('reports.possibleAccountMatches.colCyberArkAccount') }}</th><th>{{ t('reports.possibleAccountMatches.colWhy') }}</th><th>{{ t('reports.possibleAccountMatches.colFound') }}</th><th></th></tr>
@@ -117,8 +126,13 @@ onMounted(load)
           <td>{{ methodLabelKeys[row.matchMethod] ? t(methodLabelKeys[row.matchMethod]) : row.matchMethod }}<br /><small>{{ row.reason }}</small></td>
           <td>{{ formatDate(row.matchedDate) }}</td>
           <td>
-            <button type="button" :disabled="busyKey === row.reconciliationKey" @click="act(row, 'link')">{{ t('reports.possibleAccountMatches.link') }}</button>
-            <button type="button" :disabled="busyKey === row.reconciliationKey" @click="act(row, 'dismiss')">{{ t('reports.possibleAccountMatches.dismiss') }}</button>
+            <template v-if="showDismissed">
+              <button type="button" :disabled="busyKey === row.reconciliationKey" @click="act(row, 'restore')">{{ t('reports.possibleAccountMatches.restore') }}</button>
+            </template>
+            <template v-else>
+              <button type="button" :disabled="busyKey === row.reconciliationKey" @click="act(row, 'link')">{{ t('reports.possibleAccountMatches.link') }}</button>
+              <button type="button" :disabled="busyKey === row.reconciliationKey" @click="act(row, 'dismiss')">{{ t('reports.possibleAccountMatches.dismiss') }}</button>
+            </template>
           </td>
         </tr>
       </tbody>

@@ -79,6 +79,24 @@ describe('PossibleAccountMatches.vue', () => {
     expect(globalThis.fetch.mock.calls.filter(([url]) => url.startsWith('/api/reports/possible-matches?'))).toHaveLength(2)
   })
 
+  // UI review W5-4
+  it('Show dismissed lists the dismissed pairs with Restore instead of Link and Dismiss, and Restore posts and reloads', async () => {
+    globalThis.fetch = vi.fn((url, init) => Promise.resolve(init?.method === 'POST' ? jsonResponse(null, { status: 204 }) : jsonResponse([row], { count: 1 })))
+    const wrapper = mount(PossibleAccountMatches, { global: { plugins: [makeRouter()] } })
+    await flushPromises()
+    expect(wrapper.findAll('button').some(b => b.text() === 'Restore')).toBe(false)
+
+    await wrapper.find('input[type="checkbox"]').setValue(true)
+    await flushPromises()
+    const listUrl = globalThis.fetch.mock.calls.map(c => c[0]).filter(u => u.startsWith('/api/reports/possible-matches?')).at(-1)
+    expect(listUrl).toContain('dismissed=true')
+    expect(wrapper.findAll('button').map(b => b.text()).filter(t => ['Link', 'Dismiss', 'Restore'].includes(t))).toEqual(['Restore'])
+
+    await wrapper.findAll('button').find(b => b.text() === 'Restore').trigger('click')
+    await flushPromises()
+    expect(globalThis.fetch.mock.calls.some(([url, init]) => url === '/api/reports/possible-matches/9/restore' && init?.method === 'POST')).toBe(true)
+  })
+
   it('Dismiss shows the reason when the pair is no longer open', async () => {
     globalThis.fetch = vi.fn((url, init) => Promise.resolve(init?.method === 'POST'
       ? jsonResponse({ detail: 'It was already linked or dismissed' }, { ok: false, status: 409 })

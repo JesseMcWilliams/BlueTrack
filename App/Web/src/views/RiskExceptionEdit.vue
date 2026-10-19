@@ -14,6 +14,7 @@ import { formatDate } from '../utils/formatDate'
 import { confirmDelete } from '../composables/useConfirmDialog'
 import { useI18n } from 'vue-i18n'
 import Combobox from '../components/Combobox.vue'
+import { formatUtcDateTime } from '../utils/formatLocale'
 
 const { t } = useI18n()
 
@@ -236,6 +237,10 @@ async function revoke() {
               </ul>
             </template>
           </dd>
+        </template>
+        <template v-if="detail.statusName === 'Revoked' && detail.revokedAt">
+          <dt>{{ t('pages.riskExceptionEdit.revokedHeading') }}</dt>
+          <dd>{{ t('pages.riskExceptionEdit.revokedBy', { name: detail.revokedByName ?? '', date: formatUtcDateTime(detail.revokedAt), reason: detail.revokeReason ?? '' }) }}</dd>
         </template>
         <dt>{{ t('pages.riskExceptionEdit.justification') }}</dt>
         <dd>{{ detail.justification }}</dd>

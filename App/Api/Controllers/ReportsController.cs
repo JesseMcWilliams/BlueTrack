@@ -208,13 +208,15 @@ public sealed class ReportsController(
     [HttpGet("discovered-accounts")]
     [Authorize(Policy = Permissions.ViewDiscoveredAccounts)]
     public async Task<IActionResult> GetDiscoveredAccounts(
-        [FromQuery] string? sort = null, [FromQuery] int? page = null, [FromQuery] int? pageSize = null, [FromQuery] string? accountClass = null)
+        [FromQuery] string? sort = null, [FromQuery] int? page = null, [FromQuery] int? pageSize = null, [FromQuery] string? accountClass = null, [FromQuery] bool dismissed = false)
     {
         if (!TryParseClassFilter(accountClass, out var classFilter)) return ClassFilterProblem();
         var sortBy = SortParser.Parse(sort);
-        var results = await discoveredAccountRepository.GetListAsync(sortBy, page, pageSize, accountClass: classFilter);
+        // UI review W5-4: dismissed=true shows the dismissed candidates (which can be restored) instead of the New ones.
+        var status = dismissed ? "Dismissed" : "New";
+        var results = await discoveredAccountRepository.GetListAsync(sortBy, page, pageSize, status, classFilter);
         Response.Headers["X-Total-Count"] = (await discoveredAccountRepository.GetTotalCountAsync()).ToString();
-        Response.Headers["X-Filtered-Count"] = (await discoveredAccountRepository.GetFilteredCountAsync(accountClass: classFilter)).ToString();
+        Response.Headers["X-Filtered-Count"] = (await discoveredAccountRepository.GetFilteredCountAsync(status, classFilter)).ToString();
         return Ok(results);
     }
 
@@ -306,6 +308,18 @@ public sealed class ReportsController(
 
         var accountKey = await discoveredAccountRepository.AcceptAsync(discoveredAccountKey, user.UserKey);
         return Ok(new { accountKey });
+    }
+
+    /// <summary>UI review W5-4: undoes a dismiss; the candidate is New again.</summary>
+    [HttpPost("discovered-accounts/{discoveredAccountKey:int}/restore")]
+    [Authorize(Policy = Permissions.ManageDiscoveredAccounts)]
+    public async Task<IActionResult> RestoreDiscoveredAccount(int discoveredAccountKey)
+    {
+        var user = await currentUserResolver.ResolveAsync(User);
+        if (user is null) return Unauthorized();
+
+        await discoveredAccountRepository.RestoreAsync(discoveredAccountKey, user.UserKey);
+        return NoContent();
     }
 
     /// <summary>False positive, or already onboarded (PossibleExistingAccountKey already flagged that) -- resolved with no dbo.fact_account write.</summary>
