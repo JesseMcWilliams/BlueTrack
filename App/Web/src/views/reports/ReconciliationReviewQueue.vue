@@ -33,6 +33,9 @@ onMounted(async () => {
 <template>
   <div>
     <h2>{{ t('reports.reconciliationReviewQueue.title') }}</h2>
+    <i18n-t keypath="reports.reconciliationReviewQueue.hint" tag="p" class="hint" scope="global">
+      <template #possibleMatches><router-link :to="{ name: 'reports-possible-matches' }">{{ t('reports.reconciliationReviewQueue.hintPossibleMatches') }}</router-link></template>
+    </i18n-t>
     <ReportExportButtons path="/api/reports/reconciliation-review-queue/export" />
     <p v-if="loading" role="status">{{ t('common.loading') }}</p>
     <p v-else-if="error" role="alert">{{ t('reports.reconciliationReviewQueue.loadFailed', { error }) }}</p>

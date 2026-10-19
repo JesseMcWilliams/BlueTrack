@@ -87,6 +87,21 @@ describe('DiscoveredAccounts.vue', () => {
     expect(wrapper.text()).toContain('Possibly already onboarded as "svc-web01"')
   })
 
+  // UI review W5-6 and W5-7
+  it('links the possible-existing account, and the name toggle says whether its panel is open', async () => {
+    mockInitialLoad({ rows: [{ ...sampleRow, possibleExistingAccountKey: 42, possibleExistingAccountName: 'svc-web01' }] })
+    const router = createRouter({ history: createMemoryHistory(), routes: [{ path: '/a/:accountKey', name: 'account-progress-detail', component: { template: '<div />' } }] })
+    const wrapper = mount(DiscoveredAccounts, { global: { plugins: [router] } })
+    await flushPromises()
+
+    expect(wrapper.find('.possible-match a').attributes('href')).toBe('/a/42')
+    const toggle = wrapper.find('button.link-button')
+    expect(toggle.attributes('aria-expanded')).toBe('false')
+    await toggle.trigger('click')
+    await flushPromises()
+    expect(wrapper.find('button.link-button').attributes('aria-expanded')).toBe('true')
+  })
+
   it('shows the "Showing N of M matching (of total)" count summary once both headers are known', async () => {
     mockInitialLoad({ rows: [sampleRow], totalCount: 30, filteredCount: 30 })
     const wrapper = mount(DiscoveredAccounts)
