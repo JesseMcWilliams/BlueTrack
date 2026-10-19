@@ -117,4 +117,33 @@ public class CyberArkCcpFallbackTests : IClassFixture<BlueTrackWebApplicationFac
         Assert.Equal(TimeSpan.FromSeconds(30), client.Timeout);
         await serve;
     }
+
+    [Theory]
+    [InlineData("", "Root")]
+    [InlineData("  ", "Root")]
+    [InlineData("Archive", "Archive")]
+    public async Task ABlankFolder_IsSentAsRoot(string folder, string expected)
+    {
+        await SetCcpSettingsAsync("""{"BaseUrl":"https://ccp.integration-test.example","AppId":"TestApp"}""");
+        try
+        {
+            string? requested = null;
+            var provider = Provider(new StubHandler(request =>
+            {
+                requested = request.RequestUri!.Query;
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent("""{"Content":"pw","UserName":"svc","Address":"host"}""", Encoding.UTF8, "application/json")
+                };
+            }), new SecretFallbackCache(TimeProvider.System));
+
+            await provider.GetSecretAsync(new SecretQuery("Safe", folder, "Object"));
+
+            Assert.Contains($"&Folder={expected}&", requested);
+        }
+        finally
+        {
+            await SetCcpSettingsAsync(null);
+        }
+    }
 }

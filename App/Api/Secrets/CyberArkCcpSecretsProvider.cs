@@ -32,6 +32,7 @@ public sealed class CyberArkCcpSecretsProvider(
 
     public async Task<SecretResult> GetSecretAsync(SecretQuery query)
     {
+        query = query.WithCyberArkFolder();   // a blank folder is "Root"
         var backend = await secretsStoreRepository.GetByTypeAsync("CyberArkCCP");
         if (string.IsNullOrEmpty(backend?.BackendSettings))
         {

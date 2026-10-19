@@ -11,7 +11,13 @@ What changed in each BlueTrack release, newest first, for users and administrato
 
 ### Changed
 
+- A CyberArk CP or CCP credential with the Folder left blank now uses Root, instead of being refused by CP.
+- Self-Hosted Direct: setting it up is quicker. **Create a credential** on the CyberArk sources page opens Admin > Credentials and brings you back with the new credential chosen, and each credential has **Use for Self-Hosted Direct**.
+- Self-Hosted Direct: each pull in the Data Sources log has a **Details** button with the whole message, the counts, and what to do.
+
 ### Fixed
+
+- Self-Hosted Direct no longer fails with "PVWA reported 44 users but returned 43". PVWA's detailed user list leaves out the built-in Master user; BlueTrack now reads the plain list, and a remaining difference is a warning.
 
 ### Upgrading
 

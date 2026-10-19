@@ -24,6 +24,10 @@ The Load (`usp_RunFullLoad`) and everything after it are unchanged: they read `s
 5. **02:00 (the Import job):** `usp_Import_Configured` sees `SelfHostedSource = 'Direct'` and, instead of reading an EVD, checks the **latest** row of `dbo.cyberark_direct_pull`. It must be Succeeded and less than 20 hours old. A Failed, Rejected, never-finished or stale pull **fails the night**: the Load doesn't run, and `NightlyImportFailed` mails the reason (`Design_Notifications.md`). `usp_Import_All` takes `@SelfHostedStaged = 1`, so the Import leaves the pulled staging alone instead of clearing it.
 6. The Load runs as after any import.
 
+**Setting it up (D-249).** Edit CyberArk sources has **Create a credential** (opens Admin > Credentials with a new CyberArk CP credential and comes back with it chosen; unsaved values are kept for an hour), and every credential has **Use for Self-Hosted Direct**. A CyberArk CP or CCP credential with a blank folder uses `Root`.
+
+**Pull details.** Each pull in the Data Sources log has a **Details** button: a modal with the outcome, who started it and how long it took, every message on its own line, all the counts, what the outcome means and what to do about it.
+
 **Pull now** (Admin > Data Sources, `ManageDataSources`; the EVD and the folder still have no Run now) starts a pull in the background and the page polls the log. After a **Rejected** pull the page offers **Accept the change and pull**, which pulls again and accepts whatever PVWA returns, after a confirmation (always, not only in business hours). Both are audit-logged. The nightly pull skips quietly if one is running.
 
 ## Settings (`web.cyberark_source_config`, script 38)
@@ -48,7 +52,7 @@ All calls are `GET` under `/PasswordVault/API/` except logon and logoff. Paging 
 | `Safes?extendedDetails=true` | `stg_sh_safes` | `safeNumber` is the EVD's `CASSafeID`. `numberOfVersionsRetention` and `numberOfDaysRetention` go to `CASYearlyVersions` and `CASObjectsRetentionPeriod`, the columns the Load reads. |
 | `Accounts` | `stg_sh_files` (type 2) and `stg_sh_objectproperties` | Account id `59_3` is Safe 59, file 3: the EVD's `CAFSafeID` and `CAFFileID`, so `SourceAccountId` is identical either way. `UserName`, `Address`, `PolicyID` (the `platformId`), each platform account property, and `CPMDisabled` (the reason, or "No reason given", when automatic management is off). A property name longer than 29 characters is left out and reported. |
 | `Safes/{safeUrlId}/Members` | `stg_sh_owners` | The 22 named permissions map to the EVD's `CAO*` columns (table below). |
-| `Users?ExtendedDetails=true` and `Users/{id}` | `stg_sh_users` | `userType` maps to the EVD's `CAUUserTypeID` (Built-InAdmins 10, ENE 11, CPM 31, PVWA 32, AppProvider 33, EPVUser 34, AIMAccount 35, PSM 36, DRUser 504; any other stays NULL). `source` CyberArk is Internal (1), anything else External (2). Email from the user's details. |
+| `Users` and `Users/{id}` | `stg_sh_users` | `userType` maps to the EVD's `CAUUserTypeID` (Built-InAdmins 10, ENE 11, CPM 31, PVWA 32, AppProvider 33, EPVUser 34, AIMAccount 35, PSM 36, DRUser 504; any other stays NULL). `source` CyberArk is Internal (1), anything else External (2). Email from the user's details, asked only for people (built-in and component users have none, and Master's details call returns a 500). The plain list, not `ExtendedDetails=true`, which leaves out Master while its Total counts it (D-249); a Total that still exceeds the list is a warning. |
 | `UserGroups?includeMembers=true` | `stg_sh_groups`, `stg_sh_groupmembers` | A member whose id is a group's is a nested group (`MemberIsGroup = YES`); users and groups share one id space. |
 | `Platforms` | `stg_sh_platforms` (new) | Name, description, active, type. `usp_Load_DimPlatform` names and describes the Self-Hosted platforms from it and adds platforms no account uses. |
 

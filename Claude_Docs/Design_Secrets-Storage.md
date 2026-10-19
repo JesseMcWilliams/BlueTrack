@@ -148,3 +148,7 @@ Nothing in the app yet actually *consumes* a secret from any Secrets Storage (`I
 ## Open Questions
 
 None remaining as of 2026-08-27. Q-08 is fully resolved: architecture (D-16), backend/build order (D-32, D-36), authentication (D-38), call/response shape (D-39), the `Folder` qualifier (D-40), error handling/caching (D-48), and availability/naming/app-level resilience (D-49). Still true as of the 2026-09-05 updates above (D-106's configurable DPAPI protection scope, and correcting the "no caller yet" claim) — documentation corrections and a hardening option, not new open questions.
+
+## CyberArk CP and CCP: a blank folder means Root (D-249)
+
+A CP or CCP request needs a Folder; CP refuses an empty one (`APPPR502E Password query [Folder=;Safe=...;Object=...] is invalid`). `SecretQuery.WithCyberArkFolder()` replaces a blank Folder with `Root` (and trims a given one) in `CyberArkCpSecretsProvider` and `CyberArkCcpSecretsProvider`, so a credential or Secrets Store lookup with no folder works. The fallback cache is keyed on the normalized query. Conjur, Azure Key Vault and AWS Secrets Manager keep their own meaning of Folder (unused, a version, a version stage).

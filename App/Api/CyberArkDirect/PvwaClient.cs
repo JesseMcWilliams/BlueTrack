@@ -130,8 +130,10 @@ public sealed class PvwaClient(HttpClient http, Uri apiRoot)
         snapshot.Members.AddRange(members.OrderBy(m => m.SafeNumber).ThenBy(m => m.MemberId));
         snapshot.Warnings.AddRange(memberWarnings.OrderBy(w => w, StringComparer.Ordinal));
 
-        // Users: the list has no email, so each user's details are read too (a failure there loses only that email).
-        var usersJson = await GetUsersAsync(token, ct);
+        // Users: the list has no email, so each person's details are read too (a failure there loses only that email).
+        // Built-in and component users (Master, CPM, PVWA, providers) have no email, so they aren't asked about.
+        var (usersJson, usersNote) = await GetUsersAsync(token, ct);
+        if (usersNote is not null) snapshot.Warnings.Add(usersNote);
         var users = new ConcurrentBag<PvwaUser>();
         var userWarnings = new ConcurrentBag<string>();
         await Parallel.ForEachAsync(usersJson, new ParallelOptions { MaxDegreeOfParallelism = UserDetailParallelism, CancellationToken = ct }, async (item, innerCt) =>
@@ -143,14 +145,17 @@ public sealed class PvwaClient(HttpClient http, Uri apiRoot)
             string? first = details.ValueKind == JsonValueKind.Object ? Str(details, "firstName") : null;
             string? last = details.ValueKind == JsonValueKind.Object ? Str(details, "lastName") : null;
             string? email = null;
-            try
+            if (Bool(item, "componentUser") != true && !string.Equals(Str(item, "userType"), "Built-InAdmins", StringComparison.OrdinalIgnoreCase))
             {
-                var detail = await GetJsonAsync(token, $"Users/{id}/", innerCt);
-                if (detail.TryGetProperty("internet", out var net) && net.ValueKind == JsonValueKind.Object) email = Str(net, "businessEmail");
-            }
-            catch (PvwaException ex)
-            {
-                userWarnings.Add($"User '{name}': details not read, so no email ({ex.Message}).");
+                try
+                {
+                    var detail = await GetJsonAsync(token, $"Users/{id}/", innerCt);
+                    if (detail.TryGetProperty("internet", out var net) && net.ValueKind == JsonValueKind.Object) email = Str(net, "businessEmail");
+                }
+                catch (PvwaException ex)
+                {
+                    userWarnings.Add($"User '{name}': details not read, so no email ({ex.Message}).");
+                }
             }
             users.Add(new PvwaUser(id.Value, name, Str(item, "source"), Str(item, "userType"), Str(item, "location"),
                 Bool(item, "enableUser") ?? true, first, last, email));
@@ -192,15 +197,22 @@ public sealed class PvwaClient(HttpClient http, Uri apiRoot)
     private async Task<List<JsonElement>> GetArrayAsync(string token, string path, string property, CancellationToken ct) =>
         ArrayOf(await GetJsonAsync(token, path, ct), property);
 
-    private async Task<List<JsonElement>> GetUsersAsync(string token, CancellationToken ct)
+    /// <summary>
+    /// The plain user list, not <c>ExtendedDetails=true</c>: on the lab PVWA the extended list left out the built-in Master
+    /// user (id 0) while its Total still counted it (44 reported, 43 returned), and the extra it adds (group
+    /// memberships, the LDAP DN) isn't used. If the Total still exceeds what came back, say so as a warning: users
+    /// are only added or updated, so a short list loses nothing already loaded.
+    /// </summary>
+    private async Task<(List<JsonElement> Users, string? Note)> GetUsersAsync(string token, CancellationToken ct)
     {
-        var root = await GetJsonAsync(token, "Users?ExtendedDetails=true", ct);
+        var root = await GetJsonAsync(token, "Users", ct);
         var users = ArrayOf(root, "Users");
+        string? note = null;
         if (root.ValueKind == JsonValueKind.Object && root.TryGetProperty("Total", out var total) && total.TryGetInt32(out var count) && count > users.Count)
         {
-            throw new PvwaException($"PVWA reported {count} users but returned {users.Count}; the list is incomplete.");
+            note = $"PVWA reported {count} users but returned {users.Count}; {count - users.Count} user(s) it counts weren't in the list (users above the service user's level in the Vault hierarchy aren't returned).";
         }
-        return users;
+        return (users, note);
     }
 
     private static List<JsonElement> ArrayOf(JsonElement root, string property)

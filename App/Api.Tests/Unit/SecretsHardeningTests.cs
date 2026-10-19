@@ -65,4 +65,21 @@ public class SecretsHardeningTests
         cache.Clear();
         Assert.False(cache.TryGetFallback(key, out _));
     }
+
+    // ---- a blank CyberArk folder is "Root" ----
+
+    [Theory]
+    [InlineData("", "Root")]
+    [InlineData(null, "Root")]
+    [InlineData("   ", "Root")]
+    [InlineData("Root", "Root")]
+    [InlineData("  Archive ", "Archive")]
+    [InlineData("root", "root")]   // given as typed: CyberArk folder names aren't case-folded here
+    public void CyberArkFolder_BlankMeansRoot_OtherwiseTheTrimmedValue(string? folder, string expected)
+    {
+        var query = new SecretQuery("Safe", folder!, "Object").WithCyberArkFolder();
+
+        Assert.Equal(expected, query.Folder);
+        Assert.Equal(("Safe", "Object"), (query.Safe, query.Object));
+    }
 }
