@@ -8,10 +8,16 @@ What changed in each BlueTrack release, newest first, for users and administrato
 
 ### Changed
 
+### Fixed
+
+### Upgrading
+
+## 1.3.1 (2026-10-20)
+
+### Changed
+
 - Self-Hosted Direct also keeps everything PVWA returns in new staging tables: each account's CPM status and last reconcile time, the latest CPM verify, change and reconcile of every account the CPM has worked on, platform policy, every account property, predefined Safe members and user details. Nothing uses them yet, so reports don't change. A pull makes one more call per account the CPM has worked on, and one for target platform settings.
 - Saving the CyberArk sources keeps the settings of the Self-Hosted source not in use: choosing Direct no longer clears the EVD database name, and choosing the EVD keeps the PVWA address and credential, so switching back needs nothing typed again.
-
-### Fixed
 
 ### Upgrading
 
