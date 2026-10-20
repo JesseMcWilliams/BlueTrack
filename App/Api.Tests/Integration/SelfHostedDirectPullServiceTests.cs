@@ -44,13 +44,17 @@ public class SelfHostedDirectPullServiceTests : IClassFixture<BlueTrackWebApplic
 
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
-            var path = request.RequestUri!.AbsolutePath["/PasswordVault/API/".Length..].TrimEnd('/');
+            var absolute = request.RequestUri!.AbsolutePath;
+            var path = (absolute.StartsWith("/PasswordVault/API/", StringComparison.Ordinal) ? absolute["/PasswordVault/API/".Length..] : absolute).TrimEnd('/');
             Requests.Add(request.Method + " " + path);
             int offset = int.TryParse(System.Web.HttpUtility.ParseQueryString(request.RequestUri.Query)["offset"], out var o) ? o : 0;
             string json;
             if (path.StartsWith("auth/", StringComparison.OrdinalIgnoreCase)) json = "\"stub-token\"";
             else if (path.Equals("Auth/Logoff", StringComparison.OrdinalIgnoreCase)) json = "{}";
-            else if (path == "Platforms") json = """{"Platforms":[{"general":{"id":"UnixSSH","name":"Unix via SSH","active":true,"platformType":"Regular"}}],"Total":1}""";
+            else if (path == "Platforms") json = """{"Platforms":[{"general":{"id":"UnixSSH","name":"Unix via SSH","active":true,"platformType":"Regular"},"credentialsManagement":{"performPeriodicVerification":true,"requirePasswordVerificationEveryXDays":7}}],"Total":1}""";
+            else if (path == "Platforms/Targets") json = """{"Platforms":[],"Total":0}""";
+            else if (path == "/PasswordVault/WebServices/PIMServices.svc/Accounts/910001_1/Activities")
+                json = """{"GetAccountActivitiesSlashResult":[{"ActivityCode":22,"Activity":"CPM Verify Password","Time":"10/20/2026 00:12:47","UserName":"PasswordManager"}]}""";
             else if (path == "Safes")
             {
                 json = new JsonObject
@@ -68,7 +72,10 @@ public class SelfHostedDirectPullServiceTests : IClassFixture<BlueTrackWebApplic
                     ["value"] = new JsonArray(offset > 0 ? [] : Enumerable.Range(1, Safes).SelectMany(s => Enumerable.Range(1, AccountsPerSafe).Select(a => (JsonNode)new JsonObject
                     {
                         ["id"] = $"{910_000 + s}_{a}", ["name"] = $"acct{s}-{a}", ["address"] = "host", ["userName"] = "u", ["platformId"] = "UnixSSH", ["safeName"] = $"PullTestSafe{s:00}",
-                        ["secretManagement"] = new JsonObject { ["automaticManagementEnabled"] = true }
+                        // One account the CPM has acted on, so its activity is read.
+                        ["secretManagement"] = s == 1 && a == 1
+                            ? new JsonObject { ["automaticManagementEnabled"] = true, ["status"] = "success", ["lastReconciledTime"] = 1792455153 }
+                            : new JsonObject { ["automaticManagementEnabled"] = true }
                     })).ToArray())
                 }.ToJsonString();
             }
@@ -109,6 +116,9 @@ public class SelfHostedDirectPullServiceTests : IClassFixture<BlueTrackWebApplic
         await connection.ExecuteAsync("""
             DELETE FROM stg_sh_users; DELETE FROM stg_sh_groups; DELETE FROM stg_sh_groupmembers; DELETE FROM stg_sh_safes; DELETE FROM stg_sh_owners;
             DELETE FROM stg_sh_files; DELETE FROM stg_sh_objectproperties; DELETE FROM stg_sh_platforms;
+            DELETE FROM stg_shd_platforms; DELETE FROM stg_shd_platform_properties; DELETE FROM stg_shd_safes; DELETE FROM stg_shd_accounts;
+            DELETE FROM stg_shd_account_properties; DELETE FROM stg_shd_account_cpm_activity; DELETE FROM stg_shd_safe_members;
+            DELETE FROM stg_shd_users; DELETE FROM stg_shd_user_authorizations; DELETE FROM stg_shd_groups; DELETE FROM stg_shd_group_members;
             DELETE FROM dbo.cyberark_direct_pull WHERE PullKey > @maxPullBefore;
             DELETE FROM web.cyberark_source_config;
             """, new { maxPullBefore = _maxPullBefore });
@@ -164,6 +174,46 @@ public class SelfHostedDirectPullServiceTests : IClassFixture<BlueTrackWebApplic
         using var scope = _factory.Services.CreateScope();
         var last = await scope.ServiceProvider.GetRequiredService<SelfHostedDirectRepository>().GetLastSucceededAsync();
         Assert.Equal(("tester", 30, 60), (last!.TriggeredBy, last.SafeCount, last.AccountCount));
+    }
+
+    [Fact]
+    public async Task APullThatSucceeds_AlsoFillsTheDirectTables_UnderTheSameBatch()
+    {
+        var outcome = await PullAsync();
+
+        Assert.Equal("Succeeded", outcome.Status);
+        await using var connection = new SqlConnection(TestDatabase.ConnectionString);
+        var counts = await connection.QuerySingleAsync<(int, int, int, int, int, int, int)>("""
+            SELECT (SELECT COUNT(*) FROM stg_shd_safes), (SELECT COUNT(*) FROM stg_shd_accounts), (SELECT COUNT(*) FROM stg_shd_users),
+                   (SELECT COUNT(*) FROM stg_shd_groups), (SELECT COUNT(*) FROM stg_shd_group_members), (SELECT COUNT(*) FROM stg_shd_platforms),
+                   (SELECT COUNT(*) FROM stg_shd_account_cpm_activity)
+            """);
+        Assert.Equal((30, 60, 1, 1, 1, 1, 1), counts);
+        var cpm = await connection.QuerySingleAsync<(string, string, DateTime?, int, DateTime?)>("""
+            SELECT a.AccountId, a.CpmStatus, a.LastReconciledTime, c.ActivityCode, c.ActivityTime
+            FROM stg_shd_accounts a JOIN stg_shd_account_cpm_activity c ON c.AccountId = a.AccountId
+            """);
+        Assert.Equal(("910001_1", "success", (DateTime?)DateTimeOffset.FromUnixTimeSeconds(1792455153).UtcDateTime, 22, (DateTime?)new DateTime(2026, 10, 20, 0, 12, 47)), cpm);
+        Assert.Equal(7, await connection.QuerySingleAsync<int>("SELECT RequirePasswordVerificationEveryXDays FROM stg_shd_platforms"));
+
+        // One batch across both sets of tables, and it is the one the pull log records.
+        var batches = await connection.QueryAsync<Guid>("""
+            SELECT ImportBatchId FROM stg_shd_safes UNION SELECT ImportBatchId FROM stg_shd_accounts UNION SELECT ImportBatchId FROM stg_sh_files
+            """);
+        Assert.Equal(Assert.Single(batches), await connection.QuerySingleAsync<Guid>(
+            "SELECT ImportBatchId FROM dbo.cyberark_direct_pull WHERE PullKey = (SELECT MAX(PullKey) FROM dbo.cyberark_direct_pull)"));
+    }
+
+    [Fact]
+    public async Task ARejectedPull_LeavesTheDirectTablesAlone_Too()
+    {
+        Assert.Equal("Succeeded", (await PullAsync()).Status);
+        _pvwa.Safes = 5;
+
+        Assert.Equal("Rejected", (await PullAsync()).Status);
+
+        await using var connection = new SqlConnection(TestDatabase.ConnectionString);
+        Assert.Equal((30, 60), await connection.QuerySingleAsync<(int, int)>("SELECT (SELECT COUNT(*) FROM stg_shd_safes), (SELECT COUNT(*) FROM stg_shd_accounts)"));
     }
 
     [Fact]

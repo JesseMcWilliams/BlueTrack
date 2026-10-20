@@ -273,6 +273,106 @@ public class SelfHostedStagingMapperTests
     }
 
     [Fact]
+    public void Direct_AccountKeepsItsCpmFields_EveryProperty_AndItsCpmActivity()
+    {
+        var account = Account(auto: true, props: new Dictionary<string, string> { ["LogonDomain"] = "CORP", [new string('P', 40)] = "long" }) with
+        {
+            SecretType = "password", CpmStatus = "success", LastReconciledTime = new DateTime(2026, 10, 20, 0, 12, 33, DateTimeKind.Utc),
+            RemoteMachines = "a;b", AccessRestrictedToRemoteMachines = true,
+            CpmActivity = [new PvwaCpmActivity(22, "CPM Verify Password", new DateTime(2026, 10, 20, 0, 12, 47, DateTimeKind.Utc), "PasswordManager", "VerificationPeriod", null)]
+        };
+
+        var tables = Map(new PvwaSnapshot { Accounts = { account } });
+
+        var row = Assert.Single(tables.DirectAccounts.Rows.Cast<DataRow>());
+        Assert.Equal(("59_3", 59L, 3L, "password", true), ((string)row["AccountId"], (long)row["SafeNumber"], (long)row["FileId"], (string)row["SecretType"], (bool)row["AutomaticManagementEnabled"]));
+        Assert.Equal(("success", "a;b", true), ((string)row["CpmStatus"], (string)row["RemoteMachines"], (bool)row["AccessRestrictedToRemoteMachines"]));
+        Assert.Equal(new DateTime(2026, 10, 20, 0, 12, 33, DateTimeKind.Utc), row["LastReconciledTime"]);
+        Assert.Equal(DBNull.Value, row["LastVerifiedTime"]);
+        var props = tables.DirectAccountProperties.Rows.Cast<DataRow>().ToDictionary(r => (string)r["Name"], r => (string)r["Value"]);
+        Assert.Equal("long", props[new string('P', 40)]);   // no 29-character limit here
+        var activity = Assert.Single(tables.DirectCpmActivity.Rows.Cast<DataRow>());
+        Assert.Equal(("59_3", 22, "CPM Verify Password"), ((string)activity["AccountId"], (int)activity["ActivityCode"], (string)activity["Activity"]));
+        Assert.Equal(DBNull.Value, activity["MoreInfo"]);
+    }
+
+    [Fact]
+    public void PredefinedMember_IsStagedForDirectOnly_SoTheEvdShapedOwnersAreUnchanged()
+    {
+        var perms = new Dictionary<string, bool> { ["listAccounts"] = true, ["viewAuditLog"] = true, ["requestsAuthorizationLevel2"] = false };
+        var snapshot = new PvwaSnapshot
+        {
+            Members =
+            {
+                new PvwaMember(7, "S", 2, "Administrator", IsGroup: false, ExpirationDate: null, perms) { SafeUrlId = "S", MemberType = "User", IsPredefinedUser = true, IsReadOnly = true },
+                new PvwaMember(7, "S", 47, "adm.jesse", IsGroup: false, ExpirationDate: null, new Dictionary<string, bool> { ["useAccounts"] = true }) { MemberType = "User", IsPredefinedUser = false }
+            }
+        };
+
+        var tables = Map(snapshot);
+
+        Assert.Equal([47L], tables.Owners.Rows.Cast<DataRow>().Select(r => (long)r["CAOOwnerID"]));
+        var members = tables.DirectSafeMembers.Rows.Cast<DataRow>().ToDictionary(r => (long)r["MemberId"]);
+        Assert.Equal(2, members.Count);
+        var admin = members[2];
+        Assert.Equal((true, true, "User"), ((bool)admin["IsPredefinedUser"], (bool)admin["IsReadOnly"], (string)admin["MemberType"]));
+        Assert.Equal((true, true, false), ((bool)admin["ListAccounts"], (bool)admin["ViewAuditLog"], (bool)admin["RequestsAuthorizationLevel2"]));
+        Assert.Equal(DBNull.Value, admin["UseAccounts"]);   // not sent
+        Assert.Equal("S", members[47]["SafeUrlId"]);         // no SafeUrlId: the Safe name stands in
+        Assert.True((bool)members[47]["UseAccounts"]);
+        Assert.Equal(22, SelfHostedStagingMapper.DirectPermissionColumns.Length);
+    }
+
+    [Fact]
+    public void Direct_UsersPlatformsSafesAndGroups_KeepTheirRestFields()
+    {
+        var snapshot = new PvwaSnapshot
+        {
+            Users =
+            {
+                new PvwaUser(47, "adm.jesse", "LDAP", "EPVUser", "\\", true, "Jesse", "Smith", "j@example.com")
+                {
+                    DetailsRead = true, Department = "PAM", UserDn = "CN=Jesse", Suspended = false,
+                    Authorizations = [("VaultAuthorization", "AuditUsers"), ("UnauthorizedInterface", "PSMP")]
+                },
+                new PvwaUser(0, "Master", "CyberArk", "Built-InAdmins", "\\", true, null, null, null)
+            },
+            Platforms =
+            {
+                new PvwaPlatform("UnixSSH", "Unix via SSH", null, true, "regular")
+                {
+                    SystemType = "*NIX", PerformPeriodicVerification = true, VerifyEveryXDays = 7, RequireReasonForAccess = true,
+                    Properties = [("Required", "Address", "Address"), ("LinkedAccount", "LogonAccount", null)]
+                }
+            },
+            Safes = { new PvwaSafe(59, "My%20Safe", "My Safe", "\\", "Administrator", null, 30, null) { ManagingCpm = "PasswordManager", CreatorId = "2" } },
+            Groups = { new PvwaGroup(30, "Vault Admins", "Directory", "\\", null, [47, 48]) { Directory = "Company.com", Dn = "CN=VA", MemberNames = new Dictionary<long, string> { [47] = "adm.jesse" } } }
+        };
+
+        var tables = Map(snapshot);
+
+        var users = tables.DirectUsers.Rows.Cast<DataRow>().ToDictionary(r => (long)r["UserId"]);
+        Assert.Equal((true, "PAM", "CN=Jesse", "j@example.com"), ((bool)users[47]["DetailsRead"], (string)users[47]["Department"], (string)users[47]["UserDn"], (string)users[47]["BusinessEmail"]));
+        Assert.False((bool)users[0]["DetailsRead"]);
+        Assert.Equal([(47L, "VaultAuthorization", "AuditUsers"), (47L, "UnauthorizedInterface", "PSMP")],
+            tables.DirectUserAuthorizations.Rows.Cast<DataRow>().Select(r => ((long)r["UserId"], (string)r["Kind"], (string)r["Value"])));
+
+        var platform = Assert.Single(tables.DirectPlatforms.Rows.Cast<DataRow>());
+        Assert.Equal(("*NIX", true, 7, true), ((string)platform["SystemType"], (bool)platform["PerformPeriodicVerification"], (int)platform["RequirePasswordVerificationEveryXDays"], (bool)platform["RequireUsersToSpecifyReasonForAccess"]));
+        Assert.Equal(DBNull.Value, platform["ChangeOnAdd"]);
+        Assert.Equal([("Required", "Address"), ("LinkedAccount", "LogonAccount")],
+            tables.DirectPlatformProperties.Rows.Cast<DataRow>().Select(r => ((string)r["Kind"], (string)r["Name"])));
+
+        var safe = Assert.Single(tables.DirectSafes.Rows.Cast<DataRow>());
+        Assert.Equal(("My%20Safe", "My Safe", "PasswordManager", "2"), ((string)safe["SafeUrlId"], (string)safe["SafeName"], (string)safe["ManagingCpm"], (string)safe["CreatorId"]));
+
+        var group = Assert.Single(tables.DirectGroups.Rows.Cast<DataRow>());
+        Assert.Equal(("Company.com", "CN=VA"), ((string)group["Directory"], (string)group["Dn"]));
+        Assert.Equal([(47L, (object)"adm.jesse"), (48L, DBNull.Value)],
+            tables.DirectGroupMembers.Rows.Cast<DataRow>().Select(r => ((long)r["MemberId"], r["MemberName"])));
+    }
+
+    [Fact]
     public void EveryRow_CarriesTheBatchAndSource()
     {
         var snapshot = new PvwaSnapshot { Safes = { new PvwaSafe(1, "A", "A", "\\", null, null, null, null) }, Accounts = { Account() } };
