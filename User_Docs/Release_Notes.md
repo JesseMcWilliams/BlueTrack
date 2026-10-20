@@ -8,9 +8,16 @@ What changed in each BlueTrack release, newest first, for users and administrato
 
 ### Changed
 
+- Self-Hosted Direct also keeps everything PVWA returns in new staging tables: each account's CPM status and last reconcile time, the latest CPM verify, change and reconcile of every account the CPM has worked on, platform policy, every account property, predefined Safe members and user details. Nothing uses them yet, so reports don't change. A pull makes one more call per account the CPM has worked on, and one for target platform settings.
+- Saving the CyberArk sources keeps the settings of the Self-Hosted source not in use: choosing Direct no longer clears the EVD database name, and choosing the EVD keeps the PVWA address and credential, so switching back needs nothing typed again.
+
 ### Fixed
 
 ### Upgrading
+
+- The upgrade adds database script 41 (new Self-Hosted Direct staging tables); the installer's database migration applies it, and the app's existing database permissions cover the new tables. No setting changes, and nothing to re-run.
+- **If you use Self-Hosted Direct**, open Admin > Data Sources after the first pull following the upgrade (or click **Pull now**) and open that pull's **Details**. It should succeed with the same Safe and account counts as before, and more Safe members (predefined members such as Administrator are now read too; the change guard doesn't check members). Warnings that the CPM activity or target platform settings weren't read mean the PVWA user lacks the role for them: membership of the Vault's **Auditors** group for Safes and accounts, and of **Vault Admins** for platform details. The pull still succeeds and reports are unaffected, but tell whoever plans the move off the EVD. Details: `Admin_DeploymentRunbook.md`, "After upgrading".
+- **If you use the EVD**, nothing changes. Saving the CyberArk sources page no longer clears the PVWA address and credential you entered before; that's intended.
 
 ## 1.3.0 (2026-10-19)
 

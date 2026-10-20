@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Globalization;
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -52,12 +53,39 @@ public sealed class PvwaClient(HttpClient http, Uri apiRoot)
     {
         var snapshot = new PvwaSnapshot();
 
+        var targets = await GetTargetPlatformsAsync(token, snapshot.Warnings, ct);
         foreach (var item in await GetArrayAsync(token, "Platforms", "Platforms", ct))
         {
             var general = item.TryGetProperty("general", out var g) ? g : item;
             var id = Str(general, "id");
             if (id is null) continue;
-            snapshot.Platforms.Add(new PvwaPlatform(id, Str(general, "name"), Str(general, "description"), Bool(general, "active"), Str(general, "platformType")));
+            var credentials = Obj(item, "credentialsManagement");
+            var session = Obj(item, "sessionManagement");
+            var workflows = Obj(item, "privilegedAccessWorkflows");
+            var propertyLists = Obj(item, "properties");
+            var properties = new List<(string, string, string?)>();
+            foreach (var (kind, array) in new[] { ("Required", Arr(propertyLists, "required")), ("Optional", Arr(propertyLists, "optional")), ("LinkedAccount", Arr(item, "linkedAccounts")) })
+            {
+                foreach (var prop in array) { if (Str(prop, "name") is { } name) properties.Add((kind, name, Str(prop, "displayName"))); }
+            }
+            targets.TryGetValue(id, out var target);
+            snapshot.Platforms.Add(new PvwaPlatform(id, Str(general, "name"), Str(general, "description"), Bool(general, "active"), Str(general, "platformType"))
+            {
+                SystemType = Str(general, "systemType"), PlatformBaseId = Str(general, "platformBaseID"),
+                AllowedSafes = Str(credentials, "allowedSafes"),
+                PerformPeriodicVerification = Bool(credentials, "performPeriodicVerification"), VerifyEveryXDays = (int?)Long(credentials, "requirePasswordVerificationEveryXDays"),
+                AllowManualVerification = Bool(credentials, "allowManualVerification"),
+                PerformPeriodicChange = Bool(credentials, "performPeriodicChange"), ChangeEveryXDays = (int?)Long(credentials, "requirePasswordChangeEveryXDays"),
+                AllowManualChange = Bool(credentials, "allowManualChange"),
+                AutomaticReconcileWhenUnsynched = Bool(credentials, "automaticReconcileWhenUnsynched"), AllowManualReconciliation = Bool(credentials, "allowManualReconciliation"),
+                RequirePsm = Bool(session, "requirePrivilegedSessionMonitoringAndIsolation"), RecordSessions = Bool(session, "recordAndSaveSessionActivity"),
+                PsmServerId = Str(session, "PSMServerID"),
+                RequireDualControl = Bool(workflows, "requireDualControlPasswordAccessApproval"),
+                EnforceExclusiveAccess = Bool(workflows, "enforceCheckinCheckoutExclusiveAccess"), EnforceOneTimePassword = Bool(workflows, "enforceOnetimePasswordAccess"),
+                RequireReasonForAccess = target?.RequireReason, VerifyOnAdd = target?.VerifyOnAdd, ChangeOnAdd = target?.ChangeOnAdd,
+                ChangePasswordInResetMode = target?.ResetMode,
+                Properties = properties
+            });
         }
 
         foreach (var item in await GetPagedAsync(token, "Safes?extendedDetails=true", ct))
@@ -66,9 +94,14 @@ public sealed class PvwaClient(HttpClient http, Uri apiRoot)
             var name = Str(item, "safeName");
             var urlId = Str(item, "safeUrlId") ?? name;
             if (number is null || name is null || urlId is null) { snapshot.Warnings.Add("A Safe without a number or name was skipped."); continue; }
-            snapshot.Safes.Add(new PvwaSafe(number.Value, urlId, name, Str(item, "location"),
-                item.TryGetProperty("creator", out var creator) && creator.ValueKind == JsonValueKind.Object ? Str(creator, "name") : null,
-                Epoch(item, "creationTime"), (int?)Long(item, "numberOfDaysRetention"), (int?)Long(item, "numberOfVersionsRetention")));
+            var creator = Obj(item, "creator");
+            snapshot.Safes.Add(new PvwaSafe(number.Value, urlId, name, Str(item, "location"), Str(creator, "name"),
+                Epoch(item, "creationTime"), (int?)Long(item, "numberOfDaysRetention"), (int?)Long(item, "numberOfVersionsRetention"))
+            {
+                Description = Str(item, "description"), CreatorId = Str(creator, "id") ?? Long(creator, "id")?.ToString(CultureInfo.InvariantCulture),
+                OlacEnabled = Bool(item, "olacEnabled"), ManagingCpm = Str(item, "managingCPM"), AutoPurgeEnabled = Bool(item, "autoPurgeEnabled"),
+                LastModificationTime = EpochAnyUnit(item, "lastModificationTime"), IsExpiredMember = Bool(item, "isExpiredMember")
+            });
         }
 
         foreach (var item in await GetPagedAsync(token, "Accounts", ct))
@@ -85,17 +118,31 @@ public sealed class PvwaClient(HttpClient http, Uri apiRoot)
             {
                 foreach (var p in props.EnumerateObject()) properties[p.Name] = p.Value.ValueKind == JsonValueKind.String ? p.Value.GetString() ?? "" : p.Value.ToString();
             }
-            JsonElement management = default;
-            var hasManagement = item.TryGetProperty("secretManagement", out management) && management.ValueKind == JsonValueKind.Object;
+            // Missing objects read as null (Obj returns an undefined element, which every helper treats as absent).
+            var management = Obj(item, "secretManagement");
+            var remote = Obj(item, "remoteMachinesAccess");
             snapshot.Accounts.Add(new PvwaAccount(
                 safeNumber, fileId, Str(item, "safeName") ?? "", Str(item, "name") ?? id!, Str(item, "address"), Str(item, "userName"),
                 Str(item, "platformId"), Epoch(item, "createdTime"),
-                hasManagement ? Epoch(management, "lastModifiedTime") ?? Epoch(management, "lastModifiedDateTime") : null,
-                hasManagement ? Epoch(management, "lastVerifiedDateTime") ?? Epoch(management, "lastVerifiedTime") : null,
-                hasManagement ? Bool(management, "automaticManagementEnabled") : null,
-                hasManagement ? Str(management, "manualManagementReason") : null,
-                properties));
+                Epoch(management, "lastModifiedTime") ?? Epoch(management, "lastModifiedDateTime"),
+                Epoch(management, "lastVerifiedDateTime") ?? Epoch(management, "lastVerifiedTime"),
+                Bool(management, "automaticManagementEnabled"),
+                Str(management, "manualManagementReason"),
+                properties)
+            {
+                SecretType = Str(item, "secretType"),
+                CategoryModificationTime = Epoch(item, "categoryModificationTime") ?? Epoch(item, "CategoryModificationTime"),
+                CpmStatus = Str(management, "status") is { Length: > 0 } status ? status : null,
+                LastReconciledTime = Epoch(management, "lastReconciledTime") ?? Epoch(management, "lastReconciledDateTime"),
+                RemoteMachines = Str(remote, "remoteMachines") is { Length: > 0 } machines ? machines : null,
+                AccessRestrictedToRemoteMachines = Bool(remote, "accessRestrictedToRemoteMachines")
+            });
         }
+
+        // D-270: the CPM's verify, change and reconcile history, from each account's activity log. Only an account
+        // with a CPM status has any (the status appears once the CPM first acts on it), so only those are asked:
+        // one call each. A failed call loses only that account's history.
+        await ReadCpmActivityAsync(token, snapshot, ct);
 
         // Members: one call per Safe. Without View Safe Members in a Safe the call is refused; that Safe's members
         // are missing, so say so rather than stop the pull.
@@ -105,7 +152,8 @@ public sealed class PvwaClient(HttpClient http, Uri apiRoot)
         {
             try
             {
-                foreach (var item in await GetPagedAsync(token, $"Safes/{safe.SafeUrlId}/Members", innerCt))
+                // D-270: predefined members (Administrator, Auditors, ...) too; PVWA leaves them out unless asked.
+                foreach (var item in await GetPagedAsync(token, $"Safes/{safe.SafeUrlId}/Members?filter=includePredefinedUsers%20eq%20true", innerCt))
                 {
                     var memberId = Long(item, "memberId");
                     var memberName = Str(item, "memberName");
@@ -119,7 +167,11 @@ public sealed class PvwaClient(HttpClient http, Uri apiRoot)
                         }
                     }
                     members.Add(new PvwaMember(safe.SafeNumber, safe.SafeName, memberId.Value, memberName,
-                        string.Equals(Str(item, "memberType"), "Group", StringComparison.OrdinalIgnoreCase), Epoch(item, "membershipExpirationDate"), permissions));
+                        string.Equals(Str(item, "memberType"), "Group", StringComparison.OrdinalIgnoreCase), Epoch(item, "membershipExpirationDate"), permissions)
+                    {
+                        SafeUrlId = safe.SafeUrlId, MemberType = Str(item, "memberType"), IsExpiredMembershipEnable = Bool(item, "isExpiredMembershipEnable"),
+                        IsPredefinedUser = Bool(item, "isPredefinedUser"), IsReadOnly = Bool(item, "isReadOnly")
+                    });
                 }
             }
             catch (PvwaException ex) when (ex.Message.Contains("(403)"))
@@ -141,24 +193,47 @@ public sealed class PvwaClient(HttpClient http, Uri apiRoot)
             var id = Long(item, "id");
             var name = Str(item, "username");
             if (id is null || name is null) return;
-            var details = item.TryGetProperty("personalDetails", out var pd) && pd.ValueKind == JsonValueKind.Object ? pd : default;
-            string? first = details.ValueKind == JsonValueKind.Object ? Str(details, "firstName") : null;
-            string? last = details.ValueKind == JsonValueKind.Object ? Str(details, "lastName") : null;
-            string? email = null;
+            var personal = Obj(item, "personalDetails");
+            JsonElement detail = default;
             if (Bool(item, "componentUser") != true && !string.Equals(Str(item, "userType"), "Built-InAdmins", StringComparison.OrdinalIgnoreCase))
             {
                 try
                 {
-                    var detail = await GetJsonAsync(token, $"Users/{id}/", innerCt);
-                    if (detail.TryGetProperty("internet", out var net) && net.ValueKind == JsonValueKind.Object) email = Str(net, "businessEmail");
+                    detail = await GetJsonAsync(token, $"Users/{id}/", innerCt);
                 }
                 catch (PvwaException ex)
                 {
                     userWarnings.Add($"User '{name}': details not read, so no email ({ex.Message}).");
                 }
             }
+            var detailPersonal = Obj(detail, "personalDetails");
+            var internet = Obj(detail, "internet");
+            var authorizations = new List<(string, string)>();
+            foreach (var (kind, source, property) in new[]
+                     {
+                         ("VaultAuthorization", item, "vaultAuthorization"), ("VaultAuthorization", detail, "vaultAuthorization"),
+                         ("UnauthorizedInterface", detail, "unAuthorizedInterfaces"), ("AuthenticationMethod", detail, "authenticationMethod"),
+                         ("AllowedAuthenticationMethod", item, "allowedAuthenticationMethods"), ("AllowedAuthenticationMethod", detail, "allowedAuthenticationMethods")
+                     })
+            {
+                foreach (var value in Strings(source, property)) { if (!authorizations.Contains((kind, value))) authorizations.Add((kind, value)); }
+            }
             users.Add(new PvwaUser(id.Value, name, Str(item, "source"), Str(item, "userType"), Str(item, "location"),
-                Bool(item, "enableUser") ?? true, first, last, email));
+                Bool(item, "enableUser") ?? true, Str(personal, "firstName"), Str(personal, "lastName"), Str(internet, "businessEmail"))
+            {
+                ComponentUser = Bool(item, "componentUser"), Suspended = Bool(item, "suspended") ?? Bool(detail, "suspended"),
+                MiddleName = Str(personal, "middleName") ?? Str(detailPersonal, "middleName"),
+                DetailsRead = detail.ValueKind == JsonValueKind.Object,
+                Organization = Str(detailPersonal, "organization"), Department = Str(detailPersonal, "department"),
+                Title = Str(detailPersonal, "title"), Profession = Str(detailPersonal, "profession"),
+                HomeEmail = Str(internet, "homeEmail"), OtherEmail = Str(internet, "otherEmail"), HomePage = Str(internet, "homePage"),
+                UserDn = Str(detail, "userDN") ?? Str(item, "userDN"), DistinguishedName = Str(detail, "distinguishedName"),
+                Description = Str(detail, "description"),
+                ExpiryDate = Epoch(detail, "expiryDate"), LastSuccessfulLoginDate = Epoch(detail, "lastSuccessfulLoginDate"),
+                PasswordNeverExpires = Bool(detail, "passwordNeverExpires"),
+                ChangePassOnNextLogon = Bool(detail, "changePassOnNextLogon") ?? Bool(detail, "changePasswordOnTheNextLogon"),
+                Authorizations = authorizations
+            });
         });
         snapshot.Users.AddRange(users.OrderBy(u => u.Id));
         snapshot.Warnings.AddRange(userWarnings.OrderBy(w => w, StringComparer.Ordinal));
@@ -169,11 +244,17 @@ public sealed class PvwaClient(HttpClient http, Uri apiRoot)
             var name = Str(item, "groupName");
             if (id is null || name is null) continue;
             var memberIds = new List<long>();
-            if (item.TryGetProperty("members", out var m) && m.ValueKind == JsonValueKind.Array)
+            var memberNames = new Dictionary<long, string>();
+            foreach (var member in Arr(item, "members"))
             {
-                foreach (var member in m.EnumerateArray()) { if (Long(member, "id") is { } mid) memberIds.Add(mid); }
+                if (Long(member, "id") is not { } mid) continue;
+                memberIds.Add(mid);
+                if ((Str(member, "username") ?? Str(member, "UserName")) is { } memberName) memberNames[mid] = memberName;
             }
-            snapshot.Groups.Add(new PvwaGroup(id.Value, name, Str(item, "groupType"), Str(item, "location"), Str(item, "description"), memberIds));
+            snapshot.Groups.Add(new PvwaGroup(id.Value, name, Str(item, "groupType"), Str(item, "location"), Str(item, "description"), memberIds)
+            {
+                Directory = Str(item, "directory"), Dn = Str(item, "dn"), MemberNames = memberNames
+            });
         }
         return snapshot;
     }
@@ -214,6 +295,87 @@ public sealed class PvwaClient(HttpClient http, Uri apiRoot)
         }
         return (users, note);
     }
+
+    private sealed record TargetSettings(bool? RequireReason, bool? VerifyOnAdd, bool? ChangeOnAdd, bool? ResetMode);
+
+    /// <summary>
+    /// D-270: Platforms/Targets has a few settings the Platforms list lacks (reason for access, verify and change on
+    /// add, reset mode), in PascalCase. Only target platforms are listed; a refused call loses only these settings.
+    /// </summary>
+    private async Task<Dictionary<string, TargetSettings>> GetTargetPlatformsAsync(string token, List<string> warnings, CancellationToken ct)
+    {
+        var map = new Dictionary<string, TargetSettings>(StringComparer.OrdinalIgnoreCase);
+        List<JsonElement> items;
+        try
+        {
+            items = await GetArrayAsync(token, "Platforms/Targets", "Platforms", ct);
+        }
+        catch (PvwaException ex)
+        {
+            warnings.Add($"Target platform settings not read ({ex.Message}).");
+            return map;
+        }
+        foreach (var item in items)
+        {
+            if (Str(item, "PlatformID") is not { } id) continue;
+            var policy = Obj(item, "CredentialsManagementPolicy");
+            map[id] = new TargetSettings(
+                Bool(Obj(Obj(item, "PrivilegedAccessWorkflows"), "RequireUsersToSpecifyReasonForAccess"), "IsActive"),
+                Bool(Obj(policy, "Verification"), "AutoOnAdd"), Bool(Obj(policy, "Change"), "AutoOnAdd"),
+                Bool(Obj(policy, "SecretUpdateConfiguration"), "ChangePasswordInResetMode"));
+        }
+        return map;
+    }
+
+    /// <summary>
+    /// CPM activity codes (PAM 14.2 EVD action codes): verify, change and reconcile, their failures, and the SSH key
+    /// verify and reconcile codes.
+    /// </summary>
+    internal static readonly IReadOnlySet<int> CpmActivityCodes = new HashSet<int> { 22, 38, 24, 57, 31, 60, 414, 415, 419 };
+
+    /// <summary>
+    /// The account activity call is the classic (1st gen) one, documented from 12.2 to 15.2; the 2nd gen
+    /// API/Accounts/{id}/Activities answered on the lab's 14.6 but has no documentation, so it isn't used.
+    /// Its times are text ("10/20/2026 00:24:45"); on the lab they matched the UTC epoch times of the same events.
+    /// </summary>
+    private async Task ReadCpmActivityAsync(string token, PvwaSnapshot snapshot, CancellationToken ct)
+    {
+        var indexes = Enumerable.Range(0, snapshot.Accounts.Count).Where(i => snapshot.Accounts[i].CpmStatus is not null).ToList();
+        var found = new ConcurrentDictionary<int, IReadOnlyList<PvwaCpmActivity>>();
+        var warnings = new ConcurrentBag<string>();
+        var unreadableTimes = 0;
+        await Parallel.ForEachAsync(indexes, new ParallelOptions { MaxDegreeOfParallelism = UserDetailParallelism, CancellationToken = ct }, async (i, innerCt) =>
+        {
+            var account = snapshot.Accounts[i];
+            try
+            {
+                var root = await GetJsonAsync(token, $"../WebServices/PIMServices.svc/Accounts/{account.Id}/Activities/", innerCt);
+                var activities = new List<PvwaCpmActivity>();
+                foreach (var a in ArrayOf(root, "GetAccountActivitiesSlashResult"))
+                {
+                    if (Long(a, "ActivityCode") is not { } code || !CpmActivityCodes.Contains((int)code)) continue;
+                    var time = ClassicTime(Str(a, "Time"));
+                    if (time is null && Str(a, "Time") is not null) Interlocked.Increment(ref unreadableTimes);
+                    activities.Add(new PvwaCpmActivity((int)code, Str(a, "Activity"), time, Str(a, "UserName"), Str(a, "Reason"), Str(a, "MoreInfo")));
+                }
+                // The latest of each code: what the stage rules need, and what "last verified" means.
+                found[i] = activities.GroupBy(a => a.Code).Select(g => g.OrderByDescending(a => a.Time ?? DateTime.MinValue).First()).OrderBy(a => a.Code).ToList();
+            }
+            catch (PvwaException ex)
+            {
+                warnings.Add($"Account '{account.Id}': CPM activity not read ({ex.Message}).");
+            }
+        });
+        foreach (var (i, activity) in found) snapshot.Accounts[i] = snapshot.Accounts[i] with { CpmActivity = activity };
+        snapshot.Warnings.AddRange(warnings.OrderBy(w => w, StringComparer.Ordinal));
+        if (unreadableTimes > 0) snapshot.Warnings.Add($"{unreadableTimes} CPM activit{(unreadableTimes == 1 ? "y has" : "ies have")} a time that couldn't be read; kept without it.");
+    }
+
+    private static readonly string[] ClassicTimeFormats = ["MM/dd/yyyy HH:mm:ss", "M/d/yyyy H:mm:ss", "M/d/yyyy h:mm:ss tt"];
+
+    private static DateTime? ClassicTime(string? text) =>
+        text is not null && DateTime.TryParseExact(text.Trim(), ClassicTimeFormats, CultureInfo.InvariantCulture,
+            DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out var time) ? time : null;
 
     private static List<JsonElement> ArrayOf(JsonElement root, string property)
     {
@@ -295,4 +457,24 @@ public sealed class PvwaClient(HttpClient http, Uri apiRoot)
         if (seconds is null or <= 0 || seconds > 253402300799) return null;
         return DateTimeOffset.FromUnixTimeSeconds(seconds.Value).UtcDateTime;
     }
+
+    /// <summary>An epoch time in seconds, milliseconds or microseconds (a Safe's lastModificationTime is microseconds), told apart by size.</summary>
+    private static DateTime? EpochAnyUnit(JsonElement e, string name)
+    {
+        var value = Long(e, name);
+        if (value is null or <= 0) return null;
+        var seconds = value.Value switch { > 100_000_000_000_000 => value.Value / 1_000_000, > 100_000_000_000 => value.Value / 1_000, _ => value.Value };
+        return seconds > 253402300799 ? null : DateTimeOffset.FromUnixTimeSeconds(seconds).UtcDateTime;
+    }
+
+    /// <summary>A nested object, or an undefined element (which every helper here reads as absent).</summary>
+    private static JsonElement Obj(JsonElement e, string name) =>
+        e.ValueKind == JsonValueKind.Object && e.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.Object ? v : default;
+
+    private static IEnumerable<JsonElement> Arr(JsonElement e, string name) =>
+        e.ValueKind == JsonValueKind.Object && e.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.Array ? v.EnumerateArray() : [];
+
+    /// <summary>The non-blank strings of an array property.</summary>
+    private static IEnumerable<string> Strings(JsonElement e, string name) =>
+        Arr(e, name).Where(v => v.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(v.GetString())).Select(v => v.GetString()!.Trim());
 }

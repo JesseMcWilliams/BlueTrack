@@ -54,7 +54,174 @@ public class PvwaClientTests
         fake.Json("/PasswordVault/API/Users", "{\"Users\":[{\"id\":47,\"username\":\"adm.jesse\",\"source\":\"LDAP\",\"userType\":\"EPVUser\",\"location\":\"\\\\\",\"enableUser\":true,\"personalDetails\":{\"firstName\":\"Jesse\",\"lastName\":\"Smith\"}}],\"Total\":1}");
         fake.Json("/PasswordVault/API/Users/47/", "{\"internet\":{\"businessEmail\":\"jesse@example.com\"}}");
         fake.Json("/PasswordVault/API/UserGroups", "{\"value\":[{\"id\":9,\"groupName\":\"Auditors\",\"groupType\":\"Vault\",\"location\":\"\\\\\",\"members\":[{\"username\":\"Auditor\",\"id\":3}]}]}");
+        fake.Json("/PasswordVault/API/Platforms/Targets", "{\"Platforms\":[],\"Total\":0}");
         return fake;
+    }
+
+    /// <summary>D-270: the full shapes the lab's PVWA 14.6 returned on 2026-10-20 (values shortened).</summary>
+    private static FakePvwa RichPvwa()
+    {
+        var fake = FullPvwa();
+        fake.Json("/PasswordVault/API/Platforms", """
+            {"Platforms":[{"general":{"id":"LNX_LOC_JLM_PW","name":"Linux local","systemType":"*NIX","active":true,"description":"d","platformBaseID":"UnixSSH","platformType":"regular"},
+              "properties":{"required":[{"name":"Address","displayName":"Address"}],"optional":[{"name":"UseSudoOnReconcile","displayName":"Use Sudo On Reconcile"}]},
+              "linkedAccounts":[{"name":"ReconcileAccount","displayName":"Reconcile Account"}],
+              "credentialsManagement":{"allowedSafes":".*","allowManualChange":true,"performPeriodicChange":false,"requirePasswordChangeEveryXDays":90,
+                "allowManualVerification":true,"performPeriodicVerification":true,"requirePasswordVerificationEveryXDays":7,
+                "allowManualReconciliation":true,"automaticReconcileWhenUnsynched":false},
+              "sessionManagement":{"requirePrivilegedSessionMonitoringAndIsolation":true,"recordAndSaveSessionActivity":true,"PSMServerID":"PSMServer_X"},
+              "privilegedAccessWorkflows":{"requireDualControlPasswordAccessApproval":false,"enforceCheckinCheckoutExclusiveAccess":true,"enforceOnetimePasswordAccess":false}}],"Total":1}
+            """);
+        fake.Json("/PasswordVault/API/Platforms/Targets", """
+            {"Platforms":[{"ID":21,"PlatformID":"LNX_LOC_JLM_PW","CredentialsManagementPolicy":{"Verification":{"AutoOnAdd":true},"Change":{"AutoOnAdd":false},
+              "SecretUpdateConfiguration":{"ChangePasswordInResetMode":false}},
+              "PrivilegedAccessWorkflows":{"RequireUsersToSpecifyReasonForAccess":{"IsActive":true,"IsAnException":false}}}],"Total":1}
+            """);
+        fake.Json("/PasswordVault/API/Safes", """
+            {"value":[{"safeUrlId":"My%20Safe","safeName":"My Safe","safeNumber":59,"location":"\\","description":"Ops","creator":{"id":"2","name":"Administrator"},
+              "olacEnabled":false,"managingCPM":"PasswordManager","numberOfVersionsRetention":5,"numberOfDaysRetention":30,"autoPurgeEnabled":false,
+              "creationTime":1757462738,"lastModificationTime":1792455138631415,"isExpiredMember":false}]}
+            """);
+        fake.Json("/PasswordVault/API/Accounts", """
+            {"value":[
+              {"id":"60_6","name":"rec","address":"192.0.2.152","userName":"CyberArkSHRec","platformId":"LNX_LOC_JLM_PW","safeName":"My Safe","secretType":"password",
+               "createdTime":1789088250,"categoryModificationTime":1792455167,"platformAccountProperties":{"LogonDomain":"Company","AVeryLongPropertyNameOverTwentyNine":"kept"},
+               "secretManagement":{"automaticManagementEnabled":true,"status":"success","lastModifiedTime":1792455158,"lastReconciledTime":1792455153},
+               "remoteMachinesAccess":{"remoteMachines":"a;b","accessRestrictedToRemoteMachines":true}},
+              {"id":"60_7","name":"never","address":"h","userName":"u","platformId":"UnixSSH","safeName":"My Safe","secretType":"key",
+               "secretManagement":{"automaticManagementEnabled":true,"lastModifiedTime":1789088251}}]}
+            """);
+        fake.Json("/PasswordVault/WebServices/PIMServices.svc/Accounts/60_6/Activities/", """
+            {"GetAccountActivitiesSlashResult":[
+              {"ActivityCode":295,"Activity":"Retrieve password","Time":"10/20/2026 00:24:45","UserName":"PasswordManager","Reason":"CPM"},
+              {"ActivityCode":22,"Activity":"CPM Verify Password","Time":"10/20/2026 00:12:47","UserName":"PasswordManager","Reason":"VerificationPeriod","MoreInfo":"address=192.0.2.152"},
+              {"ActivityCode":24,"Activity":"CPM Change Password","Time":"10/20/2026 00:12:41","UserName":"PasswordManager","Reason":"ImmediateTask"},
+              {"ActivityCode":22,"Activity":"CPM Verify Password","Time":"10/13/2026 08:00:00","UserName":"PasswordManager","Reason":"older"}]}
+            """);
+        fake.Json("/PasswordVault/API/Safes/My%20Safe/Members", """
+            {"value":[
+              {"memberId":2,"memberName":"Administrator","memberType":"User","isPredefinedUser":true,"isReadOnly":true,"isExpiredMembershipEnable":false,
+               "membershipExpirationDate":null,"permissions":{"listAccounts":true,"viewAuditLog":true,"requestsAuthorizationLevel2":false}},
+              {"memberId":47,"memberName":"adm.jesse","memberType":"User","isPredefinedUser":false,"isReadOnly":false,"isExpiredMembershipEnable":false,
+               "membershipExpirationDate":1800000000,"permissions":{"useAccounts":true}}]}
+            """);
+        fake.Json("/PasswordVault/API/Users", """
+            {"Users":[{"id":47,"username":"adm.jesse","source":"LDAP","userType":"EPVUser","componentUser":false,"location":"\\","enableUser":true,"suspended":false,
+              "vaultAuthorization":["AuditUsers"],"allowedAuthenticationMethods":["saml"],"personalDetails":{"firstName":"Jesse","middleName":"Q","lastName":"Smith"}}],"Total":1}
+            """);
+        fake.Json("/PasswordVault/API/Users/47/", """
+            {"id":47,"userDN":"CN=Jesse,DC=example,DC=com","description":"admin","expiryDate":-62135568000,"lastSuccessfulLoginDate":1792455000,
+             "passwordNeverExpires":false,"changePassOnNextLogon":false,"suspended":false,"vaultAuthorization":["AuditUsers","AddSafes"],
+             "unAuthorizedInterfaces":["PSMP"],"authenticationMethod":["AuthTypeLDAP"],
+             "internet":{"businessEmail":"jesse@example.com","homeEmail":"","otherEmail":"o@example.com","homePage":""},
+             "personalDetails":{"organization":"IT","department":"PAM","title":"Engineer","profession":"","street":"1 Main St"},
+             "phones":{"businessNumber":"555"},"businessAddress":{"workCity":"Springfield"}}
+            """);
+        fake.Json("/PasswordVault/API/UserGroups", """
+            {"value":[{"id":30,"groupName":"CyberArk Vault Admins","groupType":"Directory","location":"\\","description":"","directory":"Company.com",
+              "dn":"CN=CyberArk Vault Admins,DC=example,DC=com","members":[{"id":47,"username":"adm.jesse"}]}]}
+            """);
+        return fake;
+    }
+
+    [Fact]
+    public async Task Pull_KeepsEveryFieldRestReturns()
+    {
+        var snapshot = await Client(RichPvwa()).PullAsync(Token, CancellationToken.None);
+
+        var platform = Assert.Single(snapshot.Platforms);
+        Assert.Equal(("*NIX", "UnixSSH", ".*"), (platform.SystemType, platform.PlatformBaseId, platform.AllowedSafes));
+        Assert.Equal(((bool?)true, (int?)7, (bool?)false, (int?)90), (platform.PerformPeriodicVerification, platform.VerifyEveryXDays, platform.PerformPeriodicChange, platform.ChangeEveryXDays));
+        Assert.Equal(((bool?)true, (bool?)true, "PSMServer_X", (bool?)true), (platform.RequirePsm, platform.RecordSessions, platform.PsmServerId, platform.EnforceExclusiveAccess));
+        Assert.Equal(((bool?)true, (bool?)true, (bool?)false, (bool?)false), (platform.RequireReasonForAccess, platform.VerifyOnAdd, platform.ChangeOnAdd, platform.ChangePasswordInResetMode));
+        Assert.Equal([("Required", "Address", "Address"), ("Optional", "UseSudoOnReconcile", "Use Sudo On Reconcile"), ("LinkedAccount", "ReconcileAccount", "Reconcile Account")],
+            platform.Properties);
+
+        var safe = Assert.Single(snapshot.Safes);
+        Assert.Equal(("Ops", "2", "PasswordManager", (bool?)false, (bool?)false), (safe.Description, safe.CreatorId, safe.ManagingCpm, safe.OlacEnabled, safe.IsExpiredMember));
+        Assert.Equal(DateTimeOffset.FromUnixTimeSeconds(1792455138).UtcDateTime, safe.LastModificationTime);   // sent in microseconds
+
+        var rec = snapshot.Accounts.Single(a => a.Id == "60_6");
+        Assert.Equal(("password", "success", "a;b", (bool?)true), (rec.SecretType, rec.CpmStatus, rec.RemoteMachines, rec.AccessRestrictedToRemoteMachines));
+        Assert.Equal(DateTimeOffset.FromUnixTimeSeconds(1792455153).UtcDateTime, rec.LastReconciledTime);
+        Assert.Equal(DateTimeOffset.FromUnixTimeSeconds(1792455167).UtcDateTime, rec.CategoryModificationTime);
+        Assert.Null(rec.LastVerifiedTime);   // the lab never sent it
+        Assert.Equal("kept", rec.Properties["AVeryLongPropertyNameOverTwentyNine"]);
+        var never = snapshot.Accounts.Single(a => a.Id == "60_7");
+        Assert.Null(never.CpmStatus);
+        Assert.Empty(never.CpmActivity);
+
+        var admin = snapshot.Members.Single(m => m.MemberId == 2);
+        Assert.Equal(("My%20Safe", "User", (bool?)true, (bool?)true), (admin.SafeUrlId, admin.MemberType, admin.IsPredefinedUser, admin.IsReadOnly));
+        Assert.True(admin.Permissions["viewAuditLog"]);
+
+        var user = Assert.Single(snapshot.Users);
+        Assert.True(user.DetailsRead);
+        Assert.Equal(("Q", "IT", "PAM", "Engineer", "o@example.com"), (user.MiddleName, user.Organization, user.Department, user.Title, user.OtherEmail));
+        Assert.Equal(("CN=Jesse,DC=example,DC=com", "admin", (bool?)false), (user.UserDn, user.Description, user.PasswordNeverExpires));
+        Assert.Null(user.ExpiryDate);   // year 1: never
+        Assert.Equal(DateTimeOffset.FromUnixTimeSeconds(1792455000).UtcDateTime, user.LastSuccessfulLoginDate);
+        Assert.Equal([("VaultAuthorization", "AuditUsers"), ("VaultAuthorization", "AddSafes"), ("UnauthorizedInterface", "PSMP"),
+            ("AuthenticationMethod", "AuthTypeLDAP"), ("AllowedAuthenticationMethod", "saml")], user.Authorizations);
+
+        var group = Assert.Single(snapshot.Groups);
+        Assert.Equal(("Company.com", "CN=CyberArk Vault Admins,DC=example,DC=com", "adm.jesse"), (group.Directory, group.Dn, group.MemberNames[47]));
+        Assert.Empty(snapshot.Warnings);
+    }
+
+    [Fact]
+    public async Task CpmActivity_IsReadOnlyForAccountsTheCpmActedOn_KeepingTheLatestOfEachCpmCode()
+    {
+        var fake = RichPvwa();
+
+        var snapshot = await Client(fake).PullAsync(Token, CancellationToken.None);
+
+        var activityCalls = fake.Requests.Where(r => r.PathAndQuery.Contains("/Activities")).Select(r => r.PathAndQuery).ToList();
+        Assert.Equal(["/PasswordVault/WebServices/PIMServices.svc/Accounts/60_6/Activities/"], activityCalls);   // 60_7 has no CPM status
+        var activity = snapshot.Accounts.Single(a => a.Id == "60_6").CpmActivity;
+        Assert.Equal([22, 24], activity.Select(a => a.Code));   // 295 (a retrieval) isn't a CPM action
+        var verify = activity.Single(a => a.Code == 22);
+        Assert.Equal(new DateTime(2026, 10, 20, 0, 12, 47, DateTimeKind.Utc), verify.Time);   // the later of the two verifies
+        Assert.Equal(DateTimeKind.Utc, verify.Time!.Value.Kind);
+        Assert.Equal(("CPM Verify Password", "PasswordManager", "VerificationPeriod", "address=192.0.2.152"), (verify.Activity, verify.UserName, verify.Reason, verify.MoreInfo));
+    }
+
+    [Fact]
+    public async Task CpmActivityRefused_LosesOnlyThatAccountsHistory_WithAWarning()
+    {
+        var fake = RichPvwa();
+        fake.Json("/PasswordVault/WebServices/PIMServices.svc/Accounts/60_6/Activities/", "{\"ErrorMessage\":\"Not allowed\"}", HttpStatusCode.Forbidden);
+
+        var snapshot = await Client(fake).PullAsync(Token, CancellationToken.None);
+
+        Assert.Empty(snapshot.Accounts.Single(a => a.Id == "60_6").CpmActivity);
+        Assert.Equal(2, snapshot.Accounts.Count);
+        Assert.Contains("Account '60_6': CPM activity not read", Assert.Single(snapshot.Warnings));
+    }
+
+    [Fact]
+    public async Task TargetPlatformsRefused_IsAWarning_AndThePlatformListIsStillRead()
+    {
+        var fake = RichPvwa();
+        fake.Json("/PasswordVault/API/Platforms/Targets", "{\"ErrorMessage\":\"Not allowed\"}", HttpStatusCode.Forbidden);
+
+        var snapshot = await Client(fake).PullAsync(Token, CancellationToken.None);
+
+        var platform = Assert.Single(snapshot.Platforms);
+        Assert.Equal(7, platform.VerifyEveryXDays);
+        Assert.Null(platform.RequireReasonForAccess);
+        Assert.Contains("Target platform settings not read", Assert.Single(snapshot.Warnings));
+    }
+
+    [Fact]
+    public async Task SafeMembers_AreAskedForWithPredefinedUsers()
+    {
+        var fake = FullPvwa();
+
+        await Client(fake).PullAsync(Token, CancellationToken.None);
+
+        var call = Assert.Single(fake.Requests, r => r.PathAndQuery.Contains("/Members"));
+        Assert.StartsWith("/PasswordVault/API/Safes/My%20Safe/Members?filter=includePredefinedUsers%20eq%20true&limit=1000&offset=0", call.PathAndQuery);
     }
 
     [Theory]

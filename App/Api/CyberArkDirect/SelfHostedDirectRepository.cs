@@ -133,7 +133,8 @@ public sealed class SelfHostedDirectRepository(IDbConnectionFactory connectionFa
 
     /// <summary>
     /// Replaces the Self-Hosted staging tables with the pull's rows, in one transaction, so staging is never half
-    /// filled. DELETE, not TRUNCATE: the app's database account has no ALTER (Database/Manual/02).
+    /// filled: the EVD-shaped stg_sh_* tables the Load reads, and (D-270) the stg_shd_* tables in REST's shape.
+    /// DELETE, not TRUNCATE: the app's database account has no ALTER (Database/Manual/02).
     /// The Requests and Confirmations tables (dual-control workflow) have no REST source and are emptied.
     /// </summary>
     public async Task StageAsync(StagingTables tables, CancellationToken ct)
@@ -143,8 +144,9 @@ public sealed class SelfHostedDirectRepository(IDbConnectionFactory connectionFa
         await connection.OpenAsync(ct);
         await using var transaction = (SqlTransaction)await connection.BeginTransactionAsync(ct);
 
-        foreach (var table in (string[])["stg_sh_users", "stg_sh_groups", "stg_sh_groupmembers", "stg_sh_safes", "stg_sh_owners", "stg_sh_files",
-                                          "stg_sh_objectproperties", "stg_sh_requests", "stg_sh_confirmations", "stg_sh_platforms"])
+        string[] evdShaped = ["stg_sh_users", "stg_sh_groups", "stg_sh_groupmembers", "stg_sh_safes", "stg_sh_owners", "stg_sh_files",
+                              "stg_sh_objectproperties", "stg_sh_requests", "stg_sh_confirmations", "stg_sh_platforms"];
+        foreach (var table in evdShaped.Concat(tables.Direct.Select(t => t.TableName)))
         {
             await using var delete = new SqlCommand($"DELETE FROM dbo.{table}", connection, transaction) { CommandTimeout = 600 };
             await delete.ExecuteNonQueryAsync(ct);

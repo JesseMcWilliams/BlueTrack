@@ -5,12 +5,14 @@
 ## Requested, not started
 - **Privilege Cloud Direct** (requested 2026-10-19, with Self-Hosted Direct, D-248): read Privilege Cloud through its API into `stg_pc_*` instead of the export folder, as a fourth option on the CyberArk sources page (already listed there, unavailable). Needs the Privilege Cloud API's logon (an Identity OAuth client, `Platform/Developer` and `PAM/Privilege-Cloud-Standard` in the Idira reference), a lab tenant, and the same change guard.
 
+- **Self-Hosted Direct staging tables and EVD retirement** (requested 2026-10-19): `stg_shd_*` tables that keep everything PVWA REST returns, a shadow run compared with the EVD, the Load reading them, then removing the EVD once the one production install has moved over safely. Plan and open questions: `Planning_Self-Hosted-Direct-And-EVD-Retirement.md`.
+
 ## Requested, deferred
 - **Localize server-side text** (requested 2026-10-14): API error messages (ProblemDetails), audit details, feed run summaries and emails are English only; D-227 covers the SPA. A proposal (error codes translated in the SPA, audit details kept in English, one installation-wide email language) is in `Planning_Server-Side-Localization.md`; whether to build it depends on a second language being planned (`Planning_Questions-Backlog.md`, question 5).
 
 ## From Self-Hosted Direct (D-248, 2026-10-19)
 - **Direct is unproven on a large Vault and over time** (Medium): measured on 40 Safes, 2,452 accounts and 43 users (about 8 seconds), through the REST API and through a fake PVWA, and compared once with the EVD. Not yet run as a scheduled night, against thousands of Safes (one call each) or users (one call each), or through the Agent job's Import gate on a real run.
-- **REST doesn't return some EVD properties** (Low): `LastVerified` and `LastReconciled` (the EVD's `CAFLastUsedDate` stood in for the first), `RemoteMachines`, `DeviceType`, `CreationMethod`, linked logon and reconcile accounts, and `LogonDomain` on two PSM accounts. Check against accounts the CPM has processed; keep the EVD for installs that need these.
+- **REST doesn't return some EVD properties** (Low): `LastVerified` and `LastReconciled` (the EVD's `CAFLastUsedDate` stood in for the first), `RemoteMachines`, `DeviceType`, `CreationMethod`, linked logon and reconcile accounts, and `LogonDomain` on two PSM accounts. Checked 2026-10-20 against CPM-processed accounts on the lab's 14.6: `lastReconciledTime` and `status` are returned, `lastVerifiedTime` is not (verify history comes from the account activity call instead); see `Planning_Self-Hosted-Direct-And-EVD-Retirement.md`.
 - **Windows and SAML logon to PVWA** (Low): Direct supports CyberArk and LDAP authentication only (both take the credential's user name and password).
 - **Cancel or time-limit a pull**: Run now can't be cancelled; a pull is cut only when the app stops.
 

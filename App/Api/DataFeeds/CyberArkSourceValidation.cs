@@ -14,8 +14,21 @@ public static partial class CyberArkSourceValidation
     [GeneratedRegex("^[A-Za-z0-9_]+$")]
     private static partial Regex EvdName();
 
-    /// <summary>The settings with surrounding spaces trimmed and an unused source's value dropped.</summary>
-    public static CyberArkSourceSettings Normalize(CyberArkSourceSettings s) => new()
+    /// <summary>
+    /// The settings with surrounding spaces trimmed. With Self-Hosted on, the source not in use keeps its values when
+    /// they are valid (D-270), so switching between the EVD and Direct, or back, needs nothing typed again; an invalid
+    /// value of the source not in use is dropped, since its field is hidden and couldn't be corrected.
+    /// </summary>
+    public static CyberArkSourceSettings Normalize(CyberArkSourceSettings s)
+    {
+        var evd = Blank(s.EvdDatabaseName?.Trim());
+        var pvwa = Blank(s.PvwaBaseUrl?.Trim().TrimEnd('/'));
+        return Normalized(s,
+            evdDatabaseName: !s.ImportSelfHosted ? null : IsEvd(s) || evd is null || IsValidEvdName(evd) ? evd : null,
+            pvwaBaseUrl: !s.ImportSelfHosted ? null : !IsEvd(s) || pvwa is null || IsValidPvwaUrl(pvwa) ? pvwa : null);
+    }
+
+    private static CyberArkSourceSettings Normalized(CyberArkSourceSettings s, string? evdDatabaseName, string? pvwaBaseUrl) => new()
     {
         ImportPrivilegeCloud = s.ImportPrivilegeCloud,
         ExportFolderPath = s.ImportPrivilegeCloud ? Blank(s.ExportFolderPath?.Trim().TrimEnd('\\')) : null,
@@ -28,15 +41,22 @@ public static partial class CyberArkSourceValidation
         EntitlementsFileName = s.EntitlementsFileName?.Trim() ?? "",
         ImportSelfHosted = s.ImportSelfHosted,
         SelfHostedSource = s.SelfHostedSource?.Trim() ?? "Evd",
-        EvdDatabaseName = s.ImportSelfHosted && IsEvd(s) ? Blank(s.EvdDatabaseName?.Trim()) : null,
-        PvwaBaseUrl = s.ImportSelfHosted && !IsEvd(s) ? Blank(s.PvwaBaseUrl?.Trim().TrimEnd('/')) : null,
-        PvwaCredentialKey = s.ImportSelfHosted && !IsEvd(s) ? s.PvwaCredentialKey : null,
+        EvdDatabaseName = evdDatabaseName,
+        PvwaBaseUrl = pvwaBaseUrl,
+        PvwaCredentialKey = s.ImportSelfHosted ? s.PvwaCredentialKey : null,
         PvwaLogonMethod = s.PvwaLogonMethod?.Trim() ?? "CyberArk",
         DirectPullTime = s.DirectPullTime?.Trim() ?? "01:30",
         DirectMaxChangePercent = s.DirectMaxChangePercent
     };
 
     private static bool IsEvd(CyberArkSourceSettings s) => !string.Equals(s.SelfHostedSource?.Trim(), "Direct", StringComparison.Ordinal);
+
+    private static bool IsValidEvdName(string name) => name.Length <= 128 && EvdName().IsMatch(name);
+
+    private static bool IsValidPvwaUrl(string url) =>
+        url.Length <= 400 && Uri.TryCreate(url, UriKind.Absolute, out var uri) && uri.Scheme == Uri.UriSchemeHttps
+        && string.IsNullOrEmpty(uri.Query) && string.IsNullOrEmpty(uri.Fragment)
+        && (uri.AbsolutePath is "/" || uri.AbsolutePath.Equals("/PasswordVault", StringComparison.OrdinalIgnoreCase));
 
     private static string? Blank(string? value) => string.IsNullOrEmpty(value) ? null : value;
 
@@ -72,16 +92,14 @@ public static partial class CyberArkSourceValidation
         if (s.ImportSelfHosted && s.SelfHostedSource == "Direct")
         {
             if (s.PvwaBaseUrl is null) errors.Add("PVWA address is required for Self-Hosted Direct.");
-            else if (s.PvwaBaseUrl.Length > 400 || !Uri.TryCreate(s.PvwaBaseUrl, UriKind.Absolute, out var uri) || uri.Scheme != Uri.UriSchemeHttps
-                     || !string.IsNullOrEmpty(uri.Query) || !string.IsNullOrEmpty(uri.Fragment)
-                     || !(uri.AbsolutePath is "/" || uri.AbsolutePath.Equals("/PasswordVault", StringComparison.OrdinalIgnoreCase)))
+            else if (!IsValidPvwaUrl(s.PvwaBaseUrl))
                 errors.Add("PVWA address must be https://host, optionally ending in /PasswordVault (400 characters at most).");
             if (s.PvwaCredentialKey is null) errors.Add("A credential is required for Self-Hosted Direct.");
         }
         else if (s.ImportSelfHosted)
         {
             if (s.EvdDatabaseName is null) errors.Add("EVD database is required for Self-Hosted.");
-            else if (s.EvdDatabaseName.Length > 128 || !EvdName().IsMatch(s.EvdDatabaseName))
+            else if (!IsValidEvdName(s.EvdDatabaseName))
                 errors.Add("EVD database name may contain only letters, digits and underscores (128 at most).");
         }
         return errors;

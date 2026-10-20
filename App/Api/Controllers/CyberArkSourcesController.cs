@@ -50,7 +50,8 @@ public sealed class CyberArkSourcesController(
             return Problem(title: "Invalid CyberArk source settings", detail: string.Join(" ", errors), statusCode: StatusCodes.Status400BadRequest);
         }
 
-        if (settings.ImportSelfHosted && settings.SelfHostedSource == "Direct" && !await repository.CredentialExistsAsync(settings.PvwaCredentialKey!.Value))
+        // D-270: the key is kept with the EVD selected too (for the switch back), so it is checked whenever it is set.
+        if (settings.PvwaCredentialKey is { } credentialKey && !await repository.CredentialExistsAsync(credentialKey))
         {
             return Problem(title: "Invalid CyberArk source settings", detail: "The credential doesn't exist. Choose one from Admin > Credentials.", statusCode: StatusCodes.Status400BadRequest);
         }

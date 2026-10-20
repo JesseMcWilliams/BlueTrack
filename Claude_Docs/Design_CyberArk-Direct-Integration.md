@@ -38,7 +38,7 @@ The Load (`usp_RunFullLoad`) and everything after it are unchanged: they read `s
 
 | Setting | Default | Notes |
 |---|---|---|
-| `SelfHostedSource` | `Evd` | `Evd` or `Direct`. The EVD database name is kept only for `Evd`; the PVWA values only for `Direct`. |
+| `SelfHostedSource` | `Evd` | `Evd` or `Direct`. The source not in use keeps its values when they are valid (D-270), so switching back needs nothing typed again; with Self-Hosted off, both are cleared. |
 | `PvwaBaseUrl` | none | `https://host`, with or without `/PasswordVault`. https only: the credential goes over the connection. |
 | `PvwaCredentialKey` | none | A `web.credential` row. The Credentials page needs its own permission, so Data Sources has its own names-only list (`GET .../credentials`). |
 | `PvwaLogonMethod` | `CyberArk` | `CyberArk` or `LDAP`; both take a user name and password. Windows and SAML logon aren't supported. |
@@ -55,7 +55,7 @@ All calls are `GET` under `/PasswordVault/API/` except logon and logoff. Paging 
 |---|---|---|
 | `Safes?extendedDetails=true` | `stg_sh_safes` | `safeNumber` is the EVD's `CASSafeID`. `numberOfVersionsRetention` and `numberOfDaysRetention` go to `CASYearlyVersions` and `CASObjectsRetentionPeriod`, the columns the Load reads. |
 | `Accounts` | `stg_sh_files` (type 2) and `stg_sh_objectproperties` | Account id `59_3` is Safe 59, file 3: the EVD's `CAFSafeID` and `CAFFileID`, so `SourceAccountId` is identical either way. `UserName`, `Address`, `PolicyID` (the `platformId`), each platform account property, and `CPMDisabled` (the reason, or "No reason given", when automatic management is off). A property name longer than 29 characters is left out and reported. |
-| `Safes/{safeUrlId}/Members` | `stg_sh_owners` | The 22 named permissions map to the EVD's `CAO*` columns (table below). |
+| `Safes/{safeUrlId}/Members?filter=includePredefinedUsers eq true` | `stg_sh_owners` | The 22 named permissions map to the EVD's `CAO*` columns (table below). Predefined members (Administrator, Auditors and the like) are read for `stg_shd_safe_members` only; `stg_sh_owners` leaves them out, as it always did. |
 | `Users` and `Users/{id}` | `stg_sh_users` | `userType` maps to the EVD's `CAUUserTypeID` (Built-InAdmins 10, ENE 11, CPM 31, PVWA 32, AppProvider 33, EPVUser 34, AIMAccount 35, PSM 36, DRUser 504; any other stays NULL). `source` CyberArk is Internal (1), anything else External (2). Email from the user's details, asked only for people (built-in and component users have none, and Master's details call returns a 500). The plain list, not `ExtendedDetails=true`, which leaves out Master while its Total counts it (D-249); a Total that still exceeds the list is a warning. |
 | `UserGroups?includeMembers=true` | `stg_sh_groups`, `stg_sh_groupmembers` | A member whose id is a group's is a nested group (`MemberIsGroup = YES`); users and groups share one id space. |
 | `Platforms` | `stg_sh_platforms` (new) | Name, description, active, type. `usp_Load_DimPlatform` names and describes the Self-Hosted platforms from it and adds platforms no account uses. |
@@ -64,7 +64,21 @@ Locations: PVWA gives a path, the EVD a number. A known location name keeps its 
 
 **Permission mapping** (compared with the EVD for 88 Safe members; all agreed): `listAccounts` List, `retrieveAccounts` Retrieve, `addAccounts` CreateObject, `updateAccountContent` UpdateObject, `updateAccountProperties` UpdateObjectProperties, `renameAccounts` RenameObject, `deleteAccounts` Delete, `viewAuditLog` ViewAudit, `viewSafeMembers` ViewOwners, `useAccounts` UsePassword, `initiateCPMAccountManagementOperations` InitiateCPMChange, `specifyNextAccountContent` InitiateCPMChangeWithManualPassword, `createFolders` CreateFolder, `deleteFolders` DeleteFolder, `unlockAccounts` UnlockObject, `moveAccountsAndFolders` MoveFrom and MoveInto, `manageSafe` ManageSafe, `manageSafeMembers` ManageSafeOwners, `backupSafe` Backup, `accessWithoutConfirmation` NoConfirmRequired, `requestsAuthorizationLevel1` Confirm. Left NULL (no REST counterpart): ValidateSafeContent, EventsList, EventsAdd.
 
-**Not read:** discovered (pending) accounts (a separate pool that can be cleared in bulk, so it would distort the change guard); requests and confirmations (dual-control workflow; the tables are emptied); `LastVerified`, `LastReconciled`, `RemoteMachines`, `DeviceType`, `CreationMethod` and the linked logon and reconcile account properties, which this PVWA's REST API didn't return (see below).
+**Not read:** discovered (pending) accounts (a separate pool that can be cleared in bulk, so it would distort the change guard); requests and confirmations (dual-control workflow; the tables are emptied); `DeviceType`, `CreationMethod` and the linked logon and reconcile account properties, which REST doesn't return; dependent accounts (14.6 and later only); users' addresses and phone numbers (the user's choice, D-270).
+
+### The `stg_shd_*` tables (D-270, script 41)
+
+The same pull is also written in REST's own shape, in the same transaction and under the same `ImportBatchId`, to keep everything REST returns, including what the EVD-shaped tables have no column for. Column names are the REST field names in PascalCase; times are UTC `DATETIME2`. **Nothing reads them yet**: the Load reads `stg_sh_*`, so its output is unchanged, and an EVD import leaves them alone. They are the first step of `Planning_Self-Hosted-Direct-And-EVD-Retirement.md`.
+
+| Table | From |
+|---|---|
+| `stg_shd_platforms`, `stg_shd_platform_properties` | `Platforms` (general, credential, session and workflow policy; required and optional properties, linked account types) and `Platforms/Targets` (reason for access, verify and change on add, reset mode). A refused `Targets` call is a warning. |
+| `stg_shd_safes` | `Safes?extendedDetails=true`, every field (`lastModificationTime` is sent in microseconds). |
+| `stg_shd_accounts`, `stg_shd_account_properties` | `Accounts`: `secretType`, `categoryModificationTime`, all of `secretManagement` (`status` as sent, `lastReconciledTime`), `remoteMachinesAccess`; every platform property, with no length limit on the name. |
+| `stg_shd_account_cpm_activity` | The classic `WebServices/PIMServices.svc/Accounts/{id}/Activities/` call, only for accounts with a `secretManagement.status` (the CPM has acted on them), 8 at a time. Kept: the latest of each CPM code (22 verify, 38 verify failure, 24 change, 57 change failure, 31 reconcile, 60 reconcile failure, 414/415/419 SSH key). A failed call is a warning. |
+| `stg_shd_safe_members` | Safe members including predefined ones, with `isPredefinedUser`, `isReadOnly` and a `BIT` per permission named as in `stg_pc_entitlements`. |
+| `stg_shd_users`, `stg_shd_user_authorizations` | The user list and each person's details: name parts, organization, department, title, emails, DN, description, expiry, last logon, password flags (`DetailsRead` says whether details were read); Vault authorizations, unauthorized interfaces and authentication methods. |
+| `stg_shd_groups`, `stg_shd_group_members` | `UserGroups?includeMembers=true`, with `directory` and `dn`, and members' names. |
 
 ## Lab comparison (2026-10-19, same Vault read through REST and the EVD)
 
@@ -72,13 +86,14 @@ Users 43 of 43 matched on id, name, type, source, names, location and enabled fl
 
 1. **Visibility.** The service user saw 40 of 57 Safes and 43 of 51 users: 17 internal Vault Safes (System, PVWA\*, PasswordManager\*, PSM\*, AppProviderConf and others), plus `Test_Radius_00`, were hidden; two Safes created after the EVD copy were visible. Internal Safes are not business data; the change guard compares counts with the last pull, never with a fixed number.
 2. **Retention.** The EVD reports `CASYearlyVersions` 0 and a days value of 7 even for Safes that retain by versions. REST reports the real mode: versions or days, the other null. Direct therefore shows the real retention; the EVD's is a default.
-3. **Properties missing from REST.** `LogonDomain` for two PSM accounts, and the properties listed under "Not read". The docs say internal properties aren't returned. Whether `LastVerified` and `LastReconciled` appear for accounts the CPM has processed is **unverified** (the lab's accounts hadn't been).
+3. **Properties missing from REST.** `LogonDomain` for two PSM accounts, and the properties listed under "Not read". The docs say internal properties aren't returned.
 4. **Email** needs one call per user (the list has none).
-5. **Times.** Account and Safe creation times are epoch seconds; a Safe's `lastModificationTime` is epoch microseconds (not read).
+5. **Times.** Account and Safe creation times are epoch seconds; a Safe's `lastModificationTime` is epoch microseconds.
+6. **CPM fields** (checked 2026-10-20 on the lab's PVWA 14.6.0, after the CPM changed, verified and reconciled four accounts): `status` comes back only for accounts the CPM has acted on, in lowercase (`success`, `failure`; the docs spell it three other ways); `lastReconciledTime` comes back; **`lastVerifiedTime` never does**, even minutes after a successful verify. The verify time is in the account's activity (code 22). The classic activity call's times are text; they matched the epoch times of the same events in UTC.
 
 ## Constraints
 
-- PVWA returns only what the service user can see. It needs **List Accounts** and **View Safe Members** in each Safe to read, and the **Audit Users** Vault authorization for the user list ("users on the same level or lower" in the hierarchy). A user that isn't a member of a business Safe shows as an accounts drop: the change guard stops it, and an admin decides.
+- PVWA returns only what the service user can see. It needs **List Accounts** and **View Safe Members** in each Safe to read, and the **Audit Users** Vault authorization for the user list ("users on the same level or lower" in the hierarchy). For the `stg_shd_*` extras (D-270), per the user (2026-10-20): membership of the Vault's **Auditors** group for Safes and accounts (the CPM activity call), and of **Vault Admins** for platform details (`Platforms/Targets`); the lab's service user is in both. Without them the pull warns and goes on. A user that isn't a member of a business Safe shows as an accounts drop: the change guard stops it, and an admin decides.
 - A pull that returns **no Safes** is a failure, not a change.
 - Accounts the pull no longer returns are marked deleted at the next load, as after an EVD import.
 - The pull needs PAM Self-Hosted **14.2 or later** (the 2nd gen REST API).
@@ -86,7 +101,7 @@ Users 43 of 43 matched on id, name, type, source, names, location and enabled fl
 
 ## Where the code is
 
-`App/Api/CyberArkDirect/`: `PvwaClient` (REST), `PvwaModels`, `SelfHostedStagingMapper` (PVWA data to staging rows), `PullChangeGuard`, `SelfHostedDirectRepository` (pull log, staging write), `SelfHostedDirectPullService`, `SelfHostedDirectRunner` and `SelfHostedDirectBackgroundService`. The settings, Test, pull log and Run now are in `CyberArkSourcesController` (`/api/admin/cyberark-sources`, `ManageDataSources`). Test (on unsaved values) fetches the credential, logs on, counts what it can see and compares the counts with the last pull, writing nothing. The page is `CyberArkSourcesEdit.vue` and `DataSources.vue`. Tests: `PvwaClientTests`, `SelfHostedStagingMapperTests`, `PullChangeGuardTests`, `CyberArkSourceValidationDirectTests` (unit), `SelfHostedDirectTests` (integration: the SQL gate, the staging write, the pull log), `CyberArkSourcesControllerTests` (contract) and the two page tests.
+`App/Api/CyberArkDirect/`: `PvwaClient` (REST), `PvwaModels`, `SelfHostedStagingMapper` (PVWA data to `stg_sh_*` and `stg_shd_*` rows), `PullChangeGuard`, `SelfHostedDirectRepository` (pull log, staging write), `SelfHostedDirectPullService`, `SelfHostedDirectRunner` and `SelfHostedDirectBackgroundService`. The settings, Test, pull log and Run now are in `CyberArkSourcesController` (`/api/admin/cyberark-sources`, `ManageDataSources`). Test (on unsaved values) fetches the credential, logs on, counts what it can see and compares the counts with the last pull, writing nothing. The page is `CyberArkSourcesEdit.vue` and `DataSources.vue`. Tests: `PvwaClientTests`, `SelfHostedStagingMapperTests`, `PullChangeGuardTests`, `CyberArkSourceValidationDirectTests` (unit), `SelfHostedDirectTests` (integration: the SQL gate, the staging write, the pull log), `CyberArkSourcesControllerTests` (contract) and the two page tests.
 
 ## Decisions made on 2026-10-19
 
@@ -99,4 +114,4 @@ Users 43 of 43 matched on id, name, type, source, names, location and enabled fl
 | Where it runs | In the API, ahead of the nightly job. |
 | Change threshold | A setting (percent); a Safe disappearing may be a deletion, so only counts are compared. Pending accounts are not counted or read. |
 | A tripped guard | Fails the night (mail), until an admin accepts the change. |
-| Extras | Platforms, Safe details, Safe members, user details (email) and group members, with nested groups. Last verified, last reconciled, remote machines and linked accounts were asked for too, and this PVWA didn't return them. |
+| Extras | Platforms, Safe details, Safe members, user details (email) and group members, with nested groups. Linked accounts were asked for too, and REST doesn't return them. Since D-270 everything REST returns is kept in `stg_shd_*` (above). |

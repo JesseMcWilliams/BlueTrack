@@ -100,27 +100,49 @@ public class CyberArkSourceValidationDirectTests
     }
 
     [Fact]
-    public void Normalize_DropsTheValuesOfTheSourceNotInUse()
+    public void Normalize_KeepsTheValidValuesOfTheSourceNotInUse_SoASwitchBackNeedsNothingRetyped()
     {
+        // D-270: saving Direct used to clear the EVD database name, which made a rollback to the EVD harder.
         var direct = CyberArkSourceValidation.Normalize(new CyberArkSourceSettings
         {
-            ImportSelfHosted = true, SelfHostedSource = "Direct", EvdDatabaseName = "CyberArkSH", PvwaBaseUrl = " https://pvwa.example.com/ ", PvwaCredentialKey = 3
+            ImportSelfHosted = true, SelfHostedSource = "Direct", EvdDatabaseName = " CyberArkSH ", PvwaBaseUrl = " https://pvwa.example.com/ ", PvwaCredentialKey = 3
         });
         var evd = CyberArkSourceValidation.Normalize(new CyberArkSourceSettings
         {
             ImportSelfHosted = true, SelfHostedSource = "Evd", EvdDatabaseName = "CyberArkSH", PvwaBaseUrl = "https://pvwa.example.com", PvwaCredentialKey = 3
         });
-        var off = CyberArkSourceValidation.Normalize(new CyberArkSourceSettings
+
+        Assert.Equal(("CyberArkSH", "https://pvwa.example.com", 3), (direct.EvdDatabaseName, direct.PvwaBaseUrl, direct.PvwaCredentialKey));
+        Assert.Equal(("CyberArkSH", "https://pvwa.example.com", 3), (evd.EvdDatabaseName, evd.PvwaBaseUrl, evd.PvwaCredentialKey));
+    }
+
+    [Fact]
+    public void Normalize_DropsAnInvalidValueOfTheSourceNotInUse_BecauseItsFieldIsHidden()
+    {
+        var direct = CyberArkSourceValidation.Normalize(new CyberArkSourceSettings
         {
-            ImportPrivilegeCloud = true, ExportFolderPath = "D:\\x", ImportSelfHosted = false, SelfHostedSource = "Direct", PvwaBaseUrl = "https://pvwa.example.com", PvwaCredentialKey = 3
+            ImportSelfHosted = true, SelfHostedSource = "Direct", EvdDatabaseName = "Cyber-Ark SH", PvwaBaseUrl = "https://pvwa.example.com", PvwaCredentialKey = 3
+        });
+        var evd = CyberArkSourceValidation.Normalize(new CyberArkSourceSettings
+        {
+            ImportSelfHosted = true, SelfHostedSource = "Evd", EvdDatabaseName = "CyberArkSH", PvwaBaseUrl = "http://not-https.example.com"
         });
 
         Assert.Null(direct.EvdDatabaseName);
-        Assert.Equal("https://pvwa.example.com", direct.PvwaBaseUrl);
-        Assert.Equal(3, direct.PvwaCredentialKey);
-        Assert.Equal("CyberArkSH", evd.EvdDatabaseName);
+        Assert.Empty(Check(new CyberArkSourceSettings { ImportSelfHosted = true, SelfHostedSource = "Direct", EvdDatabaseName = "Cyber-Ark SH", PvwaBaseUrl = "https://pvwa.example.com", PvwaCredentialKey = 3 }));
         Assert.Null(evd.PvwaBaseUrl);
-        Assert.Null(evd.PvwaCredentialKey);
+    }
+
+    [Fact]
+    public void Normalize_WithSelfHostedOff_DropsBothSourcesValues()
+    {
+        var off = CyberArkSourceValidation.Normalize(new CyberArkSourceSettings
+        {
+            ImportPrivilegeCloud = true, ExportFolderPath = "D:\\x", ImportSelfHosted = false, SelfHostedSource = "Direct",
+            EvdDatabaseName = "CyberArkSH", PvwaBaseUrl = "https://pvwa.example.com", PvwaCredentialKey = 3
+        });
+
+        Assert.Null(off.EvdDatabaseName);
         Assert.Null(off.PvwaBaseUrl);
         Assert.Null(off.PvwaCredentialKey);
     }
