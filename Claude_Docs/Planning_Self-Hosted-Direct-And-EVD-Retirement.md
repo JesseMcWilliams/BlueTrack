@@ -104,6 +104,7 @@ Each phase is a separate PR and release; production upgrades through them in ord
 1. Prerequisites:
    - PAM 14.2 or later;
    - a CP or CCP credential for a read-only service user that is a member of every business Safe with List Accounts and View Safe Members, and holds Audit Users;
+   - the CyberArk Auditor role (Safes and accounts, including CPM activity) and an Admin role (platform details). An Admin role means the service user is no longer read-only (open question 10);
    - the user is high enough in the Vault hierarchy to see every user.
 2. Run P2's shadow pull for at least N nights with a clean comparison (Q8).
 3. `Backup-BlueTrack.ps1`, switch the source to Direct, run a manual pull, check the first load (counts, deleted-in-source accounts, entitlements), and sign off.
@@ -154,6 +155,7 @@ What P5 touches (from the 2026-10-19 inventory):
 7. **`LogonDomain`** where REST omits it: accept the loss?
 8. **Shadow period**: how many clean nights before cutover?
 9. ~~Release grouping~~ Answered 2026-10-19: separate.
+10. **Service user roles** (user, 2026-10-20: Auditor for Safes and accounts, Admin for platform details): which exact Vault groups or authorizations are they, and is an Admin role acceptable for the production service user, or should BlueTrack go without target platform settings there?
 
 ## 8. Not in this plan
 - Automatic Blueprint stages 4 and 5 (`Reference_Handoff-2026-10-19.md`, section 7). They need P3's CPM fields and the user's answers there.

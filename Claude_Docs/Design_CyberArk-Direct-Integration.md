@@ -93,7 +93,7 @@ Users 43 of 43 matched on id, name, type, source, names, location and enabled fl
 
 ## Constraints
 
-- PVWA returns only what the service user can see. It needs **List Accounts** and **View Safe Members** in each Safe to read, and the **Audit Users** Vault authorization for the user list ("users on the same level or lower" in the hierarchy). A user that isn't a member of a business Safe shows as an accounts drop: the change guard stops it, and an admin decides.
+- PVWA returns only what the service user can see. It needs **List Accounts** and **View Safe Members** in each Safe to read, and the **Audit Users** Vault authorization for the user list ("users on the same level or lower" in the hierarchy). For the `stg_shd_*` extras (D-270), per the user (2026-10-20): the CyberArk **Auditor** role for Safes and accounts (the CPM activity call), and an **Admin** role for platform details (`Platforms/Targets`); without them the pull warns and goes on. A user that isn't a member of a business Safe shows as an accounts drop: the change guard stops it, and an admin decides.
 - A pull that returns **no Safes** is a failure, not a change.
 - Accounts the pull no longer returns are marked deleted at the next load, as after an EVD import.
 - The pull needs PAM Self-Hosted **14.2 or later** (the 2nd gen REST API).
