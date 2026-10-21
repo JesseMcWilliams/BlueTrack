@@ -6,6 +6,10 @@ What changed in each BlueTrack release, newest first, for users and administrato
 
 ### New
 
+- **Admin > Progress Rules**: rules that move accounts to a later Blueprint stage each night when all their conditions match (CPM status, last verified, Safe, platform, owner and more), with **Test** to see what a rule would move. The old automatic move to Onboarded to Vault is the first rule.
+- **Admin > Blueprint Stages**: rename, reorder, add and delete the stages, choose where new accounts start and which stages the Onboarded, Managed and Compliant KPIs count from.
+- Rejected SAML and OIDC sign-ins are recorded in the Audit Log (LogonFailed) and can send the new **SignInRejected** notification.
+- New **SamlCertificateExpiring** notification: a warning 30 and 7 days before the SAML identity provider's or BlueTrack's own SAML certificate expires.
 - **Reports > Unresolved Entitlement Members**: **Resolve** and **Undo** now work for Self-Hosted members too; a member is linked to a user or group of its own source.
 - **Account page, Self-Hosted**: the account's **Device type**, how it was created, and its linked **Logon account** and **Reconcile account** (a link when BlueTrack tracks it). Read from PVWA's classic API, only for new or changed accounts after the first pull. Also in `vw_powerbi_accounts`.
 - **Who can use this account** on the account page: everyone who reaches its Safe, directly, through a Vault group, or through an AD group whose users the nightly pull reads from AD, with Use, Retrieve and List; and the CyberArk Applications that can retrieve it.
@@ -13,10 +17,13 @@ What changed in each BlueTrack release, newest first, for users and administrato
 
 ### Changed
 
+- The automatic move to Onboarded to Vault now also moves accounts whose status isn't **Not Started** (any status but Risk Accepted / Excluded), and the Compliant KPI counts the Compliant stage or any later stage you add.
+
 ### Fixed
 
 ### Upgrading
 
+- Database script 49 is applied. Turn on **SignInRejected** and **SamlCertificateExpiring** on Admin > Notifications (both start off) if you use SAML or OIDC. Step-up MFA for admin work is left to your identity provider (for example a conditional access policy).
 - Run the installer as usual; database script 48 is applied. The first Self-Hosted Direct pull afterwards reads every account's classic details (one PVWA call per account), so it takes longer than usual; raise **Pull time limit** on Edit CyberArk sources if it stops, or let it finish over the next nights. The CyberArk Applications need the PVWA user's Audit Users authorization, and the AD group read needs an enabled LDAP domain on Admin > Credentials & LDAP.
 
 ## 1.4.0 (2026-10-21)

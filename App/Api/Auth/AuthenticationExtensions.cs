@@ -206,6 +206,11 @@ public static class AuthenticationExtensions
                     ExternalIdentityClaims.MarkProvider(context.Principal!, "OIDC");
                     return Task.CompletedTask;
                 };
+                // D-285: a failed OIDC sign-in (the IdP refused it, or its response didn't validate) is audit-logged
+                // and alerted; the failure itself is handled as before.
+                options.Events.OnRemoteFailure = context =>
+                    context.HttpContext.RequestServices.GetRequiredService<SignInRejectionRecorder>().RecordAsync(
+                        "OIDC", context.Failure?.Message ?? "unknown failure", context.HttpContext.Connection.RemoteIpAddress?.ToString());
             });
         }
 

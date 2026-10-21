@@ -222,6 +222,9 @@ builder.Services.AddSingleton<BlueTrack.Api.Notifications.OAuth.SmtpOAuthTokenSe
 builder.Services.AddScoped<NotificationRecipientResolver>();   // D-216
 builder.Services.AddScoped<BreakGlassAccountRepository>();
 builder.Services.AddSingleton<BreakGlassAlerter>();
+builder.Services.AddSingleton<SignInRejectedAlerter>();          // D-285
+builder.Services.AddScoped<SignInRejectionRecorder>();
+builder.Services.AddSingleton<ISamlCertificateLookup, StoreSamlCertificateLookup>();   // D-287
 builder.Services.AddScoped<INotificationCheck, DevFakeAuthEnabledCheck>();
 builder.Services.AddScoped<INotificationCheck, NightlyImportFailedCheck>();     // D-222
 builder.Services.AddScoped<INotificationCheck, BlueTrack.Api.CyberArkDirect.SelfHostedPullFailedCheck>();   // D-250
@@ -229,6 +232,7 @@ builder.Services.AddScoped<INotificationCheck, OverdueRiskExceptionsCheck>();   
 builder.Services.AddScoped<INotificationCheck, WeeklySummaryCheck>();           // D-222
 builder.Services.AddScoped<INotificationCheck, ApiKeyExpiringCheck>();          // D-243
 builder.Services.AddScoped<INotificationCheck, ApiKeyExpiredCheck>();           // D-243
+builder.Services.AddScoped<INotificationCheck, SamlCertificateExpiringCheck>();  // D-287
 builder.Services.AddHostedService<NotificationCheckBackgroundService>();
 
 // AD Account Discovery (2026-09-16): same same-process-BackgroundService
@@ -238,6 +242,7 @@ builder.Services.AddScoped<DiscoveredAccountRepository>();
 builder.Services.AddScoped<BlueTrack.Api.AdDiscovery.IAdDirectory, BlueTrack.Api.AdDiscovery.LdapAdDirectory>();   // D-214
 builder.Services.AddScoped<BlueTrack.Api.CyberArkDirect.SafeGroupAdExpansionService>();   // D-281
 builder.Services.AddScoped<SafeAccessRepository>();   // D-281/D-282
+builder.Services.AddScoped<ProgressRuleRepository>();   // D-283/D-284
 builder.Services.AddScoped<AdAccountDiscoveryService>();
 builder.Services.AddScoped<AccountClassificationRepository>();   // D-233
 builder.Services.AddScoped<BlueTrack.Api.AdDiscovery.AccountClassificationService>();

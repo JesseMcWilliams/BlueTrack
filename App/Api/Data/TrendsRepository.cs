@@ -67,7 +67,7 @@ public sealed class TrendsRepository(IDbConnectionFactory connectionFactory)
                 a.SnapshotDateKey,
                 SUM(a.AccountCount) AS TotalAccounts,
                 SUM(CASE WHEN ISNULL(sts.StatusName, '') <> 'Risk Accepted / Excluded' THEN a.AccountCount ELSE 0 END) AS InScopeAccounts,
-                SUM(CASE WHEN stg.StageOrder = 5 AND sts.StatusName = 'Complete' THEN a.AccountCount ELSE 0 END) AS CompliantAccounts
+                SUM(CASE WHEN stg.StageOrder >= dbo.fn_MilestoneStageOrder(N'Compliant') AND sts.StatusName = 'Complete' THEN a.AccountCount ELSE 0 END) AS CompliantAccounts   -- D-284
             FROM @agg a
             JOIN dbo.dim_blueprint_stage stg ON stg.StageKey = a.StageKey
             JOIN dbo.dim_progress_status sts ON sts.StatusKey = a.StatusKey

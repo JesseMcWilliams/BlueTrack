@@ -118,7 +118,7 @@ public sealed class AccountInventoryRepository(IDbConnectionFactory connectionFa
         connection.ExecuteAsync("""
             INSERT INTO dbo.fact_account_progress (AccountKey, CurrentStageKey, CurrentStatusKey, AccountTypeKey, SORKey, OwnerName, Notes)
             SELECT fa.AccountKey,
-                   (SELECT StageKey FROM dbo.dim_blueprint_stage WHERE StageName = 'Discovered'),
+                   dbo.fn_StartStageKey(),   -- D-284
                    (SELECT StatusKey FROM dbo.dim_progress_status WHERE StatusName = 'Not Started'),
                    pm.AccountTypeKey, pm.SORKey, @ownerName, @notes
             FROM dbo.fact_account fa

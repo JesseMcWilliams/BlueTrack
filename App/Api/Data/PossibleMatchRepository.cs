@@ -125,11 +125,11 @@ public sealed class PossibleMatchRepository(IDbConnectionFactory connectionFacto
             """, new { reconciliationKey, reviewedBy }, transaction);
 
         var moved = await connection.QuerySingleOrDefaultAsync<(int OldStageKey, int NewStageKey)?>("""
-            DECLARE @Discovered INT = (SELECT StageKey FROM dbo.dim_blueprint_stage WHERE StageName = 'Discovered');
-            DECLARE @Onboarded INT = (SELECT StageKey FROM dbo.dim_blueprint_stage WHERE StageName = 'Onboarded to Vault');
+            DECLARE @Discovered INT = dbo.fn_StartStageKey();                  -- D-284
+            DECLARE @Onboarded INT = dbo.fn_MilestoneStageKey(N'Onboarded');
             UPDATE dbo.fact_account_progress SET CurrentStageKey = @Onboarded, LastUpdated = SYSUTCDATETIME()
             OUTPUT deleted.CurrentStageKey, inserted.CurrentStageKey
-            WHERE AccountKey = @feedAccountKey AND CurrentStageKey = @Discovered;
+            WHERE AccountKey = @feedAccountKey AND CurrentStageKey = @Discovered AND @Onboarded IS NOT NULL;
             """, new { feedAccountKey = m.FeedAccountKey }, transaction);
 
         transaction.Commit();

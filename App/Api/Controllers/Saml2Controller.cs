@@ -29,7 +29,7 @@ namespace BlueTrack.Api.Controllers;
 /// </summary>
 [ApiController]
 [Route("api/auth/saml")]
-public sealed class Saml2Controller(Saml2ConfigurationFactory configFactory, ILogger<Saml2Controller> logger) : ControllerBase
+public sealed class Saml2Controller(Saml2ConfigurationFactory configFactory, SignInRejectionRecorder rejectionRecorder, ILogger<Saml2Controller> logger) : ControllerBase
 {
     private const string ReturnUrlKey = "ReturnUrl";
 
@@ -100,17 +100,12 @@ public sealed class Saml2Controller(Saml2ConfigurationFactory configFactory, ILo
         catch (Exception ex)
         {
             logger.LogWarning(ex, "SAML response could not be read.");
-            return Rejected("The identity provider's response could not be read.");
+            return await RejectedAsync("The identity provider's response could not be read.");
         }
         if (saml2AuthnResponse.Status != Saml2StatusCodes.Success)
         {
-            // D-26: a rejected assertion is worth surfacing distinctly, not
-            // as a generic 500 -- actual audit logging of rejections is a
-            // follow-up once a real IdP exists to test against.
-            return Problem(
-                title: "SAML sign-in was rejected",
-                detail: $"IdP status: {saml2AuthnResponse.Status}",
-                statusCode: StatusCodes.Status400BadRequest);
+            // D-26: a rejected assertion is surfaced distinctly, not as a generic 500; D-285: logged and alerted.
+            return await RejectedAsync($"IdP status: {saml2AuthnResponse.Status}");
         }
 
         // Validates the signature/conditions (D-26) and populates ClaimsIdentity -- only reached on Status.Success above.
@@ -121,7 +116,7 @@ public sealed class Saml2Controller(Saml2ConfigurationFactory configFactory, ILo
         catch (Exception ex)
         {
             logger.LogWarning(ex, "SAML response failed validation.");
-            return Rejected("The identity provider's response failed validation (signature, audience, time or replay).");
+            return await RejectedAsync("The identity provider's response failed validation (signature, audience, time or replay).");
         }
 
         await saml2AuthnResponse.CreateSession(HttpContext, claimsTransform: principal =>
@@ -272,8 +267,12 @@ public sealed class Saml2Controller(Saml2ConfigurationFactory configFactory, ILo
     public static bool HasSessionIndex(System.Security.Claims.ClaimsPrincipal? principal) =>
         principal?.HasClaim(c => c.Type == ITfoxtec.Identity.Saml2.Claims.Saml2ClaimTypes.SessionIndex) == true;
 
-    private ObjectResult Rejected(string detail) =>
-        Problem(title: "SAML sign-in was rejected", detail: detail, statusCode: StatusCodes.Status400BadRequest);
+    /// <summary>D-285: every rejection is audit-logged (LogonFailed) and alerts SignInRejected before the 400 goes out.</summary>
+    private async Task<ObjectResult> RejectedAsync(string detail)
+    {
+        await rejectionRecorder.RecordAsync("SAML", detail, HttpContext.Connection.RemoteIpAddress?.ToString());
+        return Problem(title: "SAML sign-in was rejected", detail: detail, statusCode: StatusCodes.Status400BadRequest);
+    }
 
     private ObjectResult NotConfigured() => Problem(
         title: "SAML is not configured",

@@ -117,18 +117,14 @@ This is the heart of BlueTrack. Every account has one progress record, and your 
 | 1 | Discovered | BlueTrack knows the account exists. Nobody has looked at it yet. | Automatic: every new account starts here. An account accepted from the Discovered Accounts report also starts here. |
 | 2 | Assessed / Prioritized | Someone has reviewed it: who owns it, what it's for, how risky it is, and when it should be done. | An analyst sets it after filling in the assessment fields. |
 | 3 | Onboarded to Vault | The account is stored in the CyberArk vault. | Often automatic (see below). Otherwise an analyst sets it. |
-| 4 | Managed / Rotation Enabled | CyberArk manages the account, for example by rotating its password. | An analyst sets it. BlueTrack doesn't detect rotation on its own. |
-| 5 | Verified / Compliant | The setup has been checked and the account meets your controls. | An analyst sets it, together with status **Complete**. |
+| 4 | Managed / Rotation Enabled | CyberArk manages the account, for example by rotating its password. | An analyst sets it, or a Progress Rule your administrator sets up (for example: managed by the CPM, verified in the last 30 days). |
+| 5 | Verified / Compliant | The setup has been checked and the account meets your controls. | An analyst sets it, together with status **Complete**, or a Progress Rule. |
 
-Your organization may attach its own exact meaning to each stage. Ask your team lead how your program defines "assessed" or "verified".
+These are the stages a new BlueTrack starts with. An administrator can rename, reorder, add or remove stages (Admin > Blueprint Stages), so yours may differ. Your organization may attach its own exact meaning to each stage. Ask your team lead how your program defines "assessed" or "verified".
 
-**The automatic move to Onboarded to Vault.** Each night, an account that was imported from CyberArk moves to **Onboarded to Vault** if all of these are true:
+**Automatic moves (Progress Rules).** Each night, after the import, BlueTrack moves accounts forward using the Progress Rules your administrator sets up (Admin > Progress Rules). A rule says: an account at this stage moves to that later stage when all of these conditions match, for example "CPM status is success" and "Last verified within the last 30 days". The first rule, in every new BlueTrack, is **In the Vault, not in a pending Safe**: an account imported from CyberArk moves from **Discovered** to **Onboarded to Vault** when its safe name doesn't contain `_Pending` (CyberArk uses such safes for accounts it has found but that aren't onboarded yet).
 
-- It's still at **Discovered** with status **Not Started**, so nobody has worked on it yet.
-- It isn't deleted.
-- Its safe name doesn't contain `_Pending`. CyberArk uses such safes for accounts it has found but that aren't onboarded yet.
-
-So when an account leaves a pending safe for a real one, it moves forward on its own the next night. The automatic move never touches an account someone has already changed. If you've already marked an account **Assessed / Prioritized**, you move it to **Onboarded to Vault** yourself.
+Rules only move accounts forward, never back; an account can move through several stages in one night; its status stays as it was; and an account that is **Risk Accepted / Excluded** is never moved. An account's page says which rule last moved it and when. If you've moved an account further than a rule would, the rule leaves it alone.
 
 ### The statuses
 
@@ -229,7 +225,7 @@ Here's how a typical service account, `svc-backup` on `app-server-01.example.com
 1. **Day 1, first import.** CyberArk's discovery puts the account in a safe named `Backup_Pending`. The nightly load adds it to BlueTrack at **Discovered**, **Not Started**. Its address is new, so BlueTrack also adds a target named after the server, with a score of 0.
 2. **Day 2, an analyst sets the target's score.** On **Targets**, the analyst opens the new server target and sets a real **Risk Score**, because it's a production backup server. The account's calculated risk goes up at the next recalculation (or straight away with **Recalculate** on the account).
 3. **Day 3, assessment.** The analyst opens the account, sets **Risk Level** to High, fills in **Owner Name** and **Business Unit**, sets a **Target Remediation Date** six weeks out, and moves it to **Assessed / Prioritized**, **In Progress**.
-4. **Week 2, onboarding.** The CyberArk team moves the account from the pending safe into its real safe. The account was already assessed, so the automatic move doesn't apply. The analyst sets **Onboarded to Vault**, **In Progress**.
+4. **Week 2, onboarding.** The CyberArk team moves the account from the pending safe into its real safe. The account is at **Assessed / Prioritized**, and the default rule moves accounts from **Discovered** only, so the analyst sets **Onboarded to Vault**, **In Progress** (or your administrator adds a rule from Assessed / Prioritized).
 5. **Week 4, password management.** Password rotation is turned on in CyberArk. The analyst sets **Managed / Rotation Enabled**. One dependent application breaks after a rotation, so the status goes to **Blocked**, with a note explaining why.
 6. **Week 5, verification.** The fix is in and the owner confirms everything works. The analyst sets **Verified / Compliant**, **Complete**, with today's **Actual Completion Date**.
 

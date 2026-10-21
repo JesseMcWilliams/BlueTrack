@@ -119,18 +119,21 @@ public sealed class ReportsRepository(IDbConnectionFactory connectionFactory)
     /// computed directly from this one row. "In scope" reuses the existing
     /// Risk Accepted / Excluded status (D-19/D-59) rather than a new
     /// exception type -- an account only leaves scope through that same,
-    /// already-enforced accepted-exception mechanism. Onboarded/Managed are
-    /// StageOrder thresholds (3, 4) on dim_blueprint_stage, and both are
-    /// additionally restricted to accounts still in scope so the funnel
-    /// stays strictly nested; Compliant requires both StageOrder 5 AND
-    /// status Complete specifically (an account can reach stage 5 while
-    /// still Blocked/In Progress on some final step).
+    /// already-enforced accepted-exception mechanism. Onboarded/Managed count
+    /// accounts at or past the stage marked with that milestone (D-284; were
+    /// fixed positions 3 and 4), and both are additionally restricted to
+    /// accounts still in scope so the funnel stays strictly nested; Compliant
+    /// requires both the Compliant stage (or later) AND status Complete
+    /// specifically (an account can reach it while still Blocked/In Progress
+    /// on some final step).
     /// </summary>
     public async Task<KpiSummary> GetKpiSummaryAsync()
     {
         using var connection = connectionFactory.Create();
 
         const string sql = """
+            DECLARE @Onboarded INT = dbo.fn_MilestoneStageOrder(N'Onboarded'), @Managed INT = dbo.fn_MilestoneStageOrder(N'Managed'),
+                    @Compliant INT = dbo.fn_MilestoneStageOrder(N'Compliant');
             WITH scope AS (
                 SELECT
                     fa.AccountKey,
@@ -146,9 +149,9 @@ public sealed class ReportsRepository(IDbConnectionFactory connectionFactory)
             SELECT
                 COUNT(*) AS TotalAccounts,
                 SUM(CASE WHEN ISNULL(StatusName, '') <> 'Risk Accepted / Excluded' THEN 1 ELSE 0 END) AS InScopeAccounts,
-                SUM(CASE WHEN ISNULL(StatusName, '') <> 'Risk Accepted / Excluded' AND StageOrder >= 3 THEN 1 ELSE 0 END) AS OnboardedAccounts,
-                SUM(CASE WHEN ISNULL(StatusName, '') <> 'Risk Accepted / Excluded' AND StageOrder >= 4 THEN 1 ELSE 0 END) AS ManagedAccounts,
-                SUM(CASE WHEN StageOrder = 5 AND StatusName = 'Complete' THEN 1 ELSE 0 END) AS CompliantAccounts
+                SUM(CASE WHEN ISNULL(StatusName, '') <> 'Risk Accepted / Excluded' AND StageOrder >= @Onboarded THEN 1 ELSE 0 END) AS OnboardedAccounts,
+                SUM(CASE WHEN ISNULL(StatusName, '') <> 'Risk Accepted / Excluded' AND StageOrder >= @Managed THEN 1 ELSE 0 END) AS ManagedAccounts,
+                SUM(CASE WHEN StageOrder >= @Compliant AND StatusName = 'Complete' THEN 1 ELSE 0 END) AS CompliantAccounts
             FROM scope
             """;
 

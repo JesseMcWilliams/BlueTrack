@@ -58,9 +58,10 @@ public sealed class AccountProgressRepository(IDbConnectionFactory connectionFac
           -- UI review W7-1: the KPI Summary's counts (D-143), so each count can open the accounts behind it.
           AND (@Kpi IS NULL OR @Kpi = 'total'
                OR (@Kpi = 'inScope'    AND sts.StatusName <> 'Risk Accepted / Excluded')
-               OR (@Kpi = 'onboarded'  AND sts.StatusName <> 'Risk Accepted / Excluded' AND stg.StageOrder >= 3)
-               OR (@Kpi = 'managed'    AND sts.StatusName <> 'Risk Accepted / Excluded' AND stg.StageOrder >= 4)
-               OR (@Kpi = 'compliant'  AND stg.StageOrder = 5 AND sts.StatusName = 'Complete'))
+               -- D-284: each KPI counts from the stage marked with its milestone.
+               OR (@Kpi = 'onboarded'  AND sts.StatusName <> 'Risk Accepted / Excluded' AND stg.StageOrder >= dbo.fn_MilestoneStageOrder(N'Onboarded'))
+               OR (@Kpi = 'managed'    AND sts.StatusName <> 'Risk Accepted / Excluded' AND stg.StageOrder >= dbo.fn_MilestoneStageOrder(N'Managed'))
+               OR (@Kpi = 'compliant'  AND stg.StageOrder >= dbo.fn_MilestoneStageOrder(N'Compliant') AND sts.StatusName = 'Complete'))
         """;
 
     /// <summary>
@@ -258,6 +259,9 @@ public sealed class AccountProgressRepository(IDbConnectionFactory connectionFac
                 -- D-280: a key only when that account has a page to link to.
                 (SELECT lp.AccountKey FROM dbo.fact_account_progress lp WHERE lp.AccountKey = fa.LinkedLogonAccountKey) AS LinkedLogonAccountKey,
                 (SELECT rp.AccountKey FROM dbo.fact_account_progress rp WHERE rp.AccountKey = fa.LinkedReconcileAccountKey) AS LinkedReconcileAccountKey,
+                -- D-283: the Progress Rule that last moved the account (its name, if the rule still exists).
+                (SELECT pr.RuleName FROM web.progress_rule pr WHERE pr.ProgressRuleKey = fap.LastAdvancedByRuleKey) AS LastAdvancedByRuleName,
+                CASE WHEN fap.LastAdvancedByRuleKey IS NOT NULL THEN fap.LastAdvancedAt END AS LastAdvancedAt,
                 fap.CurrentStageKey, fap.CurrentStatusKey, fap.RiskLevelKey, fap.AccountTypeKey, fap.SORKey, fap.ApplicationKey,
                 fap.OwnerName, fap.BusinessUnit, fap.TargetRemediationDate, fap.ActualCompletionDate, fap.Notes,
                 fap.LastUpdated, fap.ExceptionKey,

@@ -389,6 +389,20 @@ The page lists every platform, the ones with no mapping first, with its source, 
 | Notes | Free text about the choice (up to 500 characters). | Blank | Why you chose it, for the next person | The platform's name alone rarely says. |
 | When saving, also fill accounts already tracked | Gives the account type (and source of record) to accounts on the platform that have none. An account that already has one is never changed. | On | On, the first time you map a platform | Otherwise only accounts first tracked after the mapping get the default. Each save is in the Audit Log with how many accounts it filled. |
 
+### Progress Rules and Blueprint Stages
+
+Needs `ManageProgressRules` (Admin role). Changes are in the Audit Log (ProgressRuleChanged, BlueprintStageChanged).
+
+| Setting | What it does | Default | Recommended | Why |
+|---|---|---|---|---|
+| Blueprint Stages: name and order | The stages accounts go through; **Move up** / **Move down** reorder them. | Discovered, Assessed / Prioritized, Onboarded to Vault, Managed / Rotation Enabled, Verified / Compliant | Your program's own stages | Reports, Trends and the account form use them. |
+| Start | Where new accounts start. Exactly one stage. | Discovered | The first stage | Every import adds new accounts there. |
+| KPI milestone | Which stage the Onboarded, Managed and Compliant KPIs count from (that stage or later); they must stay in that order. | Onboarded to Vault, Managed / Rotation Enabled, Verified / Compliant | Keep them on the matching stages | The KPI Summary, Dashboard and Weekly Summary follow them. |
+| Delete | Only a stage no account, rule or history uses, and that isn't the start stage or a milestone. | | Rename instead once accounts have used a stage | History keeps its stage. |
+| Progress Rule: From, To | Accounts at From move to To (a later stage; the next one by default). | | | |
+| Progress Rule: conditions | All must match. Text fields: is, is not, contains, does not contain, starts with, is one of, is none of, is empty, is not empty (case doesn't matter; "not" also matches empty). Date fields: within the last N days, more than N days ago. | The seeded rule: Source is one of PRIVCLOUD, SELFHOSTED; Safe name doesn't contain `_Pending` | Use **Test** before saving | Test shows how many accounts at the From stage the rule would move tonight. |
+| Enabled | Whether the nightly load uses the rule. | On | | Turn a rule off to stop it without losing it. |
+
 ### Application ↔ Safe Mapping
 
 **Admin > Application ↔ Safe Mapping** (permission `CurateApplicationMapping`) has no settings. It holds data: each application's code, name, description, owner and technical contact, and which application each safe belongs to. Keep it current, because the risk reports group accounts by application. An account can also be assigned to an application on its own edit form (**Application**), in addition to its safe's; that is how an account with no safe, such as a pending account, belongs to one. When an account's own application and its safe's differ, both apply: an Active risk exception on either one covers the account, and Reports > Trends' Application filter counts it under either. Many accounts can be given one with **Bulk edit…** on Accounts, or with the **Account → Application Assignments** CSV on this page's **Bulk Actions** (or a data feed of that type). Each Bulk Actions import has **Check file**, which reports what the file would do and its row errors without changing anything.

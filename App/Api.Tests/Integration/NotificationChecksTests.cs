@@ -36,7 +36,16 @@ public class NotificationChecksTests : IClassFixture<BlueTrackWebApplicationFact
 
     private readonly List<long> _pullKeys = [];
 
-    private static readonly string[] NewTypes = [BlueTrack.Api.CyberArkDirect.SelfHostedPullFailedCheck.TypeName, NightlyImportFailedCheck.TypeName, OverdueRiskExceptionsCheck.TypeName, WeeklySummaryCheck.TypeName, ApiKeyExpiringCheck.TypeName, ApiKeyExpiredCheck.TypeName];
+    private static readonly string[] NewTypes = [BlueTrack.Api.CyberArkDirect.SelfHostedPullFailedCheck.TypeName, NightlyImportFailedCheck.TypeName, OverdueRiskExceptionsCheck.TypeName, WeeklySummaryCheck.TypeName, ApiKeyExpiringCheck.TypeName, ApiKeyExpiredCheck.TypeName, SamlCertificateExpiringCheck.TypeName];
+
+    /// <summary>D-287: certificates by thumbprint, in place of the Windows store.</summary>
+    private sealed class FakeCertificates : ISamlCertificateLookup
+    {
+        public Dictionary<string, System.Security.Cryptography.X509Certificates.X509Certificate2> ByThumbprint { get; } = new(StringComparer.OrdinalIgnoreCase);
+        public System.Security.Cryptography.X509Certificates.X509Certificate2? Find(string thumbprint) => ByThumbprint.GetValueOrDefault(thumbprint);
+    }
+
+    private readonly FakeCertificates _certificates = new();
 
     public NotificationChecksTests(BlueTrackWebApplicationFactory factory)
     {
@@ -51,6 +60,8 @@ public class NotificationChecksTests : IClassFixture<BlueTrackWebApplicationFact
             services.AddSingleton<INotificationSender>(_sender);
             services.RemoveAll<TimeProvider>();
             services.AddSingleton<TimeProvider>(_clock);
+            services.RemoveAll<ISamlCertificateLookup>();
+            services.AddSingleton<ISamlCertificateLookup>(_certificates);
         }));
     }
 
@@ -337,6 +348,67 @@ public class NotificationChecksTests : IClassFixture<BlueTrackWebApplicationFact
             }
             lock (_messages) _messages.Add(new Message(toAddresses, subject, body, htmlBody));
             return Task.CompletedTask;
+        }
+    }
+
+    /// <summary>
+    /// D-287: the SAML provider's IdP and SP certificates, checked at the daily digest time: 30 days, 7 days, expired
+    /// and not installed are each emailed once per certificate.
+    /// </summary>
+    [Fact]
+    public async Task SamlCertificates_AreReported_At30And7Days_WhenExpired_AndWhenMissing_OnceEach()
+    {
+        await SetEnabledAsync(true, SamlCertificateExpiringCheck.TypeName);
+        static System.Security.Cryptography.X509Certificates.X509Certificate2 Certificate(string subject, DateTimeOffset notAfter)
+        {
+            using var rsa = System.Security.Cryptography.RSA.Create(2048);
+            var request = new System.Security.Cryptography.X509Certificates.CertificateRequest($"CN={subject}", rsa,
+                System.Security.Cryptography.HashAlgorithmName.SHA256, System.Security.Cryptography.RSASignaturePadding.Pkcs1);
+            return request.CreateSelfSigned(notAfter.AddYears(-1), notAfter);
+        }
+        var idp = Certificate("idp.example.com", new DateTimeOffset(2001, 1, 25, 0, 0, 0, TimeSpan.Zero));   // 22 full days left at 07:00 on 2 Jan
+        _certificates.ByThumbprint[idp.Thumbprint] = idp;
+        var missingSp = Guid.NewGuid().ToString("N").ToUpperInvariant()[..20];
+
+        await using var connection = new SqlConnection(TestDatabase.ConnectionString);
+        var saved = await connection.QuerySingleOrDefaultAsync<(int ProviderKey, bool IsEnabled, string? ConfigurationValues)?>(
+            "SELECT ProviderKey, IsEnabled, ConfigurationValues FROM web.identity_provider_config WHERE ProviderType = 'SAML'");
+        var config = System.Text.Json.JsonSerializer.Serialize(new { IdpCertificateThumbprint = idp.Thumbprint, SpCertificateThumbprint = missingSp });
+        if (saved is null)
+            await connection.ExecuteAsync("INSERT INTO web.identity_provider_config (ProviderType, DisplayName, IsEnabled, DisplayOrder, ConfigurationValues) VALUES ('SAML', 'SAML (test)', 1, 950, @config)", new { config });
+        else
+            await connection.ExecuteAsync("UPDATE web.identity_provider_config SET IsEnabled = 1, ConfigurationValues = @config WHERE ProviderType = 'SAML'", new { config });
+        try
+        {
+            _clock.Set(new DateTimeOffset(2001, 1, 2, 7, 0, 0, TimeSpan.Zero));
+            await NewService().RunOnceAsync(CancellationToken.None);
+            await NewService().RunOnceAsync(CancellationToken.None);   // a "restart": nothing again
+
+            var first = MessagesFor(idp.Thumbprint);
+            Assert.Equal("BlueTrack: The SAML identity provider certificate expires in 22 days", Assert.Single(first).Subject);
+            Assert.Contains(_recipient, first[0].To);
+            var missing = Assert.Single(MessagesFor(missingSp));
+            Assert.Equal("BlueTrack: The SAML BlueTrack SP certificate isn't installed", missing.Subject);
+
+            _clock.Set(new DateTimeOffset(2001, 1, 20, 7, 0, 0, TimeSpan.Zero));   // 5 days left
+            await NewService().RunOnceAsync(CancellationToken.None);
+            Assert.Equal("BlueTrack: The SAML identity provider certificate expires in 4 day(s)", MessagesFor(idp.Thumbprint)[^1].Subject);
+            _clock.Set(new DateTimeOffset(2001, 1, 21, 7, 0, 0, TimeSpan.Zero));
+            await NewService().RunOnceAsync(CancellationToken.None);
+            Assert.Equal(2, MessagesFor(idp.Thumbprint).Count);   // the 7-day email only once
+
+            _clock.Set(new DateTimeOffset(2001, 1, 26, 7, 0, 0, TimeSpan.Zero));
+            await NewService().RunOnceAsync(CancellationToken.None);
+            Assert.Equal("BlueTrack: The SAML identity provider certificate has expired", MessagesFor(idp.Thumbprint)[^1].Subject);
+            Assert.Single(MessagesFor(missingSp));
+        }
+        finally
+        {
+            if (saved is null)
+                await connection.ExecuteAsync("DELETE FROM web.identity_provider_config WHERE ProviderType = 'SAML' AND DisplayName = 'SAML (test)'");
+            else
+                await connection.ExecuteAsync("UPDATE web.identity_provider_config SET IsEnabled = @IsEnabled, ConfigurationValues = @ConfigurationValues WHERE ProviderKey = @ProviderKey",
+                    new { saved.Value.ProviderKey, saved.Value.IsEnabled, saved.Value.ConfigurationValues });
         }
     }
 

@@ -526,6 +526,14 @@ describe('AccountProgressDetail.vue: an account in a CyberArk internal Safe', ()
     expect(wrapper.find('.classic-facts').exists()).toBe(false)
   })
 
+  // D-283: the Progress Rule that moved the account to its stage.
+  it('says which Progress Rule moved the account to its stage', async () => {
+    mockLoad({ detailOverrides: { lastAdvancedByRuleName: 'In the Vault', lastAdvancedAt: '2026-10-21T02:05:00' } })
+    const wrapper = await mountEditable()
+
+    expect(wrapper.find('.moved-by-rule').text()).toContain('Moved to this stage by the Progress Rule "In the Vault" on')
+  })
+
   // D-280: the classic account details; a linked account in BlueTrack is a link to its page.
   it('shows the device type, how it was created and its linked accounts', async () => {
     mockLoad({ detailOverrides: {

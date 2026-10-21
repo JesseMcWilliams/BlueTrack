@@ -599,6 +599,8 @@ onUnmounted(releaseLock)
           <span v-if="detail.createdTime" class="account-progress-identity-item"><strong>{{ t('pages.accountProgressDetail.createdInCyberArk') }}</strong> {{ formatUtcDateTime(detail.createdTime) }}</span>
           <span v-if="detail.lastCPMAction" class="account-progress-identity-item"><strong>{{ t('pages.accountProgressDetail.lastCpmAction') }}</strong> {{ t('pages.accountProgressDetail.lastCpmActionValue', { action: detail.lastCPMAction, result: detail.lastCPMActionResult ?? '—', time: formatUtcDateTime(detail.lastCPMActionTime) }) }}</span>
         </p>
+        <!-- D-283: which Progress Rule moved the account to its stage. -->
+        <p v-if="detail.lastAdvancedByRuleName" class="account-progress-identity-secondary moved-by-rule">{{ t('pages.accountProgressDetail.movedByRule', { rule: detail.lastAdvancedByRuleName, date: formatUtcDateTime(detail.lastAdvancedAt) }) }}</p>
         <!-- D-280: Self-Hosted Direct only, from PVWA's classic account details. -->
         <p v-if="detail.deviceType || detail.creationMethod || detail.linkedLogonAccount || detail.linkedReconcileAccount" class="account-progress-identity-secondary classic-facts">
           <span v-if="detail.deviceType" class="account-progress-identity-item"><strong>{{ t('pages.accountProgressDetail.deviceType') }}</strong> {{ detail.deviceType }}</span>
