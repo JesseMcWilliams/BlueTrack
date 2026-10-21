@@ -6,6 +6,16 @@ What changed in each BlueTrack release, newest first, for users and administrato
 
 ### New
 
+### Changed
+
+### Fixed
+
+### Upgrading
+
+## 1.3.3 (2026-10-21)
+
+### New
+
 - **Cancel pull** on Admin > Data Sources stops a Self-Hosted Direct pull that is running (nightly, shadow or Pull now). It's logged as failed, saying it was cancelled; the data the nightly load reads is left as it was.
 - **Test an LDAP domain's bind** with the new **Test** button in the domain form on Admin > Credentials & LDAP. It binds with the values in the form, saved or not, and shows the name it bound as and the domain controller, or the directory's error.
 
@@ -15,8 +25,6 @@ What changed in each BlueTrack release, newest first, for users and administrato
 - **CPM status is stored in lower case** (for example "success") for Privilege Cloud and Self-Hosted Direct alike.
 - **Accounts in CyberArk's internal Safes** show "Deleted in CyberArk (internal Safe)" after a site moves to Self-Hosted Direct, since PVWA never returns those Safes.
 - **The first Self-Hosted Direct pull is checked against the EVD.** With no earlier Direct pull, its Safe and account counts are compared with what the last EVD import staged (internal Safes, deleted and dependent accounts left out); a change over the allowed percentage is rejected for an admin to accept.
-
-### Fixed
 
 ### Upgrading
 
