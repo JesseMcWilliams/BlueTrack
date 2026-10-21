@@ -13,7 +13,7 @@ Go down the table and stop at the first row that matches your site.
 | Your site | Install | Then |
 |---|---|---|
 | The database was built before 1.0.0 (the database step stops with a message naming the commit tagged `pre-sql-baseline`) | First the commit tagged `pre-sql-baseline` (download that tag's source from GitHub and run its installer), so the database reaches the last old-style script. `Update-BlueTrack.ps1 -Release` takes only signed releases, and this tag isn't one | Come back to this table |
-| Self-Hosted is imported from the **EVD** (Admin > Data Sources, CyberArk sources, says "from the ... database") | **1.3.4**, and no later version | Move to Self-Hosted Direct: [Admin_DeploymentRunbook.md](Admin_DeploymentRunbook.md), "Moving Self-Hosted from the EVD to Direct" (shadow comparison, 7 clean nights in a row, switch, first-night checks, sign-off). Then come back to this table |
+| Self-Hosted is imported from the **EVD** (Admin > Data Sources, CyberArk sources, says "from the ... database") | **1.3.4**, and no later version | Move to Self-Hosted Direct, following **1.3.4's** Deployment Runbook (in its download folder, or the `v1.3.4` release on GitHub), "Moving Self-Hosted from the EVD to Direct" (shadow comparison, 7 clean nights in a row, switch, first-night checks, sign-off). Then come back to this table |
 | Self-Hosted is off, or already read from PVWA (Self-Hosted Direct) | **The latest release** | Nothing more |
 
 **Why the EVD stop:** 1.4.0 and later have no EVD source. Their installer checks first and stops, changing nothing, on a site that still imports Self-Hosted from the EVD. 1.3.4 is the last version that has both the EVD and everything needed to move off it.
@@ -37,7 +37,7 @@ Go down the table and stop at the first row that matches your site.
 From the `Deploy` folder of the version you run now:
 
 ```powershell
-.\Update-BlueTrack.ps1 -Release v1.3.4      # a specific release, or no -Release for the latest
+.\Update-BlueTrack.ps1 -Release v1.4.0      # a specific release, or no -Release for the latest
 ```
 
 It downloads the signed release, copies your saved installer answers into it and offers to run its installer, which backs up, migrates the database, publishes the site and runs a health check (`Smoke`). Afterwards:
@@ -59,6 +59,7 @@ Most database changes need nothing from you; these do.
 | 1.3.2 | The new **Pull time limit** starts at 45 minutes; raise it on Edit CyberArk sources if your Self-Hosted Direct pulls take longer. |
 | 1.3.3 | None. A site on Self-Hosted Direct sees more account and entitlement detail after its next nightly load. |
 | 1.3.4 | None. |
+| 1.4.0 | Only on a site that no longer imports Self-Hosted from the EVD (the installer stops otherwise, changing nothing). The shadow pull and its comparison are gone; their stored history stays in the database. The installer no longer asks for an EVD database. Going back to 1.3.4 needs the database restore in section 6: 1.4.0 drops columns 1.3.4 reads. |
 
 ## 6. If something breaks: going back
 

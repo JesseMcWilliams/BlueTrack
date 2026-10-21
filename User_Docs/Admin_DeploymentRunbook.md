@@ -120,7 +120,7 @@ Don't change `<Version>` by hand. Between releases, the build adds where it came
 
 ## Sites still on the EVD
 
-This version has no EVD source (D-278). A site that still imports Self-Hosted from the EVD must move to Self-Hosted Direct on BlueTrack 1.3.3 first, following that version's Deployment Runbook ("Moving Self-Hosted from the EVD to Direct": shadow comparison, 7 clean nights, switch, first-night checks, sign-off). The installer refuses to upgrade such a site and changes nothing.
+This version has no EVD source (D-278). A site that still imports Self-Hosted from the EVD must move to Self-Hosted Direct on BlueTrack 1.3.4 first, following that version's Deployment Runbook ("Moving Self-Hosted from the EVD to Direct": shadow comparison, 7 clean nights, switch, first-night checks, sign-off). The installer refuses to upgrade such a site and changes nothing.
 
 ## Environment-Specific Items a Redeployment Must Not Skip
 
