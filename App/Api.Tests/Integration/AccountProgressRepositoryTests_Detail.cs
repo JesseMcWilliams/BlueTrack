@@ -27,6 +27,37 @@ public class AccountProgressRepositoryTests_Detail
         Assert.Equal("TestAccount04", detail.AccountName);
     }
 
+    /// <summary>D-280: the classic account details, with a linked account's key only when that account has a page.</summary>
+    [Fact]
+    public async Task GetDetailAsync_ReturnsTheClassicDetails_AndLinksOnlyToAnAccountWithAPage()
+    {
+        var accountKey = await TestAccounts.GetAccountKeyAsync("TestAccount04");
+        var otherKey = await TestAccounts.GetAccountKeyAsync("TestAccount02");
+        await using var connection = new Microsoft.Data.SqlClient.SqlConnection(TestDatabase.ConnectionString);
+        try
+        {
+            await Dapper.SqlMapper.ExecuteAsync(connection, """
+                UPDATE dbo.fact_account SET DeviceType = N'Database', CreationMethod = N'AutoDetected',
+                    LinkedLogonAccount = N'Gone Safe\gone', LinkedLogonAccountKey = -1,
+                    LinkedReconcileAccount = N'Rec Safe\TestAccount02', LinkedReconcileAccountKey = @otherKey
+                WHERE AccountKey = @accountKey
+                """, new { accountKey, otherKey });
+
+            var detail = (await new AccountProgressRepository(new TestDbConnectionFactory()).GetDetailAsync(accountKey))!;
+
+            Assert.Equal(("Database", "AutoDetected", "Gone Safe\\gone", (long?)null, "Rec Safe\\TestAccount02", (long?)otherKey),
+                (detail.DeviceType, detail.CreationMethod, detail.LinkedLogonAccount, detail.LinkedLogonAccountKey, detail.LinkedReconcileAccount, detail.LinkedReconcileAccountKey));
+        }
+        finally
+        {
+            await Dapper.SqlMapper.ExecuteAsync(connection, """
+                UPDATE dbo.fact_account SET DeviceType = NULL, CreationMethod = NULL, LinkedLogonAccount = NULL, LinkedLogonAccountKey = NULL,
+                    LinkedReconcileAccount = NULL, LinkedReconcileAccountKey = NULL
+                WHERE AccountKey = @accountKey
+                """, new { accountKey });
+        }
+    }
+
     /// <summary>
     /// D-127: Calculated Risk/Risk Band/Override moved from the Account
     /// Progress list's own inline "Edit Override" (removed) onto this

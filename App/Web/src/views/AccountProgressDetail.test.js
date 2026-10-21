@@ -17,7 +17,8 @@ function makeRouter() {
     history: createMemoryHistory(),
     routes: [
       { path: '/', name: 'home', component: { template: '<div />' } },
-      { path: '/accounts', name: 'account-progress-list', component: { template: '<div />' } }
+      { path: '/accounts', name: 'account-progress-list', component: { template: '<div />' } },
+      { path: '/accounts/:accountKey', name: 'account-progress-detail', component: { template: '<div />' } }
     ]
   })
 }
@@ -106,6 +107,7 @@ function mockLoad({ detailOverrides = {}, recalculatedDetailOverrides = { comput
       return Promise.resolve(jsonResponse({ lockedByUserKey: 1, lockedByName: 'Test User', lockedAt: '2026-01-01T00:00:00Z' }))
     }
     if (url === '/api/account-progress/42/application-exceptions') return Promise.resolve(emptyResponse())
+    if (url === '/api/account-progress/42/safe-access') return Promise.resolve(jsonResponse({ people: [], applications: [], adReadAt: null }))
     if (url === '/api/account-progress/42/recalculate-risk-score' && options?.method === 'POST') {
       recalculated = true
       return Promise.resolve(emptyResponse())
@@ -521,5 +523,26 @@ describe('AccountProgressDetail.vue: an account in a CyberArk internal Safe', ()
     const wrapper = await mountEditable()
 
     expect(wrapper.find('.cpm-facts').exists()).toBe(false)
+    expect(wrapper.find('.classic-facts').exists()).toBe(false)
+  })
+
+  // D-280: the classic account details; a linked account in BlueTrack is a link to its page.
+  it('shows the device type, how it was created and its linked accounts', async () => {
+    mockLoad({ detailOverrides: {
+      deviceType: 'Operating System', creationMethod: 'PVWA',
+      linkedLogonAccount: 'Logon Safe\\logon-acct', linkedLogonAccountKey: null,
+      linkedReconcileAccount: 'Rec Safe\\rec-acct', linkedReconcileAccountKey: 77
+    } })
+    const wrapper = await mountEditable()
+
+    const facts = wrapper.find('.classic-facts')
+    expect(facts.text()).toContain('Device type: Operating System')
+    expect(facts.text()).toContain('Created by: PVWA')
+    expect(facts.text()).toContain('Logon account: Logon Safe\\logon-acct')
+    expect(facts.text()).toContain('Reconcile account: Rec Safe\\rec-acct')
+    const links = facts.findAll('a')
+    expect(links).toHaveLength(1)
+    expect(links[0].text()).toBe('Rec Safe\\rec-acct')
+    expect(links[0].attributes('href')).toBe('/accounts/77')
   })
 })

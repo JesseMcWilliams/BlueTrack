@@ -6,7 +6,7 @@
 
 Task-oriented instructions for whoever deploys and operates BlueTrack (a DBA, or whoever holds elevated SQL Server access) — distinct from `Admin_DeploymentRunbook.md`, which walks through building or rebuilding an environment from scratch. This guide is about **day 2**: things a DBA/operator does occasionally on a running environment, outside of a full install, that have no UI of their own inside the application (or where the UI is only half the story).
 
-It covers backups (scripted and scheduled) and restore, updating to a new version, the SQL Server grants BlueTrack can't give itself, when role changes take effect, the folders BlueTrack may read and write, settings that carry a security check, the nightly Import+Load job, the audit log purge job, changing identity provider/secrets store configuration on a running environment, and replacing the bootstrap admin group. `Admin_DeploymentRunbook.md` and `Deploy/README.md` remain the authoritative references for the full install/rebuild procedure — this guide doesn't repeat that ground, only what comes after it.
+It covers backups (scripted and scheduled) and restore, updating to a new version, the SQL Server grants BlueTrack can't give itself, when role changes take effect, the folders BlueTrack may read and write, settings that carry a security check, the nightly Import+Load job, the Self-Hosted Direct pulls and the PVWA user they need, the audit log purge job, changing identity provider/secrets store configuration on a running environment, and replacing the bootstrap admin group. `Admin_DeploymentRunbook.md` and `Deploy/README.md` remain the authoritative references for the full install/rebuild procedure — this guide doesn't repeat that ground, only what comes after it.
 
 ## Rollback (Backup and Restore)
 
@@ -32,7 +32,7 @@ BlueTrack itself can back up its database, on a schedule or on demand. Both writ
 
 - **Scheduled backup time** — a daily backup at this server-local time. Blank (the default) means no scheduled backup.
 - **Keep scheduled backups (days)** — after each scheduled backup, BlueTrack deletes its own scheduled backup files older than this (files named `<database>_scheduled_<UTC time>.bak`). Backups made with **Backup App** are never deleted.
-- **Backup App** (**Admin > Deployment**, needs `TriggerBackup`) — backs up the database into the Backup Folder now, and downloads a zip of the API's settings files (`appsettings.json`, the installer's `appsettings.Site.json`, and `appsettings.Production.json` if an older install left one) with a note of where the database backup went. With SQL authentication, `appsettings.Site.json` holds the SQL password, so keep the zip as safe as the backup.
+- **Backup App** (**Admin > Deployment**, needs `TriggerBackup`) — after a confirmation, backs up the database into the Backup Folder now, and downloads a zip of the API's settings files (`appsettings.json`, the installer's `appsettings.Site.json`, and `appsettings.Production.json` if an older install left one) with a note of where the database backup went. With SQL authentication, `appsettings.Site.json` holds the SQL password, so keep the zip as safe as the backup.
 
 The Deployment page's **Recent backups** table lists every scheduled and manual backup: when it started (UTC), whether it was scheduled or manual (and by whom), the outcome, the file, how many old files were deleted, and a note. A failed run's reason is in the note.
 
@@ -195,9 +195,23 @@ ORDER BY h.instance_id DESC;
 ```
 `run_status`: `0` = Failed, `1` = Succeeded, `2` = Retry, `3` = Canceled, `4` = In progress (standard `sysjobhistory` semantics, not BlueTrack-specific). The job name embeds the database name (`BlueTrack (BlueTrack) - Import and Load` for a database named `BlueTrack`), so jobs for two databases can coexist on the same SQL Server instance without colliding.
 
-**Re-running it manually** (e.g. after fixing a bad export file): either restart the job through SQL Server Agent (`EXEC msdb.dbo.sp_start_job @job_name = 'BlueTrack (BlueTrack) - Import and Load';`), or run `EXEC usp_RunNightlyImportLoad;` against the target database, which does exactly what the job does. Running a snapshot again the same day replaces that day's snapshot. For more control, run the Import and Load yourself — see `Admin_DeploymentRunbook.md`'s "First Data Load" section for the exact `usp_Import_All`/`usp_RunFullLoad` call shape and its real prerequisites (for Self-Hosted, the EVD database must be reachable on the same instance; for Privilege Cloud, the SQL Server *service account*, not your own login, needs read access to the export folder).
+**Re-running it manually** (e.g. after fixing a bad export file): either restart the job through SQL Server Agent (`EXEC msdb.dbo.sp_start_job @job_name = 'BlueTrack (BlueTrack) - Import and Load';`), or run `EXEC usp_RunNightlyImportLoad;` against the target database, which does exactly what the job does. Running a snapshot again the same day replaces that day's snapshot. For more control, run the Import and Load yourself — see `Admin_DeploymentRunbook.md`'s "First Data Load" section for the exact `usp_Import_All`/`usp_RunFullLoad` call shape and its real prerequisites (for Self-Hosted, a successful pull first, with `@SelfHostedStaged = 1`; for Privilege Cloud, the SQL Server *service account*, not your own login, needs read access to the export folder).
 
 **Never edit `Database/Manual/04_BlueTrack_ScheduleImportLoadJob.sql` for a routine change.** Change the export folder, file names, Self-Hosted Direct settings or sources on Admin > Data Sources. To change the 2:00 AM run time, use `sp_update_schedule` against the existing job's schedule; there's no need to touch the script at all.
+
+## Self-Hosted Direct Pulls
+
+The API pulls Self-Hosted from PVWA's REST API (PAM Self-Hosted 14.2 or later) at the pull time set on **Edit CyberArk sources**, logging on with the chosen credential (CyberArk or LDAP logon). It only reads; nothing is written to PVWA. The PVWA user sees only what its memberships allow, so give it:
+
+1. **List Accounts** and **View Safe Members** in every Safe BlueTrack should track. A Safe it isn't a member of is invisible, and its accounts look deleted; the **Allowed change** check rejects a pull where that changes the counts by more than the setting.
+2. The **Audit Users** Vault authorization, to read the user list and the CyberArk Applications (Reports > CyberArk Applications).
+3. Membership of the Vault's **Auditors** group, to read CPM activity (the last CPM action and verify time), and of **Vault Admins**, to read platform details. Without them the pull still succeeds, with a warning in its **Details**.
+
+Beyond the REST data, a pull reads each new or changed account's device type, how it was created and its linked logon and reconcile accounts (one call per account: the first pull reads them all, so on a large Vault give it a higher **Pull time limit** or let it finish over a few nights; what it read before a stop is kept), the CyberArk Applications, and, through the enabled domains on **Admin > Credentials & LDAP**, the AD users of every group that is a Safe member (with Self-Hosted off, Privilege Cloud's Safe groups are read from AD on their own at the same time, and the outcome goes to the application log). A problem with any of these is a warning in the pull's **Details**; the pull still succeeds and the earlier values are kept.
+
+A **rejected** pull read PVWA but wasn't used; a **failed** pull didn't finish (refused credential, PVWA unreachable, wrong address, or the **Pull time limit (minutes)** reached, 45 by default). Either way the staged data is left as it was and the next import fails until a pull succeeds. `Admin_DataManagement.md`, section 1, says what to check and how to accept an expected change. The **SelfHostedPullFailed** notification emails each failed or rejected pull, and one not finished after 2 hours.
+
+A successful pull replaces the Self-Hosted staging tables in one go: the `stg_sh_*` tables the Load has always read, and `stg_shd_*` tables holding everything PVWA returned in its own shape (CPM status, last reconcile, CPM activity, platform policy, every account property, predefined Safe members, user details), which the Load uses for the extra account and entitlement detail. The pull log (`dbo.cyberark_direct_pull`) keeps 30 days of pulls, and always the latest.
 
 ## The Audit Log Purge Job
 

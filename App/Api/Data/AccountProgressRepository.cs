@@ -254,6 +254,10 @@ public sealed class AccountProgressRepository(IDbConnectionFactory connectionFac
             SELECT
                 fap.ProgressKey, fap.AccountKey, fa.AccountName, fa.UserName, fa.Address,
                 fa.CreatedTime, fa.LastCPMAction, fa.LastCPMActionResult, fa.LastCPMActionTime,
+                fa.DeviceType, fa.CreationMethod, fa.LinkedLogonAccount, fa.LinkedReconcileAccount,
+                -- D-280: a key only when that account has a page to link to.
+                (SELECT lp.AccountKey FROM dbo.fact_account_progress lp WHERE lp.AccountKey = fa.LinkedLogonAccountKey) AS LinkedLogonAccountKey,
+                (SELECT rp.AccountKey FROM dbo.fact_account_progress rp WHERE rp.AccountKey = fa.LinkedReconcileAccountKey) AS LinkedReconcileAccountKey,
                 fap.CurrentStageKey, fap.CurrentStatusKey, fap.RiskLevelKey, fap.AccountTypeKey, fap.SORKey, fap.ApplicationKey,
                 fap.OwnerName, fap.BusinessUnit, fap.TargetRemediationDate, fap.ActualCompletionDate, fap.Notes,
                 fap.LastUpdated, fap.ExceptionKey,

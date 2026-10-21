@@ -37,6 +37,7 @@
     "reportsDecomSafes": "Safes Flagged for Deletion",
     "reportsDecomAccounts": "Accounts Flagged for Deletion",
     "reportsUnresolvedEntitlementMembers": "Unresolved Entitlement Members",
+    "reportsCyberArkApplications": "CyberArk Applications",
     "reportsRiskScore": "Risk Score",
     "reportsRiskExceptionSod": "Risk Exception Segregation of Duties",
     "reportsDiscoveredAccounts": "Discovered Accounts",

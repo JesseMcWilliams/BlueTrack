@@ -7,7 +7,9 @@
 // of ConfirmReconciliation can Resolve a member here (link it to a user or
 // group, or label it External / cloud role) or Undo that. Resolved members
 // are left out unless Show resolved is ticked. Resolve acts on the member, so
-// every safe row with that member ID changes together.
+// every safe row with that member ID changes together. D-279: Self-Hosted
+// members too; every call names the member's source, and a member links only
+// to a user or group of its own source.
 import { ref, computed, onMounted, nextTick } from 'vue'
 import { formatDate } from '../../utils/formatDate'
 import { useRightsStore } from '../../stores/rights'
@@ -30,7 +32,7 @@ const loading = ref(true)
 const showResolved = ref(false)
 const busy = ref(false)
 
-// The member being resolved: { memberType, sourceMemberId, memberName, count }.
+// The member being resolved: { sourceSystemCode, memberType, sourceMemberId, memberName, count }.
 const editing = ref(null)
 const choice = ref('Linked')
 const linkTo = ref(null)
@@ -58,9 +60,15 @@ function resolutionText(item) {
     case 'ById': return t('reports.unresolvedEntitlementMembers.byId', { name: item.resolvedToName })
     case 'ByName': return t('reports.unresolvedEntitlementMembers.byName', { name: item.resolvedToName })
     case 'Manual': return t('reports.unresolvedEntitlementMembers.linkedBy', { user: item.resolvedByName, name: item.resolvedToName })
-    case 'External': return item.resolutionNote
-      ? t('reports.unresolvedEntitlementMembers.externalWithNote', { user: item.resolvedByName, note: item.resolutionNote })
-      : t('reports.unresolvedEntitlementMembers.external', { user: item.resolvedByName })
+    case 'External':
+      if (item.sourceSystemCode === 'SELFHOSTED') {
+        return item.resolutionNote
+          ? t('reports.unresolvedEntitlementMembers.externalSelfHostedWithNote', { user: item.resolvedByName, note: item.resolutionNote })
+          : t('reports.unresolvedEntitlementMembers.externalSelfHosted', { user: item.resolvedByName })
+      }
+      return item.resolutionNote
+        ? t('reports.unresolvedEntitlementMembers.externalWithNote', { user: item.resolvedByName, note: item.resolutionNote })
+        : t('reports.unresolvedEntitlementMembers.external', { user: item.resolvedByName })
     default: return item.resolutionMethod
   }
 }
@@ -71,7 +79,7 @@ async function problemMessage(response) {
 }
 
 async function searchPrincipals(text) {
-  const params = new URLSearchParams({ memberType: editing.value.memberType, q: text })
+  const params = new URLSearchParams({ sourceSystemCode: editing.value.sourceSystemCode, memberType: editing.value.memberType, q: text })
   const response = await fetch(`${base}/principals?${params.toString()}`)
   if (!response.ok) throw new Error(t('reports.unresolvedEntitlementMembers.searchFailed', { status: response.status }))
   return response.json()
@@ -79,15 +87,21 @@ async function searchPrincipals(text) {
 
 const principalLabel = principal => principal.name
 
+// A Self-Hosted member ID can equal a Privilege Cloud one, so the source is part of the member.
+function sameMember(a, b) {
+  return a.sourceSystemCode === b.sourceSystemCode && a.memberType === b.memberType && a.unresolvedMemberId === b.unresolvedMemberId
+}
+
 async function startResolve(item) {
   actionError.value = null
   formError.value = null
   notice.value = null
   editing.value = {
+    sourceSystemCode: item.sourceSystemCode,
     memberType: item.memberType,
     sourceMemberId: item.unresolvedMemberId,
     memberName: item.memberName ?? item.unresolvedMemberId,
-    count: items.value.filter(i => i.memberType === item.memberType && i.unresolvedMemberId === item.unresolvedMemberId).length
+    count: items.value.filter(i => sameMember(i, item)).length
   }
   choice.value = item.resolutionMethod === 'External' ? 'External' : 'Linked'
   note.value = item.resolutionMethod === 'External' ? (item.resolutionNote ?? '') : ''
@@ -130,6 +144,7 @@ async function save() {
     return
   }
   const body = {
+    sourceSystemCode: editing.value.sourceSystemCode,
     memberType: editing.value.memberType,
     sourceMemberId: editing.value.sourceMemberId,
     resolution: choice.value,
@@ -166,7 +181,7 @@ async function undo(item) {
     const response = await fetch(`${base}/unresolve`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ memberType: item.memberType, sourceMemberId: item.unresolvedMemberId })
+      body: JSON.stringify({ sourceSystemCode: item.sourceSystemCode, memberType: item.memberType, sourceMemberId: item.unresolvedMemberId })
     })
     if (!response.ok) throw new Error(await problemMessage(response))
     await load()
@@ -222,7 +237,7 @@ onMounted(load)
         <p>
           <label>
             <input v-model="choice" type="radio" name="resolution" value="External" />
-            {{ t('reports.unresolvedEntitlementMembers.externalChoice') }}
+            {{ editing.sourceSystemCode === 'SELFHOSTED' ? t('reports.unresolvedEntitlementMembers.externalChoiceSelfHosted') : t('reports.unresolvedEntitlementMembers.externalChoice') }}
           </label>
         </p>
         <div v-if="choice === 'External'" class="indent">
@@ -270,9 +285,7 @@ onMounted(load)
           <td>{{ formatDate(item.membershipExpirationDate) }}</td>
           <td>{{ formatDate(item.snapshotDate) }}</td>
           <td v-if="canResolve">
-            <!-- D-277: Self-Hosted members can't be resolved by hand yet (Planning_Backlog.md). -->
-            <small v-if="item.sourceSystemCode === 'SELFHOSTED'">{{ t('reports.unresolvedEntitlementMembers.selfHostedNoResolve') }}</small>
-            <button v-else type="button" :disabled="busy"
+            <button type="button" :disabled="busy"
                     :aria-label="t('reports.unresolvedEntitlementMembers.resolveLabel', { name: item.memberName ?? item.unresolvedMemberId, safe: item.safeName })"
                     @click="showResolveForm(item)">{{ t('reports.unresolvedEntitlementMembers.resolve') }}</button>
             <button v-if="item.resolutionMethod === 'Manual' || item.resolutionMethod === 'External'" type="button" :disabled="busy"

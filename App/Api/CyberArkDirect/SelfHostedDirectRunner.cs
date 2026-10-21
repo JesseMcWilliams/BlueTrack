@@ -118,12 +118,22 @@ public sealed class SelfHostedDirectBackgroundService(
             {
                 using var scope = scopeFactory.CreateScope();
                 var settings = (await scope.ServiceProvider.GetRequiredService<CyberArkSourceConfigRepository>().GetAsync()).Settings;
-                if (SelfHostedDirectPullService.IsOn(settings)
-                    && FeedSchedule.TryParseTime(settings.DirectPullTime, out var pullTime) && FeedSchedule.RunTimeFellBetween(lastWake, now, pullTime))
+                var due = FeedSchedule.TryParseTime(settings.DirectPullTime, out var pullTime) && FeedSchedule.RunTimeFellBetween(lastWake, now, pullTime);
+                if (due && SelfHostedDirectPullService.IsOn(settings))
                 {
                     logger.LogInformation("Starting the nightly Self-Hosted Direct pull.");
                     await runner.RunScheduledAsync(stoppingToken);
                     await scope.ServiceProvider.GetRequiredService<SelfHostedDirectRepository>().PurgeAsync(KeepLogDays);
+                }
+                else if (due && settings.ImportPrivilegeCloud)
+                {
+                    // D-281: no pull to carry it, so Privilege Cloud's Safe groups are read from AD on their own.
+                    var ad = await scope.ServiceProvider.GetRequiredService<SafeGroupAdExpansionService>().RunStandaloneAsync(stoppingToken);
+                    if (ad is not null)
+                    {
+                        logger.LogInformation("Safe groups read from AD: {Found} found, {NotFound} not found, {Failed} failed.",
+                            ad.Reads.Count(r => r.Status == "Found"), ad.Reads.Count(r => r.Status == "NotFound"), ad.Reads.Count(r => r.Status == "Failed"));
+                    }
                 }
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)

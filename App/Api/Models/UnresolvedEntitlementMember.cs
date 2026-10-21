@@ -26,7 +26,7 @@ public sealed class UnresolvedEntitlementMember
     public DateTime? ResolvedDate { get; init; }
     public DateTime? MembershipExpirationDate { get; init; }
     public DateTime SnapshotDate { get; init; }
-    /// <summary>D-277: the source (PRIVCLOUD or SELFHOSTED); Resolve works for Privilege Cloud members only so far.</summary>
+    /// <summary>D-277: the source (PRIVCLOUD or SELFHOSTED). D-279: Resolve and Undo send it back.</summary>
     public string? SourceSystemCode { get; init; }
     public string? SourceSystemName { get; init; }
 }
@@ -40,9 +40,10 @@ public static class EntitlementResolutionMethods
     public const string External = "External";
 }
 
-/// <summary>D-232: POST .../resolve. Resolution is Linked (with UserKey for a User member, GroupKey for a Group) or External (with an optional Note).</summary>
+/// <summary>D-232: POST .../resolve. Resolution is Linked (with UserKey for a User member, GroupKey for a Group) or External (with an optional Note). D-279: SourceSystemCode is PRIVCLOUD (the default) or SELFHOSTED.</summary>
 public sealed class ResolveEntitlementMemberRequest
 {
+    public string? SourceSystemCode { get; init; }
     public string? MemberType { get; init; }
     public string? SourceMemberId { get; init; }
     public string? Resolution { get; init; }
@@ -51,14 +52,15 @@ public sealed class ResolveEntitlementMemberRequest
     public string? Note { get; init; }
 }
 
-/// <summary>D-232: POST .../unresolve -- removes the manual resolution.</summary>
+/// <summary>D-232: POST .../unresolve -- removes the manual resolution. D-279: SourceSystemCode as on resolve.</summary>
 public sealed class UnresolveEntitlementMemberRequest
 {
+    public string? SourceSystemCode { get; init; }
     public string? MemberType { get; init; }
     public string? SourceMemberId { get; init; }
 }
 
-/// <summary>D-232: one Privilege Cloud user or group from the Resolve form's search.</summary>
+/// <summary>D-232: one user or group of the member's source from the Resolve form's search.</summary>
 public sealed class EntitlementPrincipal
 {
     public int Key { get; init; }

@@ -5,15 +5,13 @@
 ## Requested, not started
 - **Privilege Cloud Direct** (requested 2026-10-19, with Self-Hosted Direct, D-248): read Privilege Cloud through its API into `stg_pc_*` instead of the export folder, as a fourth option on the CyberArk sources page (already listed there, unavailable). Needs the Privilege Cloud API's logon (an Identity OAuth client, `Platform/Developer` and `PAM/Privilege-Cloud-Standard` in the Idira reference), a lab tenant, and the same change guard.
 
-- **Release the EVD removal** (D-278, built 2026-10-21 on branch `2026-10-21-shd-remove-evd`): merge and release only after production has switched to Self-Hosted Direct and signed off (`Archive_Planning_Self-Hosted-Direct-And-EVD-Retirement.md`).
 
 ## Requested, deferred
-- **Resolve unresolved Self-Hosted Safe members** (deferred 2026-10-21, D-277): with Direct, a member PVWA has no user or group for is listed on the Unresolved report, but Resolve works for Privilege Cloud members only (`EntitlementMemberResolutionRepository`).
 - **Localize server-side text** (requested 2026-10-14): API error messages (ProblemDetails), audit details, feed run summaries and emails are English only; D-227 covers the SPA. A proposal (error codes translated in the SPA, audit details kept in English, one installation-wide email language) is in `Planning_Server-Side-Localization.md`; whether to build it depends on a second language being planned (`Planning_Questions-Backlog.md`, question 5).
 
 ## From Self-Hosted Direct (D-248, 2026-10-19)
 - **Direct is unproven on a large Vault and over time** (Medium): measured on 40 Safes, 2,452 accounts and 43 users (about 8 seconds), through the REST API and through a fake PVWA, and compared once with the EVD. Not yet run as a scheduled night, against thousands of Safes (one call each) or users (one call each), or through the Agent job's Import gate on a real run.
-- **REST doesn't return some EVD properties** (Low): `LastVerified` and `LastReconciled` (the EVD's `CAFLastUsedDate` stood in for the first), `RemoteMachines`, `DeviceType`, `CreationMethod`, linked logon and reconcile accounts, and `LogonDomain` on two PSM accounts. Checked 2026-10-20 against CPM-processed accounts on the lab's 14.6: `lastReconciledTime` and `status` are returned, `lastVerifiedTime` is not (verify history comes from the account activity call instead); see `Archive_Planning_Self-Hosted-Direct-And-EVD-Retirement.md`.
+- **REST doesn't return some EVD properties** (Low): `LastVerified` and `LastReconciled` (the EVD's `CAFLastUsedDate` stood in for the first), `RemoteMachines`, and `LogonDomain` on two PSM accounts (`DeviceType`, `CreationMethod` and the linked accounts come from the classic API since D-280). Checked 2026-10-20 against CPM-processed accounts on the lab's 14.6: `lastReconciledTime` and `status` are returned, `lastVerifiedTime` is not (verify history comes from the account activity call instead); see `Archive_Planning_Self-Hosted-Direct-And-EVD-Retirement.md`.
 - **Windows and SAML logon to PVWA** (Low): Direct supports CyberArk and LDAP authentication only (both take the credential's user name and password).
 
 ## From the audit findings (moved here 2026-10-13, at the user's request)
@@ -32,10 +30,9 @@
 
 ## Found in the real CyberArk data (checked 2026-10-13)
 Self-Hosted: EVD `CyberArkSH`, loaded 2026-10-13. Privilege Cloud: the export CSVs in the configured folder (loaded since D-228, 2026-10-14).
-- **Self-Hosted properties still not read** (D-244 reads `LogonDomain` and `CPMDisabled`): `DeviceType`, `CreationMethod` and the linked logon/reconcile account properties (`ExtraPass1*`, `ExtraPass3*`). `fact_account` has no columns for them and nothing displays them, so each needs a column and a place on the account page first. The EVD has no CPM status or last-change properties, so those stay empty for Self-Hosted.
-- **Q-27 columns never filled**: the `CAFLock*` and `CAFAccessed`/`CAFNew`/`CAFRetrieved`/`CAFModified`/`CAFIsRequestNeeded` columns on `stg_sh_files` exist, but the EVD import doesn't select them.
 - **Privilege Cloud columns always empty** in the current export: `LastReconciled`, `RemoteMachines`, `Deleted`, and the new Users `Enabled`/`Suspended` and Groups `Directory` (stored since D-228); `LastVerified`, `Platform_LogonDomain` and `CPMStatus` are mostly empty.
-- **Privilege Cloud exports with no importer**: `Export LDAP Group Members.csv` and `Export_ApplicationsList.csv`. Decide whether either is useful.
+- **Privilege Cloud exports with no importer**: `Export LDAP Group Members.csv` and `Export_ApplicationsList.csv`. Self-Hosted now gets both from the source (D-281 reads Safe groups' members from AD, D-282 the CyberArk Applications from PVWA); decide whether Privilege Cloud needs them.
+- **Nested AD group path** (D-281): "Via AD group" names the Safe's group; a person in a nested group isn't shown the group in between.
 - **Direct Account→Target links**: neither CyberArk source lists remote machines (Privilege Cloud `RemoteMachines` is empty; Self-Hosted has no such property), so the Address-derived links (D-193) are the CyberArk side. The `AccountTargetMap` data feed exists (`App/Api/DataFeeds/FeedColumns.cs:21`); what's missing is a non-CyberArk system to supply it.
 
 ## Process and tooling

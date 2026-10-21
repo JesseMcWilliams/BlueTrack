@@ -63,6 +63,7 @@ instead.
 | 45 | `45_BlueTrack_SelfHostedDirectLoad.sql` | D-277: the Load reads `stg_shd_*` when the Self-Hosted staging came from a Direct pull (`dbo.fn_SelfHostedStagedByDirect`). New `fact_account` columns `CreatedTime`, `LastCPMAction`, `LastCPMActionResult`, `LastCPMActionTime`; `cyberark_direct_pull.BaselineSafeCount`/`BaselineAccountCount`; Self-Hosted `dim_location` keyed by path (existing rows moved over); `permission_alias` rows for the REST names; view `dbo.vw_selfhosted_internal_safe`; recreates `usp_Load_DimLocation`, `usp_Load_DimSafe`, `usp_Load_DimUser`, `usp_Load_DimGroup`, `usp_Load_FactAccount` (Privilege Cloud's `CPMStatus` lowercased) and `usp_Load_FactSafeEntitlement`. |
 | 46 | `46_BlueTrack_PowerBiCpmActionColumns.sql` | D-277: `vw_powerbi_accounts` adds `CreatedTime`, `LastCPMAction`, `LastCPMActionResult` and `LastCPMActionTime` at the end. |
 | 47 | `47_BlueTrack_RemoveEvdSource.sql` | D-278: the EVD source and the shadow pull are removed. Refuses, in its first batch and changing nothing, a site whose Self-Hosted source is still the EVD. Drops `usp_Import_SelfHosted_EVD`, `vw_shd_comparison`, `usp_Compare_SelfHostedShadow`, `usp_Apply_ShadowComparisonMarks`, `web.cyberark_source_config.EvdDatabaseName`/`ShadowPullEnabled`/`ShadowPullTime` and `dbo.cyberark_direct_pull.IsShadow` (shadow pulls deleted first); `SelfHostedSource` can only be `Direct`; recreates `usp_Import_All` (no `@EVDDatabaseName`/`@ImportSelfHosted`) and `usp_Import_Configured`. Keeps `shd_comparison_run`/`_difference` and `web.shd_comparison_mark`. |
+| 48 | `48_BlueTrack_SelfHostedDirectExtras.sql` | D-280 to D-282, Self-Hosted Direct beyond REST. D-280: `dbo.cyberark_direct_account_detail` (the classic account details cache), `stg_shd_account_details`, `fact_account` `DeviceType`, `CreationMethod`, `LinkedLogonAccount(Key)`, `LinkedReconcileAccount(Key)`, `usp_Load_FactAccountClassicDetail`, `vw_powerbi_accounts` with the four text columns at the end. D-282: `stg_shd_applications`, `stg_shd_application_authentications`, `dim_cyberark_application(_authentication)`, `usp_Load_DimCyberArkApplication`, `vw_cyberark_application_account_access`. D-281: `usp_Load_GroupMembership` loads Self-Hosted Vault group members; `stg_shd_ad_group_reads`/`_members`, `ad_group_member`, `ad_group_read`, `usp_Apply_AdGroupMembers` (also run by the API's standalone AD read when Self-Hosted is off), `usp_Load_AdGroupMembers`, `vw_safe_access_people`. Recreates `usp_RunFullLoad` with the three new steps. |
 
 ## The baseline (D-195)
 
@@ -87,7 +88,7 @@ scripts but not up to `51` is refused; upgrade it first from the
 
 ## Adding a script
 
-1. Name it `NN_BlueTrack_<Topic>.sql`, with `NN` the next number (`48` is next).
+1. Name it `NN_BlueTrack_<Topic>.sql`, with `NN` the next number (`49` is next).
 2. Start with a header comment: the file name, `RUN THIS AFTER 01-NN.`, what
    it changes and why (with the `D-n` decision), and whether it's safe to
    re-run.

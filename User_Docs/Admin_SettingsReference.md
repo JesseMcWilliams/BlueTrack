@@ -22,7 +22,7 @@ Each section has a table with these columns:
 
 Allowed values and ranges are given in the "What it does" column or in the notes after a table. Where a setting needs more explanation, a short paragraph follows the table.
 
-Every Admin page needs its own permission (see "Roles & Permissions"). A user sees only the Admin pages their roles allow.
+Every Admin page needs its own permission (see "Roles & Permissions"). A user sees only the Admin pages their roles allow. When a save is refused, the page gives the reason (for example a name already in use, or something that still uses the record); a save that returns to a list says so there.
 
 This guide has two parts. This file covers sections 1 to 5. Sections 6 (Secrets Store and Credentials, including LDAP), 7 (Notifications) 8 (SIEM Forwarding) and 9 (API Keys) are in [Admin_SettingsReference_Notifications.md](Admin_SettingsReference_Notifications.md). Both are published together as the Administrator Settings Guide.
 
@@ -237,6 +237,7 @@ Recommendations:
 - **Mind `ManageTargets`.** It also lets Analysts edit Import Mapping Profiles, which change how data feeds read files. Remove it from Analyst if that should be an administrator task.
 - **Sending a stored credential to a new SMTP server** needs `ManageCredentials` as well as `ManageNotifications`, so keep `ManageCredentials` with security administrators.
 - A role still mapped to a group can't be deleted. Permission changes apply to every user on their next request.
+- Each page opens only with its permission; otherwise the user sees **Access Denied**. A signed-in user with no role at all sees only a "You don't have access to BlueTrack yet" page naming their account, with **Check again** to re-read their roles once you've mapped one.
 
 ## 3. Data and risk scoring
 
@@ -262,7 +263,7 @@ The matched file is left in place after import. Only one run happens at a time.
 
 ### CyberArk sources
 
-**Admin > Data Sources**, the "CyberArk sources" section at the top, then **Edit CyberArk sources** (permission `ManageDataSources`). These settings are read by the nightly Import+Load job's Import step (02:00); changes apply from the next nightly run. There is no Run now for them. The installer sets them on first install (section 5, "Nightly import"); until they're saved, the page shows "Not set up yet" and the nightly import fails.
+**Admin > Data Sources**, the "CyberArk sources" section at the top, then **Edit CyberArk sources** (permission `ManageDataSources`). These settings are read by the nightly Import+Load job's Import step (02:00); changes apply from the next nightly run. Privilege Cloud has no Run now; Self-Hosted has **Pull now** (below). The installer sets them on first install (section 5, "Nightly import"); until they're saved, the page shows "Not set up yet" and the nightly import fails.
 
 | Setting | What it does | Default | Recommended | Why |
 |---|---|---|---|---|
@@ -270,6 +271,28 @@ The matched file is left in place after import. Only one run happens at a time.
 | Export folder | The folder holding the exports, up to 400 characters. Must be inside the server's allowed folders (without any set: local folders only, no network shares). | Installer's answer | A local folder on the SQL Server | SQL Server's service account reads the files, so it needs read access. |
 | Platforms, Users, Groups, Local group members, Safes, Accounts, Entitlements file | The file name of each export, up to 200 characters. A date format in braces, such as `{yyyy-MM-dd}`, becomes the run's date; `*` and `?` aren't allowed. | `Export_PlatformsList.csv`, `Export_UsersList.csv`, `Export_GroupsList.csv`, `Export Local Group Members {yyyy-MM-dd}.csv`, `Export_SafesList.csv`, `Export_AccountsList.csv`, `Export Entitlements {yyyy-MM-dd}.csv` | The defaults, unless your exports are named differently | SQL Server needs the exact file name. |
 | Import Self-Hosted | Read Self-Hosted from PVWA each night (Self-Hosted Direct); its settings are below. | Installer's answer | On if you have Self-Hosted | As above. |
+
+**Self-Hosted Direct.** BlueTrack reads Safes, accounts, Safe members, users, groups and platforms from PVWA's REST API each night, at the pull time, before the import job. It sees only what its account can see, and doesn't read pending (discovered) accounts. It needs PAM Self-Hosted 14.2 or later.
+
+| Setting | What it does | Default | Recommended | Why |
+|---|---|---|---|---|
+| PVWA address | The PVWA's address, `https://` only; the `/PasswordVault` part is optional. Up to 400 characters. | Blank | Your PVWA's address, as reachable from the BlueTrack server | The credential's password is sent over this connection, so plain HTTP is refused. |
+| Credential | A named credential from **Admin > Credentials & LDAP**. A CyberArk CP or CCP credential is fetched from the Vault at each pull. **Create a credential** opens that page and returns here with the new one chosen, keeping what you typed. | None | A CP or CCP credential for a dedicated PVWA user | The password then stays in the Vault and can be rotated there. |
+| Logon method | **CyberArk** or **LDAP**; both use the credential's user name and password. | CyberArk | The method the PVWA user is set up for | Windows and SAML logon aren't supported. |
+| Pull time limit (minutes) | A pull (nightly or **Pull now**) still running after this long is stopped and logged as failed; the staged data the nightly load reads is left as it was. Allowed: 5 to 720. | 45 | 45, or longer if your pulls take longer | A PVWA that stops answering can't hold the pull past the import. Check how long your pulls take in the pull log's **Details**. |
+| Pull time | When the nightly pull runs, server time (HH:mm). | 01:30 | Early enough to finish well before the 02:00 import | The import fails if the latest pull didn't succeed or is more than 20 hours old. |
+| Allowed change (%) | The most the number of Safes, or of accounts, may change from the last good pull before a pull is rejected. A change of 5 or fewer is always allowed. Allowed: 0 to 100. | 20 | 20 | A lost Safe membership or a wrong credential looks like Safes and accounts disappearing; without this check the next load would mark their accounts deleted. |
+
+If the chosen credential is a CyberArk CP or CCP credential and that backend isn't set up on **Admin > Secrets Store Configuration** (CP needs an App ID; CCP a Base URL and an App ID), the page says so, with **Open Secrets Store**. The PVWA user's Safe memberships and Vault authorizations are in the Operations Guide, "Self-Hosted Direct Pulls".
+
+**The pull log.** Under "Self-Hosted Direct pulls", Data Sources lists recent pulls: when each started, who started it, the result (Succeeded, Rejected or Failed) and what it read (Safes, accounts, users, groups; a rejected pull shows the Safe and account counts before and after). **Details** shows the whole pull: who started it, how long it took, every message, all the counts, what the result means and what to do.
+
+- **Pull now** starts a pull straight away (inside business hours, after a confirmation). It replaces the staged Self-Hosted data the next import loads.
+- **Accept the change and pull**, offered after a **Rejected** pull, pulls again and accepts whatever PVWA returns, after a confirmation. Accounts PVWA no longer returns are marked deleted at the next load.
+- **Cancel pull**, while a pull runs (nightly or Pull now), stops it after a confirmation. It is logged as failed, and the staged data is left as it was.
+- After a failed or rejected latest pull, Data Sources shows a banner saying tonight's import will fail until a pull succeeds, and the Admin menu shows ⚠ next to **Data Sources**. A rejected pull's message names the Safes it no longer returns and the new ones (up to 20 of each).
+
+Pull now, Accept and Cancel are recorded in the Audit Log. The **SelfHostedPullFailed** notification (section 7) emails a failed or rejected pull.
 
 **Test** checks the values on the page, saved or not: with Self-Hosted on, it logs on to PVWA with the credential and counts what it can see; with Privilege Cloud on, it checks that the export folder and today's seven files exist as the App Pool's account sees them. It also reads the header row of each Privilege Cloud file and reports any column the import needs that the file lacks ("the import would fail"), and lists optional columns that will import as empty. During the import it's SQL Server's service account that reads the files, so it needs read access too. Every save is recorded in the audit log, with each changed field.
 
@@ -302,7 +325,7 @@ A file in the template's own format needs no profile.
 
 - **Link**: keeps the imported row as its own target, linked to the candidate, or to another target found by typing at least 2 characters of its name or any identifier in **Link To**. The IP address stays on the existing target. Anything that reaches either target counts once, at the risk score of the target it's linked to.
 - **New Target**: keeps it as a separate, unlinked target.
-- **Ignore**: creates nothing.
+- **Ignore**: creates nothing, after a confirmation.
 
 Every choice is remembered. A later import of the same row (the same name and discovery source) goes straight to the target that Link or New Target made, and an ignored row is skipped (the Bulk Actions result says how many). Linked targets are hidden on **Targets** unless **Linked targets** is set to **Show**. The **Edit Target** page shows the target a linked target belongs to, or a target's **Linked Targets**, with **Unlink**: an unlinked target counts at its own risk score again and isn't linked again automatically. Every resolution, link and unlink is recorded in the audit log.
 
@@ -351,7 +374,7 @@ Every choice is remembered. A later import of the same row (the same name and di
 
 A Secondary or Admin **Name** rule on sAMAccountName also gives the owner: the name without the prefix or suffix (`adm.jsmith` is owned by `jsmith`), or the text a pattern's single `*` matched. The owner is used only if that account was found: it's a discovered account, or the discovery run read it from AD. The name rule is tried before the employee ID. A Primary account is its own owner.
 
-Saving the settings, or adding, changing, moving or deleting a rule, reclassifies every discovered account at once from what the last discovery run read; it doesn't contact AD. **Reclassify Now** does the same on request. An owner outside the discovered accounts for a new name rule appears after the next discovery run. Every change is recorded in the Audit Log (event **AccountClassification**).
+Saving the settings, or adding, changing, moving or deleting a rule, reclassifies every discovered account at once from what the last discovery run read; it doesn't contact AD. **Reclassify Now** does the same on request; **See the result on Discovered Accounts** opens the report. An owner outside the discovered accounts for a new name rule appears after the next discovery run. Every change is recorded in the Audit Log (event **AccountClassification**).
 
 ### Platform Mapping
 
@@ -368,7 +391,9 @@ The page lists every platform, the ones with no mapping first, with its source, 
 
 ### Application ↔ Safe Mapping
 
-**Admin > Application ↔ Safe Mapping** (permission `CurateApplicationMapping`) has no settings. It holds data: each application's code, name, description, owner and technical contact, and which application each safe belongs to. Keep it current, because the risk reports group accounts by application. An account can also be assigned to an application on its own edit form (**Application**), in addition to its safe's; that is how an account with no safe, such as a pending account, belongs to one. When an account's own application and its safe's differ, both apply: an Active risk exception on either one covers the account, and Reports > Trends' Application filter counts it under either.
+**Admin > Application ↔ Safe Mapping** (permission `CurateApplicationMapping`) has no settings. It holds data: each application's code, name, description, owner and technical contact, and which application each safe belongs to. Keep it current, because the risk reports group accounts by application. An account can also be assigned to an application on its own edit form (**Application**), in addition to its safe's; that is how an account with no safe, such as a pending account, belongs to one. When an account's own application and its safe's differ, both apply: an Active risk exception on either one covers the account, and Reports > Trends' Application filter counts it under either. Many accounts can be given one with **Bulk edit…** on Accounts, or with the **Account → Application Assignments** CSV on this page's **Bulk Actions** (or a data feed of that type). Each Bulk Actions import has **Check file**, which reports what the file would do and its row errors without changing anything.
+
+The Applications table shows what uses each application (**In use**: Safes, accounts, targets and exceptions). An application can be deleted only when nothing uses it. The Safes table has **Find a Safe:** and **Only Safes with no application**, to find the Safes still to assign.
 
 ## 4. Deployment page and health checks
 

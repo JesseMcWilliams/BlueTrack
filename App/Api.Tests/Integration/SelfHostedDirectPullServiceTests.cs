@@ -44,14 +44,19 @@ public class SelfHostedDirectPullServiceTests : IClassFixture<BlueTrackWebApplic
         public List<string> Requests { get; } = [];
         /// <summary>D-273: how long the Safes call hangs before it answers (a PVWA that stops responding).</summary>
         public TimeSpan SafesDelay { get; set; }
+        /// <summary>D-280: the classic search for this Safe hangs, and <see cref="OnClassicHang"/> runs when it starts.</summary>
+        public string? ClassicHangSafe { get; set; }
+        public Action? OnClassicHang { get; set; }
 
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
             var absolute = request.RequestUri!.AbsolutePath;
             var path = (absolute.StartsWith("/PasswordVault/API/", StringComparison.Ordinal) ? absolute["/PasswordVault/API/".Length..] : absolute).TrimEnd('/');
             if (path == "Safes" && SafesDelay > TimeSpan.Zero) return HangThenAnswerAsync(request, cancellationToken);
-            Requests.Add(request.Method + " " + path);
-            int offset = int.TryParse(System.Web.HttpUtility.ParseQueryString(request.RequestUri.Query)["offset"], out var o) ? o : 0;
+            var query = System.Web.HttpUtility.ParseQueryString(request.RequestUri.Query);
+            if (path == "/PasswordVault/WebServices/PIMServices.svc/Accounts" && query["Safe"] == ClassicHangSafe) return HangAsync(cancellationToken);
+            lock (Requests) Requests.Add(request.Method + " " + path);   // D-280: classic reads run in parallel
+            int offset = int.TryParse(query["offset"], out var o) ? o : 0;
             string json;
             if (path.StartsWith("auth/", StringComparison.OrdinalIgnoreCase)) json = "\"stub-token\"";
             else if (path.Equals("Auth/Logoff", StringComparison.OrdinalIgnoreCase)) json = "{}";
@@ -59,6 +64,22 @@ public class SelfHostedDirectPullServiceTests : IClassFixture<BlueTrackWebApplic
             else if (path == "Platforms/Targets") json = """{"Platforms":[],"Total":0}""";
             else if (path == "/PasswordVault/WebServices/PIMServices.svc/Accounts/910001_1/Activities")
                 json = """{"GetAccountActivitiesSlashResult":[{"ActivityCode":22,"Activity":"CPM Verify Password","Time":"10/20/2026 00:12:47","UserName":"PasswordManager"}]}""";
+            else if (path == "/PasswordVault/WebServices/PIMServices.svc/Accounts" && query["Keywords"] == "u host" && query["Safe"]?.StartsWith("PullTestSafe") == true)
+            {
+                // D-280: the classic search: every account of the Safe matches "u host", so the client must pick by AccountID.
+                var safe = int.Parse(query["Safe"]!["PullTestSafe".Length..]);
+                json = new JsonObject
+                {
+                    ["Count"] = AccountsPerSafe,
+                    ["accounts"] = new JsonArray(Enumerable.Range(1, AccountsPerSafe).Select(a => (JsonNode)new JsonObject
+                    {
+                        ["AccountID"] = $"{910_000 + safe}_{a}",
+                        ["Properties"] = new JsonArray(new JsonObject { ["Key"] = "DeviceType", ["Value"] = $"Type {safe}-{a}" }),
+                        ["InternalProperties"] = new JsonArray(new JsonObject { ["Key"] = "CreationMethod", ["Value"] = "PVWA" })
+                    }).ToArray())
+                }.ToJsonString();
+            }
+            else if (path == "/PasswordVault/WebServices/PIMServices.svc/Applications") json = """{"application":[]}""";   // D-282
             else if (path == "Safes")
             {
                 json = new JsonObject
@@ -76,6 +97,7 @@ public class SelfHostedDirectPullServiceTests : IClassFixture<BlueTrackWebApplic
                     ["value"] = new JsonArray(offset > 0 ? [] : Enumerable.Range(1, Safes).SelectMany(s => Enumerable.Range(1, AccountsPerSafe).Select(a => (JsonNode)new JsonObject
                     {
                         ["id"] = $"{910_000 + s}_{a}", ["name"] = $"acct{s}-{a}", ["address"] = "host", ["userName"] = "u", ["platformId"] = "UnixSSH", ["safeName"] = $"PullTestSafe{s:00}",
+                        ["categoryModificationTime"] = 1792455000,
                         // One account the CPM has acted on, so its activity is read.
                         ["secretManagement"] = s == 1 && a == 1
                             ? new JsonObject { ["automaticManagementEnabled"] = true, ["status"] = "success", ["lastReconciledTime"] = 1792455153 }
@@ -89,6 +111,13 @@ public class SelfHostedDirectPullServiceTests : IClassFixture<BlueTrackWebApplic
             else if (path == "UserGroups") json = """{"value":[{"id":910002,"groupName":"PullTestGroup","groupType":"Vault","members":[{"id":910001,"username":"pulltest.user"}]}]}""";
             else return Task.FromResult(new HttpResponseMessage(HttpStatusCode.NotFound) { Content = new StringContent("{\"ErrorMessage\":\"no route: " + path + "\"}") });
             return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(json, Encoding.UTF8, "application/json") });
+        }
+
+        private async Task<HttpResponseMessage> HangAsync(CancellationToken cancellationToken)
+        {
+            OnClassicHang?.Invoke();
+            await Task.Delay(TimeSpan.FromSeconds(30), cancellationToken);
+            return new HttpResponseMessage(HttpStatusCode.ServiceUnavailable);
         }
 
         private async Task<HttpResponseMessage> HangThenAnswerAsync(HttpRequestMessage request, CancellationToken cancellationToken)
@@ -138,6 +167,7 @@ public class SelfHostedDirectPullServiceTests : IClassFixture<BlueTrackWebApplic
             DELETE FROM stg_shd_platforms; DELETE FROM stg_shd_platform_properties; DELETE FROM stg_shd_safes; DELETE FROM stg_shd_accounts;
             DELETE FROM stg_shd_account_properties; DELETE FROM stg_shd_account_cpm_activity; DELETE FROM stg_shd_safe_members;
             DELETE FROM stg_shd_users; DELETE FROM stg_shd_user_authorizations; DELETE FROM stg_shd_groups; DELETE FROM stg_shd_group_members;
+            DELETE FROM stg_shd_account_details; DELETE FROM dbo.cyberark_direct_account_detail WHERE AccountId LIKE '9100%';
             DELETE FROM dbo.cyberark_direct_pull WHERE PullKey > @maxPullBefore;
             DELETE FROM dbo.etl_run_log WHERE EtlRunKey > @maxEtlRunBefore;
             DELETE FROM web.cyberark_source_config;
@@ -363,6 +393,48 @@ public class SelfHostedDirectPullServiceTests : IClassFixture<BlueTrackWebApplic
         Assert.Equal(before, await StagedAsync());
     }
 
+    private int ClassicCalls() => _pvwa.Requests.Count(r => r == "GET /PasswordVault/WebServices/PIMServices.svc/Accounts");
+
+    [Fact]
+    public async Task ClassicDetails_AreReadOnce_Cached_AndStagedEveryPull()
+    {
+        // D-280: the first pull reads every account's details; the next reads none (nothing changed) but stages them all again.
+        Assert.Equal("Succeeded", (await PullAsync()).Status);
+        Assert.Equal(60, ClassicCalls());
+        await using var connection = new SqlConnection(TestDatabase.ConnectionString);
+        Assert.Equal(("Type 7-2", "PVWA"), await connection.QuerySingleAsync<(string, string)>(
+            "SELECT DeviceType, CreationMethod FROM dbo.cyberark_direct_account_detail WHERE AccountId = '910007_2'"));
+        Assert.Equal((60, 60), await connection.QuerySingleAsync<(int, int)>(
+            "SELECT COUNT(*), SUM(CAST(ReadThisPull AS INT)) FROM stg_shd_account_details WHERE DeviceType LIKE 'Type %'"));
+
+        _pvwa.Requests.Clear();
+        _pvwa.AccountsPerSafe = 1;   // the second account of every Safe is gone: 30 of 60 is past the 20% guard, so accept it
+        Assert.Equal("Succeeded", (await PullAsync(acceptChange: true)).Status);
+        Assert.Equal(0, ClassicCalls());
+        Assert.Equal((30, 0), await connection.QuerySingleAsync<(int, int)>(
+            "SELECT COUNT(*), SUM(CAST(ReadThisPull AS INT)) FROM stg_shd_account_details"));
+        // The cache forgets accounts PVWA no longer returns.
+        Assert.Equal(30, await connection.QuerySingleAsync<int>("SELECT COUNT(*) FROM dbo.cyberark_direct_account_detail WHERE AccountId LIKE '9100%'"));
+    }
+
+    [Fact]
+    public async Task ClassicDetailsReadBeforeACancel_AreKept_ButStagingIsNot()
+    {
+        using var cancel = new CancellationTokenSource();
+        _pvwa.ClassicHangSafe = "PullTestSafe30";
+        _pvwa.OnClassicHang = () => cancel.CancelAfter(TimeSpan.FromMilliseconds(500));
+
+        using var scope = _factory.Services.CreateScope();
+        var outcome = await scope.ServiceProvider.GetRequiredService<SelfHostedDirectPullService>()
+            .RunAsync("tester", acceptChange: false, CancellationToken.None, cancel.Token);
+
+        Assert.Equal("Failed", outcome.Status);
+        Assert.Matches(@"^The pull was cancelled on Data Sources\. The staged data wasn't changed\. The \d+ account detail\(s\) read before it stopped were kept", outcome.Message);
+        await using var connection = new SqlConnection(TestDatabase.ConnectionString);
+        Assert.InRange(await connection.QuerySingleAsync<int>("SELECT COUNT(*) FROM dbo.cyberark_direct_account_detail WHERE AccountId LIKE '9100%'"), 1, 58);
+        Assert.Equal(0, await connection.QuerySingleAsync<int>("SELECT COUNT(*) FROM stg_shd_account_details"));
+    }
+
     [Fact]
     public async Task Test_ReportsTheCredentialLogonAndCounts_WritingNothing()
     {
@@ -376,5 +448,6 @@ public class SelfHostedDirectPullServiceTests : IClassFixture<BlueTrackWebApplic
         Assert.Contains(checks, c => c.Item == "PVWA logon");
         Assert.Contains("30 Safes, 60 accounts", checks.Single(c => c.Item == "Read").Message);
         Assert.Equal((0, 0, 0, 0, 0), await StagedAsync());
+        Assert.Equal(0, ClassicCalls());   // D-280: Test doesn't read the classic details
     }
 }

@@ -60,18 +60,33 @@ describe('UnresolvedEntitlementMembers.vue', () => {
     expect(wrapper.findAll('button').filter(b => b.text() === 'Resolve')).toHaveLength(0)
   })
 
-  // D-277: Self-Hosted members (a Direct pull) are listed, but can't be resolved here yet.
-  it('lists a Self-Hosted member with its source and no Resolve button', async () => {
+  // D-279: a Self-Hosted member (a Direct pull) is resolved like a Privilege Cloud one, against its own source.
+  it('resolves a Self-Hosted member against Self-Hosted users, counting only its own source', async () => {
     const selfHosted = { ...unresolved, entitlementKey: 9, sourceSystemCode: 'SELFHOSTED', sourceSystemName: 'Self-Hosted', unresolvedMemberId: '777', memberName: 'hidden.user' }
-    globalThis.fetch = vi.fn(() => Promise.resolve(jsonResponse([unresolved, selfHosted])))
+    // The same ID from Privilege Cloud is a different member.
+    const sameIdCloud = { ...unresolved, entitlementKey: 10, unresolvedMemberId: '777', memberName: 'cloud.user' }
+    globalThis.fetch = vi.fn((url, init) => {
+      if (init?.method === 'POST') return Promise.resolve(jsonResponse(null, { status: 204 }))
+      if (url.includes('/principals')) return Promise.resolve(jsonResponse([]))
+      return Promise.resolve(jsonResponse([unresolved, selfHosted, sameIdCloud]))
+    })
     const wrapper = mountPage(['ViewDashboard', 'ConfirmReconciliation'])
     await flushPromises()
 
     const rows = wrapper.findAll('tbody tr')
     expect(rows[1].text()).toContain('Self-Hosted')
-    expect(rows[1].text()).toContain('Self-Hosted: not yet resolvable here')
-    expect(rows[1].findAll('button').filter(b => b.text() === 'Resolve')).toHaveLength(0)
-    expect(rows[0].findAll('button').filter(b => b.text() === 'Resolve')).toHaveLength(1)
+    await rows[1].findAll('button').find(b => b.text() === 'Resolve').trigger('click')
+    await flushPromises()
+
+    expect(globalThis.fetch.mock.calls.some(([url]) => url === '/api/reports/unresolved-entitlement-members/principals?sourceSystemCode=SELFHOSTED&memberType=User&q=hidden.user')).toBe(true)
+    expect(wrapper.text()).toContain('on 1 safe')
+    expect(wrapper.text()).toContain('External (not a Vault user or group)')
+    await wrapper.find('input[value="External"]').setValue(true)
+    await wrapper.findAll('button').find(b => b.text() === 'Save').trigger('click')
+    await flushPromises()
+
+    const post = globalThis.fetch.mock.calls.find(([, init]) => init?.method === 'POST')
+    expect(JSON.parse(post[1].body)).toMatchObject({ sourceSystemCode: 'SELFHOSTED', memberType: 'User', sourceMemberId: '777', resolution: 'External' })
   })
 
   it('Show resolved reloads with resolved rows and says how each was resolved', async () => {
@@ -102,7 +117,7 @@ describe('UnresolvedEntitlementMembers.vue', () => {
     await flushPromises()
 
     expect(wrapper.find('h3').text()).toBe('Resolve jane.doe@corp.example')
-    expect(globalThis.fetch.mock.calls.some(([url]) => url === '/api/reports/unresolved-entitlement-members/principals?memberType=User&q=jane.doe%40corp.example')).toBe(true)
+    expect(globalThis.fetch.mock.calls.some(([url]) => url === '/api/reports/unresolved-entitlement-members/principals?sourceSystemCode=PRIVCLOUD&memberType=User&q=jane.doe%40corp.example')).toBe(true)
     expect(wrapper.find('input[role="combobox"]').element.value).toBe('jane.doe@corp.example')
 
     await wrapper.findAll('button').find(b => b.text() === 'Save').trigger('click')
@@ -111,7 +126,7 @@ describe('UnresolvedEntitlementMembers.vue', () => {
     const post = globalThis.fetch.mock.calls.find(([, init]) => init?.method === 'POST')
     expect(post[0]).toBe('/api/reports/unresolved-entitlement-members/resolve')
     expect(JSON.parse(post[1].body)).toEqual({
-      memberType: 'User', sourceMemberId: '6a1f-guid', resolution: 'Linked', userKey: 40, groupKey: null, note: null
+      sourceSystemCode: 'PRIVCLOUD', memberType: 'User', sourceMemberId: '6a1f-guid', resolution: 'Linked', userKey: 40, groupKey: null, note: null
     })
     expect(wrapper.find('h3').exists()).toBe(false)
     // UI review W5-5: a line says what was saved
@@ -165,7 +180,7 @@ describe('UnresolvedEntitlementMembers.vue', () => {
     expect(confirmDelete).toHaveBeenCalledWith(expect.stringContaining('DPA_Admin_Role'), 'Undo')
     const post = globalThis.fetch.mock.calls.find(([, init]) => init?.method === 'POST')
     expect(post[0]).toBe('/api/reports/unresolved-entitlement-members/unresolve')
-    expect(JSON.parse(post[1].body)).toEqual({ memberType: 'Group', sourceMemberId: 'DPA_Admin_Role' })
+    expect(JSON.parse(post[1].body)).toEqual({ sourceSystemCode: 'PRIVCLOUD', memberType: 'Group', sourceMemberId: 'DPA_Admin_Role' })
     expect(globalThis.fetch.mock.calls.filter(([url]) => url.includes('showResolved'))).toHaveLength(2)
   })
 })

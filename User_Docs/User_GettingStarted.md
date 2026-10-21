@@ -96,7 +96,7 @@ What this means for you:
 Some information doesn't come from CyberArk, such as which servers exist, which groups reach them, and which applications own which safes. There are two ways to bring it in:
 
 - **Data feeds** (admin): **Admin > Data Sources** picks up CSV files from folders every night, after the CyberArk load.
-- **Bulk Actions** (by hand): **Targets**, **Access Groups**, **Exceptions** and **Admin > Application ↔ Safe Mapping** each have a **Bulk Actions** button. It opens a CSV import with a **Download template** link. A bad row is reported with its row number, and the other rows still import.
+- **Bulk Actions** (by hand): **Targets**, **Access Groups**, **Exceptions** and **Admin > Application ↔ Safe Mapping** each have a **Bulk Actions** button. It opens a CSV import with a **Download template** link. A bad row is reported with its row number, and the other rows still import. On Application ↔ Safe Mapping there are three: applications, safe → application assignments, and account → application assignments (an application for each account by its user name and address).
 
 ### If the data looks out of date
 
@@ -192,6 +192,7 @@ When the same change applies to many accounts, for example a new owner for 40 se
 3. Click **Bulk edit…**. On the **Bulk Edit Accounts** page, tick **Change** next to each field you want to set. Fields you don't tick stay as they are on each account.
 4. For **Notes**, choose **Add to the existing notes** or **Replace the notes**.
 5. Fill in **Reason** if the new stage is earlier than any account's current stage.
+6. Click **Apply to *n* accounts**, check the list of fields it will change, and confirm.
 
 You can't link a risk exception in bulk. Do that on each account. Accounts someone else is editing are skipped and listed, and stay selected so you can try again later. There's a limit to how many accounts one bulk action may change (500 unless your administrator changed it).
 
@@ -338,7 +339,7 @@ No identifier is moved off an existing target.
 | Reports > Safes Flagged for Deletion | Which safes are being retired, and how many of their accounts are still active? |
 | Reports > Accounts Flagged for Deletion | Which accounts are due to be removed, and have any already moved to another safe? |
 | Reports > Unresolved Entitlement Members | Which safe permissions belong to someone BlueTrack can't match to a user or group, and who are they really? |
-| Reports > Reconciliation Review | Which accounts might be the same account in both Privilege Cloud and Self-Hosted? (Read-only for now.) |
+| Reports > Reconciliation Review | Which accounts might be the same account in both Privilege Cloud and Self-Hosted? (For review only: no confirm or reject buttons.) |
 | Reports > Possible Account Matches | Which accounts from other systems might be CyberArk accounts we haven't linked yet? |
 | Reports > Risk Exception SoD | Who both approved an exception and linked it to an account? |
 | Reports > Trends | How have stages, % complete and risk levels changed over time, for everything or one application or safe? |

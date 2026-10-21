@@ -122,6 +122,95 @@ public sealed class SelfHostedDirectRepository(IDbConnectionFactory connectionFa
             new { keepDays });
     }
 
+    /// <summary>D-281: the names of the Privilege Cloud groups that are a member of some Safe (as of the last load).</summary>
+    public async Task<IReadOnlyList<string>> GetPrivilegeCloudSafeMemberGroupsAsync()
+    {
+        using var connection = connectionFactory.Create();
+        return (await connection.QueryAsync<string>("""
+            SELECT DISTINCT g.GroupName
+            FROM dbo.fact_safe_entitlement fse
+            JOIN dbo.dim_group g ON g.GroupKey = fse.GroupKey
+            JOIN dbo.dim_source_system s ON s.SourceSystemKey = g.SourceSystemKey AND s.SourceSystemCode = 'PRIVCLOUD'
+            WHERE fse.MemberType = 'Group' AND g.GroupName IS NOT NULL
+            ORDER BY g.GroupName
+            """)).ToList();
+    }
+
+    /// <summary>
+    /// D-281: the standalone AD read (Self-Hosted off): replaces the staged AD reads with these and applies them at once
+    /// (dbo.usp_Apply_AdGroupMembers), in one transaction. The nightly Load's own AD step needs Direct staging, so it
+    /// leaves these alone.
+    /// </summary>
+    public async Task ApplyAdGroupsAsync(StagingTables tables, CancellationToken ct)
+    {
+        using var raw = connectionFactory.Create();
+        var connection = (SqlConnection)raw;
+        await connection.OpenAsync(ct);
+        await using var transaction = (SqlTransaction)await connection.BeginTransactionAsync(ct);
+        foreach (var data in new[] { tables.DirectAdGroupReads, tables.DirectAdGroupMembers })
+        {
+            await using (var delete = new SqlCommand($"DELETE FROM dbo.{data.TableName}", connection, transaction)) await delete.ExecuteNonQueryAsync(ct);
+            if (data.Rows.Count == 0) continue;
+            using var bulk = new SqlBulkCopy(connection, SqlBulkCopyOptions.Default, transaction) { DestinationTableName = "dbo." + data.TableName, BulkCopyTimeout = 600 };
+            foreach (DataColumn column in data.Columns) bulk.ColumnMappings.Add(column.ColumnName, column.ColumnName);
+            await bulk.WriteToServerAsync(data, ct);
+        }
+        await using (var apply = new SqlCommand("EXEC dbo.usp_Apply_AdGroupMembers", connection, transaction) { CommandTimeout = 600 }) await apply.ExecuteNonQueryAsync(ct);
+        await transaction.CommitAsync(ct);
+    }
+
+    /// <summary>D-280: the classic account details read by earlier pulls (dbo.cyberark_direct_account_detail), by account id.</summary>
+    public async Task<IReadOnlyDictionary<string, PvwaAccountDetail>> GetAccountDetailCacheAsync()
+    {
+        using var connection = connectionFactory.Create();
+        var rows = await connection.QueryAsync<PvwaAccountDetail>("""
+            SELECT AccountId, CategoryModificationTime, DeviceType, CreationMethod, LogonSafe, LogonFolder, LogonName,
+                   ReconcileSafe, ReconcileFolder, ReconcileName
+            FROM dbo.cyberark_direct_account_detail
+            """);
+        return rows.ToDictionary(r => r.AccountId, StringComparer.Ordinal);
+    }
+
+    /// <summary>D-280: adds or replaces the cached details of the accounts just read.</summary>
+    public async Task UpsertAccountDetailCacheAsync(IReadOnlyCollection<PvwaAccountDetail> details)
+    {
+        using var connection = connectionFactory.Create();
+        foreach (var chunk in details.Chunk(500))
+        {
+            await connection.ExecuteAsync("""
+                MERGE dbo.cyberark_direct_account_detail AS t
+                USING (SELECT @AccountId AS AccountId) AS s ON t.AccountId = s.AccountId
+                WHEN MATCHED THEN UPDATE SET CategoryModificationTime = @CategoryModificationTime, DeviceType = @DeviceType,
+                    CreationMethod = @CreationMethod, LogonSafe = @LogonSafe, LogonFolder = @LogonFolder, LogonName = @LogonName,
+                    ReconcileSafe = @ReconcileSafe, ReconcileFolder = @ReconcileFolder, ReconcileName = @ReconcileName, ReadAt = SYSUTCDATETIME()
+                WHEN NOT MATCHED THEN INSERT (AccountId, CategoryModificationTime, DeviceType, CreationMethod, LogonSafe, LogonFolder, LogonName,
+                    ReconcileSafe, ReconcileFolder, ReconcileName)
+                    VALUES (@AccountId, @CategoryModificationTime, @DeviceType, @CreationMethod, @LogonSafe, @LogonFolder, @LogonName,
+                    @ReconcileSafe, @ReconcileFolder, @ReconcileName);
+                """, chunk.Select(Fit));
+        }
+    }
+
+    /// <summary>D-280: forgets accounts the staged pull no longer has (deleted in CyberArk).</summary>
+    public async Task PruneAccountDetailCacheAsync()
+    {
+        using var connection = connectionFactory.Create();
+        await connection.ExecuteAsync("""
+            DELETE c FROM dbo.cyberark_direct_account_detail c
+            WHERE EXISTS (SELECT 1 FROM dbo.stg_shd_accounts)
+              AND NOT EXISTS (SELECT 1 FROM dbo.stg_shd_accounts a WHERE a.AccountId = c.AccountId)
+            """);
+    }
+
+    private static PvwaAccountDetail Fit(PvwaAccountDetail d) => d with
+    {
+        DeviceType = Cut(d.DeviceType, 100), CreationMethod = Cut(d.CreationMethod, 100),
+        LogonSafe = Cut(d.LogonSafe, 300), LogonFolder = Cut(d.LogonFolder, 300), LogonName = Cut(d.LogonName, 512),
+        ReconcileSafe = Cut(d.ReconcileSafe, 300), ReconcileFolder = Cut(d.ReconcileFolder, 300), ReconcileName = Cut(d.ReconcileName, 512)
+    };
+
+    private static string? Cut(string? value, int max) => value is null || value.Length <= max ? value : value[..max];
+
     /// <summary>
     /// Replaces the Self-Hosted staging tables with the pull's rows, in one transaction, so staging is never half
     /// filled: the EVD-shaped stg_sh_* tables the Load reads, and (D-270) the stg_shd_* tables in REST's shape.

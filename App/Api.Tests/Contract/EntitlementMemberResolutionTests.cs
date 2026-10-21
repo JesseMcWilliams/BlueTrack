@@ -214,4 +214,69 @@ public class EntitlementMemberResolutionTests : IClassFixture<BlueTrackWebApplic
             await CleanUpAsync(seed);
         }
     }
+
+    /// <summary>
+    /// D-279: a Self-Hosted member is resolved against Self-Hosted users only,
+    /// and a Privilege Cloud member with the same ID is a different member.
+    /// </summary>
+    [Fact]
+    public async Task SelfHosted_ResolvesAgainstItsOwnSource_AndLeavesTheSameIdFromPrivilegeCloudAlone()
+    {
+        var seed = await SeedAsync();
+        await using var connection = new SqlConnection(TestDatabase.ConnectionString);
+        try
+        {
+            // A Self-Hosted safe and user, and a Self-Hosted entitlement whose member ID is the Privilege Cloud user member's.
+            var shUserKey = await connection.QuerySingleAsync<int>("""
+                DECLARE @src INT = (SELECT SourceSystemKey FROM dim_source_system WHERE SourceSystemCode = 'SELFHOSTED');
+                INSERT INTO dim_safe (SourceSystemKey, SafeUrlId, SafeName) VALUES (@src, @token + '_SafeSH', @token + '_SafeSH');
+                DECLARE @safeKey INT = SCOPE_IDENTITY();
+                INSERT INTO dim_user (SourceSystemKey, SourceUserId, Username) VALUES (@src, @token + '-SH1', @token + '.vault');
+                DECLARE @userKey INT = SCOPE_IDENTITY();
+                INSERT INTO fact_safe_entitlement (SafeKey, MemberType, UnresolvedMemberId, MemberName, SnapshotDate)
+                VALUES (@safeKey, 'User', @token + '-guid', @token + '.gone', CAST(SYSUTCDATETIME() AS DATE));
+                SELECT @userKey;
+                """, new { seed.Token });
+            var client = Client("TestUser.Approver");
+            async Task<HttpStatusCode> PostAsync(string path, object body) => (await client.PostAsJsonAsync($"{Base}/{path}", body)).StatusCode;
+
+            // The search keeps to the source: Self-Hosted finds only the Vault user, Privilege Cloud (the default) only its own.
+            var shUsers = (await client.GetFromJsonAsync<List<Principal>>($"{Base}/principals?sourceSystemCode=SELFHOSTED&memberType=User&q={seed.Token}"))!;
+            Assert.Equal(shUserKey, Assert.Single(shUsers).Key);
+            Assert.Equal(seed.UserKey, Assert.Single((await client.GetFromJsonAsync<List<Principal>>($"{Base}/principals?memberType=User&q={seed.Token}"))!).Key);
+            Assert.Equal(HttpStatusCode.BadRequest, (await client.GetAsync($"{Base}/principals?sourceSystemCode=EVD&memberType=User&q={seed.Token}")).StatusCode);
+
+            // A Self-Hosted member can't link to a Privilege Cloud user, and the source must be known.
+            Assert.Equal(HttpStatusCode.BadRequest, await PostAsync("resolve",
+                new { sourceSystemCode = "SELFHOSTED", memberType = "User", sourceMemberId = seed.UserMemberId, resolution = "Linked", userKey = seed.UserKey }));
+            Assert.Equal(HttpStatusCode.BadRequest, await PostAsync("resolve",
+                new { sourceSystemCode = "EVD", memberType = "User", sourceMemberId = seed.UserMemberId, resolution = "External" }));
+
+            Assert.Equal(HttpStatusCode.NoContent, await PostAsync("resolve",
+                new { sourceSystemCode = "SELFHOSTED", memberType = "User", sourceMemberId = seed.UserMemberId, resolution = "Linked", userKey = shUserKey }));
+            var states = (await connection.QueryAsync<(string SafeUrlId, string? ResolutionMethod, int? UserKey)>("""
+                SELECT sf.SafeUrlId, fse.ResolutionMethod, fse.UserKey
+                FROM fact_safe_entitlement fse JOIN dim_safe sf ON sf.SafeKey = fse.SafeKey
+                WHERE sf.SafeUrlId LIKE @token + '%' AND fse.MemberType = 'User'
+                """, new { seed.Token })).ToDictionary(r => r.SafeUrlId);
+            Assert.Equal(("Manual", (int?)shUserKey), (states[$"{seed.Token}_SafeSH"].ResolutionMethod, states[$"{seed.Token}_SafeSH"].UserKey));
+            Assert.Null(states[$"{seed.Token}_Safe"].ResolutionMethod);
+            Assert.Equal(1, await AuditCountAsync(seed));
+
+            // Undo needs the source too: Privilege Cloud has nothing to undo for that ID.
+            Assert.Equal(HttpStatusCode.NotFound, await PostAsync("unresolve", new { memberType = "User", sourceMemberId = seed.UserMemberId }));
+            Assert.Equal(HttpStatusCode.NoContent, await PostAsync("unresolve", new { sourceSystemCode = "SELFHOSTED", memberType = "User", sourceMemberId = seed.UserMemberId }));
+            Assert.Null(await connection.QuerySingleAsync<string?>("""
+                SELECT fse.ResolutionMethod FROM fact_safe_entitlement fse JOIN dim_safe sf ON sf.SafeKey = fse.SafeKey WHERE sf.SafeUrlId = @token + '_SafeSH'
+                """, new { seed.Token }));
+        }
+        finally
+        {
+            await connection.ExecuteAsync("""
+                DELETE fse FROM fact_safe_entitlement fse JOIN dim_safe sf ON sf.SafeKey = fse.SafeKey WHERE sf.SafeUrlId = @token + '_SafeSH';
+                DELETE FROM dim_safe WHERE SafeUrlId = @token + '_SafeSH';
+                """, new { seed.Token });
+            await CleanUpAsync(seed);
+        }
+    }
 }

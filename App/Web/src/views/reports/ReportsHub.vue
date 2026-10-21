@@ -21,6 +21,7 @@ const reports = [
   { name: 'reports-reconciliation-review', labelKey: 'reports.reportsHub.reconciliationReview', permission: 'ConfirmReconciliation' },
   { name: 'reports-possible-matches', labelKey: 'reports.reportsHub.possibleMatches', permission: 'ConfirmReconciliation' },
   { name: 'reports-unresolved-entitlement-members', labelKey: 'reports.reportsHub.unresolvedEntitlementMembers' },
+  { name: 'reports-cyberark-applications', labelKey: 'reports.reportsHub.cyberArkApplications' },   // D-282
   { name: 'reports-risk-score', labelKey: 'reports.reportsHub.riskScore', permission: 'ViewRiskReport' },
   { name: 'reports-risk-exception-sod', labelKey: 'reports.reportsHub.riskExceptionSod', permission: 'ViewRiskExceptionSodReport' },
   { name: 'reports-discovered-accounts', labelKey: 'reports.reportsHub.discoveredAccounts', permission: 'ViewDiscoveredAccounts' },
