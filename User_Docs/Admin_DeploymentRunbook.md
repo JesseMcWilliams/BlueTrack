@@ -35,7 +35,7 @@ The installer runs steps 1-3 for you (`Db.Migrate`, and `Db.SeedTestData` when y
      ```
      sqlcmd -S <server> -C -v DatabaseName="BlueTrack" -i Database/Manual/04_BlueTrack_ScheduleImportLoadJob.sql
      ```
-     Run it on a copy in which you've replaced the four tokens: `__IMPORT_PC__` and `__IMPORT_SH__` (`1` or `0` for Privilege Cloud and Self-Hosted; at least one must be `1`), `__EXPORT_FOLDER__` (the Privilege Cloud export folder) and `__EVD_DB__` (the Self-Hosted EVD database). The job reads its source settings from **Admin > Data Sources** ("CyberArk sources") each night; the script saves your values there only if nothing has been saved yet, and otherwise keeps the saved settings and prints a WARNING if they differ. The installer's `Db.NightlyJob` step fills the tokens for you from `-ImportSources`, `-ExportFolderPath` and `-EvdDatabaseName`, on a temporary copy, without changing the file.
+     Run it on a copy in which you've replaced the three tokens: `__IMPORT_PC__` and `__IMPORT_SH__` (`1` or `0` for Privilege Cloud and Self-Hosted; at least one must be `1`) and `__EXPORT_FOLDER__` (the Privilege Cloud export folder). Self-Hosted is read from PVWA (Self-Hosted Direct): set its PVWA address and credential on **Admin > Data Sources** afterwards. The job reads its source settings from **Admin > Data Sources** ("CyberArk sources") each night; the script saves your values there only if nothing has been saved yet, and otherwise keeps the saved settings and prints a WARNING if they differ. The installer's `Db.NightlyJob` step fills the tokens for you from `-ImportSources` and `-ExportFolderPath`, on a temporary copy, without changing the file.
    - `05_BlueTrack_ScheduleAuditLogPurgeJob.sql`: real environments, once a retention period is set on Global Application Configuration. Same `sqlcmd` form.
 
    These scripts are run by hand (or by the installer), never through `App/Migrator`. The SQL Agent job and backup-status scripts switch to `msdb`, which would break the Migrator's own record-keeping.
@@ -46,7 +46,6 @@ Staging tables are empty after a fresh install; nothing populates them until you
 
 ```sql
 EXEC usp_Import_All
-    @EVDDatabaseName = '<EVD database>',
     @PlatformsFile = '<export folder>\Export_PlatformsList.csv',
     @UsersFile = '<export folder>\Export_UsersList.csv',
     @GroupsFile = '<export folder>\Export_GroupsList.csv',
@@ -59,9 +58,9 @@ GO
 EXEC usp_RunFullLoad;
 ```
 
-- **One source only**: `usp_Import_All` imports both Privilege Cloud and Self-Hosted by default. For a Privilege-Cloud-only implementation add `@ImportSelfHosted = 0` (and leave out `@EVDDatabaseName`); for a Self-Hosted-only one add `@ImportPrivilegeCloud = 0` (and leave out the file parameters). The nightly job follows the **Import Privilege Cloud** and **Import Self-Hosted** choices on **Admin > Data Sources** ("CyberArk sources"); the installer's `-ImportSources` answer sets them on first install.
+- **Self-Hosted** is read from PVWA by the API (Self-Hosted Direct): set it up on **Admin > Data Sources**, click **Pull now**, and when the pull has succeeded add `@SelfHostedStaged = 1` so the import keeps what the pull staged. The nightly job does the same by itself: the API pulls at the pull time, before the job.
+- **One source only**: for a Self-Hosted-only implementation add `@ImportPrivilegeCloud = 0` (and leave out the file parameters); for a Privilege-Cloud-only one leave out `@SelfHostedStaged`. The nightly job follows the **Import Privilege Cloud** and **Import Self-Hosted** choices on **Admin > Data Sources** ("CyberArk sources"); the installer's `-ImportSources` answer sets them on first install.
 - **Date-stamped files**: use the actual date stamp on the two date-stamped export files on disk (`Export Entitlements <date>.csv`, `Export Local Group Members <date>.csv`), not today's date. Only the nightly job fills in the current date, from the `{yyyy-MM-dd}`-style date tokens in the file names set on Admin > Data Sources.
-- **Self-Hosted**: the EVD database must be on the *same* SQL Server instance (a cross-database query, not a linked server). Confirm it exists and is `ONLINE` first.
 - **Privilege Cloud**: the files are read with BULK INSERT, so the SQL Server *service account*, not your own login, needs read access to the export folder.
 
 ## Upgrading an Existing Environment
@@ -93,7 +92,7 @@ Which version to install from the one you run, and how to go back if an upgrade 
 - **Re-run `Db.NightlyJob` once** after the upgrade that adds the CyberArk sources settings (`Database/12_BlueTrack_CyberArkSourceConfig.sql`) and the one-step nightly job (`Database/21_BlueTrack_SnapshotAndSiteUrl.sql`): `.\Install-BlueTrack.ps1 -Step Db.NightlyJob`. The old job keeps working with the values written into it, but changes on Admin > Data Sources have no effect until the job is recreated, and it takes the Trends snapshot only on nights the Import and Load succeed. The step uses your saved answers to save the settings and recreates the job as one step.
 - **The settings file is now `appsettings.Site.json`.** The installer's `Db.AppSettings` step writes it and removes the old `appsettings.<Environment>.json`, which BlueTrack read only on a Production install; until this upgrade, a Test or Staging site ignored the installer's connection string, HSTS and allowed folders. If an old `appsettings.Production.json` holds settings the installer didn't write, it's kept with a warning naming them: move them into `appsettings.Site.json`, then delete the old file. Afterwards **Admin > Deployment** shows the environment you chose in the installer, and a site with a trusted certificate starts sending HSTS. Details: `Admin_SettingsReference.md`, "Settings file".
 - **Self-Hosted Direct staging tables** (`Database/41_BlueTrack_SelfHostedDirectStaging.sql`): applied by `Db.Migrate`, with no grant or job change. If the site pulls from Self-Hosted Direct, check the first pull after the upgrade on Admin > Data Sources (**Pull now**, then **Details**): it should succeed with the same Safe and account counts as the pull before it, and a higher Safe member count, because predefined members such as Administrator and Auditors are now read. A warning that CPM activity or target platform settings weren't read means the PVWA user lacks the role for them: membership of the Vault's **Auditors** group for Safes and accounts (CPM activity), and of **Vault Admins** for platform details. The pull still succeeds and reports are unchanged, but record the warning: that data is needed before the site can stop using the EVD. A site on the EVD needs nothing.
-- **Shadow pull and comparison** (`Database/42_BlueTrack_SelfHostedShadowPull.sql`, `43_BlueTrack_ShadowComparisonRules.sql` and `44_BlueTrack_DirectPullTimeLimit.sql`): applied by `Db.Migrate`, with no grant or job change, and off until turned on. It is how a site on the EVD shows that Self-Hosted Direct reads the same Vault before switching. To start it: put the PVWA user in the Vault's **Auditors** and **Vault Admins** groups (and make it a member of every business Safe with List Accounts and View Safe Members); on **Edit CyberArk sources**, keep the EVD as the source, tick **Shadow pull**, enter the PVWA address, credential and logon method, set **Shadow pull time** after the nightly import has finished (the default is 04:00), **Test** and **Save**. Each night's comparison then shows on **Admin > Data Sources** under Shadow comparison. CyberArk's internal Safes and the PVWA gateway members are marked automatically, and directory mappings and dependent accounts are left out. Mark any other difference you expect, and look into the rest: a business Safe PVWA doesn't return is usually missing the PVWAGWAccounts group ("Share this Safe with the following Gateway Accounts") or the PVWA user's membership. Switch the source to Direct only after 7 clean nights in a row. Then follow "Moving Self-Hosted from the EVD to Direct" below.
+- **The EVD source is removed** (`Database/47_BlueTrack_RemoveEvdSource.sql`): Self-Hosted Direct is the only Self-Hosted source. The installer's first step, `Db.SourceCheck`, stops the upgrade, changing nothing, while the site still imports Self-Hosted from the EVD; switch to Direct on the version you have (that version's runbook, "Moving Self-Hosted from the EVD to Direct") and upgrade again. The shadow pull and its comparison go too (their settings and the shadow pulls in the pull log are removed; the comparison's stored history and marks stay in the database), and `-EvdDatabaseName` is no longer an installer answer (an old answers file with it only warns).
 - **Site URL:** the installer's `Db.SiteUrl` step fills in the Site URL on Global Application Configuration from `-Hostname` and `-HttpsPort` if it's blank, so notification emails link to pages. Check it there.
 - **Check the version** on **Admin > Deployment**: a release shows its plain number.
 - **Re-run `Db.AppPoolAccess`** to pick up changed database permissions for the app's account: `.\Install-BlueTrack.ps1 -Step Db.AppPoolAccess -GrantAppPoolSqlAccess $true` (`Admin_Installation.md`, section 3).
@@ -119,40 +118,15 @@ Then make the release with `Tools/New-BlueTrackRelease.ps1`, in your clone of th
 
 Don't change `<Version>` by hand. Between releases, the build adds where it came from to the version (for example `1.2.0-dev.12+abc1234`), so About and the Deployment page never show a test build as a release. Full detail: `Tools/README.md`, "Making a release". Confirm the GitHub settings wording when you first set up the signing key.
 
-## Moving Self-Hosted from the EVD to Direct
+## Sites still on the EVD
 
-Do this once per site, after the shadow comparison (see "After upgrading") shows 7 clean nights in a row. It changes where the nightly load reads Self-Hosted from; nothing is deleted, and switching back is one setting.
-
-**Before you start**
-1. BlueTrack 1.3.3 or later, and PAM Self-Hosted 14.2 or later.
-2. Admin > Data Sources > Shadow comparison says **Ready to switch**, and you have looked at every difference that is still listed (only-in-Direct, permissions, logon domain), not just the ones that stop a clean night.
-3. Keep the EVD export and its database running until you sign off (step 9). It is the way back.
-4. Pick a time after the nightly job (02:00 by default) has finished and before the next night's pull (01:30 by default), so the first Direct night is the next one.
-
-**Switch**
-5. Take a backup: `.\Backup-BlueTrack.ps1` from the `Deploy` folder (see `Deploy\README.md`).
-6. On **Admin > Data Sources > Edit CyberArk sources**, set the Self-Hosted source to **Direct**. The PVWA address, credential and logon method are already there from the shadow pull, and the EVD database name is kept for a switch back. Check **Pull time** (before the nightly job) and **Allowed change**, **Test**, then **Save**. Saving Direct turns the shadow pull off; its comparison history stays.
-7. On **Admin > Data Sources**, click **Pull now** and wait for the result.
-   - The first Direct pull is compared with what the last EVD import staged (CyberArk's internal Safes, deleted and dependent accounts left out). If the Safe or account count differs by more than the allowed change, it is **Rejected**: open **Details**, compare the counts with the shadow comparison, and if they are what you expect, click **Accept the change and pull**.
-   - A pull that hangs stops at the **Pull time limit** (45 minutes unless changed); **Cancel pull** stops one by hand.
-
-**Check the first Direct night**
-8. After the next nightly job (or after starting the `BlueTrack (<DatabaseName>) - Import and Load` SQL Agent job by hand), check:
-   - **Admin > Data Sources**: the import succeeded, and the latest pull is the one it used.
-   - **Account counts**: about the same number of active Self-Hosted accounts as the night before. Expect these to show **Deleted in CyberArk**: dependent accounts (Direct leaves them out) and accounts in CyberArk's internal Safes (shown as "Deleted in CyberArk (internal Safe)"). Any other account that is now deleted needs a look: usually a Safe the PVWA user can't see.
-   - **Entitlements**: more rows than under the EVD, because built-in Safe members (Administrator, Auditors and so on) and the View Audit Log, Use Accounts, View Safe Members and Requests Authorization permissions are now recorded.
-   - **Reports > Unresolved Entitlement Members**: Self-Hosted members PVWA has no user or group for. They can't be resolved on that page yet; list them for follow-up.
-   - **Account pages**: CPM status, last CPM action and result, and creation time are filled for accounts the CPM manages.
-9. Sign off once the first nights look right. Until then keep the EVD export going.
-
-**Rolling back**
-10. On **Edit CyberArk sources**, set the Self-Hosted source back to **EVD** and **Save** (the EVD database name is still there). The next nightly job imports from the EVD again: accounts that the Direct nights marked deleted come back, and entitlements are reloaded from the EVD. To compare again before another attempt, tick **Shadow pull** again.
+This version has no EVD source (D-278). A site that still imports Self-Hosted from the EVD must move to Self-Hosted Direct on BlueTrack 1.3.4 first, following that version's Deployment Runbook ("Moving Self-Hosted from the EVD to Direct": shadow comparison, 7 clean nights, switch, first-night checks, sign-off). The installer refuses to upgrade such a site and changes nothing.
 
 ## Environment-Specific Items a Redeployment Must Not Skip
 
 None of these are worked out from the connection string the way the database name is. Someone has to set each one deliberately for a *new* environment:
 
-- **The CyberArk sources** (which sources to import, the Privilege Cloud export folder and file names, the Self-Hosted EVD database): set on **Admin > Data Sources** ("CyberArk sources"). On a new environment the installer's `-ImportSources`, `-ExportFolderPath` and `-EvdDatabaseName` answers seed them when it creates the nightly job; if you create the job by hand, replace the four tokens in a copy of `Database/Manual/04_BlueTrack_ScheduleImportLoadJob.sql` first. Check them on the page with **Test**.
+- **The CyberArk sources** (which sources to import, the Privilege Cloud export folder and file names, and Self-Hosted Direct's PVWA address and credential): set on **Admin > Data Sources** ("CyberArk sources"). On a new environment the installer's `-ImportSources` and `-ExportFolderPath` answers seed which sources to import when it creates the nightly job; if you create the job by hand, replace the three tokens in a copy of `Database/Manual/04_BlueTrack_ScheduleImportLoadJob.sql` first. Enter the PVWA settings on the page and check them with **Test**.
 - **The bootstrap admin group** (`BUILTIN\Administrators`, seeded by `05_BlueTrack_Baseline_WebSeed.sql`): a deliberate default so a fresh install is usable immediately. Map a real AD/Entra group to the Admin role on **Admin > Group / Role Mapping**, then remove the bootstrap mapping; don't leave every local administrator as a permanent BlueTrack Admin in production.
 - **OIDC/SAML identity providers** (`05_BlueTrack_Baseline_WebSeed.sql`): seeded disabled, with placeholder settings only. Enter the real IdP tenant/metadata on the Identity Providers admin page, then enable them, before either is usable.
 - **Secrets Store backend** (seeded by `04_BlueTrack_Baseline_WebSchema.sql`): Windows DPAPI is active by default. A switch to CyberArk CP/CCP/Conjur, Azure Key Vault or AWS Secrets Manager happens on the Secrets Store Configuration admin page, not by editing the script. CyberArk CP also needs the CyberArk Application Password SDK on the server (`Admin_Installation.md`, section 1).

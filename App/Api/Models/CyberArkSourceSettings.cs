@@ -4,7 +4,7 @@ namespace BlueTrack.Api.Models;
 /// D-211 (Data Sources phase 3): the web.cyberark_source_config row that
 /// dbo.usp_Import_Configured reads each night -- which CyberArk sources are
 /// imported, the Privilege Cloud export folder and file names, and the
-/// Self-Hosted EVD database. Also the body of a save or a Test. File names
+/// Self-Hosted Direct (PVWA) settings. Also the body of a save or a Test. File names
 /// may contain {format} date tokens; the defaults are the script's own.
 /// </summary>
 public sealed class CyberArkSourceSettings
@@ -19,10 +19,9 @@ public sealed class CyberArkSourceSettings
     public string AccountsFileName { get; init; } = "Export_AccountsList.csv";
     public string EntitlementsFileName { get; init; } = "Export Entitlements {yyyy-MM-dd}.csv";
     public bool ImportSelfHosted { get; init; }
-    public string? EvdDatabaseName { get; init; }
 
-    /// <summary>D-248: where Self-Hosted comes from: "Evd" (the EVD database, the default) or "Direct" (PVWA's REST API).</summary>
-    public string SelfHostedSource { get; init; } = "Evd";
+    /// <summary>D-248: where Self-Hosted comes from. D-278: always "Direct" (PVWA's REST API); the EVD was removed.</summary>
+    public string SelfHostedSource { get; init; } = "Direct";
     /// <summary>Direct: the PVWA address, https://host (the /PasswordVault part is optional).</summary>
     public string? PvwaBaseUrl { get; init; }
     /// <summary>Direct: the named credential (web.credential; a CyberArk CP or CCP one fetches it from the Vault at each pull).</summary>
@@ -33,12 +32,8 @@ public sealed class CyberArkSourceSettings
     public string DirectPullTime { get; init; } = "01:30";
     /// <summary>Direct: the most the Safe or account count may change since the last good pull, as a percent, before the pull is rejected.</summary>
     public int DirectMaxChangePercent { get; init; } = 20;
-    /// <summary>D-273: a pull (real or shadow) still running after this many minutes is stopped and logged as failed.</summary>
+    /// <summary>D-273: a pull still running after this many minutes is stopped and logged as failed.</summary>
     public int DirectPullTimeLimitMinutes { get; init; } = 45;
-    /// <summary>D-271: with the EVD as the source, also pull PVWA each night into the stg_shd_* tables only and compare them with the EVD.</summary>
-    public bool ShadowPullEnabled { get; init; }
-    /// <summary>D-271: when the shadow pull runs, HH:mm server time. It should come after the nightly import, so both sides describe the same night.</summary>
-    public string ShadowPullTime { get; init; } = "04:00";
 
     /// <summary>The seven Privilege Cloud files, with the labels the page and Test show.</summary>
     public IEnumerable<(string Field, string Label, string FileName)> Files() =>
@@ -71,12 +66,11 @@ public sealed class CyberArkSourceTestCheck
     public required string Message { get; init; }
 }
 
-/// <summary>D-248: one way to get a platform's data into BlueTrack. EVD and Privilege Cloud Folder import through SQL; the Direct ones are pulled by the API.</summary>
+/// <summary>D-248: one way to get a platform's data into BlueTrack. Privilege Cloud Folder imports through SQL; the Direct ones are pulled by the API (D-278: the EVD was removed).</summary>
 public sealed record CyberArkSourceOption(string Key, string Platform, string Label, bool Available)
 {
     public static readonly IReadOnlyList<CyberArkSourceOption> All =
     [
-        new("SelfHostedEvd", "SelfHosted", "EVD database", true),
         new("SelfHostedDirect", "SelfHosted", "Self-Hosted Direct (PVWA REST API)", true),
         new("PrivilegeCloudFolder", "PrivilegeCloud", "Privilege Cloud export folder", true),
         new("PrivilegeCloudDirect", "PrivilegeCloud", "Privilege Cloud Direct (planned)", false)

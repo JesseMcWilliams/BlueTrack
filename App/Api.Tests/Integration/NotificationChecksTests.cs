@@ -113,15 +113,15 @@ public class NotificationChecksTests : IClassFixture<BlueTrackWebApplicationFact
         return key;
     }
 
-    private async Task<long> InsertPullAsync(string status, int startedMinutesAgo, string? message = null, int? safes = 10, int? accounts = 100, bool isShadow = false)
+    private async Task<long> InsertPullAsync(string status, int startedMinutesAgo, string? message = null, int? safes = 10, int? accounts = 100)
     {
         await using var connection = new SqlConnection(TestDatabase.ConnectionString);
         var key = await connection.QuerySingleAsync<long>("""
-            INSERT INTO dbo.cyberark_direct_pull (StartedAt, CompletedAt, Status, TriggeredBy, Message, SafeCount, AccountCount, IsShadow)
+            INSERT INTO dbo.cyberark_direct_pull (StartedAt, CompletedAt, Status, TriggeredBy, Message, SafeCount, AccountCount)
             OUTPUT inserted.PullKey
             VALUES (DATEADD(MINUTE, -@startedMinutesAgo, SYSUTCDATETIME()), CASE WHEN @status = 'Started' THEN NULL ELSE SYSUTCDATETIME() END,
-                    @status, 'schedule', @message, @safes, @accounts, @isShadow)
-            """, new { status, startedMinutesAgo, message, safes, accounts, isShadow });
+                    @status, 'schedule', @message, @safes, @accounts)
+            """, new { status, startedMinutesAgo, message, safes, accounts });
         _pullKeys.Add(key);
         return key;
     }
@@ -477,20 +477,6 @@ public class NotificationChecksTests : IClassFixture<BlueTrackWebApplicationFact
         Assert.DoesNotContain("before, ", failedMessage.Body);   // a failed pull has no counts to compare
         Assert.Equal("BlueTrack: Self-Hosted Direct pull has not finished", Assert.Single(MessagesFor(PullMarker(stuck))).Subject);
         Assert.Empty(MessagesFor(PullMarker(running)));
-    }
-
-    [Fact]
-    public async Task SelfHostedPullFailed_AFailedShadowPull_SaysTheImportIsUnaffected()
-    {
-        await SetEnabledAsync(true, BlueTrack.Api.CyberArkDirect.SelfHostedPullFailedCheck.TypeName);
-        var shadow = await InsertPullAsync("Failed", 5, "PVWA can't be reached.", null, null, isShadow: true);
-
-        await NewService().RunOnceAsync(CancellationToken.None);
-
-        var message = Assert.Single(MessagesFor(PullMarker(shadow)));
-        Assert.Equal("BlueTrack: Self-Hosted Direct shadow pull failed", message.Subject);
-        Assert.Contains("tonight's import and reports are unaffected", message.Body);
-        Assert.DoesNotContain("tonight's import will fail", message.Body);
     }
 
     [Fact]

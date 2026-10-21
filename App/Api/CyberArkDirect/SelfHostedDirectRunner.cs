@@ -86,8 +86,7 @@ public sealed class SelfHostedDirectRunner(IServiceScopeFactory scopeFactory, IH
 
 /// <summary>
 /// D-248: runs the Self-Hosted Direct pull once a night at the configured DirectPullTime, which must come before
-/// the Import job's time (usp_Import_Configured rejects a pull older than 20 hours). D-271: with the EVD as the source
-/// and the shadow pull on, runs the shadow pull at ShadowPullTime instead, which should come after the import. Same shape as
+/// the Import job's time (usp_Import_Configured rejects a pull older than 20 hours). Same shape as
 /// DataFeedBackgroundService: wakes every minute and re-reads the setting, so a change on Admin > Data Sources
 /// applies without a restart, and a time already past when the app starts doesn't fire until the next day.
 /// </summary>
@@ -119,13 +118,10 @@ public sealed class SelfHostedDirectBackgroundService(
             {
                 using var scope = scopeFactory.CreateScope();
                 var settings = (await scope.ServiceProvider.GetRequiredService<CyberArkSourceConfigRepository>().GetAsync()).Settings;
-                // D-271: a shadow pull runs at its own time, after the nightly EVD import.
-                var mode = SelfHostedDirectPullService.ModeFor(settings);
-                var time = mode == "Shadow" ? settings.ShadowPullTime : settings.DirectPullTime;
-                if (mode is not null
-                    && FeedSchedule.TryParseTime(time, out var pullTime) && FeedSchedule.RunTimeFellBetween(lastWake, now, pullTime))
+                if (SelfHostedDirectPullService.IsOn(settings)
+                    && FeedSchedule.TryParseTime(settings.DirectPullTime, out var pullTime) && FeedSchedule.RunTimeFellBetween(lastWake, now, pullTime))
                 {
-                    logger.LogInformation("Starting the nightly Self-Hosted Direct pull ({Mode}).", mode);
+                    logger.LogInformation("Starting the nightly Self-Hosted Direct pull.");
                     await runner.RunScheduledAsync(stoppingToken);
                     await scope.ServiceProvider.GetRequiredService<SelfHostedDirectRepository>().PurgeAsync(KeepLogDays);
                 }

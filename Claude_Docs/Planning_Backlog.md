@@ -5,7 +5,7 @@
 ## Requested, not started
 - **Privilege Cloud Direct** (requested 2026-10-19, with Self-Hosted Direct, D-248): read Privilege Cloud through its API into `stg_pc_*` instead of the export folder, as a fourth option on the CyberArk sources page (already listed there, unavailable). Needs the Privilege Cloud API's logon (an Identity OAuth client, `Platform/Developer` and `PAM/Privilege-Cloud-Standard` in the Idira reference), a lab tenant, and the same change guard.
 
-- **Self-Hosted Direct staging tables and EVD retirement** (requested 2026-10-19): `stg_shd_*` tables that keep everything PVWA REST returns, a shadow run compared with the EVD, the Load reading them, then removing the EVD once the one production install has moved over safely. Plan and open questions: `Planning_Self-Hosted-Direct-And-EVD-Retirement.md`. Phase 1 (the tables, D-270, released in 1.3.1) phase 2 (the shadow pull and comparison, D-271) and phase 3 (the Load reading `stg_shd_*`, D-277) are built; phase 4, the cutover runbook, is written (`Admin_DeploymentRunbook.md`); next is phase 5, removing the EVD, once production has switched and signed off.
+- **Release the EVD removal** (D-278, built 2026-10-21 on branch `2026-10-21-shd-remove-evd`): merge and release only after production has switched to Self-Hosted Direct and signed off (`Archive_Planning_Self-Hosted-Direct-And-EVD-Retirement.md`).
 
 ## Requested, deferred
 - **Resolve unresolved Self-Hosted Safe members** (deferred 2026-10-21, D-277): with Direct, a member PVWA has no user or group for is listed on the Unresolved report, but Resolve works for Privilege Cloud members only (`EntitlementMemberResolutionRepository`).
@@ -13,7 +13,7 @@
 
 ## From Self-Hosted Direct (D-248, 2026-10-19)
 - **Direct is unproven on a large Vault and over time** (Medium): measured on 40 Safes, 2,452 accounts and 43 users (about 8 seconds), through the REST API and through a fake PVWA, and compared once with the EVD. Not yet run as a scheduled night, against thousands of Safes (one call each) or users (one call each), or through the Agent job's Import gate on a real run.
-- **REST doesn't return some EVD properties** (Low): `LastVerified` and `LastReconciled` (the EVD's `CAFLastUsedDate` stood in for the first), `RemoteMachines`, `DeviceType`, `CreationMethod`, linked logon and reconcile accounts, and `LogonDomain` on two PSM accounts. Checked 2026-10-20 against CPM-processed accounts on the lab's 14.6: `lastReconciledTime` and `status` are returned, `lastVerifiedTime` is not (verify history comes from the account activity call instead); see `Planning_Self-Hosted-Direct-And-EVD-Retirement.md`.
+- **REST doesn't return some EVD properties** (Low): `LastVerified` and `LastReconciled` (the EVD's `CAFLastUsedDate` stood in for the first), `RemoteMachines`, `DeviceType`, `CreationMethod`, linked logon and reconcile accounts, and `LogonDomain` on two PSM accounts. Checked 2026-10-20 against CPM-processed accounts on the lab's 14.6: `lastReconciledTime` and `status` are returned, `lastVerifiedTime` is not (verify history comes from the account activity call instead); see `Archive_Planning_Self-Hosted-Direct-And-EVD-Retirement.md`.
 - **Windows and SAML logon to PVWA** (Low): Direct supports CyberArk and LDAP authentication only (both take the credential's user name and password).
 
 ## From the audit findings (moved here 2026-10-13, at the user's request)

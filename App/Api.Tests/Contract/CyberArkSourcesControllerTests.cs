@@ -31,7 +31,7 @@ public class CyberArkSourcesControllerTests : IClassFixture<BlueTrackWebApplicat
 
     private sealed record Check(string Item, bool Ok, string Message);
 
-    private static object Settings(bool privilegeCloud, string? folder, bool selfHosted, string? evd, string entitlements = "Export Entitlements {yyyy-MM-dd}.csv") => new
+    private static object Settings(bool privilegeCloud, string? folder, bool selfHosted, string? pvwaUrl = null, string entitlements = "Export Entitlements {yyyy-MM-dd}.csv") => new
     {
         importPrivilegeCloud = privilegeCloud,
         exportFolderPath = folder,
@@ -43,7 +43,7 @@ public class CyberArkSourcesControllerTests : IClassFixture<BlueTrackWebApplicat
         accountsFileName = "Export_AccountsList.csv",
         entitlementsFileName = entitlements,
         importSelfHosted = selfHosted,
-        evdDatabaseName = evd
+        pvwaBaseUrl = pvwaUrl
     };
 
     private static async Task<string?> SavedRowJsonAsync()
@@ -59,14 +59,14 @@ public class CyberArkSourcesControllerTests : IClassFixture<BlueTrackWebApplicat
         await connection.ExecuteAsync("DELETE FROM web.cyberark_source_config");
         if (savedRowJson is null) return;
         await connection.ExecuteAsync("""
-            INSERT INTO web.cyberark_source_config (CyberArkSourceConfigKey, ImportPrivilegeCloud, ExportFolderPath, PlatformsFileName, UsersFileName, GroupsFileName, GroupMembersFileName, SafesFileName, AccountsFileName, EntitlementsFileName, ImportSelfHosted, EvdDatabaseName, ModifiedBy, ModifiedDate, SelfHostedSource, PvwaBaseUrl, PvwaCredentialKey, PvwaLogonMethod, DirectPullTime, DirectMaxChangePercent, DirectPullTimeLimitMinutes, ShadowPullEnabled, ShadowPullTime)
-            SELECT CyberArkSourceConfigKey, ImportPrivilegeCloud, ExportFolderPath, PlatformsFileName, UsersFileName, GroupsFileName, GroupMembersFileName, SafesFileName, AccountsFileName, EntitlementsFileName, ImportSelfHosted, EvdDatabaseName, ModifiedBy, ModifiedDate, SelfHostedSource, PvwaBaseUrl, PvwaCredentialKey, PvwaLogonMethod, DirectPullTime, DirectMaxChangePercent, ISNULL(DirectPullTimeLimitMinutes, 45), ISNULL(ShadowPullEnabled, 0), ISNULL(ShadowPullTime, N'04:00') FROM OPENJSON(@json) WITH (
+            INSERT INTO web.cyberark_source_config (CyberArkSourceConfigKey, ImportPrivilegeCloud, ExportFolderPath, PlatformsFileName, UsersFileName, GroupsFileName, GroupMembersFileName, SafesFileName, AccountsFileName, EntitlementsFileName, ImportSelfHosted, ModifiedBy, ModifiedDate, SelfHostedSource, PvwaBaseUrl, PvwaCredentialKey, PvwaLogonMethod, DirectPullTime, DirectMaxChangePercent, DirectPullTimeLimitMinutes)
+            SELECT CyberArkSourceConfigKey, ImportPrivilegeCloud, ExportFolderPath, PlatformsFileName, UsersFileName, GroupsFileName, GroupMembersFileName, SafesFileName, AccountsFileName, EntitlementsFileName, ImportSelfHosted, ModifiedBy, ModifiedDate, SelfHostedSource, PvwaBaseUrl, PvwaCredentialKey, PvwaLogonMethod, DirectPullTime, DirectMaxChangePercent, ISNULL(DirectPullTimeLimitMinutes, 45) FROM OPENJSON(@json) WITH (
                 CyberArkSourceConfigKey INT, ImportPrivilegeCloud BIT, ExportFolderPath NVARCHAR(400),
                 PlatformsFileName NVARCHAR(200), UsersFileName NVARCHAR(200), GroupsFileName NVARCHAR(200),
                 GroupMembersFileName NVARCHAR(200), SafesFileName NVARCHAR(200), AccountsFileName NVARCHAR(200),
-                EntitlementsFileName NVARCHAR(200), ImportSelfHosted BIT, EvdDatabaseName NVARCHAR(128),
+                EntitlementsFileName NVARCHAR(200), ImportSelfHosted BIT,
                 ModifiedBy INT, ModifiedDate DATETIME2, SelfHostedSource NVARCHAR(10), PvwaBaseUrl NVARCHAR(400), PvwaCredentialKey INT, PvwaLogonMethod NVARCHAR(20), DirectPullTime NVARCHAR(5), DirectMaxChangePercent INT,
-                DirectPullTimeLimitMinutes INT, ShadowPullEnabled BIT, ShadowPullTime NVARCHAR(5))
+                DirectPullTimeLimitMinutes INT)
             """, new { json = savedRowJson });
     }
 
@@ -75,7 +75,7 @@ public class CyberArkSourcesControllerTests : IClassFixture<BlueTrackWebApplicat
     {
         var client = Client("TestUser.Viewer");
         Assert.Equal(HttpStatusCode.Forbidden, (await client.GetAsync("/api/admin/cyberark-sources")).StatusCode);
-        Assert.Equal(HttpStatusCode.Forbidden, (await client.PutAsJsonAsync("/api/admin/cyberark-sources", Settings(false, null, true, "BlueTrackTest"))).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await client.PutAsJsonAsync("/api/admin/cyberark-sources", Settings(true, "D:\\Exports", false))).StatusCode);
     }
 
     [Fact]
@@ -87,12 +87,13 @@ public class CyberArkSourcesControllerTests : IClassFixture<BlueTrackWebApplicat
         Assert.Equal(HttpStatusCode.BadRequest, noSource.StatusCode);
         Assert.Contains("at least one source", (await noSource.Content.ReadFromJsonAsync<JsonObject>())!["detail"]!.GetValue<string>());
 
-        var bad = await client.PutAsJsonAsync("/api/admin/cyberark-sources", Settings(true, "relative\\path", true, "Bad-Name", entitlements: "Export *.csv"));
+        var bad = await client.PutAsJsonAsync("/api/admin/cyberark-sources", Settings(true, "relative\\path", true, "http://pvwa.example.com", entitlements: "Export *.csv"));
         Assert.Equal(HttpStatusCode.BadRequest, bad.StatusCode);
         var detail = (await bad.Content.ReadFromJsonAsync<JsonObject>())!["detail"]!.GetValue<string>();
         Assert.Contains("full path", detail);
         Assert.Contains("Entitlements file: * and ?", detail);
-        Assert.Contains("letters, digits and underscores", detail);
+        Assert.Contains("PVWA address must be https://host", detail);
+        Assert.Contains("A credential is required for Self-Hosted Direct.", detail);
     }
 
     [Fact]
@@ -103,14 +104,13 @@ public class CyberArkSourcesControllerTests : IClassFixture<BlueTrackWebApplicat
         var folder = Directory.CreateTempSubdirectory("BlueTrackCyberArkContract_").FullName;
         try
         {
-            // Both sources; the EVD "database" is BlueTrackTest itself, which exists.
-            var put = await client.PutAsJsonAsync("/api/admin/cyberark-sources", Settings(true, folder + "\\", true, "BlueTrackTest"));
+            // Privilege Cloud (Self-Hosted Direct has its own tests below).
+            var put = await client.PutAsJsonAsync("/api/admin/cyberark-sources", Settings(true, folder + "\\", false));
             Assert.Equal(HttpStatusCode.NoContent, put.StatusCode);
 
             var got = (await client.GetFromJsonAsync<JsonObject>("/api/admin/cyberark-sources"))!;
             Assert.True(got["isConfigured"]!.GetValue<bool>());
             Assert.Equal(folder, got["settings"]!["exportFolderPath"]!.GetValue<string>());   // trailing backslash trimmed
-            Assert.Equal("BlueTrackTest", got["settings"]!["evdDatabaseName"]!.GetValue<string>());
 
             await using (var connection = new SqlConnection(TestDatabase.ConnectionString))
             {
@@ -122,20 +122,15 @@ public class CyberArkSourcesControllerTests : IClassFixture<BlueTrackWebApplicat
                 Assert.Equal(1, changed);
             }
 
-            // Test: the EVD database exists; the folder is readable; only the platforms file is there.
+            // Test: the folder is readable; only the platforms file is there.
             File.WriteAllText(Path.Combine(folder, "Export_PlatformsList.csv"), "PlatformID\n");
-            var checks = (await (await client.PostAsJsonAsync("/api/admin/cyberark-sources/test", Settings(true, folder, true, "BlueTrackTest")))
+            var checks = (await (await client.PostAsJsonAsync("/api/admin/cyberark-sources/test", Settings(true, folder, false)))
                 .Content.ReadFromJsonAsync<List<Check>>())!;
-            Assert.True(checks.Single(c => c.Item == "EVD database").Ok);
             Assert.True(checks.Single(c => c.Item == "Export folder").Ok);
             Assert.True(checks.Single(c => c.Item == "Platforms").Ok);
             var entitlements = checks.Single(c => c.Item == "Entitlements");
             Assert.False(entitlements.Ok);
             Assert.Contains($"Export Entitlements {DateTime.Today:yyyy-MM-dd}.csv", entitlements.Message);
-
-            var missingDb = (await (await client.PostAsJsonAsync("/api/admin/cyberark-sources/test", Settings(false, null, true, $"NoSuchDb_{Guid.NewGuid():N}")))
-                .Content.ReadFromJsonAsync<List<Check>>())!;
-            Assert.False(Assert.Single(missingDb).Ok);
         }
         finally
         {
@@ -220,13 +215,13 @@ public class CyberArkSourcesControllerTests : IClassFixture<BlueTrackWebApplicat
     }
 
     [Fact]
-    public async Task Get_OffersTheFourSources_WithPrivilegeCloudDirectPlanned()
+    public async Task Get_OffersTheThreeSources_WithPrivilegeCloudDirectPlanned()
     {
         var got = (await Client("TestUser.Admin").GetFromJsonAsync<JsonObject>("/api/admin/cyberark-sources"))!;
 
         var options = got["options"]!.AsArray();
-        Assert.Equal(["SelfHostedEvd", "SelfHostedDirect", "PrivilegeCloudFolder", "PrivilegeCloudDirect"], options.Select(o => o!["key"]!.GetValue<string>()));
-        Assert.False(options[3]!["available"]!.GetValue<bool>());
+        Assert.Equal(["SelfHostedDirect", "PrivilegeCloudFolder", "PrivilegeCloudDirect"], options.Select(o => o!["key"]!.GetValue<string>()));
+        Assert.False(options[2]!["available"]!.GetValue<bool>());
     }
 
     [Fact]
@@ -249,15 +244,13 @@ public class CyberArkSourcesControllerTests : IClassFixture<BlueTrackWebApplicat
             Assert.Equal("LDAP", settings["pvwaLogonMethod"]!.GetValue<string>());
             Assert.Equal("01:15", settings["directPullTime"]!.GetValue<string>());
             Assert.Equal(35, settings["directMaxChangePercent"]!.GetValue<int>());
-            Assert.Null(settings["evdDatabaseName"]);
 
             await using var connection = new SqlConnection(TestDatabase.ConnectionString);
             var fields = (await connection.QueryAsync<string>("""
                 SELECT c.FieldName FROM web.audit_event e
                 JOIN web.audit_field_change c ON c.AuditEventKey = e.AuditEventKey
-                WHERE e.EntityName = 'cyberark_source_config' AND c.FieldName IN ('SelfHostedSource', 'PvwaBaseUrl', 'DirectMaxChangePercent') AND c.NewValue IN ('Direct', @url, '35')
+                WHERE e.EntityName = 'cyberark_source_config' AND c.FieldName IN ('PvwaBaseUrl', 'DirectMaxChangePercent') AND c.NewValue IN (@url, '35')
                 """, new { url })).ToList();
-            Assert.Contains("SelfHostedSource", fields);
             Assert.Contains("PvwaBaseUrl", fields);
             Assert.Contains("DirectMaxChangePercent", fields);
         }
@@ -315,18 +308,18 @@ public class CyberArkSourcesControllerTests : IClassFixture<BlueTrackWebApplicat
     }
 
     [Fact]
-    public async Task DirectPull_WhenDirectIsNotTheSavedSource_IsRefused_AndNothingStarts()
+    public async Task DirectPull_WhenSelfHostedIsOff_IsRefused_AndNothingStarts()
     {
         var client = Client("TestUser.Admin");
         var saved = await SavedRowJsonAsync();
         try
         {
-            Assert.Equal(HttpStatusCode.NoContent, (await client.PutAsJsonAsync("/api/admin/cyberark-sources", Settings(false, null, true, "BlueTrackTest"))).StatusCode);
+            Assert.Equal(HttpStatusCode.NoContent, (await client.PutAsJsonAsync("/api/admin/cyberark-sources", Settings(true, "D:\\Exports", false))).StatusCode);
 
             var response = await client.PostAsJsonAsync("/api/admin/cyberark-sources/direct/pull", new { acceptChange = false });
 
             Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-            Assert.Contains("Save Self-Hosted Direct", await response.Content.ReadAsStringAsync());
+            Assert.Contains("Turn on Self-Hosted", await response.Content.ReadAsStringAsync());
         }
         finally
         {
@@ -341,10 +334,6 @@ public class CyberArkSourcesControllerTests : IClassFixture<BlueTrackWebApplicat
 
         Assert.Equal(HttpStatusCode.Forbidden, (await client.GetAsync("/api/admin/cyberark-sources/direct/pulls")).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await client.PostAsJsonAsync("/api/admin/cyberark-sources/direct/pull", new { acceptChange = true })).StatusCode);
-        Assert.Equal(HttpStatusCode.Forbidden, (await client.GetAsync("/api/admin/cyberark-sources/direct/comparison")).StatusCode);
-        Assert.Equal(HttpStatusCode.Forbidden, (await client.PostAsJsonAsync("/api/admin/cyberark-sources/direct/comparison/marks",
-            new { differenceKey = 1, scope = "Item", category = "Expected" })).StatusCode);
-        Assert.Equal(HttpStatusCode.Forbidden, (await client.DeleteAsync("/api/admin/cyberark-sources/direct/comparison/marks/1")).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await client.PostAsync("/api/admin/cyberark-sources/direct/cancel", null)).StatusCode);
     }
 
@@ -356,137 +345,6 @@ public class CyberArkSourcesControllerTests : IClassFixture<BlueTrackWebApplicat
 
         Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
         Assert.Contains("No pull is running", await response.Content.ReadAsStringAsync());
-    }
-
-    // ---- D-271: the shadow pull and its comparison ----
-
-    [Fact]
-    public async Task Save_EvdWithAShadowPull_RoundTrips_NeedsTheAddress_AndAuditsTheNewFields()
-    {
-        var client = Client("TestUser.Admin");
-        var saved = await SavedRowJsonAsync();
-        var credentialKey = await AddCredentialAsync("ShadowTest" + Guid.NewGuid().ToString("N")[..8]);
-        var url = $"https://pvwa-{Guid.NewGuid():N}.example.com";
-        object Shadow(string? address) => new
-        {
-            importPrivilegeCloud = false, platformsFileName = "Export_PlatformsList.csv", usersFileName = "Export_UsersList.csv",
-            groupsFileName = "Export_GroupsList.csv", groupMembersFileName = "Export Local Group Members {yyyy-MM-dd}.csv",
-            safesFileName = "Export_SafesList.csv", accountsFileName = "Export_AccountsList.csv", entitlementsFileName = "Export Entitlements {yyyy-MM-dd}.csv",
-            importSelfHosted = true, selfHostedSource = "Evd", evdDatabaseName = "BlueTrackTest",
-            pvwaBaseUrl = address, pvwaCredentialKey = credentialKey, shadowPullEnabled = true, shadowPullTime = "04:30"
-        };
-        try
-        {
-            var missing = await client.PutAsJsonAsync("/api/admin/cyberark-sources", Shadow(null));
-            Assert.Equal(HttpStatusCode.BadRequest, missing.StatusCode);
-            Assert.Contains("PVWA address is required for the shadow pull", (await missing.Content.ReadFromJsonAsync<JsonObject>())!["detail"]!.GetValue<string>());
-
-            Assert.Equal(HttpStatusCode.NoContent, (await client.PutAsJsonAsync("/api/admin/cyberark-sources", Shadow(url))).StatusCode);
-
-            var settings = (await client.GetFromJsonAsync<JsonObject>("/api/admin/cyberark-sources"))!["settings"]!;
-            Assert.Equal(("Evd", true, "04:30", url), (settings["selfHostedSource"]!.GetValue<string>(), settings["shadowPullEnabled"]!.GetValue<bool>(),
-                settings["shadowPullTime"]!.GetValue<string>(), settings["pvwaBaseUrl"]!.GetValue<string>()));
-
-            await using var connection = new SqlConnection(TestDatabase.ConnectionString);
-            var fields = (await connection.QueryAsync<string>("""
-                SELECT c.FieldName FROM web.audit_event e
-                JOIN web.audit_field_change c ON c.AuditEventKey = e.AuditEventKey
-                WHERE e.EntityName = 'cyberark_source_config' AND c.FieldName IN ('ShadowPullEnabled', 'ShadowPullTime') AND c.NewValue IN ('True', '04:30')
-                """)).ToList();
-            Assert.Contains("ShadowPullEnabled", fields);
-            Assert.Contains("ShadowPullTime", fields);
-        }
-        finally
-        {
-            await RestoreAsync(saved);
-            await using var connection = new SqlConnection(TestDatabase.ConnectionString);
-            await connection.ExecuteAsync("DELETE FROM web.credential WHERE CredentialKey = @credentialKey", new { credentialKey });
-        }
-    }
-
-    [Fact]
-    public async Task Comparison_ShowsTheRunsAndDifferences_AndMarksExplainThem()
-    {
-        var client = Client("TestUser.Admin");
-        await using var connection = new SqlConnection(TestDatabase.ConnectionString);
-        try
-        {
-            var runKey = await connection.QuerySingleAsync<long>("""
-                INSERT INTO dbo.shd_comparison_run (PullKey, EvdStagedAt, EvdUsable, MissingFromDirect, MissingExplained, OnlyInDirect, AccountFieldDiffs,
-                    AccountFieldExplained, PermissionDiffs, LogonDomainDiffs, BlockingCount, IsClean)
-                VALUES (-1, SYSUTCDATETIME(), 1, 2, 0, 0, 0, 0, 1, 0, 2, 0);
-                SELECT CAST(SCOPE_IDENTITY() AS BIGINT);
-                """);
-            await connection.ExecuteAsync("""
-                INSERT INTO dbo.shd_comparison_difference (RunKey, Category, ItemKind, ItemKey, ItemName, SafeName, Blocking, SafeNumber, PrincipalId) VALUES
-                    (@runKey, 'MissingFromDirect', 'Account', '920005_1', 'internal-acct', 'PVWAConfigTest', 1, 920005, NULL),
-                    (@runKey, 'MissingFromDirect', 'Member', '920006:920007', 'SomeGroup', 'BizSafe', 1, 920006, 920007);
-                INSERT INTO dbo.shd_comparison_difference (RunKey, Category, ItemKind, ItemKey, ItemName, SafeName, Field, EvdValue, DirectValue, Blocking, SafeNumber, PrincipalId)
-                VALUES (@runKey, 'Permission', 'Member', '920006:920008', 'someone', 'BizSafe', 'ManageSafe', 'YES', 'NO', 0, 920006, 920008);
-                INSERT INTO dbo.stg_shd_groups (ImportBatchId, SourceFileName, GroupId, GroupName) VALUES (NEWID(), 'test', 920007, 'SomeGroup');
-                """, new { runKey });
-
-            var body = (await client.GetFromJsonAsync<JsonObject>("/api/admin/cyberark-sources/direct/comparison"))!;
-            Assert.Equal(7, body["cleanNightsNeeded"]!.GetValue<int>());
-            Assert.Equal(0, body["cleanNights"]!.GetValue<int>());
-            Assert.Equal(runKey, body["runs"]!.AsArray()[0]!["runKey"]!.GetValue<long>());
-            Assert.Equal(3, body["totalDifferences"]!.GetValue<int>());
-            var differences = body["differences"]!.AsArray();
-            Assert.True(differences[0]!["blocking"]!.GetValue<bool>());   // blocking ones first
-            // The Safes PVWA can't fully see: each with what it is missing (the permission difference isn't one).
-            var safes = body["safes"]!.AsArray();
-            Assert.Equal(2, safes.Count);
-            var bizSafe = safes.Single(s => s!["safeNumber"]!.GetValue<long>() == 920006)!;
-            Assert.Equal((false, 0, 1, true), (bizSafe["notReturned"]!.GetValue<bool>(), bizSafe["accountsMissing"]!.GetValue<int>(),
-                bizSafe["membersMissing"]!.GetValue<int>(), bizSafe["blocking"]!.GetValue<bool>()));
-
-            var blockingOnly = (await client.GetFromJsonAsync<JsonObject>("/api/admin/cyberark-sources/direct/comparison?blockingOnly=true"))!;
-            Assert.Equal(2, blockingOnly["totalDifferences"]!.GetValue<int>());
-            Assert.Equal(HttpStatusCode.BadRequest, (await client.GetAsync("/api/admin/cyberark-sources/direct/comparison?category=Nope")).StatusCode);
-
-            long Key(string itemKey) => differences.Single(d => d!["itemKey"]!.GetValue<string>() == itemKey)!["differenceKey"]!.GetValue<long>();
-
-            // The whole Safe of the account, as Internal; every membership of the group, as Expected.
-            Assert.Equal(HttpStatusCode.NoContent, (await client.PostAsJsonAsync("/api/admin/cyberark-sources/direct/comparison/marks",
-                new { differenceKey = Key("920005_1"), scope = "Safe", category = "Internal" })).StatusCode);
-            Assert.Equal(HttpStatusCode.NoContent, (await client.PostAsJsonAsync("/api/admin/cyberark-sources/direct/comparison/marks",
-                new { differenceKey = Key("920006:920007"), scope = "Principal", category = "Expected", note = "PVWA gateway group" })).StatusCode);
-
-            body = (await client.GetFromJsonAsync<JsonObject>("/api/admin/cyberark-sources/direct/comparison"))!;
-            var marks = body["marks"]!.AsArray();
-            Assert.Contains(marks, m => m!["itemKind"]!.GetValue<string>() == "Safe" && m["itemKey"]!.GetValue<string>() == "920005" && m["category"]!.GetValue<string>() == "Internal");
-            Assert.Contains(marks, m => m!["itemKind"]!.GetValue<string>() == "Group" && m["itemKey"]!.GetValue<string>() == "920007" && m["note"]!.GetValue<string>() == "PVWA gateway group");
-            var run = body["runs"]!.AsArray()[0]!;
-            Assert.Equal((2, 0, true), (run["missingExplained"]!.GetValue<int>(), run["blockingCount"]!.GetValue<int>(), run["isClean"]!.GetValue<bool>()));
-
-            var audited = await connection.QuerySingleAsync<int>(
-                "SELECT COUNT(*) FROM web.audit_event WHERE EntityName = 'shd_comparison_mark' AND Detail LIKE 'Shadow comparison: marked %'");
-            Assert.True(audited >= 2);
-
-            var safeMark = marks.Single(m => m!["itemKind"]!.GetValue<string>() == "Safe")!["markKey"]!.GetValue<int>();
-            Assert.Equal(HttpStatusCode.NoContent, (await client.DeleteAsync($"/api/admin/cyberark-sources/direct/comparison/marks/{safeMark}")).StatusCode);
-            run = (await client.GetFromJsonAsync<JsonObject>("/api/admin/cyberark-sources/direct/comparison"))!["runs"]!.AsArray()[0]!;
-            Assert.Equal((1, false), (run["blockingCount"]!.GetValue<int>(), run["isClean"]!.GetValue<bool>()));
-            Assert.Equal(HttpStatusCode.NotFound, (await client.DeleteAsync($"/api/admin/cyberark-sources/direct/comparison/marks/{safeMark}")).StatusCode);
-        }
-        finally
-        {
-            await connection.ExecuteAsync("""
-                DELETE FROM dbo.shd_comparison_difference; DELETE FROM dbo.shd_comparison_run WHERE PullKey = -1;
-                DELETE FROM web.shd_comparison_mark; DELETE FROM dbo.stg_shd_groups WHERE GroupId = 920007;
-                """);
-        }
-    }
-
-    [Fact]
-    public async Task Marks_RejectAnUnknownCategory_AWrongScope_AndAGoneDifference()
-    {
-        var client = Client("TestUser.Admin");
-        async Task<HttpStatusCode> Post(object body) => (await client.PostAsJsonAsync("/api/admin/cyberark-sources/direct/comparison/marks", body)).StatusCode;
-
-        Assert.Equal(HttpStatusCode.BadRequest, await Post(new { differenceKey = 1, scope = "Item", category = "Whatever" }));
-        Assert.Equal(HttpStatusCode.BadRequest, await Post(new { differenceKey = 1, scope = "Item", category = "Expected", note = new string('x', 501) }));
-        Assert.Equal(HttpStatusCode.NotFound, await Post(new { differenceKey = long.MaxValue, scope = "Item", category = "Expected" }));
     }
 
     [Fact]
@@ -543,7 +401,7 @@ public class CyberArkSourcesControllerTests : IClassFixture<BlueTrackWebApplicat
     }
 
     [Fact]
-    public async Task DirectStatus_IsOffUnlessDirectIsSaved_ThenShowsTheLatestPull()
+    public async Task DirectStatus_IsOffUnlessSelfHostedIsOn_ThenShowsTheLatestPull()
     {
         var client = Client("TestUser.Admin");
         var saved = await SavedRowJsonAsync();
@@ -552,7 +410,7 @@ public class CyberArkSourcesControllerTests : IClassFixture<BlueTrackWebApplicat
         var maxBefore = await connection.QuerySingleAsync<long>("SELECT ISNULL(MAX(PullKey), 0) FROM dbo.cyberark_direct_pull");
         try
         {
-            Assert.Equal(HttpStatusCode.NoContent, (await client.PutAsJsonAsync("/api/admin/cyberark-sources", Settings(false, null, true, "BlueTrackTest"))).StatusCode);
+            Assert.Equal(HttpStatusCode.NoContent, (await client.PutAsJsonAsync("/api/admin/cyberark-sources", Settings(true, "D:\\Exports", false))).StatusCode);
             var off = (await client.GetFromJsonAsync<JsonObject>("/api/admin/cyberark-sources/direct/status"))!;
             Assert.False(off["enabled"]!.GetValue<bool>());
 

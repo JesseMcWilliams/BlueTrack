@@ -1,13 +1,9 @@
 <script setup>
 // D-211 (Data Sources phase 3): the CyberArk sources' settings, read each night
 // by the SQL Agent job's Import step (usp_Import_Configured). Test works on the
-// unsaved values: it checks the EVD database exists and, as the app pool sees
-// them, the export folder and today's files.
-// D-248: Self-Hosted can come from the EVD database or straight from PVWA's REST
-// API (Self-Hosted Direct, pulled by the API each night at the pull time); for
-// Direct, Test logs on with the chosen credential and counts what it can see.
-// D-271: with the EVD as the source, a shadow pull can also read PVWA each night (after the import) and compare it
-// with the EVD; it uses the same PVWA address, credential and logon method as Direct.
+// unsaved values: as the app pool sees them, the export folder and today's files.
+// D-248: Self-Hosted comes straight from PVWA's REST API (Self-Hosted Direct, pulled by the API each night at the pull
+// time; D-278: its only source); Test logs on with the chosen credential and counts what it can see.
 import { ref, computed, watch, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { flash } from '../../composables/useFlash'
@@ -60,14 +56,10 @@ const restoredDraft = ref(false)
 // D-250: a CyberArk CP or CCP credential only works once its backend has settings (the AppID); say so here, with a link.
 const selectedCredential = computed(() => credentials.value?.find(c => c.credentialKey === editing.value?.pvwaCredentialKey) ?? null)
 
-const selfHostedSources = [
-  { value: 'Evd', labelKey: 'admin.cyberArkSourcesEdit.sourceEvd' },
-  { value: 'Direct', labelKey: 'admin.cyberArkSourcesEdit.sourceDirect' }
-]
 const logonMethods = ['CyberArk', 'LDAP']
 
-// Whether the PVWA settings are in use: for Direct, or for the EVD's shadow pull (D-271).
-const usesPvwa = computed(() => !!editing.value?.importSelfHosted && (editing.value.selfHostedSource === 'Direct' || !!editing.value.shadowPullEnabled))
+// Whether the PVWA settings are in use: with Self-Hosted on.
+const usesPvwa = computed(() => !!editing.value?.importSelfHosted)
 
 // The credential list is only needed for PVWA, so it is fetched when PVWA is first in play.
 async function loadCredentials() {
@@ -94,7 +86,6 @@ onMounted(async () => {
     editing.value = {
       ...body.settings,
       exportFolderPath: body.settings.exportFolderPath ?? '',
-      evdDatabaseName: body.settings.evdDatabaseName ?? '',
       pvwaBaseUrl: body.settings.pvwaBaseUrl ?? ''
     }
     // Arriving from a credential ("Use for Self-Hosted Direct", or after creating one): pick Direct with that
@@ -107,7 +98,6 @@ onMounted(async () => {
     }
     if (credentialKey) {
       editing.value.importSelfHosted = true
-      editing.value.selfHostedSource = 'Direct'
       editing.value.pvwaCredentialKey = credentialKey
     }
   } catch (err) {
@@ -196,24 +186,7 @@ function cancel() {
         <fieldset>
           <legend><label><input v-model="editing.importSelfHosted" type="checkbox" /> {{ t('admin.cyberArkSourcesEdit.importSelfHosted') }}</label></legend>
           <template v-if="editing.importSelfHosted">
-            <p>
-              <label class="field-label"><span class="field-label-text">{{ t('admin.cyberArkSourcesEdit.selfHostedSourceLabel') }}</span>
-                <select v-model="editing.selfHostedSource">
-                  <option v-for="o in selfHostedSources" :key="o.value" :value="o.value">{{ t(o.labelKey) }}</option>
-                </select>
-              </label>
-            </p>
-            <template v-if="editing.selfHostedSource === 'Evd'">
-              <p>
-                <label class="field-label"><span class="field-label-text">{{ t('admin.cyberArkSourcesEdit.evdDatabaseLabel') }}</span> <input v-model="editing.evdDatabaseName" maxlength="128" :placeholder="t('admin.cyberArkSourcesEdit.evdDatabasePlaceholder')" required /></label>
-                <small>{{ t('admin.cyberArkSourcesEdit.evdDatabaseHint') }}</small>
-              </p>
-              <p>
-                <label><input v-model="editing.shadowPullEnabled" type="checkbox" /> {{ t('admin.cyberArkSourcesEdit.shadowPullLabel') }}</label>
-                <br /><small>{{ t('admin.cyberArkSourcesEdit.shadowPullHint') }}</small>
-              </p>
-            </template>
-            <p v-else>{{ t('admin.cyberArkSourcesEdit.directIntro') }}</p>
+            <p>{{ t('admin.cyberArkSourcesEdit.directIntro') }}</p>
             <template v-if="usesPvwa">
               <p>
                 <label class="field-label"><span class="field-label-text">{{ t('admin.cyberArkSourcesEdit.pvwaAddressLabel') }}</span> <input v-model="editing.pvwaBaseUrl" maxlength="400" :placeholder="t('admin.cyberArkSourcesEdit.pvwaAddressPlaceholder')" required /></label>
@@ -249,11 +222,7 @@ function cancel() {
                 <small>{{ t('admin.cyberArkSourcesEdit.timeLimitHint') }}</small>
               </p>
             </template>
-            <p v-if="editing.selfHostedSource === 'Evd' && editing.shadowPullEnabled">
-              <label class="field-label"><span class="field-label-text">{{ t('admin.cyberArkSourcesEdit.shadowPullTimeLabel') }}</span> <input v-model="editing.shadowPullTime" maxlength="5" pattern="([01][0-9]|2[0-3]):[0-5][0-9]" required /></label>
-              <small>{{ t('admin.cyberArkSourcesEdit.shadowPullTimeHint') }}</small>
-            </p>
-            <template v-if="editing.selfHostedSource === 'Direct'">
+            <template v-if="usesPvwa">
               <p>
                 <label class="field-label"><span class="field-label-text">{{ t('admin.cyberArkSourcesEdit.pullTimeLabel') }}</span> <input v-model="editing.directPullTime" maxlength="5" pattern="([01][0-9]|2[0-3]):[0-5][0-9]" required /></label>
                 <small>{{ t('admin.cyberArkSourcesEdit.pullTimeHint') }}</small>

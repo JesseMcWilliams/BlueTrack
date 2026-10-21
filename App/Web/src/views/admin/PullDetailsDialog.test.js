@@ -59,17 +59,6 @@ describe('PullDetailsDialog.vue', () => {
     expect(wrapper.text()).toContain('test it on Admin > Credentials')
   })
 
-  // D-271
-  it('says a shadow pull leaves the staged data and the import alone, whether it worked or not', () => {
-    const good = mount(PullDetailsDialog, { props: { pull: pull({ isShadow: true }) } })
-    expect(good.text()).toContain('compared with the EVD')
-    expect(good.text()).not.toContain('replaced the staged Self-Hosted data')
-
-    const failed = mount(PullDetailsDialog, { props: { pull: pull({ isShadow: true, status: 'Failed', message: 'PVWA could not be reached' }) } })
-    expect(failed.text()).toContain('the nightly import is unaffected')
-    expect(failed.text()).not.toContain('the nightly import fails')
-  })
-
   it('notes a change an admin accepted', () => {
     const wrapper = mount(PullDetailsDialog, { props: { pull: pull({ acceptedChange: true, triggeredBy: 'adm.jesse' }) } })
 

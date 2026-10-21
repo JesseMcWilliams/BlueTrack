@@ -749,7 +749,7 @@ test.describe('Data Sources admin page (D-181)', () => {
   })
 
   // D-211: Test only, then Cancel -- E2E can't put the single settings row back, so it saves nothing.
-  test('Admin opens the CyberArk sources and tests a Self-Hosted EVD database', async ({ page }) => {
+  test('Admin opens the CyberArk sources and tests Self-Hosted Direct with a bad PVWA address', async ({ page }) => {
     await signInAs(page, 'TestUser.Admin')
     await page.goto('/admin/data-sources')
     await page.getByRole('button', { name: 'Edit CyberArk sources' }).click()
@@ -758,9 +758,10 @@ test.describe('Data Sources admin page (D-181)', () => {
 
     await page.getByLabel('Import Privilege Cloud').uncheck()
     await page.getByLabel('Import Self-Hosted').check()
-    await page.getByLabel('EVD database:').fill('NoSuchEvdDatabase')
+    // D-278: Self-Hosted Direct is the only Self-Hosted source; Test refuses an address that isn't https, before any call.
+    await page.getByLabel('PVWA address:').fill('http://pvwa.example.com')
     await page.getByRole('button', { name: 'Test', exact: true }).click()
-    await expect(page.getByText('Problem: EVD database: No database named NoSuchEvdDatabase')).toBeVisible()
+    await expect(page.getByText('PVWA address must be https://host')).toBeVisible()
 
     await page.getByRole('button', { name: 'Cancel' }).click()
     await expect(page).toHaveURL(/\/admin\/data-sources$/)

@@ -70,7 +70,7 @@ These are all in `CLAUDE.md` or the docs it links; the ones that bit during this
 
 ## 7. After the release: setting Blueprint stages automatically (analysis only)
 
-> **Superseded in part (2026-10-20):** the live checks were run and the follow-on work is planned in `Claude_Docs/Planning_Self-Hosted-Direct-And-EVD-Retirement.md`. D-270 and script `41` went to the `stg_shd_*` staging tables (phase 1 of that plan), not to the stage rules below. Read the plan first; this section is kept as the analysis it started from.
+> **Superseded in part (2026-10-20):** the live checks were run and the follow-on work is planned in `Claude_Docs/Archive_Planning_Self-Hosted-Direct-And-EVD-Retirement.md`. D-270 and script `41` went to the `stg_shd_*` staging tables (phase 1 of that plan), not to the stage rules below. Read the plan first; this section is kept as the analysis it started from.
 
 A later session on 2026-10-19 looked into whether an account's Blueprint stage can be set automatically, and what changes if Self-Hosted data comes only from Self-Hosted Direct (PVWA REST) and not the EVD. **Nothing was built, decided or committed.** No D-row was written. The facts below were read from the code and the local Idira docs.
 

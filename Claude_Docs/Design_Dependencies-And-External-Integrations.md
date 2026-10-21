@@ -21,7 +21,7 @@ A single, maintained inventory of every external system, third-party API, and li
 
 ### 2.1 CyberArk — data warehouse feed (CSV, not a live API)
 
-The `dbo` schema's operational data (accounts, safes, platforms, entitlements) comes from **flat-file exports**, not a live CyberArk REST call: Privileged Cloud CSV exports (`Reference/PrivilegedCloud/`) loaded via `usp_Import_All`/`usp_Import_PC_*` (BULK INSERT), plus a same-instance cross-database query against a separate Self-Hosted/EVD database (`usp_Import_SelfHosted_EVD`). Access-group/target inventory used for risk scoring comes from a similarly file-based bulk-import mechanism (`App/Api/RiskScoring/CsvFileReader.cs`, `CsvHelper`), not a CyberArk API either — see `Design_Risk-Scoring.md`.
+The `dbo` schema's operational data (accounts, safes, platforms, entitlements) comes from **flat-file exports** for Privilege Cloud: CSV exports (`Reference/PrivilegedCloud/`) loaded via `usp_Import_All`/`usp_Import_PC_*` (BULK INSERT). Self-Hosted comes from PVWA's REST API (below); the same-instance EVD database read by `usp_Import_SelfHosted_EVD` was removed by D-278. Access-group/target inventory used for risk scoring comes from a similarly file-based bulk-import mechanism (`App/Api/RiskScoring/CsvFileReader.cs`, `CsvHelper`), not a CyberArk API either — see `Design_Risk-Scoring.md`.
 
 ### 2.1a CyberArk — Self-Hosted PVWA REST API (live, optional; D-248)
 

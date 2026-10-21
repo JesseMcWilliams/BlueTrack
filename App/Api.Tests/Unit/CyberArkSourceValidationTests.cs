@@ -20,12 +20,12 @@ public class CyberArkSourceValidationTests
             ExportFolderPath = "  D:\\Exports\\ ",
             UsersFileName = " users.csv ",
             ImportSelfHosted = false,
-            EvdDatabaseName = "CyberArkSH"
+            PvwaBaseUrl = "https://pvwa.example.com"
         });
 
         Assert.Equal("D:\\Exports", normalized.ExportFolderPath);
         Assert.Equal("users.csv", normalized.UsersFileName);
-        Assert.Null(normalized.EvdDatabaseName);
+        Assert.Null(normalized.PvwaBaseUrl);
     }
 
     [Fact]
@@ -40,13 +40,13 @@ public class CyberArkSourceValidationTests
     [InlineData(false, null, false, null, "at least one source")]
     [InlineData(true, null, false, null, "Export folder is required")]
     [InlineData(true, "\\\\server\\share", false, null, "UNC")]
-    [InlineData(false, null, true, null, "EVD database is required")]
-    [InlineData(false, null, true, "Cyber]Ark", "letters, digits and underscores")]
-    public void Validate_ReportsEachProblem(bool privilegeCloud, string? folder, bool selfHosted, string? evd, string expected)
+    [InlineData(false, null, true, null, "PVWA address is required")]
+    [InlineData(false, null, true, "http://pvwa.example.com", "PVWA address must be https://host")]
+    public void Validate_ReportsEachProblem(bool privilegeCloud, string? folder, bool selfHosted, string? pvwa, string expected)
     {
         var settings = CyberArkSourceValidation.Normalize(new CyberArkSourceSettings
         {
-            ImportPrivilegeCloud = privilegeCloud, ExportFolderPath = folder, ImportSelfHosted = selfHosted, EvdDatabaseName = evd
+            ImportPrivilegeCloud = privilegeCloud, ExportFolderPath = folder, ImportSelfHosted = selfHosted, PvwaBaseUrl = pvwa
         });
 
         Assert.Contains(CyberArkSourceValidation.Validate(settings, NoRoots), e => e.Contains(expected, StringComparison.OrdinalIgnoreCase));

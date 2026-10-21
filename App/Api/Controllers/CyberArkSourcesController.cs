@@ -14,12 +14,11 @@ namespace BlueTrack.Api.Controllers;
 /// D-211 (Data Sources phase 3, Design_Data-Sources.md): the CyberArk
 /// sources on Admin > Data Sources. The settings are read each night by
 /// dbo.usp_Import_Configured, the Agent job's Import step; there is no Run
-/// now for the EVD or the Privilege Cloud folder (decided 2026-10-09).
-/// D-248: Self-Hosted can instead be pulled by the API from PVWA's REST API
-/// (Self-Hosted Direct); that source has a Test, a pull log and a Run now,
-/// because a pull rejected by the change guard needs a way to be accepted.
-/// D-271: with the EVD as the source, the shadow pull uses the same Test, log and Run now, and the comparison of
-/// its data with the EVD's has its own endpoints (direct/comparison).
+/// now for the Privilege Cloud folder (decided 2026-10-09).
+/// D-248: Self-Hosted is pulled by the API from PVWA's REST API (Self-Hosted
+/// Direct, the only Self-Hosted source since D-278); it has a Test, a pull log
+/// and a Run now, because a pull rejected by the change guard needs a way to
+/// be accepted.
 /// </summary>
 [ApiController]
 [Route("api/admin/cyberark-sources")]
@@ -34,8 +33,7 @@ public sealed class CyberArkSourcesController(
     SelfHostedDirectRunner directRunner,
     SelfHostedDirectPullService directPullService,
     CredentialRepository credentialRepository,
-    SecretsStoreRepository secretsStoreRepository,
-    ShadowComparisonRepository comparisonRepository) : ControllerBase
+    SecretsStoreRepository secretsStoreRepository) : ControllerBase
 {
     [HttpGet]
     public async Task<IActionResult> Get() => Ok(await repository.GetAsync());
@@ -53,7 +51,6 @@ public sealed class CyberArkSourcesController(
             return Problem(title: "Invalid CyberArk source settings", detail: string.Join(" ", errors), statusCode: StatusCodes.Status400BadRequest);
         }
 
-        // D-270: the key is kept with the EVD selected too (for the switch back), so it is checked whenever it is set.
         if (settings.PvwaCredentialKey is { } credentialKey && !await repository.CredentialExistsAsync(credentialKey))
         {
             return Problem(title: "Invalid CyberArk source settings", detail: "The credential doesn't exist. Choose one from Admin > Credentials.", statusCode: StatusCodes.Status400BadRequest);
@@ -75,16 +72,12 @@ public sealed class CyberArkSourcesController(
             Track(field, oldName, newName);
         }
         Track(nameof(settings.ImportSelfHosted), old.ImportSelfHosted.ToString(), settings.ImportSelfHosted.ToString());
-        Track(nameof(settings.EvdDatabaseName), old.EvdDatabaseName, settings.EvdDatabaseName);
-        Track(nameof(settings.SelfHostedSource), old.SelfHostedSource, settings.SelfHostedSource);
         Track(nameof(settings.PvwaBaseUrl), old.PvwaBaseUrl, settings.PvwaBaseUrl);
         Track(nameof(settings.PvwaCredentialKey), old.PvwaCredentialKey?.ToString(), settings.PvwaCredentialKey?.ToString());
         Track(nameof(settings.PvwaLogonMethod), old.PvwaLogonMethod, settings.PvwaLogonMethod);
         Track(nameof(settings.DirectPullTime), old.DirectPullTime, settings.DirectPullTime);
         Track(nameof(settings.DirectMaxChangePercent), old.DirectMaxChangePercent.ToString(), settings.DirectMaxChangePercent.ToString());
         Track(nameof(settings.DirectPullTimeLimitMinutes), old.DirectPullTimeLimitMinutes.ToString(), settings.DirectPullTimeLimitMinutes.ToString());
-        Track(nameof(settings.ShadowPullEnabled), old.ShadowPullEnabled.ToString(), settings.ShadowPullEnabled.ToString());
-        Track(nameof(settings.ShadowPullTime), old.ShadowPullTime, settings.ShadowPullTime);
         if (changes.Count > 0)
         {
             await auditLogger.LogAsync("FieldEdit", user.UserKey, "cyberark_source_config", "1",
@@ -94,8 +87,8 @@ public sealed class CyberArkSourcesController(
     }
 
     /// <summary>
-    /// Test, on unsaved values: whether the EVD database exists, and whether
-    /// the export folder and today's files exist as the app pool sees them,
+    /// Test, on unsaved values: the PVWA logon and what it can read (Self-Hosted
+    /// Direct), and whether the export folder and today's files exist as the app pool sees them,
     /// with the columns the import needs in each file's header (D-228).
     /// SQL Server's service account reads the files at import, so it needs
     /// read access as well; the page says so.
@@ -108,21 +101,9 @@ public sealed class CyberArkSourcesController(
         if (errors.Count > 0) return BadRequest(new { error = string.Join(" ", errors) });
 
         var checks = new List<CyberArkSourceTestCheck>();
-        if (settings.ImportSelfHosted && settings.SelfHostedSource == "Direct")
+        if (settings.ImportSelfHosted)
         {
             checks.AddRange(await directPullService.TestAsync(settings, HttpContext.RequestAborted));
-        }
-        else if (settings.ImportSelfHosted)
-        {
-            var exists = await repository.DatabaseExistsAsync(settings.EvdDatabaseName!);
-            checks.Add(new CyberArkSourceTestCheck
-            {
-                Item = "EVD database",
-                Ok = exists,
-                Message = exists ? $"{settings.EvdDatabaseName} exists." : $"No database named {settings.EvdDatabaseName} on BlueTrack's SQL Server."
-            });
-            // D-271: the shadow pull reads PVWA with the same settings Direct would.
-            if (settings.ShadowPullEnabled) checks.AddRange(await directPullService.TestAsync(settings, HttpContext.RequestAborted));
         }
 
         if (settings.ImportPrivilegeCloud)
@@ -181,7 +162,7 @@ public sealed class CyberArkSourcesController(
     public async Task<IActionResult> DirectStatus()
     {
         var settings = (await repository.GetAsync()).Settings;
-        if (!settings.ImportSelfHosted || settings.SelfHostedSource != "Direct") return Ok(new { enabled = false });
+        if (!settings.ImportSelfHosted) return Ok(new { enabled = false });
         var latest = (await directRepository.GetRecentAsync(1)).FirstOrDefault();
         return Ok(new { enabled = true, latestStatus = latest?.Status, latestMessage = latest?.Message });
     }
@@ -202,18 +183,16 @@ public sealed class CyberArkSourcesController(
         if (user is null) return Unauthorized();
 
         var settings = (await repository.GetAsync()).Settings;
-        var mode = SelfHostedDirectPullService.ModeFor(settings);
-        if (mode is null)
+        if (!SelfHostedDirectPullService.IsOn(settings))
         {
-            return Problem(title: "Self-Hosted Direct isn't the saved source", detail: "Save Self-Hosted Direct as the source, or turn on the shadow pull, first.", statusCode: StatusCodes.Status400BadRequest);
+            return Problem(title: "Self-Hosted isn't turned on", detail: "Turn on Self-Hosted and save its PVWA settings first.", statusCode: StatusCodes.Status400BadRequest);
         }
         if (!directRunner.TryStart(user.DisplayName ?? "an admin", request.AcceptChange))
         {
             return Problem(title: "A pull is already running", statusCode: StatusCodes.Status409Conflict);
         }
         await auditLogger.LogAsync("FieldEdit", user.UserKey, "cyberark_source_config", "1",
-            detail: mode == "Shadow" ? "Self-Hosted Direct shadow pull started"
-                : request.AcceptChange ? "Self-Hosted Direct pull started, accepting a change over the allowed percentage" : "Self-Hosted Direct pull started");
+            detail: request.AcceptChange ? "Self-Hosted Direct pull started, accepting a change over the allowed percentage" : "Self-Hosted Direct pull started");
         return Accepted();
     }
 
@@ -226,80 +205,6 @@ public sealed class CyberArkSourcesController(
         if (!directRunner.Cancel()) return Problem(title: "No pull is running", statusCode: StatusCodes.Status409Conflict);
         await auditLogger.LogAsync("FieldEdit", user.UserKey, "cyberark_source_config", "1", detail: "Self-Hosted Direct pull cancelled");
         return Accepted();
-    }
-
-    /// <summary>
-    /// D-271: the shadow comparison: the clean nights so far (and how many are needed), the recent runs, the latest
-    /// run's differences (blocking first, at most 500, optionally one category or only blocking ones), the Safes PVWA
-    /// can't fully see, and the marks.
-    /// </summary>
-    [HttpGet("direct/comparison")]
-    public async Task<IActionResult> Comparison([FromQuery] string? category, [FromQuery] bool blockingOnly = false)
-    {
-        if (category is not null && !ShadowComparisonRepository.DifferenceCategories.Contains(category))
-            return Problem(title: "Unknown difference category", statusCode: StatusCodes.Status400BadRequest);
-
-        var runs = await comparisonRepository.GetRunsAsync(60);
-        var (differences, total) = await comparisonRepository.GetDifferencesAsync(category, blockingOnly, 500);
-        return Ok(new
-        {
-            cleanNightsNeeded = ShadowCleanNights.Needed,
-            cleanNights = ShadowCleanNights.Count(runs, timeProvider.GetLocalNow().DateTime, timeProvider.LocalTimeZone),
-            runs = runs.Take(30),
-            differences,
-            totalDifferences = total,
-            safes = await comparisonRepository.GetSafeVisibilityAsync(),
-            marks = await comparisonRepository.GetMarksAsync()
-        });
-    }
-
-    /// <summary>
-    /// D-271: marks the item behind a difference as expected, so it no longer stops a clean night. <c>Scope</c> picks
-    /// what is marked: the item itself, its whole Safe, or (for a Safe member) every membership of that user or group.
-    /// Audit-logged; the latest comparison is re-marked at once.
-    /// </summary>
-    [HttpPost("direct/comparison/marks")]
-    public async Task<IActionResult> AddMark([FromBody] ShadowMarkRequest request)
-    {
-        var user = await currentUserResolver.ResolveAsync(User);
-        if (user is null) return Unauthorized();
-        if (!ShadowComparisonRepository.MarkCategories.Contains(request.Category))
-            return Problem(title: "Invalid mark", detail: "Category must be Internal or Expected.", statusCode: StatusCodes.Status400BadRequest);
-        var note = string.IsNullOrWhiteSpace(request.Note) ? null : request.Note.Trim();
-        if (note is { Length: > 500 })
-            return Problem(title: "Invalid mark", detail: "The note must be 500 characters or fewer.", statusCode: StatusCodes.Status400BadRequest);
-
-        var difference = await comparisonRepository.GetDifferenceAsync(request.DifferenceKey);
-        if (difference is null) return Problem(title: "That difference is no longer in the latest comparison", statusCode: StatusCodes.Status404NotFound);
-
-        (string Kind, string Key, string? Name)? item = request.Scope switch
-        {
-            "Item" => (difference.ItemKind, difference.ItemKey, difference.ItemName),
-            "Safe" when difference.SafeNumber is { } safe => ("Safe", safe.ToString(System.Globalization.CultureInfo.InvariantCulture), difference.SafeName),
-            "Principal" when difference.ItemKind == "Member" && difference.PrincipalId is { } id =>
-                (await comparisonRepository.IsGroupAsync(id) ? "Group" : "User", id.ToString(System.Globalization.CultureInfo.InvariantCulture), difference.ItemName),
-            _ => null
-        };
-        if (item is not { } it)
-            return Problem(title: "Invalid mark", detail: "Scope must be Item, Safe (for a difference in a Safe) or Principal (for a Safe member).", statusCode: StatusCodes.Status400BadRequest);
-
-        var markKey = await comparisonRepository.SaveMarkAsync(it.Kind, it.Key, it.Name, request.Category, note, user.UserKey);
-        await auditLogger.LogAsync("FieldEdit", user.UserKey, "shd_comparison_mark", markKey.ToString(System.Globalization.CultureInfo.InvariantCulture),
-            detail: $"Shadow comparison: marked {it.Kind} '{it.Name ?? it.Key}' as {request.Category}" + (note is null ? "" : $" ({note})"));
-        return NoContent();
-    }
-
-    /// <summary>D-271: removes a mark; the difference counts against a clean night again. Audit-logged.</summary>
-    [HttpDelete("direct/comparison/marks/{markKey:int}")]
-    public async Task<IActionResult> DeleteMark(int markKey)
-    {
-        var user = await currentUserResolver.ResolveAsync(User);
-        if (user is null) return Unauthorized();
-        var mark = await comparisonRepository.DeleteMarkAsync(markKey);
-        if (mark is null) return NotFound();
-        await auditLogger.LogAsync("FieldEdit", user.UserKey, "shd_comparison_mark", markKey.ToString(System.Globalization.CultureInfo.InvariantCulture),
-            detail: $"Shadow comparison: removed the {mark.Category} mark on {mark.ItemKind} '{mark.ItemName ?? mark.ItemKey}'");
-        return NoContent();
     }
 
     /// <summary>
@@ -334,17 +239,6 @@ public sealed class CyberArkSourcesController(
         var note = missingOptional.Count == 0 ? "" : $" Not in the file, so imported as empty: {string.Join(", ", missingOptional)}.";
         return new CyberArkSourceTestCheck { Item = label, Ok = true, Message = $"{fileName} found, with the required columns.{note}" };
     }
-}
-
-/// <summary>D-271: body of marking a shadow comparison difference as expected.</summary>
-public sealed class ShadowMarkRequest
-{
-    public long DifferenceKey { get; init; }
-    /// <summary>Item (the difference's own Safe, account, user, group or membership), Safe, or Principal (a member's user or group).</summary>
-    public string Scope { get; init; } = "Item";
-    /// <summary>Internal (a CyberArk internal object REST doesn't return) or Expected.</summary>
-    public string Category { get; init; } = "Expected";
-    public string? Note { get; init; }
 }
 
 /// <summary>D-248: body of Run now for Self-Hosted Direct.</summary>
