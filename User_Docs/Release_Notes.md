@@ -8,10 +8,16 @@ What changed in each BlueTrack release, newest first, for users and administrato
 
 ### Changed
 
+### Fixed
+
+### Upgrading
+
+## 1.4.0 (2026-10-21)
+
+### Changed
+
 - **The EVD is no longer a Self-Hosted source.** Self-Hosted comes only from PVWA (Self-Hosted Direct), so the EVD database setting, the source choice on Edit CyberArk sources, the shadow pull and its comparison, and the installer's `-EvdDatabaseName` answer are gone. The installer's `-ImportSources SelfHosted` now turns on Self-Hosted Direct; enter its PVWA address and credential on Admin > Data Sources.
 - **Data Sources** no longer says "Self-Hosted: off" beside the Self-Hosted Direct line when Direct is on.
-
-### Fixed
 
 ### Upgrading
 
