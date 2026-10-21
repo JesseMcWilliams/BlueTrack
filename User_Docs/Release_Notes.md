@@ -8,6 +8,8 @@ What changed in each BlueTrack release, newest first, for users and administrato
 
 ### Changed
 
+- **Moving from the EVD to Self-Hosted Direct** has its own section in the Deployment Runbook: what to check before switching, the switch and first pull, what the first Direct night should look like, and how to switch back.
+
 ### Fixed
 
 ### Upgrading
