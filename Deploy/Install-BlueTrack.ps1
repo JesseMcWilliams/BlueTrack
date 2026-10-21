@@ -81,7 +81,6 @@ param(
     [bool]$SeedTestData,
     [bool]$InstallNightlyJob,
     [string]$ExportFolderPath,
-    [string]$EvdDatabaseName,
     [ValidateSet('Both', 'PrivilegeCloud', 'SelfHosted')]
     [string]$ImportSources,
     [bool]$GrantAppPoolSqlAccess,
@@ -162,6 +161,7 @@ $Steps = @(
     @{ Name = 'Prereq.HostingBundle'; PrereqKey = 'HostingBundle'; Description = 'ASP.NET Core Hosting Bundle (ANCM)' }
     @{ Name = 'Prereq.UrlRewrite'; PrereqKey = 'UrlRewrite'; Description = 'IIS URL Rewrite Module' }
     @{ Name = 'Prereq.CyberArkSdk'; PrereqKey = 'CyberArkSdk'; Description = 'CyberArk Application Password SDK (check only)' }
+    @{ Name = 'Db.SourceCheck'; Needs = @('Database'); Description = 'Refuse an upgrade while Self-Hosted still comes from the EVD (removed in this version), before anything is changed' }
     @{ Name = 'Build.Api'; Needs = @('ApiInstallPath'); Description = 'dotnet publish App/Api to the API install path' }
     @{ Name = 'Build.Web'; Needs = @('WebInstallPath'); Description = 'npm ci + npm run build in App/Web, then copy it to the site folder' }
     @{ Name = 'Db.Backup'; Needs = @('Database'); Description = 'Pre-deployment backup, if the database already has a schema'
@@ -295,7 +295,6 @@ function Resolve-InstallAnswer {
                     Register-InstallAnswer ImportSources $value
                 }
                 if ($script:ImportSources -in 'Both', 'PrivilegeCloud' -and -not $script:ExportFolderPath) { Register-InstallAnswer ExportFolderPath (Read-BlueTrackRequiredValue 'Privilege Cloud CSV export folder path (local to the SQL Server service account)') }
-                if ($script:ImportSources -in 'Both', 'SelfHosted' -and -not $script:EvdDatabaseName) { Register-InstallAnswer EvdDatabaseName (Read-BlueTrackRequiredValue 'Self-Hosted EVD database name (same SQL Server instance)') }
             }
         }
         'Certificate' {
@@ -423,6 +422,14 @@ function Invoke-PrerequisiteStep {
 # Each returns @{ Status; Message } or nothing (= Completed). Throwing marks
 # the step Failed and stops the run.
 $StepActions = @{
+    'Db.SourceCheck'  = {
+        # D-278: this version has no EVD source. Stop before the API is published or the database is touched;
+        # Database/47 refuses as well, but the new API would already be in place by then.
+        if (Test-BlueTrackEvdSourceInUse -ConnectionString (Get-InstallConnectionString) -DatabaseName $DatabaseName) {
+            throw "This site still imports Self-Hosted from the EVD, which this BlueTrack version no longer has. Nothing was changed. Switch the Self-Hosted source to Direct on the version you have now (User_Docs\Admin_DeploymentRunbook.md, 'Moving Self-Hosted from the EVD to Direct'), then run this upgrade again."
+        }
+        return @{ Status = 'Completed'; Message = 'Self-Hosted is not on the EVD' }
+    }
     'Build.Api'       = {
         # Keep the .NET first-run banner out of the log, and don't create an
         # ASP.NET Core *development* HTTPS certificate on a server.
@@ -478,7 +485,7 @@ $StepActions = @{
     'Db.NightlyJob'   = {
         Get-InstallConnectionString | Out-Null
         Install-BlueTrackNightlyJob -RepoRoot $RepoRoot -SqlServerInstance $SqlServerInstance -DatabaseName $DatabaseName `
-            -ImportSources $ImportSources -ExportFolderPath $ExportFolderPath -EvdDatabaseName $EvdDatabaseName `
+            -ImportSources $ImportSources -ExportFolderPath $ExportFolderPath `
             -TrustServerCertificate (Get-InstallTrustServerCertificate)
     }
     'Db.AppPoolAccess' = {

@@ -62,6 +62,7 @@ instead.
 | 44 | `44_BlueTrack_DirectPullTimeLimit.sql` | D-273: `web.cyberark_source_config.DirectPullTimeLimitMinutes` (default 45), the Self-Hosted Direct pull time limit. |
 | 45 | `45_BlueTrack_SelfHostedDirectLoad.sql` | D-277: the Load reads `stg_shd_*` when the Self-Hosted staging came from a Direct pull (`dbo.fn_SelfHostedStagedByDirect`). New `fact_account` columns `CreatedTime`, `LastCPMAction`, `LastCPMActionResult`, `LastCPMActionTime`; `cyberark_direct_pull.BaselineSafeCount`/`BaselineAccountCount`; Self-Hosted `dim_location` keyed by path (existing rows moved over); `permission_alias` rows for the REST names; view `dbo.vw_selfhosted_internal_safe`; recreates `usp_Load_DimLocation`, `usp_Load_DimSafe`, `usp_Load_DimUser`, `usp_Load_DimGroup`, `usp_Load_FactAccount` (Privilege Cloud's `CPMStatus` lowercased) and `usp_Load_FactSafeEntitlement`. |
 | 46 | `46_BlueTrack_PowerBiCpmActionColumns.sql` | D-277: `vw_powerbi_accounts` adds `CreatedTime`, `LastCPMAction`, `LastCPMActionResult` and `LastCPMActionTime` at the end. |
+| 47 | `47_BlueTrack_RemoveEvdSource.sql` | D-278: the EVD source and the shadow pull are removed. Refuses, in its first batch and changing nothing, a site whose Self-Hosted source is still the EVD. Drops `usp_Import_SelfHosted_EVD`, `vw_shd_comparison`, `usp_Compare_SelfHostedShadow`, `usp_Apply_ShadowComparisonMarks`, `web.cyberark_source_config.EvdDatabaseName`/`ShadowPullEnabled`/`ShadowPullTime` and `dbo.cyberark_direct_pull.IsShadow` (shadow pulls deleted first); `SelfHostedSource` can only be `Direct`; recreates `usp_Import_All` (no `@EVDDatabaseName`/`@ImportSelfHosted`) and `usp_Import_Configured`. Keeps `shd_comparison_run`/`_difference` and `web.shd_comparison_mark`. |
 
 ## The baseline (D-195)
 
@@ -86,7 +87,7 @@ scripts but not up to `51` is refused; upgrade it first from the
 
 ## Adding a script
 
-1. Name it `NN_BlueTrack_<Topic>.sql`, with `NN` the next number (`47` is next).
+1. Name it `NN_BlueTrack_<Topic>.sql`, with `NN` the next number (`48` is next).
 2. Start with a header comment: the file name, `RUN THIS AFTER 01-NN.`, what
    it changes and why (with the `D-n` decision), and whether it's safe to
    re-run.
@@ -109,7 +110,7 @@ scripts but not up to `51` is refused; upgrade it first from the
    Migrator also creates the database if it's missing.
 2. `dotnet run --project App/Migrator -- "<connection string>" "Database"`.
 3. Test database only: `dotnet run --project App/Migrator -- "<connection string>" "Database/Test"`.
-4. Load real data: `EXEC usp_Import_All ...;` then `EXEC usp_RunFullLoad;`.
+4. Load real data: `EXEC usp_Import_All ...;` (with `@SelfHostedStaged = 1` after a Self-Hosted Direct pull) then `EXEC usp_RunFullLoad;`.
 5. Run the manual scripts that apply (below). `Deploy/Install-BlueTrack.ps1`
    runs step 2 and can also install the nightly job and the App Pool's grants.
 

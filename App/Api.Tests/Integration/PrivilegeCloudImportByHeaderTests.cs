@@ -134,9 +134,9 @@ public class PrivilegeCloudImportByHeaderTests
             DELETE FROM web.cyberark_source_config;
             INSERT INTO web.cyberark_source_config
                 (CyberArkSourceConfigKey, ImportPrivilegeCloud, ExportFolderPath, PlatformsFileName, UsersFileName, GroupsFileName,
-                 GroupMembersFileName, SafesFileName, AccountsFileName, EntitlementsFileName, ImportSelfHosted, EvdDatabaseName)
+                 GroupMembersFileName, SafesFileName, AccountsFileName, EntitlementsFileName, ImportSelfHosted)
             VALUES (1, 1, @folder, 'Platforms.csv', @usersFile, 'Groups_NewLayout.csv',
-                    'GroupMembers.csv', 'Safes.csv', 'Accounts.csv', 'Entitlements.csv', 0, NULL);
+                    'GroupMembers.csv', 'Safes.csv', 'Accounts.csv', 'Entitlements.csv', 0);
             """, new { folder = FixtureFolder, usersFile }, transaction);
 
     [Fact]

@@ -122,7 +122,10 @@ As written: `User_Docs/Admin_DeploymentRunbook.md`, "Moving Self-Hosted from the
 3. `Backup-BlueTrack.ps1`, switch the source to Direct, run a manual pull, check the first load (counts, deleted-in-source accounts, entitlements), and sign off.
 4. Rollback: switch the source back to EVD; the next import reloads from the EVD, and accounts reappear undeleted. Keep the EVD feed running until sign-off.
 
-### P5: remove the EVD (a release after production has signed off)
+### P5: remove the EVD (a release after production has signed off) — built 2026-10-21, D-278; merge and release only after production has switched and signed off
+
+As built (script 47; `Design_CyberArk-Direct-Integration.md`): the installer's first step `Db.SourceCheck` and script 47's first batch both refuse a site still on the EVD, changing nothing; the EVD import, `EvdDatabaseName`, the page's source choice, `-EvdDatabaseName` and the job script's EVD token are gone, and `SelfHostedSource` can only be `Direct`. User's choices (2026-10-21): keep the `stg_sh_*` tables as the Load's input (Direct fills them), so they and the `CAO*` aliases stay; remove the shadow pull and comparison too, keeping their stored history and marks; drop the EVD and shadow columns (shadow pulls deleted from the pull log first); `-ImportSources SelfHosted` now means Direct, finished on the page. The plan as first written:
+
 1. **Upgrade guard**: `Install-BlueTrack.ps1` and the migration both refuse to install this release while `SelfHostedSource = 'Evd'`, naming the steps in P4. This keeps an unswitched install from losing its source.
 2. Drop:
    - `usp_Import_SelfHosted_EVD` and the EVD branch of `usp_Import_All`/`usp_Import_Configured`;

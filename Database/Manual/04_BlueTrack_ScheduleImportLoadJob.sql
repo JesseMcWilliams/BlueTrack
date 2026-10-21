@@ -25,12 +25,14 @@
    settings are kept and a WARNING is printed if they differ from these.
 
    Values: Deploy/Install-BlueTrack.ps1 (Db.NightlyJob step) runs a temp
-   copy with the four __TOKENS__ below replaced from its answers. To run it
+   copy with the three __TOKENS__ below replaced from its answers. To run it
    by hand, replace them yourself in a copy:
      __IMPORT_PC__ / __IMPORT_SH__   1 or 0 (at least one must be 1)
      __EXPORT_FOLDER__               the Privilege Cloud export folder, read by
                                      the SQL Server *service account*
-     __EVD_DB__                      the Self-Hosted EVD database name
+   D-278: Self-Hosted is Self-Hosted Direct; its PVWA address and credential
+   are set on Admin > Data Sources, and the nightly import fails, saying so,
+   until they are.
    then: sqlcmd -S <server> -C -v DatabaseName="BlueTrack" -i <copy>.sql
    (In SSMS, enable SQLCMD Mode, or start with :setvar DatabaseName "BlueTrack".)
 
@@ -49,19 +51,17 @@ GO
 DECLARE @ImportPrivilegeCloud BIT = __IMPORT_PC__;
 DECLARE @ImportSelfHosted BIT = __IMPORT_SH__;
 DECLARE @ExportFolderPath NVARCHAR(400) = NULLIF(N'__EXPORT_FOLDER__', N'');
-DECLARE @EvdDatabaseName NVARCHAR(128) = NULLIF(N'__EVD_DB__', N'');
 
 IF NOT EXISTS (SELECT 1 FROM web.cyberark_source_config WHERE CyberArkSourceConfigKey = 1)
 BEGIN
-    INSERT INTO web.cyberark_source_config (CyberArkSourceConfigKey, ImportPrivilegeCloud, ExportFolderPath, ImportSelfHosted, EvdDatabaseName)
-    VALUES (1, @ImportPrivilegeCloud, @ExportFolderPath, @ImportSelfHosted, @EvdDatabaseName);
+    INSERT INTO web.cyberark_source_config (CyberArkSourceConfigKey, ImportPrivilegeCloud, ExportFolderPath, ImportSelfHosted)
+    VALUES (1, @ImportPrivilegeCloud, @ExportFolderPath, @ImportSelfHosted);
     PRINT 'CyberArk source settings saved (web.cyberark_source_config). From now on, change them on Admin > Data Sources.';
 END
 ELSE IF EXISTS (SELECT 1 FROM web.cyberark_source_config
                 WHERE CyberArkSourceConfigKey = 1
                   AND (ImportPrivilegeCloud <> @ImportPrivilegeCloud OR ImportSelfHosted <> @ImportSelfHosted
-                       OR (@ImportPrivilegeCloud = 1 AND ISNULL(ExportFolderPath, N'') <> ISNULL(@ExportFolderPath, N''))
-                       OR (@ImportSelfHosted = 1 AND ISNULL(EvdDatabaseName, N'') <> ISNULL(@EvdDatabaseName, N''))))
+                       OR (@ImportPrivilegeCloud = 1 AND ISNULL(ExportFolderPath, N'') <> ISNULL(@ExportFolderPath, N''))))
 BEGIN
     PRINT 'WARNING: the CyberArk source settings saved on Admin > Data Sources differ from the installer''s answers. The saved settings are kept; change them on the page if they''re wrong.';
 END

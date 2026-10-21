@@ -276,8 +276,10 @@ function Install-BlueTrackNightlyJob {
         Sources owns it, and the script prints a WARNING if the answers differ.
 
         D-176: -ImportSources picks the sources. The export folder is only
-        needed for Privilege Cloud and the EVD database only for Self-Hosted;
-        a source that's off is saved without its value.
+        needed for Privilege Cloud; a source that's off is saved without its
+        value. D-278: Self-Hosted is Self-Hosted Direct, whose PVWA address and
+        credential are set on Admin > Data Sources (the nightly import fails,
+        saying so, until they are).
     #>
     [CmdletBinding(SupportsShouldProcess)]
     param(
@@ -286,19 +288,16 @@ function Install-BlueTrackNightlyJob {
         [Parameter(Mandatory)] [string]$DatabaseName,
         [ValidateSet('Both', 'PrivilegeCloud', 'SelfHosted')] [string]$ImportSources = 'Both',
         [string]$ExportFolderPath,
-        [string]$EvdDatabaseName,
         [bool]$TrustServerCertificate = $true
     )
 
-    # D-197: both values are pasted into T-SQL string literals, so refuse
-    # characters that would end the literal.
+    # D-197: the folder is pasted into a T-SQL string literal, so refuse a
+    # character that would end the literal.
     if ($ExportFolderPath -and $ExportFolderPath.Contains("'")) { throw "The export folder path can't contain an apostrophe: $ExportFolderPath" }
-    if ($EvdDatabaseName -and $EvdDatabaseName -notmatch '^[A-Za-z0-9_]+$') { throw "The EVD database name may contain only letters, digits and underscores: $EvdDatabaseName" }
 
     $importPrivilegeCloud = $ImportSources -in 'Both', 'PrivilegeCloud'
     $importSelfHosted = $ImportSources -in 'Both', 'SelfHosted'
     if ($importPrivilegeCloud -and -not $ExportFolderPath) { throw "ImportSources '$ImportSources' includes Privilege Cloud, so -ExportFolderPath is required." }
-    if ($importSelfHosted -and -not $EvdDatabaseName) { throw "ImportSources '$ImportSources' includes Self-Hosted, so -EvdDatabaseName is required." }
 
     $sourceScript = Join-Path $RepoRoot 'Database\Manual\04_BlueTrack_ScheduleImportLoadJob.sql'
     if (-not (Test-Path $sourceScript)) {
@@ -310,12 +309,10 @@ function Install-BlueTrackNightlyJob {
     # Plain string replacements; a token missing upstream fails loudly here
     # rather than producing a job with the wrong settings.
     $folderValue = if ($importPrivilegeCloud) { $ExportFolderPath.TrimEnd('\') } else { '' }
-    $evdValue = if ($importSelfHosted) { $EvdDatabaseName } else { '' }
     $tokens = [ordered]@{
         '__IMPORT_PC__'     = [string][int]$importPrivilegeCloud
         '__IMPORT_SH__'     = [string][int]$importSelfHosted
         '__EXPORT_FOLDER__' = $folderValue
-        '__EVD_DB__'        = $evdValue
     }
     foreach ($token in $tokens.Keys) {
         if (-not $content.Contains($token)) {
@@ -329,8 +326,7 @@ function Install-BlueTrackNightlyJob {
 
     try {
         $folderShown = if ($folderValue) { $folderValue } else { '(not used)' }
-        $evdShown = if ($evdValue) { $evdValue } else { '(not used)' }
-        Write-Host "Generated a temp copy of the nightly job script with:`n  Sources:       $ImportSources`n  Export folder: $folderShown`n  EVD database:  $evdShown`n(saved as the CyberArk source settings only if none exist yet; the tracked repo file was not modified)"
+        Write-Host "Generated a temp copy of the nightly job script with:`n  Sources:       $ImportSources`n  Export folder: $folderShown`n(saved as the CyberArk source settings only if none exist yet; the tracked repo file was not modified)"
         if ($PSCmdlet.ShouldProcess("$SqlServerInstance / $DatabaseName", 'Install nightly Import+Load SQL Agent job via sqlcmd')) {
             [string[]]$trustArgs = if ($TrustServerCertificate) { @("-C") } else { @() }
             & sqlcmd -S $SqlServerInstance @trustArgs -b -v DatabaseName="$DatabaseName" -i $tempScript | Out-Host
@@ -340,6 +336,49 @@ function Install-BlueTrackNightlyJob {
         }
     } finally {
         Remove-Item -Path $tempScript -ErrorAction SilentlyContinue
+    }
+}
+
+function Test-BlueTrackEvdSourceInUse {
+    <#
+    .SYNOPSIS
+        D-278: true when the target database exists and its CyberArk source
+        settings still import Self-Hosted from the EVD, which this version no
+        longer has. A database that doesn't exist yet, or predates the setting,
+        is false.
+    #>
+    [CmdletBinding()]
+    [OutputType([bool])]
+    param(
+        [Parameter(Mandatory)] [string]$ConnectionString,
+        [Parameter(Mandatory)] [string]$DatabaseName
+    )
+
+    $builder = New-Object System.Data.SqlClient.SqlConnectionStringBuilder $ConnectionString
+    $builder['Database'] = 'master'
+    $connection = New-Object System.Data.SqlClient.SqlConnection $builder.ConnectionString
+    try {
+        $connection.Open()
+        $exists = $connection.CreateCommand()
+        $exists.CommandText = 'SELECT DB_ID(@DatabaseName)'
+        $exists.Parameters.AddWithValue('@DatabaseName', $DatabaseName) | Out-Null
+        $dbId = $exists.ExecuteScalar()
+        if ($null -eq $dbId -or $dbId -is [System.DBNull]) { return $false }
+    } finally {
+        $connection.Close()
+    }
+
+    $builder['Database'] = $DatabaseName
+    $target = New-Object System.Data.SqlClient.SqlConnection $builder.ConnectionString
+    try {
+        $target.Open()
+        $check = $target.CreateCommand()
+        # Dynamic SQL: the column doesn't exist on a database older than script 38.
+        $check.CommandText = "IF COL_LENGTH('web.cyberark_source_config', 'SelfHostedSource') IS NULL SELECT 0; " +
+            "ELSE EXEC (N'SELECT COUNT(*) FROM web.cyberark_source_config WHERE ImportSelfHosted = 1 AND SelfHostedSource <> N''Direct''');"
+        return [int]$check.ExecuteScalar() -gt 0
+    } finally {
+        $target.Close()
     }
 }
 
@@ -475,4 +514,4 @@ SELECT TOP (1) SiteUrl FROM web.app_config;
     return "Kept the Site URL $current"
 }
 
-Export-ModuleMember -Function Format-BlueTrackConnectionString, Test-BlueTrackSqlConnection, Test-BlueTrackSqlInstanceIsThisMachine, Invoke-BlueTrackMigrator, Set-BlueTrackSiteConfig, Install-BlueTrackNightlyJob, Grant-BlueTrackAppPoolSqlAccess, Get-BlueTrackSiteUrl, Set-BlueTrackSiteUrl
+Export-ModuleMember -Function Format-BlueTrackConnectionString, Test-BlueTrackSqlConnection, Test-BlueTrackSqlInstanceIsThisMachine, Invoke-BlueTrackMigrator, Set-BlueTrackSiteConfig, Install-BlueTrackNightlyJob, Test-BlueTrackEvdSourceInUse, Grant-BlueTrackAppPoolSqlAccess, Get-BlueTrackSiteUrl, Set-BlueTrackSiteUrl

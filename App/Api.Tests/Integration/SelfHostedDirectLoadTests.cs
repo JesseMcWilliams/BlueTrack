@@ -152,17 +152,16 @@ public class SelfHostedDirectLoadTests
     }
 
     [Fact]
-    public async Task AShadowPullBesideEvdStaging_IsNotDirectStaging()
+    public async Task StagingNotFromOnePull_IsNotDirectStaging()
     {
         // D-277: only a real pull (stg_sh_* and stg_shd_* under one batch) switches the Load to the REST fields.
         await using var connection = new SqlConnection(TestDatabase.ConnectionString);
         await connection.OpenAsync();
         try
         {
-            await new SelfHostedDirectRepository(new TestDbConnectionFactory())
-                .StageAsync(new SelfHostedStagingMapper().Map(Snapshot(), Guid.NewGuid(), "PVWA REST (test)"), CancellationToken.None, directOnly: true);
             await connection.ExecuteAsync("""
-                INSERT INTO stg_sh_safes (ImportBatchId, SourceFileName, CASSafeID, CASSafeName) VALUES (NEWID(), N'CASafes (EVD)', 987101, N'Direct Safe');
+                INSERT INTO stg_sh_safes (ImportBatchId, SourceFileName, CASSafeID, CASSafeName) VALUES (NEWID(), N'PVWA REST (test)', 987101, N'Direct Safe');
+                INSERT INTO stg_shd_safes (ImportBatchId, SourceFileName, SafeNumber, SafeUrlId, SafeName) VALUES (NEWID(), N'PVWA REST (test)', 987101, N'Direct%20Safe', N'Direct Safe');
                 """);
 
             Assert.False(await connection.ExecuteScalarAsync<bool>("SELECT dbo.fn_SelfHostedStagedByDirect()"));

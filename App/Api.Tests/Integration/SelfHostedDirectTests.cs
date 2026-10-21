@@ -25,8 +25,8 @@ public class SelfHostedDirectTests
         connection.ExecuteAsync("""
             DELETE FROM web.cyberark_source_config;
             INSERT INTO web.cyberark_source_config
-                (CyberArkSourceConfigKey, ImportPrivilegeCloud, ExportFolderPath, ImportSelfHosted, EvdDatabaseName, SelfHostedSource, PvwaBaseUrl)
-            VALUES (1, 0, NULL, @selfHosted, NULL, @source, 'https://pvwa.example.com');
+                (CyberArkSourceConfigKey, ImportPrivilegeCloud, ExportFolderPath, ImportSelfHosted, SelfHostedSource, PvwaBaseUrl)
+            VALUES (1, 0, NULL, @selfHosted, @source, 'https://pvwa.example.com');
             DELETE FROM dbo.cyberark_direct_pull;
             """, new { source, selfHosted }, transaction);
 
@@ -106,7 +106,7 @@ public class SelfHostedDirectTests
 
         var error = await Assert.ThrowsAsync<SqlException>(() => connection.ExecuteAsync("EXEC dbo.usp_Import_Configured", transaction: transaction));
 
-        Assert.Contains("both @ImportPrivilegeCloud and @ImportSelfHosted are off", error.Message);
+        Assert.Contains("Privilege Cloud is off and no Self-Hosted Direct pull is staged", error.Message);
         await transaction.RollbackAsync();
     }
 

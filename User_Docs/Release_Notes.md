@@ -8,11 +8,16 @@ What changed in each BlueTrack release, newest first, for users and administrato
 
 ### Changed
 
+- **The EVD is no longer a Self-Hosted source.** Self-Hosted comes only from PVWA (Self-Hosted Direct), so the EVD database setting, the source choice on Edit CyberArk sources, the shadow pull and its comparison, and the installer's `-EvdDatabaseName` answer are gone. The installer's `-ImportSources SelfHosted` now turns on Self-Hosted Direct; enter its PVWA address and credential on Admin > Data Sources.
+- **Data Sources** no longer says "Self-Hosted: off" beside the Self-Hosted Direct line when Direct is on.
+
 - **Moving from the EVD to Self-Hosted Direct** has its own section in the Deployment Runbook: what to check before switching, the switch and first pull, what the first Direct night should look like, and how to switch back.
 
 ### Fixed
 
 ### Upgrading
+
+- **A site still importing Self-Hosted from the EVD can't take this upgrade.** The installer checks first and stops, changing nothing; switch to Self-Hosted Direct on the version you have (its Deployment Runbook, "Moving Self-Hosted from the EVD to Direct"), then upgrade. Any other site: the upgrade adds database script 47 (removes the EVD and the shadow pull; the comparison's stored history stays in the database), and the installer applies it.
 
 ## 1.3.3 (2026-10-21)
 

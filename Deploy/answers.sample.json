@@ -8,7 +8,6 @@
     "InstallNightlyJob": true,
     "ImportSources": "Both",
     "ExportFolderPath": "D:\\DataDrop\\Exports\\PrivilegedCloud",
-    "EvdDatabaseName": "CyberArk",
     "BackupFolder": "D:\\SQLBackups\\BlueTrack",
     "GrantAppPoolSqlAccess": true,
     "AppPoolSqlLogin": "",
