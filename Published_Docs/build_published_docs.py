@@ -30,6 +30,8 @@ DOCS = [
     (['User_Docs/Admin_SettingsReference.md', 'User_Docs/Admin_SettingsReference_Notifications.md'],
      'Published_Docs/Administrator_Settings_Guide.docx',
      'Administrator Settings Guide', 'BlueTrack: CyberArk PAM Blueprint progress tracking'),
+    ('User_Docs/Admin_UpgradeGuide.md', 'Published_Docs/Upgrade_Guide.docx',
+     'Upgrade Guide', 'BlueTrack: CyberArk PAM Blueprint progress tracking'),
     ('User_Docs/Admin_ApiAccess.md', 'Published_Docs/API_Access_Guide.docx',
      'Calling the API from a script', 'BlueTrack: CyberArk PAM Blueprint progress tracking'),
     ('User_Docs/Release_Notes.md', 'Published_Docs/Release_Notes.docx',
