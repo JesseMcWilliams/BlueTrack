@@ -250,6 +250,7 @@ builder.Services.AddScoped<CyberArkSourceConfigRepository>();   // D-211
 // D-248: Self-Hosted Direct. The pull service and its repository are Scoped like the other repositories; the
 // runner is a Singleton so its one-at-a-time gate spans the nightly pull and Run now.
 builder.Services.AddScoped<BlueTrack.Api.CyberArkDirect.SelfHostedDirectRepository>();
+builder.Services.AddScoped<BlueTrack.Api.CyberArkDirect.ShadowComparisonRepository>();   // D-271
 builder.Services.AddScoped<BlueTrack.Api.CyberArkDirect.SelfHostedDirectPullService>();
 builder.Services.AddSingleton<BlueTrack.Api.CyberArkDirect.SelfHostedDirectRunner>();
 builder.Services.AddHostedService<BlueTrack.Api.CyberArkDirect.SelfHostedDirectBackgroundService>();

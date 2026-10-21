@@ -14,6 +14,8 @@ public sealed class DirectPullRecord
     public string Status { get; init; } = "";
     public string TriggeredBy { get; init; } = "";
     public bool AcceptedChange { get; init; }
+    /// <summary>D-271: a shadow pull, made with the EVD as the source: it wrote only the stg_shd_* tables and never gates the import.</summary>
+    public bool IsShadow { get; init; }
     public int? SafeCount { get; init; }
     public int? AccountCount { get; init; }
     public int? UserCount { get; init; }
@@ -33,9 +35,9 @@ public sealed class SelfHostedDirectRepository(IDbConnectionFactory connectionFa
     /// <summary>A pull still "Started" after this long died with the app (a restart, a crash); it is marked Failed so it can't block the next one.</summary>
     private static readonly TimeSpan StaleStart = TimeSpan.FromHours(2);
 
-    private const string Columns = "PullKey, StartedAt, CompletedAt, Status, TriggeredBy, AcceptedChange, SafeCount, AccountCount, UserCount, GroupCount, MemberCount, PlatformCount, Message";
+    private const string Columns = "PullKey, StartedAt, CompletedAt, Status, TriggeredBy, AcceptedChange, IsShadow, SafeCount, AccountCount, UserCount, GroupCount, MemberCount, PlatformCount, Message";
 
-    public async Task<long> StartPullAsync(string triggeredBy, bool acceptedChange)
+    public async Task<long> StartPullAsync(string triggeredBy, bool acceptedChange, bool isShadow = false)
     {
         using var connection = connectionFactory.Create();
         await connection.ExecuteAsync("""
@@ -44,9 +46,9 @@ public sealed class SelfHostedDirectRepository(IDbConnectionFactory connectionFa
             WHERE Status = N'Started' AND StartedAt < DATEADD(SECOND, -@seconds, SYSUTCDATETIME())
             """, new { seconds = (int)StaleStart.TotalSeconds });
         return await connection.ExecuteScalarAsync<long>("""
-            INSERT INTO dbo.cyberark_direct_pull (TriggeredBy, AcceptedChange) VALUES (@triggeredBy, @acceptedChange);
+            INSERT INTO dbo.cyberark_direct_pull (TriggeredBy, AcceptedChange, IsShadow) VALUES (@triggeredBy, @acceptedChange, @isShadow);
             SELECT CAST(SCOPE_IDENTITY() AS BIGINT);
-            """, new { triggeredBy, acceptedChange });
+            """, new { triggeredBy, acceptedChange, isShadow });
     }
 
     public async Task CompleteAsync(long pullKey, string status, PullCounts? counts, string? message, Guid? batchId)
@@ -65,7 +67,10 @@ public sealed class SelfHostedDirectRepository(IDbConnectionFactory connectionFa
         });
     }
 
-    /// <summary>The last pull that Succeeded; the next one's counts are compared with it.</summary>
+    /// <summary>
+    /// The last pull that Succeeded; the next one's counts are compared with it. A shadow pull counts (D-271): it read the
+    /// same PVWA the same way, so the first real pull after a shadow period is checked against it.
+    /// </summary>
     public async Task<DirectPullRecord?> GetLastSucceededAsync()
     {
         using var connection = connectionFactory.Create();
@@ -77,7 +82,7 @@ public sealed class SelfHostedDirectRepository(IDbConnectionFactory connectionFa
     {
         using var connection = connectionFactory.Create();
         return (await connection.QueryAsync<DirectPullRecord>($"""
-            SELECT TOP (@count) p.PullKey, p.StartedAt, p.CompletedAt, p.Status, p.TriggeredBy, p.AcceptedChange, p.SafeCount, p.AccountCount,
+            SELECT TOP (@count) p.PullKey, p.StartedAt, p.CompletedAt, p.Status, p.TriggeredBy, p.AcceptedChange, p.IsShadow, p.SafeCount, p.AccountCount,
                    p.UserCount, p.GroupCount, p.MemberCount, p.PlatformCount, p.Message,
                    b.SafeCount AS BaselineSafeCount, b.AccountCount AS BaselineAccountCount
             FROM dbo.cyberark_direct_pull p
@@ -136,8 +141,10 @@ public sealed class SelfHostedDirectRepository(IDbConnectionFactory connectionFa
     /// filled: the EVD-shaped stg_sh_* tables the Load reads, and (D-270) the stg_shd_* tables in REST's shape.
     /// DELETE, not TRUNCATE: the app's database account has no ALTER (Database/Manual/02).
     /// The Requests and Confirmations tables (dual-control workflow) have no REST source and are emptied.
+    /// D-271: a shadow pull (<paramref name="directOnly"/>) replaces only the stg_shd_* tables; the EVD-staged stg_sh_*
+    /// tables, which the Load reads, are left alone.
     /// </summary>
-    public async Task StageAsync(StagingTables tables, CancellationToken ct)
+    public async Task StageAsync(StagingTables tables, CancellationToken ct, bool directOnly = false)
     {
         using var raw = connectionFactory.Create();
         var connection = (SqlConnection)raw;
@@ -146,13 +153,13 @@ public sealed class SelfHostedDirectRepository(IDbConnectionFactory connectionFa
 
         string[] evdShaped = ["stg_sh_users", "stg_sh_groups", "stg_sh_groupmembers", "stg_sh_safes", "stg_sh_owners", "stg_sh_files",
                               "stg_sh_objectproperties", "stg_sh_requests", "stg_sh_confirmations", "stg_sh_platforms"];
-        foreach (var table in evdShaped.Concat(tables.Direct.Select(t => t.TableName)))
+        foreach (var table in (directOnly ? [] : evdShaped).Concat(tables.Direct.Select(t => t.TableName)))
         {
             await using var delete = new SqlCommand($"DELETE FROM dbo.{table}", connection, transaction) { CommandTimeout = 600 };
             await delete.ExecuteNonQueryAsync(ct);
         }
 
-        foreach (var data in tables.All)
+        foreach (var data in directOnly ? tables.Direct : tables.All)
         {
             if (data.Rows.Count == 0) continue;
             using var bulk = new SqlBulkCopy(connection, SqlBulkCopyOptions.Default, transaction)

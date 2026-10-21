@@ -76,6 +76,32 @@ public class CyberArkCcpFallbackTests : IClassFixture<BlueTrackWebApplicationFac
     }
 
     [Fact]
+    public async Task TheAccountsLogonDomain_IsReturned_AndBlankWhenTheAccountHasNone()
+    {
+        // D-274: the field names and shape of the lab CCP's response (2026-10-21); LogonDomain is left out when the account has none.
+        await SetCcpSettingsAsync("""{"BaseUrl":"https://ccp.integration-test.example","AppId":"TestApp"}""");
+        try
+        {
+            var withDomain = Provider(new StubHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent("""{"Content":"pw","UserName":"Automation_Admin_SaaS","Address":"company.com","LogonDomain":"Company.com","PolicyID":"WinDomain","Safe":"S","Folder":"Root","Object":"O"}""", Encoding.UTF8, "application/json")
+            }), new SecretFallbackCache(TimeProvider.System));
+            var result = await withDomain.GetSecretAsync(new SecretQuery("S", "Root", "O"));
+            Assert.Equal(("Automation_Admin_SaaS", "company.com", "Company.com"), (result.UserName, result.Address, result.LogonDomain));
+
+            var without = Provider(new StubHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent("""{"Content":"pw","UserName":"svc","Address":"pvwa.company.com"}""", Encoding.UTF8, "application/json")
+            }), new SecretFallbackCache(TimeProvider.System));
+            Assert.Null((await without.GetSecretAsync(new SecretQuery("S", "Root", "O2"))).LogonDomain);
+        }
+        finally
+        {
+            await SetCcpSettingsAsync(null);
+        }
+    }
+
+    [Fact]
     public async Task AnHttpBaseUrl_IsRefusedBeforeAnyRequest()
     {
         await SetCcpSettingsAsync("""{"BaseUrl":"http://ccp.integration-test.example","AppId":"TestApp"}""");

@@ -1,6 +1,6 @@
 # Planning: Self-Hosted Direct staging tables and retiring the EVD
 
-> **Stage: Planning.** Nothing here is built or decided in the register yet. Agreed with the user on 2026-10-19: Self-Hosted Direct gets its own `stg_shd_*` staging tables that capture everything PVWA REST returns, and the EVD is to be removed as a Self-Hosted source. One production install runs on the EVD today; it must move to Direct **without breaking and without losing data**. Facts below were read from the code, the local Idira docs and the lab PVWA (14.6.0) on 2026-10-19/20. Once built, the design moves to `Design_CyberArk-Direct-Integration.md` and this file is archived.
+> **Stage: Planning.** Phases 1 and 2 are built (D-270, D-271); the rest is not built or decided in the register yet. Agreed with the user on 2026-10-19: Self-Hosted Direct gets its own `stg_shd_*` staging tables that capture everything PVWA REST returns, and the EVD is to be removed as a Self-Hosted source. One production install runs on the EVD today; it must move to Direct **without breaking and without losing data**. Facts below were read from the code, the local Idira docs and the lab PVWA (14.6.0) on 2026-10-19/20. Once built, the design moves to `Design_CyberArk-Direct-Integration.md` and this file is archived.
 
 ## 1. What the user decided (2026-10-19)
 
@@ -89,7 +89,10 @@ Lab check (pull 6, deployed build): same Safe, account, user, group and platform
 3. Saving the Direct source keeps `EvdDatabaseName`.
 4. Tests: mapper unit tests, a pull integration test against a fake PVWA, and a check that the Load output is unchanged.
 
-### P2: shadow run and comparison (production stays on the EVD)
+### P2: shadow run and comparison (production stays on the EVD) — built 2026-10-20, D-271
+
+As built (details in `Design_CyberArk-Direct-Integration.md`, "Shadow pull and comparison"): a **Shadow pull** checkbox and time on Edit CyberArk sources (after the import, default 04:00); the comparison as a SQL view, stored per night, shown on Data Sources with clean nights in a row (7 needed); an admin marks expected differences (Internal or Expected; item, Safe, or a member's user or group). Only unmarked missing-from-Direct and account field differences stop a clean night. The plan as first written:
+
 1. A **shadow pull**: with the source still `Evd`, a configured Direct pull runs nightly and writes **only** `stg_shd_*`. It never touches `stg_sh_*` and never gates the import.
 2. A **comparison** (a SQL view plus an Admin > Data Sources panel or a `Tools/` script) of `stg_shd_*` with the EVD-staged `stg_sh_*`, by key:
    - Safes, accounts, users, groups and Safe members only in one source;
@@ -98,7 +101,7 @@ Lab check (pull 6, deployed build): same Safe, account, user, group and platform
 3. Cutover criteria: no business Safe or account missing from Direct, or each one explained; member counts equal; differences only in the known items (R2, R5).
 
 ### P3: the Load reads `stg_shd_*` when the source is Direct
-1. Self-Hosted Load branches read `stg_shd_*`. They fill `AutoManaged` (true and false), `ManualReason`, `CPMStatus` (case-insensitive and normalised), `LastCPMModifiedDate` (only when the CPM acted; Q6), `LastReconciledDate`, `LastVerifiedDate` (from verify activity), `SecretType`, `RemoteAccessRestricted`, and `DirectoryType` from `directory`. `permission_alias` rows for the REST names fix `ViewAuditLog`.
+1. Self-Hosted Load branches read `stg_shd_*`. They fill `AutoManaged` (true and false), `ManualReason`, `CPMStatus` (case-insensitive and normalised), `LastCPMModifiedDate` (always from `lastModifiedTime`; Q6), new columns for the creation time, the last CPM action and its result (Q6), `LastReconciledDate`, `LastVerifiedDate` (from verify activity), `SecretType`, `RemoteAccessRestricted`, and `DirectoryType` from `directory`. `permission_alias` rows for the REST names fix `ViewAuditLog`.
 2. Fixes that apply to both sources: unresolved Safe members (R3), location keys (R6).
 3. **First-Direct-pull guard**: when no earlier Direct pull exists, compare with the counts the last EVD import staged. Over the threshold, the pull is rejected for an admin to accept, as today.
 4. The EVD path still works, and is the rollback.
@@ -147,16 +150,24 @@ What P5 touches (from the 2026-10-19 inventory):
 | Folder, file-type objects, user `LastLogonDate`/`CreationDate` | Not read | `lastSuccessfulLoginDate` replaces logon date |
 | Internal Vault Safes | Their accounts are tracked | Q2 |
 
+**Lab trial notes (shadow pull 7, 2026-10-20), confirmed by the user:**
+- Internal Safes: AppProviderCacheSafe, AppProviderConf, the `PasswordManager*` Safes, Pictures (legacy), PSMLiveSessions, PSMNotifications, PSMSessions, PSMUnmanagedSessionAccounts, the `PVWA*` Safes and System. A Safe whose name starts with a CPM's name is also internal.
+- A business Safe that PVWA can't see is usually missing the PVWAGWAccounts group ("Share this Safe with the following Gateway Accounts"). Test_Radius_00 was fixed that way.
+- PVWAGWAccounts is CyberArk's internal group for PVWA connections, and each PVWA server's user (`PVWAGWUser` unless installed with a custom name) connects to the Vault. Neither is listed as a Safe member by REST. Test_Radius_02 is the one lab Safe with PVWAGWUser missing.
+- The users missing from REST are directory mappings, not users.
+- REST returns only an account's latest version; the EVD returns every version.
+- Missing account 49_6 is a dependent account (Scheduled Task, `MasterPassName` set).
+
 ## 7. Questions for the user
 
-1. **Production**: which BlueTrack and PAM versions, roughly how many Safes, accounts and users, and is a CP or CCP available there?
-2. **Internal Safes** (R2): exclude their accounts from tracking for both sources, or let them show as deleted after cutover?
+1. **Production**: which BlueTrack and PAM versions, roughly how many Safes, accounts and users, and is a CP or CCP available there? *Partly answered 2026-10-20: it is upgraded to 1.3.1 on 2026-10-20, runs PAM 14.2, has a credential BlueTrack can use and reaches PVWA over HTTPS. Sizes still to come. The PVWA user is in Auditors and Vault Admins, but Safes with custom members may hide from it; the comparison's Safe list shows them.*
+2. ~~Internal Safes~~ Answered 2026-10-20: let their accounts show as deleted after the switch, with a note that they are internal (from the comparison's Internal marks, D-271).
 3. ~~CPM activity scope~~ Answered 2026-10-19: only accounts with a `status`, latest per action.
 4. ~~User contact details~~ Answered 2026-10-19: leave addresses and phone numbers out.
-5. **Dependent accounts** (14.6+): capture when the Vault supports it, or leave out? (Left out of P1.)
-6. **`LastCPMModifiedDate`**: fill it only when the CPM has acted (`status` present), or always from `lastModifiedTime`?
-7. **`LogonDomain`** where REST omits it: accept the loss?
-8. **Shadow period**: how many clean nights before cutover?
+5. ~~Dependent accounts~~ Answered 2026-10-20: leave them out.
+6. ~~`LastCPMModifiedDate`~~ Answered 2026-10-20: always from `lastModifiedTime`. Also add columns for the creation time, the last CPM action and that action's result (P3).
+7. **`LogonDomain`** where REST omits it: *2026-10-20: decide after the shadow comparison shows how many accounts have it and how many lose it* (its `LogonDomain` count).
+8. ~~Shadow period~~ Answered 2026-10-20: 7 clean nights in a row.
 9. ~~Release grouping~~ Answered 2026-10-19: separate.
 10. ~~Service user roles~~ Answered 2026-10-20: the Auditors group for Safes and accounts, Vault Admins for platform details; Vault Admins is acceptable for the production service user.
 

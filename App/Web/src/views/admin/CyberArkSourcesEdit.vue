@@ -6,6 +6,8 @@
 // D-248: Self-Hosted can come from the EVD database or straight from PVWA's REST
 // API (Self-Hosted Direct, pulled by the API each night at the pull time); for
 // Direct, Test logs on with the chosen credential and counts what it can see.
+// D-271: with the EVD as the source, a shadow pull can also read PVWA each night (after the import) and compare it
+// with the EVD; it uses the same PVWA address, credential and logon method as Direct.
 import { ref, computed, watch, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { flash } from '../../composables/useFlash'
@@ -64,7 +66,10 @@ const selfHostedSources = [
 ]
 const logonMethods = ['CyberArk', 'LDAP']
 
-// The credential list is only needed for Direct, so it is fetched when Direct is first in play.
+// Whether the PVWA settings are in use: for Direct, or for the EVD's shadow pull (D-271).
+const usesPvwa = computed(() => !!editing.value?.importSelfHosted && (editing.value.selfHostedSource === 'Direct' || !!editing.value.shadowPullEnabled))
+
+// The credential list is only needed for PVWA, so it is fetched when PVWA is first in play.
 async function loadCredentials() {
   if (credentials.value || credentialsError.value) return
   try {
@@ -76,8 +81,8 @@ async function loadCredentials() {
   }
 }
 
-watch(() => editing.value && editing.value.importSelfHosted && editing.value.selfHostedSource === 'Direct', (direct) => {
-  if (direct) loadCredentials()
+watch(usesPvwa, (pvwa) => {
+  if (pvwa) loadCredentials()
 })
 
 onMounted(async () => {
@@ -198,12 +203,18 @@ function cancel() {
                 </select>
               </label>
             </p>
-            <p v-if="editing.selfHostedSource === 'Evd'">
-              <label class="field-label"><span class="field-label-text">{{ t('admin.cyberArkSourcesEdit.evdDatabaseLabel') }}</span> <input v-model="editing.evdDatabaseName" maxlength="128" :placeholder="t('admin.cyberArkSourcesEdit.evdDatabasePlaceholder')" required /></label>
-              <small>{{ t('admin.cyberArkSourcesEdit.evdDatabaseHint') }}</small>
-            </p>
-            <template v-else>
-              <p>{{ t('admin.cyberArkSourcesEdit.directIntro') }}</p>
+            <template v-if="editing.selfHostedSource === 'Evd'">
+              <p>
+                <label class="field-label"><span class="field-label-text">{{ t('admin.cyberArkSourcesEdit.evdDatabaseLabel') }}</span> <input v-model="editing.evdDatabaseName" maxlength="128" :placeholder="t('admin.cyberArkSourcesEdit.evdDatabasePlaceholder')" required /></label>
+                <small>{{ t('admin.cyberArkSourcesEdit.evdDatabaseHint') }}</small>
+              </p>
+              <p>
+                <label><input v-model="editing.shadowPullEnabled" type="checkbox" /> {{ t('admin.cyberArkSourcesEdit.shadowPullLabel') }}</label>
+                <br /><small>{{ t('admin.cyberArkSourcesEdit.shadowPullHint') }}</small>
+              </p>
+            </template>
+            <p v-else>{{ t('admin.cyberArkSourcesEdit.directIntro') }}</p>
+            <template v-if="usesPvwa">
               <p>
                 <label class="field-label"><span class="field-label-text">{{ t('admin.cyberArkSourcesEdit.pvwaAddressLabel') }}</span> <input v-model="editing.pvwaBaseUrl" maxlength="400" :placeholder="t('admin.cyberArkSourcesEdit.pvwaAddressPlaceholder')" required /></label>
                 <small>{{ t('admin.cyberArkSourcesEdit.pvwaAddressHint') }}</small>
@@ -233,6 +244,16 @@ function cancel() {
                   </select>
                 </label>
               </p>
+              <p>
+                <label class="field-label"><span class="field-label-text">{{ t('admin.cyberArkSourcesEdit.timeLimitLabel') }}</span> <input v-model.number="editing.directPullTimeLimitMinutes" type="number" min="5" max="720" required /></label>
+                <small>{{ t('admin.cyberArkSourcesEdit.timeLimitHint') }}</small>
+              </p>
+            </template>
+            <p v-if="editing.selfHostedSource === 'Evd' && editing.shadowPullEnabled">
+              <label class="field-label"><span class="field-label-text">{{ t('admin.cyberArkSourcesEdit.shadowPullTimeLabel') }}</span> <input v-model="editing.shadowPullTime" maxlength="5" pattern="([01][0-9]|2[0-3]):[0-5][0-9]" required /></label>
+              <small>{{ t('admin.cyberArkSourcesEdit.shadowPullTimeHint') }}</small>
+            </p>
+            <template v-if="editing.selfHostedSource === 'Direct'">
               <p>
                 <label class="field-label"><span class="field-label-text">{{ t('admin.cyberArkSourcesEdit.pullTimeLabel') }}</span> <input v-model="editing.directPullTime" maxlength="5" pattern="([01][0-9]|2[0-3]):[0-5][0-9]" required /></label>
                 <small>{{ t('admin.cyberArkSourcesEdit.pullTimeHint') }}</small>

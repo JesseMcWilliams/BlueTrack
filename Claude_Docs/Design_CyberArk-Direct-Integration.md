@@ -44,8 +44,11 @@ The Load (`usp_RunFullLoad`) and everything after it are unchanged: they read `s
 | `PvwaLogonMethod` | `CyberArk` | `CyberArk` or `LDAP`; both take a user name and password. Windows and SAML logon aren't supported. |
 | `DirectPullTime` | `01:30` | `HH:mm`, server time. Must come before the Import job. |
 | `DirectMaxChangePercent` | 20 | 0 to 100. |
+| `DirectPullTimeLimitMinutes` | 45 | D-273, script 44. 5 to 720. A pull (nightly, shadow or Pull now) still running after this long is stopped and logged as Failed. Staging is replaced in one transaction, so a stopped real pull leaves what the Load reads as it was; a stopped shadow pull stores no comparison. Test isn't limited. |
+| `ShadowPullEnabled` | off | D-271. On only with the EVD as the source; needs `PvwaBaseUrl` and `PvwaCredentialKey`. |
+| `ShadowPullTime` | `04:00` | D-271. `HH:mm`, server time. Should come after the nightly import has finished. |
 
-`dbo.cyberark_direct_pull` logs each pull (start, end, outcome, who started it, whether a change was accepted, counts, message). Rows older than 30 days are purged after the nightly pull; the latest is always kept. A pull still "Started" after two hours (the app stopped) is marked Failed by the next one.
+`dbo.cyberark_direct_pull` logs each pull (start, end, outcome, who started it, whether a change was accepted, whether it was a shadow pull, counts, message). Rows older than 30 days are purged after the nightly pull; the latest is always kept. A pull still "Started" after two hours (the app stopped) is marked Failed by the next one.
 
 ## What it reads, and what each becomes
 
@@ -80,6 +83,28 @@ The same pull is also written in REST's own shape, in the same transaction and u
 | `stg_shd_users`, `stg_shd_user_authorizations` | The user list and each person's details: name parts, organization, department, title, emails, DN, description, expiry, last logon, password flags (`DetailsRead` says whether details were read); Vault authorizations, unauthorized interfaces and authentication methods. |
 | `stg_shd_groups`, `stg_shd_group_members` | `UserGroups?includeMembers=true`, with `directory` and `dn`, and members' names. |
 
+## Shadow pull and comparison (D-271, script 42; D-272, script 43)
+
+Phase 2 of `Planning_Self-Hosted-Direct-And-EVD-Retirement.md`: a site still on the EVD shows, night after night, that PVWA returns what the EVD has, before it switches.
+
+- **The shadow pull.** With the EVD as the source and `ShadowPullEnabled` on, the API pulls PVWA at `ShadowPullTime` with the Direct settings (address, credential, logon method) and writes **only** the `stg_shd_*` tables; `stg_sh_*`, which the Load reads, keep what the EVD import staged. There is no change guard. It is logged in `cyberark_direct_pull` with `IsShadow = 1`, shown in the same log on Data Sources (marked "(shadow)"), and **Pull now** runs one. `usp_Import_Configured`'s Direct gate ignores shadow pulls, so after the switch the import still waits for a real pull. A failed shadow pull is mailed by `SelfHostedPullFailed`, saying the import is unaffected. A shadow pull does count as the change guard's baseline: the first real pull after the switch is compared with the last shadow pull's counts.
+- **The comparison.** After staging, `usp_Compare_SelfHostedShadow` reads `vw_shd_comparison`, which compares the two sets by key, with the Load's own filters on the EVD side (password objects, not deleted, D-184) and ignored Safes left out on both:
+
+  | Category | What | Stops a clean night |
+  |---|---|---|
+  | `MissingFromDirect` | A Safe, account, user, group or Safe member the EVD has and PVWA didn't return | Yes, unless marked |
+  | `AccountField` | An account's name, address, user name or platform differs (blank and missing are the same) | Yes, unless marked |
+  | `OnlyInDirect` | The other way round (usually created after the EVD export) | No |
+  | `Permission` | A Safe member's permission differs, where the EVD has a value (the EVD import leaves `ViewAudit`, `ViewOwners` and `UsePassword` empty) | No |
+  | `LogonDomain` | The account property differs (REST leaves it out for some accounts) | No |
+
+  Each comparison is a row in `shd_comparison_run` (counts, kept as history); `shd_comparison_difference` holds the latest one's rows. A comparison doesn't count when the EVD side isn't usable: nothing staged, staged by a Direct pull rather than an EVD import (`SourceFileName` not ending in "(EVD)"), or staged more than 26 hours earlier.
+- **Marks.** On Data Sources, **Mark as expected** records a difference as Internal (a CyberArk internal object REST never returns) or Expected, with a note, in `web.shd_comparison_mark`, for the item, its whole Safe, or (for a Safe member) every membership of that user or group (the most specific mark wins). Marks are audit-logged and re-applied to the latest comparison at once (`usp_Apply_ShadowComparisonMarks`), without comparing again. P3 will use the Internal marks to note internal accounts that show as deleted after the switch.
+- **Automatic marks (D-272, script 43).** The comparison explains, by itself, what every Vault has: CyberArk's internal Safes (a built-in list, plus any Safe whose name starts with a CPM's name) are marked Internal with their accounts and members, and the PVWA gateway members (the PVWAGWAccounts group, `PVWAGWUser*`, EVD users of type 32 with gateway authorizations) Expected. Directory mappings (EVD users of type 34, internal, with no authentication method) are left out of the user comparison, and dependent accounts (`MasterPassName` set) out of the EVD side. `shd_comparison_difference.AutoMarkCategory` keeps the automatic mark so re-applying marks keeps it; `MarkAuto` says the mark shown is automatic. An admin's mark wins, and the panel shows automatic marks as "(automatic)".
+- **Safes PVWA can't fully see** (asked 2026-10-20: production may have Safes with custom permissions). The panel lists, from the latest comparison's missing-from-Direct rows, each Safe PVWA didn't return and each it returned with accounts or members missing, with the counts, and offers **Mark the Safe** for one still blocking.
+- **Clean nights.** A night is clean when its latest comparison is usable and has nothing blocking. `ShadowCleanNights` counts clean nights in a row ending last night or tonight, in server time; a night with no comparison ends the run. The cutover needs **7** (the user's choice, 2026-10-20); the panel says when that is reached.
+- **Lab check (2026-10-20).** Against the lab's EVD copy, 264 rows were missing from Direct: 19 Safes (18 internal, plus `Test_Radius_00`), 2 accounts, 7 users and 236 memberships, almost all in internal Safes. Marking the 19 Safes Internal explained 218 of them, and the PVWAGWAccounts group's memberships 44 more. With D-272's rules applied to the same rows, 246 are marked automatically and 8 left out (7 directory mappings and a Scheduled Task dependent account), leaving only `Test_Radius_00`'s 10, a Safe missing the PVWAGWAccounts group ("Share this Safe with the following Gateway Accounts"), since fixed in the lab.
+
 ## Lab comparison (2026-10-19, same Vault read through REST and the EVD)
 
 Users 43 of 43 matched on id, name, type, source, names, location and enabled flag; groups 21 of 21; Safe members 88 of 88; 2,451 of 2,452 account names, with `UserName`, `Address`, `PolicyID` and `CPMDisabled` identical and timestamps identical (both UTC). Differences:
@@ -101,7 +126,7 @@ Users 43 of 43 matched on id, name, type, source, names, location and enabled fl
 
 ## Where the code is
 
-`App/Api/CyberArkDirect/`: `PvwaClient` (REST), `PvwaModels`, `SelfHostedStagingMapper` (PVWA data to `stg_sh_*` and `stg_shd_*` rows), `PullChangeGuard`, `SelfHostedDirectRepository` (pull log, staging write), `SelfHostedDirectPullService`, `SelfHostedDirectRunner` and `SelfHostedDirectBackgroundService`. The settings, Test, pull log and Run now are in `CyberArkSourcesController` (`/api/admin/cyberark-sources`, `ManageDataSources`). Test (on unsaved values) fetches the credential, logs on, counts what it can see and compares the counts with the last pull, writing nothing. The page is `CyberArkSourcesEdit.vue` and `DataSources.vue`. Tests: `PvwaClientTests`, `SelfHostedStagingMapperTests`, `PullChangeGuardTests`, `CyberArkSourceValidationDirectTests` (unit), `SelfHostedDirectTests` (integration: the SQL gate, the staging write, the pull log), `CyberArkSourcesControllerTests` (contract) and the two page tests.
+`App/Api/CyberArkDirect/`: `PvwaClient` (REST), `PvwaModels`, `SelfHostedStagingMapper` (PVWA data to `stg_sh_*` and `stg_shd_*` rows), `PullChangeGuard`, `SelfHostedDirectRepository` (pull log, staging write), `SelfHostedDirectPullService`, `SelfHostedDirectRunner` and `SelfHostedDirectBackgroundService`. The settings, Test, pull log and Run now are in `CyberArkSourcesController` (`/api/admin/cyberark-sources`, `ManageDataSources`); D-271 adds `direct/comparison` (GET) and `direct/comparison/marks` (POST, DELETE), with `ShadowComparisonRepository` and `ShadowCleanNights` in `ShadowComparison.cs`. Test (on unsaved values) fetches the credential, logs on, counts what it can see and compares the counts with the last pull, writing nothing. The page is `CyberArkSourcesEdit.vue` and `DataSources.vue`, with `ShadowComparisonPanel.vue`. Tests: `PvwaClientTests`, `SelfHostedStagingMapperTests`, `PullChangeGuardTests`, `CyberArkSourceValidationDirectTests`, `ShadowPullTests` (unit), `SelfHostedDirectTests` and `SelfHostedDirectPullServiceTests` (integration: the SQL gate, the staging write, the pull log, the shadow pull and comparison), `CyberArkSourcesControllerTests` (contract) and the three page tests.
 
 ## Decisions made on 2026-10-19
 

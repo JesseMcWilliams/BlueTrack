@@ -117,7 +117,8 @@ public sealed class CyberArkCcpSecretsProvider(
             (body.Content ?? "").ToCharArray(),
             body.UserName,
             body.Address,
-            FromFallbackCache: false);
+            FromFallbackCache: false,
+            LogonDomain: string.IsNullOrWhiteSpace(body.LogonDomain) ? null : body.LogonDomain.Trim());
         fallbackCache.Store(cacheKey, result);
         return result;
     }
@@ -132,5 +133,7 @@ public sealed class CyberArkCcpSecretsProvider(
         public string? Content { get; init; }
         public string? UserName { get; init; }
         public string? Address { get; init; }
+        /// <summary>D-274: the account's LogonDomain property, for an LDAP bind's UPN. Seen in the lab CCP's response (2026-10-21).</summary>
+        public string? LogonDomain { get; init; }
     }
 }

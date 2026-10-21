@@ -12,7 +12,7 @@ public class CyberArkSourceValidationDirectTests
     private static readonly AllowedFileRoots NoRoots = new(new ConfigurationBuilder().Build());
 
     private static CyberArkSourceSettings Direct(string? url = "https://pvwa.example.com", int? credential = 3, string method = "CyberArk",
-        string pullTime = "01:30", int percent = 20, bool selfHosted = true) => new()
+        string pullTime = "01:30", int percent = 20, bool selfHosted = true, int timeLimit = 45) => new()
     {
         ImportSelfHosted = selfHosted,
         SelfHostedSource = "Direct",
@@ -20,7 +20,8 @@ public class CyberArkSourceValidationDirectTests
         PvwaCredentialKey = credential,
         PvwaLogonMethod = method,
         DirectPullTime = pullTime,
-        DirectMaxChangePercent = percent
+        DirectMaxChangePercent = percent,
+        DirectPullTimeLimitMinutes = timeLimit
     };
 
     private static IReadOnlyList<string> Check(CyberArkSourceSettings s) =>
@@ -45,6 +46,22 @@ public class CyberArkSourceValidationDirectTests
     [InlineData("https://pvwa.example.com/#frag")]
     public void Address_OfTheWrongShape_IsRejected(string url) =>
         Assert.Contains(Check(Direct(url)), e => e.StartsWith("PVWA address must be https://host"));
+
+    [Theory]
+    [InlineData(5, true)]
+    [InlineData(45, true)]
+    [InlineData(720, true)]
+    [InlineData(4, false)]
+    [InlineData(721, false)]
+    public void PullTimeLimit_IsFiveMinutesToTwelveHours(int minutes, bool valid)
+    {
+        var errors = Check(Direct(timeLimit: minutes));
+
+        Assert.Equal(valid, !errors.Contains("Pull time limit must be between 5 and 720 minutes."));
+    }
+
+    [Fact]
+    public void PullTimeLimit_DefaultsTo45Minutes() => Assert.Equal(45, CyberArkSourceValidation.Normalize(new CyberArkSourceSettings()).DirectPullTimeLimitMinutes);
 
     [Fact]
     public void MissingAddressAndCredential_AreBothRequired()

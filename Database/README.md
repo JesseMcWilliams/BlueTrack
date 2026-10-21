@@ -57,6 +57,9 @@ instead.
 | 39 | `39_BlueTrack_DirectPullNotification.sql` | D-250: notification type `SelfHostedPullFailed` (a Self-Hosted Direct pull that failed, was rejected, or has not finished after 2 hours), added disabled. |
 | 40 | `40_BlueTrack_DecomSafeApplicationKey.sql` | D-267: `web.vw_decom_safe` also returns `ApplicationKey`, so the Safes Flagged for Deletion report can link the application name to its edit page. |
 | 41 | `41_BlueTrack_SelfHostedDirectStaging.sql` | D-270: the `stg_shd_*` tables, which hold a Self-Hosted Direct pull in REST's own shape (CPM status, last reconcile, CPM activity, platform policy, every account property, predefined Safe members, user details). Written alongside `stg_sh_*`; nothing reads them yet. |
+| 42 | `42_BlueTrack_SelfHostedShadowPull.sql` | D-271: the shadow pull and its comparison with the EVD. `web.cyberark_source_config` gets `ShadowPullEnabled` and `ShadowPullTime`; `dbo.cyberark_direct_pull` gets `IsShadow`; new `web.shd_comparison_mark`, `dbo.shd_comparison_run` and `dbo.shd_comparison_difference`, the view `dbo.vw_shd_comparison` and the procedures `usp_Compare_SelfHostedShadow` and `usp_Apply_ShadowComparisonMarks`; `usp_Import_Configured`'s Direct gate ignores shadow pulls. |
+| 43 | `43_BlueTrack_ShadowComparisonRules.sql` | D-272: the shadow comparison's automatic marks (internal Safes, PVWA gateway members) and the rows it leaves out (directory mappings, dependent accounts). `dbo.shd_comparison_difference` gets `AutoMarkCategory` and `MarkAuto`; recreates `dbo.vw_shd_comparison`, `usp_Compare_SelfHostedShadow` and `usp_Apply_ShadowComparisonMarks`. |
+| 44 | `44_BlueTrack_DirectPullTimeLimit.sql` | D-273: `web.cyberark_source_config.DirectPullTimeLimitMinutes` (default 45), the Self-Hosted Direct pull time limit. |
 
 ## The baseline (D-195)
 
@@ -81,7 +84,7 @@ scripts but not up to `51` is refused; upgrade it first from the
 
 ## Adding a script
 
-1. Name it `NN_BlueTrack_<Topic>.sql`, with `NN` the next number (`42` is next).
+1. Name it `NN_BlueTrack_<Topic>.sql`, with `NN` the next number (`45` is next).
 2. Start with a header comment: the file name, `RUN THIS AFTER 01-NN.`, what
    it changes and why (with the `D-n` decision), and whether it's safe to
    re-run.
