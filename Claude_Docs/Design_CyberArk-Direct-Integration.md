@@ -48,6 +48,8 @@ The Load (`usp_RunFullLoad`) and everything after it are unchanged: they read `s
 | `ShadowPullEnabled` | off | D-271. On only with the EVD as the source; needs `PvwaBaseUrl` and `PvwaCredentialKey`. |
 | `ShadowPullTime` | `04:00` | D-271. `HH:mm`, server time. Should come after the nightly import has finished. |
 
+**Cancel pull** (D-275) on Data Sources stops the running pull, nightly or Pull now; it is logged Failed, saying it was cancelled, and staging is left as it was.
+
 `dbo.cyberark_direct_pull` logs each pull (start, end, outcome, who started it, whether a change was accepted, whether it was a shadow pull, counts, message). Rows older than 30 days are purged after the nightly pull; the latest is always kept. A pull still "Started" after two hours (the app stopped) is marked Failed by the next one.
 
 ## What it reads, and what each becomes
@@ -82,6 +84,21 @@ The same pull is also written in REST's own shape, in the same transaction and u
 | `stg_shd_safe_members` | Safe members including predefined ones, with `isPredefinedUser`, `isReadOnly` and a `BIT` per permission named as in `stg_pc_entitlements`. |
 | `stg_shd_users`, `stg_shd_user_authorizations` | The user list and each person's details: name parts, organization, department, title, emails, DN, description, expiry, last logon, password flags (`DetailsRead` says whether details were read); Vault authorizations, unauthorized interfaces and authentication methods. |
 | `stg_shd_groups`, `stg_shd_group_members` | `UserGroups?includeMembers=true`, with `directory` and `dn`, and members' names. |
+
+## What the Load reads with Direct (D-277, script 45)
+
+When tonight's Self-Hosted staging came from a real Direct pull (`dbo.fn_SelfHostedStagedByDirect()`: `stg_sh_safes` and `stg_shd_safes` share a batch), the Load also reads `stg_shd_*`. With EVD staging every step is as before, so switching back to the EVD is the rollback.
+
+| Load step | With Direct staging |
+|---|---|
+| `usp_Load_FactAccount` | The MERGE from `stg_sh_*` as before (inserts, deletes, ignored Safes), then from `stg_shd_accounts`: `AutoManaged` (true and false), `ManualReason`, `CPMStatus` (trimmed, lowercased), `SecretType`, `RemoteAccessRestricted`, `LastCPMModifiedDate` (`lastModifiedTime`), `LastReconciledDate`, `LastVerifiedDate` (REST, else the latest verify in the CPM activity), and the new `CreatedTime`, `LastCPMAction`, `LastCPMActionResult`, `LastCPMActionTime` (latest of codes 22/38 Verify, 24/57 Change, 31/60 Reconcile). `PlatformLogonDomain` keeps its value where REST has none. Times are UTC. The account detail page shows the creation time and last CPM action; `vw_powerbi_accounts` has all four (script 46). |
+| `usp_Load_FactSafeEntitlement` | From `stg_shd_safe_members`, resolved by `usp_Resolve_EntitlementMembers` (manual, ID, name) like Privilege Cloud: predefined members included, a member with no user or group kept as unresolved (R3). Every REST permission, by its REST name (`permission_alias`); `MoveAccountsAndFolders` counts as MoveAccountsFrom and MoveAccountsInto. |
+| `usp_Load_DimGroup` | `DirectoryType` from REST `directory`. |
+| `usp_Load_DimLocation` and the Safe, user and group loads | Both sources: a Self-Hosted location is keyed by its path (`SourceLocationId` = `LocationName`, R6); script 45 moved existing rows over keeping their `LocationKey`. The mapper stages no location id. |
+
+Dependent accounts aren't returned by REST, so they drop out (deleted in CyberArk) at the first Direct load. So do accounts in CyberArk's internal Safes; `dbo.vw_selfhosted_internal_safe` (marked Internal on the shadow comparison, a built-in name, or named after a CPM, user type 31) lets the accounts list and detail say "internal Safe" for them. The Unresolved report lists Self-Hosted members with their source, without Resolve.
+
+**First Direct pull** (`SelfHostedDirectPullService.BaselineAsync`): compared with the last real pull; with none, with what the EVD import staged (internal Safes, deleted and dependent accounts left out); with no EVD staging either, with the last shadow pull. The rejection says which; each pull stores the counts it was compared with (`BaselineSafeCount`, `BaselineAccountCount`). The "Safes that disappeared" list leaves internal Safes out.
 
 ## Shadow pull and comparison (D-271, script 42; D-272, script 43)
 

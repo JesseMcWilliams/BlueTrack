@@ -26,6 +26,9 @@ public sealed class UnresolvedEntitlementMember
     public DateTime? ResolvedDate { get; init; }
     public DateTime? MembershipExpirationDate { get; init; }
     public DateTime SnapshotDate { get; init; }
+    /// <summary>D-277: the source (PRIVCLOUD or SELFHOSTED); Resolve works for Privilege Cloud members only so far.</summary>
+    public string? SourceSystemCode { get; init; }
+    public string? SourceSystemName { get; init; }
 }
 
 /// <summary>D-232: the four ways an unresolved member can be resolved, as stored in fact_safe_entitlement.ResolutionMethod.</summary>

@@ -60,6 +60,8 @@ instead.
 | 42 | `42_BlueTrack_SelfHostedShadowPull.sql` | D-271: the shadow pull and its comparison with the EVD. `web.cyberark_source_config` gets `ShadowPullEnabled` and `ShadowPullTime`; `dbo.cyberark_direct_pull` gets `IsShadow`; new `web.shd_comparison_mark`, `dbo.shd_comparison_run` and `dbo.shd_comparison_difference`, the view `dbo.vw_shd_comparison` and the procedures `usp_Compare_SelfHostedShadow` and `usp_Apply_ShadowComparisonMarks`; `usp_Import_Configured`'s Direct gate ignores shadow pulls. |
 | 43 | `43_BlueTrack_ShadowComparisonRules.sql` | D-272: the shadow comparison's automatic marks (internal Safes, PVWA gateway members) and the rows it leaves out (directory mappings, dependent accounts). `dbo.shd_comparison_difference` gets `AutoMarkCategory` and `MarkAuto`; recreates `dbo.vw_shd_comparison`, `usp_Compare_SelfHostedShadow` and `usp_Apply_ShadowComparisonMarks`. |
 | 44 | `44_BlueTrack_DirectPullTimeLimit.sql` | D-273: `web.cyberark_source_config.DirectPullTimeLimitMinutes` (default 45), the Self-Hosted Direct pull time limit. |
+| 45 | `45_BlueTrack_SelfHostedDirectLoad.sql` | D-277: the Load reads `stg_shd_*` when the Self-Hosted staging came from a Direct pull (`dbo.fn_SelfHostedStagedByDirect`). New `fact_account` columns `CreatedTime`, `LastCPMAction`, `LastCPMActionResult`, `LastCPMActionTime`; `cyberark_direct_pull.BaselineSafeCount`/`BaselineAccountCount`; Self-Hosted `dim_location` keyed by path (existing rows moved over); `permission_alias` rows for the REST names; view `dbo.vw_selfhosted_internal_safe`; recreates `usp_Load_DimLocation`, `usp_Load_DimSafe`, `usp_Load_DimUser`, `usp_Load_DimGroup`, `usp_Load_FactAccount` (Privilege Cloud's `CPMStatus` lowercased) and `usp_Load_FactSafeEntitlement`. |
+| 46 | `46_BlueTrack_PowerBiCpmActionColumns.sql` | D-277: `vw_powerbi_accounts` adds `CreatedTime`, `LastCPMAction`, `LastCPMActionResult` and `LastCPMActionTime` at the end. |
 
 ## The baseline (D-195)
 
@@ -84,7 +86,7 @@ scripts but not up to `51` is refused; upgrade it first from the
 
 ## Adding a script
 
-1. Name it `NN_BlueTrack_<Topic>.sql`, with `NN` the next number (`45` is next).
+1. Name it `NN_BlueTrack_<Topic>.sql`, with `NN` the next number (`47` is next).
 2. Start with a header comment: the file name, `RUN THIS AFTER 01-NN.`, what
    it changes and why (with the `D-n` decision), and whether it's safe to
    re-run.

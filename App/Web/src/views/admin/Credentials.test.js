@@ -167,4 +167,37 @@ describe('Credentials.vue', () => {
 
     expect(wrapper.find('[role="alert"]').text()).toContain('500')
   })
+
+  // D-276: the domain's bind Test, on the values in the form.
+  const domain = { ldapConfigKey: 1, domainName: 'Company', isEnabled: true, domainController: 'company.com', searchBase: 'DC=company,DC=com', useSsl: true, useTrustedConnection: false, credentialKey: 5 }
+
+  it('tests the bind with the form values and says as whom and to which server', async () => {
+    routeFetch({
+      'GET /api/admin/credentials/ldap-config': jsonResponse([domain]),
+      'POST /api/admin/credentials/ldap-config/test': jsonResponse({ success: true, bindName: 'svc.bind@company.com', server: 'dc1.company.com', error: null })
+    })
+    const { wrapper } = await mountAt('/admin/credentials')
+
+    await wrapper.findAll('button').filter(b => b.text() === 'Edit').at(-1).trigger('click')
+    await wrapper.findAll('button').find(b => b.text() === 'Test' && b.attributes('type') === 'button' && b.element.closest('form')).trigger('click')
+    await flushPromises()
+
+    const call = globalThis.fetch.mock.calls.find(([url]) => url === '/api/admin/credentials/ldap-config/test')
+    expect(JSON.parse(call[1].body)).toMatchObject({ domainName: 'Company', credentialKey: 5, useTrustedConnection: false })
+    expect(wrapper.text()).toContain('Bound as svc.bind@company.com to dc1.company.com.')
+  })
+
+  it('shows the directory error when the bind fails', async () => {
+    routeFetch({
+      'GET /api/admin/credentials/ldap-config': jsonResponse([domain]),
+      'POST /api/admin/credentials/ldap-config/test': jsonResponse({ success: false, bindName: 'svc.bind@company.com', server: null, error: 'The user name or password is incorrect.' })
+    })
+    const { wrapper } = await mountAt('/admin/credentials')
+
+    await wrapper.findAll('button').filter(b => b.text() === 'Edit').at(-1).trigger('click')
+    await wrapper.findAll('button').find(b => b.text() === 'Test' && b.element.closest('form')).trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('form [role="alert"]').text()).toBe('The bind as svc.bind@company.com failed: The user name or password is incorrect.')
+  })
 })

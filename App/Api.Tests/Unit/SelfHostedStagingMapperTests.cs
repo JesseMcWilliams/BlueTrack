@@ -9,8 +9,8 @@ public class SelfHostedStagingMapperTests
 {
     private static readonly Guid Batch = Guid.Parse("11111111-1111-1111-1111-111111111111");
 
-    private static StagingTables Map(PvwaSnapshot snapshot, IReadOnlyDictionary<string, long>? locations = null) =>
-        new SelfHostedStagingMapper(locations).Map(snapshot, Batch, "PVWA REST (test)");
+    private static StagingTables Map(PvwaSnapshot snapshot) =>
+        new SelfHostedStagingMapper().Map(snapshot, Batch, "PVWA REST (test)");
 
     private static PvwaAccount Account(long safe = 59, long file = 3, string? platform = "UnixSSH", bool? auto = null, string? reason = null,
         IReadOnlyDictionary<string, string>? props = null) =>
@@ -233,29 +233,28 @@ public class SelfHostedStagingMapperTests
     }
 
     [Fact]
-    public void Locations_KeepAKnownNamesId_AndNewOnesTakeTheNextFreeNumber()
+    public void Locations_AreStagedByPath_WithNoId()
     {
+        // D-277: the Load keys Self-Hosted locations by path.
         var snapshot = new PvwaSnapshot
         {
             Safes =
             {
                 new PvwaSafe(1, "A", "A", "\\", null, null, null, null),
-                new PvwaSafe(2, "B", "B", "\\System", null, null, null, null),
-                new PvwaSafe(3, "C", "C", "\\New Place", null, null, null, null),
-                new PvwaSafe(4, "D", "D", "\\NEW place", null, null, null, null),   // same name, other case
+                new PvwaSafe(2, "B", "B", " \\System ", null, null, null, null),
                 new PvwaSafe(5, "E", "E", null, null, null, null, null)
-            }
+            },
+            Groups = { new PvwaGroup(1, "G", "Vault", "\\Applications", null, []) }
         };
 
-        var rows = Map(snapshot, new Dictionary<string, long> { ["\\"] = 0, ["\\System"] = 1 }).Safes.Rows.Cast<DataRow>().ToList();
+        var tables = Map(snapshot);
+        var rows = tables.Safes.Rows.Cast<DataRow>().ToList();
 
-        Assert.Equal(new object[] { 0L, 1L, 2L, 2L, DBNull.Value }, rows.Select(r => r["CASLocationID"]));
-        Assert.Equal(DBNull.Value, rows[4]["CASLocationName"]);
+        Assert.All(rows, r => Assert.Equal(DBNull.Value, r["CASLocationID"]));
+        Assert.Equal(new object[] { "\\", "\\System", DBNull.Value }, rows.Select(r => r["CASLocationName"]));
+        Assert.Equal((object)DBNull.Value, tables.Groups.Rows[0]["CAGLocationID"]);
+        Assert.Equal("\\Applications", tables.Groups.Rows[0]["CAGLocationName"]);
     }
-
-    [Fact]
-    public void Locations_WithNoneKnown_StartAtZero() =>
-        Assert.Equal(0L, Map(new PvwaSnapshot { Groups = { new PvwaGroup(1, "G", "Vault", "\\", null, []) } }).Groups.Rows[0]["CAGLocationID"]);
 
     [Fact]
     public void Platforms_AreLowercasedAndCut()

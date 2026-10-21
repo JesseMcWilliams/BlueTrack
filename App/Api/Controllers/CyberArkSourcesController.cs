@@ -217,6 +217,17 @@ public sealed class CyberArkSourcesController(
         return Accepted();
     }
 
+    /// <summary>D-275: cancels the running pull (nightly or Pull now). It ends as Failed, saying it was cancelled. Audit-logged.</summary>
+    [HttpPost("direct/cancel")]
+    public async Task<IActionResult> CancelDirectPull()
+    {
+        var user = await currentUserResolver.ResolveAsync(User);
+        if (user is null) return Unauthorized();
+        if (!directRunner.Cancel()) return Problem(title: "No pull is running", statusCode: StatusCodes.Status409Conflict);
+        await auditLogger.LogAsync("FieldEdit", user.UserKey, "cyberark_source_config", "1", detail: "Self-Hosted Direct pull cancelled");
+        return Accepted();
+    }
+
     /// <summary>
     /// D-271: the shadow comparison: the clean nights so far (and how many are needed), the recent runs, the latest
     /// run's differences (blocking first, at most 500, optionally one category or only blocking ones), the Safes PVWA

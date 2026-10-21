@@ -141,6 +141,40 @@ public class CredentialsControllerTests : IClassFixture<BlueTrackWebApplicationF
         Assert.StartsWith("Credential test failed", await ConnectionTestAudit.LatestDetailAsync("credential", "999999"));
     }
 
+    // D-276: the domain's bind Test, on unsaved values. A real bind to the lab domain is checked live, not here.
+    [Fact]
+    public async Task LdapConfigTest_WithNoBindMethod_SaysWhatIsMissing_AndIsAudited()
+    {
+        var response = await AdminClient().PostAsJsonAsync("/api/admin/credentials/ldap-config/test", new
+        {
+            domainName = "BindTestNoMethod", isEnabled = false, domainController = "dc.example.invalid", searchBase = "DC=example,DC=invalid",
+            useSsl = false, useTrustedConnection = false, credentialKey = (int?)null
+        });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var result = await response.Content.ReadFromJsonAsync<LdapBindTestResponse>();
+        Assert.Equal((false, "Choose a bind account credential, or use a trusted connection."), (result!.Success, result.Error));
+        Assert.StartsWith("LDAP bind test failed for 'BindTestNoMethod'", await ConnectionTestAudit.LatestDetailAsync("ldap_config", "BindTestNoMethod"));
+    }
+
+    [Fact]
+    public async Task LdapConfigTest_AgainstAnUnreachableDomain_ReturnsTheDirectorysError_NotAServerError()
+    {
+        var response = await AdminClient().PostAsJsonAsync("/api/admin/credentials/ldap-config/test", new
+        {
+            domainName = "BindTestUnreachable", isEnabled = false, domainController = "dc.example.invalid", searchBase = "DC=example,DC=invalid",
+            useSsl = false, useTrustedConnection = true, credentialKey = (int?)null
+        });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var result = await response.Content.ReadFromJsonAsync<LdapBindTestResponse>();
+        Assert.False(result!.Success);
+        Assert.False(string.IsNullOrWhiteSpace(result.Error));
+        Assert.Null(result.BindName);   // a trusted connection has no bind name
+    }
+
+    private sealed record LdapBindTestResponse(bool Success, string? BindName, string? Server, string? Error);
+
     [Fact]
     public async Task LdapConfig_CreateUpdateDelete_RoundTrips()
     {

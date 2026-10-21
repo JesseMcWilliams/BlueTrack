@@ -33,6 +33,7 @@ const testResults = ref({})
 
 const ldapConfigs = ref([])
 const ldapEditing = ref(null)
+const ldapTest = ref(null)   // D-276: { testing } or the bind Test's result for the domain being edited
 const ldapError = ref(null)
 
 async function load() {
@@ -116,10 +117,23 @@ async function test(credential) {
   testResults.value = { ...testResults.value, [credential.credentialKey]: result }
 }
 
+// D-276: binds with the values in the form, saved or not, and says as whom and to which domain controller.
+async function testLdapConfig() {
+  ldapTest.value = { testing: true }
+  const response = await fetch('/api/admin/credentials/ldap-config/test', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(ldapEditing.value)
+  })
+  ldapTest.value = response.ok ? await response.json() : { success: false, error: t('common.requestFailed', { status: response.status }) }
+}
+
 function startCreateLdapConfig() {
+  ldapTest.value = null
   ldapEditing.value = { domainName: '', isEnabled: false, domainController: '', searchBase: '', useSsl: false, useTrustedConnection: false, credentialKey: null }
 }
 function startEditLdapConfig(config) {
+  ldapTest.value = null
   ldapEditing.value = { ...config }
 }
 function cancelEditLdapConfig() {
@@ -280,7 +294,15 @@ async function removeLdapConfig(config) {
           </label>
         </p>
         <button type="submit" class="btn-primary">{{ t('common.save') }}</button>
+        <button type="button" :disabled="ldapTest?.testing" @click="testLdapConfig">{{ t('admin.credentials.testBind') }}</button>
         <button type="button" @click="cancelEditLdapConfig">{{ t('common.cancel') }}</button>
+        <p v-if="ldapTest?.testing" role="status">{{ t('admin.credentials.testingBind') }}</p>
+        <p v-else-if="ldapTest?.success === true" role="status">
+          {{ ldapTest.bindName ? t('admin.credentials.bindOkAs', { name: ldapTest.bindName, server: ldapTest.server }) : t('admin.credentials.bindOkTrusted', { server: ldapTest.server }) }}
+        </p>
+        <p v-else-if="ldapTest?.success === false" role="alert">
+          {{ ldapTest.bindName ? t('admin.credentials.bindFailedAs', { name: ldapTest.bindName, error: ldapTest.error }) : t('admin.credentials.bindFailed', { error: ldapTest.error }) }}
+        </p>
       </form>
     </template>
   </div>

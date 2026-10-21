@@ -89,7 +89,9 @@ function deletedNote(account) {
       : t('pages.accountProgressList.deletedBy', { name: account.deletedByName }))
   }
   if (account.isDeletedInSource) {
-    parts.push(account.isInIgnoredSafe ? t('pages.accountProgressList.notImportedIgnoredSafe') : t('pages.accountProgressList.deletedInSource', { source: isFeedAccount(account) ? account.sourceSystemName : 'CyberArk' }))
+    parts.push(account.isInIgnoredSafe ? t('pages.accountProgressList.notImportedIgnoredSafe')
+      : account.isInInternalSafe ? t('pages.accountProgressList.deletedInternalSafe')
+      : t('pages.accountProgressList.deletedInSource', { source: isFeedAccount(account) ? account.sourceSystemName : 'CyberArk' }))
   }
   return parts.join('. ')
 }

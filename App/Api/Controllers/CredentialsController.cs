@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using BlueTrack.Api.Audit;
 using BlueTrack.Api.Auth;
 using BlueTrack.Api.Data;
+using BlueTrack.Api.Ldap;
 using BlueTrack.Api.Models;
 
 namespace BlueTrack.Api.Controllers;
@@ -21,6 +22,7 @@ namespace BlueTrack.Api.Controllers;
 public sealed class CredentialsController(
     CredentialRepository repository,
     LdapConfigRepository ldapConfigRepository,
+    LdapContextFactory ldapContextFactory,
     CurrentUserResolver currentUserResolver,
     AuditLogger auditLogger) : ControllerBase
 {
@@ -92,6 +94,29 @@ public sealed class CredentialsController(
                 detail: AuditLogger.ClipDetail($"Credential test failed: {ex.Message}"));
             return Ok(new { success = false, error = ex.Message });
         }
+    }
+
+    /// <summary>
+    /// D-276: tests a domain's bind on the values in the form (saved or not, enabled or not): binds as discovery would
+    /// and reports the bind name and domain controller, or the directory's error. Never returns the password. Audit-logged.
+    /// </summary>
+    [HttpPost("ldap-config/test")]
+    public async Task<IActionResult> TestLdapConfig([FromBody] SaveLdapConfigRequest request)
+    {
+        var user = await currentUserResolver.ResolveAsync(User);
+        if (user is null) return Unauthorized();
+
+        var result = await ldapContextFactory.TestBindAsync(new LdapConfig
+        {
+            DomainName = request.DomainName, IsEnabled = true, DomainController = request.DomainController, SearchBase = request.SearchBase,
+            UseSsl = request.UseSsl, UseTrustedConnection = request.UseTrustedConnection, CredentialKey = request.UseTrustedConnection ? null : request.CredentialKey
+        });
+        var how = request.UseTrustedConnection ? "trusted connection" : $"as '{result.BindName}'";
+        await auditLogger.LogAsync("ConnectionTest", user.UserKey, "ldap_config", request.DomainName,
+            detail: AuditLogger.ClipDetail(result.Success
+                ? $"LDAP bind test succeeded for '{request.DomainName}' ({how}, {result.Server})"
+                : $"LDAP bind test failed for '{request.DomainName}' ({how}): {result.Error}"));
+        return Ok(new { success = result.Success, bindName = result.BindName, server = result.Server, error = result.Error });
     }
 
     [HttpGet("ldap-config")]

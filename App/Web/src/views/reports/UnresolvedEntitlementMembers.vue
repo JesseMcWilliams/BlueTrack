@@ -246,6 +246,7 @@ onMounted(load)
       <thead>
         <tr>
           <th>{{ t('reports.unresolvedEntitlementMembers.colSafe') }}</th>
+          <th>{{ t('reports.unresolvedEntitlementMembers.colSource') }}</th>
           <th>{{ t('reports.unresolvedEntitlementMembers.colMemberType') }}</th>
           <th>{{ t('reports.unresolvedEntitlementMembers.colName') }}</th>
           <th>{{ t('reports.unresolvedEntitlementMembers.colMemberId') }}</th>
@@ -258,6 +259,7 @@ onMounted(load)
       <tbody>
         <tr v-for="item in items" :key="item.entitlementKey">
           <td>{{ item.safeName }}</td>
+          <td>{{ item.sourceSystemName }}</td>
           <td>{{ item.memberType }}</td>
           <td>{{ item.memberName }}</td>
           <td>{{ item.unresolvedMemberId }}</td>
@@ -268,7 +270,9 @@ onMounted(load)
           <td>{{ formatDate(item.membershipExpirationDate) }}</td>
           <td>{{ formatDate(item.snapshotDate) }}</td>
           <td v-if="canResolve">
-            <button type="button" :disabled="busy"
+            <!-- D-277: Self-Hosted members can't be resolved by hand yet (Planning_Backlog.md). -->
+            <small v-if="item.sourceSystemCode === 'SELFHOSTED'">{{ t('reports.unresolvedEntitlementMembers.selfHostedNoResolve') }}</small>
+            <button v-else type="button" :disabled="busy"
                     :aria-label="t('reports.unresolvedEntitlementMembers.resolveLabel', { name: item.memberName ?? item.unresolvedMemberId, safe: item.safeName })"
                     @click="showResolveForm(item)">{{ t('reports.unresolvedEntitlementMembers.resolve') }}</button>
             <button v-if="item.resolutionMethod === 'Manual' || item.resolutionMethod === 'External'" type="button" :disabled="busy"

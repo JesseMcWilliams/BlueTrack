@@ -60,6 +60,15 @@ public sealed class AccountProgressDetail
 
     /// <summary>D-186: its safe matches the ignored-safe pattern -- shown as "Not imported (ignored safe)" rather than "Deleted in CyberArk".</summary>
     public bool IsInIgnoredSafe { get; init; }
+
+    /// <summary>D-277: Self-Hosted Direct only (null otherwise): when CyberArk created the account, and its last CPM action (Verify, Change or Reconcile), that action's result (Success or Failure) and time. UTC.</summary>
+    public DateTime? CreatedTime { get; init; }
+    public string? LastCPMAction { get; init; }
+    public string? LastCPMActionResult { get; init; }
+    public DateTime? LastCPMActionTime { get; init; }
+
+    /// <summary>D-277: its Safe is a CyberArk internal Self-Hosted one (dbo.vw_selfhosted_internal_safe), which PVWA never returns, so after the switch to Direct "Deleted in CyberArk" says why.</summary>
+    public bool IsInInternalSafe { get; init; }
 }
 
 /// <summary>

@@ -6,12 +6,30 @@ namespace BlueTrack.Api.CyberArkDirect;
 /// <summary>
 /// D-248: starts Self-Hosted Direct pulls. A Singleton, like DataFeedRunner, so its one-at-a-time gate spans the
 /// nightly run and Run now. Each pull gets its own DI scope, since the pull service uses Scoped repositories.
+/// D-275: the running pull, nightly or Run now, can be cancelled (<see cref="Cancel"/>).
 /// </summary>
 public sealed class SelfHostedDirectRunner(IServiceScopeFactory scopeFactory, IHostApplicationLifetime lifetime, ILogger<SelfHostedDirectRunner> logger)
 {
     private int _running;
+    private CancellationTokenSource? _cancel;
 
     public bool IsRunning => Volatile.Read(ref _running) == 1;
+
+    /// <summary>D-275: asks the running pull to stop; false if none is running. The pull logs itself as cancelled.</summary>
+    public bool Cancel()
+    {
+        var cancel = Volatile.Read(ref _cancel);
+        if (!IsRunning || cancel is null) return false;
+        try
+        {
+            cancel.Cancel();
+            return true;
+        }
+        catch (ObjectDisposedException)
+        {
+            return false;   // it finished in the meantime
+        }
+    }
 
     /// <summary>Starts a pull in the background and returns at once; false if one is already going.</summary>
     public bool TryStart(string triggeredBy, bool acceptChange)
@@ -51,9 +69,18 @@ public sealed class SelfHostedDirectRunner(IServiceScopeFactory scopeFactory, IH
 
     private async Task RunCoreAsync(string triggeredBy, bool acceptChange, CancellationToken ct)
     {
-        using var scope = scopeFactory.CreateScope();
-        var outcome = await scope.ServiceProvider.GetRequiredService<SelfHostedDirectPullService>().RunAsync(triggeredBy, acceptChange, ct);
-        logger.LogInformation("Self-Hosted Direct pull ({TriggeredBy}): {Status}. {Message}", triggeredBy, outcome.Status, outcome.Message);
+        using var cancel = new CancellationTokenSource();
+        Volatile.Write(ref _cancel, cancel);
+        try
+        {
+            using var scope = scopeFactory.CreateScope();
+            var outcome = await scope.ServiceProvider.GetRequiredService<SelfHostedDirectPullService>().RunAsync(triggeredBy, acceptChange, ct, cancel.Token);
+            logger.LogInformation("Self-Hosted Direct pull ({TriggeredBy}): {Status}. {Message}", triggeredBy, outcome.Status, outcome.Message);
+        }
+        finally
+        {
+            Volatile.Write(ref _cancel, null);
+        }
     }
 }
 

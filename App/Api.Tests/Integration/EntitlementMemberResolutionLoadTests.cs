@@ -160,8 +160,7 @@ public class EntitlementMemberResolutionLoadTests
             SELECT fse.ResolutionMethod, bep.IsGranted
             FROM dbo.bridge_entitlement_permission bep
             JOIN dbo.fact_safe_entitlement fse ON fse.EntitlementKey = bep.EntitlementKey
-            JOIN dbo.dim_permission p ON p.PermissionKey = bep.PermissionKey
-            JOIN dbo.permission_alias pa ON pa.PermissionKey = p.PermissionKey AND pa.RawPermissionName = 'RetrieveAccounts'
+            JOIN dbo.dim_permission p ON p.PermissionKey = bep.PermissionKey AND p.PermissionName = 'RetrieveAccounts'
             WHERE fse.EntitlementKey IN @keys
             ORDER BY fse.ResolutionMethod
             """, new { keys = rows.Select(r => r.EntitlementKey).ToList() }, f.Transaction);
