@@ -19,7 +19,7 @@ const unresolved = {
   entitlementKey: 1, safeKey: 3, safeName: 'Finance-Safe', memberType: 'User',
   unresolvedMemberId: '6a1f-guid', memberName: 'jane.doe@corp.example', resolutionMethod: null,
   userKey: null, groupKey: null, resolvedToName: null, resolutionNote: null, resolvedByName: null,
-  membershipExpirationDate: null, snapshotDate: '2026-10-14T00:00:00'
+  membershipExpirationDate: null, snapshotDate: '2026-10-14T00:00:00', sourceSystemCode: 'PRIVCLOUD', sourceSystemName: 'Privilege Cloud'
 }
 const external = {
   ...unresolved, entitlementKey: 2, memberType: 'Group', unresolvedMemberId: 'DPA_Admin_Role', memberName: 'DPA_Admin_Role',
@@ -54,10 +54,24 @@ describe('UnresolvedEntitlementMembers.vue', () => {
 
     expect(globalThis.fetch.mock.calls[0][0]).toBe('/api/reports/unresolved-entitlement-members?showResolved=false')
     const headers = wrapper.findAll('th').map(th => th.text())
-    expect(headers).toEqual(['Safe', 'Member Type', 'Name', 'Member ID', 'Resolution', 'Membership Expiration', 'Snapshot Date'])
+    expect(headers).toEqual(['Safe', 'Source', 'Member Type', 'Name', 'Member ID', 'Resolution', 'Membership Expiration', 'Snapshot Date'])
     const cells = wrapper.findAll('tbody td').map(td => td.text())
-    expect(cells.slice(0, 5)).toEqual(['Finance-Safe', 'User', 'jane.doe@corp.example', '6a1f-guid', 'Unresolved'])
+    expect(cells.slice(0, 6)).toEqual(['Finance-Safe', 'Privilege Cloud', 'User', 'jane.doe@corp.example', '6a1f-guid', 'Unresolved'])
     expect(wrapper.findAll('button').filter(b => b.text() === 'Resolve')).toHaveLength(0)
+  })
+
+  // D-277: Self-Hosted members (a Direct pull) are listed, but can't be resolved here yet.
+  it('lists a Self-Hosted member with its source and no Resolve button', async () => {
+    const selfHosted = { ...unresolved, entitlementKey: 9, sourceSystemCode: 'SELFHOSTED', sourceSystemName: 'Self-Hosted', unresolvedMemberId: '777', memberName: 'hidden.user' }
+    globalThis.fetch = vi.fn(() => Promise.resolve(jsonResponse([unresolved, selfHosted])))
+    const wrapper = mountPage(['ViewDashboard', 'ConfirmReconciliation'])
+    await flushPromises()
+
+    const rows = wrapper.findAll('tbody tr')
+    expect(rows[1].text()).toContain('Self-Hosted')
+    expect(rows[1].text()).toContain('Self-Hosted: not yet resolvable here')
+    expect(rows[1].findAll('button').filter(b => b.text() === 'Resolve')).toHaveLength(0)
+    expect(rows[0].findAll('button').filter(b => b.text() === 'Resolve')).toHaveLength(1)
   })
 
   it('Show resolved reloads with resolved rows and says how each was resolved', async () => {

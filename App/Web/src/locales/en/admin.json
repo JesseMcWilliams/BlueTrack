@@ -189,6 +189,12 @@
     "searchBasePlaceholder": "DC=company,DC=local",
     "useSsl": "Use SSL",
     "useTrustedConnection": "Use trusted connection (app pool / local computer account)",
+    "testBind": "Test",
+    "testingBind": "Binding to the directory...",
+    "bindOkAs": "Bound as {name} to {server}.",
+    "bindOkTrusted": "Bound with the trusted connection to {server}.",
+    "bindFailedAs": "The bind as {name} failed: {error}",
+    "bindFailed": "The bind failed: {error}",
     "bindCredentialLabel": "Bind Account Credential:"
   },
   "cyberArkSourcesEdit": {
@@ -335,6 +341,10 @@
     "noPulls": "No pull has run yet. The nightly import fails until one succeeds.",
     "pullStarted": "Started",
     "pullStartedMessage": "Pull started. This page refreshes while it runs.",
+    "cancelPull": "Cancel pull",
+    "confirmCancelPull": "Stop the pull that is running? It will be logged as failed, and the data the nightly load reads is left as it was.",
+    "cancelRequested": "Cancelling the pull. The log shows it once it has stopped.",
+    "cancelNothingRunning": "No pull is running.",
     "pullBy": "By",
     "pullResult": "Result",
     "pullCounts": "Read",

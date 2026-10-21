@@ -100,7 +100,10 @@ As built (details in `Design_CyberArk-Direct-Integration.md`, "Shadow pull and c
    - entitlement permission differences.
 3. Cutover criteria: no business Safe or account missing from Direct, or each one explained; member counts equal; differences only in the known items (R2, R5).
 
-### P3: the Load reads `stg_shd_*` when the source is Direct
+### P3: the Load reads `stg_shd_*` when the source is Direct — built 2026-10-21, D-277
+
+As built: `Design_CyberArk-Direct-Integration.md`, "What the Load reads with Direct". Answers: locations by path; `LogonDomain` falls back silently; CPM status lowercased for both sources; every REST permission; unresolved Self-Hosted members without Resolve (backlog); first pull against the EVD's counts. The plan as first written:
+
 1. Self-Hosted Load branches read `stg_shd_*`. They fill `AutoManaged` (true and false), `ManualReason`, `CPMStatus` (case-insensitive and normalised), `LastCPMModifiedDate` (always from `lastModifiedTime`; Q6), new columns for the creation time, the last CPM action and its result (Q6), `LastReconciledDate`, `LastVerifiedDate` (from verify activity), `SecretType`, `RemoteAccessRestricted`, and `DirectoryType` from `directory`. `permission_alias` rows for the REST names fix `ViewAuditLog`.
 2. Fixes that apply to both sources: unresolved Safe members (R3), location keys (R6).
 3. **First-Direct-pull guard**: when no earlier Direct pull exists, compare with the counts the last EVD import staged. Over the threshold, the pull is rejected for an admin to accept, as today.

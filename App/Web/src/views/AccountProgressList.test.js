@@ -274,6 +274,14 @@ describe('AccountProgressList.vue', () => {
 
     expect(wrapper.find('.deleted-badge').attributes('title')).toBe('Not imported (ignored safe)')
   })
+  // D-277
+  it('says when an account deleted in CyberArk was in a CyberArk internal Safe', async () => {
+    mockInitialLoad({ accounts: [{ ...sampleAccount, isDeleted: true, isDeletedInSource: true, isInIgnoredSafe: false, isInInternalSafe: true }] })
+    const wrapper = mount(AccountProgressList, { global: { plugins: [makeRouter()] } })
+    await flushPromises()
+
+    expect(wrapper.find('.deleted-badge').attributes('title')).toBe('Deleted in CyberArk (internal Safe)')
+  })
   // D-191: an account without a username is still a link, by its account name.
   it('links an account without a username by its account name, marked (no username)', async () => {
     mockInitialLoad({ accounts: [{ ...sampleAccount, userName: null, address: null, accountName: 'salesforce_hash_key' }] })

@@ -488,3 +488,38 @@ describe('AccountProgressDetail.vue', () => {
     })
   })
 })
+
+// D-277: an account deleted in CyberArk after the switch to Direct because its Safe is a CyberArk internal one.
+describe('AccountProgressDetail.vue: an account in a CyberArk internal Safe', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    useRightsStore().permissionNames = ['ViewDashboard']
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('says it was deleted in CyberArk because its Safe is internal', async () => {
+    mockLoad({ detailOverrides: { isDeleted: true, isDeletedInSource: true, isInIgnoredSafe: false, isInInternalSafe: true } })
+    const wrapper = await mountEditable()
+
+    expect(wrapper.find('.deleted-notice').text()).toContain("Deleted in CyberArk: its Safe is a CyberArk internal Safe, which PVWA doesn't return.")
+  })
+
+  it('shows when CyberArk created the account and its last CPM action (Self-Hosted Direct)', async () => {
+    mockLoad({ detailOverrides: { createdTime: '2026-09-01T08:30:00', lastCPMAction: 'Change', lastCPMActionResult: 'Failure', lastCPMActionTime: '2026-10-19T04:00:00' } })
+    const wrapper = await mountEditable()
+
+    const facts = wrapper.find('.cpm-facts').text()
+    expect(facts).toContain('Created in CyberArk:')
+    expect(facts).toContain('Last CPM action: Change (Failure),')
+  })
+
+  it('has no CPM line for an account without those fields', async () => {
+    mockLoad()
+    const wrapper = await mountEditable()
+
+    expect(wrapper.find('.cpm-facts').exists()).toBe(false)
+  })
+})

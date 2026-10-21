@@ -287,6 +287,30 @@ describe('DataSources.vue', () => {
     wrapper.unmount()   // stops the polling timer
   })
 
+  // D-275
+  it('offers Cancel pull only while a pull runs, asks first, and asks the API to stop it', async () => {
+    const cancel = vi.fn(() => jsonResponse(null, true, 202))
+    routeFetch(directHandlers([pull()], true, { 'POST /api/admin/cyberark-sources/direct/cancel': cancel }))
+    const wrapper = mount(DataSources, { global: { plugins: [makeRouter()] } })
+    await flushPromises()
+
+    await wrapper.findAll('button').find(b => b.text() === 'Cancel pull').trigger('click')
+    await flushPromises()
+
+    expect(confirmDelete).toHaveBeenCalledTimes(1)
+    expect(globalThis.fetch.mock.calls.some(([url, options]) => url === '/api/admin/cyberark-sources/direct/cancel' && options?.method === 'POST')).toBe(true)
+    expect(wrapper.text()).toContain('Cancelling the pull.')
+    wrapper.unmount()   // stops the polling timer
+  })
+
+  it('has no Cancel pull button when nothing is running', async () => {
+    routeFetch(directHandlers([pull()]))
+    const wrapper = mount(DataSources, { global: { plugins: [makeRouter()] } })
+    await flushPromises()
+
+    expect(wrapper.findAll('button').some(b => b.text() === 'Cancel pull')).toBe(false)
+  })
+
   it('shows the API\'s reason when a pull is refused', async () => {
     routeFetch(directHandlers([pull()], false, {
       'POST /api/admin/cyberark-sources/direct/pull': jsonResponse({ detail: 'Save Self-Hosted Direct as the source first.' }, false, 400)

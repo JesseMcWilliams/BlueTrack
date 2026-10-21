@@ -32,16 +32,6 @@ public sealed class SelfHostedStagingMapper
         ("accessWithoutConfirmation", "CAONoConfirmRequired"), ("requestsAuthorizationLevel1", "CAOConfirm")
     ];
 
-    private readonly Dictionary<string, long> _locationIds;
-    private long _nextLocationId;
-
-    /// <param name="knownLocations">dim_location's Self-Hosted rows (name to the EVD's numeric id), so a location keeps its id when the source changes.</param>
-    public SelfHostedStagingMapper(IReadOnlyDictionary<string, long>? knownLocations = null)
-    {
-        _locationIds = new Dictionary<string, long>(knownLocations ?? new Dictionary<string, long>(), StringComparer.OrdinalIgnoreCase);
-        _nextLocationId = (_locationIds.Count == 0 ? -1 : _locationIds.Values.Max()) + 1;
-    }
-
     public StagingTables Map(PvwaSnapshot snapshot, Guid batchId, string sourceName)
     {
         var tables = new StagingTables();
@@ -230,14 +220,9 @@ public sealed class SelfHostedStagingMapper
         "CreateFolders", "DeleteFolders", "MoveAccountsAndFolders", "RequestsAuthorizationLevel1", "RequestsAuthorizationLevel2"
     ];
 
-    /// <summary>PVWA names a location by path; the EVD numbers it. A known name keeps its number, a new one takes the next free number.</summary>
-    private (long? Id, string? Name) Location(string? path)
-    {
-        if (string.IsNullOrWhiteSpace(path)) return (null, null);
-        var name = Cut(path.Trim(), 128)!;
-        if (!_locationIds.TryGetValue(name, out var id)) _locationIds[name] = id = _nextLocationId++;
-        return (id, name);
-    }
+    /// <summary>PVWA names a location by path and has no id. D-277: the Load keys Self-Hosted locations by path, so no id is staged.</summary>
+    private static (long? Id, string? Name) Location(string? path) =>
+        string.IsNullOrWhiteSpace(path) ? (null, null) : (null, Cut(path.Trim(), 128));
 
     private static object Db(object? value) => value ?? DBNull.Value;
 

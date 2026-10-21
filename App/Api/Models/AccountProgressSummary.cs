@@ -55,4 +55,7 @@ public sealed class AccountProgressSummary
 
     /// <summary>D-186: its safe matches the ignored-safe pattern -- shown as "Not imported (ignored safe)" rather than "Deleted in CyberArk".</summary>
     public bool IsInIgnoredSafe { get; init; }
+
+    /// <summary>D-277: its Safe is a CyberArk internal Self-Hosted one (dbo.vw_selfhosted_internal_safe), which PVWA never returns, so after the switch to Direct "Deleted in CyberArk" says why.</summary>
+    public bool IsInInternalSafe { get; init; }
 }

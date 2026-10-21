@@ -102,7 +102,8 @@ public sealed class AccountProgressRepository(IDbConnectionFactory connectionFac
             SELECT page.*,
                    dca.InFlaggedSafe AS DecomInFlaggedSafe, dca.NameFlagged AS DecomNameFlagged,
                    dca.SafeName AS DecomSafeName, dca.OtherSafes AS DecomOtherSafes,
-                   CAST(dbo.fn_MatchesNamePattern(isf.SafeName, iac.SafeIgnoreMode, iac.SafeIgnoreValue) AS BIT) AS IsInIgnoredSafe
+                   CAST(dbo.fn_MatchesNamePattern(isf.SafeName, iac.SafeIgnoreMode, iac.SafeIgnoreValue) AS BIT) AS IsInIgnoredSafe,
+                   CAST(CASE WHEN EXISTS (SELECT 1 FROM dbo.vw_selfhosted_internal_safe iis WHERE iis.SafeKey = isf.SafeKey) THEN 1 ELSE 0 END AS BIT) AS IsInInternalSafe
             FROM (
                 SELECT
                     fa.AccountKey,
@@ -252,6 +253,7 @@ public sealed class AccountProgressRepository(IDbConnectionFactory connectionFac
         const string sql = """
             SELECT
                 fap.ProgressKey, fap.AccountKey, fa.AccountName, fa.UserName, fa.Address,
+                fa.CreatedTime, fa.LastCPMAction, fa.LastCPMActionResult, fa.LastCPMActionTime,
                 fap.CurrentStageKey, fap.CurrentStatusKey, fap.RiskLevelKey, fap.AccountTypeKey, fap.SORKey, fap.ApplicationKey,
                 fap.OwnerName, fap.BusinessUnit, fap.TargetRemediationDate, fap.ActualCompletionDate, fap.Notes,
                 fap.LastUpdated, fap.ExceptionKey,
@@ -259,7 +261,8 @@ public sealed class AccountProgressRepository(IDbConnectionFactory connectionFac
                 fa.IsDeleted, fa.IsDeletedInSource, adu.DisplayName AS DeletedByName, ad.DeletedAt, ad.Reason AS DeletionReason,
                 dca.InFlaggedSafe AS DecomInFlaggedSafe, dca.NameFlagged AS DecomNameFlagged,
                 dca.SafeName AS DecomSafeName, dca.OtherSafes AS DecomOtherSafes,
-                CAST(dbo.fn_MatchesNamePattern(isf.SafeName, iac.SafeIgnoreMode, iac.SafeIgnoreValue) AS BIT) AS IsInIgnoredSafe
+                CAST(dbo.fn_MatchesNamePattern(isf.SafeName, iac.SafeIgnoreMode, iac.SafeIgnoreValue) AS BIT) AS IsInIgnoredSafe,
+                   CAST(CASE WHEN EXISTS (SELECT 1 FROM dbo.vw_selfhosted_internal_safe iis WHERE iis.SafeKey = isf.SafeKey) THEN 1 ELSE 0 END AS BIT) AS IsInInternalSafe
             FROM dbo.fact_account_progress fap
             JOIN dbo.fact_account fa ON fa.AccountKey = fap.AccountKey
             LEFT JOIN web.account_deletion ad ON ad.AccountKey = fa.AccountKey

@@ -24,7 +24,10 @@ public sealed class DirectPullRecord
     public int? PlatformCount { get; init; }
     public string? Message { get; init; }
 
-    /// <summary>D-250: the Safe and account counts of the last pull that Succeeded before this one, so a rejected row can show "40 to 10".</summary>
+    /// <summary>
+    /// D-250: the Safe and account counts this pull was compared with, so a rejected row can show "40 to 10": the ones
+    /// stored with the pull (D-277; the EVD's for a first Direct pull), else the last pull that Succeeded before it.
+    /// </summary>
     public int? BaselineSafeCount { get; init; }
     public int? BaselineAccountCount { get; init; }
 }
@@ -51,9 +54,13 @@ public sealed class SelfHostedDirectRepository(IDbConnectionFactory connectionFa
             """, new { triggeredBy, acceptedChange, isShadow });
     }
 
-    public async Task CompleteAsync(long pullKey, string status, PullCounts? counts, string? message, Guid? batchId)
+    public async Task CompleteAsync(long pullKey, string status, PullCounts? counts, string? message, Guid? batchId, PullCounts? baseline = null)
     {
         using var connection = connectionFactory.Create();
+        if (baseline is not null)
+            await connection.ExecuteAsync(
+                "UPDATE dbo.cyberark_direct_pull SET BaselineSafeCount = @SafeCount, BaselineAccountCount = @AccountCount WHERE PullKey = @pullKey",
+                new { pullKey, baseline.SafeCount, baseline.AccountCount });
         await connection.ExecuteAsync("""
             UPDATE dbo.cyberark_direct_pull
             SET Status = @status, CompletedAt = SYSUTCDATETIME(), ImportBatchId = @batchId, Message = @message,
@@ -68,14 +75,52 @@ public sealed class SelfHostedDirectRepository(IDbConnectionFactory connectionFa
     }
 
     /// <summary>
-    /// The last pull that Succeeded; the next one's counts are compared with it. A shadow pull counts (D-271): it read the
-    /// same PVWA the same way, so the first real pull after a shadow period is checked against it.
+    /// The last pull that Succeeded; the next one's counts are compared with it. A shadow pull counts unless
+    /// <paramref name="includeShadow"/> is false (D-271: it read the same PVWA the same way). D-277: the first real pull
+    /// is compared with the EVD's staged counts first (<see cref="GetEvdBaselineAsync"/>).
     /// </summary>
-    public async Task<DirectPullRecord?> GetLastSucceededAsync()
+    public async Task<DirectPullRecord?> GetLastSucceededAsync(bool includeShadow = true)
     {
         using var connection = connectionFactory.Create();
         return await connection.QueryFirstOrDefaultAsync<DirectPullRecord>(
-            $"SELECT TOP (1) {Columns} FROM dbo.cyberark_direct_pull WHERE Status = N'Succeeded' ORDER BY PullKey DESC");
+            $"SELECT TOP (1) {Columns} FROM dbo.cyberark_direct_pull WHERE Status = N'Succeeded' AND (@includeShadow = 1 OR IsShadow = 0) ORDER BY PullKey DESC",
+            new { includeShadow });
+    }
+
+    /// <summary>
+    /// D-277: when the staged Self-Hosted data came from an EVD import, its Safe and account counts as a pull would count
+    /// them, and when it was staged; else null. Left out, because PVWA never returns them: CyberArk's internal Safes
+    /// (dbo.vw_selfhosted_internal_safe) and their accounts, deleted accounts (D-184) and dependent accounts.
+    /// </summary>
+    public async Task<(PullCounts Counts, DateTime StagedAt)?> GetEvdBaselineAsync()
+    {
+        using var connection = connectionFactory.Create();
+        var row = await connection.QuerySingleOrDefaultAsync<EvdBaseline>("""
+            ;WITH internal_safe AS (
+                SELECT CAST(d.SafeUrlId AS NVARCHAR(300)) AS SafeId
+                FROM dbo.vw_selfhosted_internal_safe i JOIN dbo.dim_safe d ON d.SafeKey = i.SafeKey
+            )
+            SELECT
+                (SELECT COUNT(*) FROM dbo.stg_sh_safes s
+                 WHERE NOT EXISTS (SELECT 1 FROM internal_safe x WHERE x.SafeId = CAST(s.CASSafeID AS NVARCHAR(300)))) AS SafeCount,
+                (SELECT COUNT(*) FROM dbo.stg_sh_files f
+                 WHERE f.CAFType = 2
+                   AND CASE WHEN f.CAFDeletionDate >= '19700102' AND (f.CAFCreationDate IS NULL OR f.CAFDeletionDate >= f.CAFCreationDate) THEN 1 ELSE 0 END = 0
+                   AND NOT EXISTS (SELECT 1 FROM internal_safe x WHERE x.SafeId = CAST(f.CAFSafeID AS NVARCHAR(300)))
+                   AND NOT EXISTS (SELECT 1 FROM dbo.stg_sh_objectproperties op
+                                   WHERE op.CAOPSafeId = f.CAFSafeID AND op.CAOPFileId = f.CAFFileID
+                                     AND op.CAOPObjectPropertyName = N'MasterPassName' AND NULLIF(LTRIM(RTRIM(op.CAOPObjectPropertyValue)), N'') IS NOT NULL)) AS AccountCount,
+                (SELECT MAX(LoadTimestamp) FROM dbo.stg_sh_safes) AS StagedAt
+            WHERE EXISTS (SELECT 1 FROM dbo.stg_sh_safes WHERE SourceFileName LIKE N'%(EVD)')
+            """);
+        return row?.StagedAt is null ? null : (new PullCounts(row.SafeCount, row.AccountCount, 0, 0, 0, 0), row.StagedAt.Value);
+    }
+
+    private sealed class EvdBaseline
+    {
+        public int SafeCount { get; init; }
+        public int AccountCount { get; init; }
+        public DateTime? StagedAt { get; init; }
     }
 
     public async Task<IReadOnlyList<DirectPullRecord>> GetRecentAsync(int count)
@@ -84,7 +129,7 @@ public sealed class SelfHostedDirectRepository(IDbConnectionFactory connectionFa
         return (await connection.QueryAsync<DirectPullRecord>($"""
             SELECT TOP (@count) p.PullKey, p.StartedAt, p.CompletedAt, p.Status, p.TriggeredBy, p.AcceptedChange, p.IsShadow, p.SafeCount, p.AccountCount,
                    p.UserCount, p.GroupCount, p.MemberCount, p.PlatformCount, p.Message,
-                   b.SafeCount AS BaselineSafeCount, b.AccountCount AS BaselineAccountCount
+                   COALESCE(p.BaselineSafeCount, b.SafeCount) AS BaselineSafeCount, COALESCE(p.BaselineAccountCount, b.AccountCount) AS BaselineAccountCount
             FROM dbo.cyberark_direct_pull p
             OUTER APPLY (SELECT TOP (1) SafeCount, AccountCount FROM dbo.cyberark_direct_pull
                          WHERE Status = N'Succeeded' AND PullKey < p.PullKey ORDER BY PullKey DESC) b
@@ -96,7 +141,13 @@ public sealed class SelfHostedDirectRepository(IDbConnectionFactory connectionFa
     public async Task<IReadOnlyList<(long Number, string Name)>> GetStagedSafesAsync()
     {
         using var connection = connectionFactory.Create();
-        var rows = await connection.QueryAsync<StagedSafe>("SELECT CASSafeID AS Number, CASSafeName AS Name FROM dbo.stg_sh_safes WHERE CASSafeName IS NOT NULL");
+        // D-277: CyberArk's internal Safes are left out; PVWA never returns them, so they would always look gone.
+        var rows = await connection.QueryAsync<StagedSafe>("""
+            SELECT s.CASSafeID AS Number, s.CASSafeName AS Name FROM dbo.stg_sh_safes s
+            WHERE s.CASSafeName IS NOT NULL
+              AND NOT EXISTS (SELECT 1 FROM dbo.vw_selfhosted_internal_safe i JOIN dbo.dim_safe d ON d.SafeKey = i.SafeKey
+                              WHERE d.SafeUrlId = CAST(s.CASSafeID AS NVARCHAR(300)))
+            """);
         return rows.Select(r => (r.Number, r.Name)).ToList();
     }
 
@@ -112,28 +163,6 @@ public sealed class SelfHostedDirectRepository(IDbConnectionFactory connectionFa
         return await connection.ExecuteAsync(
             "DELETE FROM dbo.cyberark_direct_pull WHERE StartedAt < DATEADD(DAY, -@keepDays, SYSUTCDATETIME()) AND PullKey < (SELECT MAX(PullKey) FROM dbo.cyberark_direct_pull)",
             new { keepDays });
-    }
-
-    /// <summary>dim_location's Self-Hosted rows with the EVD's numeric id, so a location keeps its number when a pull replaces the EVD import.</summary>
-    public async Task<IReadOnlyDictionary<string, long>> GetKnownLocationsAsync()
-    {
-        using var connection = connectionFactory.Create();
-        var rows = await connection.QueryAsync<KnownLocation>("""
-            SELECT l.LocationName, TRY_CAST(l.SourceLocationId AS BIGINT) AS Id
-            FROM dim_location l
-            JOIN dim_source_system s ON s.SourceSystemKey = l.SourceSystemKey AND s.SourceSystemCode = 'SELFHOSTED'
-            WHERE TRY_CAST(l.SourceLocationId AS BIGINT) IS NOT NULL AND l.LocationName IS NOT NULL
-            """);
-        var map = new Dictionary<string, long>(StringComparer.OrdinalIgnoreCase);
-        foreach (var row in rows) map.TryAdd(row.LocationName, row.Id);
-        return map;
-    }
-
-    // A class, not a tuple: Dapper doesn't map query results onto a ValueTuple.
-    private sealed class KnownLocation
-    {
-        public string LocationName { get; init; } = "";
-        public long Id { get; init; }
     }
 
     /// <summary>

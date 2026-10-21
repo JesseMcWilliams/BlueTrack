@@ -99,11 +99,12 @@ public sealed class ReportsRepository(IDbConnectionFactory connectionFactory)
         using var connection = connectionFactory.Create();
 
         const string sql = """
-            SELECT EntitlementKey, SafeKey, SafeName, MemberType, UnresolvedMemberId, MemberName, ResolutionMethod,
-                   UserKey, GroupKey, ResolvedToName, ResolutionNote, ResolvedByName, ResolvedDate,
-                   MembershipExpirationDate, SnapshotDate
-            FROM dbo.vw_unresolved_entitlement_members
-            WHERE @ShowResolved = 1 OR ResolutionMethod IS NULL
+            SELECT v.EntitlementKey, v.SafeKey, v.SafeName, v.MemberType, v.UnresolvedMemberId, v.MemberName, v.ResolutionMethod,
+                   v.UserKey, v.GroupKey, v.ResolvedToName, v.ResolutionNote, v.ResolvedByName, v.ResolvedDate,
+                   v.MembershipExpirationDate, v.SnapshotDate, ss.SourceSystemCode, ss.SourceSystemName
+            FROM dbo.vw_unresolved_entitlement_members v
+            JOIN dbo.dim_source_system ss ON ss.SourceSystemKey = v.SourceSystemKey
+            WHERE @ShowResolved = 1 OR v.ResolutionMethod IS NULL
             ORDER BY SafeName, MemberType, MemberName, UnresolvedMemberId
             """;
 

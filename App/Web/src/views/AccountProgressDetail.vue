@@ -552,6 +552,7 @@ onUnmounted(releaseLock)
         <strong>{{ t('pages.accountProgressDetail.isDeleted') }}</strong>
         <template v-if="detail.deletedByName">{{ ' ' + t('pages.accountProgressDetail.deletedByOn', { name: detail.deletedByName, date: formatDate(detail.deletedAt), reason: detail.deletionReason }) }}</template>
         <template v-if="detail.isDeletedInSource && detail.isInIgnoredSafe">{{ ' ' + t('pages.accountProgressDetail.notImportedIgnoredSafe') }}</template>
+        <template v-else-if="detail.isDeletedInSource && detail.isInInternalSafe">{{ ' ' + t('pages.accountProgressDetail.deletedInternalSafe') }}</template>
         <template v-else-if="detail.isDeletedInSource">{{ ' ' + t('pages.accountProgressDetail.deletedInCyberArk') }}</template>
       </div>
       <div v-if="rights.hasPermission('DeleteAccounts')" class="deletion-controls">
@@ -592,6 +593,11 @@ onUnmounted(releaseLock)
           <span class="account-progress-identity-item"><strong>{{ t('pages.accountProgressDetail.address') }}</strong> {{ detail.address ?? '—' }}</span>
         </p>
         <p class="account-progress-identity-secondary"><strong>{{ t('pages.accountProgressDetail.accountName') }}</strong> {{ detail.accountName }}</p>
+        <!-- D-277: Self-Hosted Direct only. -->
+        <p v-if="detail.createdTime || detail.lastCPMAction" class="account-progress-identity-secondary cpm-facts">
+          <span v-if="detail.createdTime" class="account-progress-identity-item"><strong>{{ t('pages.accountProgressDetail.createdInCyberArk') }}</strong> {{ formatUtcDateTime(detail.createdTime) }}</span>
+          <span v-if="detail.lastCPMAction" class="account-progress-identity-item"><strong>{{ t('pages.accountProgressDetail.lastCpmAction') }}</strong> {{ t('pages.accountProgressDetail.lastCpmActionValue', { action: detail.lastCPMAction, result: detail.lastCPMActionResult ?? '—', time: formatUtcDateTime(detail.lastCPMActionTime) }) }}</span>
+        </p>
       </div>
 
       <form v-if="lockedByMe || lockLost" @submit.prevent="save">

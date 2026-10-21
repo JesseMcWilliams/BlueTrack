@@ -124,6 +124,24 @@ async function pullNow(acceptChange) {
   startDirectPolling()
 }
 
+// D-275: stops the running pull, nightly or Pull now; it is logged as failed, saying it was cancelled.
+async function cancelPull() {
+  error.value = null
+  message.value = null
+  if (!(await confirmDelete(t('admin.dataSources.confirmCancelPull'), t('admin.dataSources.cancelPull')))) return
+  const response = await fetch('/api/admin/cyberark-sources/direct/cancel', { method: 'POST' })
+  if (response.status === 409) {
+    message.value = t('admin.dataSources.cancelNothingRunning')
+  } else if (!response.ok) {
+    error.value = t('common.requestFailed', { status: response.status })
+    return
+  } else {
+    message.value = t('admin.dataSources.cancelRequested')
+  }
+  await loadDirectPulls()
+  if (directPulls.value.running) startDirectPolling()
+}
+
 async function load() {
   loading.value = true
   try {
@@ -267,6 +285,7 @@ async function remove(feed) {
         <p>
           <button type="button" :disabled="directPulls.running" @click="pullNow(false)">{{ t('admin.dataSources.pullNow') }}</button>
           <button v-if="isDirect() && directPulls.pulls[0]?.status === 'Rejected'" type="button" :disabled="directPulls.running" @click="pullNow(true)">{{ t('admin.dataSources.acceptAndPull') }}</button>
+          <button v-if="directPulls.running" type="button" @click="cancelPull">{{ t('admin.dataSources.cancelPull') }}</button>
         </p>
         <ShadowComparisonPanel v-if="isShadow()" :refresh-key="comparisonRefresh" />
       </div>

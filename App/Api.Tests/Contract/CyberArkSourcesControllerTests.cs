@@ -345,6 +345,17 @@ public class CyberArkSourcesControllerTests : IClassFixture<BlueTrackWebApplicat
         Assert.Equal(HttpStatusCode.Forbidden, (await client.PostAsJsonAsync("/api/admin/cyberark-sources/direct/comparison/marks",
             new { differenceKey = 1, scope = "Item", category = "Expected" })).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await client.DeleteAsync("/api/admin/cyberark-sources/direct/comparison/marks/1")).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await client.PostAsync("/api/admin/cyberark-sources/direct/cancel", null)).StatusCode);
+    }
+
+    [Fact]
+    public async Task CancelDirectPull_WithNothingRunning_IsAConflict()
+    {
+        // D-275. The cancel of a running pull is covered in SelfHostedDirectPullServiceTests.
+        var response = await Client("TestUser.Admin").PostAsync("/api/admin/cyberark-sources/direct/cancel", null);
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        Assert.Contains("No pull is running", await response.Content.ReadAsStringAsync());
     }
 
     // ---- D-271: the shadow pull and its comparison ----

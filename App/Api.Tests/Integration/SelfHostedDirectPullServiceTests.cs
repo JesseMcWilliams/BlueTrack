@@ -477,6 +477,23 @@ public class SelfHostedDirectPullServiceTests : IClassFixture<BlueTrackWebApplic
     }
 
     [Fact]
+    public async Task ACancelledPull_IsLoggedAsCancelled_AndLeavesStagingAlone()
+    {
+        Assert.Equal("Succeeded", (await PullAsync()).Status);
+        var before = await StagedAsync();
+        _pvwa.Safes = 5;
+        _pvwa.SafesDelay = TimeSpan.FromSeconds(30);
+        using var cancel = new CancellationTokenSource(TimeSpan.FromMilliseconds(300));   // D-275: an admin's Cancel
+
+        using var scope = _factory.Services.CreateScope();
+        var outcome = await scope.ServiceProvider.GetRequiredService<SelfHostedDirectPullService>()
+            .RunAsync("tester", acceptChange: true, CancellationToken.None, cancel.Token);
+
+        Assert.Equal(("Failed", "The pull was cancelled on Data Sources. The staged data wasn't changed."), (outcome.Status, outcome.Message));
+        Assert.Equal(before, await StagedAsync());
+    }
+
+    [Fact]
     public async Task AShadowPull_IsNeverRejected_ByTheChangeGuard()
     {
         Assert.Equal("Succeeded", (await PullAsync()).Status);   // a real pull: 30 Safes
@@ -487,6 +504,43 @@ public class SelfHostedDirectPullServiceTests : IClassFixture<BlueTrackWebApplic
 
         Assert.Equal("Succeeded", outcome.Status);
         Assert.Equal(new PullCounts(5, 10, 1, 1, 0, 1), outcome.Counts);
+    }
+
+    [Fact]
+    public async Task TheFirstRealPull_IsCheckedAgainstWhatTheEvdStaged_LeavingOutInternalSafes_AndRecordsThoseCounts()
+    {
+        // D-277. The EVD staged 3 Safes, one of them CyberArk's internal PVWAConfig (left out), and 3 accounts, one of
+        // them dependent (left out): the baseline is 2 Safes and 2 accounts. A shadow pull before it doesn't count.
+        await StageEvdAsync();
+        await using var connection = new SqlConnection(TestDatabase.ConnectionString);
+        await connection.ExecuteAsync("""
+            DECLARE @b UNIQUEIDENTIFIER = NEWID();
+            UPDATE stg_sh_safes SET CASSafeName = N'PVWAConfig' WHERE CASSafeID = 910099;
+            INSERT INTO stg_sh_objectproperties (ImportBatchId, SourceFileName, CAOPSafeId, CAOPFileId, CAOPObjectPropertyName, CAOPObjectPropertyValue) VALUES
+                (@b, N'CAObjectProperties (EVD)', 910002, 9, N'MasterPassName', N'acct1-1');
+            INSERT INTO dbo.dim_safe (SourceSystemKey, SafeUrlId, SafeName)
+            SELECT SourceSystemKey, N'910099', N'PVWAConfig' FROM dbo.dim_source_system WHERE SourceSystemCode = 'SELFHOSTED';
+            INSERT INTO dbo.cyberark_direct_pull (StartedAt, CompletedAt, Status, TriggeredBy, IsShadow, SafeCount, AccountCount)
+            VALUES (SYSUTCDATETIME(), SYSUTCDATETIME(), N'Succeeded', N'test', 1, 30, 60);
+            """);
+        try
+        {
+            var outcome = await PullAsync();   // PVWA: 30 Safes, 60 accounts
+
+            Assert.Equal("Rejected", outcome.Status);
+            Assert.StartsWith("First Direct pull, compared with what the EVD import staged at ", outcome.Message);
+            Assert.Contains("Safes went from 2 to 30", outcome.Message);
+            Assert.Contains("accounts went from 2 to 60", outcome.Message);
+            using var scope = _factory.Services.CreateScope();
+            var latest = (await scope.ServiceProvider.GetRequiredService<SelfHostedDirectRepository>().GetRecentAsync(1)).Single();
+            Assert.Equal((2, 2), (latest.BaselineSafeCount, latest.BaselineAccountCount));
+
+            Assert.Equal("Succeeded", (await PullAsync(acceptChange: true)).Status);
+        }
+        finally
+        {
+            await connection.ExecuteAsync("DELETE FROM dbo.dim_safe WHERE SafeUrlId = N'910099' AND SafeName = N'PVWAConfig'");
+        }
     }
 
     [Fact]

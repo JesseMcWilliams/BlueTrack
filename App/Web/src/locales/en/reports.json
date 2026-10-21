@@ -277,6 +277,8 @@
     "emptyAll": "No entitlement members needed resolving.",
     "showResolved": "Show resolved",
     "colSafe": "Safe",
+    "colSource": "Source",
+    "selfHostedNoResolve": "Self-Hosted: not yet resolvable here",
     "colMemberType": "Member Type",
     "colName": "Name",
     "colMemberId": "Member ID",

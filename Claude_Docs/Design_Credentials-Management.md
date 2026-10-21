@@ -58,6 +58,8 @@ Managed on this same Credentials & LDAP admin page (one permission, `ManageCrede
 
 An explicit bind (not a trusted connection) binds as `LdapBindName.For(...)`: a user name already holding a domain (`user@domain`, `DOMAIN\user`) as it is; otherwise `user@domain`, the domain from the credential's account `LogonDomain` if it is a DNS name, else its `Address` if that is a domain name (not an IP address or URL), else the LDAP domain's Search Base (`DC=company,DC=com` gives `company.com`); with none, the plain user name. The reason: a Vault account's user name can be longer than AD's 20-character sAMAccountName, and then binds only as a UPN (`Reference_Lessons-Learned.md`, 2026-10-21). `CredentialRepository.ResolveWithAccountDetailsAsync` returns `LogonDomain` and `Address` with the secret: CyberArk CP reads `LogonDomain` from `PSDKPassword.PasswordProperties` (no `RequiredProperties` set, since any set makes the CP return only those, with `UserName` and `Address` empty; `GetAttribute` throws for a property the account lacks), and CCP from the response's `LogonDomain` field (confirmed against the lab CCP, 2026-10-21: a top-level field, left out when the account has none). DPAPI credentials have neither, so they get the Search Base's domain. Only the LDAP bind uses this; the PVWA logon and SMTP use the user name as stored.
 
+**Test** (D-276) in the domain form binds with the form's values, saved or not, the way discovery does, and shows the bind name, the domain controller reached, or the directory's error (`POST /api/admin/credentials/ldap-config/test`, audit-logged).
+
 ## New Permissions
 
 - `ManageCredentials` -- the Credentials & LDAP admin page (CRUD + LDAP config).

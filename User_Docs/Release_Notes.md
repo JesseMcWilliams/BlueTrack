@@ -6,11 +6,21 @@ What changed in each BlueTrack release, newest first, for users and administrato
 
 ### New
 
+- **Cancel pull** on Admin > Data Sources stops a Self-Hosted Direct pull that is running (nightly, shadow or Pull now). It's logged as failed, saying it was cancelled; the data the nightly load reads is left as it was.
+- **Test an LDAP domain's bind** with the new **Test** button in the domain form on Admin > Credentials & LDAP. It binds with the values in the form, saved or not, and shows the name it bound as and the domain controller, or the directory's error.
+
 ### Changed
+
+- **Self-Hosted Direct sites get more account and entitlement detail.** With Self-Hosted Direct as the source, each account now has its CPM status, whether it is managed automatically (and why not), its secret type, whether access is restricted to remote machines, its last change, reconcile and verify dates from PVWA, and new fields for when it was created and its last CPM action and result, shown on the account's page and in the Power BI accounts view. Safe members include CyberArk's built-in ones (such as Administrator), and the View Audit Log, Use Accounts, View Safe Members and Requests Authorization permissions are now recorded, so entitlement reports show more grants than under the EVD. A Safe member PVWA has no user or group for is listed on the Unresolved Entitlement Members report (with its source) instead of stopping the nightly load.
+- **CPM status is stored in lower case** (for example "success") for Privilege Cloud and Self-Hosted Direct alike.
+- **Accounts in CyberArk's internal Safes** show "Deleted in CyberArk (internal Safe)" after a site moves to Self-Hosted Direct, since PVWA never returns those Safes.
+- **The first Self-Hosted Direct pull is checked against the EVD.** With no earlier Direct pull, its Safe and account counts are compared with what the last EVD import staged (internal Safes, deleted and dependent accounts left out); a change over the allowed percentage is rejected for an admin to accept.
 
 ### Fixed
 
 ### Upgrading
+
+- The upgrade adds database scripts 45 and 46 (the Load reading the PVWA data, locations keyed by their path, and the new columns in the Power BI accounts view); the installer applies them. Nothing changes for a site on the EVD. A site on Self-Hosted Direct sees the new detail after its next nightly load, including dependent accounts and accounts in internal Safes shown as deleted in CyberArk.
 
 ## 1.3.2 (2026-10-21)
 

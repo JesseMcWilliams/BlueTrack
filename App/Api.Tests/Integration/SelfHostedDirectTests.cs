@@ -270,32 +270,6 @@ public class SelfHostedDirectTests
         }
     }
 
-    [Fact]
-    public async Task KnownLocations_ReadsTheSelfHostedLocationsByName()
-    {
-        var repository = new SelfHostedDirectRepository(new TestDbConnectionFactory());
-        await using var connection = new SqlConnection(TestDatabase.ConnectionString);
-        var name = "\\TestLoc" + Guid.NewGuid().ToString("N")[..6];
-        try
-        {
-            await connection.ExecuteAsync("""
-                INSERT INTO dbo.dim_location (SourceSystemKey, SourceLocationId, LocationName)
-                SELECT SourceSystemKey, '88001', @name FROM dbo.dim_source_system WHERE SourceSystemCode = 'SELFHOSTED';
-                INSERT INTO dbo.dim_location (SourceSystemKey, SourceLocationId, LocationName)
-                SELECT SourceSystemKey, 'not-a-number', @name + 'x' FROM dbo.dim_source_system WHERE SourceSystemCode = 'SELFHOSTED';
-                """, new { name });
-
-            var known = await repository.GetKnownLocationsAsync();
-
-            Assert.Equal(88001L, known[name]);
-            Assert.DoesNotContain(name + "x", known.Keys);
-        }
-        finally
-        {
-            await connection.ExecuteAsync("DELETE FROM dbo.dim_location WHERE LocationName IN (@name, @name + 'x')", new { name });
-        }
-    }
-
     // ---- D-250 ----
 
     [Fact]
