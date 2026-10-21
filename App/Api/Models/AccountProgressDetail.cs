@@ -67,6 +67,14 @@ public sealed class AccountProgressDetail
     public string? LastCPMActionResult { get; init; }
     public DateTime? LastCPMActionTime { get; init; }
 
+    /// <summary>D-280: Self-Hosted Direct only (null otherwise), from PVWA's classic account details. A linked account reads Safe\Name (Safe\Folder\Name outside Root); its key is set when that account has a page here.</summary>
+    public string? DeviceType { get; init; }
+    public string? CreationMethod { get; init; }
+    public string? LinkedLogonAccount { get; init; }
+    public long? LinkedLogonAccountKey { get; init; }
+    public string? LinkedReconcileAccount { get; init; }
+    public long? LinkedReconcileAccountKey { get; init; }
+
     /// <summary>D-277: its Safe is a CyberArk internal Self-Hosted one (dbo.vw_selfhosted_internal_safe), which PVWA never returns, so after the switch to Direct "Deleted in CyberArk" says why.</summary>
     public bool IsInInternalSafe { get; init; }
 }

@@ -8,7 +8,7 @@ This is the second part of the settings reference. The first part, [Admin_Settin
 
 ### Secrets Store Configuration
 
-**Admin > Secrets Store Configuration** (permission `ManageSecretsStore`). Exactly one backend is active at a time; Windows DPAPI is active on a new install. Click **Make Active** to switch, or **Save** on the active backend. **Test Connection** fetches one secret from the active backend and reports success with the user name and address, never the secret itself. Each test is recorded in the Audit Log as a `ConnectionTest` event, as is each credential **Test** on the Credentials & LDAP page.
+**Admin > Secrets Store Configuration** (permission `ManageSecretsStore`). Exactly one backend is active at a time; Windows DPAPI is active on a new install. Click **Make Active** to switch (after a confirmation: if the new backend isn't set up or can't be reached, lookups fail until another is made active), or **Save** on the active backend. **Test Connection** fetches one secret from the active backend and reports success with the user name and address, never the secret itself. Each test is recorded in the Audit Log as a `ConnectionTest` event, as is each credential **Test** on the Credentials & LDAP page.
 
 | Backend | Settings | Credential column | Recommended when | Why |
 |---|---|---|---|---|
@@ -28,7 +28,7 @@ Notes:
 
 ### Credentials
 
-**Admin > Credentials & LDAP** (permission `ManageCredentials`). Named credentials that BlueTrack itself signs in with: the SMTP account (or, for OAuth2 email sign-in, the client secret, certificate or key) and LDAP bind accounts.
+**Admin > Credentials & LDAP** (permission `ManageCredentials`). Named credentials that BlueTrack itself signs in with: the SMTP account (or, for OAuth2 email sign-in, the client secret, certificate or key), LDAP bind accounts and the PVWA user for Self-Hosted Direct.
 
 | Setting | What it does | Default | Recommended | Why |
 |---|---|---|---|---|
@@ -36,9 +36,11 @@ Notes:
 | Backend | Where the password is kept: WindowsDpapi (on this server) or one of the vault backends. | WindowsDpapi | A vault backend if you have one | The password is then managed and rotated in the vault. |
 | Username and Password (WindowsDpapi) | The account and its password, encrypted on this server. Leave the password blank to keep it. For an OAuth2 email credential, only the password is used (see "OAuth2 email sign-in"). | Blank | A dedicated service account | A dedicated account limits what a leaked password can do. |
 | DPAPI Scope (WindowsDpapi) | Machine: any process on this server can decrypt it. User: only the App Pool's account can. | Machine | User | User scope keeps other processes on the server, and anyone holding a database backup, from decrypting it. |
-| Safe, Folder, Object / Secret Name (vault backends) | Where the credential is found in the vault, using that backend's settings from the Secrets Store page. | Blank | As named in your vault | BlueTrack fetches the current password each time it's used. |
+| Safe, Folder, Object / Secret Name (vault backends) | Where the credential is found in the vault, using that backend's settings from the Secrets Store page. For CyberArk CP and CCP, a blank Folder means Root. | Blank | As named in your vault | BlueTrack fetches the current password each time it's used. |
 
 A new User-scope credential is stored at Machine scope until the application decrypts it once, then upgrades itself. As with any DPAPI secret, a credential can't be decrypted on a different server, and a User-scope one can't be decrypted after the App Pool's account changes: re-enter the password in those cases. Use **Test** to check a credential.
+
+The list's **Used by** column shows what uses each credential (Notifications, an LDAP domain, the CyberArk sources); a credential in use can't be deleted. With `ManageDataSources`, **Use for Self-Hosted Direct** on a row opens Edit CyberArk sources with that credential chosen.
 
 ### LDAP Configuration
 
@@ -53,6 +55,10 @@ On the same page: one row per Active Directory domain or forest BlueTrack querie
 | Use SSL | Connect with LDAP over SSL. | Off | On | Protects directory queries and the bind password in transit. Needs a trusted certificate on the domain controllers. |
 | Use trusted connection | Bind as the App Pool's account (or the server's computer account) instead of a stored credential. | Off | On, with a gMSA App Pool identity | No password to store or rotate. |
 | Bind Account Credential | The credential to bind with, when not using a trusted connection. | None | A read-only service account | Least privilege. |
+
+**Bind name.** A bind account binds as `user@domain` where BlueTrack can build one: a user name that already holds a domain (`user@domain` or `DOMAIN\user`) is used as it is; otherwise the domain comes from the credential's LogonDomain if it is a DNS name (a CyberArk credential), else its Address if that is a domain name, else the Search Base (`DC=company,DC=com` gives `company.com`). With none of them, the plain user name is used. This matters for an account whose user name is longer than 20 characters, which AD cuts short as its pre-Windows 2000 name.
+
+**Test** on the domain's form binds with the values in the form, saved or not, as discovery would, and shows the name it bound as and the domain controller, or the directory's error. Each test is recorded in the Audit Log as a `ConnectionTest` event.
 
 ## 7. Notifications
 
@@ -134,10 +140,11 @@ Each type has an **Enabled** tick box and an optional **Target Role**. A type th
 | WeeklySummary | Once a week, on the weekly summary day, from its time. | The KPI Summary figures; % complete and accounts per stage compared with the snapshot a week older ("No history yet" when there is none); overdue and at-risk accounts; exceptions overdue for review; the last Import, Load and snapshot runs. | Off |
 | ApiKeyExpiring | Once a day, from the daily digest time, to each API key's **owner email**: the reminder lead time (7 days by default) before the key expires, and on the day it expires. Keys with no owner email are skipped. | The key's name, the first characters of the key, its role and expiry date, with a link to Admin > API Keys. Sent to the owner only, not to the notification recipients. | Off |
 | ApiKeyExpired | Once a day, from the daily digest time, for each API key that expired that day. | The same, and whether the owner was told. Sent to the administrators (this type's recipients and target role). | Off |
+| SelfHostedPullFailed | Within about 5 minutes of a Self-Hosted Direct pull failing, being rejected (the Safe or account count changed more than allowed), or still not finished 2 hours after it started. Once per pull. | When it started and who started it, the outcome, the Safe and account counts before and now, the pull's messages (a rejected pull's include the Safes no longer returned), what it means and what to do, with a link to Data Sources. | Off |
 | DevFakeAuthEnabledTooLong | When DevFakeAuth has been enabled for more than 7 days; repeats at most every 7 days. | How long DevFakeAuth has been enabled, and since when. | On |
 | BreakGlassLogon | At once, every time a designated break-glass account signs in (Admin_SettingsReference.md, Identity Providers, "Break-glass accounts"). | The account, the sign-in method, the source IP address and the time (UTC), and where to find it in the Audit Log. | On |
 
-Recommended: enable NightlyImportFailed on every real environment, since nothing else in BlueTrack tells you a nightly import failed. Set every type's target role to your Admin role, or to a role whose Notification Email is a monitored team mailbox. NightlyImportFailed doesn't cover a job that never starts at all (SQL Server Agent stopped, or the job disabled); `Tools\Test-BlueTrackHealth.ps1` checks those.
+Recommended: enable NightlyImportFailed on every real environment, since nothing else in BlueTrack tells you a nightly import failed. With Self-Hosted Direct, enable SelfHostedPullFailed too: it arrives before the import that the failed pull will make fail. Set every type's target role to your Admin role, or to a role whose Notification Email is a monitored team mailbox. NightlyImportFailed doesn't cover a job that never starts at all (SQL Server Agent stopped, or the job disabled); `Tools\Test-BlueTrackHealth.ps1` checks those.
 
 **Emails** have a subject starting `BlueTrack:`, and an HTML and a plain-text version with the same content. When **Site URL** is set on Global Application Configuration, they link to the pages they mention (for example Overdue Reviews, Trends, KPI Summary, CyberArk Sources, Audit Log); without it they name the pages.
 
@@ -223,7 +230,7 @@ The key acts as the **role** you give it, and can do only what that role can do.
 
 ### Creating, disabling and deleting keys
 
-**New API Key** asks for a **Name** (what the key is for), a **Role** and a **Lifetime** in days (the default is set on Global Application Configuration; 365 is the longest). After **Create API Key** the page shows the key once. Copy it then and store it where the script can read it (for example in the CyberArk vault). BlueTrack keeps only a one-way hash, so a lost key can't be shown again: delete it and create another.
+**New API Key** asks for a **Name** (what the key is for), a **Role** and a **Lifetime** in days (the default is set on Global Application Configuration; 365 is the longest). After **Create API Key** the page shows the key once, with **Copy** (if the browser won't copy it, the page says so: select the key and copy it by hand); leaving the page before copying (other than with **Done**) asks you to confirm. Copy it then and store it where the script can read it (for example in the CyberArk vault). BlueTrack keeps only a one-way hash, so a lost key can't be shown again: delete it and create another.
 
 | Setting | What it does | Default | Recommended | Why |
 |---|---|---|---|---|
@@ -260,7 +267,7 @@ Creating, disabling, enabling and deleting a key are in the Audit Log (`ApiKeyCr
 
 **Editing a key.** Click a key's name to change its name, **Role**, **Expires on** (renew the key or shorten it, up to 365 days from today), **Owner email** and **Requests per minute**. The key itself is not changed, so the script keeps working; a role change applies at once, even to a token the key was given a minute ago. Every change is in the Audit Log with what it was and what it became.
 
-**Rotate** on the list creates a new key with the same role, owner and limit (named "<name> (rotated <date>)" and lasting the default lifetime) and shows it once. The old key keeps working, so the script can be switched over without a gap; **Disable** or **Delete** the old key afterwards.
+**Rotate** on the list, after a confirmation, creates a new key with the same role, owner and limit (named "<name> (rotated <date>)" and lasting the default lifetime) and shows it once. The old key keeps working, so the script can be switched over without a gap; **Disable** or **Delete** the old key afterwards.
 
 **Expiry emails.** The **ApiKeyExpiring** notification (**Admin > Notifications**, off until you enable it) emails a key's **owner** the **API key expiry reminder lead time** (Global Application Configuration, 7 days by default, 1 to 90) before the key expires, and again on the day it expires. A key with no owner email is skipped, and so is the reminder for a key made for no more than the lead time. The **ApiKeyExpired** notification (also off until enabled) emails the administrators, who are its recipients as for any notification type, on the day a key expires. Both go out from the daily digest time, once per key and expiry date; renewing a key's expiry earns new emails. See section 7.
 

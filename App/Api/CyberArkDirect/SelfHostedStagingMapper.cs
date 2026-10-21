@@ -160,6 +160,13 @@ public sealed class SelfHostedStagingMapper
                 tables.DirectCpmActivity.Rows.Add(batchId, source, a.Id, c.Code, Db(Cut(c.Activity, 200)), Db(c.Time), Db(Cut(c.UserName, 256)),
                     Db(Cut(c.Reason, 1000)), Db(Cut(c.MoreInfo, 1000)));
             }
+            // D-280: read by this pull or kept from an earlier one, so staging has the details of every account known.
+            if (a.Detail is { } d)
+            {
+                tables.DirectAccountDetails.Rows.Add(batchId, source, a.Id, Db(d.CategoryModificationTime), Db(Cut(d.DeviceType, 100)), Db(Cut(d.CreationMethod, 100)),
+                    Db(Cut(d.LogonSafe, 300)), Db(Cut(d.LogonFolder, 300)), Db(Cut(d.LogonName, 512)),
+                    Db(Cut(d.ReconcileSafe, 300)), Db(Cut(d.ReconcileFolder, 300)), Db(Cut(d.ReconcileName, 512)), a.DetailReadThisPull);
+            }
         }
 
         foreach (var m in snapshot.Members)
@@ -200,6 +207,24 @@ public sealed class SelfHostedStagingMapper
             }
         }
 
+        // D-281: the Safe-member groups' AD users.
+        if (snapshot.AdGroups is { } ad) MapAdGroups(ad, tables, batchId, source);
+
+        // D-282: only when the list was read, so a refused list leaves the Load's applications as they are.
+        foreach (var app in snapshot.ApplicationsRead ? snapshot.Applications : [])
+        {
+            tables.DirectApplications.Rows.Add(batchId, source, Cut(app.AppId, 256), Db(Cut(app.Description, 1000)), Db(Cut(app.Location, 400)), Db(app.Disabled),
+                Db(Cut(app.ExpirationDate, 100)), Db(app.AccessPermittedFrom), Db(app.AccessPermittedTo), Db(app.AllowExtendedAuthenticationRestrictions),
+                Db(Cut(app.BusinessOwnerFirstName, 200)), Db(Cut(app.BusinessOwnerLastName, 200)), Db(Cut(app.BusinessOwnerEmail, 320)),
+                Db(Cut(app.BusinessOwnerPhone, 100)), app.AuthenticationsRead);
+            foreach (var a in app.Authentications)
+            {
+                tables.DirectApplicationAuthentications.Rows.Add(batchId, source, Cut(app.AppId, 256), Db(Cut(a.AuthId, 100)), Cut(a.AuthType, 100),
+                    Db(Cut(a.AuthValue, 1000)), Db(Cut(a.Comment, 1000)), Db(a.IsFolder), Db(a.AllowInternalScripts),
+                    Db(Cut(a.Subject, 1000)), Db(Cut(a.Issuer, 1000)), Db(Cut(a.SubjectAlternativeName, 1000)));
+            }
+        }
+
         foreach (var g in snapshot.Groups)
         {
             tables.DirectGroups.Rows.Add(batchId, source, g.Id, Cut(g.Name, 256), Db(Cut(g.GroupType, 50)), Db(Cut(g.Location, 400)), Db(Cut(g.Description, 1000)),
@@ -208,6 +233,21 @@ public sealed class SelfHostedStagingMapper
             {
                 tables.DirectGroupMembers.Rows.Add(batchId, source, g.Id, memberId, Db(Cut(g.MemberNames.GetValueOrDefault(memberId), 256)));
             }
+        }
+    }
+
+    /// <summary>D-281: the AD reads into stg_shd_ad_group_reads and stg_shd_ad_group_members (a pull's, or the standalone read's).</summary>
+    public static void MapAdGroups(AdGroupExpansion ad, StagingTables tables, Guid batchId, string source)
+    {
+        foreach (var r in ad.Reads)
+        {
+            tables.DirectAdGroupReads.Rows.Add(batchId, source, r.Group.Source, Cut(r.Group.Ref, 256), Db(Cut(r.Group.Name, 256)), Db(Cut(r.Group.Dn, 1000)),
+                Db(Cut(r.DomainName, 256)), r.Status, Db(r.MemberCount), Db(Cut(r.Message, 1000)));
+        }
+        foreach (var m in ad.Members)
+        {
+            tables.DirectAdGroupMembers.Rows.Add(batchId, source, m.Group.Source, Cut(m.Group.Ref, 256), Cut(m.DomainName, 256), Cut(m.User.SamAccountName, 256),
+                Db(Cut(m.User.DistinguishedName, 1000)), Db(Cut(m.User.ObjectSid, 200)), Db(Cut(m.User.DisplayName, 400)), m.User.IsEnabled);
         }
     }
 
@@ -298,6 +338,12 @@ public sealed class StagingTables
         ("AccountId", typeof(string)), ("ActivityCode", typeof(int)), ("Activity", typeof(string)), ("ActivityTime", typeof(DateTime)),
         ("UserName", typeof(string)), ("Reason", typeof(string)), ("MoreInfo", typeof(string)));
 
+    // D-280 (48_BlueTrack_SelfHostedDirectExtras.sql).
+    public DataTable DirectAccountDetails { get; } = Table("stg_shd_account_details", ("ImportBatchId", typeof(Guid)), ("SourceFileName", typeof(string)),
+        ("AccountId", typeof(string)), ("CategoryModificationTime", typeof(DateTime)), ("DeviceType", typeof(string)), ("CreationMethod", typeof(string)),
+        ("LogonSafe", typeof(string)), ("LogonFolder", typeof(string)), ("LogonName", typeof(string)),
+        ("ReconcileSafe", typeof(string)), ("ReconcileFolder", typeof(string)), ("ReconcileName", typeof(string)), ("ReadThisPull", typeof(bool)));
+
     public DataTable DirectSafeMembers { get; } = Table("stg_shd_safe_members",
         [("ImportBatchId", typeof(Guid)), ("SourceFileName", typeof(string)), ("SafeUrlId", typeof(string)), ("SafeName", typeof(string)),
          ("SafeNumber", typeof(long)), ("MemberId", typeof(long)), ("MemberName", typeof(string)), ("MemberType", typeof(string)),
@@ -322,6 +368,27 @@ public sealed class StagingTables
     public DataTable DirectGroupMembers { get; } = Table("stg_shd_group_members", ("ImportBatchId", typeof(Guid)), ("SourceFileName", typeof(string)),
         ("GroupId", typeof(long)), ("MemberId", typeof(long)), ("MemberName", typeof(string)));
 
+    // D-281 (48_BlueTrack_SelfHostedDirectExtras.sql).
+    public DataTable DirectAdGroupReads { get; } = Table("stg_shd_ad_group_reads", ("ImportBatchId", typeof(Guid)), ("SourceFileName", typeof(string)),
+        ("GroupSource", typeof(string)), ("GroupRef", typeof(string)), ("GroupName", typeof(string)), ("Dn", typeof(string)), ("DomainName", typeof(string)),
+        ("Status", typeof(string)), ("MemberCount", typeof(int)), ("Message", typeof(string)));
+
+    public DataTable DirectAdGroupMembers { get; } = Table("stg_shd_ad_group_members", ("ImportBatchId", typeof(Guid)), ("SourceFileName", typeof(string)),
+        ("GroupSource", typeof(string)), ("GroupRef", typeof(string)), ("DomainName", typeof(string)), ("SamAccountName", typeof(string)),
+        ("DistinguishedName", typeof(string)), ("ObjectSid", typeof(string)), ("DisplayName", typeof(string)), ("IsEnabled", typeof(bool)));
+
+    // D-282 (48_BlueTrack_SelfHostedDirectExtras.sql).
+    public DataTable DirectApplications { get; } = Table("stg_shd_applications", ("ImportBatchId", typeof(Guid)), ("SourceFileName", typeof(string)),
+        ("AppId", typeof(string)), ("Description", typeof(string)), ("Location", typeof(string)), ("Disabled", typeof(bool)), ("ExpirationDate", typeof(string)),
+        ("AccessPermittedFrom", typeof(int)), ("AccessPermittedTo", typeof(int)), ("AllowExtendedAuthenticationRestrictions", typeof(bool)),
+        ("BusinessOwnerFirstName", typeof(string)), ("BusinessOwnerLastName", typeof(string)), ("BusinessOwnerEmail", typeof(string)),
+        ("BusinessOwnerPhone", typeof(string)), ("AuthenticationsRead", typeof(bool)));
+
+    public DataTable DirectApplicationAuthentications { get; } = Table("stg_shd_application_authentications", ("ImportBatchId", typeof(Guid)),
+        ("SourceFileName", typeof(string)), ("AppId", typeof(string)), ("AuthId", typeof(string)), ("AuthType", typeof(string)), ("AuthValue", typeof(string)),
+        ("Comment", typeof(string)), ("IsFolder", typeof(bool)), ("AllowInternalScripts", typeof(bool)), ("Subject", typeof(string)), ("Issuer", typeof(string)),
+        ("SubjectAlternativeName", typeof(string)));
+
     /// <summary>Problems the mapping found (a value that didn't fit); shown with the pull.</summary>
     public List<string> Warnings { get; } = [];
 
@@ -330,8 +397,9 @@ public sealed class StagingTables
 
     /// <summary>The stg_shd_* tables (D-270).</summary>
     public IEnumerable<DataTable> Direct =>
-        [DirectPlatforms, DirectPlatformProperties, DirectSafes, DirectAccounts, DirectAccountProperties, DirectCpmActivity,
-         DirectSafeMembers, DirectUsers, DirectUserAuthorizations, DirectGroups, DirectGroupMembers];
+        [DirectPlatforms, DirectPlatformProperties, DirectSafes, DirectAccounts, DirectAccountProperties, DirectCpmActivity, DirectAccountDetails,
+         DirectSafeMembers, DirectUsers, DirectUserAuthorizations, DirectGroups, DirectGroupMembers, DirectApplications, DirectApplicationAuthentications,
+         DirectAdGroupReads, DirectAdGroupMembers];
 
     /// <summary>Every table, in the order they are written.</summary>
     public IEnumerable<DataTable> All => [.. Evd, .. Direct];

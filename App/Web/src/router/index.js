@@ -157,6 +157,12 @@ const routes = [
         component: () => import('../views/reports/UnresolvedEntitlementMembers.vue')
       },
       {
+        path: 'cyberark-applications',
+        name: 'reports-cyberark-applications',
+        meta: { breadcrumb: 'shell.routes.reportsCyberArkApplications', breadcrumbParent: 'reports' },
+        component: () => import('../views/reports/CyberArkApplications.vue')
+      },
+      {
         path: 'risk-score',
         name: 'reports-risk-score',
         meta: { breadcrumb: 'shell.routes.reportsRiskScore', breadcrumbParent: 'reports' },

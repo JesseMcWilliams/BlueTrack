@@ -8,9 +8,19 @@ An admin (or whoever holds elevated SQL Server access) handling the recurring, d
 
 ## 1. Confirm the nightly Import + Load job ran
 
-The Import+Load SQL Agent job runs at 2:00 AM, refreshing staging data from your CyberArk exports (Privilege Cloud, Self-Hosted, or both, as chosen at install) and then recalculating risk scores and running AD Account Discovery. Each run also creates an *Other*-type Target (risk score 0, discovery source *CyberArk ETL*) for any account address that has no Target yet, and links each account to the Targets matching its address. Those placeholder Targets haven't been reviewed, so check the **Targets** page for new ones now and then. The same job then takes the daily snapshot behind **Reports > Trends**, even on a night the Import or Load fails.
+The Import+Load SQL Agent job runs at 2:00 AM, refreshing staging data from CyberArk (the Privilege Cloud exports, the Self-Hosted pull from PVWA, or both, as chosen at install) and then recalculating risk scores and running AD Account Discovery. Each run also creates an *Other*-type Target (risk score 0, discovery source *CyberArk ETL*) for any account address that has no Target yet, and links each account to the Targets matching its address. Those placeholder Targets haven't been reviewed, so check the **Targets** page for new ones now and then. The same job then takes the daily snapshot behind **Reports > Trends**, even on a night the Import or Load fails.
 
 To hear about a failure without checking, turn on the **NightlyImportFailed** notification on **Admin > Notifications** (off on a new install): it emails the failing step, the error and the files that failed, within about 5 minutes. A Privilege Cloud export missing a column the import needs fails the run with the file and column named; **Test** on **Admin > Data Sources > Edit CyberArk sources** checks the files' columns ahead of time. To check by hand, see `Admin_OperationsGuide.md`'s "The Nightly Import + Load Job" section for the query.
+
+**Self-Hosted pulls.** With Self-Hosted imported, BlueTrack pulls it from PVWA at the pull time (01:30 by default), before the job. The import fails if the latest pull didn't succeed or is more than 20 hours old, so check **Admin > Data Sources**, "Self-Hosted Direct pulls" (a ⚠ next to **Data Sources** in the Admin menu, and a banner on the page, mean the latest pull failed or was rejected). Turn on the **SelfHostedPullFailed** notification to be emailed instead. Open the pull's **Details** for its messages, then:
+
+1. **Rejected**: the number of Safes or accounts changed by more than the **Allowed change** since the last good pull. The message names the Safes no longer returned and the new ones. If the change is expected (Safes deleted or added in CyberArk), click **Accept the change and pull**; accounts no longer returned are marked deleted at the next load. If it isn't, check the PVWA user is still a member of the Safes it should see (`Admin_OperationsGuide.md`, "Self-Hosted Direct Pulls"), then **Pull now**.
+2. **Failed**: the pull didn't finish. Common causes: the credential was refused or its CP/CCP lookup failed (**Test** it on **Admin > Credentials & LDAP**), PVWA can't be reached from the server, or the PVWA address is wrong. A pull still running at the **Pull time limit (minutes)** (45 by default) is stopped and logged as failed; if your pulls are simply slow, raise the limit on **Edit CyberArk sources**. Fix the cause, then **Pull now**.
+3. **Cancelled**: **Cancel pull** stops a running pull, logged as failed. Run **Pull now** again before the import.
+
+In each case the staged data is left as it was, and once a pull succeeds, run the import again (`Admin_OperationsGuide.md`, "Re-running it manually") or let the next night's job run.
+
+**What a Self-Hosted Direct load fills.** Besides the accounts, Safes, members, users and groups, each account gets its creation time and its last CPM action, result and time (shown on its page), its CPM status and last reconcile; Safe members include CyberArk's predefined members, such as Administrator and Auditors; and members that match no user or group are listed on **Reports > Unresolved Entitlement Members**, where they can be resolved like Privilege Cloud members. An account in one of CyberArk's internal Safes, which PVWA doesn't return, is shown as **Deleted in CyberArk (internal Safe)**.
 
 **New platforms.** An import can bring platforms BlueTrack hasn't seen (Self-Hosted gets one per policy, from each account's PolicyID). Open **Admin > Platform Mapping**: the platforms with no mapping are listed first. Give each an account type and, where it implies one, a source of record, and leave **also fill accounts already tracked** ticked the first time so the accounts already on the platform get them too (an account that has one is never changed). See *Administrator Settings Guide*, "Platform Mapping".
 
@@ -53,7 +63,7 @@ If the Deployment page's SQL Server Backup Status section shows an error instead
 
 ## 7. Review the audit log
 
-**Admin > Audit Log Viewer** is read-only — filter by Event Type, Entity, and a date range, and click any row's **Occurred At** to expand the Reason and the specific Field / Old Value / New Value change.
+**Admin > Audit Log Viewer** is read-only — filter by Event Type (from a list), Entity, **By** (who did it) and a date range, then **Filter**; **Clear filters** starts again. Times are shown in your local time (point at one for UTC), and the filters are kept in the page address, so a view can be bookmarked or shared. Click any row's **Occurred At** to expand the Reason and the specific Field / Old Value / New Value change.
 
 ## 8. Review Risk Exception segregation-of-duties cases
 

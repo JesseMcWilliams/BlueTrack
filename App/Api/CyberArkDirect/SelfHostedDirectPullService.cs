@@ -17,12 +17,15 @@ public sealed record PullOutcome(string Status, string? Message, PullCounts? Cou
 /// recent success; the Load then reads the staging tables. D-278: the only Self-Hosted source.
 /// One pull runs at a time. D-273: a pull still running after DirectPullTimeLimitMinutes is stopped and logged as failed.
 /// D-275: so is one an admin cancels (<paramref name="cancelRequested"/> on RunAsync).
+/// D-280: the classic account details read are saved to their cache however the pull ends, so a first pull too long
+/// for the time limit gets further each night.
 /// </summary>
 public sealed class SelfHostedDirectPullService(
     CyberArkSourceConfigRepository configRepository,
     SelfHostedDirectRepository repository,
     CredentialRepository credentialRepository,
     SecretsStoreRepository secretsStoreRepository,
+    SafeGroupAdExpansionService adExpansion,
     IHttpClientFactory httpClientFactory,
     TimeProvider timeProvider,
     ILogger<SelfHostedDirectPullService> logger)
@@ -49,11 +52,12 @@ public sealed class SelfHostedDirectPullService(
         try
         {
             var pullKey = await repository.StartPullAsync(triggeredBy, acceptChange);
+            var options = new PvwaPullOptions { CachedDetails = await repository.GetAccountDetailCacheAsync() };
             using var timeLimit = new CancellationTokenSource(TimeSpan.FromMinutes(s.DirectPullTimeLimitMinutes), timeProvider);
             using var linked = CancellationTokenSource.CreateLinkedTokenSource(ct, timeLimit.Token, cancelRequested);
             try
             {
-                return await PullAsync(pullKey, s, acceptChange, linked.Token);
+                return await PullAsync(pullKey, s, acceptChange, options, linked.Token);
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested)
             {
@@ -63,7 +67,7 @@ public sealed class SelfHostedDirectPullService(
             catch (OperationCanceledException) when (cancelRequested.IsCancellationRequested)
             {
                 // D-275. Staging is replaced in one transaction, as for the time limit below.
-                const string message = "The pull was cancelled on Data Sources. The staged data wasn't changed.";
+                var message = "The pull was cancelled on Data Sources. The staged data wasn't changed." + KeptNote(options);
                 logger.LogInformation("Self-Hosted Direct pull cancelled.");
                 await repository.CompleteAsync(pullKey, "Failed", null, message, null);
                 return new PullOutcome("Failed", message, null);
@@ -71,7 +75,7 @@ public sealed class SelfHostedDirectPullService(
             catch (OperationCanceledException) when (timeLimit.IsCancellationRequested)
             {
                 // Staging is replaced in one transaction, so a stopped pull leaves what the Load reads as it was.
-                var message = $"The pull was stopped after the {s.DirectPullTimeLimitMinutes}-minute time limit (Edit CyberArk sources). The staged data wasn't changed.";
+                var message = $"The pull was stopped after the {s.DirectPullTimeLimitMinutes}-minute time limit (Edit CyberArk sources). The staged data wasn't changed." + KeptNote(options);
                 logger.LogWarning("Self-Hosted Direct pull stopped: {Message}", message);
                 await repository.CompleteAsync(pullKey, "Failed", null, message, null);
                 return new PullOutcome("Failed", message, null);
@@ -90,6 +94,10 @@ public sealed class SelfHostedDirectPullService(
                 await repository.CompleteAsync(pullKey, "Failed", null, message, null);
                 return new PullOutcome("Failed", message, null);
             }
+            finally
+            {
+                await SaveAccountDetailsAsync(options);
+            }
         }
         finally
         {
@@ -97,8 +105,25 @@ public sealed class SelfHostedDirectPullService(
         }
     }
 
+    private static string KeptNote(PvwaPullOptions options) => options.FreshDetails.IsEmpty ? ""
+        : $" The {options.FreshDetails.Count} account detail(s) read before it stopped were kept, so the next pull reads only the rest.";
+
+    /// <summary>D-280: never fails the pull; a detail not saved is read again next time.</summary>
+    private async Task SaveAccountDetailsAsync(PvwaPullOptions options)
+    {
+        if (options.FreshDetails.IsEmpty) return;
+        try
+        {
+            await repository.UpsertAccountDetailCacheAsync([.. options.FreshDetails]);
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            logger.LogWarning(ex, "Self-Hosted Direct: the account details read couldn't be saved; they are read again next pull.");
+        }
+    }
+
     /// <summary>Logs on, reads everything and logs off. Refuses a read with no Safes, which would empty staging.</summary>
-    private async Task<PvwaSnapshot> ReadPvwaAsync(Models.CyberArkSourceSettings s, CancellationToken ct)
+    private async Task<PvwaSnapshot> ReadPvwaAsync(Models.CyberArkSourceSettings s, PvwaPullOptions options, CancellationToken ct)
     {
         var (userName, password) = await credentialRepository.ResolveForUseAsync(s.PvwaCredentialKey
             ?? throw new InvalidOperationException("Self-Hosted Direct has no credential set."));
@@ -109,7 +134,7 @@ public sealed class SelfHostedDirectPullService(
         PvwaSnapshot snapshot;
         try
         {
-            snapshot = await client.PullAsync(token, ct);
+            snapshot = await client.PullAsync(token, ct, options);
         }
         finally
         {
@@ -121,9 +146,9 @@ public sealed class SelfHostedDirectPullService(
         return snapshot;
     }
 
-    private async Task<PullOutcome> PullAsync(long pullKey, Models.CyberArkSourceSettings s, bool acceptChange, CancellationToken ct)
+    private async Task<PullOutcome> PullAsync(long pullKey, Models.CyberArkSourceSettings s, bool acceptChange, PvwaPullOptions options, CancellationToken ct)
     {
-        var snapshot = await ReadPvwaAsync(s, ct);
+        var snapshot = await ReadPvwaAsync(s, options, ct);
         var counts = PullCounts.Of(snapshot);
         var baseline = await BaselineAsync();
         var rejection = PullChangeGuard.Evaluate(baseline, counts, s.DirectMaxChangePercent);
@@ -139,11 +164,14 @@ public sealed class SelfHostedDirectPullService(
             return new PullOutcome("Rejected", rejected, counts);
         }
 
+        await ReadAdGroupsAsync(snapshot, ct);
+
         var batchId = Guid.NewGuid();
         var mapper = new SelfHostedStagingMapper();
         var host = PvwaClient.ApiRootFor(s.PvwaBaseUrl!).Host;
         var tables = mapper.Map(snapshot, batchId, $"PVWA REST ({host})");
         await repository.StageAsync(tables, ct);
+        await repository.PruneAccountDetailCacheAsync();
 
         var notes = new List<string>();
         if (rejection is not null)
@@ -156,6 +184,27 @@ public sealed class SelfHostedDirectPullService(
         var message = notes.Count == 0 ? null : string.Join(" | ", notes);
         await repository.CompleteAsync(pullKey, "Succeeded", counts, message, batchId, baseline);
         return new PullOutcome("Succeeded", message, counts);
+    }
+
+    /// <summary>D-281: the Safe-member groups' AD users. Never fails the pull: a problem is a warning, and the Load keeps what it had.</summary>
+    private async Task ReadAdGroupsAsync(PvwaSnapshot snapshot, CancellationToken ct)
+    {
+        try
+        {
+            snapshot.AdGroups = await adExpansion.ExpandAsync(snapshot, ct);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException and not OutOfMemoryException)
+        {
+            logger.LogWarning(ex, "Self-Hosted Direct: the Safe groups' AD members weren't read.");
+            snapshot.Warnings.Add($"The AD members of the Safe groups weren't read ({ex.Message}); the ones read before are kept.");
+            return;
+        }
+        var failed = snapshot.AdGroups?.Reads.Where(r => r.Status == "Failed").ToList() ?? [];
+        if (failed.Count > 0)
+        {
+            snapshot.Warnings.Add($"{failed.Count} group(s): AD members not read, the ones read before are kept. "
+                + string.Join("; ", failed.Take(5).Select(r => $"{r.Group.Name} ({r.Message})")) + (failed.Count > 5 ? "; ..." : ""));
+        }
     }
 
     /// <summary>

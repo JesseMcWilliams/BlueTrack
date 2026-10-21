@@ -13,6 +13,7 @@ import { flash, savedMessage } from '../composables/useFlash'
 import { decomNote } from '../utils/decomNote'
 import { formatCount } from '../utils/formatCount'
 import { useI18n } from 'vue-i18n'
+import SafeAccessSection from '../components/SafeAccessSection.vue'
 
 const { t } = useI18n()
 
@@ -598,6 +599,13 @@ onUnmounted(releaseLock)
           <span v-if="detail.createdTime" class="account-progress-identity-item"><strong>{{ t('pages.accountProgressDetail.createdInCyberArk') }}</strong> {{ formatUtcDateTime(detail.createdTime) }}</span>
           <span v-if="detail.lastCPMAction" class="account-progress-identity-item"><strong>{{ t('pages.accountProgressDetail.lastCpmAction') }}</strong> {{ t('pages.accountProgressDetail.lastCpmActionValue', { action: detail.lastCPMAction, result: detail.lastCPMActionResult ?? '—', time: formatUtcDateTime(detail.lastCPMActionTime) }) }}</span>
         </p>
+        <!-- D-280: Self-Hosted Direct only, from PVWA's classic account details. -->
+        <p v-if="detail.deviceType || detail.creationMethod || detail.linkedLogonAccount || detail.linkedReconcileAccount" class="account-progress-identity-secondary classic-facts">
+          <span v-if="detail.deviceType" class="account-progress-identity-item"><strong>{{ t('pages.accountProgressDetail.deviceType') }}</strong> {{ detail.deviceType }}</span>
+          <span v-if="detail.creationMethod" class="account-progress-identity-item"><strong>{{ t('pages.accountProgressDetail.creationMethod') }}</strong> {{ detail.creationMethod }}</span>
+          <span v-if="detail.linkedLogonAccount" class="account-progress-identity-item"><strong>{{ t('pages.accountProgressDetail.linkedLogonAccount') }}</strong> <router-link v-if="detail.linkedLogonAccountKey" :to="{ name: 'account-progress-detail', params: { accountKey: detail.linkedLogonAccountKey } }">{{ detail.linkedLogonAccount }}</router-link><template v-else>{{ detail.linkedLogonAccount }}</template></span>
+          <span v-if="detail.linkedReconcileAccount" class="account-progress-identity-item"><strong>{{ t('pages.accountProgressDetail.linkedReconcileAccount') }}</strong> <router-link v-if="detail.linkedReconcileAccountKey" :to="{ name: 'account-progress-detail', params: { accountKey: detail.linkedReconcileAccountKey } }">{{ detail.linkedReconcileAccount }}</router-link><template v-else>{{ detail.linkedReconcileAccount }}</template></span>
+        </p>
       </div>
 
       <form v-if="lockedByMe || lockLost" @submit.prevent="save">
@@ -732,6 +740,9 @@ onUnmounted(releaseLock)
           <dd>{{ t('pages.accountProgressDetail.linkedExceptionValue', { id: linkedException.exceptionID, status: linkedException.statusName, justification: linkedException.justification, date: formatDate(linkedException.reviewDate) }) }}</dd>
         </template>
       </dl>
+
+      <!-- D-281/D-282 -->
+      <SafeAccessSection :account-key="accountKey" />
     </template>
   </div>
 </template>

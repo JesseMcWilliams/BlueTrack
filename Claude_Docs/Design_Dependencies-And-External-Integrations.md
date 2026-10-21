@@ -25,7 +25,7 @@ The `dbo` schema's operational data (accounts, safes, platforms, entitlements) c
 
 ### 2.1a CyberArk — Self-Hosted PVWA REST API (live, optional; D-248)
 
-When Admin > Data Sources > CyberArk sources sets Self-Hosted to **Direct**, the API reads a Self-Hosted PVWA's 2nd gen REST API (`/PasswordVault/API/`, PAM Self-Hosted 14.2 or later) each night: logon (`auth/CyberArk` or `auth/LDAP`), Safes, Accounts, Safe members, Users, UserGroups and Platforms, `GET` only. `HttpClient` named `PvwaDirect` (`App/Api/Program.cs`; redirects off, 5-minute timeout). The credential is a named `web.credential` fetched at each pull (a CP or CCP one reads the Vault; see 2.2). Verified against the lab PVWA on 2026-10-19; see `Design_CyberArk-Direct-Integration.md` for what it returns and the gaps against the EVD. Nothing is written to PVWA.
+When Admin > Data Sources > CyberArk sources sets Self-Hosted to **Direct**, the API reads a Self-Hosted PVWA's 2nd gen REST API (`/PasswordVault/API/`, PAM Self-Hosted 14.2 or later) each night: logon (`auth/CyberArk` or `auth/LDAP`), Safes, Accounts, Safe members, Users, UserGroups and Platforms, `GET` only. `HttpClient` named `PvwaDirect` (`App/Api/Program.cs`; redirects off, 5-minute timeout). The credential is a named `web.credential` fetched at each pull (a CP or CCP one reads the Vault; see 2.2). Verified against the lab PVWA on 2026-10-19; see `Design_CyberArk-Direct-Integration.md` for what it returns and the gaps against the EVD. Nothing is written to PVWA. Since script 48 a nightly or Pull now pull also makes classic (1st gen) `GET` calls under `/PasswordVault/WebServices/PIMServices.svc/`: `Accounts?Keywords=&Safe=` for each new or changed account's device type, creation method and linked accounts (D-280), and `Applications/` with `Applications/{AppID}/Authentications/` for the CyberArk Applications (D-282, needs Audit Users). The account activity call (D-270) was already classic.
 
 ### 2.2 CyberArk — secrets retrieval (live API/local call, distinct from 2.1)
 
@@ -64,6 +64,8 @@ See `Claude_Docs/Design_Authentication-Architecture.md` for the full design, inc
 - `LdapGroupMemberResolver` resolves a notification role's mapped AD group(s) to real recipient email addresses — **notification recipient resolution only**, not authentication.
 - `AdAccountDiscoveryService` (AD Account Discovery feature, 2026-09-16, D-137) enumerates real members of every already-inventoried Access Group's AD group, to find accounts not yet onboarded into CyberArk and risk-score them.
 - D-233: with account classification on, `AdAccountDiscoveryService` also runs `DirectorySearcher` searches (System.DirectoryServices, through the context's `PrincipalSearcher.GetUnderlyingSearcher()`) for UPN, employeeID/employeeNumber and an allow-list of attributes, 50 accounts per search, plus capped owner lookups (`Design_Risk-Scoring.md`, "Account classification").
+
+- D-281: `SafeGroupAdExpansionService` (`App/Api/CyberArkDirect/`), inside the nightly Self-Hosted Direct pull, reads through `AdAccountDiscoveryService`'s `IAdDirectory` the users of each group that is a Safe member (a Self-Hosted directory group by DN, a Privilege Cloud group by name), for "who can use this account".
 
 Both share `LdapContextFactory` for binding and read `web.ldap_config` — now a real per-domain table (one row per AD domain/forest, each independently enabled with its own bind credential or trusted connection), not the singleton it originally shipped as. Opt-in per row via `IsEnabled`.
 

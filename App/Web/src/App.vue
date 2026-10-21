@@ -129,7 +129,11 @@ onMounted(async () => {
          "page changed" signal otherwise. tabindex="-1" lets it receive
          programmatic focus without joining the normal Tab order. -->
     <main id="main-content" tabindex="-1">
-      <router-view />
+      <!-- D-280: an account page links to its linked accounts; a new account key must load a new page (and release
+           the old one's edit lock), so that route is keyed by its path. Other routes keep their instance. -->
+      <router-view v-slot="{ Component, route }">
+        <component :is="Component" :key="route.name === 'account-progress-detail' ? route.path : undefined" />
+      </router-view>
     </main>
     <div id="route-announcer" class="visually-hidden" role="status" aria-live="polite"></div>
     <ConfirmDialog />

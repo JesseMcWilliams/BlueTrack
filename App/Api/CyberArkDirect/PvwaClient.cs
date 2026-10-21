@@ -48,8 +48,11 @@ public sealed class PvwaClient(HttpClient http, Uri apiRoot)
         catch (HttpRequestException) { /* the session times out on its own (20 minutes) */ }
     }
 
-    /// <summary>Reads everything Self-Hosted Direct loads. Discovered (pending) accounts are deliberately not read.</summary>
-    public async Task<PvwaSnapshot> PullAsync(string token, CancellationToken ct)
+    /// <summary>
+    /// Reads everything Self-Hosted Direct loads. Discovered (pending) accounts are deliberately not read. D-280:
+    /// <paramref name="options"/> asks for the classic account details too (a nightly or Pull now pull; Test doesn't).
+    /// </summary>
+    public async Task<PvwaSnapshot> PullAsync(string token, CancellationToken ct, PvwaPullOptions? options = null)
     {
         var snapshot = new PvwaSnapshot();
 
@@ -143,6 +146,8 @@ public sealed class PvwaClient(HttpClient http, Uri apiRoot)
         // with a CPM status has any (the status appears once the CPM first acts on it), so only those are asked:
         // one call each. A failed call loses only that account's history.
         await ReadCpmActivityAsync(token, snapshot, ct);
+
+        if (options?.CachedDetails is not null) await ReadAccountDetailsAsync(token, snapshot, options, ct);
 
         // Members: one call per Safe. Without View Safe Members in a Safe the call is refused; that Safe's members
         // are missing, so say so rather than stop the pull.
@@ -256,8 +261,85 @@ public sealed class PvwaClient(HttpClient http, Uri apiRoot)
                 Directory = Str(item, "directory"), Dn = Str(item, "dn"), MemberNames = memberNames
             });
         }
+
+        if (options is not null) await ReadApplicationsAsync(token, snapshot, ct);
         return snapshot;
     }
+
+    /// <summary>D-282: the authentication types whose value is kept (case-insensitive); a hash and any other type keep only the type.</summary>
+    internal static readonly IReadOnlySet<string> ApplicationAuthValueKept =
+        new HashSet<string>(["machineAddress", "osUser", "path", "certificateSerialNumber"], StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// D-282: CyberArk Applications and their authentication methods, from the classic Applications calls (one for the
+    /// list, one per application). Both need Audit Users; a refused list is one warning and no applications (the Load
+    /// then keeps the ones it has), a refused application keeps that one's methods as they were. PVWA refuses + &amp; %
+    /// in a URL value, so such an application's methods aren't asked for.
+    /// </summary>
+    private async Task ReadApplicationsAsync(string token, PvwaSnapshot snapshot, CancellationToken ct)
+    {
+        List<JsonElement> list;
+        try
+        {
+            list = ArrayOf(await GetJsonAsync(token, "../WebServices/PIMServices.svc/Applications/", ct), "application");
+        }
+        catch (PvwaException ex)
+        {
+            snapshot.Warnings.Add($"CyberArk Applications not read ({ex.Message}); the PVWA user needs the Audit Users authorization.");
+            return;
+        }
+
+        var apps = list.Where(a => !string.IsNullOrWhiteSpace(Str(a, "AppID"))).ToList();
+        var read = new ConcurrentDictionary<string, IReadOnlyList<PvwaApplicationAuthentication>>(StringComparer.Ordinal);
+        var problems = new ConcurrentBag<string>();
+        await Parallel.ForEachAsync(apps, new ParallelOptions { MaxDegreeOfParallelism = UserDetailParallelism, CancellationToken = ct }, async (app, innerCt) =>
+        {
+            var appId = Str(app, "AppID")!;
+            if (HasClassicReservedChars(appId)) { problems.Add($"{appId} (its name has + & or %)"); return; }
+            try
+            {
+                var root = await GetJsonAsync(token, $"../WebServices/PIMServices.svc/Applications/{Uri.EscapeDataString(appId)}/Authentications/", innerCt);
+                read[appId] = ArrayOf(root, "authentication").Select(a =>
+                {
+                    var type = Str(a, "AuthType") ?? "";
+                    return new PvwaApplicationAuthentication(Str(a, "authID") ?? Long(a, "authID")?.ToString(CultureInfo.InvariantCulture), type,
+                        ApplicationAuthValueKept.Contains(type) ? Str(a, "AuthValue") : null, Str(a, "Comment"))
+                    {
+                        IsFolder = Bool(a, "IsFolder"), AllowInternalScripts = Bool(a, "AllowInternalScripts"),
+                        Subject = Str(a, "Subject"), Issuer = Str(a, "Issuer"), SubjectAlternativeName = Str(a, "SubjectAlternativeName")
+                    };
+                }).ToList();
+            }
+            catch (PvwaException ex)
+            {
+                problems.Add($"{appId} ({ex.Message})");
+            }
+        });
+
+        foreach (var app in apps)
+        {
+            var appId = Str(app, "AppID")!;
+            var authenticationsRead = read.TryGetValue(appId, out var authentications);
+            snapshot.Applications.Add(new PvwaApplication(appId, Str(app, "Description"), Str(app, "Location"), Bool(app, "Disabled"),
+                Str(app, "ExpirationDate") ?? Long(app, "ExpirationDate")?.ToString(CultureInfo.InvariantCulture))
+            {
+                AccessPermittedFrom = (int?)Long(app, "AccessPermittedFrom"), AccessPermittedTo = (int?)Long(app, "AccessPermittedTo"),
+                AllowExtendedAuthenticationRestrictions = Bool(app, "AllowExtendedAuthenticationRestrictions"),
+                BusinessOwnerFirstName = Blank(Str(app, "BusinessOwnerFName")), BusinessOwnerLastName = Blank(Str(app, "BusinessOwnerLName")),
+                BusinessOwnerEmail = Blank(Str(app, "BusinessOwnerEmail")), BusinessOwnerPhone = Blank(Str(app, "BusinessOwnerPhone")),
+                AuthenticationsRead = authenticationsRead, Authentications = authentications ?? []
+            });
+        }
+        snapshot.ApplicationsRead = true;
+        if (!problems.IsEmpty)
+        {
+            var sorted = problems.OrderBy(p => p, StringComparer.Ordinal).ToList();
+            snapshot.Warnings.Add($"{sorted.Count} CyberArk Application(s): authentication methods not read; earlier ones kept. "
+                + string.Join("; ", sorted.Take(5)) + (sorted.Count > 5 ? "; ..." : ""));
+        }
+    }
+
+    private static string? Blank(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
     /// <summary>Safe, account and member lists return <c>{value: [...]}</c>; offset and limit page through them.</summary>
     private async Task<List<JsonElement>> GetPagedAsync(string token, string path, CancellationToken ct)
@@ -370,6 +452,88 @@ public sealed class PvwaClient(HttpClient http, Uri apiRoot)
         snapshot.Warnings.AddRange(warnings.OrderBy(w => w, StringComparer.Ordinal));
         if (unreadableTimes > 0) snapshot.Warnings.Add($"{unreadableTimes} CPM activit{(unreadableTimes == 1 ? "y has" : "ies have")} a time that couldn't be read; kept without it.");
     }
+
+    /// <summary>
+    /// D-280: DeviceType, CreationMethod and the linked accounts, which REST doesn't return ("Internal properties are
+    /// not returned"), from the classic account search: one call per account, so only for an account not read before
+    /// or whose CategoryModificationTime changed (on the lab that time moved with property edits that left the
+    /// password's lastModifiedTime alone). An account that isn't found or whose call fails keeps what an earlier pull
+    /// read, and is tried again next time; failures are counted in one warning, not one each.
+    /// </summary>
+    private async Task ReadAccountDetailsAsync(string token, PvwaSnapshot snapshot, PvwaPullOptions options, CancellationToken ct)
+    {
+        var cached = options.CachedDetails!;
+        var indexes = Enumerable.Range(0, snapshot.Accounts.Count).Where(i =>
+        {
+            var a = snapshot.Accounts[i];
+            return a.CategoryModificationTime is null || !cached.TryGetValue(a.Id, out var c) || c.CategoryModificationTime != a.CategoryModificationTime;
+        }).ToList();
+        var found = new ConcurrentDictionary<int, PvwaAccountDetail>();
+        var problems = new ConcurrentBag<string>();
+        await Parallel.ForEachAsync(indexes, new ParallelOptions { MaxDegreeOfParallelism = UserDetailParallelism, CancellationToken = ct }, async (i, innerCt) =>
+        {
+            var account = snapshot.Accounts[i];
+            try
+            {
+                var detail = await ReadAccountDetailAsync(token, account, innerCt);
+                if (detail is null) { problems.Add($"{account.Id} (not found by user name and address)"); return; }
+                found[i] = detail;
+                options.FreshDetails.Add(detail);
+            }
+            catch (PvwaException ex)
+            {
+                problems.Add($"{account.Id} ({ex.Message})");
+            }
+        });
+        for (var i = 0; i < snapshot.Accounts.Count; i++)
+        {
+            var a = snapshot.Accounts[i];
+            if (found.TryGetValue(i, out var fresh)) snapshot.Accounts[i] = a with { Detail = fresh, DetailReadThisPull = true };
+            else if (cached.TryGetValue(a.Id, out var old)) snapshot.Accounts[i] = a with { Detail = old };
+        }
+        if (!problems.IsEmpty)
+        {
+            var list = problems.OrderBy(p => p, StringComparer.Ordinal).ToList();
+            snapshot.Warnings.Add($"{list.Count} account(s): device type, creation method and linked accounts not read; earlier values kept, tried again next pull. "
+                + string.Join("; ", list.Take(5)) + (list.Count > 5 ? "; ..." : ""));
+        }
+    }
+
+    /// <summary>
+    /// The classic search takes keywords and a Safe and returns up to 10 accounts; the one whose AccountID is the REST
+    /// id is used. On the lab the user name and address found it every time and the account's name never did, so
+    /// those are tried, then each alone. PVWA refuses + &amp; % in these values even encoded, so such a value isn't sent.
+    /// </summary>
+    private async Task<PvwaAccountDetail?> ReadAccountDetailAsync(string token, PvwaAccount account, CancellationToken ct)
+    {
+        if (HasClassicReservedChars(account.SafeName)) return null;
+        var attempts = new[] { $"{account.UserName} {account.Address}".Trim(), account.UserName?.Trim(), account.Address?.Trim() }
+            .Where(k => !string.IsNullOrEmpty(k) && !HasClassicReservedChars(k)).Distinct(StringComparer.OrdinalIgnoreCase);
+        foreach (var keywords in attempts)
+        {
+            var root = await GetJsonAsync(token,
+                $"../WebServices/PIMServices.svc/Accounts?Keywords={Uri.EscapeDataString(keywords!)}&Safe={Uri.EscapeDataString(account.SafeName)}", ct);
+            foreach (var item in ArrayOf(root, "accounts"))
+            {
+                if (!string.Equals(Str(item, "AccountID"), account.Id, StringComparison.Ordinal)) continue;
+                var values = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+                // The documentation's example spells it "Internal Properties"; the lab sends InternalProperties.
+                foreach (var list in new[] { "Properties", "InternalProperties", "Internal Properties" })
+                {
+                    foreach (var pair in Arr(item, list))
+                    {
+                        if (Str(pair, "Key") is { } key && Str(pair, "Value") is { Length: > 0 } value) values.TryAdd(key, value);
+                    }
+                }
+                string? V(string key) => values.GetValueOrDefault(key);
+                return new PvwaAccountDetail(account.Id, account.CategoryModificationTime, V("DeviceType"), V("CreationMethod"),
+                    V("ExtraPass1Safe"), V("ExtraPass1Folder"), V("ExtraPass1Name"), V("ExtraPass3Safe"), V("ExtraPass3Folder"), V("ExtraPass3Name"));
+            }
+        }
+        return null;
+    }
+
+    private static bool HasClassicReservedChars(string value) => value.IndexOfAny(['+', '&', '%']) >= 0;
 
     private static readonly string[] ClassicTimeFormats = ["MM/dd/yyyy HH:mm:ss", "M/d/yyyy H:mm:ss", "M/d/yyyy h:mm:ss tt"];
 

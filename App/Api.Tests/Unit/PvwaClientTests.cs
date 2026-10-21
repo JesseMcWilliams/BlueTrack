@@ -121,6 +121,7 @@ public class PvwaClientTests
             {"value":[{"id":30,"groupName":"CyberArk Vault Admins","groupType":"Directory","location":"\\","description":"","directory":"Company.com",
               "dn":"CN=CyberArk Vault Admins,DC=example,DC=com","members":[{"id":47,"username":"adm.jesse"}]}]}
             """);
+        fake.Json(ApplicationsPath, """{"application":[]}""");   // D-282: read only by a real pull (PvwaPullOptions)
         return fake;
     }
 
@@ -197,6 +198,141 @@ public class PvwaClientTests
         Assert.Empty(snapshot.Accounts.Single(a => a.Id == "60_6").CpmActivity);
         Assert.Equal(2, snapshot.Accounts.Count);
         Assert.Contains("Account '60_6': CPM activity not read", Assert.Single(snapshot.Warnings));
+    }
+
+    private const string ClassicSearch = "/PasswordVault/WebServices/PIMServices.svc/Accounts";
+
+    /// <summary>D-280: the classic search as the lab answered it (2026-10-21): up to 10 accounts, Properties and InternalProperties as Key/Value lists.</summary>
+    private const string ClassicRec = """
+        {"Count":2,"accounts":[
+          {"AccountID":"60_99","Properties":[{"Key":"DeviceType","Value":"Wrong One"}],"InternalProperties":[]},
+          {"AccountID":"60_6","InternalProperties":[{"Key":"ExtraPass3Safe","Value":"Rec Safe"},{"Key":"ExtraPass3Folder","Value":"Root"},
+             {"Key":"ExtraPass3Name","Value":"rec-acct"},{"Key":"ExtraPass1Safe","Value":"Logon Safe"},{"Key":"ExtraPass1Folder","Value":"Root\\Sub"},
+             {"Key":"ExtraPass1Name","Value":"logon-acct"},{"Key":"CreationMethod","Value":"PVWA"},{"Key":"CPMStatus","Value":"success"}],
+           "Properties":[{"Key":"Safe","Value":"My Safe"},{"Key":"UserName","Value":"CyberArkSHRec"},{"Key":"DeviceType","Value":"Operating System"}]}]}
+        """;
+
+    private static PvwaAccountDetail Cached(string id, DateTime? time, string deviceType) =>
+        new(id, time, deviceType, "Old", null, null, null, null, null, null);
+
+    [Fact]
+    public async Task ClassicDetails_AreReadForNewOrChangedAccounts_ByUserNameAndAddress_MatchingTheAccountId()
+    {
+        var fake = RichPvwa();
+        fake.Routes[ClassicSearch] = request => Ok(request.RequestUri!.Query.Contains("CyberArkSHRec") ? ClassicRec : """{"Count":0,"accounts":[]}""");
+        var rec = DateTimeOffset.FromUnixTimeSeconds(1792455167).UtcDateTime;
+        // 60_6 was read at an older time, so it changed; 60_7 has no CategoryModificationTime, so it is always read.
+        var options = new PvwaPullOptions { CachedDetails = new Dictionary<string, PvwaAccountDetail> { ["60_6"] = Cached("60_6", rec.AddDays(-1), "Old type"), ["60_7"] = Cached("60_7", null, "Kept") } };
+
+        var snapshot = await Client(fake).PullAsync(Token, CancellationToken.None, options);
+
+        var calls = fake.Requests.Where(r => r.PathAndQuery.StartsWith(ClassicSearch + "?")).Select(r => r.PathAndQuery).ToList();
+        Assert.Contains($"{ClassicSearch}?Keywords=CyberArkSHRec%20192.0.2.152&Safe=My%20Safe", calls);
+        var detail = snapshot.Accounts.Single(a => a.Id == "60_6");
+        Assert.True(detail.DetailReadThisPull);
+        Assert.Equal(new PvwaAccountDetail("60_6", rec, "Operating System", "PVWA", "Logon Safe", "Root\\Sub", "logon-acct", "Rec Safe", "Root", "rec-acct"), detail.Detail);
+        Assert.Equal([detail.Detail], options.FreshDetails);
+
+        // 60_7 wasn't found by "u h", "u" or "h": what was read before is kept, with one warning, and it is tried again next time.
+        Assert.Equal(3, calls.Count(c => c.Contains("Safe=My%20Safe") && !c.Contains("CyberArkSHRec")));
+        var never = snapshot.Accounts.Single(a => a.Id == "60_7");
+        Assert.Equal(("Kept", false), (never.Detail!.DeviceType, never.DetailReadThisPull));
+        Assert.Contains("60_7 (not found by user name and address)", Assert.Single(snapshot.Warnings));
+    }
+
+    [Fact]
+    public async Task ClassicDetails_AnUnchangedAccountIsNotAskedAgain_AndTestReadsNone()
+    {
+        var fake = RichPvwa();
+        fake.Routes[ClassicSearch] = _ => Ok(ClassicRec);
+        var rec = DateTimeOffset.FromUnixTimeSeconds(1792455167).UtcDateTime;
+        var options = new PvwaPullOptions { CachedDetails = new Dictionary<string, PvwaAccountDetail> { ["60_6"] = Cached("60_6", rec, "Cached type") } };
+
+        var snapshot = await Client(fake).PullAsync(Token, CancellationToken.None, options);
+
+        Assert.DoesNotContain(fake.Requests, r => r.PathAndQuery.Contains("Keywords=CyberArkSHRec"));
+        Assert.Equal(("Cached type", false), (snapshot.Accounts.Single(a => a.Id == "60_6").Detail!.DeviceType, snapshot.Accounts.Single(a => a.Id == "60_6").DetailReadThisPull));
+
+        // No options (Test): no classic search at all.
+        var test = RichPvwa();
+        test.Routes[ClassicSearch] = _ => Ok(ClassicRec);
+        await Client(test).PullAsync(Token, CancellationToken.None);
+        Assert.DoesNotContain(test.Requests, r => r.PathAndQuery.StartsWith(ClassicSearch + "?"));
+    }
+
+    [Fact]
+    public async Task ClassicDetails_ReadTheDocumentedSpelling_AndAFailureIsOneWarning()
+    {
+        var fake = RichPvwa();
+        // The documentation spells it "Internal Properties".
+        fake.Routes[ClassicSearch] = request => request.RequestUri!.Query.Contains("CyberArkSHRec")
+            ? Ok("""{"Count":1,"accounts":[{"AccountID":"60_6","Internal Properties":[{"Key":"CreationMethod","Value":"AutoDetected"}],"Properties":[]}]}""")
+            : new HttpResponseMessage(HttpStatusCode.Forbidden) { Content = new StringContent("{\"ErrorMessage\":\"Not allowed\"}") };
+
+        var snapshot = await Client(fake).PullAsync(Token, CancellationToken.None, new PvwaPullOptions { CachedDetails = new Dictionary<string, PvwaAccountDetail>() });
+
+        Assert.Equal("AutoDetected", snapshot.Accounts.Single(a => a.Id == "60_6").Detail!.CreationMethod);
+        Assert.Null(snapshot.Accounts.Single(a => a.Id == "60_7").Detail);
+        var warning = Assert.Single(snapshot.Warnings);
+        Assert.StartsWith("1 account(s): device type, creation method and linked accounts not read", warning);
+        Assert.Contains("60_7 (PVWA refused", warning);
+    }
+
+    private const string ApplicationsPath = "/PasswordVault/WebServices/PIMServices.svc/Applications/";
+
+    [Fact]
+    public async Task Applications_AreReadWithTheirMethods_KeepingNoHashValue()
+    {
+        // D-282: the shapes the lab's PVWA returned on 2026-10-21 (values made up).
+        var fake = RichPvwa();
+        fake.Routes[ClassicSearch] = _ => Ok("""{"Count":0,"accounts":[]}""");
+        fake.Json(ApplicationsPath, """
+            {"application":[
+              {"AccessPermittedFrom":0,"AccessPermittedTo":24,"AllowExtendedAuthenticationRestrictions":true,"AppID":"APP_A","BusinessOwnerEmail":"o@example.com",
+               "BusinessOwnerFName":"Olga","BusinessOwnerLName":"","BusinessOwnerPhone":"","Description":"Payroll","Disabled":false,"ExpirationDate":null,"Location":"\\Applications"},
+              {"AppID":"APP+B","Disabled":true}]}
+            """);
+        fake.Json(ApplicationsPath + "APP_A/Authentications/", """
+            {"authentication":[
+              {"AllowInternalScripts":null,"AppID":"APP_A","AuthType":"machineAddress","AuthValue":"192.0.2.10","Comment":null,"IsFolder":null,"authID":"1"},
+              {"AllowInternalScripts":false,"AppID":"APP_A","AuthType":"hash","AuthValue":"9F3C55AA","Comment":"build 7","IsFolder":null,"authID":"2"},
+              {"AppID":"APP_A","AuthType":"certificateattr","Subject":"CN=app","Issuer":"CN=ca","SubjectAlternativeName":"DNS Name=app.example.com","authID":"3"}]}
+            """);
+
+        var snapshot = await Client(fake).PullAsync(Token, CancellationToken.None, new PvwaPullOptions { CachedDetails = new Dictionary<string, PvwaAccountDetail>() });
+
+        Assert.True(snapshot.ApplicationsRead);
+        var a = snapshot.Applications.Single(x => x.AppId == "APP_A");
+        Assert.Equal(("Payroll", "\\Applications", (bool?)false, (string?)null, (int?)0, (int?)24, (bool?)true), (a.Description, a.Location, a.Disabled, a.ExpirationDate, a.AccessPermittedFrom, a.AccessPermittedTo, a.AllowExtendedAuthenticationRestrictions));
+        Assert.Equal(("Olga", (string?)null, "o@example.com"), (a.BusinessOwnerFirstName, a.BusinessOwnerLastName, a.BusinessOwnerEmail));
+        Assert.True(a.AuthenticationsRead);
+        Assert.Equal([("machineAddress", "192.0.2.10"), ("hash", (string?)null), ("certificateattr", null)], a.Authentications.Select(x => (x.AuthType, x.AuthValue)));
+        Assert.Equal("build 7", a.Authentications[1].Comment);
+        Assert.Equal(("CN=app", "CN=ca", "DNS Name=app.example.com"), (a.Authentications[2].Subject, a.Authentications[2].Issuer, a.Authentications[2].SubjectAlternativeName));
+
+        // An AppID with + isn't sent; the application is still listed, its methods not read.
+        var b = snapshot.Applications.Single(x => x.AppId == "APP+B");
+        Assert.False(b.AuthenticationsRead);
+        Assert.Contains(snapshot.Warnings, w => w.StartsWith("1 CyberArk Application(s): authentication methods not read") && w.Contains("APP+B (its name has + & or %)"));
+        Assert.DoesNotContain(fake.Requests, r => r.PathAndQuery.Contains("APP%2BB"));
+    }
+
+    [Fact]
+    public async Task Applications_ListRefused_IsAWarning_AndNotReadByTest()
+    {
+        var fake = RichPvwa();
+        fake.Routes[ClassicSearch] = _ => Ok("""{"Count":0,"accounts":[]}""");
+        fake.Json(ApplicationsPath, "{\"ErrorMessage\":\"Not authorized\"}", HttpStatusCode.Forbidden);
+
+        var snapshot = await Client(fake).PullAsync(Token, CancellationToken.None, new PvwaPullOptions { CachedDetails = new Dictionary<string, PvwaAccountDetail>() });
+
+        Assert.False(snapshot.ApplicationsRead);
+        Assert.Empty(snapshot.Applications);
+        Assert.Contains(snapshot.Warnings, w => w.StartsWith("CyberArk Applications not read") && w.Contains("Audit Users"));
+
+        var test = RichPvwa();
+        await Client(test).PullAsync(Token, CancellationToken.None);
+        Assert.DoesNotContain(test.Requests, r => r.PathAndQuery.Contains("/Applications"));
     }
 
     [Fact]

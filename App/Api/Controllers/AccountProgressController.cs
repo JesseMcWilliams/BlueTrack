@@ -117,6 +117,12 @@ public sealed class AccountProgressController(
     }
 
     /// <summary>D-185: every delete and undelete of this account in BlueTrack, newest first, with reasons.</summary>
+    /// <summary>D-281/D-282: who can reach the account's Safe (directly, through a Vault group, or through an AD group), and the CyberArk Applications that can retrieve it.</summary>
+    [Authorize(Policy = Permissions.ViewDashboard)]
+    [HttpGet("{accountKey:long}/safe-access")]
+    public async Task<IActionResult> GetSafeAccess(long accountKey, [FromServices] SafeAccessRepository safeAccessRepository) =>
+        await safeAccessRepository.GetForAccountAsync(accountKey) is { } access ? Ok(access) : NotFound();
+
     [Authorize(Policy = Permissions.ViewDashboard)]   // D-197: reading tracked data needs ViewDashboard, not just a sign-in
     [HttpGet("{accountKey:long}/deletion-history")]
     public async Task<IActionResult> GetDeletionHistory(long accountKey, [FromServices] AccountDeletionRepository deletionRepository) =>
