@@ -109,7 +109,10 @@ As built: `Design_CyberArk-Direct-Integration.md`, "What the Load reads with Dir
 3. **First-Direct-pull guard**: when no earlier Direct pull exists, compare with the counts the last EVD import staged. Over the threshold, the pull is rejected for an admin to accept, as today.
 4. The EVD path still works, and is the rollback.
 
-### P4: production cutover (runbook, no code)
+### P4: production cutover (runbook, no code) — written 2026-10-21
+
+As written: `User_Docs/Admin_DeploymentRunbook.md`, "Moving Self-Hosted from the EVD to Direct" (before you start, switch, check the first Direct night, sign off, roll back). The plan as first written:
+
 1. Prerequisites:
    - PAM 14.2 or later;
    - a CP or CCP credential for a read-only service user that is a member of every business Safe with List Accounts and View Safe Members, and holds Audit Users;
