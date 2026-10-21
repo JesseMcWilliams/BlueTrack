@@ -33,5 +33,6 @@ Each covers one BlueTrack role in isolation. The roles are siblings built on a s
 - `User_Guide.md` — the full reference guide covering every page in the application, for every role at once.
 - `Admin_OperationsGuide.md` — the DBA/operator-facing tasks with no UI of their own: backups and restore, updating to a new version, SQL Server grants, the nightly jobs.
 - `Admin_DeploymentRunbook.md` — the step-by-step procedure for standing up or rebuilding an environment.
+- `Admin_UpgradeGuide.md` — which version to install from the one you run, what to do before and after an upgrade, and how to go back (restore and reinstall) if one breaks something.
 - [Developer_HostSetup.md](Developer_HostSetup.md) — setting up a machine to develop BlueTrack and run its tests.
 - `Claude_Docs/Design_Application-Structure.md` — the authoritative page inventory and navigation conventions.

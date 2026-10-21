@@ -21,7 +21,7 @@ dotnet run --project App/Migrator -- "<connection string>" "Database"   # add "D
 dotnet run --project App/Api
 cd App/Web && npm install && npm run dev
 ```
-Sample CyberArk exports for a first data load are in `Reference/`. See the "First Data Load" section of [Admin_DeploymentRunbook.md](User_Docs/Admin_DeploymentRunbook.md).
+Sample CyberArk exports for a first data load are in `Reference/`. See the "First Data Load" section of [Admin_DeploymentRunbook.md](User_Docs/Admin_DeploymentRunbook.md). To upgrade an existing site, start with [Admin_UpgradeGuide.md](User_Docs/Admin_UpgradeGuide.md).
 
 Tests: `dotnet test App/Api.Tests`, `npm run test` in `App/Web`, `npm test` in `App/E2E`. CI runs all three (`.github/workflows/ci.yml`).
 

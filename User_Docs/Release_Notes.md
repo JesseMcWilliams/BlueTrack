@@ -6,6 +6,8 @@ What changed in each BlueTrack release, newest first, for users and administrato
 
 ### New
 
+- **Upgrade Guide** (`User_Docs/Admin_UpgradeGuide.md`, also published as a Word document): which version to install from the one you run now (a site on the EVD stops at 1.3.4 and moves to Self-Hosted Direct first), what to do before and after an upgrade, the hand-made steps of each version, and how to go back if an upgrade breaks something (restore the pre-upgrade backup and reinstall the previous version).
+
 ### Changed
 
 - **Moving from the EVD to Self-Hosted Direct** has its own section in the Deployment Runbook: what to check before switching, the switch and first pull, what the first Direct night should look like, and how to switch back.
