@@ -124,7 +124,7 @@ public sealed class Saml2ConfigurationFactory(IdentityProviderRepository identit
     /// "Load User Profile" on; without a profile the store is empty or can't be
     /// opened, and the lookup falls through to LocalMachine.
     /// </summary>
-    private static X509Certificate2? FindCertificate(string thumbprint)
+    public static X509Certificate2? FindCertificate(string thumbprint)
     {
         foreach (var location in new[] { StoreLocation.CurrentUser, StoreLocation.LocalMachine })
         {

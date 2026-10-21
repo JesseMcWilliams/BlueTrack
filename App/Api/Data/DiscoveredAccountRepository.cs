@@ -157,7 +157,7 @@ public sealed class DiscoveredAccountRepository(IDbConnectionFactory connectionF
 
         const string acceptSql = """
             DECLARE @DiscoveryKey INT = (SELECT SourceSystemKey FROM dbo.dim_source_system WHERE SourceSystemCode = 'DISCOVERY');
-            DECLARE @DiscoveredStageKey INT = (SELECT StageKey FROM dbo.dim_blueprint_stage WHERE StageName = 'Discovered');
+            DECLARE @DiscoveredStageKey INT = dbo.fn_StartStageKey();   -- D-284
             DECLARE @NotStartedStatusKey INT = (SELECT StatusKey FROM dbo.dim_progress_status WHERE StatusName = 'Not Started');
             DECLARE @AccountKey BIGINT;
 

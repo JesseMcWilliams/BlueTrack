@@ -31,7 +31,7 @@
 | CyberArk Test (phase 3) | EVD database exists; folder and today's files as the App Pool sees them, noting SQL Server reads them as its own account (D-211). | 2026-10-13 |
 | Skip group rows (D-237) | Per-feed, off by default: an account inventory feed skips rows whose `UserName` starts and ends with `*` and contains `group` (any case); an earlier import of such a row is marked deleted. | 2026-10-15 |
 | Feed account identity (phase 4) | `SourceAccountId` = lowercase trimmed `username@address` (D-212), at most 400 characters (D-236). | 2026-10-13 |
-| Auto-advance (phase 4) | Only `PRIVCLOUD`/`SELFHOSTED` accounts auto-advance (D-212). | 2026-10-13 |
+| Auto-advance (phase 4) | Only `PRIVCLOUD`/`SELFHOSTED` accounts auto-advance (D-212). Since D-283 this is the seeded Progress Rule's Source condition, which an admin can change. | 2026-10-13 |
 | Recording a link (phase 4) | `FieldEdit` audit event with a field change, by the Data Feeds system user (D-212). | 2026-10-13 |
 | Remediation report permission (phase 4) | `ConfirmReconciliation` (D-212). | 2026-10-13 |
 | Account CSV columns (phase 4) | Required `UserName`, `Address`; optional `AccountName` (default `username@address`), `PlatformName`, `OwnerName`, `Notes` (D-212). | 2026-10-13 |

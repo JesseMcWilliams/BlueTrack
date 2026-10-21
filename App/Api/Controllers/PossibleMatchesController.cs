@@ -37,7 +37,7 @@ public sealed class PossibleMatchesController(
             await repository.GetOpenCountAsync(),
             async limit => ReportTable.From(ReportExports.PossibleMatchesColumns, await repository.GetOpenExportRowsAsync(limit)));
 
-    /// <summary>Links the pair, as an exact match would: the feed account is hidden and, at Discovered, moves to Onboarded to Vault.</summary>
+    /// <summary>Links the pair, as an exact match would: the feed account is hidden and, at the start stage, moves to the Onboarded stage (D-284).</summary>
     [HttpPost("{reconciliationKey:long}/link")]
     public async Task<IActionResult> Link(long reconciliationKey)
     {
@@ -52,7 +52,7 @@ public sealed class PossibleMatchesController(
             : null;
         await auditLogger.LogAsync("FieldEdit", user.UserKey, "fact_account_progress", match.FeedAccountKey.ToString(),
             detail: AuditLogger.ClipDetail($"Linked to CyberArk account '{match.CyberArkAccountName}' (key {match.CyberArkAccountKey}) from the Possible Account Matches report"
-                + (changes is null ? "" : "; moved to Onboarded to Vault")),
+                + (changes is null ? "" : "; moved to the Onboarded stage")),
             fieldChanges: changes);
         return NoContent();
     }

@@ -6,6 +6,19 @@
 - **Privilege Cloud Direct** (requested 2026-10-19, with Self-Hosted Direct, D-248): read Privilege Cloud through its API into `stg_pc_*` instead of the export folder, as a fourth option on the CyberArk sources page (already listed there, unavailable). Needs the Privilege Cloud API's logon (an Identity OAuth client, `Platform/Developer` and `PAM/Privilege-Cloud-Standard` in the Idira reference), a lab tenant, and the same change guard.
 
 
+## From the requirements review (2026-10-21)
+Gaps against the original design (commit f0561ce) and the Blueprint theme. Built from that review: Progress Rules (D-283), editable stages (D-284), rejected sign-in logging (D-285), the SAML certificate reminder (D-287); step-up MFA is left to the SSO provider (D-286).
+- **Reload Rights re-maps the session's groups only** (D-13): a group change at the IdP or in AD shows after the next sign-in, not on Reload Rights. A live lookup (Graph, LDAP) would close it.
+- **Platform Mapping is empty on the dev site**: all 53 platforms unmapped, so about 2,459 accounts have no account type or source of record (`Planning_Questions-Backlog.md` Q2, Q3). Needs the platform-to-type decisions.
+- **No SMTP on the dev site**: no host or recipients, so the overdue-exception alerts (D-19) and the other notifications reach nobody (Questions Q8). The break-glass email is unproven for the same reason.
+- **Stale docs**: `Planning_API-Access-For-Scripts.md` still lists phases 2 and 3 as to build (D-243 built them); rename it `Design_API-Access.md`. `Planning_Handoff-2026-10-18.md` should be archived.
+- **Confirm these stay dropped**: no pending exception state or ApprovalsWaiting notification, SoD off by default (D-70, D-140); per-field permissions enforced but none seeded (D-198); no tamper-evident audit log (D-63); no ad hoc fields (D-08); the default IdP is the lowest DisplayOrder, not the user's last used (D-100).
+- **Suggestion: session isolation (PSM)**: nothing tracks whether an account's sessions go through PSM; a stage condition or field could (platform `RequirePsm` is already staged for Self-Hosted Direct).
+- **Suggestion: CPM health on the account page and a "CPM failing" worklist**, from `CPMStatus`, `LastVerifiedDate`, `LastReconciledDate` and the last CPM action.
+- **Suggestion: email the application owner** (D-46 `OwnerEmail`) when an application-scoped exception comes up for review, not only the configured recipients.
+- **Suggestion: least-privilege view**: who holds Manage Safe, Manage Safe Members or full rights, across Safes (the per-account "Who can use this account" and the Power BI entitlement view exist).
+- **Suggestion: sponsor view of progress against target dates over time**, from Trends and `TargetRemediationDate`.
+
 ## Requested, deferred
 - **Localize server-side text** (requested 2026-10-14): API error messages (ProblemDetails), audit details, feed run summaries and emails are English only; D-227 covers the SPA. A proposal (error codes translated in the SPA, audit details kept in English, one installation-wide email language) is in `Planning_Server-Side-Localization.md`; whether to build it depends on a second language being planned (`Planning_Questions-Backlog.md`, question 5).
 

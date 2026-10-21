@@ -30,7 +30,9 @@ const sections = [
   { name: 'admin-account-classification', labelKey: 'admin.adminHub.accountClassification', permission: 'ManageDiscoveredAccounts' },
   { name: 'admin-siem-forwarding', labelKey: 'admin.adminHub.siemForwarding', permission: 'ManageApplicationConfiguration' },
   { name: 'admin-platform-mapping', labelKey: 'admin.adminHub.platformMapping', permission: 'CuratePlatformMapping' },
-  { name: 'admin-api-keys', labelKey: 'admin.adminHub.apiKeys', permission: 'ManageApiKeys' }
+  { name: 'admin-api-keys', labelKey: 'admin.adminHub.apiKeys', permission: 'ManageApiKeys' },
+  { name: 'admin-progress-rules', labelKey: 'admin.adminHub.progressRules', permission: 'ManageProgressRules' },   // D-283
+  { name: 'admin-blueprint-stages', labelKey: 'admin.adminHub.blueprintStages', permission: 'ManageProgressRules' }   // D-284
 ]
 
 const visibleSections = computed(() => sections.filter(s => rights.hasPermission(s.permission)))

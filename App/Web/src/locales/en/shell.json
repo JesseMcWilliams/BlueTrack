@@ -96,7 +96,11 @@
     "adminApiKeys": "API Keys",
     "adminApiKeyCreate": "New API Key",
     "adminApiKeyEdit": "Edit API Key",
-    "adminPlatformMapping": "Platform Mapping"
+    "adminPlatformMapping": "Platform Mapping",
+    "adminProgressRules": "Progress Rules",
+    "adminProgressRuleCreate": "New Progress Rule",
+    "adminProgressRuleEdit": "Edit Progress Rule",
+    "adminBlueprintStages": "Blueprint Stages"
   },
   "userMenu": {
     "account": "Account",

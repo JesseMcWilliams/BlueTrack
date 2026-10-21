@@ -487,6 +487,32 @@ const routes = [
         component: () => import('../views/admin/DataFeedEdit.vue'),
         props: true
       },
+      // D-283/D-284: Progress Rules and the Blueprint stages they move accounts between.
+      {
+        path: 'progress-rules',
+        name: 'admin-progress-rules',
+        meta: { breadcrumb: 'shell.routes.adminProgressRules', breadcrumbParent: 'admin' },
+        component: () => import('../views/admin/ProgressRules.vue')
+      },
+      {
+        path: 'progress-rules/new',
+        name: 'admin-progress-rule-create',
+        meta: { breadcrumb: 'shell.routes.adminProgressRuleCreate', breadcrumbParent: 'admin-progress-rules' },
+        component: () => import('../views/admin/ProgressRuleEdit.vue')
+      },
+      {
+        path: 'progress-rules/:ruleKey',
+        name: 'admin-progress-rule-edit',
+        meta: { breadcrumb: 'shell.routes.adminProgressRuleEdit', breadcrumbParent: 'admin-progress-rules' },
+        component: () => import('../views/admin/ProgressRuleEdit.vue'),
+        props: true
+      },
+      {
+        path: 'blueprint-stages',
+        name: 'admin-blueprint-stages',
+        meta: { breadcrumb: 'shell.routes.adminBlueprintStages', breadcrumbParent: 'admin' },
+        component: () => import('../views/admin/BlueprintStages.vue')
+      },
       {
         path: 'risk-score-bands',
         name: 'admin-risk-score-bands',

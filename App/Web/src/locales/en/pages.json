@@ -187,7 +187,8 @@
     "lastUpdated": "Last Updated",
     "overrideRiskScore": "Override Risk Score",
     "riskException": "Risk Exception",
-    "linkedExceptionValue": "{id} ({status}) — {justification}, reviewed {date}"
+    "linkedExceptionValue": "{id} ({status}) — {justification}, reviewed {date}",
+    "movedByRule": "Moved to this stage by the Progress Rule \"{rule}\" on {date}."
   },
   "accountProgressBulkEdit": {
     "referenceFailed": "The choices for the dropdowns could not be loaded ({status}), so they are empty. Reload the page to try again.",

@@ -140,7 +140,9 @@ Guidance adopted 2026-08-27 for the ITfoxtec.Identity.Saml2 integration (D-23). 
 
 ### Operational
 
-- Since this is a single IdP, put a manual calendar reminder (or an automated check) on the IdP's certificate expiration date. A SAML outage from an expired certificate nobody rotated is a far more likely failure mode than an actual attack. (D-27)
+- Since this is a single IdP, an expired certificate nobody rotated is a far more likely failure than an attack (D-27). The **SamlCertificateExpiring** notification (D-287) checks the IdP and SP certificates daily and emails at 30 days, 7 days, when expired and when missing; turn it on and give it recipients.
+- Every rejected SAML response and failed OIDC sign-in is audit-logged as LogonFailed and sends the SignInRejected notification, at most one email per 15 minutes (D-285; `SignInRejectionRecorder`, `Saml2Controller`, the OIDC `OnRemoteFailure` event).
+- Step-up MFA for admin work is left to the identity provider (D-286, superseding the code half of D-29).
 
 ## API access for scripts (D-243)
 

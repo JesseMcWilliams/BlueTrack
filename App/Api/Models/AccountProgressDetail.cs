@@ -69,6 +69,10 @@ public sealed class AccountProgressDetail
 
     /// <summary>D-280: Self-Hosted Direct only (null otherwise), from PVWA's classic account details. A linked account reads Safe\Name (Safe\Folder\Name outside Root); its key is set when that account has a page here.</summary>
     public string? DeviceType { get; init; }
+
+    /// <summary>D-283: the Progress Rule that last moved this account to the next stage, and when (UTC); null when none did (or the rule was deleted, for the name).</summary>
+    public string? LastAdvancedByRuleName { get; init; }
+    public DateTime? LastAdvancedAt { get; init; }
     public string? CreationMethod { get; init; }
     public string? LinkedLogonAccount { get; init; }
     public long? LinkedLogonAccountKey { get; init; }

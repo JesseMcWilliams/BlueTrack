@@ -21,7 +21,9 @@ export const ADMIN_SECTIONS = [
   { list: 'admin-account-classification', permission: 'ManageDiscoveredAccounts', routes: ['admin-account-classification-rule-create', 'admin-account-classification-rule-edit'] },
   { list: 'admin-siem-forwarding', permission: 'ManageApplicationConfiguration', routes: [] },
   { list: 'admin-platform-mapping', permission: 'CuratePlatformMapping', routes: [] },
-  { list: 'admin-api-keys', permission: 'ManageApiKeys', routes: ['admin-api-key-create', 'admin-api-key-edit'] }
+  { list: 'admin-api-keys', permission: 'ManageApiKeys', routes: ['admin-api-key-create', 'admin-api-key-edit'] },
+  { list: 'admin-progress-rules', permission: 'ManageProgressRules', routes: ['admin-progress-rule-create', 'admin-progress-rule-edit'] },   // D-283
+  { list: 'admin-blueprint-stages', permission: 'ManageProgressRules', routes: [] }   // D-284
 ]
 
 const OTHER = {

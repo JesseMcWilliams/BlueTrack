@@ -32,7 +32,7 @@ public sealed class TrendsPeriod
     public required int TotalAccounts { get; init; }
     /// <summary>D-143's rule: not status Risk Accepted / Excluded.</summary>
     public required int InScopeAccounts { get; init; }
-    /// <summary>D-143's rule: the final stage (StageOrder 5) and status Complete.</summary>
+    /// <summary>D-143's rule: the Compliant stage (D-284: the one marked so) or later, and status Complete.</summary>
     public required int CompliantAccounts { get; init; }
     /// <summary>Compliant / In Scope x 100, one decimal; null with nothing in scope.</summary>
     public double? PercentComplete { get; init; }
