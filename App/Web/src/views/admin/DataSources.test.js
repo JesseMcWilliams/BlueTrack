@@ -191,6 +191,37 @@ describe('DataSources.vue', () => {
     expect(wrapper.text()).toContain('Safes went from 40 to 10')
   })
 
+  // D-271: the EVD with a shadow pull.
+  const shadowSettings = { ...directSettings, selfHostedSource: 'Evd', evdDatabaseName: 'CyberArkSH', shadowPullEnabled: true, shadowPullTime: '04:00' }
+  function shadowHandlers(pulls, extra = {}) {
+    return {
+      ...directHandlers(pulls, false, extra),
+      'GET /api/admin/cyberark-sources': jsonResponse(cyberArk({ settings: shadowSettings })),
+      'GET /api/admin/cyberark-sources/direct/comparison': jsonResponse({ cleanNightsNeeded: 7, cleanNights: 3, runs: [], differences: [], totalDifferences: 0, marks: [] }),
+      ...extra
+    }
+  }
+
+  it('with a shadow pull, shows the EVD and the shadow pull, the shadow pulls and the comparison', async () => {
+    routeFetch(shadowHandlers([pull({ isShadow: true })]))
+    const wrapper = mount(DataSources, { global: { plugins: [makeRouter()] } })
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('Self-Hosted: on, from the CyberArkSH database (shadow pull from https://pvwa.example.com every night at 04:00, for comparison)')
+    expect(wrapper.text()).toContain('Shadow pulls (PVWA compared with the EVD)')
+    expect(wrapper.text()).toContain('schedule (shadow)')
+    expect(wrapper.text()).toContain('3 of 7 clean nights in a row.')
+  })
+
+  it('says a failed shadow pull leaves the import alone, and never offers Accept', async () => {
+    routeFetch(shadowHandlers([pull({ isShadow: true, status: 'Failed', message: 'PVWA could not be reached' })]))
+    const wrapper = mount(DataSources, { global: { plugins: [makeRouter()] } })
+    await flushPromises()
+
+    expect(wrapper.find('.pull-banner').text()).toContain("tonight's import is unaffected")
+    expect(wrapper.findAll('button').some(b => b.text() === 'Accept the change and pull')).toBe(false)
+  })
+
   it('does not load the pull log for the EVD source', async () => {
     routeFetch({
       'GET /api/admin/data-feeds': jsonResponse([]),

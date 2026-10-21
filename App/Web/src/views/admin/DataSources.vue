@@ -9,11 +9,14 @@
 // D-248: when Self-Hosted comes from PVWA directly (Self-Hosted Direct), this page
 // also shows the pull log and has Pull now. A pull rejected for changing the Safe or
 // account count too much can be accepted from here; the page polls while one runs.
+// D-271: with the EVD as the source and the shadow pull on, the same log and Pull now are for shadow pulls, and the
+// shadow comparison with the EVD is shown below them (ShadowComparisonPanel).
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import { confirmDelete } from '../../composables/useConfirmDialog'
 import { feedTypeLabel, formatRunTime } from './dataFeedFormat'
 import PullDetailsDialog from './PullDetailsDialog.vue'
+import ShadowComparisonPanel from './ShadowComparisonPanel.vue'
 import { useI18n } from 'vue-i18n'
 
 const { t } = useI18n()
@@ -30,6 +33,7 @@ let pollTimer = null
 const directPulls = ref(null)
 const selectedPull = ref(null)
 let directTimer = null
+const comparisonRefresh = ref(0)
 
 async function loadFeeds() {
   const response = await fetch('/api/admin/data-feeds')
@@ -61,6 +65,12 @@ function isDirect() {
   return !!(cyberArk.value?.isConfigured && s?.importSelfHosted && s?.selfHostedSource === 'Direct')
 }
 
+// D-271: the EVD is the source and PVWA is also read each night, for comparison.
+function isShadow() {
+  const s = cyberArk.value?.settings
+  return !!(cyberArk.value?.isConfigured && s?.importSelfHosted && s?.selfHostedSource !== 'Direct' && s?.shadowPullEnabled)
+}
+
 async function loadDirectPulls() {
   const response = await fetch('/api/admin/cyberark-sources/direct/pulls')
   if (!response.ok) throw new Error(t('common.requestFailed', { status: response.status }))
@@ -72,7 +82,10 @@ function startDirectPolling() {
   directTimer = setInterval(async () => {
     try {
       await loadDirectPulls()
-      if (!directPulls.value.running) stopDirectPolling()
+      if (!directPulls.value.running) {
+        stopDirectPolling()
+        comparisonRefresh.value++
+      }
     } catch (err) {
       stopDirectPolling()
       error.value = err.message
@@ -115,7 +128,7 @@ async function load() {
   loading.value = true
   try {
     await Promise.all([loadFeeds(), loadStatus(), loadCyberArk()])
-    if (isDirect()) {
+    if (isDirect() || isShadow()) {
       await loadDirectPulls()
       if (directPulls.value.running) startDirectPolling()
     }
@@ -217,13 +230,18 @@ async function remove(feed) {
             <i18n-t v-else-if="cyberArk.settings.importSelfHosted" keypath="admin.dataSources.selfHostedOn" scope="global">
               <template #database><code>{{ cyberArk.settings.evdDatabaseName }}</code></template>
             </i18n-t>
+            <template v-if="isShadow()">{{ ' ' }}</template>
+            <i18n-t v-if="isShadow()" keypath="admin.dataSources.shadowPullOn" scope="global">
+              <template #address><code>{{ cyberArk.settings.pvwaBaseUrl }}</code></template>
+              <template #time>{{ cyberArk.settings.shadowPullTime }}</template>
+            </i18n-t>
             <template v-else>{{ t('admin.dataSources.selfHostedOff') }}</template>
           </li>
         </ul>
       </template>
-      <div v-if="isDirect() && directPulls" class="direct-pulls">
-        <h4>{{ t('admin.dataSources.directHeading') }}</h4>
-        <p v-if="latestPullProblem" role="alert" class="pull-banner">{{ latestPullProblem.status === 'Rejected' ? t('admin.dataSources.bannerRejected') : t('admin.dataSources.bannerFailed') }}</p>
+      <div v-if="(isDirect() || isShadow()) && directPulls" class="direct-pulls">
+        <h4>{{ isShadow() ? t('admin.dataSources.shadowHeading') : t('admin.dataSources.directHeading') }}</h4>
+        <p v-if="latestPullProblem" role="alert" class="pull-banner">{{ latestPullProblem.isShadow ? t('admin.dataSources.bannerShadowFailed') : latestPullProblem.status === 'Rejected' ? t('admin.dataSources.bannerRejected') : t('admin.dataSources.bannerFailed') }}</p>
         <p v-if="directPulls.running" role="status">{{ t('admin.dataSources.pullRunning') }}</p>
         <p v-if="directPulls.pulls.length === 0">{{ t('admin.dataSources.noPulls') }}</p>
         <table v-else>
@@ -233,7 +251,7 @@ async function remove(feed) {
           <tbody>
             <tr v-for="p in directPulls.pulls.slice(0, 5)" :key="p.pullKey">
               <td>{{ formatRunTime(p.startedAt) }}</td>
-              <td>{{ p.triggeredBy }}<template v-if="p.acceptedChange">{{ ' ' + t('admin.dataSources.pullAccepted') }}</template></td>
+              <td>{{ p.triggeredBy }}<template v-if="p.acceptedChange">{{ ' ' + t('admin.dataSources.pullAccepted') }}</template><template v-if="p.isShadow">{{ ' ' + t('admin.dataSources.pullShadow') }}</template></td>
               <td>
                 <strong :class="`outcome-${p.status}`">{{ p.status }}</strong>
                 <br /><small v-if="p.message">{{ p.message }}</small>
@@ -248,8 +266,9 @@ async function remove(feed) {
         </table>
         <p>
           <button type="button" :disabled="directPulls.running" @click="pullNow(false)">{{ t('admin.dataSources.pullNow') }}</button>
-          <button v-if="directPulls.pulls[0]?.status === 'Rejected'" type="button" :disabled="directPulls.running" @click="pullNow(true)">{{ t('admin.dataSources.acceptAndPull') }}</button>
+          <button v-if="isDirect() && directPulls.pulls[0]?.status === 'Rejected'" type="button" :disabled="directPulls.running" @click="pullNow(true)">{{ t('admin.dataSources.acceptAndPull') }}</button>
         </p>
+        <ShadowComparisonPanel v-if="isShadow()" :refresh-key="comparisonRefresh" />
       </div>
       <p><button type="button" @click="router.push({ name: 'admin-cyberark-sources-edit' })">{{ t('admin.dataSources.editCyberArk') }}</button></p>
 

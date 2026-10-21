@@ -40,7 +40,10 @@ const defaults = {
   pvwaCredentialKey: null,
   pvwaLogonMethod: 'CyberArk',
   directPullTime: '01:30',
-  directMaxChangePercent: 20
+  directMaxChangePercent: 20,
+  directPullTimeLimitMinutes: 45,
+  shadowPullEnabled: false,
+  shadowPullTime: '04:00'
 }
 
 function routeFetch(handlers) {
@@ -152,6 +155,41 @@ describe('CyberArkSourcesEdit.vue', () => {
     expect(wrapper.text()).toContain('Privilege Cloud Direct')
   })
 
+  // D-271
+  it('with the EVD, the shadow pull shows the PVWA fields and its own time, but not Direct\'s pull time', async () => {
+    routeFetch({
+      'GET /api/admin/cyberark-sources': jsonResponse({ isConfigured: true, settings: { ...defaults, importSelfHosted: true, evdDatabaseName: 'CyberArkSH' } }),
+      'GET /api/admin/cyberark-sources/credentials': jsonResponse(credentials),
+      'PUT /api/admin/cyberark-sources': { ok: true, status: 204, json: () => Promise.resolve(null) }
+    })
+    const wrapper = await mountPage()
+    expect(wrapper.text()).toContain('Shadow pull: also read PVWA each night and compare it with the EVD')
+    expect(wrapper.text()).not.toContain('PVWA address')
+
+    const shadowBox = wrapper.findAll('input[type="checkbox"]').find(c => c.element.parentElement.textContent.includes('Shadow pull'))
+    await shadowBox.setValue(true)
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('EVD database:')
+    expect(wrapper.text()).toContain('PVWA address')
+    expect(wrapper.text()).toContain('Shadow pull time:')
+    expect(wrapper.text()).toContain('Pull time limit (minutes):')   // D-273: it applies to a shadow pull too
+    expect(wrapper.text()).not.toContain('Pull time:')
+    expect(wrapper.text()).not.toContain('Allowed change')
+    expect(globalThis.fetch.mock.calls.some(([url]) => url.endsWith('/credentials'))).toBe(true)
+
+    await wrapper.find('input[placeholder="https://pvwa.example.com"]').setValue('https://pvwa.example.com')
+    await wrapper.find('input[maxlength="5"]').setValue('04:30')
+    await wrapper.find('input[min="5"][max="720"]').setValue(60)
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+
+    const put = globalThis.fetch.mock.calls.find(([, options]) => options?.method === 'PUT')
+    const body = JSON.parse(put[1].body)
+    expect([body.selfHostedSource, body.shadowPullEnabled, body.shadowPullTime, body.pvwaBaseUrl, body.directPullTimeLimitMinutes])
+      .toEqual(['Evd', true, '04:30', 'https://pvwa.example.com', 60])
+  })
+
   it('opens straight onto the Direct fields when Direct is saved, and loads the credentials', async () => {
     routeFetch({
       'GET /api/admin/cyberark-sources': jsonResponse({
@@ -180,7 +218,7 @@ describe('CyberArkSourcesEdit.vue', () => {
     const wrapper = await mountPage(router)
 
     await wrapper.find('input[maxlength="5"]').setValue('01:15')
-    await wrapper.find('input[type="number"]').setValue('35')
+    await wrapper.find('input[min="0"][max="100"]').setValue('35')
     await wrapper.find('form').trigger('submit')
     await flushPromises()
 
@@ -235,7 +273,7 @@ describe('CyberArkSourcesEdit.vue', () => {
     const wrapper = await mountPage(router)
 
     expect(wrapper.find('input[placeholder="https://pvwa.example.com"]').element.value).toBe('https://typed.example.com')
-    expect(wrapper.find('input[type="number"]').element.value).toBe('35')
+    expect(wrapper.find('input[min="0"][max="100"]').element.value).toBe('35')
     expect(wrapper.findAll('select')[1].element.value).toBe('3')
     expect(sessionStorage.getItem('cyberArkSourcesDraft')).toBeNull()   // used once
     expect(wrapper.findAll('select')[0].element.value).toBe('Direct')

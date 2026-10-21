@@ -33,6 +33,12 @@ public sealed class CyberArkSourceSettings
     public string DirectPullTime { get; init; } = "01:30";
     /// <summary>Direct: the most the Safe or account count may change since the last good pull, as a percent, before the pull is rejected.</summary>
     public int DirectMaxChangePercent { get; init; } = 20;
+    /// <summary>D-273: a pull (real or shadow) still running after this many minutes is stopped and logged as failed.</summary>
+    public int DirectPullTimeLimitMinutes { get; init; } = 45;
+    /// <summary>D-271: with the EVD as the source, also pull PVWA each night into the stg_shd_* tables only and compare them with the EVD.</summary>
+    public bool ShadowPullEnabled { get; init; }
+    /// <summary>D-271: when the shadow pull runs, HH:mm server time. It should come after the nightly import, so both sides describe the same night.</summary>
+    public string ShadowPullTime { get; init; } = "04:00";
 
     /// <summary>The seven Privilege Cloud files, with the labels the page and Test show.</summary>
     public IEnumerable<(string Field, string Label, string FileName)> Files() =>

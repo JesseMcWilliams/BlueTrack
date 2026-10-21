@@ -46,6 +46,8 @@ public sealed record SecretQuery(string Safe, string Folder, string Object)
 /// that a live secret held in application memory "needs the same care as
 /// any in-memory credential handling." UserName/Address are non-secret
 /// identifying metadata (D-39) -- safe to log or show in an admin UI,
-/// unlike Content.
+/// unlike Content. LogonDomain (D-274) is the account's LogonDomain property,
+/// where the backend returns one (CyberArk CP and CCP); it builds an LDAP
+/// bind's UPN.
 /// </summary>
-public sealed record SecretResult(char[] Content, string? UserName, string? Address, bool FromFallbackCache);
+public sealed record SecretResult(char[] Content, string? UserName, string? Address, bool FromFallbackCache, string? LogonDomain = null);

@@ -44,7 +44,10 @@ const counts = computed(() => props.pull.safeCount === null || props.pull.safeCo
   [t('admin.dataSources.pullCount_platforms'), props.pull.platformCount]
 ])
 
-const meaning = computed(() => ({
+// D-271: a shadow pull changes nothing the import reads, so it says so instead.
+const meaning = computed(() => props.pull.isShadow && props.pull.status !== 'Started' ? (props.pull.status === 'Succeeded'
+  ? t('admin.dataSources.pullMeaningShadowSucceeded')
+  : t('admin.dataSources.pullMeaningShadowFailed')) : ({
   Succeeded: t('admin.dataSources.pullMeaningSucceeded'),
   Rejected: t('admin.dataSources.pullMeaningRejected'),
   Started: t('admin.dataSources.pullMeaningStarted')

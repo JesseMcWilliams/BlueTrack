@@ -6,11 +6,18 @@ What changed in each BlueTrack release, newest first, for users and administrato
 
 ### New
 
+- **Shadow comparison, for moving Self-Hosted from the EVD to Self-Hosted Direct.** With the EVD as the source, tick **Shadow pull** on Edit CyberArk sources and give the PVWA address and credential: BlueTrack then also reads PVWA each night (at the **Shadow pull time**, after the import) and compares it with what the EVD import staged. The EVD stays the source and reports don't change. Data Sources shows the shadow pulls, how many clean nights in a row there have been (7 are needed before switching), and every difference. CyberArk's internal Safes and the PVWA gateway members are marked automatically, and directory mappings and dependent accounts are left out. Mark any other difference you expect for one item, a whole Safe or every membership of a user or group; marks are audit-logged. A list shows the Safes PVWA can't fully see.
+- **Pull time limit for Self-Hosted Direct.** A PVWA pull (nightly, shadow or **Pull now**) still running after the **Pull time limit** on Edit CyberArk sources (45 minutes unless changed) is stopped and logged as failed, and the failure email is sent. The data the nightly load reads is left as it was.
+
 ### Changed
+
+- **LDAP binds with a bind account now use the account's UPN where they can.** A CyberArk CP or CCP credential's LogonDomain (or, failing that, its Address, or the LDAP domain's Search Base) is joined to the user name, so an account whose name is longer than the 20-character Windows logon name now binds. A user name that already includes a domain is used as it is. If your bind account's LogonDomain isn't a DNS domain name (for example `COMPANY` rather than `company.com`), the Address or Search Base is used instead.
 
 ### Fixed
 
 ### Upgrading
+
+- The upgrade adds database scripts 42, 43 and 44 (the shadow pull, the comparison tables and its automatic rules, and the pull time limit); the installer applies them. The pull time limit starts at 45 minutes; if your Self-Hosted Direct pulls take longer, raise it on Edit CyberArk sources. Nothing changes until you turn on the shadow pull. To start the comparison on a site that uses the EVD: put the PVWA user in the **Auditors** and **Vault Admins** groups, then on Edit CyberArk sources tick **Shadow pull**, enter the PVWA address and credential, set the shadow pull time after the nightly import has finished, **Test** and **Save**. Details: `Admin_DeploymentRunbook.md`, "After upgrading".
 
 ## 1.3.1 (2026-10-20)
 

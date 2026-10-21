@@ -40,7 +40,10 @@ public sealed class LdapContextFactory(CredentialRepository credentialRepository
                 : new PrincipalContext(ContextType.Domain, domainController, searchBase);
         }
 
-        var (username, password) = await credentialRepository.ResolveForUseAsync(config.CredentialKey!.Value);
+        // D-274: bind with a UPN where one can be built from the account's LogonDomain, Address or the Search Base.
+        var credential = await credentialRepository.ResolveWithAccountDetailsAsync(config.CredentialKey!.Value);
+        var username = LdapBindName.For(credential.Username, credential.LogonDomain, credential.Address, searchBase);
+        var password = credential.Password;
         return config.UseSsl
             ? new PrincipalContext(ContextType.Domain, domainController, searchBase, ContextOptions.SecureSocketLayer | ContextOptions.Negotiate, username, password)
             : new PrincipalContext(ContextType.Domain, domainController, searchBase, username, password);

@@ -147,6 +147,16 @@ public sealed class CredentialRepository(
     /// </summary>
     public async Task<(string? Username, string Password)> ResolveForUseAsync(int credentialKey)
     {
+        var resolved = await ResolveWithAccountDetailsAsync(credentialKey);
+        return (resolved.Username, resolved.Password);
+    }
+
+    /// <summary>
+    /// D-274: as ResolveForUseAsync, plus the account's LogonDomain and Address where the backend returns them (CyberArk
+    /// CP and CCP), so an LDAP bind can use a UPN (LdapBindName). A DPAPI credential has neither.
+    /// </summary>
+    public async Task<ResolvedCredential> ResolveWithAccountDetailsAsync(int credentialKey)
+    {
         using var connection = connectionFactory.Create();
         var row = await connection.QuerySingleAsync<CredentialRow>($"{SelectSql} WHERE CredentialKey = @CredentialKey", new { CredentialKey = credentialKey });
 
@@ -154,10 +164,11 @@ public sealed class CredentialRepository(
         {
             var provider = vaultSecretProviderResolver.ResolveByBackendType(row.BackendType);
             var result = await provider.GetSecretAsync(new SecretQuery(row.VaultSafe ?? "", row.VaultFolder ?? "", row.VaultObject ?? ""));
-            return (result.UserName ?? row.Username, new string(result.Content));
+            return new ResolvedCredential(result.UserName ?? row.Username, new string(result.Content), result.LogonDomain, result.Address);
         }
 
-        return await dpapiCredentialResolver.ResolveAsync(credentialKey);
+        var (username, password) = await dpapiCredentialResolver.ResolveAsync(credentialKey);
+        return new ResolvedCredential(username, password, null, null);
     }
 
     // A plain class, not a tuple -- Dapper can't use a ValueTuple as a
@@ -222,3 +233,6 @@ public sealed class CredentialRepository(
         ModifiedDate = row.ModifiedDate
     };
 }
+
+/// <summary>D-274: a credential ready to use, with the account details an LDAP bind builds its UPN from.</summary>
+public sealed record ResolvedCredential(string? Username, string Password, string? LogonDomain, string? Address);

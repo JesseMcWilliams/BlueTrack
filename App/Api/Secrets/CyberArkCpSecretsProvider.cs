@@ -66,7 +66,8 @@ public sealed class CyberArkCpSecretsProvider(SecretsStoreRepository secretsStor
             // Synchronous native/local call -- no async overload exists on this SDK.
             var password = PasswordSDK.GetPassword(request);
 
-            var result = new SecretResult(password.Content ?? [], password.UserName, password.Address, FromFallbackCache: false);
+            var result = new SecretResult(password.Content ?? [], password.UserName, password.Address, FromFallbackCache: false,
+                LogonDomain: PasswordProperty(password, "LogonDomain"));
             fallbackCache.Store(cacheKey, result);
             return await Task.FromResult(result);
         }
@@ -81,5 +82,21 @@ public sealed class CyberArkCpSecretsProvider(SecretsStoreRepository secretsStor
 
             throw new SecretRetrievalException($"CyberArk CP request failed ({category}): {ex.Message}", category, ex);
         }
+    }
+
+    /// <summary>
+    /// D-274: an account property the CP returned, or null. Read from PasswordProperties, not GetAttribute, which throws
+    /// for a property the account doesn't have. The request sets no RequiredProperties: with any set, the CP returns only
+    /// those, and UserName and Address come back empty (checked against the lab CP, 2026-10-21).
+    /// </summary>
+    private static string? PasswordProperty(PSDKPassword password, string name)
+    {
+        if (password.PasswordProperties is null) return null;
+        foreach (System.Collections.DictionaryEntry entry in password.PasswordProperties)
+        {
+            if (string.Equals(entry.Key?.ToString(), name, StringComparison.OrdinalIgnoreCase))
+                return string.IsNullOrWhiteSpace(entry.Value?.ToString()) ? null : entry.Value!.ToString()!.Trim();
+        }
+        return null;
     }
 }

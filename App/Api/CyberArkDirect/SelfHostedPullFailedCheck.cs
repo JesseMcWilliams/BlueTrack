@@ -27,7 +27,7 @@ public sealed class SelfHostedPullFailedCheck(IDbConnectionFactory connectionFac
     {
         using var connection = connectionFactory.Create();
         var pulls = (await connection.QueryAsync<DirectPullRecord>("""
-            SELECT p.PullKey, p.StartedAt, p.CompletedAt, p.Status, p.TriggeredBy, p.AcceptedChange, p.SafeCount, p.AccountCount,
+            SELECT p.PullKey, p.StartedAt, p.CompletedAt, p.Status, p.TriggeredBy, p.AcceptedChange, p.IsShadow, p.SafeCount, p.AccountCount,
                    p.UserCount, p.GroupCount, p.MemberCount, p.PlatformCount, p.Message,
                    b.SafeCount AS BaselineSafeCount, b.AccountCount AS BaselineAccountCount
             FROM dbo.cyberark_direct_pull p
@@ -51,7 +51,8 @@ public sealed class SelfHostedPullFailedCheck(IDbConnectionFactory connectionFac
     private NotificationCheckResult Build(DirectPullRecord pull, string? siteUrl)
     {
         var verb = pull.Status switch { "Rejected" => "was rejected", "Started" => "has not finished", _ => "failed" };
-        var email = new NotificationEmail($"BlueTrack: the Self-Hosted Direct pull {verb}", siteUrl);
+        var what = pull.IsShadow ? "Self-Hosted Direct shadow pull" : "Self-Hosted Direct pull";
+        var email = new NotificationEmail($"BlueTrack: the {what} {verb}", siteUrl);
 
         var facts = new List<(string, string)>
         {
@@ -71,7 +72,10 @@ public sealed class SelfHostedPullFailedCheck(IDbConnectionFactory connectionFac
         foreach (var message in messages) email.Paragraph(message);
         if (messages.Length == 0 && pull.Status != "Started") email.Paragraph("(no message recorded)");
 
-        email.Paragraph(pull.Status switch
+        // D-271: a shadow pull only feeds the comparison with the EVD; the import doesn't wait for it.
+        email.Paragraph(pull.IsShadow
+            ? "This was a shadow pull, which only compares PVWA with the EVD. The EVD is still the source, so tonight's import and reports are unaffected, but this night won't count towards the clean nights needed before switching to Direct. Common causes: the credential was refused or its CP/CCP lookup failed, PVWA can't be reached from this server, or the PVWA address is wrong."
+            : pull.Status switch
         {
             "Rejected" => "The pull read PVWA but wasn't used, because the number of Safes or accounts changed by more than the allowed percentage. The staged data is unchanged and tonight's import will fail until a pull succeeds. If the change is expected, use Accept the change and pull; if not, check the service user's Safe memberships first.",
             "Started" => "The pull may still be running or may have stopped with the application. The next pull marks it failed. Tonight's import will fail if no pull succeeds before it.",
@@ -81,7 +85,7 @@ public sealed class SelfHostedPullFailedCheck(IDbConnectionFactory connectionFac
 
         var detail = $"Pull {pull.PullKey} {verb}" + (string.IsNullOrEmpty(pull.Message) ? "" : $": {pull.Message}");
         return new NotificationCheckResult(
-            Subject: $"BlueTrack: Self-Hosted Direct pull {verb}",
+            Subject: $"BlueTrack: {what} {verb}",
             Body: email.Text,
             Detail: detail,
             HtmlBody: email.Html,

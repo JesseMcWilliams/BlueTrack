@@ -25,6 +25,9 @@ public sealed class CyberArkSourceConfigRepository(IDbConnectionFactory connecti
         public string PvwaLogonMethod { get; init; } = "CyberArk";
         public string DirectPullTime { get; init; } = "01:30";
         public int DirectMaxChangePercent { get; init; } = 20;
+        public int DirectPullTimeLimitMinutes { get; init; } = 45;
+        public bool ShadowPullEnabled { get; init; }
+        public string ShadowPullTime { get; init; } = "04:00";
         public DateTime ModifiedDate { get; init; }
         public string? ModifiedByName { get; init; }
     }
@@ -36,7 +39,7 @@ public sealed class CyberArkSourceConfigRepository(IDbConnectionFactory connecti
             SELECT c.ImportPrivilegeCloud, c.ExportFolderPath, c.PlatformsFileName, c.UsersFileName, c.GroupsFileName,
                    c.GroupMembersFileName, c.SafesFileName, c.AccountsFileName, c.EntitlementsFileName,
                    c.ImportSelfHosted, c.EvdDatabaseName, c.SelfHostedSource, c.PvwaBaseUrl, c.PvwaCredentialKey,
-                   c.PvwaLogonMethod, c.DirectPullTime, c.DirectMaxChangePercent, c.ModifiedDate, u.DisplayName AS ModifiedByName
+                   c.PvwaLogonMethod, c.DirectPullTime, c.DirectMaxChangePercent, c.DirectPullTimeLimitMinutes, c.ShadowPullEnabled, c.ShadowPullTime, c.ModifiedDate, u.DisplayName AS ModifiedByName
             FROM web.cyberark_source_config c
             LEFT JOIN web.app_user u ON u.UserKey = c.ModifiedBy
             WHERE c.CyberArkSourceConfigKey = 1
@@ -69,7 +72,10 @@ public sealed class CyberArkSourceConfigRepository(IDbConnectionFactory connecti
                 PvwaCredentialKey = row.PvwaCredentialKey,
                 PvwaLogonMethod = row.PvwaLogonMethod,
                 DirectPullTime = row.DirectPullTime,
-                DirectMaxChangePercent = row.DirectMaxChangePercent
+                DirectMaxChangePercent = row.DirectMaxChangePercent,
+                DirectPullTimeLimitMinutes = row.DirectPullTimeLimitMinutes,
+                ShadowPullEnabled = row.ShadowPullEnabled,
+                ShadowPullTime = row.ShadowPullTime
             }
         };
     }
@@ -87,21 +93,23 @@ public sealed class CyberArkSourceConfigRepository(IDbConnectionFactory connecti
                 GroupMembersFileName = @GroupMembersFileName, SafesFileName = @SafesFileName, AccountsFileName = @AccountsFileName,
                 EntitlementsFileName = @EntitlementsFileName, ImportSelfHosted = @ImportSelfHosted, EvdDatabaseName = @EvdDatabaseName,
                 SelfHostedSource = @SelfHostedSource, PvwaBaseUrl = @PvwaBaseUrl, PvwaCredentialKey = @PvwaCredentialKey,
-                PvwaLogonMethod = @PvwaLogonMethod, DirectPullTime = @DirectPullTime, DirectMaxChangePercent = @DirectMaxChangePercent,
+                PvwaLogonMethod = @PvwaLogonMethod, DirectPullTime = @DirectPullTime, DirectMaxChangePercent = @DirectMaxChangePercent, DirectPullTimeLimitMinutes = @DirectPullTimeLimitMinutes,
+                ShadowPullEnabled = @ShadowPullEnabled, ShadowPullTime = @ShadowPullTime,
                 ModifiedBy = @userKey, ModifiedDate = SYSUTCDATETIME()
             WHEN NOT MATCHED THEN INSERT
                 (CyberArkSourceConfigKey, ImportPrivilegeCloud, ExportFolderPath, PlatformsFileName, UsersFileName, GroupsFileName,
                  GroupMembersFileName, SafesFileName, AccountsFileName, EntitlementsFileName, ImportSelfHosted, EvdDatabaseName,
-                 SelfHostedSource, PvwaBaseUrl, PvwaCredentialKey, PvwaLogonMethod, DirectPullTime, DirectMaxChangePercent, ModifiedBy)
+                 SelfHostedSource, PvwaBaseUrl, PvwaCredentialKey, PvwaLogonMethod, DirectPullTime, DirectMaxChangePercent, DirectPullTimeLimitMinutes, ShadowPullEnabled, ShadowPullTime, ModifiedBy)
                 VALUES (1, @ImportPrivilegeCloud, @ExportFolderPath, @PlatformsFileName, @UsersFileName, @GroupsFileName,
                  @GroupMembersFileName, @SafesFileName, @AccountsFileName, @EntitlementsFileName, @ImportSelfHosted, @EvdDatabaseName,
-                 @SelfHostedSource, @PvwaBaseUrl, @PvwaCredentialKey, @PvwaLogonMethod, @DirectPullTime, @DirectMaxChangePercent, @userKey);
+                 @SelfHostedSource, @PvwaBaseUrl, @PvwaCredentialKey, @PvwaLogonMethod, @DirectPullTime, @DirectMaxChangePercent, @DirectPullTimeLimitMinutes, @ShadowPullEnabled, @ShadowPullTime, @userKey);
             """, new
         {
             settings.ImportPrivilegeCloud, settings.ExportFolderPath, settings.PlatformsFileName, settings.UsersFileName,
             settings.GroupsFileName, settings.GroupMembersFileName, settings.SafesFileName, settings.AccountsFileName,
             settings.EntitlementsFileName, settings.ImportSelfHosted, settings.EvdDatabaseName, settings.SelfHostedSource, settings.PvwaBaseUrl,
-            settings.PvwaCredentialKey, settings.PvwaLogonMethod, settings.DirectPullTime, settings.DirectMaxChangePercent, userKey
+            settings.PvwaCredentialKey, settings.PvwaLogonMethod, settings.DirectPullTime, settings.DirectMaxChangePercent, settings.DirectPullTimeLimitMinutes,
+            settings.ShadowPullEnabled, settings.ShadowPullTime, userKey
         });
     }
 
