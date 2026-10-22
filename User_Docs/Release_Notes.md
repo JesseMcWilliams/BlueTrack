@@ -6,6 +6,16 @@ What changed in each BlueTrack release, newest first, for users and administrato
 
 ### New
 
+### Changed
+
+### Fixed
+
+### Upgrading
+
+## 1.5.0 (2026-10-21)
+
+### New
+
 - **Reports > CPM Health**: every account whose CPM status is failure, longest failing first, with its last CPM action. Each account's page has a **CPM** section (status, managed by the CPM, last verified, reconciled and changed, and whether its platform requires PSM).
 - New **CpmHealth** notification: once a day, the accounts that newly fail.
 - Progress Rules can test **Platform requires PSM** (Self-Hosted).
