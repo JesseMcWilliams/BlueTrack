@@ -96,7 +96,7 @@
                      "component":  {
                                        "type":  "application",
                                        "name":  "BlueTrack.Web",
-                                       "version":  "1.5.0",
+                                       "version":  "1.5.1",
                                        "bom-ref":  "bluetrack-web@0.1.0",
                                        "purl":  "pkg:npm/bluetrack-web@0.1.0",
                                        "properties":  [
