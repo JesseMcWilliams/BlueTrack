@@ -1,5 +1,6 @@
 using System.Globalization;
 using BlueTrack.Api.Data;
+using BlueTrack.Api.Formatting;
 
 namespace BlueTrack.Api.Notifications;
 
@@ -48,7 +49,7 @@ public sealed class OverdueRiskExceptionsCheck(
                 [
                     e.ExceptionID,
                     $"{e.ScopeType}: {e.ScopeName}",
-                    e.ReviewDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+                    ServerTextCulture.Date(e.ReviewDate),
                     NotificationEmail.Count((int)(todayUtc - e.ReviewDate.Date).TotalDays),
                     e.ApprovedByName ?? ""
                 ]));

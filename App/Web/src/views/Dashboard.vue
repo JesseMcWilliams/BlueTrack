@@ -6,6 +6,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRightsStore } from '../stores/rights'
 import { formatCount } from '../utils/formatCount'
 import { useI18n } from 'vue-i18n'
+import { formatPercent } from '../utils/formatLocale'
 
 const { t } = useI18n()
 
@@ -201,10 +202,10 @@ onMounted(load)
               <tr><th>{{ t('pages.dashboard.kpi') }}</th><th>{{ t('pages.dashboard.percentage') }}</th></tr>
             </thead>
             <tbody>
-              <tr><td>{{ t('pages.dashboard.kpiInScope') }}</td><td>{{ kpiSummary.totalAccounts ? Math.round(kpiSummary.inScopeAccounts / kpiSummary.totalAccounts * 1000) / 10 + '%' : t('pages.dashboard.notApplicable') }}</td></tr>
-              <tr><td>{{ t('pages.dashboard.kpiOnboarded') }}</td><td>{{ kpiSummary.inScopeAccounts ? Math.round(kpiSummary.onboardedAccounts / kpiSummary.inScopeAccounts * 1000) / 10 + '%' : t('pages.dashboard.notApplicable') }}</td></tr>
-              <tr><td>{{ t('pages.dashboard.kpiManaged') }}</td><td>{{ kpiSummary.onboardedAccounts ? Math.round(kpiSummary.managedAccounts / kpiSummary.onboardedAccounts * 1000) / 10 + '%' : t('pages.dashboard.notApplicable') }}</td></tr>
-              <tr><td>{{ t('pages.dashboard.kpiCompliant') }}</td><td>{{ kpiSummary.managedAccounts ? Math.round(kpiSummary.compliantAccounts / kpiSummary.managedAccounts * 1000) / 10 + '%' : t('pages.dashboard.notApplicable') }}</td></tr>
+              <tr><td>{{ t('pages.dashboard.kpiInScope') }}</td><td>{{ kpiSummary.totalAccounts ? formatPercent(kpiSummary.inScopeAccounts / kpiSummary.totalAccounts) : t('pages.dashboard.notApplicable') }}</td></tr>
+              <tr><td>{{ t('pages.dashboard.kpiOnboarded') }}</td><td>{{ kpiSummary.inScopeAccounts ? formatPercent(kpiSummary.onboardedAccounts / kpiSummary.inScopeAccounts) : t('pages.dashboard.notApplicable') }}</td></tr>
+              <tr><td>{{ t('pages.dashboard.kpiManaged') }}</td><td>{{ kpiSummary.onboardedAccounts ? formatPercent(kpiSummary.managedAccounts / kpiSummary.onboardedAccounts) : t('pages.dashboard.notApplicable') }}</td></tr>
+              <tr><td>{{ t('pages.dashboard.kpiCompliant') }}</td><td>{{ kpiSummary.managedAccounts ? formatPercent(kpiSummary.compliantAccounts / kpiSummary.managedAccounts) : t('pages.dashboard.notApplicable') }}</td></tr>
             </tbody>
           </table>
           <svg v-if="kpiPieSlices.length > 0" class="stage-funnel-pie" viewBox="0 0 100 100" aria-hidden="true">

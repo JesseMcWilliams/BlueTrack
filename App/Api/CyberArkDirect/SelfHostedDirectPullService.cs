@@ -1,5 +1,6 @@
 using BlueTrack.Api.Data;
 using BlueTrack.Api.Secrets;
+using BlueTrack.Api.Formatting;
 
 namespace BlueTrack.Api.CyberArkDirect;
 
@@ -75,7 +76,7 @@ public sealed class SelfHostedDirectPullService(
             catch (OperationCanceledException) when (timeLimit.IsCancellationRequested)
             {
                 // Staging is replaced in one transaction, so a stopped pull leaves what the Load reads as it was.
-                var message = $"The pull was stopped after the {s.DirectPullTimeLimitMinutes}-minute time limit (Edit CyberArk sources). The staged data wasn't changed." + KeptNote(options);
+                var message = $"The pull was stopped after the {ServerTextCulture.Count(s.DirectPullTimeLimitMinutes)}-minute time limit (Edit CyberArk sources). The staged data wasn't changed." + KeptNote(options);
                 logger.LogWarning("Self-Hosted Direct pull stopped: {Message}", message);
                 await repository.CompleteAsync(pullKey, "Failed", null, message, null);
                 return new PullOutcome("Failed", message, null);
@@ -106,7 +107,7 @@ public sealed class SelfHostedDirectPullService(
     }
 
     private static string KeptNote(PvwaPullOptions options) => options.FreshDetails.IsEmpty ? ""
-        : $" The {options.FreshDetails.Count} account detail(s) read before it stopped were kept, so the next pull reads only the rest.";
+        : $" The {ServerTextCulture.Count(options.FreshDetails.Count)} account detail(s) read before it stopped were kept, so the next pull reads only the rest.";
 
     /// <summary>D-280: never fails the pull; a detail not saved is read again next time.</summary>
     private async Task SaveAccountDetailsAsync(PvwaPullOptions options)
@@ -202,7 +203,7 @@ public sealed class SelfHostedDirectPullService(
         var failed = snapshot.AdGroups?.Reads.Where(r => r.Status == "Failed").ToList() ?? [];
         if (failed.Count > 0)
         {
-            snapshot.Warnings.Add($"{failed.Count} group(s): AD members not read, the ones read before are kept. "
+            snapshot.Warnings.Add($"{ServerTextCulture.Count(failed.Count)} group(s): AD members not read, the ones read before are kept. "
                 + string.Join("; ", failed.Take(5).Select(r => $"{r.Group.Name} ({r.Message})")) + (failed.Count > 5 ? "; ..." : ""));
         }
     }
@@ -259,8 +260,8 @@ public sealed class SelfHostedDirectPullService(
                 {
                     Item = "Read",
                     Ok = counts.SafeCount > 0,
-                    Message = $"{counts.SafeCount} Safes, {counts.AccountCount} accounts, {counts.MemberCount} Safe members, {counts.UserCount} users, {counts.GroupCount} groups, {counts.PlatformCount} platforms."
-                        + (snapshot.Warnings.Count == 0 ? "" : $" {snapshot.Warnings.Count} warning(s): {string.Join(" ", snapshot.Warnings.Take(3))}")
+                    Message = $"{ServerTextCulture.Count(counts.SafeCount)} Safes, {ServerTextCulture.Count(counts.AccountCount)} accounts, {ServerTextCulture.Count(counts.MemberCount)} Safe members, {ServerTextCulture.Count(counts.UserCount)} users, {ServerTextCulture.Count(counts.GroupCount)} groups, {ServerTextCulture.Count(counts.PlatformCount)} platforms."
+                        + (snapshot.Warnings.Count == 0 ? "" : $" {ServerTextCulture.Count(snapshot.Warnings.Count)} warning(s): {string.Join(" ", snapshot.Warnings.Take(3))}")
                 });
                 var baseline = await BaselineAsync();
                 if (baseline is not null)

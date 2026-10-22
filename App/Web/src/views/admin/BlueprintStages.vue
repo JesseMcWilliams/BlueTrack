@@ -6,6 +6,7 @@
 import { ref, onMounted } from 'vue'
 import { confirmDelete } from '../../composables/useConfirmDialog'
 import { useI18n } from 'vue-i18n'
+import { formatCount } from '../../utils/formatCount'
 
 const { t } = useI18n()
 
@@ -120,7 +121,7 @@ async function remove(stage) {
                 </select>
               </label>
             </td>
-            <td>{{ s.accountCount }}</td>
+            <td>{{ formatCount(s.accountCount) }}</td>
             <td class="actions">
               <button type="button" :disabled="busy" @click="save(s)">{{ t('common.save') }}</button>
               <button type="button" :disabled="busy || i === 0" :aria-label="t('admin.blueprintStages.moveUpLabel', { name: s.stageName })" @click="move(i, -1)">{{ t('admin.blueprintStages.moveUp') }}</button>

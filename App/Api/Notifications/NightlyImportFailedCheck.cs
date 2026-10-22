@@ -1,6 +1,7 @@
 using System.Globalization;
 using Dapper;
 using BlueTrack.Api.Data;
+using BlueTrack.Api.Formatting;
 
 namespace BlueTrack.Api.Notifications;
 
@@ -114,7 +115,7 @@ public sealed class NightlyImportFailedCheck(IDbConnectionFactory connectionFact
             ("Step", StepDescription(run.StepName)),
             ("Started (server time)", NotificationEmail.ServerTime(run.StartedAt, timeProvider)),
             (unfinished ? "Finished" : "Failed (server time)",
-                unfinished ? $"not after {StuckAfter.TotalHours:0} hours" : NotificationEmail.ServerTime(run.CompletedAt ?? run.StartedAt, timeProvider)),
+                unfinished ? $"not after {ServerTextCulture.Count((long)StuckAfter.TotalHours)} hours" : NotificationEmail.ServerTime(run.CompletedAt ?? run.StartedAt, timeProvider)),
         };
         if (!unfinished)
         {

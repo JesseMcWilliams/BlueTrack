@@ -26,7 +26,7 @@ public class PullChangeGuardTests
         var reason = PullChangeGuard.Evaluate(Counts(40, 2452), Counts(40, 1000), 20);
 
         Assert.NotNull(reason);
-        Assert.Contains("accounts went from 2452 to 1000", reason);
+        Assert.Contains("accounts went from 2,452 to 1,000", reason);
         Assert.DoesNotContain("Safes went", reason);
     }
 
@@ -45,7 +45,7 @@ public class PullChangeGuardTests
         var reason = PullChangeGuard.Evaluate(Counts(40, 2452), Counts(10, 100), 20);
 
         Assert.Contains("Safes went from 40 to 10", reason);
-        Assert.Contains("accounts went from 2452 to 100", reason);
+        Assert.Contains("accounts went from 2,452 to 100", reason);
     }
 
     [Theory]

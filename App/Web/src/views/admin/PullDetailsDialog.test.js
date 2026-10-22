@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { mount } from '@vue/test-utils'
 import PullDetailsDialog from './PullDetailsDialog.vue'
+import { formatCount } from '../../utils/formatCount'
 
 // D-248: the detail of one Self-Hosted Direct pull.
 
@@ -21,7 +22,7 @@ describe('PullDetailsDialog.vue', () => {
     expect(wrapper.text()).toContain('No messages.')
     const rows = wrapper.findAll('.pull-details-counts tr').map(r => r.text())
     expect(rows).toContain('Safes40')
-    expect(rows).toContain('Accounts2452')
+    expect(rows).toContain('Accounts' + formatCount(2452))
     expect(rows).toContain('Safe members88')
     expect(rows).toContain('Users43')
     expect(rows).toContain('Groups21')
@@ -81,7 +82,7 @@ describe('PullDetailsDialog.vue', () => {
 
     const rows = wrapper.findAll('.pull-details-counts tr').map(r => r.text())
     expect(rows).toContain('Safes10 (was 40)')
-    expect(rows).toContain('Accounts100 (was 2452)')
+    expect(rows).toContain(`Accounts100 (was ${formatCount(2452)})`)
     expect(rows).toContain('Users43')   // not compared
   })
 

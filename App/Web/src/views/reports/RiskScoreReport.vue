@@ -17,6 +17,7 @@ import Pager from '../../components/Pager.vue'
 import ReportExportButtons from '../../components/ReportExportButtons.vue'
 import EmptyListMessage from '../../components/EmptyListMessage.vue'
 import { useI18n } from 'vue-i18n'
+import { formatCount } from '../../utils/formatCount'
 
 const { t } = useI18n()
 
@@ -210,9 +211,9 @@ onMounted(load)
                 {{ row.accountName }}
               </button>
             </td>
-            <td>{{ row.computedRiskScore ?? '—' }}</td>
-            <td>{{ row.overrideRiskScore ?? '—' }}</td>
-            <td>{{ row.effectiveRiskScore ?? '—' }}</td>
+            <td>{{ formatCount(row.computedRiskScore) || '—' }}</td>
+            <td>{{ formatCount(row.overrideRiskScore) || '—' }}</td>
+            <td>{{ formatCount(row.effectiveRiskScore) || '—' }}</td>
             <td>{{ row.riskScoreBandName ?? '—' }}</td>
             <td>{{ row.isRiskScoreStale ? t('reports.riskScoreReport.yes') : t('reports.riskScoreReport.no') }}</td>
             <td>{{ formatDate(row.riskScoreCalculatedDate) }}</td>
@@ -236,7 +237,7 @@ onMounted(load)
                   <tr v-for="c in contributors" :key="`${c.entityType}-${c.entityKey}`">
                     <td>{{ c.entityType }}</td>
                     <td>{{ c.entityName }}</td>
-                    <td>{{ c.riskValue }}</td>
+                    <td>{{ formatCount(c.riskValue) }}</td>
                   </tr>
                 </tbody>
               </table>

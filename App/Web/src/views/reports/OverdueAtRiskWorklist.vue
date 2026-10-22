@@ -11,6 +11,7 @@ import Pager from '../../components/Pager.vue'
 import { formatDate } from '../../utils/formatDate'
 import ReportExportButtons from '../../components/ReportExportButtons.vue'
 import { useI18n } from 'vue-i18n'
+import { formatCount } from '../../utils/formatCount'
 
 const { t } = useI18n()
 
@@ -108,7 +109,7 @@ onMounted(async () => {
           <td>{{ account.riskLevelName }}</td>
           <td>{{ account.ownerName }}</td>
           <td>{{ formatDate(account.targetRemediationDate) }}</td>
-          <td>{{ daysOverdue(account) ?? '' }}</td>
+          <td>{{ formatCount(daysOverdue(account)) }}</td>
         </tr>
       </tbody>
     </table>

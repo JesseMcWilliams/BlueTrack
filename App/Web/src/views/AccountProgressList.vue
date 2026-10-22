@@ -433,7 +433,7 @@ watch(() => route.query, async (query) => {
             <td>{{ account.riskLevelName }}</td>
             <td>{{ account.ownerName }}</td>
             <td>{{ formatDate(account.targetRemediationDate) }}</td>
-            <td>{{ account.effectiveRiskScore ?? '—' }}</td>
+            <td>{{ formatCount(account.effectiveRiskScore) || '—' }}</td>
             <td>{{ account.riskScoreBandName ?? '—' }}</td>
           </tr>
         </template>

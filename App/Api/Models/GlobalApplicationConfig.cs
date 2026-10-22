@@ -63,6 +63,9 @@ public sealed class GlobalApplicationConfig
     /// <summary>D-243: how many days an expired API key is kept before it is deleted (0 = never).</summary>
     public int ApiKeyExpiredRetentionDays { get; init; }
 
+    /// <summary>D-294: the number and date format of emails and run summaries (a culture name, e.g. en-US).</summary>
+    public string FormatCulture { get; init; } = Formatting.ServerTextCulture.DefaultName;
+
     // D-186: decommission and ignored-safe name patterns (Mode: Off / Prefix
     // / Suffix / Regex). RegexSupported is read-only: whether this SQL
     // Server can run Regex patterns (2025, compatibility level 170).
@@ -122,6 +125,9 @@ public sealed class SaveGlobalApplicationConfigRequest
 
     /// <summary>D-243: null = unchanged.</summary>
     public int? ApiKeyExpiredRetentionDays { get; init; }
+
+    /// <summary>D-294: null = unchanged; the controller stores the culture's own spelling of the name.</summary>
+    public string? FormatCulture { get; set; }
 
     /// <summary>D-186: each pattern's Mode and Value; a null Mode leaves that pattern unchanged.</summary>
     public string? SafeDecomMode { get; init; }

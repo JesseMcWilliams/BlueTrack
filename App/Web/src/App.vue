@@ -16,6 +16,7 @@ import IdleWarning from './components/IdleWarning.vue'
 import { useRightsStore } from './stores/rights'
 import { flashNavigated } from './composables/useFlash'
 import { useRouter } from 'vue-router'
+import { formatDate } from './utils/formatDate'
 
 const { t } = useI18n()
 const rights = useRightsStore()
@@ -52,7 +53,7 @@ async function checkDevFakeAuthDuration() {
 
     const enabledDays = (Date.now() - new Date(devFakeAuth.modifiedDate).getTime()) / (1000 * 60 * 60 * 24)
     if (enabledDays >= DEV_FAKE_AUTH_STALE_DAYS) {
-      devFakeAuthSince.value = devFakeAuth.modifiedDate.slice(0, 10)
+      devFakeAuthSince.value = formatDate(devFakeAuth.modifiedDate)
     }
   } catch {
     // Non-fatal -- this is an advisory banner, not a page any user needs to load.

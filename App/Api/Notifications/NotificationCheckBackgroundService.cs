@@ -51,6 +51,8 @@ public sealed class NotificationCheckBackgroundService(
         var repository = scope.ServiceProvider.GetRequiredService<NotificationRepository>();
         var sender = scope.ServiceProvider.GetRequiredService<INotificationSender>();
         var recipientResolver = scope.ServiceProvider.GetRequiredService<NotificationRecipientResolver>();
+        // D-294: the emails use the installation's number and date format as it is now.
+        if (scope.ServiceProvider.GetService<AppConfigRepository>() is { } appConfig) await appConfig.RefreshFormatCultureAsync();
 
         foreach (var check in checks)
         {

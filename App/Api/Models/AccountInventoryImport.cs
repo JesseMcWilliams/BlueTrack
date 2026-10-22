@@ -1,3 +1,5 @@
+using BlueTrack.Api.Formatting;
+
 namespace BlueTrack.Api.Models;
 
 /// <summary>
@@ -21,5 +23,5 @@ public sealed class AccountInventoryImportResult
     public required IReadOnlyList<ImportRowError> Errors { get; init; }
 
     public string Summary =>
-        $"{CreatedCount} created, {UpdatedCount} updated, {RestoredCount} restored, {DeletedCount} marked deleted, {UnchangedCount} unchanged, {LinkedCount} linked to CyberArk, {PossibleMatchCount} possible matches, {Errors.Count} errors{(SkippedGroupCount > 0 ? $", {SkippedGroupCount} group rows skipped" : "")}";
+        $"{ServerTextCulture.Count(CreatedCount)} created, {ServerTextCulture.Count(UpdatedCount)} updated, {ServerTextCulture.Count(RestoredCount)} restored, {ServerTextCulture.Count(DeletedCount)} marked deleted, {ServerTextCulture.Count(UnchangedCount)} unchanged, {ServerTextCulture.Count(LinkedCount)} linked to CyberArk, {ServerTextCulture.Count(PossibleMatchCount)} possible matches, {ServerTextCulture.Count(Errors.Count)} errors{(SkippedGroupCount > 0 ? $", {ServerTextCulture.Count(SkippedGroupCount)} group rows skipped" : "")}";
 }

@@ -10,6 +10,7 @@ vi.mock('../../composables/useConfirmDialog', () => ({
   confirmDelete: vi.fn().mockResolvedValue(true)
 }))
 import { confirmDelete } from '../../composables/useConfirmDialog'
+import { formatCount } from '../../utils/formatCount'
 
 function jsonResponse(body, ok = true, status = 200) {
   return { ok, status, json: () => Promise.resolve(body) }
@@ -186,7 +187,7 @@ describe('DataSources.vue', () => {
 
     expect(wrapper.text()).toContain('Self-Hosted: on, read from PVWA at https://pvwa.example.com every night at 01:30')
     expect(wrapper.text()).toContain('Self-Hosted Direct pulls')
-    expect(wrapper.text()).toContain('40 Safes, 2452 accounts, 43 users, 21 groups')
+    expect(wrapper.text()).toContain(`40 Safes, ${formatCount(2452)} accounts, 43 users, 21 groups`)
     expect(wrapper.find('.outcome-Rejected').text()).toBe('Rejected')
     expect(wrapper.text()).toContain('Safes went from 40 to 10')
   })
@@ -318,7 +319,7 @@ describe('DataSources.vue', () => {
     expect(dialog.textContent).toContain('Safes went from 40 to 10')
     expect(dialog.textContent).toContain("User 'x': details not read")
     expect(dialog.querySelectorAll('.pull-details-messages li')).toHaveLength(2)
-    expect(dialog.textContent).toContain('2452')
+    expect(dialog.textContent).toContain(formatCount(2452))
     expect(dialog.textContent).toContain('Accept the change and pull')
 
     ;[...dialog.querySelectorAll('button')].find(b => b.textContent === 'Close').click()
@@ -353,7 +354,7 @@ describe('DataSources.vue', () => {
     const wrapper = mount(DataSources, { global: { plugins: [makeRouter()] } })
     await flushPromises()
 
-    expect(wrapper.text()).toContain('Safes 40 → 10, accounts 2452 → 100')
+    expect(wrapper.text()).toContain(`Safes 40 → 10, accounts ${formatCount(2452)} → 100`)
   })
 
   it('shows the counts as they are for a pull that was not rejected', async () => {
@@ -361,7 +362,7 @@ describe('DataSources.vue', () => {
     const wrapper = mount(DataSources, { global: { plugins: [makeRouter()] } })
     await flushPromises()
 
-    expect(wrapper.text()).toContain('40 Safes, 2452 accounts')
+    expect(wrapper.text()).toContain(`40 Safes, ${formatCount(2452)} accounts`)
     expect(wrapper.text()).not.toContain('→')
   })
 })

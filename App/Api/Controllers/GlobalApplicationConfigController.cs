@@ -110,6 +110,15 @@ public sealed class GlobalApplicationConfigController(
         {
             return Problem(title: "Invalid API key retention", detail: "ApiKeyExpiredRetentionDays must be between 0 and 3650.", statusCode: StatusCodes.Status400BadRequest);
         }
+        // D-294: a specific culture .NET knows, stored by its own name ("de-de" is saved as "de-DE").
+        if (request.FormatCulture is not null)
+        {
+            if (Formatting.ServerTextCulture.TryGet(request.FormatCulture) is not { } culture)
+            {
+                return Problem(title: "Invalid number and date format", detail: "FormatCulture must be a culture name such as en-US, en-GB, de-DE or fr-FR.", statusCode: StatusCodes.Status400BadRequest);
+            }
+            request.FormatCulture = culture.Name;
+        }
         // D-200: scheduled backups -- a valid time (or "" for off) and 1..3650 days.
         if (!string.IsNullOrEmpty(request.ScheduledBackupTime) && !DataFeeds.FeedSchedule.TryParseTime(request.ScheduledBackupTime, out _))
         {
@@ -186,6 +195,7 @@ public sealed class GlobalApplicationConfigController(
         TrackIfSent("ApiKeyReminderLeadDays", before.ApiKeyReminderLeadDays.ToString(), request.ApiKeyReminderLeadDays?.ToString());   // D-243
         TrackIfSent("ApiKeyExpiredRetentionDays", before.ApiKeyExpiredRetentionDays.ToString(), request.ApiKeyExpiredRetentionDays?.ToString());   // D-243
         TrackIfSent("SiteUrl", before.SiteUrl ?? "", request.SiteUrl);   // D-224
+        TrackIfSent("FormatCulture", before.FormatCulture, request.FormatCulture);   // D-294
         static string? Pattern(string? mode, string? value) => mode is null ? null : mode == "Off" ? "Off" : $"{mode}: {value}";
         TrackIfSent("SafeDecomPattern", Pattern(before.SafeDecomMode, before.SafeDecomValue), Pattern(request.SafeDecomMode, request.SafeDecomValue));
         TrackIfSent("AccountDecomPattern", Pattern(before.AccountDecomMode, before.AccountDecomValue), Pattern(request.AccountDecomMode, request.AccountDecomValue));

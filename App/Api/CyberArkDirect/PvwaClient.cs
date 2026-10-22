@@ -3,6 +3,7 @@ using System.Globalization;
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
+using BlueTrack.Api.Formatting;
 
 namespace BlueTrack.Api.CyberArkDirect;
 
@@ -334,7 +335,7 @@ public sealed class PvwaClient(HttpClient http, Uri apiRoot)
         if (!problems.IsEmpty)
         {
             var sorted = problems.OrderBy(p => p, StringComparer.Ordinal).ToList();
-            snapshot.Warnings.Add($"{sorted.Count} CyberArk Application(s): authentication methods not read; earlier ones kept. "
+            snapshot.Warnings.Add($"{ServerTextCulture.Count(sorted.Count)} CyberArk Application(s): authentication methods not read; earlier ones kept. "
                 + string.Join("; ", sorted.Take(5)) + (sorted.Count > 5 ? "; ..." : ""));
         }
     }
@@ -373,7 +374,7 @@ public sealed class PvwaClient(HttpClient http, Uri apiRoot)
         string? note = null;
         if (root.ValueKind == JsonValueKind.Object && root.TryGetProperty("Total", out var total) && total.TryGetInt32(out var count) && count > users.Count)
         {
-            note = $"PVWA reported {count} users but returned {users.Count}; {count - users.Count} user(s) it counts weren't in the list (users above the service user's level in the Vault hierarchy aren't returned).";
+            note = $"PVWA reported {ServerTextCulture.Count(count)} users but returned {ServerTextCulture.Count(users.Count)}; {ServerTextCulture.Count(count - users.Count)} user(s) it counts weren't in the list (users above the service user's level in the Vault hierarchy aren't returned).";
         }
         return (users, note);
     }
@@ -450,7 +451,7 @@ public sealed class PvwaClient(HttpClient http, Uri apiRoot)
         });
         foreach (var (i, activity) in found) snapshot.Accounts[i] = snapshot.Accounts[i] with { CpmActivity = activity };
         snapshot.Warnings.AddRange(warnings.OrderBy(w => w, StringComparer.Ordinal));
-        if (unreadableTimes > 0) snapshot.Warnings.Add($"{unreadableTimes} CPM activit{(unreadableTimes == 1 ? "y has" : "ies have")} a time that couldn't be read; kept without it.");
+        if (unreadableTimes > 0) snapshot.Warnings.Add($"{ServerTextCulture.Count(unreadableTimes)} CPM activit{(unreadableTimes == 1 ? "y has" : "ies have")} a time that couldn't be read; kept without it.");
     }
 
     /// <summary>
@@ -512,7 +513,7 @@ public sealed class PvwaClient(HttpClient http, Uri apiRoot)
         if (!problems.IsEmpty)
         {
             var list = problems.OrderBy(p => p, StringComparer.Ordinal).ToList();
-            snapshot.Warnings.Add($"{list.Count} account(s): device type, creation method and linked accounts not read; earlier values kept, tried again next pull. "
+            snapshot.Warnings.Add($"{ServerTextCulture.Count(list.Count)} account(s): device type, creation method and linked accounts not read; earlier values kept, tried again next pull. "
                 + string.Join("; ", list.Take(5)) + (list.Count > 5 ? "; ..." : ""));
         }
     }

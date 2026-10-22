@@ -1,6 +1,7 @@
 import { describe, it, expect, afterEach, vi } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
 import SiemForwarding from './SiemForwarding.vue'
+import { formatUtcDateTime } from '../../utils/formatLocale'
 
 // D-234: Admin > SIEM Forwarding.
 function jsonResponse(body, { ok = true, status = 200 } = {}) {
@@ -55,9 +56,9 @@ describe('SiemForwarding.vue', () => {
     await flushPromises()
 
     expect(wrapper.get('h2').text()).toBe('SIEM Forwarding')
-    expect(wrapper.text()).toContain('2026-10-14 12:05:03 UTC')
+    expect(wrapper.text()).toContain(formatUtcDateTime('2026-10-14T12:05:03'))
     expect(wrapper.text()).toContain('audit event 500')
-    expect(wrapper.text()).toContain('2 (oldest from 2026-10-14 12:06:00 UTC)')
+    expect(wrapper.text()).toContain(`2 (oldest from ${formatUtcDateTime('2026-10-14T12:06:00')})`)
     expect(wrapper.get('input[type="text"]').element.value).toBe('siem.corp.example')
     expect(wrapper.find('input[placeholder="bt01.corp.example"]').exists()).toBe(true)
     expect(wrapper.text()).toContain('BreakGlassLogon')
@@ -69,7 +70,7 @@ describe('SiemForwarding.vue', () => {
     mockApi(page({ status: { lastError: 'Connection refused', lastErrorAt: '2026-10-14T12:07:00', consecutiveFailures: 3 } }))
     const wrapper = mount(SiemForwarding)
     await flushPromises()
-    expect(wrapper.text()).toContain('2026-10-14 12:07:00 UTC, 3 in a row: Connection refused')
+    expect(wrapper.text()).toContain(`${formatUtcDateTime('2026-10-14T12:07:00')}, 3 in a row: Connection refused`)
   })
 
   it('shows the TLS options only for TLS, and the fingerprint or CA field for its mode', async () => {

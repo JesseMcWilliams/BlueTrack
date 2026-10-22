@@ -1,4 +1,5 @@
 using System.Data;
+using BlueTrack.Api.Formatting;
 
 namespace BlueTrack.Api.CyberArkDirect;
 
@@ -106,7 +107,7 @@ public sealed class SelfHostedStagingMapper
                 AddProperty(name, value);
             }
         }
-        if (longNames > 0) tables.Warnings.Add($"{longNames} account propert{(longNames == 1 ? "y" : "ies")} with a name over 29 characters {(longNames == 1 ? "was" : "were")} not staged (the staging column holds 29).");
+        if (longNames > 0) tables.Warnings.Add($"{ServerTextCulture.Count(longNames)} account propert{(longNames == 1 ? "y" : "ies")} with a name over 29 characters {(longNames == 1 ? "was" : "were")} not staged (the staging column holds 29).");
 
         foreach (var p in snapshot.Platforms)
         {

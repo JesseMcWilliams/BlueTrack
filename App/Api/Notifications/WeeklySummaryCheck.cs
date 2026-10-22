@@ -2,6 +2,7 @@ using System.Globalization;
 using Dapper;
 using BlueTrack.Api.Data;
 using BlueTrack.Api.Models;
+using BlueTrack.Api.Formatting;
 
 namespace BlueTrack.Api.Notifications;
 
@@ -45,7 +46,7 @@ public sealed class WeeklySummaryCheck(
         var overdueExceptions = (await riskExceptionRepository.GetOverdueReviewAsync()).Count;
         var runs = await GetLastRunsAsync();
 
-        var email = new NotificationEmail($"BlueTrack weekly summary, {localNow.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)}",
+        var email = new NotificationEmail($"BlueTrack weekly summary, {ServerTextCulture.Date(localNow)}",
             await appConfigRepository.GetSiteUrlAsync());
 
         email.Heading("Key progress indicators (KPI Summary)").Facts(
@@ -90,11 +91,11 @@ public sealed class WeeklySummaryCheck(
             return;
         }
 
-        static string Date(DateOnly d) => d.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
-        static string Pct(double? value) => value is null ? "N/A" : value.Value.ToString("0.0", CultureInfo.InvariantCulture) + "%";
-        static string Delta(int change) => change == 0 ? "no change" : (change > 0 ? "+" : "") + change.ToString("N0", CultureInfo.InvariantCulture);
+        static string Date(DateOnly d) => ServerTextCulture.Date(d);
+        static string Pct(double? value) => value is null ? "N/A" : (value.Value / 100).ToString("P1", ServerTextCulture.Current);
+        static string Delta(int change) => change == 0 ? "no change" : (change > 0 ? "+" : "") + ServerTextCulture.Count(change);
         string PctDelta() => latest.PercentComplete is null || previous.PercentComplete is null
-            ? "" : $" ({(latest.PercentComplete >= previous.PercentComplete ? "+" : "")}{(latest.PercentComplete.Value - previous.PercentComplete.Value).ToString("0.0", CultureInfo.InvariantCulture)} points)";
+            ? "" : $" ({(latest.PercentComplete >= previous.PercentComplete ? "+" : "")}{ServerTextCulture.Number(latest.PercentComplete.Value - previous.PercentComplete.Value, 1)} points)";
 
         email.Paragraph($"Snapshot of {Date(latest.SnapshotDate)} compared with {Date(previous.SnapshotDate)}.");
         email.Facts([("% complete", $"{Pct(previous.PercentComplete)} to {Pct(latest.PercentComplete)}{PctDelta()}")]);

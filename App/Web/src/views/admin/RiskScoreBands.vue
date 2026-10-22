@@ -13,6 +13,7 @@ import { useRouter } from 'vue-router'
 import { confirmDelete } from '../../composables/useConfirmDialog'
 import { useI18n } from 'vue-i18n'
 import EmptyListMessage from '../../components/EmptyListMessage.vue'
+import { formatCount } from '../../utils/formatCount'
 
 const { t } = useI18n()
 
@@ -65,8 +66,8 @@ async function remove(item) {
         <tbody>
           <tr v-for="item in items" :key="item.riskScoreBandKey">
             <td><router-link :to="{ name: 'admin-risk-score-band-edit', params: { riskScoreBandKey: item.riskScoreBandKey } }">{{ item.bandName }}</router-link></td>
-            <td>{{ item.minScore }}</td>
-            <td>{{ item.maxScore }}</td>
+            <td>{{ formatCount(item.minScore) }}</td>
+            <td>{{ formatCount(item.maxScore) }}</td>
             <td>{{ item.riskOrder }}</td>
             <td>
               <button @click="remove(item)">{{ t('common.delete') }}</button>

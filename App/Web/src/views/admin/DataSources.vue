@@ -15,6 +15,7 @@ import { confirmDelete } from '../../composables/useConfirmDialog'
 import { feedTypeLabel, formatRunTime } from './dataFeedFormat'
 import PullDetailsDialog from './PullDetailsDialog.vue'
 import { useI18n } from 'vue-i18n'
+import { formatCount } from '../../utils/formatCount'
 
 const { t } = useI18n()
 
@@ -254,8 +255,8 @@ async function remove(feed) {
                 <br /><small v-if="p.message">{{ p.message }}</small>
               </td>
               <td>
-                <template v-if="p.status === 'Rejected' && p.safeCount !== null && p.baselineSafeCount !== null">{{ t('admin.dataSources.pullCountsChange', { safesBefore: p.baselineSafeCount, safes: p.safeCount, accountsBefore: p.baselineAccountCount, accounts: p.accountCount }) }}</template>
-                <template v-else-if="p.safeCount !== null">{{ t('admin.dataSources.pullCountsValue', { safes: p.safeCount, accounts: p.accountCount, users: p.userCount ?? 0, groups: p.groupCount ?? 0 }) }}</template>
+                <template v-if="p.status === 'Rejected' && p.safeCount !== null && p.baselineSafeCount !== null">{{ t('admin.dataSources.pullCountsChange', { safesBefore: formatCount(p.baselineSafeCount), safes: formatCount(p.safeCount), accountsBefore: formatCount(p.baselineAccountCount), accounts: formatCount(p.accountCount) }) }}</template>
+                <template v-else-if="p.safeCount !== null">{{ t('admin.dataSources.pullCountsValue', { safes: formatCount(p.safeCount), accounts: formatCount(p.accountCount), users: formatCount(p.userCount ?? 0), groups: formatCount(p.groupCount ?? 0) }) }}</template>
               </td>
               <td><button type="button" @click="selectedPull = p">{{ t('admin.dataSources.pullDetails') }}</button></td>
             </tr>

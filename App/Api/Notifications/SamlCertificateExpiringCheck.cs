@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Security.Cryptography.X509Certificates;
 using BlueTrack.Api.Auth;
 using BlueTrack.Api.Data;
+using BlueTrack.Api.Formatting;
 
 namespace BlueTrack.Api.Notifications;
 
@@ -81,7 +82,7 @@ public sealed class SamlCertificateExpiringCheck(
                     ("Certificate", role),
                     ("Thumbprint", thumbprint.Trim()),
                     ("Subject", certificate?.Subject ?? "not installed"),
-                    ("Expires (UTC)", certificate?.NotAfter.ToUniversalTime().ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture) ?? "unknown")
+                    ("Expires (UTC)", certificate is null ? "unknown" : ServerTextCulture.DateTime(certificate.NotAfter.ToUniversalTime()))
                 ])
                 .SeePage(SiteLinks.IdentityProviders);
             results.Add(new NotificationCheckResult($"BlueTrack: {heading}", email.Text, $"{role} {thumbprint.Trim()}: {step}", email.Html, dedupKey));

@@ -1,4 +1,5 @@
 using Dapper;
+using BlueTrack.Api.Formatting;
 using BlueTrack.Api.Models;
 
 namespace BlueTrack.Api.Data;
@@ -24,11 +25,13 @@ public sealed class AppConfigRepository(IDbConnectionFactory connectionFactory)
                    ac.BulkEditMaxAccounts, ac.ExportMaxRows, ac.ApiKeyDefaultLifetimeDays, ac.ApiRateLimitPerMinute, ac.ApiKeyReminderLeadDays, ac.ApiKeyExpiredRetentionDays,
                    ac.SafeDecomMode, ac.SafeDecomValue, ac.AccountDecomMode, ac.AccountDecomValue,
                    ac.SafeIgnoreMode, ac.SafeIgnoreValue, dbo.fn_RegexSupported() AS RegexSupported,
-                   ac.SiteUrl
+                   ac.SiteUrl, ac.FormatCulture
             FROM web.app_config ac
             CROSS JOIN web.audit_config auc
             """;
-        return await connection.QuerySingleAsync<GlobalApplicationConfig>(sql);
+        var config = await connection.QuerySingleAsync<GlobalApplicationConfig>(sql);
+        ServerTextCulture.Set(config.FormatCulture);   // D-294
+        return config;
     }
 
     /// <summary>D-224: the address the emails link to pages under; null when not set.</summary>
@@ -36,6 +39,13 @@ public sealed class AppConfigRepository(IDbConnectionFactory connectionFactory)
     {
         using var connection = connectionFactory.Create();
         return await connection.QuerySingleOrDefaultAsync<string?>("SELECT SiteUrl FROM web.app_config");
+    }
+
+    /// <summary>D-294: re-reads the installation's format culture into ServerTextCulture, before writing text for people.</summary>
+    public async Task RefreshFormatCultureAsync()
+    {
+        using var connection = connectionFactory.Create();
+        ServerTextCulture.Set(await connection.QuerySingleOrDefaultAsync<string?>("SELECT FormatCulture FROM web.app_config"));
     }
 
     /// <summary>D-243: the most requests one API key may make in a minute.</summary>
@@ -89,7 +99,8 @@ public sealed class AppConfigRepository(IDbConnectionFactory connectionFactory)
                 SafeIgnoreValue = CASE WHEN @SafeIgnoreMode IS NULL THEN SafeIgnoreValue WHEN @SafeIgnoreMode = 'Off' THEN NULL ELSE @SafeIgnoreValue END,
                 SafeIgnoreMode = COALESCE(@SafeIgnoreMode, SafeIgnoreMode),
                 -- D-224: null = unchanged, '' = not set.
-                SiteUrl = CASE WHEN @SiteUrl IS NULL THEN SiteUrl WHEN @SiteUrl = '' THEN NULL ELSE @SiteUrl END
+                SiteUrl = CASE WHEN @SiteUrl IS NULL THEN SiteUrl WHEN @SiteUrl = '' THEN NULL ELSE @SiteUrl END,
+                FormatCulture = COALESCE(@FormatCulture, FormatCulture)   -- D-294
             """, new
         {
             request.IdleTimeoutMinutes,
@@ -118,7 +129,8 @@ public sealed class AppConfigRepository(IDbConnectionFactory connectionFactory)
             request.AccountDecomValue,
             request.SafeIgnoreMode,
             request.SafeIgnoreValue,
-            request.SiteUrl
+            request.SiteUrl,
+            request.FormatCulture
         }, transaction);
 
         await connection.ExecuteAsync("""

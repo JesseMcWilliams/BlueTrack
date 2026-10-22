@@ -1,5 +1,6 @@
 using System.Globalization;
 using BlueTrack.Api.Data;
+using BlueTrack.Api.Formatting;
 
 namespace BlueTrack.Api.Notifications;
 
@@ -31,15 +32,15 @@ public sealed class CpmHealthCheck(
         if (failing.Count == 0) return [];
 
         var siteUrl = await appConfigRepository.GetSiteUrlAsync();
-        var heading = failing.Count == 1 ? "1 account's CPM status is now failure" : $"{failing.Count} accounts' CPM status is now failure";
+        var heading = failing.Count == 1 ? "1 account's CPM status is now failure" : $"{ServerTextCulture.Count(failing.Count)} accounts' CPM status is now failure";
         var email = new NotificationEmail(heading, siteUrl)
             .Paragraph("The CPM couldn't verify, change or reconcile these accounts at its last try. Until it can, their passwords may not match what the Vault holds.")
-            .Table(["Account", "Safe", "Platform", "Last CPM action", "Since (UTC)"],
+            .Table(["Account", "Safe", "Platform", "Last CPM action", "Since (server time)"],
                 failing.Take(MaxListed).Select(r => (IReadOnlyList<string>)[
                     r.AccountName, r.SafeName ?? "", r.PlatformId ?? "",
                     r.LastCPMAction is null ? "" : $"{r.LastCPMAction} ({r.LastCPMActionResult})",
-                    r.CpmFailureSince?.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture) ?? ""]));
-        if (failing.Count > MaxListed) email.Paragraph($"... and {failing.Count - MaxListed} more.");
+                    r.CpmFailureSince is { } since ? NotificationEmail.ServerTime(since, timeProvider) : ""]));
+        if (failing.Count > MaxListed) email.Paragraph($"... and {ServerTextCulture.Count(failing.Count - MaxListed)} more.");
         email.SeePage(SiteLinks.CpmHealth);
         return [new NotificationCheckResult($"BlueTrack: {heading}", email.Text, $"{failing.Count} newly failing ({dedupKey})", email.Html, dedupKey)];
     }

@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Net;
 using System.Text;
+using BlueTrack.Api.Formatting;
 
 namespace BlueTrack.Api.Notifications;
 
@@ -114,18 +115,19 @@ public sealed class NotificationEmail
 
     public static string Encode(string? value) => WebUtility.HtmlEncode(value ?? "");
 
-    /// <summary>Counts as "1,234", whatever the server's culture.</summary>
-    public static string Count(int value) => value.ToString("N0", CultureInfo.InvariantCulture);
+    // D-294: numbers and times in the installation's format culture (Global Application Configuration).
+
+    /// <summary>Counts as "1,234" / "1.234".</summary>
+    public static string Count(int value) => ServerTextCulture.Count(value);
 
     /// <summary>"12 of 40 (30.0%)", or "0 of 0 (N/A)".</summary>
     public static string Ratio(int numerator, int denominator) =>
         $"{Count(numerator)} of {Count(denominator)} ({Percent(numerator, denominator)})";
 
     public static string Percent(int numerator, int denominator) =>
-        denominator == 0 ? "N/A" : Math.Round((double)numerator / denominator * 100, 1, MidpointRounding.AwayFromZero).ToString("0.0", CultureInfo.InvariantCulture) + "%";
+        denominator == 0 ? "N/A" : ((double)numerator / denominator).ToString("P1", ServerTextCulture.Current);
 
-    /// <summary>"yyyy-MM-dd HH:mm" in the server's time zone, from a UTC time.</summary>
+    /// <summary>A short date and time in the server's time zone, from a UTC time.</summary>
     public static string ServerTime(DateTime utc, TimeProvider timeProvider) =>
-        TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(utc, DateTimeKind.Utc), timeProvider.LocalTimeZone)
-            .ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture);
+        ServerTextCulture.DateTime(TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(utc, DateTimeKind.Utc), timeProvider.LocalTimeZone));
 }

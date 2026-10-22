@@ -2,6 +2,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
 import { createRouter, createMemoryHistory } from 'vue-router'
 import ApiKeyCreate from './ApiKeyCreate.vue'
+import { formatDate } from '../../utils/formatDate'
 
 // D-243: New API Key. The key is shown once, after the create.
 function jsonResponse(body, ok = true, status = 200) {
@@ -62,7 +63,7 @@ describe('ApiKeyCreate.vue', () => {
     expect(JSON.parse(post[1].body)).toEqual({ displayName: 'Nightly sync', appRoleKey: 3, lifetimeDays: 30, ownerEmail: null, rateLimitPerMinute: null })
     expect(wrapper.get('input.api-key-value').element.value).toBe('bt_SECRETSECRETSECRET')
     expect(wrapper.text()).toContain('shown only once')
-    expect(wrapper.text()).toContain('It expires on 2027-01-15.')
+    expect(wrapper.text()).toContain(`It expires on ${formatDate('2027-01-15')}.`)
     expect(wrapper.find('form').exists()).toBe(false)
   })
 

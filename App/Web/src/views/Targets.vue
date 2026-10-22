@@ -418,7 +418,7 @@ async function remove(item) {
             </td>
             <td>{{ item.targetTypeDisplayName }}</td>
             <td>{{ item.applicationName }}</td>
-            <td>{{ item.riskScore }}</td>
+            <td>{{ formatCount(item.riskScore) }}</td>
             <td>{{ item.identifiers.map(i => `${i.identifierType}=${i.identifierValue}`).join(', ') }}</td>
             <td>
               <button @click="remove(item)" :aria-label="t('common.deleteNamed', { name: item.targetName })">{{ t('common.delete') }}</button>

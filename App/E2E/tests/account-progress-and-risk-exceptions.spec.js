@@ -194,7 +194,10 @@ test.describe('Risk Exception create/extend/revoke workflow', () => {
     await page.fill('input[type="date"]', newReviewDate)
     await page.click('button:has-text("Extend Review Date")')
     // The detail shows the date, and a status line now says it changed; check the detail's own entry.
-    await expect(page.locator('dd', { hasText: newReviewDate })).toBeVisible()
+    // D-294: the page shows the date in the browser's own format (as utils/formatDate.js does).
+    const shownReviewDate = await page.evaluate(d => new Intl.DateTimeFormat(undefined, { year: 'numeric', month: '2-digit', day: '2-digit', timeZone: 'UTC' })
+      .format(new Date(`${d}T00:00:00Z`)), newReviewDate)
+    await expect(page.locator('dd', { hasText: shownReviewDate })).toBeVisible()
     await expect(page.getByText('The review date is now')).toBeVisible()
 
     await page.getByLabel('Reason to revoke:').fill('E2E: no longer needed')
