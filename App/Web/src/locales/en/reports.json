@@ -13,7 +13,8 @@
     "decomSafes": "Safes Flagged for Deletion",
     "decomAccounts": "Accounts Flagged for Deletion",
     "kpiSummary": "KPI Summary",
-    "trends": "Trends"
+    "trends": "Trends",
+    "cpmHealth": "CPM Health"
   },
   "cyberArkApplications": {
     "title": "CyberArk Applications",
@@ -334,5 +335,22 @@
     "noteLabel": "Note (optional)",
     "chooseUser": "Choose the user to link this member to.",
     "chooseGroup": "Choose the group to link this member to."
+  },
+  "cpmHealth": {
+    "title": "CPM Health",
+    "hint": "Accounts whose CPM status is failure: the CPM couldn't verify, change or reconcile them at its last try, so their passwords may not match the Vault. Longest failing first. The CpmHealth notification emails the newly failing ones each day.",
+    "loadFailed": "Couldn't load CPM Health: {error}",
+    "empty": "No account's CPM status is failure.",
+    "colAccount": "Account",
+    "colSafe": "Safe",
+    "colPlatform": "Platform",
+    "colSource": "Source",
+    "colSince": "Failing since",
+    "colLastAction": "Last CPM action",
+    "colLastVerified": "Last verified",
+    "colLastChanged": "Last changed",
+    "colManaged": "Managed by the CPM",
+    "colOwner": "Owner",
+    "action": "{action} ({result})"
   }
 }

@@ -233,6 +233,7 @@ builder.Services.AddScoped<INotificationCheck, WeeklySummaryCheck>();           
 builder.Services.AddScoped<INotificationCheck, ApiKeyExpiringCheck>();          // D-243
 builder.Services.AddScoped<INotificationCheck, ApiKeyExpiredCheck>();           // D-243
 builder.Services.AddScoped<INotificationCheck, SamlCertificateExpiringCheck>();  // D-287
+builder.Services.AddScoped<INotificationCheck, CpmHealthCheck>();                // D-288
 builder.Services.AddHostedService<NotificationCheckBackgroundService>();
 
 // AD Account Discovery (2026-09-16): same same-process-BackgroundService
@@ -243,6 +244,7 @@ builder.Services.AddScoped<BlueTrack.Api.AdDiscovery.IAdDirectory, BlueTrack.Api
 builder.Services.AddScoped<BlueTrack.Api.CyberArkDirect.SafeGroupAdExpansionService>();   // D-281
 builder.Services.AddScoped<SafeAccessRepository>();   // D-281/D-282
 builder.Services.AddScoped<ProgressRuleRepository>();   // D-283/D-284
+builder.Services.AddScoped<CpmHealthRepository>();      // D-288
 builder.Services.AddScoped<AdAccountDiscoveryService>();
 builder.Services.AddScoped<AccountClassificationRepository>();   // D-233
 builder.Services.AddScoped<BlueTrack.Api.AdDiscovery.AccountClassificationService>();

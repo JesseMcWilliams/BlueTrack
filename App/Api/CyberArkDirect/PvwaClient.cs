@@ -470,6 +470,7 @@ public sealed class PvwaClient(HttpClient http, Uri apiRoot)
         }).ToList();
         var found = new ConcurrentDictionary<int, PvwaAccountDetail>();
         var problems = new ConcurrentBag<string>();
+        var failed = new ConcurrentBag<int>();
         await Parallel.ForEachAsync(indexes, new ParallelOptions { MaxDegreeOfParallelism = UserDetailParallelism, CancellationToken = ct }, async (i, innerCt) =>
         {
             var account = snapshot.Accounts[i];
@@ -480,11 +481,28 @@ public sealed class PvwaClient(HttpClient http, Uri apiRoot)
                 found[i] = detail;
                 options.FreshDetails.Add(detail);
             }
+            catch (PvwaException)
+            {
+                failed.Add(i);
+            }
+        });
+        // The lab's PVWA answered about 1 in 70 of these calls with a 302 under load, and the same call alone a moment
+        // later with a 200, so a failed call is tried once more, one at a time, before it counts as failed.
+        foreach (var i in failed.Order())
+        {
+            var account = snapshot.Accounts[i];
+            try
+            {
+                var detail = await ReadAccountDetailAsync(token, account, ct);
+                if (detail is null) { problems.Add($"{account.Id} (not found by user name and address)"); continue; }
+                found[i] = detail;
+                options.FreshDetails.Add(detail);
+            }
             catch (PvwaException ex)
             {
                 problems.Add($"{account.Id} ({ex.Message})");
             }
-        });
+        }
         for (var i = 0; i < snapshot.Accounts.Count; i++)
         {
             var a = snapshot.Accounts[i];

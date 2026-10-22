@@ -10,6 +10,7 @@ export function fieldLabels(t) {
     UserName: t('admin.progressRules.field.userName'),
     Address: t('admin.progressRules.field.address'),
     AutoManaged: t('admin.progressRules.field.autoManaged'),
+    RequiresPsm: t('admin.progressRules.field.requiresPsm'),
     CPMStatus: t('admin.progressRules.field.cpmStatus'),
     SecretType: t('admin.progressRules.field.secretType'),
     LastVerified: t('admin.progressRules.field.lastVerified'),

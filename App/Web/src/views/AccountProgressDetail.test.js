@@ -526,6 +526,23 @@ describe('AccountProgressDetail.vue: an account in a CyberArk internal Safe', ()
     expect(wrapper.find('.classic-facts').exists()).toBe(false)
   })
 
+  // D-288: CPM health for both sources; a failing status stands out.
+  it('shows the CPM section, with a failing status marked', async () => {
+    mockLoad({ detailOverrides: {
+      cpmStatus: 'failure', cpmFailureSince: '2026-10-20T02:05:00', autoManaged: false, manualReason: '(CPM)MaxRetries',
+      lastVerifiedDate: '2026-10-01T00:00:00', lastReconciledDate: null, lastCPMModifiedDate: '2026-09-30T00:00:00', requirePsm: true
+    } })
+    const wrapper = await mountEditable()
+
+    const section = wrapper.find('.cpm-health')
+    expect(section.text()).toContain('CPM status:')
+    expect(section.find('.cpm-failing').text()).toContain('failure, failing since')
+    expect(section.text()).toContain('Managed by the CPM:No ((CPM)MaxRetries)')
+    expect(section.text()).toContain('Last verified:2026-10-01')
+    expect(section.text()).not.toContain('Last reconciled:')
+    expect(section.text()).toContain('Platform requires PSM:Yes')
+  })
+
   // D-283: the Progress Rule that moved the account to its stage.
   it('says which Progress Rule moved the account to its stage', async () => {
     mockLoad({ detailOverrides: { lastAdvancedByRuleName: 'In the Vault', lastAdvancedAt: '2026-10-21T02:05:00' } })

@@ -261,6 +261,25 @@ public class PvwaClientTests
     }
 
     [Fact]
+    public async Task ClassicDetails_AFailedCallIsTriedOnceMore_BeforeItCountsAsFailed()
+    {
+        // D-288: the lab's PVWA answered some of these calls with a 302 under load and the same call a moment later with a 200.
+        var fake = RichPvwa();
+        var calls = 0;
+        fake.Routes[ClassicSearch] = request =>
+        {
+            if (!request.RequestUri!.Query.Contains("CyberArkSHRec")) return Ok("""{"Count":0,"accounts":[]}""");
+            return Interlocked.Increment(ref calls) == 1 ? new HttpResponseMessage(HttpStatusCode.Redirect) : Ok(ClassicRec);
+        };
+
+        var snapshot = await Client(fake).PullAsync(Token, CancellationToken.None, new PvwaPullOptions { CachedDetails = new Dictionary<string, PvwaAccountDetail>() });
+
+        Assert.Equal(2, calls);
+        Assert.Equal("Operating System", snapshot.Accounts.Single(a => a.Id == "60_6").Detail!.DeviceType);
+        Assert.DoesNotContain(snapshot.Warnings, w => w.Contains("60_6"));
+    }
+
+    [Fact]
     public async Task ClassicDetails_ReadTheDocumentedSpelling_AndAFailureIsOneWarning()
     {
         var fake = RichPvwa();

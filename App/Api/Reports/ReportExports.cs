@@ -28,6 +28,7 @@ public static class ReportExports
     public static readonly ReportExportInfo KpiSummary = new("kpi-summary", "KpiSummary", "KPI Summary");
     public static readonly ReportExportInfo Trends = new("trends", "Trends", "Trends");
     public static readonly ReportExportInfo AuditLog = new("audit-log", "AuditLog", "Audit Log");
+    public static readonly ReportExportInfo CpmHealth = new("cpm-health", "CpmHealth", "CPM Health");   // D-288
 
     // The pages show every date as yyyy-MM-dd (formatDate), so the exports do too.
     private static DateOnly? Day(DateTime? value) => value is { } v ? DateOnly.FromDateTime(v) : null;
@@ -191,6 +192,25 @@ public static class ReportExports
         new("Application", r => r.ApplicationName),
         new("Accounts not yet deleted", r => r.ActiveAccountCount),
         new("Deleted accounts", r => r.DeletedAccountCount)
+    ];
+
+    /// <summary>D-288: as CpmHealth.vue's grid.</summary>
+    public static readonly IReadOnlyList<ExportColumn<CpmHealthRow>> CpmHealthColumns =
+    [
+        new("Account", r => r.AccountName),
+        new("Username", r => r.UserName),
+        new("Address", r => r.Address),
+        new("Safe", r => r.SafeName),
+        new("Platform", r => r.PlatformId),
+        new("Source", r => r.SourceSystemName),
+        new("Failing since", r => Day(r.CpmFailureSince)),
+        new("Last CPM action", r => r.LastCPMAction is null ? null : $"{r.LastCPMAction} ({r.LastCPMActionResult})"),
+        new("Last verified", r => Day(r.LastVerifiedDate)),
+        new("Last changed", r => Day(r.LastCPMModifiedDate)),
+        new("Managed by the CPM", r => r.AutoManaged is { } m ? YesNo(m) + (string.IsNullOrEmpty(r.ManualReason) ? "" : $" ({r.ManualReason})") : null),
+        new("Owner", r => r.OwnerName),
+        new("Stage", r => r.StageName),
+        new("Status", r => r.StatusName)
     ];
 
     public static readonly IReadOnlyList<ExportColumn<DecomAccountRow>> DecomAccountsColumns =

@@ -1165,7 +1165,8 @@
       "status": "Status",
       "ownerName": "Owner",
       "businessUnit": "Business unit",
-      "application": "Application"
+      "application": "Application",
+      "requiresPsm": "Platform requires PSM (Self-Hosted)"
     },
     "operator": {
       "equals": "is",

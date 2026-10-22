@@ -36,7 +36,7 @@ public class NotificationChecksTests : IClassFixture<BlueTrackWebApplicationFact
 
     private readonly List<long> _pullKeys = [];
 
-    private static readonly string[] NewTypes = [BlueTrack.Api.CyberArkDirect.SelfHostedPullFailedCheck.TypeName, NightlyImportFailedCheck.TypeName, OverdueRiskExceptionsCheck.TypeName, WeeklySummaryCheck.TypeName, ApiKeyExpiringCheck.TypeName, ApiKeyExpiredCheck.TypeName, SamlCertificateExpiringCheck.TypeName];
+    private static readonly string[] NewTypes = [BlueTrack.Api.CyberArkDirect.SelfHostedPullFailedCheck.TypeName, NightlyImportFailedCheck.TypeName, OverdueRiskExceptionsCheck.TypeName, WeeklySummaryCheck.TypeName, ApiKeyExpiringCheck.TypeName, ApiKeyExpiredCheck.TypeName, SamlCertificateExpiringCheck.TypeName, CpmHealthCheck.TypeName];
 
     /// <summary>D-287: certificates by thumbprint, in place of the Windows store.</summary>
     private sealed class FakeCertificates : ISamlCertificateLookup
@@ -409,6 +409,37 @@ public class NotificationChecksTests : IClassFixture<BlueTrackWebApplicationFact
             else
                 await connection.ExecuteAsync("UPDATE web.identity_provider_config SET IsEnabled = @IsEnabled, ConfigurationValues = @ConfigurationValues WHERE ProviderKey = @ProviderKey",
                     new { saved.Value.ProviderKey, saved.Value.IsEnabled, saved.Value.ConfigurationValues });
+        }
+    }
+
+    /// <summary>D-288: the accounts that newly fail are emailed once, at the digest time; a day with none new sends nothing.</summary>
+    [Fact]
+    public async Task CpmHealth_EmailsTheNewlyFailingAccounts_Once()
+    {
+        await SetEnabledAsync(true, CpmHealthCheck.TypeName);
+        var token = $"cpmnotify{Guid.NewGuid():N}"[..16];
+        await using var connection = new SqlConnection(TestDatabase.ConnectionString);
+        var accountKey = await connection.QuerySingleAsync<long>("""
+            INSERT INTO fact_account (SourceSystemKey, SourceAccountId, AccountName, IsDeleted, CPMStatus, CpmFailureSince, LastCPMAction, LastCPMActionResult)
+            OUTPUT inserted.AccountKey VALUES (2, @token, @token, 0, 'failure', SYSUTCDATETIME(), 'Verify', 'Failure');
+            """, new { token });
+        try
+        {
+            _clock.Set(new DateTimeOffset(2001, 1, 2, 7, 0, 0, TimeSpan.Zero));
+            await NewService().RunOnceAsync(CancellationToken.None);
+            await NewService().RunOnceAsync(CancellationToken.None);
+            var sent = Assert.Single(_sender.Messages, m => m.Subject.Contains("CPM status is now failure") && m.Body.Contains(token));
+            Assert.Contains("Verify (Failure)", sent.Body);
+            Assert.Contains(_recipient, sent.To);
+
+            // The next day: the account still fails, but it isn't new.
+            _clock.Set(new DateTimeOffset(2001, 1, 3, 7, 0, 0, TimeSpan.Zero));
+            await NewService().RunOnceAsync(CancellationToken.None);
+            Assert.Single(_sender.Messages, m => m.Body.Contains(token));
+        }
+        finally
+        {
+            await connection.ExecuteAsync("DELETE FROM fact_account WHERE AccountKey = @accountKey", new { accountKey });
         }
     }
 

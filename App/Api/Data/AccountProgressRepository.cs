@@ -256,6 +256,9 @@ public sealed class AccountProgressRepository(IDbConnectionFactory connectionFac
                 fap.ProgressKey, fap.AccountKey, fa.AccountName, fa.UserName, fa.Address,
                 fa.CreatedTime, fa.LastCPMAction, fa.LastCPMActionResult, fa.LastCPMActionTime,
                 fa.DeviceType, fa.CreationMethod, fa.LinkedLogonAccount, fa.LinkedReconcileAccount,
+                -- D-288: CPM health, for both sources.
+                fa.CPMStatus, fa.CpmFailureSince, fa.AutoManaged, fa.ManualReason, fa.LastVerifiedDate, fa.LastReconciledDate, fa.LastCPMModifiedDate,
+                (SELECT pl.RequirePsm FROM dbo.dim_platform pl WHERE pl.PlatformKey = fa.PlatformKey) AS RequirePsm,
                 -- D-280: a key only when that account has a page to link to.
                 (SELECT lp.AccountKey FROM dbo.fact_account_progress lp WHERE lp.AccountKey = fa.LinkedLogonAccountKey) AS LinkedLogonAccountKey,
                 (SELECT rp.AccountKey FROM dbo.fact_account_progress rp WHERE rp.AccountKey = fa.LinkedReconcileAccountKey) AS LinkedReconcileAccountKey,

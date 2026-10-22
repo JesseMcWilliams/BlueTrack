@@ -188,7 +188,15 @@
     "overrideRiskScore": "Override Risk Score",
     "riskException": "Risk Exception",
     "linkedExceptionValue": "{id} ({status}) — {justification}, reviewed {date}",
-    "movedByRule": "Moved to this stage by the Progress Rule \"{rule}\" on {date}."
+    "movedByRule": "Moved to this stage by the Progress Rule \"{rule}\" on {date}.",
+    "cpmStatus": "CPM status:",
+    "cpmFailingSince": "failing since {date}",
+    "cpmManaged": "Managed by the CPM:",
+    "cpmManagedReason": "{value} ({reason})",
+    "cpmLastVerified": "Last verified:",
+    "cpmLastReconciled": "Last reconciled:",
+    "cpmLastChanged": "Last changed:",
+    "cpmRequiresPsm": "Platform requires PSM:"
   },
   "accountProgressBulkEdit": {
     "referenceFailed": "The choices for the dropdowns could not be loaded ({status}), so they are empty. Reload the page to try again.",
