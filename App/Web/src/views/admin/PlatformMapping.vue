@@ -3,6 +3,8 @@
 // by default (a new account is given them when it is first tracked). Self-Hosted platforms are one per PolicyID
 // (D-244), so a new import can bring new, unmapped platforms. "Fill" also gives them to accounts already tracked that
 // have none; an account that has an account type or source of record is never changed.
+// D-293: an unmapped platform may carry a suggestion (the same platform ID mapped in another source, or a keyword in
+// its ID or name; never for group platforms). Using one only fills the row's drop-downs; Save still saves it.
 import { ref, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { confirmDelete } from '../../composables/useConfirmDialog'
@@ -40,6 +42,31 @@ async function load() {
 onMounted(load)
 
 const unmappedCount = computed(() => rows.value.filter(r => r.isUnmapped).length)
+
+// Only while the row's account type is still empty, so a choice the admin made is never overwritten.
+function canUseSuggestion(row) {
+  return !!row.suggestion && !drafts.value[row.platformKey].accountTypeKey
+}
+
+function useSuggestion(row) {
+  const draft = drafts.value[row.platformKey]
+  draft.accountTypeKey = row.suggestion.accountTypeKey
+  draft.sorKey = draft.sorKey ?? row.suggestion.sorKey ?? null
+}
+
+const suggestionRows = computed(() => visibleRows.value.filter(canUseSuggestion))
+
+function useAllSuggestions() {
+  for (const row of suggestionRows.value) useSuggestion(row)
+}
+
+function suggestionText(row) {
+  const s = row.suggestion
+  const value = s.sourceOfRecord ? `${s.accountTypeName} / ${s.sourceOfRecord}` : s.accountTypeName
+  return s.basis === 'OtherSource'
+    ? t('admin.platformMapping.suggestedFromSource', { value, source: s.detail })
+    : t('admin.platformMapping.suggestedFromKeyword', { value, keyword: s.detail })
+}
 
 const visibleRows = computed(() => {
   const text = search.value.trim().toLowerCase()
@@ -127,6 +154,11 @@ async function remove(row) {
         <br /><small>{{ t('admin.platformMapping.fillHint') }}</small>
       </p>
 
+      <p v-if="suggestionRows.length > 0">
+        <button type="button" @click="useAllSuggestions">{{ t('admin.platformMapping.useAllSuggestions', { count: formatCount(suggestionRows.length) }, suggestionRows.length) }}</button>
+        <br /><small>{{ t('admin.platformMapping.suggestionsHint') }}</small>
+      </p>
+
       <p v-if="visibleRows.length === 0">{{ t('admin.platformMapping.noPlatforms') }}</p>
       <table v-else>
         <thead>
@@ -152,6 +184,10 @@ async function remove(row) {
                 <option :value="null">{{ t('admin.platformMapping.notMapped') }}</option>
                 <option v-for="type in options.accountTypes" :key="type.key" :value="type.key">{{ type.name }}</option>
               </select>
+              <template v-if="canUseSuggestion(row)">
+                <br /><small>{{ suggestionText(row) }}</small>
+                <button type="button" :aria-label="t('admin.platformMapping.useSuggestionFor', { platform: row.platformId })" @click="useSuggestion(row)">{{ t('admin.platformMapping.useSuggestion') }}</button>
+              </template>
             </td>
             <td>
               <select v-model="drafts[row.platformKey].sorKey" :aria-label="t('admin.platformMapping.sorFor', { platform: row.platformId })">

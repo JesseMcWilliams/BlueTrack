@@ -1128,7 +1128,13 @@
     "saved": "Saved the mapping of {platform}.",
     "savedFilled": "Saved the mapping of {platform}: filled {types} account(s) with no account type and {sors} with no source of record.",
     "removed": "Removed the mapping of {platform}. Accounts keep what they have.",
-    "confirmRemove": "Remove the mapping of {platform}? Accounts already given an account type keep it; new accounts on this platform get none by default."
+    "confirmRemove": "Remove the mapping of {platform}? Accounts already given an account type keep it; new accounts on this platform get none by default.",
+    "suggestedFromSource": "Suggested: {value} (as the same platform in {source})",
+    "suggestedFromKeyword": "Suggested: {value} (the name contains \"{keyword}\")",
+    "useSuggestion": "Use",
+    "useSuggestionFor": "Use the suggestion for {platform}",
+    "useAllSuggestions": "Fill in {count} suggestion | Fill in {count} suggestions",
+    "suggestionsHint": "Fills the drop-downs of the platforms shown that have a suggestion and no account type chosen. Nothing is saved until you click Save on each row; group platforms get no suggestion."
   },
   "progressRules": {
     "title": "Progress Rules",
