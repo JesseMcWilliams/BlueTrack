@@ -13,8 +13,7 @@ Gaps against the original design (commit f0561ce) and the Blueprint theme. Built
 - **No SMTP on the dev site**: no host or recipients, so the overdue-exception alerts (D-19) and the other notifications reach nobody (Questions Q8). The break-glass email is unproven for the same reason.
 - **Stale docs**: `Planning_API-Access-For-Scripts.md` still lists phases 2 and 3 as to build (D-243 built them); rename it `Design_API-Access.md`. `Planning_Handoff-2026-10-18.md` should be archived.
 - **Confirm these stay dropped**: no pending exception state or ApprovalsWaiting notification, SoD off by default (D-70, D-140); per-field permissions enforced but none seeded (D-198); no tamper-evident audit log (D-63); no ad hoc fields (D-08); the default IdP is the lowest DisplayOrder, not the user's last used (D-100).
-- **Suggestion: session isolation (PSM)**: nothing tracks whether an account's sessions go through PSM; a stage condition or field could (platform `RequirePsm` is already staged for Self-Hosted Direct).
-- **Suggestion: CPM health on the account page and a "CPM failing" worklist**, from `CPMStatus`, `LastVerifiedDate`, `LastReconciledDate` and the last CPM action.
+- **PSM for Privilege Cloud** (D-288): the RequiresPsm rule condition reads the platform policy of a Self-Hosted Direct pull; Privilege Cloud's platform export has no PSM column, so it's empty there until Privilege Cloud Direct reads the platform policy.
 - **Suggestion: email the application owner** (D-46 `OwnerEmail`) when an application-scoped exception comes up for review, not only the configured recipients.
 - **Suggestion: least-privilege view**: who holds Manage Safe, Manage Safe Members or full rights, across Safes (the per-account "Who can use this account" and the Power BI entitlement view exist).
 - **Suggestion: sponsor view of progress against target dates over time**, from Trends and `TargetRemediationDate`.

@@ -22,6 +22,7 @@ public static class SiteLinks
     public static readonly SitePage Notifications = new("Admin > Notifications", "/admin/notifications");
     public static readonly SitePage ApiKeys = new("Admin > API Keys", "/admin/api-keys");   // D-243
     public static readonly SitePage IdentityProviders = new("Admin > Identity Providers", "/admin/identity-providers");   // D-287
+    public static readonly SitePage CpmHealth = new("Reports > CPM Health", "/reports/cpm-health");   // D-288
 
     /// <summary>
     /// Checks a Site URL as entered and returns it in the stored form, or an

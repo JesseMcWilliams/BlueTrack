@@ -599,6 +599,21 @@ onUnmounted(releaseLock)
           <span v-if="detail.createdTime" class="account-progress-identity-item"><strong>{{ t('pages.accountProgressDetail.createdInCyberArk') }}</strong> {{ formatUtcDateTime(detail.createdTime) }}</span>
           <span v-if="detail.lastCPMAction" class="account-progress-identity-item"><strong>{{ t('pages.accountProgressDetail.lastCpmAction') }}</strong> {{ t('pages.accountProgressDetail.lastCpmActionValue', { action: detail.lastCPMAction, result: detail.lastCPMActionResult ?? '—', time: formatUtcDateTime(detail.lastCPMActionTime) }) }}</span>
         </p>
+        <!-- D-288: CPM health, for both sources. -->
+        <dl v-if="detail.cpmStatus || detail.autoManaged !== null && detail.autoManaged !== undefined || detail.lastVerifiedDate || detail.lastCPMModifiedDate" class="cpm-health">
+          <template v-if="detail.cpmStatus">
+            <dt>{{ t('pages.accountProgressDetail.cpmStatus') }}</dt>
+            <dd :class="{ 'cpm-failing': detail.cpmStatus === 'failure' }">{{ detail.cpmStatus }}<template v-if="detail.cpmFailureSince">{{ ', ' + t('pages.accountProgressDetail.cpmFailingSince', { date: formatUtcDateTime(detail.cpmFailureSince) }) }}</template></dd>
+          </template>
+          <template v-if="detail.autoManaged !== null && detail.autoManaged !== undefined">
+            <dt>{{ t('pages.accountProgressDetail.cpmManaged') }}</dt>
+            <dd>{{ detail.manualReason ? t('pages.accountProgressDetail.cpmManagedReason', { value: detail.autoManaged ? t('common.yes') : t('common.no'), reason: detail.manualReason }) : (detail.autoManaged ? t('common.yes') : t('common.no')) }}</dd>
+          </template>
+          <template v-if="detail.lastVerifiedDate"><dt>{{ t('pages.accountProgressDetail.cpmLastVerified') }}</dt><dd>{{ formatDate(detail.lastVerifiedDate) }}</dd></template>
+          <template v-if="detail.lastReconciledDate"><dt>{{ t('pages.accountProgressDetail.cpmLastReconciled') }}</dt><dd>{{ formatDate(detail.lastReconciledDate) }}</dd></template>
+          <template v-if="detail.lastCPMModifiedDate"><dt>{{ t('pages.accountProgressDetail.cpmLastChanged') }}</dt><dd>{{ formatDate(detail.lastCPMModifiedDate) }}</dd></template>
+          <template v-if="detail.requirePsm !== null && detail.requirePsm !== undefined"><dt>{{ t('pages.accountProgressDetail.cpmRequiresPsm') }}</dt><dd>{{ detail.requirePsm ? t('common.yes') : t('common.no') }}</dd></template>
+        </dl>
         <!-- D-283: which Progress Rule moved the account to its stage. -->
         <p v-if="detail.lastAdvancedByRuleName" class="account-progress-identity-secondary moved-by-rule">{{ t('pages.accountProgressDetail.movedByRule', { rule: detail.lastAdvancedByRuleName, date: formatUtcDateTime(detail.lastAdvancedAt) }) }}</p>
         <!-- D-280: Self-Hosted Direct only, from PVWA's classic account details. -->
@@ -760,6 +775,22 @@ onUnmounted(releaseLock)
 }
 .account-progress-identity {
   margin-bottom: var(--space-3);
+}
+.cpm-health {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.15rem 0.75rem;
+  margin: 0.5rem 0;
+}
+.cpm-health dt {
+  font-weight: bold;
+}
+.cpm-health dd {
+  margin: 0;
+}
+.cpm-failing {
+  color: var(--color-error-text);
+  font-weight: bold;
 }
 .account-progress-identity-primary {
   display: flex;

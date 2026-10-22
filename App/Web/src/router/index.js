@@ -157,6 +157,12 @@ const routes = [
         component: () => import('../views/reports/UnresolvedEntitlementMembers.vue')
       },
       {
+        path: 'cpm-health',
+        name: 'reports-cpm-health',
+        meta: { breadcrumb: 'shell.routes.reportsCpmHealth', breadcrumbParent: 'reports' },
+        component: () => import('../views/reports/CpmHealth.vue')
+      },
+      {
         path: 'cyberark-applications',
         name: 'reports-cyberark-applications',
         meta: { breadcrumb: 'shell.routes.reportsCyberArkApplications', breadcrumbParent: 'reports' },

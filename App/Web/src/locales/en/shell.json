@@ -100,7 +100,8 @@
     "adminProgressRules": "Progress Rules",
     "adminProgressRuleCreate": "New Progress Rule",
     "adminProgressRuleEdit": "Edit Progress Rule",
-    "adminBlueprintStages": "Blueprint Stages"
+    "adminBlueprintStages": "Blueprint Stages",
+    "reportsCpmHealth": "CPM Health"
   },
   "userMenu": {
     "account": "Account",

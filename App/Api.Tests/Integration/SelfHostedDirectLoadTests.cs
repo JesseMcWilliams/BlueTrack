@@ -51,7 +51,7 @@ public class SelfHostedDirectLoadTests
             },
             Users = { new PvwaUser(2, "Administrator", "CyberArk", "Built-InAdmins", "\\", true, "A", "B", "a@b.com") },
             Groups = { new PvwaGroup(9, "Auditors", "Vault", "\\Applications", null, [2]) { Directory = "company.com" } },
-            Platforms = { new PvwaPlatform("UnixSSH", "Unix via SSH", null, true, "Regular") }
+            Platforms = { new PvwaPlatform("UnixSSH", "Unix via SSH", null, true, "Regular") { RequirePsm = true } }
         };
     }
 
@@ -113,6 +113,16 @@ public class SelfHostedDirectLoadTests
             Assert.Equal((true, (string?)null, (string?)null), (a2.AutoManaged, a2.CPMStatus, a2.LastCPMAction));
             Assert.Null(a2.DeviceType);   // its details were never read
             Assert.Equal("EVD-DOMAIN", a2.PlatformLogonDomain);   // REST has none: the value BlueTrack had is kept
+
+            // D-288: the platform's PSM requirement, for the RequiresPsm rule condition.
+            await connection.ExecuteAsync("EXEC dbo.usp_Load_FactAccountProgress; EXEC dbo.usp_Load_CpmHealth;", transaction: transaction);
+            Assert.True(await connection.QuerySingleAsync<bool?>("""
+                SELECT p.RequirePsm FROM dbo.dim_platform p JOIN dbo.dim_source_system s ON s.SourceSystemKey = p.SourceSystemKey AND s.SourceSystemCode = 'SELFHOSTED'
+                WHERE p.PlatformID = 'UnixSSH'
+                """, transaction: transaction));
+            Assert.Contains(("RequiresPsm", "Yes"), await connection.QueryAsync<(string, string)>(
+                "SELECT FieldName, TextValue FROM dbo.fn_ProgressAccountFields((SELECT fa.AccountKey FROM dbo.fact_account fa JOIN dbo.dim_source_system s ON s.SourceSystemKey = fa.SourceSystemKey AND s.SourceSystemCode = 'SELFHOSTED' WHERE fa.SourceAccountId = '987101_1')) WHERE FieldName = 'RequiresPsm'",
+                transaction: transaction));
 
             // Locations by path: the Safe and the group point at the \Applications row.
             var locations = await connection.QuerySingleAsync<(string? Safe, string? Group)>("""

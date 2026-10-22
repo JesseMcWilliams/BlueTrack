@@ -6,6 +6,9 @@ What changed in each BlueTrack release, newest first, for users and administrato
 
 ### New
 
+- **Reports > CPM Health**: every account whose CPM status is failure, longest failing first, with its last CPM action. Each account's page has a **CPM** section (status, managed by the CPM, last verified, reconciled and changed, and whether its platform requires PSM).
+- New **CpmHealth** notification: once a day, the accounts that newly fail.
+- Progress Rules can test **Platform requires PSM** (Self-Hosted).
 - **Admin > Progress Rules**: rules that move accounts to a later Blueprint stage each night when all their conditions match (CPM status, last verified, Safe, platform, owner and more), with **Test** to see what a rule would move. The old automatic move to Onboarded to Vault is the first rule.
 - **Admin > Blueprint Stages**: rename, reorder, add and delete the stages, choose where new accounts start and which stages the Onboarded, Managed and Compliant KPIs count from.
 - Rejected SAML and OIDC sign-ins are recorded in the Audit Log (LogonFailed) and can send the new **SignInRejected** notification.
@@ -21,8 +24,11 @@ What changed in each BlueTrack release, newest first, for users and administrato
 
 ### Fixed
 
+- A Self-Hosted Direct pull now tries a failed account-detail call once more before warning about it.
+
 ### Upgrading
 
+- Database script 50 is applied. Turn on **CpmHealth** on Admin > Notifications to get the daily email.
 - Database script 49 is applied. Turn on **SignInRejected** and **SamlCertificateExpiring** on Admin > Notifications (both start off) if you use SAML or OIDC. Step-up MFA for admin work is left to your identity provider (for example a conditional access policy).
 - Run the installer as usual; database script 48 is applied. The first Self-Hosted Direct pull afterwards reads every account's classic details (one PVWA call per account), so it takes longer than usual; raise **Pull time limit** on Edit CyberArk sources if it stops, or let it finish over the next nights. The CyberArk Applications need the PVWA user's Audit Users authorization, and the AD group read needs an enabled LDAP domain on Admin > Credentials & LDAP.
 
