@@ -37,7 +37,7 @@ Go down the table and stop at the first row that matches your site.
 From the `Deploy` folder of the version you run now:
 
 ```powershell
-.\Update-BlueTrack.ps1 -Release v1.4.0      # a specific release, or no -Release for the latest
+.\Update-BlueTrack.ps1 -Release v1.5.0      # a specific release, or no -Release for the latest
 ```
 
 It downloads the signed release, copies your saved installer answers into it and offers to run its installer, which backs up, migrates the database, publishes the site and runs a health check (`Smoke`). Afterwards:
@@ -60,6 +60,7 @@ Most database changes need nothing from you; these do.
 | 1.3.3 | None. A site on Self-Hosted Direct sees more account and entitlement detail after its next nightly load. |
 | 1.3.4 | None. |
 | 1.4.0 | Only on a site that no longer imports Self-Hosted from the EVD (the installer stops otherwise, changing nothing). The shadow pull and its comparison are gone; their stored history stays in the database. The installer no longer asks for an EVD database. Going back to 1.3.4 needs the database restore in section 6: 1.4.0 drops columns 1.3.4 reads. |
+| 1.5.0 | None required. With Self-Hosted Direct, the first pull after the upgrade reads every account's details from PVWA (one call per account), so it takes longer than usual: raise **Pull time limit** on Edit CyberArk sources if it stops, or let it finish over the next nights. The automatic move to Onboarded to Vault is now the first rule on Admin > Progress Rules and also moves Discovered accounts whose status isn't Not Started (check it with **Test**). To get the new emails, turn on **CpmHealth**, **SignInRejected** and **SamlCertificateExpiring** on Admin > Notifications. Step-up MFA for admin work is left to your identity provider. |
 
 ## 6. If something breaks: going back
 
