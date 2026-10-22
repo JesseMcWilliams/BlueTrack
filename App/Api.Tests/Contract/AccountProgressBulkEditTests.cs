@@ -99,21 +99,21 @@ public class AccountProgressBulkEditTests : IClassFixture<BlueTrackWebApplicatio
         var created = await Client("TestUser.Admin").PostAsJsonAsync("/api/applications", new { applicationCode = $"CTBULKAPP{suffix}", applicationName = $"Bulk app {suffix}" });
         Assert.Equal(HttpStatusCode.Created, created.StatusCode);
         var applicationKey = (await created.Content.ReadFromJsonAsync<ApplicationCreated>())!.ApplicationKey;
-        // D-291: changing the Application needs CurateApplicationMapping (Admin).
-        var admin = Client("TestUser.Admin");
+        // D-296: an Analyst may change the Application.
+        var analyst = Client("TestUser.Analyst");
 
         try
         {
-            var set = await admin.PostAsJsonAsync("/api/account-progress/bulk-edit", new { accountKeys = keys, fields = new[] { "ApplicationKey" }, applicationKey });
+            var set = await analyst.PostAsJsonAsync("/api/account-progress/bulk-edit", new { accountKeys = keys, fields = new[] { "ApplicationKey" }, applicationKey });
             Assert.Equal(HttpStatusCode.OK, set.StatusCode);
             Assert.Equal(2, (await set.Content.ReadFromJsonAsync<BulkResult>())!.Updated);
             foreach (var key in keys) Assert.Equal(applicationKey, (await Repository().GetDetailAsync(key))!.ApplicationKey);
 
-            var unknown = await admin.PostAsJsonAsync("/api/account-progress/bulk-edit", new { accountKeys = keys, fields = new[] { "ApplicationKey" }, applicationKey = 2000000000 });
+            var unknown = await analyst.PostAsJsonAsync("/api/account-progress/bulk-edit", new { accountKeys = keys, fields = new[] { "ApplicationKey" }, applicationKey = 2000000000 });
             Assert.Equal(HttpStatusCode.BadRequest, unknown.StatusCode);
             Assert.Contains("valid Application", await unknown.Content.ReadAsStringAsync());
 
-            var clear = await admin.PostAsJsonAsync("/api/account-progress/bulk-edit", new { accountKeys = keys, fields = new[] { "ApplicationKey" }, applicationKey = (int?)null });
+            var clear = await analyst.PostAsJsonAsync("/api/account-progress/bulk-edit", new { accountKeys = keys, fields = new[] { "ApplicationKey" }, applicationKey = (int?)null });
             Assert.Equal(HttpStatusCode.OK, clear.StatusCode);
             foreach (var key in keys) Assert.Null((await Repository().GetDetailAsync(key))!.ApplicationKey);
         }
