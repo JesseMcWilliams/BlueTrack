@@ -17,6 +17,8 @@
         - rebuilds the Published_Docs .docx files
           (python Published_Docs/build_published_docs.py, before the new empty
           Unreleased section is added, so the documents don't show it);
+        - writes the CycloneDX SBOMs in Sbom/ for this version
+          (Tools\New-BlueTrackSbom.ps1; needs dotnet and npx);
         - commits "Release v<Version>".
       With -Push it pushes the branch and opens a pull request into main with
       gh. If a step fails before the commit, the branch is removed and you're
@@ -385,10 +387,15 @@ try {
         Write-Step "rebuilt Published_Docs ($($buildOutput.Count) document(s))"
     }
 
+    if ($PSCmdlet.ShouldProcess('Sbom', "Tools\New-BlueTrackSbom.ps1 -Version $Version")) {
+        & (Join-Path $PSScriptRoot 'New-BlueTrackSbom.ps1') -Version $Version | Out-Null
+        Write-Step "wrote the SBOMs in Sbom/ for $Version"
+    }
+
     Set-ReleaseTextFile -Path $notesPath -Text $finalText -HasBom $notes.HasBom
 
     if ($PSCmdlet.ShouldProcess($branchName, "Commit 'Release $tagName'")) {
-        [void](Invoke-ReleaseGit -Arguments @('add', '--', $csprojRelative, $notesRelative, 'Published_Docs'))
+        [void](Invoke-ReleaseGit -Arguments @('add', '--', $csprojRelative, $notesRelative, 'Published_Docs', 'Sbom'))
         [void](Invoke-ReleaseGit -Arguments @('commit', '--quiet', '-m', "Release $tagName"))
         $committed = $true
         Write-Step "committed 'Release $tagName'"
@@ -414,7 +421,7 @@ if ($Push) {
         $bodyFile = [System.IO.Path]::GetTempFileName()
         try {
             $body = @(
-                "Release $tagName ($Date): sets <Version> to $Version, moves the Unreleased release notes to $Version, and rebuilds Published_Docs.",
+                "Release $tagName ($Date): sets <Version> to $Version, moves the Unreleased release notes to $Version, rebuilds Published_Docs and writes the SBOMs (Sbom/).",
                 '',
                 "After merging, tag and publish it: Tools\New-BlueTrackRelease.ps1 -Version $Version -Tag -Push"
             ) -join "`n"

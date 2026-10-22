@@ -20,6 +20,7 @@ Claude_Docs/     Design_ (one per subsystem, plus the Decision Register), Planni
                  Reference_ (lessons learned) and Archive_ docs
 User_Docs/       Short, linear, role-based walkthroughs (Admin_*/User_*)
 Published_Docs/  .docx deliverables (Installation, Dev Host Setup), refreshed when a release is created
+Sbom/            CycloneDX SBOMs of the API, Migrator and web app (D-297), written by Tools/New-BlueTrackSbom.ps1 at each release
 Reference/       Sample CyberArk Privileged Cloud/Self-Hosted export files (gitignored) for local dev/first load
 ```
 
