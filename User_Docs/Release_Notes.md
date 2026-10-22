@@ -10,6 +10,8 @@ What changed in each BlueTrack release, newest first, for users and administrato
 
 ### Fixed
 
+- The installer's `Db.SqlServerAudit` step no longer re-grants "Generate security audits" on every run and then asks for a SQL Server restart that isn't needed.
+
 ### Upgrading
 
 ## 1.5.1 (2026-10-22)

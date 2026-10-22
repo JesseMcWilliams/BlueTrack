@@ -574,7 +574,12 @@ function Install-BlueTrackSqlServerAudit {
             $lines = @(Get-Content -Path $export)
             $index = [array]::FindIndex($lines, [Predicate[string]] { param($line) $line -match '^SeAuditPrivilege\s*=' })
             $holders = if ($index -ge 0) { @(($lines[$index] -split '=', 2)[1].Split(',') | ForEach-Object { $_.Trim() } | Where-Object { $_ }) } else { @() }
-            if ("*$sid" -in $holders -or $account -in $holders) {
+            # secedit lists a holder as *SID or by name (a domain account as its bare name, e.g. MSSQL_Service), so compare SIDs.
+            $holderSids = @($holders | ForEach-Object {
+                    if ($_.StartsWith('*')) { $_.Substring(1) }
+                    else { try { ([System.Security.Principal.NTAccount]$_).Translate([System.Security.Principal.SecurityIdentifier]).Value } catch { $null } }
+                })
+            if ($sid -in $holderSids) {
                 Write-Host "$account already holds Generate security audits."
             } elseif ($PSCmdlet.ShouldProcess($account, 'Grant Generate security audits (SeAuditPrivilege)')) {
                 $line = 'SeAuditPrivilege = ' + ((@($holders) + "*$sid") -join ',')

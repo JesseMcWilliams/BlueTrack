@@ -343,3 +343,7 @@ Running `Install-BlueTrack.ps1 -InstallSqlServerAudit $false` through `powershel
 
 Against the deployed dev site, `page.request.get(...)` failed with "unable to verify the first certificate" while the browser pages loaded fine: Playwright's request client runs in Node, which doesn't use the Windows certificate store the browser trusts. In `App/E2E/live`, call the API from inside the page (`page.evaluate(() => fetch(...))`). Windows sign-in needs `--auth-server-allowlist=<host>` in the browser's launch arguments.
 
+
+## 2026-10-22 -- secedit lists a domain account by its bare name, so a SID or UPN check missed it (D-295)
+
+`Db.SqlServerAudit` checked whether the SQL Server account already held "Generate security audits" by looking for `*<SID>` or the account as SQL reports it (`MSSQL_Service@Company.com`) in `secedit /export`. After a grant, secedit wrote it back as `MSSQL_Service`, so every re-run said "Granted" again and wrongly flagged a SQL Server restart. Compare SIDs: translate each listed name to its SID (`NTAccount.Translate`) before matching.
