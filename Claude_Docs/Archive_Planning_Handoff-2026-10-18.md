@@ -1,5 +1,7 @@
 # BlueTrack: Handoff, 2026-10-18
 
+> **Archived 2026-10-21:** superseded by `Reference_Handoff-2026-10-21.md`, which carries what is still open.
+
 > **Stage: Planning.** Point-in-time snapshot for the next Claude session, written at the end of 2026-10-18 (after release v1.2.0). Supersedes `Archive_Planning_Handoff-2026-10-17.md` (PRs #143 to #177). Once every open item below is closed, rename this to `Archive_Planning_Handoff-2026-10-18.md` with `git mv`.
 
 ## What was done since the last handoff (PRs #153 to #178)
@@ -13,7 +15,7 @@
 | Language | #175 | D-246 | "Use browser default" (`DELETE /api/me/preferences/{key}`). |
 | Platform mapping | #176 | D-247 | Admin > Platform Mapping (account type and source of record per platform; optional fill of accounts that have none). |
 | Releases | #170, #178 | D-226 | **v1.1.0** and **v1.2.0**, each with a signed tag, a GitHub release and rebuilt `Published_Docs`. |
-| Docs | #157, #162, #164, #166, #167, #169, #171, #174, #177 | (none) | Handoffs, the API access guide, `Planning_Server-Side-Localization.md` (a proposal), the questions backlog, backlog cleanups. |
+| Docs | #157, #162, #164, #166, #167, #169, #171, #174, #177 | (none) | Handoffs, the API access guide, `Archive_Planning_Server-Side-Localization.md` (a proposal), the questions backlog, backlog cleanups. |
 
 ## State
 - **`main`** is at the v1.2.0 release merge (`4435d09`, tag `v1.2.0`) plus this PR. **Unreleased is empty.** The last full local runs (2026-10-18, before the release, which changed only the version and documents): xUnit 1114/1114, Vitest 457/457, Playwright 95/95. CI passed on every PR.
@@ -27,7 +29,7 @@
 2. **Platform mapping data** (user: later): the 53 platforms. Don't map them without the user's list or a go-ahead on a proposal; one save can fill thousands of accounts.
 3. **Live test of option B (identity provider token) not done; the user accepted the fake-provider tests for now.** `OidcIdpMetadataSource` has never run against a real provider. The lab script was refused by the permission system (credential exploration) and authentik refused every client-credentials style with `invalid_grant`. To close it: a token and its client ID from the user, plus a small `Tools/` script that exchanges it (not built), or a permission rule for one narrowly written lab script.
 4. **Live tests still owed (the user's):** LDAPS from DCACYBSQL01 (`Tools\Test-BlueTrackLdaps.ps1`, then add the domain in BlueTrack); SIEM forwarding; account classification against the real AD; OAuth2 SMTP; break-glass email; Azure, AWS and Conjur secrets backends. See `Planning_Backlog.md`, "Built, but never proven".
-5. **Backlog** (`Planning_Backlog.md`): server-side localization (proposal in `Planning_Server-Side-Localization.md`, deferred until a second language is planned) and the real-data findings still open: Self-Hosted properties with no columns (`DeviceType`, `CreationMethod`, `ExtraPass1*`/`ExtraPass3*`), the unread `CAF*` staging columns, the unused Privilege Cloud columns and the two Privilege Cloud exports with no importer.
+5. **Backlog** (`Planning_Backlog.md`): server-side localization (proposal in `Archive_Planning_Server-Side-Localization.md`, deferred until a second language is planned) and the real-data findings still open: Self-Hosted properties with no columns (`DeviceType`, `CreationMethod`, `ExtraPass1*`/`ExtraPass3*`), the unread `CAF*` staging columns, the unused Privilege Cloud columns and the two Privilege Cloud exports with no importer.
 6. **Next release:** `Tools/New-BlueTrackRelease.ps1 -Version x.y.z -Push`, merge its PR, then `-Tag -Push` (D-226). It has worked first time for v1.1.0 and v1.2.0. It publishes, so get the user's yes and the version first.
 
 ## Gotchas for the next session

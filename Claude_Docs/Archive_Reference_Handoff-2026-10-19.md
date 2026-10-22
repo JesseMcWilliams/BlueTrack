@@ -1,5 +1,7 @@
 # BlueTrack: Handoff, 2026-10-19
 
+> **Archived 2026-10-21:** superseded by `Reference_Handoff-2026-10-21.md`, which carries what is still open.
+
 > **Stage: Reference (point-in-time snapshot).** Written at the end of the 2026-10-19 session for whoever picks the project up next (a person or another Claude session). It says where things stand, how the last two days of work were done, and what to watch for. Facts about the code live in the code and the other `Claude_Docs/` files; this note points at them instead of repeating them.
 
 ## 1. Where things stand

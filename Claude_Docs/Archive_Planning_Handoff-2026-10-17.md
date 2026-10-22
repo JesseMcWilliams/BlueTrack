@@ -1,6 +1,6 @@
 # BlueTrack: Handoff, 2026-10-17
 
-> **Archived 2026-10-18:** superseded by `Planning_Handoff-2026-10-18.md`, which carries its open items and gotchas.
+> **Archived 2026-10-18:** superseded by `Archive_Planning_Handoff-2026-10-18.md`, which carries its open items and gotchas.
 >
 > **Stage: Planning.** Point-in-time snapshot for the next Claude session, written 2026-10-17. Supersedes `Archive_Planning_Handoff-2026-10-15.md` (PRs #124 to #142). Once every open item below is closed, rename this to `Archive_Planning_Handoff-2026-10-17.md` with `git mv`.
 
@@ -51,7 +51,7 @@
 3. **Next release:** `Tools/New-BlueTrackRelease.ps1 -Version x.y.z -Push`, merge its PR, then `-Tag -Push` (D-226); it worked first time for v1.1.0. Wait for the PR's check to finish and gate the merge on it passing.
 4. **LDAPS from DCACYBSQL01** (backlog): the user runs `Tools\Test-BlueTrackLdaps.ps1` there, then adds the domain in BlueTrack.
 5. **Live tests still owed** (backlog, "Built, but never proven"): SIEM forwarding, account classification against the real AD, OAuth2 SMTP, break-glass email, Azure/AWS/Conjur. (The release script and the nightly job are proven and were removed from this list on 2026-10-17.)
-6. **Backlog** (`Planning_Backlog.md`): server-side localization (proposal written: `Planning_Server-Side-Localization.md`; deferred until a second language is planned) and the real-data findings still open, now questions 4 and 6 (Self-Hosted properties with no home, the unread `CAF*` columns, the unused Privilege Cloud columns and exports).
+6. **Backlog** (`Planning_Backlog.md`): server-side localization (proposal written: `Archive_Planning_Server-Side-Localization.md`; deferred until a second language is planned) and the real-data findings still open, now questions 4 and 6 (Self-Hosted properties with no home, the unread `CAF*` columns, the unused Privilege Cloud columns and exports).
 
 ## Gotchas for the next session
 - **Local tests use their own database (D-240).** `dotnet test` and `npm test` default to `BlueTrackTest_Local`; build or reset it with `Tools\Reset-BlueTrackLocalTestDb.ps1` (also after a new numbered script). CI owns `BlueTrackTest`, so a local run no longer breaks a CI run's data. Still don't run Playwright locally while CI runs: the CPU and the ports (4173, 7033) are shared. Check with `gh run list --status in_progress`.
