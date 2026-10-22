@@ -174,6 +174,11 @@ let heartbeatTimer = null
 
 const sortedFields = computed(() => [...fieldMetadata.value].sort((a, b) => a.displayOrder - b.displayOrder))
 
+// D-198/D-291: a field with a RequiredPermission the user lacks is shown read-only (the save refuses a change to it).
+function fieldLocked(field) {
+  return !!field.requiredPermissionName && !rights.hasPermission(field.requiredPermissionName)
+}
+
 // Risk Exception wiring (Design_Risk-Exception-Tracking.md workflow steps
 // 1-2): status can't be set to Risk Accepted / Excluded without linking an
 // Active exception scoped to this account -- the API enforces this, this
@@ -659,17 +664,18 @@ onUnmounted(releaseLock)
             <label class="field-label">
               <span class="field-label-text">{{ field.displayLabel }}<span v-if="field.isRequired"> *</span>:</span>
 
-              <select v-if="field.fieldType === 'Dropdown'" v-model="form[formKeyByFieldName[field.fieldName]]" :required="field.isRequired">
+              <select v-if="field.fieldType === 'Dropdown'" v-model="form[formKeyByFieldName[field.fieldName]]" :required="field.isRequired" :disabled="fieldLocked(field)">
                 <option value="">{{ t('common.none') }}</option>
                 <option v-for="opt in optionsFor(field)" :key="opt.key" :value="opt.key">{{ opt.name }}</option>
               </select>
 
-              <input v-else-if="field.fieldType === 'Date'" v-model="form[formKeyByFieldName[field.fieldName]]" type="date" />
+              <input v-else-if="field.fieldType === 'Date'" v-model="form[formKeyByFieldName[field.fieldName]]" type="date" :disabled="fieldLocked(field)" />
 
-              <textarea v-else-if="field.fieldType === 'TextArea'" v-model="form[formKeyByFieldName[field.fieldName]]"></textarea>
+              <textarea v-else-if="field.fieldType === 'TextArea'" v-model="form[formKeyByFieldName[field.fieldName]]" :disabled="fieldLocked(field)"></textarea>
 
-              <input v-else v-model="form[formKeyByFieldName[field.fieldName]]" type="text" />
+              <input v-else v-model="form[formKeyByFieldName[field.fieldName]]" type="text" :disabled="fieldLocked(field)" />
             </label>
+            <span v-if="fieldLocked(field)" class="hint">{{ t('pages.accountProgressDetail.fieldNeedsPermission', { permission: field.requiredPermissionName }) }}</span>
           </p>
         </div>
 

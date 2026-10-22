@@ -23,6 +23,8 @@ public sealed class MeController(
     CurrentUserResolver currentUserResolver,
     UserRightsResolver rightsResolver,
     UserPreferenceRepository userPreferenceRepository,
+    NegotiateProviderResolver providerResolver,
+    IdentityProviderRepository identityProviderRepository,
     AuditLogger auditLogger) : ControllerBase
 {
     [HttpGet]
@@ -42,6 +44,14 @@ public sealed class MeController(
 
         var rights = await rightsResolver.ResolveAsync(User);
         var preferences = await userPreferenceRepository.GetAllForUserAsync(user.UserKey);
+
+        // D-292: remember the method this browser signed in with, for the sign-in page.
+        if (await identityProviderRepository.GetRememberLastSignInMethodAsync()
+            && await providerResolver.ResolveAsync(User) is { } provider
+            && IdentityProviderRepository.SignInProviderTypes.Contains(provider.ProviderType))
+        {
+            AuthController.RememberLastSignIn(HttpContext, provider.ProviderType);
+        }
 
         return Ok(new
         {

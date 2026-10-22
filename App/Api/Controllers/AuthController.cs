@@ -37,6 +37,29 @@ public sealed class AuthController(IdentityProviderRepository identityProviderRe
     };
 
     /// <summary>
+    /// D-292: the method this browser last signed in with (WindowsIntegrated, OIDC or SAML), written by /api/me
+    /// while RememberLastSignInMethod is on. A persistent cookie, kept on sign-out: it only picks which method the
+    /// sign-in page starts, and grants nothing.
+    /// </summary>
+    public const string LastSignInCookieName = "BlueTrack.LastSignIn";
+
+    public static void RememberLastSignIn(HttpContext context, string providerType) =>
+        context.Response.Cookies.Append(LastSignInCookieName, providerType, new CookieOptions
+        {
+            HttpOnly = true,
+            Secure = true,
+            SameSite = SameSiteMode.Lax,
+            Path = context.Request.PathBase.HasValue ? context.Request.PathBase.Value : "/",
+            MaxAge = TimeSpan.FromDays(365),
+            IsEssential = true,
+        });
+
+    /// <summary>D-205's default, or with D-292's setting on, the method this browser last signed in with.</summary>
+    private Task<string?> EffectiveSignInProviderAsync() =>
+        identityProviderRepository.GetEffectiveSignInProviderAsync(
+            Request.Cookies.TryGetValue(LastSignInCookieName, out var lastUsed) ? lastUsed : null);
+
+    /// <summary>
     /// For a login screen to render its provider choices (D-41: default
     /// provider first, a small link for the rest) -- deliberately excludes
     /// DevFakeAuth's own admin-only config details, returning only what a
@@ -55,8 +78,8 @@ public sealed class AuthController(IdentityProviderRepository identityProviderRe
         {
             providers = providers.Select(p => new { p.ProviderType, p.DisplayName, p.DisplayOrder }),
             negotiateDisabled = authenticationModeInfo.NegotiateDisabled,
-            // D-205: null = no default; the sign-in page lists the methods.
-            defaultProviderType = await identityProviderRepository.GetDefaultSignInProviderAsync()
+            // D-205: null = no default; the sign-in page lists the methods. D-292: or the last-used method.
+            defaultProviderType = await EffectiveSignInProviderAsync()
         });
     }
 
@@ -72,7 +95,7 @@ public sealed class AuthController(IdentityProviderRepository identityProviderRe
     [AllowAnonymous]
     public async Task<IActionResult> GetSession([FromServices] AppConfigRepository appConfigRepository)
     {
-        var defaultProvider = await identityProviderRepository.GetDefaultSignInProviderAsync();
+        var defaultProvider = await EffectiveSignInProviderAsync();
         var chose = Request.Cookies.TryGetValue(SignInChoiceCookieName, out var choice) && choice == WindowsChoice;
         var windowsWanted = !authenticationModeInfo.NegotiateDisabled && (defaultProvider == "WindowsIntegrated" || chose);
         // Found live 2026-10-13: IIS keeps Windows authentication on the TCP connection, so

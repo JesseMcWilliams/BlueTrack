@@ -55,12 +55,18 @@ public sealed class IdentityProvidersController(
         return NoContent();
     }
 
-    public sealed record DefaultSignInProviderBody(string? ProviderType);
+    /// <summary>D-292: RememberLastSignInMethod null (an older client) leaves that setting as it is.</summary>
+    public sealed record DefaultSignInProviderBody(string? ProviderType, bool? RememberLastSignInMethod = null);
 
-    /// <summary>D-205: the default sign-in method as stored (null = none: the sign-in page lists the methods).</summary>
+    /// <summary>
+    /// D-205: the default sign-in method as stored (null = none: the sign-in page lists the methods). D-292: and
+    /// whether the sign-in page starts the method the browser last signed in with instead.
+    /// </summary>
     [HttpGet("default")]
     public async Task<IActionResult> GetDefault() =>
-        Ok(new DefaultSignInProviderBody(await repository.GetStoredDefaultSignInProviderAsync()));
+        Ok(new DefaultSignInProviderBody(
+            await repository.GetStoredDefaultSignInProviderAsync(),
+            await repository.GetRememberLastSignInMethodAsync()));
 
     [HttpPut("default")]
     public async Task<IActionResult> SetDefault([FromBody] DefaultSignInProviderBody body)
@@ -79,6 +85,15 @@ public sealed class IdentityProvidersController(
         await repository.SetDefaultSignInProviderAsync(providerType);
         await auditLogger.LogAsync("ProviderConfigChanged", user.UserKey, "app_config", "DefaultSignInProvider",
             detail: $"Default sign-in method set to {providerType ?? "none (sign-in page lists the methods)"}");
+
+        if (body.RememberLastSignInMethod is bool remember && remember != await repository.GetRememberLastSignInMethodAsync())
+        {
+            await repository.SetRememberLastSignInMethodAsync(remember);
+            await auditLogger.LogAsync("ProviderConfigChanged", user.UserKey, "app_config", "RememberLastSignInMethod",
+                detail: remember
+                    ? "Sign-in page starts the method the browser last signed in with"
+                    : "Sign-in page starts the default sign-in method");
+        }
         return NoContent();
     }
 }

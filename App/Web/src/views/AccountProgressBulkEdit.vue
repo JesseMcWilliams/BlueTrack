@@ -5,8 +5,10 @@
 // with the edit page's own rules, skips accounts someone else is editing,
 // and reports what it skipped and why. Risk Exception isn't offered: a link
 // must be an exception scoped to one account.
+// D-291: a field with a RequiredPermission the user lacks can't be ticked.
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { useRightsStore } from '../stores/rights'
 import { useAccountSelectionStore } from '../stores/accountSelection'
 import { useListStateStore } from '../stores/listState'
 import { formatCount } from '../utils/formatCount'
@@ -18,12 +20,14 @@ const { t } = useI18n()
 const router = useRouter()
 const listState = useListStateStore()
 const selection = useAccountSelectionStore()
+const rights = useRightsStore()
 
 const referenceData = ref({})
 const saving = ref(false)
 const error = ref(null)
 const referenceError = ref(null) // UI review W2-9: without the reference data the dropdowns are empty, so say so
 const result = ref(null)
+const requiredPermissions = ref({}) // field name -> permission name, from the field metadata
 
 const fields = [
   { field: 'CurrentStageKey', labelKey: 'pages.accountProgressBulkEdit.fieldStage', type: 'select', table: 'dim_blueprint_stage', required: true },
@@ -46,6 +50,11 @@ const reason = ref('')
 
 const chosen = computed(() => fields.filter(f => change.value[f.field]).map(f => f.field))
 
+function lockedBy(f) {
+  const permission = requiredPermissions.value[f.field]
+  return permission && !rights.hasPermission(permission) ? permission : null
+}
+
 onMounted(async () => {
   try {
     const response = await fetch('/api/account-progress/reference-data')
@@ -53,6 +62,17 @@ onMounted(async () => {
     else referenceError.value = t('pages.accountProgressBulkEdit.referenceFailed', { status: response.status })
   } catch {
     referenceError.value = t('pages.accountProgressBulkEdit.referenceFailed', { status: 0 })
+  }
+  try {
+    // Without it every field stays offered; the API still skips a change the user may not make.
+    const response = await fetch('/api/account-progress/field-metadata')
+    if (response.ok) {
+      requiredPermissions.value = Object.fromEntries((await response.json())
+        .filter(m => m.requiredPermissionName)
+        .map(m => [m.fieldName, m.requiredPermissionName]))
+    }
+  } catch {
+    // as above
   }
 })
 
@@ -113,8 +133,8 @@ function backToList() {
         <thead><tr><th>{{ t('pages.accountProgressBulkEdit.change') }}</th><th>{{ t('pages.accountProgressBulkEdit.field') }}</th><th>{{ t('pages.accountProgressBulkEdit.newValue') }}</th></tr></thead>
         <tbody>
           <tr v-for="f in fields" :key="f.field">
-            <td><input v-model="change[f.field]" type="checkbox" :aria-label="t('pages.accountProgressBulkEdit.changeField', { field: t(f.labelKey) })" /></td>
-            <td>{{ t(f.labelKey) }}</td>
+            <td><input v-model="change[f.field]" type="checkbox" :disabled="!!lockedBy(f)" :aria-label="t('pages.accountProgressBulkEdit.changeField', { field: t(f.labelKey) })" /></td>
+            <td>{{ t(f.labelKey) }}<span v-if="lockedBy(f)" class="hint"> {{ t('pages.accountProgressBulkEdit.fieldNeedsPermission', { permission: lockedBy(f) }) }}</span></td>
             <td>
               <select v-if="f.type === 'select'" v-model="values[f.field]" :disabled="!change[f.field]" :aria-label="t(f.labelKey)" :required="change[f.field] && f.required">
                 <option v-if="!f.required" :value="null">{{ t('common.blank') }}</option>

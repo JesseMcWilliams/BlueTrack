@@ -66,6 +66,8 @@ instead.
 | 48 | `48_BlueTrack_SelfHostedDirectExtras.sql` | D-280 to D-282, Self-Hosted Direct beyond REST. D-280: `dbo.cyberark_direct_account_detail` (the classic account details cache), `stg_shd_account_details`, `fact_account` `DeviceType`, `CreationMethod`, `LinkedLogonAccount(Key)`, `LinkedReconcileAccount(Key)`, `usp_Load_FactAccountClassicDetail`, `vw_powerbi_accounts` with the four text columns at the end. D-282: `stg_shd_applications`, `stg_shd_application_authentications`, `dim_cyberark_application(_authentication)`, `usp_Load_DimCyberArkApplication`, `vw_cyberark_application_account_access`. D-281: `usp_Load_GroupMembership` loads Self-Hosted Vault group members; `stg_shd_ad_group_reads`/`_members`, `ad_group_member`, `ad_group_read`, `usp_Apply_AdGroupMembers` (also run by the API's standalone AD read when Self-Hosted is off), `usp_Load_AdGroupMembers`, `vw_safe_access_people`. Recreates `usp_RunFullLoad` with the three new steps. |
 | 49 | `49_BlueTrack_ProgressRulesAndStages.sql` | D-283 to D-287. D-284: `dim_blueprint_stage.IsStartStage` and `Milestone` (marked from the seeded names), `fn_StartStageKey`, `fn_MilestoneStageKey/Order`; recreates `usp_Load_FactAccountProgress` and `usp_Link_FeedAccounts` to use them. D-283: `web.progress_rule`, `web.progress_rule_condition`, `fact_account_progress.LastAdvancedByRuleKey/At`, `fn_ProgressAccountFields`, `fn_ProgressConditionMatches`, `usp_Preview_ProgressRule`, and `usp_Load_AccountProgressAutoAdvance` now applies the rules (the old fixed rule is seeded as the first). The `ManageProgressRules` permission (Admin), the ProgressRuleChanged and BlueprintStageChanged audit types, the 'BlueTrack sign-in (system)' user (D-285), and the SignInRejected and SamlCertificateExpiring notification types (off). |
 | 50 | `50_BlueTrack_CpmHealth.sql` | D-288: `fact_account.CpmFailureSince`, `dim_platform.RequirePsm`, `usp_Load_CpmHealth`, `vw_cpm_health`; `fn_ProgressAccountFields` adds RequiresPsm; recreates `usp_RunFullLoad` with the CPM step; the CpmHealth notification type (off). |
+| 51 | `51_BlueTrack_SeedFieldPermissions.sql` | D-291: default `RequiredPermission` on six Account Progress fields (Account Type, Source of Record, Application, Blueprint Stage, Actual Completion Date, Risk Level), only where none is set. |
+| 52 | `52_BlueTrack_RememberLastSignIn.sql` | D-292: `web.app_config.RememberLastSignInMethod` (off). |
 
 ## The baseline (D-195)
 
@@ -90,7 +92,7 @@ scripts but not up to `51` is refused; upgrade it first from the
 
 ## Adding a script
 
-1. Name it `NN_BlueTrack_<Topic>.sql`, with `NN` the next number (`51` is next).
+1. Name it `NN_BlueTrack_<Topic>.sql`, with `NN` the next number (`53` is next).
 2. Start with a header comment: the file name, `RUN THIS AFTER 01-NN.`, what
    it changes and why (with the `D-n` decision), and whether it's safe to
    re-run.

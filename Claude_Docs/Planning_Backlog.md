@@ -5,8 +5,6 @@
 ## Requested, not started
 - **Privilege Cloud Direct** (requested 2026-10-19, with Self-Hosted Direct, D-248): read Privilege Cloud through its API into `stg_pc_*` instead of the export folder, as a fourth option on the CyberArk sources page (already listed there, unavailable). Needs the Privilege Cloud API's logon (an Identity OAuth client, `Platform/Developer` and `PAM/Privilege-Cloud-Standard` in the Idira reference), a lab tenant, and the same change guard.
 - **Chosen 2026-10-21, built in this order** (D-289, D-290), each its own PR:
-  1. **Seed per-field permissions** (D-291): Account Type and Source of Record need `CuratePlatformMapping`; Application `CurateApplicationMapping`; Blueprint Stage and Actual Completion Date `ConfirmReconciliation`; Risk Level `ManageTargets`; the rest nothing extra. Set only where none is set.
-  2. **Default sign-in provider setting** (D-292): lowest display order (today's behaviour, the default) or last used on this browser, falling back to the lowest order.
   3. **Platform Mapping suggestions** (D-293): from the same platform ID already mapped in the other source first, then platform-name keywords; group platforms skipped; the admin accepts each.
   4. **Number and date formats** (D-294): check the SPA for values not formatted by `utils/formatLocale.js`; an installation-wide format culture (default `en-US`) for server-written text (emails, feed run summaries); CSV exports stay invariant.
   5. **Tamper-evident audit log** (D-295): a keyed hash chain with a Verify and a purge checkpoint; SQL Server Audit on the audit tables to the Windows Security log (installer step); SIEM forwarding (D-234) documented as the off-server copy.

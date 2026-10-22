@@ -22,6 +22,7 @@
 // D-205: the default sign-in method (GET/PUT .../identity-providers/default;
 // none = the sign-in page lists the methods), and each method's direct
 // sign-in address -- what to put in an IdP's launch URL or hand to users.
+// D-292: "Remember each browser's last method", saved with the default.
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { confirmDelete } from '../../composables/useConfirmDialog'
@@ -37,6 +38,7 @@ const providers = ref([])
 const error = ref(null)
 const loading = ref(true)
 const defaultProviderType = ref('')
+const rememberLastSignIn = ref(false)
 const savingDefault = ref(false)
 const defaultSaved = ref(false)
 
@@ -62,7 +64,11 @@ async function load() {
     ])
     if (!response.ok) throw new Error(t('common.requestFailed', { status: response.status }))
     providers.value = await response.json()
-    if (defaultResponse.ok) defaultProviderType.value = (await defaultResponse.json()).providerType ?? ''
+    if (defaultResponse.ok) {
+      const data = await defaultResponse.json()
+      defaultProviderType.value = data.providerType ?? ''
+      rememberLastSignIn.value = data.rememberLastSignInMethod === true
+    }
   } catch (err) {
     error.value = err.message
   } finally {
@@ -80,7 +86,7 @@ async function saveDefault() {
     const response = await fetch('/api/admin/identity-providers/default', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ providerType: defaultProviderType.value || null })
+      body: JSON.stringify({ providerType: defaultProviderType.value || null, rememberLastSignInMethod: rememberLastSignIn.value })
     })
     if (!response.ok) {
       error.value = t('admin.identityProviders.saveDefaultFailed', { status: response.status })
@@ -148,9 +154,14 @@ async function remove(provider) {
             <option v-for="type in signInTypes" :key="type" :value="type">{{ type }}{{ isEnabledType(type) ? '' : ' ' + t('admin.identityProviders.disabled') }}</option>
           </select>
         </label>
+        <label>
+          <input v-model="rememberLastSignIn" type="checkbox" @change="defaultSaved = false" />
+          {{ t('admin.identityProviders.rememberLastSignIn') }}
+        </label>
         <button type="submit" :disabled="savingDefault">{{ t('common.save') }}</button>
       </form>
       <p v-if="defaultSaved" role="status">{{ t('admin.identityProviders.defaultSaved') }}</p>
+      <p>{{ t('admin.identityProviders.rememberLastSignInHint') }}</p>
       <p>
         {{ t('admin.identityProviders.defaultHint') }}
       </p>
