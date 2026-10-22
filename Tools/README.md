@@ -47,6 +47,15 @@ Every script has full help: `Get-Help .\Test-BlueTrackSso.ps1 -Full`. Add `-Verb
 - **An LDAPS bind from a domain controller to itself doesn't answer**; the script gives up after 30 seconds and says so. Run it from another host.
 - The API calls use Windows authentication as the account running the script, so it needs the matching permissions; a check it can't make for lack of one is a `WARN`, not a failure.
 
+## SBOMs (`New-BlueTrackSbom.ps1`)
+
+Writes the CycloneDX JSON SBOMs (D-297) to `Sbom\`: `BlueTrack.Api.cdx.json`, `BlueTrack.Migrator.cdx.json` and `BlueTrack.Web.cdx.json`, each listing every package with its version, package URL, licence and hashes. The release tool runs it with the release version; run it by hand after changing packages:
+```powershell
+.\New-BlueTrackSbom.ps1                  # version from App\Api\BlueTrack.Api.csproj
+.\New-BlueTrackSbom.ps1 -Version 1.6.0
+```
+It needs the .NET SDK and Node.js (npx downloads the pinned npm tool the first time); it runs `dotnet tool restore` for the pinned CycloneDX for .NET tool in `dotnet-tools.json`.
+
 ## Making a release (`New-BlueTrackRelease.ps1`)
 
 A release takes two runs, because `main` changes only through a pull request (D-226). Run it in your clone of the repository (not on the server), with git, Python 3 with `python-docx` and, for `-Push`, the GitHub CLI signed in. `-WhatIf` shows what a run would do (it still fetches).
@@ -55,7 +64,7 @@ A release takes two runs, because `main` changes only through a pull request (D-
    ```powershell
    .\New-BlueTrackRelease.ps1 -Version 1.1.0 -Push   # add -Date 2026-10-20 to date it other than today
    ```
-   It checks that the version is greater than the latest `v*` tag, that neither the tag nor the release branch exists, and that the Unreleased section of `User_Docs\Release_Notes.md` lists something. Then, on a new branch `YYYY-MM-DD-release-v1.1.0`, it sets `<Version>` in `App\Api\BlueTrack.Api.csproj`, renames Unreleased to `## 1.1.0 (date)` (dropping empty subsections), rebuilds `Published_Docs\`, adds a new empty Unreleased section and commits `Release v1.1.0`. `-Push` pushes the branch and opens the pull request; without it, the script prints the commands. If a step fails before the commit, the branch is removed and you're back on `main`.
+   It checks that the version is greater than the latest `v*` tag, that neither the tag nor the release branch exists, and that the Unreleased section of `User_Docs\Release_Notes.md` lists something. Then, on a new branch `YYYY-MM-DD-release-v1.1.0`, it sets `<Version>` in `App\Api\BlueTrack.Api.csproj`, renames Unreleased to `## 1.1.0 (date)` (dropping empty subsections), rebuilds `Published_Docs\`, writes the SBOMs in `Sbom\` for 1.1.0 (`New-BlueTrackSbom.ps1`, below), adds a new empty Unreleased section and commits `Release v1.1.0`. `-Push` pushes the branch and opens the pull request; without it, the script prints the commands. If a step fails before the commit, the branch is removed and you're back on `main`.
 2. **Merge** the pull request (a merge or a squash).
 3. **Tag**, from anywhere in the clone:
    ```powershell

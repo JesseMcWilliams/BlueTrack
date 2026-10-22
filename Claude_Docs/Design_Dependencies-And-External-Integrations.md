@@ -170,6 +170,17 @@ Not external dependencies, but the top-level internal modules a change is likely
 | `Secrets/` | `IVaultSecretProvider`/`ILocalSecretProtector` implementations (2.2/2.3) |
 | `Siem/` | SIEM forwarding (2.6a): CEF and syslog formatting, the TCP/TLS transport, the forwarder and its background service |
 
+## SBOMs (D-297)
+
+`Sbom/` holds CycloneDX 1.6 JSON SBOMs of what is installed on a server: `BlueTrack.Api.cdx.json` (the NuGet packages of `App/Api`, with transitive ones), `BlueTrack.Migrator.cdx.json` (`App/Migrator`) and `BlueTrack.Web.cdx.json` (the npm packages in the built site, from `package-lock.json`; build-only packages left out). Each component has its version, package URL, licence and hashes. `Tools/New-BlueTrackSbom.ps1` writes them; the release tool runs it with the release version.
+
+| Tool | Version | Licence | How it runs |
+|---|---|---|---|
+| CycloneDX (CycloneDX for .NET) | 6.2.0 (2026-04-27) | Apache-2.0 | .NET local tool, pinned in `dotnet-tools.json` (`dotnet tool restore`) |
+| @cyclonedx/cyclonedx-npm | 6.0.1 (2026-08-11) | Apache-2.0 | `npx --yes @cyclonedx/cyclonedx-npm@6.0.1`, pinned in the script; not a project dependency |
+
+Versions and licences from nuget.org's registration index and `npm view` on 2026-10-21. The newer CycloneDX for .NET releases (6.2.1 on 2026-10-11, 6.3.0 and 6.3.1 on 2026-10-12) were under two weeks old and not taken. The SBOMs don't cover the server prerequisites in section 1.
+
 ## Maintenance
 
 This document is a snapshot, not a live report — it goes stale the moment a package is added/upgraded or a new external integration is wired up without a matching edit here. When you touch a `.csproj`/`package.json`, or add a new `IVaultSecretProvider`/authentication provider/outbound `HttpClient`, update the relevant section above in the same change.

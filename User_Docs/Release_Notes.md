@@ -9,6 +9,7 @@ What changed in each BlueTrack release, newest first, for users and administrato
 - **Admin > Identity Providers**: **Remember each browser's last method**. When ticked, the sign-in page starts the method that browser last signed in with instead of the default.
 - **Admin > Platform Mapping** suggests an account type and source of record for each unmapped platform: the mapping of the same platform in the other CyberArk source, or one that fits a word in the platform's name (Windows domain, Unix, Oracle and so on). **Use** fills in one, **Fill in suggestions** fills in all of them; nothing is saved until you click Save on the row. Group platforms get no suggestion.
 - **Global Application Configuration**: **Number and date format** (for example en-US, en-GB or de-DE) for the emails and the run summaries the server writes. It shows an example as you type.
+- **SBOMs**: each release now includes CycloneDX software bills of materials for the API, the database migrator and the web app (`Sbom/` in the repository), listing every package with its version and licence.
 - **Tamper-evident audit log**: BlueTrack seals every audit event as it is written. **Verify** on the Audit Log page checks the seals and shows any event that was changed or deleted outside BlueTrack, and the new **AuditChainBroken** notification runs that check every day. The installer can also record every change to the audit log in the Windows Security log (SQL Server Audit).
 
 ### Changed

@@ -1,0 +1,2367 @@
+{
+  "bomFormat": "CycloneDX",
+  "specVersion": "1.6",
+  "version": 1,
+  "metadata": {
+    "timestamp": "2026-10-22T04:36:26Z",
+    "tools": {
+      "components": [
+        {
+          "type": "application",
+          "authors": [
+            {
+              "name": "CycloneDX"
+            }
+          ],
+          "name": "CycloneDX module for .NET",
+          "version": "6.2.0.0",
+          "externalReferences": [
+            {
+              "url": "https://github.com/CycloneDX/cyclonedx-dotnet",
+              "type": "website"
+            }
+          ]
+        }
+      ]
+    },
+    "component": {
+      "type": "application",
+      "bom-ref": "BlueTrack.Api@1.5.0",
+      "name": "BlueTrack.Api",
+      "version": "1.5.0"
+    }
+  },
+  "components": [
+    {
+      "type": "library",
+      "bom-ref": "pkg:nuget/AWSSDK.Core@4.0.102.1",
+      "authors": [
+        {
+          "name": "Amazon Web Services"
+        }
+      ],
+      "name": "AWSSDK.Core",
+      "version": "4.0.102.1",
+      "description": "The Amazon Web Services SDK for .NET - Core Runtime",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "B12C4C2D2E6529861045D74BA0E723F773E494071EE56D197F4EE04DED112021805186482156E507963FD776ABCBFD7A5E012F9B90ACDF9BC2C60710E23E7060"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0"
+          }
+        }
+      ],
+      "purl": "pkg:nuget/AWSSDK.Core@4.0.102.1",
+      "externalReferences": [
+        {
+          "url": "https://github.com/aws/aws-sdk-net/",
+          "type": "website"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:nuget/AWSSDK.SecretsManager@4.0.100.11",
+      "authors": [
+        {
+          "name": "Amazon Web Services"
+        }
+      ],
+      "name": "AWSSDK.SecretsManager",
+      "version": "4.0.100.11",
+      "description": "AWS Secrets Manager enables you to easily create and manage the secrets that you use in your customer-facing apps. Instead of embedding credentials into your source code, you can dynamically query Secrets Manager from your app whenever you need credentials. You can automatically and frequently rotate your secrets without having to deploy updates to your apps. All secret values are encrypted when they\u0027re at rest with AWS KMS, and while they\u0027re in transit with HTTPS and TLS.",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "563F5D7EFCE6598F812573C4DC79EA67E1E448A95FB14546C2DBCF439116CB2F1FA4A9A834DF7816C3AB4F1B87DCB9E6C61BCBA57BC17D6B5DB3F1055B5FB46B"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0"
+          }
+        }
+      ],
+      "purl": "pkg:nuget/AWSSDK.SecretsManager@4.0.100.11",
+      "externalReferences": [
+        {
+          "url": "https://github.com/aws/aws-sdk-net/",
+          "type": "website"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:nuget/Azure.Core@1.54.0",
+      "authors": [
+        {
+          "name": "Microsoft"
+        }
+      ],
+      "name": "Azure.Core",
+      "version": "1.54.0",
+      "description": "This is the implementation of the Azure Client Pipeline",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "FA82BE114959CECCABB83595D564866FA8306268F240A4692852385B2DCFCAC7AA478B80364CD1293309773D758D5B6B9E08C5D421F389AC73BF5B5530C58FAD"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "copyright": "\u00A9 Microsoft Corporation. All rights reserved.",
+      "purl": "pkg:nuget/Azure.Core@1.54.0",
+      "externalReferences": [
+        {
+          "url": "https://github.com/Azure/azure-sdk-for-net/blob/Azure.Core_1.54.0/sdk/core/Azure.Core/README.md",
+          "type": "website"
+        },
+        {
+          "url": "https://github.com/Azure/azure-sdk-for-net",
+          "type": "vcs"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:nuget/Azure.Identity@1.21.0",
+      "authors": [
+        {
+          "name": "Microsoft"
+        }
+      ],
+      "name": "Azure.Identity",
+      "version": "1.21.0",
+      "description": "Provides APIs for authenticating to Microsoft Entra ID",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "883290B76DE80DFD4B18F03A0090BFD242839B7D1C2853576BA19F908C161DF83C33E53F56FB7EEE313F45B15C0BFEA0ED84CBCD6866E27C445C158D595E7AA0"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "copyright": "\u00A9 Microsoft Corporation. All rights reserved.",
+      "purl": "pkg:nuget/Azure.Identity@1.21.0",
+      "externalReferences": [
+        {
+          "url": "https://github.com/Azure/azure-sdk-for-net/blob/Azure.Identity_1.21.0/sdk/identity/Azure.Identity/README.md",
+          "type": "website"
+        },
+        {
+          "url": "https://github.com/Azure/azure-sdk-for-net",
+          "type": "vcs"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:nuget/Azure.Security.KeyVault.Secrets@4.11.1",
+      "authors": [
+        {
+          "name": "Microsoft"
+        }
+      ],
+      "name": "Azure.Security.KeyVault.Secrets",
+      "version": "4.11.1",
+      "description": "This is the Microsoft Azure Key Vault Secrets client library",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "0288CFBDE1D3CC7218570A7F3D6C679A625CD181198A4AF06DAB98C89DD427DEC58532EDB36C1B73AE9812C4FDA4C2AF2CE077A6AFEC5CD2027BF7493F652402"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "copyright": "\u00A9 Microsoft Corporation. All rights reserved.",
+      "purl": "pkg:nuget/Azure.Security.KeyVault.Secrets@4.11.1",
+      "externalReferences": [
+        {
+          "url": "https://github.com/Azure/azure-sdk-for-net/blob/Azure.Security.KeyVault.Secrets_4.11.1/sdk/keyvault/Azure.Security.KeyVault.Secrets/README.md",
+          "type": "website"
+        },
+        {
+          "url": "https://github.com/Azure/azure-sdk-for-net",
+          "type": "vcs"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:nuget/BouncyCastle.Cryptography@2.6.2",
+      "authors": [
+        {
+          "name": "Legion of the Bouncy Castle Inc."
+        }
+      ],
+      "name": "BouncyCastle.Cryptography",
+      "version": "2.6.2",
+      "description": "BouncyCastle.NET is a popular cryptography library for .NET",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "4E1A32F937EEBBA134F1C6646C0B554EDAA1BC41969DEC5816D11C3C285906E106377113EA6C1CB0B161749FF08AE8AD39DF05956B62ABE2274D4B3060F0DAEF"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "copyright": "Copyright \u00A9 Legion of the Bouncy Castle Inc. 2000-2025",
+      "purl": "pkg:nuget/BouncyCastle.Cryptography@2.6.2",
+      "externalReferences": [
+        {
+          "url": "https://www.bouncycastle.org/stable/nuget/csharp/website",
+          "type": "website"
+        },
+        {
+          "url": "https://github.com/bcgit/bc-csharp",
+          "type": "vcs"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:nuget/ClosedXML@0.105.1",
+      "authors": [
+        {
+          "name": "Jan Havl\u00ED\u010Dek, Francois Botha, Aleksei Pankratev, Manuel de Leon, Amir Ghezelbash"
+        }
+      ],
+      "name": "ClosedXML",
+      "version": "0.105.1",
+      "description": "See release notes https://github.com/ClosedXML/ClosedXML/releases/tag/0.105.1 ClosedXML is a .NET library for reading, manipulating and writing Excel 2007\u002B (.xlsx, .xlsm) files. It aims to provide an intuitive and user-friendly interface to dealing with the underlying OpenXML API.",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "2EA13F76207E73888B6BEF8EABF6E2C9DDD9D053C3F4F34295D8402841325416DC32EBD9C712D39B6604589161B2681A5993495E2DE3FD05B73D05DE9DEF12AE"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "purl": "pkg:nuget/ClosedXML@0.105.1",
+      "externalReferences": [
+        {
+          "url": "https://github.com/ClosedXML/ClosedXML",
+          "type": "website"
+        },
+        {
+          "url": "https://github.com/ClosedXML/ClosedXML",
+          "type": "vcs"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:nuget/ClosedXML.Parser@2.0.0",
+      "authors": [
+        {
+          "name": "Jan Havl\u00ED\u010Dek"
+        }
+      ],
+      "name": "ClosedXML.Parser",
+      "version": "2.0.0",
+      "description": "A lexer and parser of Excel formulas with focus on performance. Its goal is to create\n      an abstract syntax tree from a formula text to enable formula evaluation.",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "2C101827313F68921BE3B1B0ACB71CD93D559230411A8F8A1B549D2F8BCD885D90B65E0980D595F36A7EDB4C36C745D69D23C4511C8027C94FEF4F3D6B2C6175"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "purl": "pkg:nuget/ClosedXML.Parser@2.0.0",
+      "externalReferences": [
+        {
+          "url": "https://github.com/ClosedXML/ClosedXML.Parser",
+          "type": "website"
+        },
+        {
+          "url": "https://github.com/ClosedXML/ClosedXML.Parser",
+          "type": "vcs"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:nuget/CsvHelper@33.1.0",
+      "authors": [
+        {
+          "name": "Josh Close"
+        }
+      ],
+      "name": "CsvHelper",
+      "version": "33.1.0",
+      "description": "A library for reading and writing CSV files. Extremely fast, flexible, and easy to use. Supports reading and writing of custom class objects.",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "D59573DBE265B9996A3612562B62B90A414ABF63155260A69B06D99755E407AB2A76D468C8426533E1E34F94860F92336D48D47B0D192C3D8F3391E779B49D78"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MS-PL"
+          }
+        },
+        {
+          "license": {
+            "id": "Apache-2.0"
+          }
+        }
+      ],
+      "copyright": "Copyright \u00A9 2009-2024 Josh Close",
+      "purl": "pkg:nuget/CsvHelper@33.1.0",
+      "externalReferences": [
+        {
+          "url": "https://joshclose.github.io/CsvHelper/",
+          "type": "website"
+        },
+        {
+          "url": "https://github.com/JoshClose/CsvHelper",
+          "type": "vcs"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:nuget/Dapper@2.1.79",
+      "authors": [
+        {
+          "name": "Sam Saffron,Marc Gravell,Nick Craver"
+        }
+      ],
+      "name": "Dapper",
+      "version": "2.1.79",
+      "description": "A high performance Micro-ORM supporting SQL Server, MySQL, Sqlite, SqlCE, Firebird etc. Major Sponsor: Dapper Plus from ZZZ Projects.",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "467DFE635E23F4E9B2928432AF0033B121E9E73EAE92C5D611B78C927B099F3BFE16BC9F16A23C07CDDEAFE2461548D57ACDA1735DDE274C4AC2946770FF91F1"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0"
+          }
+        }
+      ],
+      "copyright": "2019 Stack Exchange, Inc.",
+      "purl": "pkg:nuget/Dapper@2.1.79",
+      "externalReferences": [
+        {
+          "url": "https://github.com/DapperLib/Dapper",
+          "type": "website"
+        },
+        {
+          "url": "https://github.com/DapperLib/Dapper",
+          "type": "vcs"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:nuget/DocumentFormat.OpenXml@3.1.1",
+      "authors": [
+        {
+          "name": "Microsoft"
+        }
+      ],
+      "name": "DocumentFormat.OpenXml",
+      "version": "3.1.1",
+      "description": "The Open XML SDK provides tools for working with Office Word, Excel, and PowerPoint documents. It supports scenarios such as:\n\n- High-performance generation of word-processing documents, spreadsheets, and presentations.\n- Populating content in Word files from an XML data source.\n- Splitting up (shredding) a Word or PowerPoint file into multiple files, and combining multiple Word/PowerPoint files into a single file.\n- Extraction of data from Excel documents.\n- Searching and replacing content in Word/PowerPoint using regular expressions.\n- Updating cached data and embedded spreadsheets for charts in Word/PowerPoint.\n- Document modification, such as removing tracked revisions or removing unacceptable content from documents.",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "6F86FD67FEF251EDE087EC2F9B108FAD2D2E1714E81170A465A1EB877975DEFB976E2C9107B2FECD24F2B8F6892EC71ECD0DAD199CF41A235CA27319065E6B89"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "copyright": "\u00A9 Microsoft Corporation. All rights reserved.",
+      "purl": "pkg:nuget/DocumentFormat.OpenXml@3.1.1",
+      "externalReferences": [
+        {
+          "url": "https://github.com/dotnet/Open-XML-SDK",
+          "type": "website"
+        },
+        {
+          "url": "https://github.com/dotnet/Open-XML-SDK",
+          "type": "vcs"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:nuget/DocumentFormat.OpenXml.Framework@3.1.1",
+      "authors": [
+        {
+          "name": "Microsoft"
+        }
+      ],
+      "name": "DocumentFormat.OpenXml.Framework",
+      "version": "3.1.1",
+      "description": "The Open XML SDK provides tools for working with Office Word, Excel, and PowerPoint documents. It supports scenarios such as:\n\n- High-performance generation of word-processing documents, spreadsheets, and presentations.\n- Populating content in Word files from an XML data source.\n- Splitting up (shredding) a Word or PowerPoint file into multiple files, and combining multiple Word/PowerPoint files into a single file.\n- Extraction of data from Excel documents.\n- Searching and replacing content in Word/PowerPoint using regular expressions.\n- Updating cached data and embedded spreadsheets for charts in Word/PowerPoint.\n- Document modification, such as removing tracked revisions or removing unacceptable content from documents.",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "1A00B46A1BD8271A5B72233DEBC004B6FFDA859890EFE403ABE6AA5BE385EAA0571EC277CEC38D22AFCBA1B8EC82428980B98745D02486095007B19CC4000CBF"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "copyright": "\u00A9 Microsoft Corporation. All rights reserved.",
+      "purl": "pkg:nuget/DocumentFormat.OpenXml.Framework@3.1.1",
+      "externalReferences": [
+        {
+          "url": "https://github.com/dotnet/Open-XML-SDK",
+          "type": "website"
+        },
+        {
+          "url": "https://github.com/dotnet/Open-XML-SDK",
+          "type": "vcs"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:nuget/ExcelNumberFormat@1.1.0",
+      "authors": [
+        {
+          "name": "ExcelNumberFormat developers"
+        }
+      ],
+      "name": "ExcelNumberFormat",
+      "version": "1.1.0",
+      "description": ".NET library to parse ECMA-376 number format strings and format values like Excel and other spreadsheet softwares.",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "05A8D0BC9B8F0ACE98C38873220D7C594DC6B5B5B7CD827083C9D618F25A67C6EFC738546F8D7DA0FD9086843EF047FBDD5A3F74DBD9BD0023B3945801CDFE87"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "purl": "pkg:nuget/ExcelNumberFormat@1.1.0",
+      "externalReferences": [
+        {
+          "url": "https://github.com/andersnm/ExcelNumberFormat",
+          "type": "website"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:nuget/ITfoxtec.Identity.Saml2@4.20.1",
+      "authors": [
+        {
+          "name": "Anders Revsgaard"
+        }
+      ],
+      "name": "ITfoxtec.Identity.Saml2",
+      "version": "4.20.1",
+      "description": "Open-source SAML 2.0 / SAML-P support for .NET and ASP.NET applications acting as an Identity Provider (IdP), Service Provider (SP), or Relying Party (RP). Supports login, logout, metadata, RSA and ECDSA signing, validation allowlists, configurable AES-CBC/AES-GCM assertion encryption, RSA key encryption, decryption, Redirect, POST, and Artifact bindings, Azure Key Vault certificate scenarios, and tested interoperability with Microsoft Entra ID, AD FS, Azure AD B2C, NemLog-in/OIOSAML, and other SAML 2.0 solutions. The README explains when to implement SAML 2.0 directly with the package and when FoxIDs can act as an external SAML 2.0 bridge for applications that already support OpenID Connect or WS-Federation.",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "A6CE1FCDE73A71AD86CA7DFB0C8042FE27C6D6EFAE7DEE24D680CFF049A43AEBAB3227FB933C713FF420386534E4AE31F611136CC27DA2AABD2D8B7FA64617C7"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "BSD-3-Clause"
+          }
+        }
+      ],
+      "copyright": "Copyright \u00A9 2026",
+      "purl": "pkg:nuget/ITfoxtec.Identity.Saml2@4.20.1",
+      "externalReferences": [
+        {
+          "url": "https://www.foxids.com/components/identitysaml2",
+          "type": "website"
+        },
+        {
+          "url": "https://github.com/ITfoxtec/ITfoxtec.Identity.Saml2",
+          "type": "vcs"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:nuget/ITfoxtec.Identity.Saml2.MvcCore@4.20.1",
+      "authors": [
+        {
+          "name": "Anders Revsgaard"
+        }
+      ],
+      "name": "ITfoxtec.Identity.Saml2.MvcCore",
+      "version": "4.20.1",
+      "description": "ASP.NET Core MVC integration helpers for implementing SAML 2.0 with ITfoxtec.Identity.Saml2. Adds SAML 2.0 service and middleware registration, request conversion, cookie authentication integration, and IActionResult helpers for SAML 2.0 login, logout, metadata, Redirect, POST, Artifact, and SOAP responses. Includes the core library\u0027s modern RSA/ECDSA signature validation and configurable assertion encryption support. The README explains when to implement SAML 2.0 directly in ASP.NET Core and when FoxIDs can act as an external SAML 2.0 bridge for applications that already support OpenID Connect or WS-Federation.",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "5576229C3D497596BE92ABEFD9EBF8D3D88B1848153568FEFA9FFC9008CE2D722DCFD8B37BC734471B357897DE1730FA62336F8D11245311B1D637043EE1CBA0"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "BSD-3-Clause"
+          }
+        }
+      ],
+      "copyright": "Copyright \u00A9 2026",
+      "purl": "pkg:nuget/ITfoxtec.Identity.Saml2.MvcCore@4.20.1",
+      "externalReferences": [
+        {
+          "url": "https://www.foxids.com/components/identitysaml2",
+          "type": "website"
+        },
+        {
+          "url": "https://github.com/ITfoxtec/ITfoxtec.Identity.Saml2",
+          "type": "vcs"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:nuget/MailKit@4.17.0",
+      "authors": [
+        {
+          "name": "Jeffrey Stedfast"
+        }
+      ],
+      "name": "MailKit",
+      "version": "4.17.0",
+      "description": "An Open Source .NET mail-client library for Windows, Mac, Linux, and mobile platforms such as iOS and Android.",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "78ECBF64372675E0FBE9A9D7A6F8B2658CA797B938E458705884001D4F16D3FBB278A6EC2A8D8C12D414983E67DB01DE4001B328270846DD8B8D92572C2EA43F"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "copyright": ".NET Foundation and Contributors",
+      "purl": "pkg:nuget/MailKit@4.17.0",
+      "externalReferences": [
+        {
+          "url": "http://www.mimekit.net/",
+          "type": "website"
+        },
+        {
+          "url": "https://github.com/jstedfast/MailKit",
+          "type": "vcs"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:nuget/Microsoft.AspNetCore.Authentication.Negotiate@10.0.13",
+      "authors": [
+        {
+          "name": "Microsoft"
+        }
+      ],
+      "name": "Microsoft.AspNetCore.Authentication.Negotiate",
+      "version": "10.0.13",
+      "description": "ASP.NET Core authentication handler used to authenticate requests using Negotiate, Kerberos, or NTLM.\n\nThis package was built from the source code at https://github.com/dotnet/dotnet/tree/4099f83977f4d29604a9aeb971fb0a7bc1d5f699",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "349E70A1B4D972557DFE1C8288A7F2A7EF34313BB46A83709BFB4C6E9FEF264B81D452382D0DF679D05C0C5E641FDE572356139990E911C654169E47F6CE82A1"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "copyright": "\u00A9 Microsoft Corporation. All rights reserved.",
+      "purl": "pkg:nuget/Microsoft.AspNetCore.Authentication.Negotiate@10.0.13",
+      "externalReferences": [
+        {
+          "url": "https://asp.net/",
+          "type": "website"
+        },
+        {
+          "url": "https://github.com/dotnet/dotnet",
+          "type": "vcs"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:nuget/Microsoft.AspNetCore.Authentication.OpenIdConnect@10.0.13",
+      "authors": [
+        {
+          "name": "Microsoft"
+        }
+      ],
+      "name": "Microsoft.AspNetCore.Authentication.OpenIdConnect",
+      "version": "10.0.13",
+      "description": "ASP.NET Core middleware that enables an application to support the OpenID Connect authentication workflow.\n\nThis package was built from the source code at https://github.com/dotnet/dotnet/tree/4099f83977f4d29604a9aeb971fb0a7bc1d5f699",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "E2E8FC8D73F1074F5AD734407116744E383A85BCB6ABFDD6C420919428FA2E79FA1E5392398600F0F3E9E4923AF57949EB4FDD36E338BD86415F9F33EFA36651"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "copyright": "\u00A9 Microsoft Corporation. All rights reserved.",
+      "purl": "pkg:nuget/Microsoft.AspNetCore.Authentication.OpenIdConnect@10.0.13",
+      "externalReferences": [
+        {
+          "url": "https://asp.net/",
+          "type": "website"
+        },
+        {
+          "url": "https://github.com/dotnet/dotnet",
+          "type": "vcs"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:nuget/Microsoft.AspNetCore.OpenApi@10.0.13",
+      "authors": [
+        {
+          "name": "Microsoft"
+        }
+      ],
+      "name": "Microsoft.AspNetCore.OpenApi",
+      "version": "10.0.13",
+      "description": "Provides APIs for annotating route handler endpoints in ASP.NET Core with OpenAPI annotations.\n\nThis package was built from the source code at https://github.com/dotnet/dotnet/tree/4099f83977f4d29604a9aeb971fb0a7bc1d5f699",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "E0A8BA5788C7CF8F3FA1FC9DCB89FAEAD5C13AAA2CAD811F3E8D230214385F831BB6937AF5D69641367392CBA9FBADF75DF2E1AF26D160EC34F6F31C5A251372"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "copyright": "\u00A9 Microsoft Corporation. All rights reserved.",
+      "purl": "pkg:nuget/Microsoft.AspNetCore.OpenApi@10.0.13",
+      "externalReferences": [
+        {
+          "url": "https://asp.net/",
+          "type": "website"
+        },
+        {
+          "url": "https://github.com/dotnet/dotnet",
+          "type": "vcs"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:nuget/Microsoft.Bcl.AsyncInterfaces@10.0.3",
+      "authors": [
+        {
+          "name": "Microsoft"
+        }
+      ],
+      "name": "Microsoft.Bcl.AsyncInterfaces",
+      "version": "10.0.3",
+      "description": "Provides the IAsyncEnumerable\u003CT\u003E and IAsyncDisposable interfaces and helper types for .NET Standard 2.0. This package is not required starting with .NET Standard 2.1 and .NET Core 3.0.",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "50538B59FDEE06B08DA7F4EC24D3509469F8FFD822B4AE27BE83AC7709C199A0216392DE6742A6972B6F75558C36DED2E9F8AE05D4A7FB90D3C1383B4887FA66"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "copyright": "\u00A9 Microsoft Corporation. All rights reserved.",
+      "purl": "pkg:nuget/Microsoft.Bcl.AsyncInterfaces@10.0.3",
+      "externalReferences": [
+        {
+          "url": "https://dot.net/",
+          "type": "website"
+        },
+        {
+          "url": "https://github.com/dotnet/dotnet",
+          "type": "vcs"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:nuget/Microsoft.Bcl.Cryptography@10.0.2",
+      "authors": [
+        {
+          "name": "Microsoft"
+        }
+      ],
+      "name": "Microsoft.Bcl.Cryptography",
+      "version": "10.0.2",
+      "description": "Provides support for some cryptographic primitives for .NET Framework and .NET Standard.",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "ADB3FF92B45D5D7546D74432587D2B59AE7ED2A3F94686FC5590CA9E8F75D241E70DC987F577456C1B5D79D3B9A55565A40D72D8C5D6C77EB4CCB2CD2DCB49F9"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "copyright": "\u00A9 Microsoft Corporation. All rights reserved.",
+      "purl": "pkg:nuget/Microsoft.Bcl.Cryptography@10.0.2",
+      "externalReferences": [
+        {
+          "url": "https://dot.net/",
+          "type": "website"
+        },
+        {
+          "url": "https://github.com/dotnet/dotnet",
+          "type": "vcs"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:nuget/Microsoft.Data.SqlClient@7.0.2",
+      "authors": [
+        {
+          "name": "Microsoft"
+        }
+      ],
+      "name": "Microsoft.Data.SqlClient",
+      "version": "7.0.2",
+      "description": "The current data provider for SQL Server and Azure SQL databases. This has replaced System.Data.SqlClient. These classes provide access to SQL and encapsulate database-specific protocols, including tabular data stream (TDS).\n\n      Commonly Used Types:\n      Microsoft.Data.SqlClient.SqlConnection\n      Microsoft.Data.SqlClient.SqlException\n      Microsoft.Data.SqlClient.SqlParameter\n      Microsoft.Data.SqlClient.SqlDataReader\n      Microsoft.Data.SqlClient.SqlCommand\n      Microsoft.Data.SqlClient.SqlTransaction\n      Microsoft.Data.SqlClient.SqlParameterCollection\n      Microsoft.Data.SqlClient.SqlClientFactory\n\n      When using NuGet 3.x this package requires at least version 3.4.",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "D0D5F06336185AB70905096C47C3AA3CC2C9199C87F0A03F7C2574B4673072640B4DCC4A7754032C97FDF618A88ADFC90F34B885B1C6A4304262B6F30B84F0D0"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "copyright": "\u00A9 Microsoft Corporation. All rights reserved.",
+      "purl": "pkg:nuget/Microsoft.Data.SqlClient@7.0.2",
+      "externalReferences": [
+        {
+          "url": "https://aka.ms/sqlclientproject",
+          "type": "website"
+        },
+        {
+          "url": "https://github.com/dotnet/sqlclient",
+          "type": "vcs"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:nuget/Microsoft.Data.SqlClient.Extensions.Abstractions@7.0.2",
+      "authors": [
+        {
+          "name": "Microsoft"
+        }
+      ],
+      "name": "Microsoft.Data.SqlClient.Extensions.Abstractions",
+      "version": "7.0.2",
+      "description": "Microsoft.Data.SqlClient Extensions Abstractions",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "3A8B9C2C473A4F460856A436BB5ED445A8D657F74EEF8224A6195E9FB29DB451A88E010AC44F9127B08B6A3D883C2E4339E482BF5F9401CB0D15A4979327E038"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "copyright": "\u00A9 Microsoft Corporation. All rights reserved.",
+      "purl": "pkg:nuget/Microsoft.Data.SqlClient.Extensions.Abstractions@7.0.2",
+      "externalReferences": [
+        {
+          "url": "https://aka.ms/sqlclientproject",
+          "type": "website"
+        },
+        {
+          "url": "https://github.com/dotnet/SqlClient",
+          "type": "vcs"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:nuget/Microsoft.Data.SqlClient.Internal.Logging@7.0.2",
+      "authors": [
+        {
+          "name": "Microsoft"
+        }
+      ],
+      "name": "Microsoft.Data.SqlClient.Internal.Logging",
+      "version": "7.0.2",
+      "description": "Microsoft.Data.SqlClient Internal Logging - ETW EventSource for SqlClient tracing\n      and diagnostics.\n\n      This package is for internal use by other Microsoft.Data.SqlClient\n      packages only and should not be referenced directly by application code.",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "4E8203D52C4DF28CF9F7C9B64F23D581F68FCE89AFB75EE0715CBE5B38FA00F819A0D3BEB69BE816E79235CF6B643F400126822719CE18500921B6E50E0C8B45"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "copyright": "\u00A9 Microsoft Corporation. All rights reserved.",
+      "purl": "pkg:nuget/Microsoft.Data.SqlClient.Internal.Logging@7.0.2",
+      "externalReferences": [
+        {
+          "url": "https://aka.ms/sqlclientproject",
+          "type": "website"
+        },
+        {
+          "url": "https://github.com/dotnet/SqlClient",
+          "type": "vcs"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:nuget/Microsoft.Data.SqlClient.SNI.runtime@6.0.2",
+      "authors": [
+        {
+          "name": "Microsoft"
+        }
+      ],
+      "name": "Microsoft.Data.SqlClient.SNI.runtime",
+      "version": "6.0.2",
+      "description": "Internal implementation package not meant for direct consumption. Please do not reference directly.\n\nWhen using NuGet 3.x this package requires at least version 3.4.",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "89D512D7FADCC9B9906F591013C9280BE28A2AF31A150529E8A4BA8B903033FD747E54FF408A15261179E2B79F3140EF4D8571E68791A3298A14AF4B370A8724"
+        }
+      ],
+      "copyright": "\u00A9 Microsoft Corporation. All rights reserved.",
+      "purl": "pkg:nuget/Microsoft.Data.SqlClient.SNI.runtime@6.0.2",
+      "externalReferences": [
+        {
+          "url": "https://aka.ms/sqlclientproject",
+          "type": "website"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:nuget/Microsoft.Extensions.Caching.SqlServer@10.0.13",
+      "authors": [
+        {
+          "name": "Microsoft"
+        }
+      ],
+      "name": "Microsoft.Extensions.Caching.SqlServer",
+      "version": "10.0.13",
+      "description": "Distributed cache implementation of Microsoft.Extensions.Caching.Distributed.IDistributedCache using Microsoft SQL Server.\n\nThis package was built from the source code at https://github.com/dotnet/dotnet/tree/4099f83977f4d29604a9aeb971fb0a7bc1d5f699",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "8401E4FE77465D408314B2A16D9CA033985E6BAFEDB3946E68686026522C0541F234AE07F9424127FDDC040210A480DB3FB5CBA7F60149C864FDA59607B82ED5"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "copyright": "\u00A9 Microsoft Corporation. All rights reserved.",
+      "purl": "pkg:nuget/Microsoft.Extensions.Caching.SqlServer@10.0.13",
+      "externalReferences": [
+        {
+          "url": "https://asp.net/",
+          "type": "website"
+        },
+        {
+          "url": "https://github.com/dotnet/dotnet",
+          "type": "vcs"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:nuget/Microsoft.Identity.Client@4.83.1",
+      "authors": [
+        {
+          "name": "Microsoft"
+        }
+      ],
+      "name": "Microsoft.Identity.Client",
+      "version": "4.83.1",
+      "description": "This package contains the binaries of the Microsoft Authentication Library for .NET (MSAL.NET).\n      MSAL.NET makes it easy to obtain tokens from the Microsoft identity platform for developers (formerly Azure AD v2.0) signing-in users with work \u0026 school accounts, Microsoft personal accounts, and social identities via Azure AD B2C. These tokens provide access to Microsoft Cloud API and any other API secured by the Microsoft identity platform. This version supports adding authentication functionality to your .NET based clients - .NET, .NET Framework, .NET MAUI",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "692AE5E6B961A2EF71B747A9877F7A7F0460A03F9FB2EDC0FA7E4D457A5419A0F564AFAE53C6296B7E75E0AB2B1C61B3F621A9D56E99945BB047B02DCFE9A2BD"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "copyright": "\u00A9 Microsoft Corporation. All rights reserved.",
+      "purl": "pkg:nuget/Microsoft.Identity.Client@4.83.1",
+      "externalReferences": [
+        {
+          "url": "https://go.microsoft.com/fwlink/?linkid=844761",
+          "type": "website"
+        },
+        {
+          "url": "https://github.com/AzureAD/microsoft-authentication-library-for-dotnet",
+          "type": "vcs"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:nuget/Microsoft.Identity.Client.Extensions.Msal@4.83.1",
+      "authors": [
+        {
+          "name": "Microsoft"
+        }
+      ],
+      "name": "Microsoft.Identity.Client.Extensions.Msal",
+      "version": "4.83.1",
+      "description": "This package contains the public client (desktop) caching to Microsoft Authentication Library for .NET (MSAL.NET)",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "F92B52A9057EF417A78DDC5014ED973D53D37DA437CB0CB947D29AA2C179BD1538714C84873783679C30E8C0AAB1D74C659CE06AED4B6F2DA3AAAE84C522E1E4"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "copyright": "\u00A9 Microsoft Corporation. All rights reserved.",
+      "purl": "pkg:nuget/Microsoft.Identity.Client.Extensions.Msal@4.83.1",
+      "externalReferences": [
+        {
+          "url": "https://go.microsoft.com/fwlink/?linkid=844761",
+          "type": "website"
+        },
+        {
+          "url": "https://github.com/AzureAD/microsoft-authentication-library-for-dotnet",
+          "type": "vcs"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:nuget/Microsoft.IdentityModel.Abstractions@8.19.2",
+      "authors": [
+        {
+          "name": "Microsoft"
+        }
+      ],
+      "name": "Microsoft.IdentityModel.Abstractions",
+      "version": "8.19.2",
+      "description": "A package containing thin abstractions for Microsoft.IdentityModel.",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "01244907FA0720A876378E5F4EDFEDFFEA7659A2B15947EF8D3AC752AD8DDFD98E37AC094D04D7DA0C1F64EB70581338159F48EEE362F2B14D6B29D76CC60DB1"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "copyright": "\u00A9 Microsoft Corporation. All rights reserved.",
+      "purl": "pkg:nuget/Microsoft.IdentityModel.Abstractions@8.19.2",
+      "externalReferences": [
+        {
+          "url": "https://github.com/AzureAD/azure-activedirectory-identitymodel-extensions-for-dotnet",
+          "type": "website"
+        },
+        {
+          "url": "https://github.com/AzureAD/azure-activedirectory-identitymodel-extensions-for-dotnet",
+          "type": "vcs"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:nuget/Microsoft.IdentityModel.JsonWebTokens@8.19.2",
+      "authors": [
+        {
+          "name": "Microsoft"
+        }
+      ],
+      "name": "Microsoft.IdentityModel.JsonWebTokens",
+      "version": "8.19.2",
+      "description": "Includes types that provide support for creating, serializing and validating JSON Web Tokens. This is a newer, faster version of System.IdentityModel.Tokens.Jwt that has additional functionality.",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "F64A24CD6E4C56C1E300D10B4E285CBEB238F1ACE1CE1745416FA868471EDAB0FFB067B955FE7B05141D5C52320E85A5BB1621DEF85EF1A2D0DE683704FF7CDF"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "copyright": "\u00A9 Microsoft Corporation. All rights reserved.",
+      "purl": "pkg:nuget/Microsoft.IdentityModel.JsonWebTokens@8.19.2",
+      "externalReferences": [
+        {
+          "url": "https://github.com/AzureAD/azure-activedirectory-identitymodel-extensions-for-dotnet",
+          "type": "website"
+        },
+        {
+          "url": "https://github.com/AzureAD/azure-activedirectory-identitymodel-extensions-for-dotnet",
+          "type": "vcs"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:nuget/Microsoft.IdentityModel.Logging@8.19.2",
+      "authors": [
+        {
+          "name": "Microsoft"
+        }
+      ],
+      "name": "Microsoft.IdentityModel.Logging",
+      "version": "8.19.2",
+      "description": "Includes Event Source based logging support.",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "D7906BC6760415A13EDECBD4FFC181EC461090E77EC7451D96A98D168577818EAF37FBB8760D7436E5CBA03492521C473DD734D5CBCA7A8CEDC06BC0C3A5619E"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "copyright": "\u00A9 Microsoft Corporation. All rights reserved.",
+      "purl": "pkg:nuget/Microsoft.IdentityModel.Logging@8.19.2",
+      "externalReferences": [
+        {
+          "url": "https://github.com/AzureAD/azure-activedirectory-identitymodel-extensions-for-dotnet",
+          "type": "website"
+        },
+        {
+          "url": "https://github.com/AzureAD/azure-activedirectory-identitymodel-extensions-for-dotnet",
+          "type": "vcs"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:nuget/Microsoft.IdentityModel.Protocols@8.19.2",
+      "authors": [
+        {
+          "name": "Microsoft"
+        }
+      ],
+      "name": "Microsoft.IdentityModel.Protocols",
+      "version": "8.19.2",
+      "description": "Provides base protocol support for OpenIdConnect and WsFederation.",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "F8E4D1898AFD9310EFB8668DB4F6E54B466551C326805D3B6243DAFB9959D702FB3979D70DECA6DBD5D05A2B8A9E299F9E190EED3E229AD900F1DCB8EA9E3839"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "copyright": "\u00A9 Microsoft Corporation. All rights reserved.",
+      "purl": "pkg:nuget/Microsoft.IdentityModel.Protocols@8.19.2",
+      "externalReferences": [
+        {
+          "url": "https://github.com/AzureAD/azure-activedirectory-identitymodel-extensions-for-dotnet",
+          "type": "website"
+        },
+        {
+          "url": "https://github.com/AzureAD/azure-activedirectory-identitymodel-extensions-for-dotnet",
+          "type": "vcs"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:nuget/Microsoft.IdentityModel.Protocols.OpenIdConnect@8.19.2",
+      "authors": [
+        {
+          "name": "Microsoft"
+        }
+      ],
+      "name": "Microsoft.IdentityModel.Protocols.OpenIdConnect",
+      "version": "8.19.2",
+      "description": "Includes types that provide support for OpenIdConnect protocol.",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "24C8A8A345DF0BA1A4E948B949BB3D952CE4164A7BF2F8DCC5BEEAB734602B793505707C05A7A0ABF4ABFD13A0D34AA4ABDF4CB19659B779A00C67400854EFD3"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "copyright": "\u00A9 Microsoft Corporation. All rights reserved.",
+      "purl": "pkg:nuget/Microsoft.IdentityModel.Protocols.OpenIdConnect@8.19.2",
+      "externalReferences": [
+        {
+          "url": "https://github.com/AzureAD/azure-activedirectory-identitymodel-extensions-for-dotnet",
+          "type": "website"
+        },
+        {
+          "url": "https://github.com/AzureAD/azure-activedirectory-identitymodel-extensions-for-dotnet",
+          "type": "vcs"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:nuget/Microsoft.IdentityModel.Tokens@8.19.2",
+      "authors": [
+        {
+          "name": "Microsoft"
+        }
+      ],
+      "name": "Microsoft.IdentityModel.Tokens",
+      "version": "8.19.2",
+      "description": "Includes types that provide support for SecurityTokens, Cryptographic operations: Signing, Verifying Signatures, Encryption.",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "E2B1827165AF92DACE1B57AC38FAF60CC2C9A7197D0E32000FDE372FC0BC2BC45CB2ADF4BE7386D08705325724B8E328B6CFC51CD494243C6AB26A3F106E9E07"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "copyright": "\u00A9 Microsoft Corporation. All rights reserved.",
+      "purl": "pkg:nuget/Microsoft.IdentityModel.Tokens@8.19.2",
+      "externalReferences": [
+        {
+          "url": "https://github.com/AzureAD/azure-activedirectory-identitymodel-extensions-for-dotnet",
+          "type": "website"
+        },
+        {
+          "url": "https://github.com/AzureAD/azure-activedirectory-identitymodel-extensions-for-dotnet",
+          "type": "vcs"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:nuget/Microsoft.IdentityModel.Tokens.Saml@8.18.0",
+      "authors": [
+        {
+          "name": "Microsoft"
+        }
+      ],
+      "name": "Microsoft.IdentityModel.Tokens.Saml",
+      "version": "8.18.0",
+      "description": "Includes types that provide support for SamlTokens version 1 and 2.",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "1ED0E3471EF42F820D5F155E28D76D71F17CC52331CAC7681A655B6FA4B952613123697D9E52395C2A9EA9471A02C1BFCA033181DC876370D4EBBE570F5696FD"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "copyright": "\u00A9 Microsoft Corporation. All rights reserved.",
+      "purl": "pkg:nuget/Microsoft.IdentityModel.Tokens.Saml@8.18.0",
+      "externalReferences": [
+        {
+          "url": "https://github.com/AzureAD/azure-activedirectory-identitymodel-extensions-for-dotnet",
+          "type": "website"
+        },
+        {
+          "url": "https://github.com/AzureAD/azure-activedirectory-identitymodel-extensions-for-dotnet",
+          "type": "vcs"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:nuget/Microsoft.IdentityModel.Xml@8.18.0",
+      "authors": [
+        {
+          "name": "Microsoft"
+        }
+      ],
+      "name": "Microsoft.IdentityModel.Xml",
+      "version": "8.18.0",
+      "description": "Includes types that provide support for Reading / Writing XML with Enveloped Signatures.",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "EE55E4AA5E250D7FF71E98548CB60692383FEF8CEB460DD62B46BFD2C2CD0057A00A9F4FF6EB47EF822A7A5A310F9B2F941B13DEF083644649BF40F7CA0493CD"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "copyright": "\u00A9 Microsoft Corporation. All rights reserved.",
+      "purl": "pkg:nuget/Microsoft.IdentityModel.Xml@8.18.0",
+      "externalReferences": [
+        {
+          "url": "https://github.com/AzureAD/azure-activedirectory-identitymodel-extensions-for-dotnet",
+          "type": "website"
+        },
+        {
+          "url": "https://github.com/AzureAD/azure-activedirectory-identitymodel-extensions-for-dotnet",
+          "type": "vcs"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:nuget/Microsoft.OpenApi@2.12.2",
+      "authors": [
+        {
+          "name": "Microsoft"
+        }
+      ],
+      "name": "Microsoft.OpenApi",
+      "version": "2.12.2",
+      "description": ".NET models with JSON and YAML writers for OpenAPI specification",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "432E3087907C2EF45F2FDB73D5B621E299C6E2A39AAF3598A80037408150DDA76AE1AA0ECC3376B2079E58D371B711538BA7C343F0F17A86C70FCF41F434ECF1"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "copyright": "\u00A9 Microsoft Corporation. All rights reserved.",
+      "purl": "pkg:nuget/Microsoft.OpenApi@2.12.2",
+      "externalReferences": [
+        {
+          "url": "https://github.com/Microsoft/OpenAPI.NET",
+          "type": "website"
+        },
+        {
+          "url": "https://github.com/Microsoft/OpenAPI.NET",
+          "type": "vcs"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:nuget/Microsoft.SqlServer.Server@1.0.0",
+      "authors": [
+        {
+          "name": "Microsoft"
+        }
+      ],
+      "name": "Microsoft.SqlServer.Server",
+      "version": "1.0.0",
+      "description": "This is a helper library for Microsoft.Data.SqlClient enabling cross framework support of UDT types.\n    \nAvailable Types:\nMicrosoft.SqlServer.Server.IBinarySerializer\nMicrosoft.SqlServer.Server.InvalidUdtException\nMicrosoft.SqlServer.Server.SqlFacetAttribute\nMicrosoft.SqlServer.Server.SqlFunctionAttribute\nMicrosoft.SqlServer.Server.SqlMethodAttribute\nMicrosoft.SqlServer.Server.SqlUserDefinedAggregateAttribute\nMicrosoft.SqlServer.Server.SqlUserDefinedTypeAttribute\nMicrosoft.SqlServer.Server.DataAccessKind\nMicrosoft.SqlServer.Server.SystemDataAccessKind\nMicrosoft.SqlServer.Server.Format",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "1BD90B08C94FADF3BB6112C95F6D34A6E1251F4710823FA995CBA2ECD657146A1E594DE338EDB6E18AD351E300052E824EC81ED02F48D3FF2D8585169A9A4260"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "copyright": "\u00A9 Microsoft Corporation. All rights reserved.",
+      "purl": "pkg:nuget/Microsoft.SqlServer.Server@1.0.0",
+      "externalReferences": [
+        {
+          "url": "https://aka.ms/sqlclientproject",
+          "type": "website"
+        },
+        {
+          "url": "https://github.com/dotnet/sqlclient",
+          "type": "vcs"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:nuget/MimeKit@4.17.0",
+      "authors": [
+        {
+          "name": "Jeffrey Stedfast"
+        }
+      ],
+      "name": "MimeKit",
+      "version": "4.17.0",
+      "description": "An Open Source library for creating and parsing MIME, S/MIME and PGP messages on desktop and mobile platforms.",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "B87FD312A6B95E76F10A2778097935D88842C14BDB835D5EAEA3812C4990D9F0BA367FE4B18EA661EBDB3C1F86882F8513BBFC77995F7419A297E505EE6C49E6"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "copyright": ".NET Foundation and Contributors",
+      "purl": "pkg:nuget/MimeKit@4.17.0",
+      "externalReferences": [
+        {
+          "url": "https://www.mimekit.net/",
+          "type": "website"
+        },
+        {
+          "url": "https://github.com/jstedfast/MimeKit",
+          "type": "vcs"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:nuget/Newtonsoft.Json@13.0.3",
+      "authors": [
+        {
+          "name": "James Newton-King"
+        }
+      ],
+      "name": "Newtonsoft.Json",
+      "version": "13.0.3",
+      "description": "Json.NET is a popular high-performance JSON framework for .NET",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "99B252BC77D1C5F5F7B51FD4EA7D5653E9961D7B3061CF9207F8643A9C7CC9965EEBC84D6467F2989BB4723B1A244915CC232A78F894E8B748CA882A7C89FB92"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "copyright": "Copyright \u00A9 James Newton-King 2008",
+      "purl": "pkg:nuget/Newtonsoft.Json@13.0.3",
+      "externalReferences": [
+        {
+          "url": "https://www.newtonsoft.com/json",
+          "type": "website"
+        },
+        {
+          "url": "https://github.com/JamesNK/Newtonsoft.Json",
+          "type": "vcs"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:nuget/RBush.Signed@4.0.0",
+      "authors": [
+        {
+          "name": "viceroypenguin"
+        }
+      ],
+      "name": "RBush.Signed",
+      "version": "4.0.0",
+      "description": "Spatial Index data structure; used to make it easier to find data points on a two dimensional plane.",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "913AAED750B259414EDD06AF19BC12108E896C36F436806D126B9F87BFDAD138C35302EE696300A808C3FBE9A8F78A1A448CA4ACE5BFADC102DABA493DCC1A92"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "copyright": "Copyright \u00A9 2017-2024 Turning Code, LLC (and others)",
+      "purl": "pkg:nuget/RBush.Signed@4.0.0",
+      "externalReferences": [
+        {
+          "url": "https://github.com/viceroypenguin/RBush",
+          "type": "vcs"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:nuget/SixLabors.Fonts@1.0.0",
+      "authors": [
+        {
+          "name": "Six Labors and contributors"
+        }
+      ],
+      "name": "SixLabors.Fonts",
+      "version": "1.0.0",
+      "description": "A cross-platform library for loading and laying out fonts for processing and measuring; written in C#",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "CBD960C1BB91BDE6B20068B4B269BC7A11710BB0975884E157EF2CBDDDA6A9ADE5A6C44232E01203B49A09FEC669F72DAC01BAF12FE507F7FBB58DED8AE613B2"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0"
+          }
+        }
+      ],
+      "copyright": "Copyright \u00A9 Six Labors",
+      "purl": "pkg:nuget/SixLabors.Fonts@1.0.0",
+      "externalReferences": [
+        {
+          "url": "https://github.com/SixLabors/Fonts",
+          "type": "website"
+        },
+        {
+          "url": "https://github.com/SixLabors/Fonts",
+          "type": "vcs"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:nuget/System.ClientModel@1.10.0",
+      "authors": [
+        {
+          "name": "Microsoft"
+        }
+      ],
+      "name": "System.ClientModel",
+      "version": "1.10.0",
+      "description": "Contains building blocks for clients that call cloud services.",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "60FEEB2031C5EF61E2F185ABC2A3D0527B2BF8B8B4D456AE4B141B8D98F102B6B4603994885FEA2E40C8DF3C025DB40D622278022611986FBB941950D8DCDA1A"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "copyright": "\u00A9 Microsoft Corporation. All rights reserved.",
+      "purl": "pkg:nuget/System.ClientModel@1.10.0",
+      "externalReferences": [
+        {
+          "url": "https://github.com/Azure/azure-sdk-for-net/blob/System.ClientModel_1.10.0/sdk/core/System.ClientModel/README.md",
+          "type": "website"
+        },
+        {
+          "url": "https://github.com/Azure/azure-sdk-for-net",
+          "type": "vcs"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:nuget/System.Configuration.ConfigurationManager@10.0.13",
+      "authors": [
+        {
+          "name": "Microsoft"
+        }
+      ],
+      "name": "System.Configuration.ConfigurationManager",
+      "version": "10.0.13",
+      "description": "Provides types that support using XML configuration files (app.config). This package exists only to support migrating existing .NET Framework code that already uses System.Configuration. When writing new code, use another configuration system instead, such as Microsoft.Extensions.Configuration.",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "82A35A96157EAFA3EA9808582B5536C3382F573AE23F55CCDE26F84F1F3073BDD340D036CAB2886E1E6B9BBAFD51E5CA80DA68E39FA9073DC0CB815017430B7D"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "copyright": "\u00A9 Microsoft Corporation. All rights reserved.",
+      "purl": "pkg:nuget/System.Configuration.ConfigurationManager@10.0.13",
+      "externalReferences": [
+        {
+          "url": "https://dot.net/",
+          "type": "website"
+        },
+        {
+          "url": "https://github.com/dotnet/dotnet",
+          "type": "vcs"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:nuget/System.DirectoryServices@10.0.13",
+      "authors": [
+        {
+          "name": "Microsoft"
+        }
+      ],
+      "name": "System.DirectoryServices",
+      "version": "10.0.13",
+      "description": "Provides easy access to Active Directory Domain Services.\n\nCommonly Used Types:\nSystem.DirectoryServices.DirectoryEntry\nSystem.DirectoryServices.DirectorySearcher\nSystem.DirectoryServices.ActiveDirectory.ActiveDirectorySite\nSystem.DirectoryServices.ActiveDirectory.ApplicationPartition\nSystem.DirectoryServices.ActiveDirectory.DirectoryContext\nSystem.DirectoryServices.ActiveDirectory.DirectoryServer\nSystem.DirectoryServices.ActiveDirectory.Domain\nSystem.DirectoryServices.ActiveDirectory.DomainController",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "43AE66C8E812658D0C4B14E36899D01671055656EE19DCC7E2B4742F956BBFA3CD694CFC3356DE0AD4A05F799299C14CC46069E6980FF7E775E222F6395AB7D6"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "copyright": "\u00A9 Microsoft Corporation. All rights reserved.",
+      "purl": "pkg:nuget/System.DirectoryServices@10.0.13",
+      "externalReferences": [
+        {
+          "url": "https://dot.net/",
+          "type": "website"
+        },
+        {
+          "url": "https://github.com/dotnet/dotnet",
+          "type": "vcs"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:nuget/System.DirectoryServices.AccountManagement@10.0.13",
+      "authors": [
+        {
+          "name": "Microsoft"
+        }
+      ],
+      "name": "System.DirectoryServices.AccountManagement",
+      "version": "10.0.13",
+      "description": "Provides uniform access and manipulation of user, computer, and group security principals across the multiple principal stores: Active Directory Domain Services (AD DS), Active Directory Lightweight Directory Services (AD LDS), and Machine SAM (MSAM).",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "53A38A6D72A9FA3DEC6B53ECEF5BB6EE865DB4817B2E3EAE413D7FCACE10EBE9038745EC9AC35377A1C092EDB506608D668B28D1F856B7A1482BABA1EF6B7047"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "copyright": "\u00A9 Microsoft Corporation. All rights reserved.",
+      "purl": "pkg:nuget/System.DirectoryServices.AccountManagement@10.0.13",
+      "externalReferences": [
+        {
+          "url": "https://dot.net/",
+          "type": "website"
+        },
+        {
+          "url": "https://github.com/dotnet/dotnet",
+          "type": "vcs"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:nuget/System.DirectoryServices.Protocols@10.0.13",
+      "authors": [
+        {
+          "name": "Microsoft"
+        }
+      ],
+      "name": "System.DirectoryServices.Protocols",
+      "version": "10.0.13",
+      "description": "Provides the methods defined in the Lightweight Directory Access Protocol (LDAP) version 3 (V3) and Directory Services Markup Language (DSML) version 2.0 (V2) standards.",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "2B19351C2DF7285B7E161FBAE97912413A78C4C66BBE7CCC344C38AD82703D03EA33CD8AFBF73A557001360B285284730A8554912BED72B909F375C89961D8A4"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "copyright": "\u00A9 Microsoft Corporation. All rights reserved.",
+      "purl": "pkg:nuget/System.DirectoryServices.Protocols@10.0.13",
+      "externalReferences": [
+        {
+          "url": "https://dot.net/",
+          "type": "website"
+        },
+        {
+          "url": "https://github.com/dotnet/dotnet",
+          "type": "vcs"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:nuget/System.IdentityModel.Tokens.Jwt@8.19.2",
+      "authors": [
+        {
+          "name": "Microsoft"
+        }
+      ],
+      "name": "System.IdentityModel.Tokens.Jwt",
+      "version": "8.19.2",
+      "description": "Includes types that provide support for creating, serializing and validating JSON Web Tokens. As of IdentityModel 7x, this is a legacy tool that should be replaced with Microsoft.IdentityModel.JsonWebTokens.",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "0D77B02929B1C5106EBD439DD9A1BF4C065A7C2551E9572A2C3D002401BBE30C280CBAAE9304CF19AD08D92388B597615EECF8DCC7E2A20D414A91C00BC49592"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "copyright": "\u00A9 Microsoft Corporation. All rights reserved.",
+      "purl": "pkg:nuget/System.IdentityModel.Tokens.Jwt@8.19.2",
+      "externalReferences": [
+        {
+          "url": "https://github.com/AzureAD/azure-activedirectory-identitymodel-extensions-for-dotnet",
+          "type": "website"
+        },
+        {
+          "url": "https://github.com/AzureAD/azure-activedirectory-identitymodel-extensions-for-dotnet",
+          "type": "vcs"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:nuget/System.IO.Packaging@8.0.1",
+      "authors": [
+        {
+          "name": "Microsoft"
+        }
+      ],
+      "name": "System.IO.Packaging",
+      "version": "8.0.1",
+      "description": "Provides classes that support storage of multiple data objects in a single container.",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "559920E9DE1958EBCD41E130587C655B14E453B133C32D0F5A5B2CDF58312C070EC31F225E7E0DC1B498EE291AC3954AFBC5608BD198C0A167E0DDDA3A337F2A"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "copyright": "\u00A9 Microsoft Corporation. All rights reserved.",
+      "purl": "pkg:nuget/System.IO.Packaging@8.0.1",
+      "externalReferences": [
+        {
+          "url": "https://dot.net/",
+          "type": "website"
+        },
+        {
+          "url": "https://github.com/dotnet/runtime",
+          "type": "vcs"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:nuget/System.Memory.Data@10.0.3",
+      "authors": [
+        {
+          "name": "Microsoft"
+        }
+      ],
+      "name": "System.Memory.Data",
+      "version": "10.0.3",
+      "description": "A lightweight abstraction for a payload of bytes. Provides methods for converting between strings, streams, JSON, and bytes.\n\nCommonly Used Types:\nSystem.BinaryData",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "F726F845393C815214AC7755EF10309CD3AA1A1570AA1FF3FA492717F4C1E837CC355DF5A6A07043F3F1ED749BDE87752C9B562B98A9AAAAF819B8C00DC2B553"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "copyright": "\u00A9 Microsoft Corporation. All rights reserved.",
+      "purl": "pkg:nuget/System.Memory.Data@10.0.3",
+      "externalReferences": [
+        {
+          "url": "https://dot.net/",
+          "type": "website"
+        },
+        {
+          "url": "https://github.com/dotnet/dotnet",
+          "type": "vcs"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:nuget/System.Security.Cryptography.Pkcs@10.0.13",
+      "authors": [
+        {
+          "name": "Microsoft"
+        }
+      ],
+      "name": "System.Security.Cryptography.Pkcs",
+      "version": "10.0.13",
+      "description": "Provides support for PKCS and CMS algorithms.\n\nCommonly Used Types:\nSystem.Security.Cryptography.Pkcs.EnvelopedCms",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "287EBDDA7D50947E352C62C28ADD71012C60F50124CBD558F0D383BFA83357F7941C55D54EF4432C9CACB0C19A3314BD59F217C899D22E0C5E23C3FCF9D74B8A"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "copyright": "\u00A9 Microsoft Corporation. All rights reserved.",
+      "purl": "pkg:nuget/System.Security.Cryptography.Pkcs@10.0.13",
+      "externalReferences": [
+        {
+          "url": "https://dot.net/",
+          "type": "website"
+        },
+        {
+          "url": "https://github.com/dotnet/dotnet",
+          "type": "vcs"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:nuget/System.Security.Cryptography.ProtectedData@10.0.13",
+      "authors": [
+        {
+          "name": "Microsoft"
+        }
+      ],
+      "name": "System.Security.Cryptography.ProtectedData",
+      "version": "10.0.13",
+      "description": "Provides access to Windows Data Protection Api.\n\nCommonly Used Types:\nSystem.Security.Cryptography.DataProtectionScope\nSystem.Security.Cryptography.ProtectedData",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "16F139258E630487FCBFFE24C02A77C096346CEA1EFE667C9C7D068F5234B93EEE2BE593B4C48EB28251F13336372276EEE4CDF68D27A5D6F9484DD36EF67686"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "copyright": "\u00A9 Microsoft Corporation. All rights reserved.",
+      "purl": "pkg:nuget/System.Security.Cryptography.ProtectedData@10.0.13",
+      "externalReferences": [
+        {
+          "url": "https://dot.net/",
+          "type": "website"
+        },
+        {
+          "url": "https://github.com/dotnet/dotnet",
+          "type": "vcs"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:nuget/System.Security.Cryptography.Xml@10.0.13",
+      "authors": [
+        {
+          "name": "Microsoft"
+        }
+      ],
+      "name": "System.Security.Cryptography.Xml",
+      "version": "10.0.13",
+      "description": "Provides classes to support the creation and validation of XML digital signatures. The classes in this namespace implement the World Wide Web Consortium Recommendation, \u0022XML-Signature Syntax and Processing\u0022, described at http://www.w3.org/TR/xmldsig-core/.\n\nCommonly Used Types:\nSystem.Security.Cryptography.Xml.CipherData\nSystem.Security.Cryptography.Xml.CipherReference\nSystem.Security.Cryptography.Xml.DataObject\nSystem.Security.Cryptography.Xml.DataReference\nSystem.Security.Cryptography.Xml.DSAKeyValue\nSystem.Security.Cryptography.Xml.EncryptedData\nSystem.Security.Cryptography.Xml.EncryptedKey\nSystem.Security.Cryptography.Xml.EncryptedReference\nSystem.Security.Cryptography.Xml.EncryptedType\nSystem.Security.Cryptography.Xml.EncryptedXml\nSystem.Security.Cryptography.Xml.EncryptionMethod\nSystem.Security.Cryptography.Xml.EncryptionProperty\nSystem.Security.Cryptography.Xml.EncryptionPropertyCollection\nSystem.Security.Cryptography.Xml.KeyInfo\nSystem.Security.Cryptography.Xml.KeyInfoClause\nSystem.Security.Cryptography.Xml.KeyInfoEncryptedKey\nSystem.Security.Cryptography.Xml.KeyInfoName\nSystem.Security.Cryptography.Xml.KeyInfoNode\nSystem.Security.Cryptography.Xml.KeyInfoRetrievalMethod\nSystem.Security.Cryptography.Xml.KeyInfoX509Data\nSystem.Security.Cryptography.Xml.KeyReference\nSystem.Security.Cryptography.Xml.Reference\nSystem.Security.Cryptography.Xml.ReferenceList\nSystem.Security.Cryptography.Xml.RSAKeyValue\nSystem.Security.Cryptography.Xml.Signature\nSystem.Security.Cryptography.Xml.SignedInfo\nSystem.Security.Cryptography.Xml.SignedXml\nSystem.Security.Cryptography.Xml.Transform\nSystem.Security.Cryptography.Xml.TransformChain\nSystem.Security.Cryptography.Xml.XmlDecryptionTransform\nSystem.Security.Cryptography.Xml.XmlDsigBase64Transform\nSystem.Security.Cryptography.Xml.XmlDsigC14NTransform\nSystem.Security.Cryptography.Xml.XmlDsigC14NWithCommentsTransform\nSystem.Security.Cryptography.Xml.XmlDsigEnvelopedSignatureTransform\nSystem.Security.Cryptography.Xml.XmlDsigExcC14NTransform\nSystem.Security.Cryptography.Xml.XmlDsigExcC14NWithCommentsTransform\nSystem.Security.Cryptography.Xml.XmlDsigXPathTransform\nSystem.Security.Cryptography.Xml.XmlDsigXsltTransform\nSystem.Security.Cryptography.Xml.XmlLicenseTransform",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "11BC9F42B385C9F35366412D912283FBE6C5EB02F0A0A4F8906AEB5D5F250876AA2D0AF03EEC66F5C18E9D7CD7C42039CFB9990FA0B9C2661224FFD67735E1E5"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "copyright": "\u00A9 Microsoft Corporation. All rights reserved.",
+      "purl": "pkg:nuget/System.Security.Cryptography.Xml@10.0.13",
+      "externalReferences": [
+        {
+          "url": "https://dot.net/",
+          "type": "website"
+        },
+        {
+          "url": "https://github.com/dotnet/dotnet",
+          "type": "vcs"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:nuget/System.ServiceModel.Primitives@10.0.652802",
+      "authors": [
+        {
+          "name": "Microsoft"
+        }
+      ],
+      "name": "System.ServiceModel.Primitives",
+      "version": "10.0.652802",
+      "description": "System.ServiceModel.Primitives",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-512",
+          "content": "6AA954A5F4B653B3EA3F48F8A5127E6454E80B3A3C4DA41E9BDB84C23BCDDC4D7C2208AF352F6201276A4A1805A136DAC5F5E5E31372A897A62224F0ECE3A8FD"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "copyright": "\u00A9 Microsoft Corporation. All rights reserved.",
+      "purl": "pkg:nuget/System.ServiceModel.Primitives@10.0.652802",
+      "externalReferences": [
+        {
+          "url": "https://github.com/dotnet/wcf",
+          "type": "website"
+        },
+        {
+          "url": "https://github.com/dotnet/wcf",
+          "type": "vcs"
+        }
+      ]
+    }
+  ],
+  "dependencies": [
+    {
+      "ref": "BlueTrack.Api@1.5.0",
+      "dependsOn": [
+        "pkg:nuget/AWSSDK.SecretsManager@4.0.100.11",
+        "pkg:nuget/Azure.Identity@1.21.0",
+        "pkg:nuget/Azure.Security.KeyVault.Secrets@4.11.1",
+        "pkg:nuget/ClosedXML@0.105.1",
+        "pkg:nuget/CsvHelper@33.1.0",
+        "pkg:nuget/Dapper@2.1.79",
+        "pkg:nuget/ITfoxtec.Identity.Saml2.MvcCore@4.20.1",
+        "pkg:nuget/MailKit@4.17.0",
+        "pkg:nuget/Microsoft.AspNetCore.Authentication.Negotiate@10.0.13",
+        "pkg:nuget/Microsoft.AspNetCore.Authentication.OpenIdConnect@10.0.13",
+        "pkg:nuget/Microsoft.AspNetCore.OpenApi@10.0.13",
+        "pkg:nuget/Microsoft.Data.SqlClient@7.0.2",
+        "pkg:nuget/Microsoft.Extensions.Caching.SqlServer@10.0.13",
+        "pkg:nuget/System.DirectoryServices.AccountManagement@10.0.13",
+        "pkg:nuget/System.Security.Cryptography.Pkcs@10.0.13",
+        "pkg:nuget/System.Security.Cryptography.ProtectedData@10.0.13",
+        "pkg:nuget/System.Security.Cryptography.Xml@10.0.13"
+      ]
+    },
+    {
+      "ref": "pkg:nuget/AWSSDK.Core@4.0.102.1"
+    },
+    {
+      "ref": "pkg:nuget/AWSSDK.SecretsManager@4.0.100.11",
+      "dependsOn": [
+        "pkg:nuget/AWSSDK.Core@4.0.102.1"
+      ]
+    },
+    {
+      "ref": "pkg:nuget/Azure.Core@1.54.0",
+      "dependsOn": [
+        "pkg:nuget/Microsoft.Bcl.AsyncInterfaces@10.0.3",
+        "pkg:nuget/Microsoft.Identity.Client@4.83.1",
+        "pkg:nuget/Microsoft.Identity.Client.Extensions.Msal@4.83.1",
+        "pkg:nuget/System.ClientModel@1.10.0",
+        "pkg:nuget/System.Memory.Data@10.0.3"
+      ]
+    },
+    {
+      "ref": "pkg:nuget/Azure.Identity@1.21.0",
+      "dependsOn": [
+        "pkg:nuget/Azure.Core@1.54.0"
+      ]
+    },
+    {
+      "ref": "pkg:nuget/Azure.Security.KeyVault.Secrets@4.11.1",
+      "dependsOn": [
+        "pkg:nuget/Azure.Core@1.54.0"
+      ]
+    },
+    {
+      "ref": "pkg:nuget/BouncyCastle.Cryptography@2.6.2"
+    },
+    {
+      "ref": "pkg:nuget/ClosedXML.Parser@2.0.0"
+    },
+    {
+      "ref": "pkg:nuget/ClosedXML@0.105.1",
+      "dependsOn": [
+        "pkg:nuget/ClosedXML.Parser@2.0.0",
+        "pkg:nuget/DocumentFormat.OpenXml@3.1.1",
+        "pkg:nuget/ExcelNumberFormat@1.1.0",
+        "pkg:nuget/RBush.Signed@4.0.0",
+        "pkg:nuget/SixLabors.Fonts@1.0.0"
+      ]
+    },
+    {
+      "ref": "pkg:nuget/CsvHelper@33.1.0"
+    },
+    {
+      "ref": "pkg:nuget/Dapper@2.1.79"
+    },
+    {
+      "ref": "pkg:nuget/DocumentFormat.OpenXml.Framework@3.1.1",
+      "dependsOn": [
+        "pkg:nuget/System.IO.Packaging@8.0.1"
+      ]
+    },
+    {
+      "ref": "pkg:nuget/DocumentFormat.OpenXml@3.1.1",
+      "dependsOn": [
+        "pkg:nuget/DocumentFormat.OpenXml.Framework@3.1.1"
+      ]
+    },
+    {
+      "ref": "pkg:nuget/ExcelNumberFormat@1.1.0"
+    },
+    {
+      "ref": "pkg:nuget/ITfoxtec.Identity.Saml2.MvcCore@4.20.1",
+      "dependsOn": [
+        "pkg:nuget/ITfoxtec.Identity.Saml2@4.20.1",
+        "pkg:nuget/Newtonsoft.Json@13.0.3"
+      ]
+    },
+    {
+      "ref": "pkg:nuget/ITfoxtec.Identity.Saml2@4.20.1",
+      "dependsOn": [
+        "pkg:nuget/Microsoft.IdentityModel.Tokens.Saml@8.18.0",
+        "pkg:nuget/System.ServiceModel.Primitives@10.0.652802"
+      ]
+    },
+    {
+      "ref": "pkg:nuget/MailKit@4.17.0",
+      "dependsOn": [
+        "pkg:nuget/MimeKit@4.17.0"
+      ]
+    },
+    {
+      "ref": "pkg:nuget/Microsoft.AspNetCore.Authentication.Negotiate@10.0.13",
+      "dependsOn": [
+        "pkg:nuget/System.DirectoryServices.Protocols@10.0.13"
+      ]
+    },
+    {
+      "ref": "pkg:nuget/Microsoft.AspNetCore.Authentication.OpenIdConnect@10.0.13",
+      "dependsOn": [
+        "pkg:nuget/Microsoft.IdentityModel.Protocols.OpenIdConnect@8.19.2"
+      ]
+    },
+    {
+      "ref": "pkg:nuget/Microsoft.AspNetCore.OpenApi@10.0.13",
+      "dependsOn": [
+        "pkg:nuget/Microsoft.OpenApi@2.12.2"
+      ]
+    },
+    {
+      "ref": "pkg:nuget/Microsoft.Bcl.AsyncInterfaces@10.0.3"
+    },
+    {
+      "ref": "pkg:nuget/Microsoft.Bcl.Cryptography@10.0.2"
+    },
+    {
+      "ref": "pkg:nuget/Microsoft.Data.SqlClient.Extensions.Abstractions@7.0.2",
+      "dependsOn": [
+        "pkg:nuget/Microsoft.Data.SqlClient.Internal.Logging@7.0.2"
+      ]
+    },
+    {
+      "ref": "pkg:nuget/Microsoft.Data.SqlClient.Internal.Logging@7.0.2"
+    },
+    {
+      "ref": "pkg:nuget/Microsoft.Data.SqlClient.SNI.runtime@6.0.2"
+    },
+    {
+      "ref": "pkg:nuget/Microsoft.Data.SqlClient@7.0.2",
+      "dependsOn": [
+        "pkg:nuget/Microsoft.Bcl.Cryptography@10.0.2",
+        "pkg:nuget/Microsoft.Data.SqlClient.Extensions.Abstractions@7.0.2",
+        "pkg:nuget/Microsoft.Data.SqlClient.Internal.Logging@7.0.2",
+        "pkg:nuget/Microsoft.Data.SqlClient.SNI.runtime@6.0.2",
+        "pkg:nuget/Microsoft.IdentityModel.JsonWebTokens@8.19.2",
+        "pkg:nuget/Microsoft.IdentityModel.Protocols.OpenIdConnect@8.19.2",
+        "pkg:nuget/Microsoft.SqlServer.Server@1.0.0",
+        "pkg:nuget/System.Configuration.ConfigurationManager@10.0.13",
+        "pkg:nuget/System.Security.Cryptography.Pkcs@10.0.13"
+      ]
+    },
+    {
+      "ref": "pkg:nuget/Microsoft.Extensions.Caching.SqlServer@10.0.13",
+      "dependsOn": [
+        "pkg:nuget/Azure.Identity@1.21.0",
+        "pkg:nuget/Microsoft.Data.SqlClient@7.0.2"
+      ]
+    },
+    {
+      "ref": "pkg:nuget/Microsoft.Identity.Client.Extensions.Msal@4.83.1",
+      "dependsOn": [
+        "pkg:nuget/Microsoft.Identity.Client@4.83.1",
+        "pkg:nuget/System.Security.Cryptography.ProtectedData@10.0.13"
+      ]
+    },
+    {
+      "ref": "pkg:nuget/Microsoft.Identity.Client@4.83.1",
+      "dependsOn": [
+        "pkg:nuget/Microsoft.IdentityModel.Abstractions@8.19.2"
+      ]
+    },
+    {
+      "ref": "pkg:nuget/Microsoft.IdentityModel.Abstractions@8.19.2"
+    },
+    {
+      "ref": "pkg:nuget/Microsoft.IdentityModel.JsonWebTokens@8.19.2",
+      "dependsOn": [
+        "pkg:nuget/Microsoft.IdentityModel.Tokens@8.19.2"
+      ]
+    },
+    {
+      "ref": "pkg:nuget/Microsoft.IdentityModel.Logging@8.19.2",
+      "dependsOn": [
+        "pkg:nuget/Microsoft.IdentityModel.Abstractions@8.19.2"
+      ]
+    },
+    {
+      "ref": "pkg:nuget/Microsoft.IdentityModel.Protocols.OpenIdConnect@8.19.2",
+      "dependsOn": [
+        "pkg:nuget/Microsoft.IdentityModel.Protocols@8.19.2",
+        "pkg:nuget/System.IdentityModel.Tokens.Jwt@8.19.2"
+      ]
+    },
+    {
+      "ref": "pkg:nuget/Microsoft.IdentityModel.Protocols@8.19.2",
+      "dependsOn": [
+        "pkg:nuget/Microsoft.IdentityModel.Tokens@8.19.2"
+      ]
+    },
+    {
+      "ref": "pkg:nuget/Microsoft.IdentityModel.Tokens.Saml@8.18.0",
+      "dependsOn": [
+        "pkg:nuget/Microsoft.IdentityModel.Tokens@8.19.2",
+        "pkg:nuget/Microsoft.IdentityModel.Xml@8.18.0"
+      ]
+    },
+    {
+      "ref": "pkg:nuget/Microsoft.IdentityModel.Tokens@8.19.2",
+      "dependsOn": [
+        "pkg:nuget/Microsoft.Bcl.Cryptography@10.0.2",
+        "pkg:nuget/Microsoft.IdentityModel.Logging@8.19.2"
+      ]
+    },
+    {
+      "ref": "pkg:nuget/Microsoft.IdentityModel.Xml@8.18.0",
+      "dependsOn": [
+        "pkg:nuget/Microsoft.IdentityModel.Tokens@8.19.2"
+      ]
+    },
+    {
+      "ref": "pkg:nuget/Microsoft.OpenApi@2.12.2"
+    },
+    {
+      "ref": "pkg:nuget/Microsoft.SqlServer.Server@1.0.0"
+    },
+    {
+      "ref": "pkg:nuget/MimeKit@4.17.0",
+      "dependsOn": [
+        "pkg:nuget/BouncyCastle.Cryptography@2.6.2",
+        "pkg:nuget/System.Security.Cryptography.Pkcs@10.0.13"
+      ]
+    },
+    {
+      "ref": "pkg:nuget/Newtonsoft.Json@13.0.3"
+    },
+    {
+      "ref": "pkg:nuget/RBush.Signed@4.0.0"
+    },
+    {
+      "ref": "pkg:nuget/SixLabors.Fonts@1.0.0"
+    },
+    {
+      "ref": "pkg:nuget/System.ClientModel@1.10.0",
+      "dependsOn": [
+        "pkg:nuget/System.Memory.Data@10.0.3"
+      ]
+    },
+    {
+      "ref": "pkg:nuget/System.Configuration.ConfigurationManager@10.0.13",
+      "dependsOn": [
+        "pkg:nuget/System.Security.Cryptography.ProtectedData@10.0.13"
+      ]
+    },
+    {
+      "ref": "pkg:nuget/System.DirectoryServices.AccountManagement@10.0.13",
+      "dependsOn": [
+        "pkg:nuget/System.Configuration.ConfigurationManager@10.0.13",
+        "pkg:nuget/System.DirectoryServices@10.0.13",
+        "pkg:nuget/System.DirectoryServices.Protocols@10.0.13"
+      ]
+    },
+    {
+      "ref": "pkg:nuget/System.DirectoryServices.Protocols@10.0.13"
+    },
+    {
+      "ref": "pkg:nuget/System.DirectoryServices@10.0.13"
+    },
+    {
+      "ref": "pkg:nuget/System.IdentityModel.Tokens.Jwt@8.19.2",
+      "dependsOn": [
+        "pkg:nuget/Microsoft.IdentityModel.JsonWebTokens@8.19.2",
+        "pkg:nuget/Microsoft.IdentityModel.Tokens@8.19.2"
+      ]
+    },
+    {
+      "ref": "pkg:nuget/System.IO.Packaging@8.0.1"
+    },
+    {
+      "ref": "pkg:nuget/System.Memory.Data@10.0.3"
+    },
+    {
+      "ref": "pkg:nuget/System.Security.Cryptography.Pkcs@10.0.13"
+    },
+    {
+      "ref": "pkg:nuget/System.Security.Cryptography.ProtectedData@10.0.13"
+    },
+    {
+      "ref": "pkg:nuget/System.Security.Cryptography.Xml@10.0.13",
+      "dependsOn": [
+        "pkg:nuget/System.Security.Cryptography.Pkcs@10.0.13"
+      ]
+    },
+    {
+      "ref": "pkg:nuget/System.ServiceModel.Primitives@10.0.652802"
+    }
+  ]
+}
