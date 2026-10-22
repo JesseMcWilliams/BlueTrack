@@ -3,7 +3,7 @@
   "specVersion": "1.6",
   "version": 1,
   "metadata": {
-    "timestamp": "2026-10-22T15:01:06Z",
+    "timestamp": "2026-10-22T04:36:31Z",
     "tools": {
       "components": [
         {
@@ -26,9 +26,9 @@
     },
     "component": {
       "type": "application",
-      "bom-ref": "BlueTrack.Migrator@1.6.0",
+      "bom-ref": "BlueTrack.Migrator@1.5.0",
       "name": "BlueTrack.Migrator",
-      "version": "1.6.0"
+      "version": "1.5.0"
     }
   },
   "components": [
@@ -974,7 +974,7 @@
   ],
   "dependencies": [
     {
-      "ref": "BlueTrack.Migrator@1.6.0",
+      "ref": "BlueTrack.Migrator@1.5.0",
       "dependsOn": [
         "pkg:nuget/dbup-sqlserver@7.2.0",
         "pkg:nuget/Microsoft.Data.SqlClient@7.0.2",

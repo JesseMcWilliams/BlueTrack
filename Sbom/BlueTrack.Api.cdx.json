@@ -3,7 +3,7 @@
   "specVersion": "1.6",
   "version": 1,
   "metadata": {
-    "timestamp": "2026-10-22T15:01:03Z",
+    "timestamp": "2026-10-22T04:36:26Z",
     "tools": {
       "components": [
         {
@@ -26,9 +26,9 @@
     },
     "component": {
       "type": "application",
-      "bom-ref": "BlueTrack.Api@1.6.0",
+      "bom-ref": "BlueTrack.Api@1.5.0",
       "name": "BlueTrack.Api",
-      "version": "1.6.0"
+      "version": "1.5.0"
     }
   },
   "components": [
@@ -2060,7 +2060,7 @@
   ],
   "dependencies": [
     {
-      "ref": "BlueTrack.Api@1.6.0",
+      "ref": "BlueTrack.Api@1.5.0",
       "dependsOn": [
         "pkg:nuget/AWSSDK.SecretsManager@4.0.100.11",
         "pkg:nuget/Azure.Identity@1.21.0",
