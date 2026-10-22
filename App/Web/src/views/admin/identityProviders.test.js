@@ -21,10 +21,11 @@ function makeRouter() {
 }
 function json(body) { return { ok: true, status: 200, json: () => Promise.resolve(body) } }
 
-async function mountList(providers, defaultType = null) {
+async function mountList(providers, defaultType = null, rememberLastSignInMethod = false) {
   globalThis.fetch = vi.fn((url, init) => {
     if (init?.method === 'DELETE') return Promise.resolve({ ok: true, status: 204 })
-    if (url.endsWith('/default')) return Promise.resolve(json({ providerType: defaultType }))
+    if (url.endsWith('/default') && init?.method === 'PUT') return Promise.resolve({ ok: true, status: 204 })
+    if (url.endsWith('/default')) return Promise.resolve(json({ providerType: defaultType, rememberLastSignInMethod }))
     return Promise.resolve(json(providers.map(p => ({ ...p }))))
   })
   const wrapper = mount(IdentityProviders, { global: { plugins: [makeRouter()] } })
@@ -81,5 +82,23 @@ describe('Identity provider safeguards', () => {
 
     await wrapper.find('select').setValue('SAML')
     expect(wrapper.text()).not.toContain('take effect after the application is restarted')
+  })
+})
+
+// D-292: "Remember each browser's last method" is loaded and saved with the default.
+describe('Identity providers: remember the last sign-in method', () => {
+  afterEach(() => vi.restoreAllMocks())
+
+  it('shows the stored setting and saves it with the default', async () => {
+    const wrapper = await mountList([oidc, saml], 'OIDC', true)
+    const box = wrapper.find('input[type="checkbox"]')
+    expect(box.element.checked).toBe(true)
+
+    await box.setValue(false)
+    await wrapper.find('form.filter-row').trigger('submit')
+    await flushPromises()
+
+    const put = globalThis.fetch.mock.calls.find(([url, init]) => url.endsWith('/default') && init?.method === 'PUT')
+    expect(JSON.parse(put[1].body)).toEqual({ providerType: 'OIDC', rememberLastSignInMethod: false })
   })
 })

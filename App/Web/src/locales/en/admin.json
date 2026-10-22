@@ -603,6 +603,8 @@
     "noDefault": "None (the sign-in page lists the methods)",
     "disabled": "(disabled)",
     "defaultSaved": "Saved. It applies the next time someone signs in.",
+    "rememberLastSignIn": "Remember each browser's last method",
+    "rememberLastSignInHint": "When ticked, the sign-in page starts the method that browser last signed in with (while that method is still enabled); a browser that hasn't signed in since uses the default. The sign-in page lists the methods by each provider's Display Order, set on its edit page.",
     "defaultHint": "With a default, people without a session go straight to it: Windows signs in silently, OIDC and SAML go to the identity provider. A direct address always uses its own method, so it suits an identity provider's launch URL or a link you hand out:"
   },
   "importMappingProfileEdit": {

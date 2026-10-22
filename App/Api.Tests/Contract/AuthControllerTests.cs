@@ -151,6 +151,84 @@ public class AuthControllerTests : IClassFixture<BlueTrackWebApplicationFactory>
             (await viewer.PutAsJsonAsync("/api/admin/identity-providers/default", new { providerType = (string?)null })).StatusCode);
     }
 
+    private sealed record RememberBody(string? ProviderType, bool RememberLastSignInMethod);
+
+    private HttpRequestMessage WithLastSignIn(string path, string providerType)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Get, path);
+        request.Headers.Add("Cookie", $"{BlueTrack.Api.Controllers.AuthController.LastSignInCookieName}={providerType}");
+        return request;
+    }
+
+    /// <summary>
+    /// D-292: with "remember each browser's last method" on, the sign-in page and the session start the method in
+    /// the browser's last-sign-in cookie while it's enabled; otherwise (setting off, or that method not enabled)
+    /// the default.
+    /// </summary>
+    [Fact]
+    public async Task RememberLastSignInMethod_StartsTheBrowsersLastMethod_OnlyWhenOnAndEnabled()
+    {
+        var admin = Admin();
+        var before = (await admin.GetFromJsonAsync<RememberBody>("/api/admin/identity-providers/default"))!;
+        var anonymous = _factory.CreateClient();
+        try
+        {
+            // No default; the setting off: the cookie is ignored.
+            Assert.Equal(HttpStatusCode.NoContent, (await admin.PutAsJsonAsync("/api/admin/identity-providers/default",
+                new { providerType = (string?)null, rememberLastSignInMethod = false })).StatusCode);
+            var off = await (await anonymous.SendAsync(WithLastSignIn("/api/auth/session", "WindowsIntegrated"))).Content.ReadFromJsonAsync<SessionResponse>();
+            Assert.Null(off!.DefaultProviderType);
+            Assert.False(off.Windows);
+
+            // On: the last method (WindowsIntegrated is enabled in the test database) is started.
+            Assert.Equal(HttpStatusCode.NoContent, (await admin.PutAsJsonAsync("/api/admin/identity-providers/default",
+                new { providerType = (string?)null, rememberLastSignInMethod = true })).StatusCode);
+            Assert.True((await admin.GetFromJsonAsync<RememberBody>("/api/admin/identity-providers/default"))!.RememberLastSignInMethod);
+            var on = await (await anonymous.SendAsync(WithLastSignIn("/api/auth/session", "WindowsIntegrated"))).Content.ReadFromJsonAsync<SessionResponse>();
+            Assert.Equal("WindowsIntegrated", on!.DefaultProviderType);
+            Assert.True(on.Windows);
+            var providers = await (await anonymous.SendAsync(WithLastSignIn("/api/auth/providers", "WindowsIntegrated"))).Content.ReadFromJsonAsync<System.Text.Json.Nodes.JsonObject>();
+            Assert.Equal("WindowsIntegrated", (string?)providers!["defaultProviderType"]);
+
+            // A method that isn't enabled (SAML is disabled in the test database), or isn't a sign-in method, falls back to the default.
+            Assert.Null((await (await anonymous.SendAsync(WithLastSignIn("/api/auth/session", "SAML"))).Content.ReadFromJsonAsync<SessionResponse>())!.DefaultProviderType);
+            Assert.Null((await (await anonymous.SendAsync(WithLastSignIn("/api/auth/session", "DevFakeAuth"))).Content.ReadFromJsonAsync<SessionResponse>())!.DefaultProviderType);
+            // No cookie: the default.
+            Assert.Null((await anonymous.GetFromJsonAsync<SessionResponse>("/api/auth/session"))!.DefaultProviderType);
+
+            // A save without the field (an older page) leaves the setting as it is.
+            Assert.Equal(HttpStatusCode.NoContent, (await admin.PutAsJsonAsync("/api/admin/identity-providers/default", new { providerType = (string?)null })).StatusCode);
+            Assert.True((await admin.GetFromJsonAsync<RememberBody>("/api/admin/identity-providers/default"))!.RememberLastSignInMethod);
+        }
+        finally
+        {
+            await admin.PutAsJsonAsync("/api/admin/identity-providers/default",
+                new { providerType = before.ProviderType, rememberLastSignInMethod = before.RememberLastSignInMethod });
+        }
+    }
+
+    /// <summary>D-292: /api/me writes the cookie only for a sign-in method (the test users sign in as DevFakeAuth, which isn't one).</summary>
+    [Fact]
+    public async Task Me_DoesNotRememberDevFakeAuth()
+    {
+        var admin = Admin();
+        var before = (await admin.GetFromJsonAsync<RememberBody>("/api/admin/identity-providers/default"))!;
+        try
+        {
+            await admin.PutAsJsonAsync("/api/admin/identity-providers/default",
+                new { providerType = before.ProviderType, rememberLastSignInMethod = true });
+            var response = await admin.GetAsync("/api/me");
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            Assert.DoesNotContain(response.Headers.TryGetValues("Set-Cookie", out var cookies) ? cookies : [],
+                c => c.StartsWith(BlueTrack.Api.Controllers.AuthController.LastSignInCookieName + "="));
+        }
+        finally
+        {
+            await admin.PutAsJsonAsync("/api/admin/identity-providers/default",
+                new { providerType = before.ProviderType, rememberLastSignInMethod = before.RememberLastSignInMethod });
+        }
+    }
+
     private sealed class ProviderResponse
     {
         public string ProviderType { get; set; } = "";

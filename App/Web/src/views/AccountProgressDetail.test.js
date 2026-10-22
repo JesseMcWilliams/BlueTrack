@@ -571,3 +571,41 @@ describe('AccountProgressDetail.vue: an account in a CyberArk internal Safe', ()
     expect(links[0].attributes('href')).toBe('/accounts/77')
   })
 })
+
+// D-291: a field with a RequiredPermission the user lacks is read-only and says which permission it needs.
+describe('AccountProgressDetail.vue: per-field permissions', () => {
+  function stageSelect(wrapper) {
+    return wrapper.findAll('label.field-label').find(l => l.text().startsWith('Stage')).find('select')
+  }
+
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    const rights = useRightsStore()
+    rights.userKey = 1
+    rights.loaded = true
+    fieldMetadata[0].requiredPermissionName = 'ConfirmReconciliation'
+  })
+  afterEach(() => {
+    delete fieldMetadata[0].requiredPermissionName
+    vi.restoreAllMocks()
+  })
+
+  it('locks the field without the permission', async () => {
+    useRightsStore().permissionNames = ['EditAccountProgress']
+    mockLoad()
+    const wrapper = await mountEditable()
+
+    expect(stageSelect(wrapper).attributes('disabled')).toBeDefined()
+    expect(wrapper.text()).toContain('Changing this needs the ConfirmReconciliation permission.')
+    expect(wrapper.findAll('label.field-label').find(l => l.text().startsWith('Status')).find('select').attributes('disabled')).toBeUndefined()
+  })
+
+  it('leaves it editable with the permission', async () => {
+    useRightsStore().permissionNames = ['EditAccountProgress', 'ConfirmReconciliation']
+    mockLoad()
+    const wrapper = await mountEditable()
+
+    expect(stageSelect(wrapper).attributes('disabled')).toBeUndefined()
+    expect(wrapper.text()).not.toContain('needs the ConfirmReconciliation permission')
+  })
+})

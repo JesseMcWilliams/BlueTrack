@@ -6,11 +6,17 @@ What changed in each BlueTrack release, newest first, for users and administrato
 
 ### New
 
+- **Admin > Identity Providers**: **Remember each browser's last method**. When ticked, the sign-in page starts the method that browser last signed in with instead of the default.
+
 ### Changed
+
+- Some account fields now need a permission of their own to change by hand: **Account Type**, **Source of Record** and **Application** need the Admin role's mapping permissions, **Blueprint Stage** and **Actual Completion Date** need Confirm Reconciliation (Admin, Approver), and **Risk Level** needs Manage Targets (Admin, Analyst). The account page shows such a field read-only, with the permission it needs, to anyone without it, and bulk edit doesn't offer it. Progress Rules still move stages each night.
 
 ### Fixed
 
 ### Upgrading
+
+- The upgrade sets those field permissions where none was set. To keep a field open to every editor, clear its **Required permission** on Admin > Field Metadata after upgrading.
 
 ## 1.5.0 (2026-10-21)
 

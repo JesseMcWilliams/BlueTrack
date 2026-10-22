@@ -4,6 +4,7 @@ import { createPinia, setActivePinia } from 'pinia'
 import { createRouter, createMemoryHistory } from 'vue-router'
 import AccountProgressBulkEdit from './AccountProgressBulkEdit.vue'
 import { useAccountSelectionStore } from '../stores/accountSelection'
+import { useRightsStore } from '../stores/rights'
 
 vi.mock('../composables/useConfirmDialog', () => ({
   confirmDelete: vi.fn().mockResolvedValue(true)
@@ -86,5 +87,41 @@ describe('Account bulk edit', () => {
     await flushPromises()
 
     expect(globalThis.fetch.mock.calls.some(([, init]) => init?.method === 'POST')).toBe(false)
+  })
+})
+
+// D-291: a field with a RequiredPermission the user lacks can't be ticked.
+describe('Account bulk edit: per-field permissions', () => {
+  afterEach(() => vi.restoreAllMocks())
+
+  async function mountWith(permissionNames) {
+    setActivePinia(createPinia())
+    useAccountSelectionStore().add([11])
+    Object.assign(useRightsStore(), { loaded: true, permissionNames })
+    globalThis.fetch = vi.fn(url => Promise.resolve({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve(url === '/api/account-progress/field-metadata'
+        ? [{ fieldName: 'CurrentStageKey', requiredPermissionName: 'ConfirmReconciliation' }, { fieldName: 'OwnerName', requiredPermissionName: null }]
+        : {})
+    }))
+    const router = createRouter({ history: createMemoryHistory(), routes: [{ path: '/', name: 'account-progress-list', component: { template: '<div />' } }] })
+    router.push('/')
+    await router.isReady()
+    const wrapper = mount(AccountProgressBulkEdit, { global: { plugins: [router] } })
+    await flushPromises()
+    return wrapper
+  }
+
+  it('disables the field without the permission and says which it needs', async () => {
+    const wrapper = await mountWith(['EditAccountProgress'])
+    expect(wrapper.find('input[aria-label="Change Stage"]').attributes('disabled')).toBeDefined()
+    expect(wrapper.text()).toContain('(needs ConfirmReconciliation)')
+    expect(wrapper.find('input[aria-label="Change Owner"]').attributes('disabled')).toBeUndefined()
+  })
+
+  it('offers it with the permission', async () => {
+    const wrapper = await mountWith(['EditAccountProgress', 'ConfirmReconciliation'])
+    expect(wrapper.find('input[aria-label="Change Stage"]').attributes('disabled')).toBeUndefined()
   })
 })

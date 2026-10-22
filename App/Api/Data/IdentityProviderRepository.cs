@@ -76,6 +76,44 @@ public sealed class IdentityProviderRepository(IDbConnectionFactory connectionFa
         await connection.ExecuteAsync("UPDATE web.app_config SET DefaultSignInProvider = @ProviderType", new { ProviderType = providerType });
     }
 
+    /// <summary>
+    /// D-292: the method the sign-in page starts. With RememberLastSignInMethod on, the method this browser last
+    /// signed in with (<paramref name="lastUsedProviderType"/>, from its cookie) while it's still an enabled sign-in
+    /// method; otherwise the default (D-205), as <see cref="GetDefaultSignInProviderAsync"/>.
+    /// </summary>
+    public async Task<string?> GetEffectiveSignInProviderAsync(string? lastUsedProviderType)
+    {
+        if (lastUsedProviderType is null || !SignInProviderTypes.Contains(lastUsedProviderType))
+        {
+            return await GetDefaultSignInProviderAsync();
+        }
+
+        using var connection = connectionFactory.Create();
+        const string sql = """
+            SELECT TOP (1)
+                CASE WHEN ac.RememberLastSignInMethod = 1
+                      AND EXISTS (SELECT 1 FROM web.identity_provider_config ipc WHERE ipc.ProviderType = @LastUsed AND ipc.IsEnabled = 1)
+                     THEN @LastUsed
+                     WHEN EXISTS (SELECT 1 FROM web.identity_provider_config ipc WHERE ipc.ProviderType = ac.DefaultSignInProvider AND ipc.IsEnabled = 1)
+                     THEN ac.DefaultSignInProvider
+                END
+            FROM web.app_config ac
+            """;
+        return await connection.QuerySingleOrDefaultAsync<string?>(sql, new { LastUsed = lastUsedProviderType });
+    }
+
+    public async Task<bool> GetRememberLastSignInMethodAsync()
+    {
+        using var connection = connectionFactory.Create();
+        return await connection.QuerySingleOrDefaultAsync<bool>("SELECT TOP (1) RememberLastSignInMethod FROM web.app_config");
+    }
+
+    public async Task SetRememberLastSignInMethodAsync(bool remember)
+    {
+        using var connection = connectionFactory.Create();
+        await connection.ExecuteAsync("UPDATE web.app_config SET RememberLastSignInMethod = @Remember", new { Remember = remember });
+    }
+
     public async Task<IReadOnlyList<IdentityProviderConfig>> GetEnabledAsync()
     {
         using var connection = connectionFactory.Create();
