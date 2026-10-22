@@ -77,8 +77,10 @@
    its own SQL Agent job (05_BlueTrack_ScheduleAuditLogPurgeJob.sql) under
    the Agent's account. The DENY on the procedure matters: a dbo-owned
    procedure's own DELETE would otherwise get past the table DENY through
-   ownership chaining. Safe to re-run; re-run it on an existing install
-   (installer step Db.AppPoolAccess) to apply this.
+   ownership chaining. D-295 adds the same for the audit log's seals
+   (web.audit_chain, its keys and the purge's records). Safe to re-run;
+   re-run it on an existing install (installer step Db.AppPoolAccess) to
+   apply this.
 
    __TARGET_ACCOUNT__ below is a placeholder -- replace it by hand with
    the real login/account (e.g. `DOMAIN\BlueTrackAppPoolAccount`, or, for
@@ -124,6 +126,15 @@ DENY UPDATE, DELETE ON web.audit_event TO [__TARGET_ACCOUNT__];
 DENY UPDATE, DELETE ON web.audit_field_change TO [__TARGET_ACCOUNT__];
 DENY UPDATE, DELETE ON web.audit_purge_log TO [__TARGET_ACCOUNT__];
 DENY EXECUTE ON dbo.usp_PurgeAuditLog TO [__TARGET_ACCOUNT__];
+GO
+
+-- D-295: the audit log's seals (Database/54) are insert-only too: the API
+-- adds them and moves web.audit_chain_state on, but may not change or delete
+-- a seal, a key or a record of what the purge deleted.
+IF OBJECT_ID('web.audit_chain') IS NOT NULL
+    EXEC (N'DENY UPDATE, DELETE ON web.audit_chain TO [__TARGET_ACCOUNT__];
+            DENY UPDATE, DELETE ON web.audit_chain_key TO [__TARGET_ACCOUNT__];
+            DENY UPDATE, DELETE ON web.audit_chain_purged TO [__TARGET_ACCOUNT__];');
 GO
 
 PRINT '02_BlueTrack_GrantAppServiceAccountAccess.sql complete.';

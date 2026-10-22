@@ -514,4 +514,114 @@ SELECT TOP (1) SiteUrl FROM web.app_config;
     return "Kept the Site URL $current"
 }
 
-Export-ModuleMember -Function Format-BlueTrackConnectionString, Test-BlueTrackSqlConnection, Test-BlueTrackSqlInstanceIsThisMachine, Invoke-BlueTrackMigrator, Set-BlueTrackSiteConfig, Install-BlueTrackNightlyJob, Test-BlueTrackEvdSourceInUse, Grant-BlueTrackAppPoolSqlAccess, Get-BlueTrackSiteUrl, Set-BlueTrackSiteUrl
+function Install-BlueTrackSqlServerAudit {
+    <#
+    .SYNOPSIS
+        D-295: records every UPDATE and DELETE on the audit log's tables in the
+        Windows Security log (SQL Server Audit, Database/Manual/07).
+    .DESCRIPTION
+        Microsoft's three requirements for an audit written to the Security log
+        ("Write SQL Server Audit events to the Security log"), set here when SQL
+        Server is this machine:
+          1. the audit policy subcategory Application Generated on for success
+             and failure (auditpol, by its GUID so it works in any Windows
+             language);
+          2. the SQL Server service account holding "Generate security audits"
+             (SeAuditPrivilege; secedit) -- it takes effect when SQL Server
+             restarts, which this function does not do;
+          3. that account allowed full control of
+             HKLM\SYSTEM\CurrentControlSet\Services\EventLog\Security.
+        Then it runs Manual/07 and reports the audit's status. When SQL Server
+        is on another machine, those three are for that machine's administrator
+        (the function says so) and only Manual/07 runs. A domain audit policy
+        can override step 1; check it with
+        auditpol /get /subcategory:"Application Generated".
+    #>
+    [CmdletBinding(SupportsShouldProcess)]
+    param(
+        [Parameter(Mandatory)] [string]$RepoRoot,
+        [Parameter(Mandatory)] [string]$SqlServerInstance,
+        [Parameter(Mandatory)] [string]$DatabaseName,
+        [bool]$TrustServerCertificate = $true
+    )
+
+    $scriptPath = Join-Path $RepoRoot 'Database\Manual\07_BlueTrack_SqlServerAudit.sql'
+    if (-not (Test-Path $scriptPath)) { throw "Could not find '$scriptPath'." }
+    [string[]]$trustArgs = if ($TrustServerCertificate) { @('-C') } else { @() }
+    $restartNeeded = $false
+
+    if (Test-BlueTrackSqlInstanceIsThisMachine -SqlServerInstance $SqlServerInstance) {
+        # All the output first: Select-Object -First 1 in the pipeline would stop sqlcmd and leave a failing exit code.
+        $output = @(& sqlcmd -S $SqlServerInstance @trustArgs -b -h -1 -W -Q "SET NOCOUNT ON; SELECT TOP (1) service_account FROM sys.dm_server_services WHERE servicename LIKE N'SQL Server (%'")
+        $account = $output | Select-Object -First 1
+        if ($LASTEXITCODE -ne 0 -or -not $account) { throw 'Could not read the SQL Server service account (sys.dm_server_services needs VIEW SERVER STATE).' }
+        $account = $account.Trim()
+        $sid = ([System.Security.Principal.NTAccount]$account).Translate([System.Security.Principal.SecurityIdentifier]).Value
+        Write-Host "SQL Server runs as $account ($sid)."
+
+        # 1. Audit policy: Application Generated ({0CCE9222-...}), success and failure.
+        if ($PSCmdlet.ShouldProcess('Windows audit policy', 'Turn on Application Generated (success and failure)')) {
+            & auditpol.exe /set /subcategory:'{0CCE9222-69AE-11D9-BED3-505054503030}' /success:enable /failure:enable | Out-Host
+            if ($LASTEXITCODE -ne 0) { throw "auditpol failed (exit code $LASTEXITCODE)." }
+        }
+
+        # 2. "Generate security audits" for the service account, unless it already has it.
+        $export = Join-Path $env:TEMP "BlueTrack.secpol.$([guid]::NewGuid()).inf"
+        $database = Join-Path $env:TEMP "BlueTrack.secpol.$([guid]::NewGuid()).sdb"
+        try {
+            & secedit.exe /export /cfg $export /areas USER_RIGHTS /quiet | Out-Null
+            if ($LASTEXITCODE -ne 0) { throw "secedit /export failed (exit code $LASTEXITCODE)." }
+            $lines = @(Get-Content -Path $export)
+            $index = [array]::FindIndex($lines, [Predicate[string]] { param($line) $line -match '^SeAuditPrivilege\s*=' })
+            $holders = if ($index -ge 0) { @(($lines[$index] -split '=', 2)[1].Split(',') | ForEach-Object { $_.Trim() } | Where-Object { $_ }) } else { @() }
+            if ("*$sid" -in $holders -or $account -in $holders) {
+                Write-Host "$account already holds Generate security audits."
+            } elseif ($PSCmdlet.ShouldProcess($account, 'Grant Generate security audits (SeAuditPrivilege)')) {
+                $line = 'SeAuditPrivilege = ' + ((@($holders) + "*$sid") -join ',')
+                $rights = @('[Unicode]', 'Unicode=yes', '[Version]', 'signature="$CHICAGO$"', 'Revision=1', '[Privilege Rights]', $line)
+                Set-Content -Path $export -Value $rights -Encoding Unicode
+                & secedit.exe /configure /db $database /cfg $export /areas USER_RIGHTS /quiet | Out-Null
+                if ($LASTEXITCODE -ne 0) { throw "secedit /configure failed (exit code $LASTEXITCODE)." }
+                $restartNeeded = $true
+                Write-Host "Granted Generate security audits to $account."
+            }
+        } finally {
+            Remove-Item -Path $export, $database -ErrorAction SilentlyContinue -WhatIf:$false
+            Remove-Item -Path ($database -replace '\.sdb$', '.jfm') -ErrorAction SilentlyContinue -WhatIf:$false
+        }
+
+        # 3. Full control of the Security event log's registry key.
+        $key = 'HKLM:\SYSTEM\CurrentControlSet\Services\EventLog\Security'
+        $acl = Get-Acl -Path $key
+        $has = $acl.Access | Where-Object {
+            $_.AccessControlType -eq 'Allow' -and ($_.RegistryRights -band [System.Security.AccessControl.RegistryRights]::FullControl) -eq [System.Security.AccessControl.RegistryRights]::FullControl -and
+            $(try { $_.IdentityReference.Translate([System.Security.Principal.SecurityIdentifier]).Value -eq $sid } catch { $false })
+        }
+        if ($has) {
+            Write-Host "$account already has full control of the Security event log key."
+        } elseif ($PSCmdlet.ShouldProcess($key, "Give $account full control")) {
+            $rule = New-Object System.Security.AccessControl.RegistryAccessRule (
+                [System.Security.Principal.SecurityIdentifier]$sid, 'FullControl', 'ContainerInherit', 'None', 'Allow')
+            $acl.AddAccessRule($rule)
+            Set-Acl -Path $key -AclObject $acl
+            Write-Host "Gave $account full control of the Security event log key."
+        }
+    } else {
+        Write-Warning "SQL Server ($SqlServerInstance) is on another machine. Its administrator must turn on the audit policy Application Generated, give the SQL Server service account 'Generate security audits' and full control of HKLM\SYSTEM\CurrentControlSet\Services\EventLog\Security, and restart SQL Server (Deploy/README.md, Db.SqlServerAudit)."
+    }
+
+    if ($PSCmdlet.ShouldProcess("$SqlServerInstance / $DatabaseName", 'Create the SQL Server audit of the audit log tables (Database/Manual/07)')) {
+        & sqlcmd -S $SqlServerInstance @trustArgs -b -I -v DatabaseName="$DatabaseName" -i $scriptPath | Out-Host
+        if ($LASTEXITCODE -ne 0) { throw "sqlcmd failed running 07_BlueTrack_SqlServerAudit.sql (exit code $LASTEXITCODE)." }
+        $status = @(& sqlcmd -S $SqlServerInstance @trustArgs -b -h -1 -W -Q "SET NOCOUNT ON; SELECT status_desc FROM sys.dm_server_audit_status WHERE name = N'BlueTrack ($DatabaseName) - Audit Log Changes'") | Select-Object -First 1
+        if ("$status".Trim() -eq 'STARTED') {
+            Write-Host 'The SQL Server audit of the audit log is running (Windows Security log).'
+        } elseif ($restartNeeded) {
+            Write-Warning "The SQL Server audit is created but not writing yet ($status): restart the SQL Server service so the new 'Generate security audits' right takes effect, then run -Step Db.SqlServerAudit again to check."
+        } else {
+            Write-Warning "The SQL Server audit is created but not writing ($status). Check the three Windows requirements (Deploy/README.md, Db.SqlServerAudit) and the SQL Server error log, restart SQL Server if a right was just granted, then run -Step Db.SqlServerAudit again."
+        }
+    }
+}
+
+Export-ModuleMember -Function Format-BlueTrackConnectionString, Test-BlueTrackSqlConnection, Test-BlueTrackSqlInstanceIsThisMachine, Invoke-BlueTrackMigrator, Set-BlueTrackSiteConfig, Install-BlueTrackNightlyJob, Test-BlueTrackEvdSourceInUse, Grant-BlueTrackAppPoolSqlAccess, Get-BlueTrackSiteUrl, Set-BlueTrackSiteUrl, Install-BlueTrackSqlServerAudit

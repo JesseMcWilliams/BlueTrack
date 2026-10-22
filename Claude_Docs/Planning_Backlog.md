@@ -4,9 +4,6 @@
 
 ## Requested, not started
 - **Privilege Cloud Direct** (requested 2026-10-19, with Self-Hosted Direct, D-248): read Privilege Cloud through its API into `stg_pc_*` instead of the export folder, as a fourth option on the CyberArk sources page (already listed there, unavailable). Needs the Privilege Cloud API's logon (an Identity OAuth client, `Platform/Developer` and `PAM/Privilege-Cloud-Standard` in the Idira reference), a lab tenant, and the same change guard.
-- **Chosen 2026-10-21, built in this order** (D-289, D-290), each its own PR:
-  5. **Tamper-evident audit log** (D-295): a keyed hash chain with a Verify and a purge checkpoint; SQL Server Audit on the audit tables to the Windows Security log (installer step); SIEM forwarding (D-234) documented as the off-server copy.
-
 
 ## From the requirements review (2026-10-21)
 Gaps against the original design (commit f0561ce) and the Blueprint theme. Built from that review: Progress Rules (D-283), editable stages (D-284), rejected sign-in logging (D-285), the SAML certificate reminder (D-287); step-up MFA is left to the SSO provider (D-286).

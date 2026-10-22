@@ -8,3 +8,4 @@
 | 2026-10-21 | Identity Providers: Remember each browser's last method (D-292) | Admin_SettingsReference (Identity Providers); the sign-in section of the User_Guide |
 | 2026-10-21 | Platform Mapping suggestions (D-293): Use and Fill in suggestions; saved only by Save; none for group platforms | Admin_SettingsReference (Platform Mapping) |
 | 2026-10-21 | Number and date formats (D-294): dates on the pages in the viewer's format; Number and date format setting for emails and run summaries | User_Guide (dates and numbers); Admin_SettingsReference (Global Application Configuration); Admin_Notifications or the notifications section |
+| 2026-10-21 | Tamper-evident audit log (D-295): seals, Verify on the Audit Log page, AuditChainBroken notification, installer step Db.SqlServerAudit | User_Guide or Admin_OperationsGuide (Audit Log, Verify); Admin_Installation and Admin_UpgradeGuide (Db.SqlServerAudit, SQL Server restart); notifications list |

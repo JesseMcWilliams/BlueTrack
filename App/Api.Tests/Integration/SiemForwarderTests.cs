@@ -318,6 +318,8 @@ public sealed class SiemForwarderTests : IAsyncLifetime
             Assert.Single(sent);
             Assert.Contains("cs3=F: \"1\" -> \"2\" cs3Label=Field Changes", sent[0]);
 
+            // D-295: only sealed events are purged; the API seals within seconds, this test at once.
+            await new BlueTrack.Api.Audit.AuditChainService(new TestDbConnectionFactory(), new BlueTrack.Api.Secrets.WindowsDpapiProtector()).SealAllAsync();
             await connection.ExecuteAsync("dbo.usp_PurgeAuditLog", commandType: System.Data.CommandType.StoredProcedure);
             Assert.Equal(0, await connection.QuerySingleAsync<int>("SELECT COUNT(*) FROM web.audit_event WHERE AuditEventKey = @old", new { old }));
         }

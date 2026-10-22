@@ -14,6 +14,7 @@ import ReportExportButtons from '../../components/ReportExportButtons.vue'
 import { useI18n } from 'vue-i18n'
 import { formatUtcDateTime } from '../../utils/formatLocale'
 import Combobox from '../../components/Combobox.vue'
+import AuditChainPanel from './AuditChainPanel.vue'
 
 const { t } = useI18n()
 
@@ -250,6 +251,8 @@ async function toggleFieldChanges(event) {
 <template>
   <div>
     <h2>{{ t('admin.auditLogViewer.title') }}</h2>
+    <!-- D-295 -->
+    <AuditChainPanel />
 
     <form class="filter-row" @submit.prevent="loadFiltered">
       <label class="field-label"><span class="field-label-text">{{ t('admin.auditLogViewer.eventTypeLabel') }}</span> <select v-if="eventTypes.length > 0" v-model="eventTypeFilter">

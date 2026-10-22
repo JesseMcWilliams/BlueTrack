@@ -19,7 +19,7 @@ Set-StrictMode -Version Latest
 $script:AnswerNames = @(
     'Environment', 'SqlServerInstance', 'DatabaseName', 'UseWindowsAuth', 'SeedTestData',
     'InstallNightlyJob', 'ImportSources', 'ExportFolderPath', 'BackupFolder',
-    'GrantAppPoolSqlAccess', 'AppPoolSqlLogin', 'ResetIis',
+    'GrantAppPoolSqlAccess', 'AppPoolSqlLogin', 'ResetIis', 'InstallSqlServerAudit',   # D-295
     'SiteName', 'ApiInstallPath', 'WebInstallPath', 'Hostname', 'HttpPort', 'HttpsPort',
     'CertificateThumbprint', 'GenerateSelfSignedCert',
     'PrerequisiteSource', 'InstallerSourcePath',

@@ -234,6 +234,7 @@ builder.Services.AddScoped<INotificationCheck, ApiKeyExpiringCheck>();          
 builder.Services.AddScoped<INotificationCheck, ApiKeyExpiredCheck>();           // D-243
 builder.Services.AddScoped<INotificationCheck, SamlCertificateExpiringCheck>();  // D-287
 builder.Services.AddScoped<INotificationCheck, CpmHealthCheck>();                // D-288
+builder.Services.AddScoped<INotificationCheck, AuditChainBrokenCheck>();         // D-295
 builder.Services.AddHostedService<NotificationCheckBackgroundService>();
 
 // AD Account Discovery (2026-09-16): same same-process-BackgroundService
@@ -284,6 +285,9 @@ builder.Services.AddSingleton(sp => new BlueTrack.Api.Siem.SiemForwarder(
     sp.GetRequiredService<BlueTrack.Api.Siem.ISyslogTransport>(),
     sp.GetRequiredService<ILogger<BlueTrack.Api.Siem.SiemForwarder>>()));
 builder.Services.AddHostedService<BlueTrack.Api.Siem.SiemForwardingBackgroundService>();
+// D-295: the audit log's seals. A Singleton, so the decrypted HMAC key is read once per process.
+builder.Services.AddSingleton<BlueTrack.Api.Audit.AuditChainService>();
+builder.Services.AddHostedService<BlueTrack.Api.Audit.AuditChainBackgroundService>();
 
 // D-96 Part 3.2: real, custom IHealthCheck implementations (this app's own
 // checks, not third-party health-check packages) -- consumed via

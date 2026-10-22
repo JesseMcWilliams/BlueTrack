@@ -84,6 +84,8 @@ param(
     [ValidateSet('Both', 'PrivilegeCloud', 'SelfHosted')]
     [string]$ImportSources,
     [bool]$GrantAppPoolSqlAccess,
+    # D-295: record changes to the audit log in the Windows Security log (SQL Server Audit).
+    [bool]$InstallSqlServerAudit,
     [string]$AppPoolSqlLogin,
     [bool]$ResetIis,
     # D-197: validate SQL Server's certificate unless this is $true. Default:
@@ -176,6 +178,8 @@ $Steps = @(
     @{ Name = 'Iis.AppPool'; Description = 'Create the Application Pool' }
     @{ Name = 'Db.AppPoolAccess'; Needs = @('Database', 'GrantAppPoolSqlAccess'); Description = 'Give the app pool''s account a SQL login + Database/Manual/02 grants'
         Condition = { $UseWindowsAuth -and $GrantAppPoolSqlAccess }; SkipReason = 'GrantAppPoolSqlAccess is off, or the API uses SQL authentication' }
+    @{ Name = 'Db.SqlServerAudit'; Needs = @('Database', 'InstallSqlServerAudit'); Description = 'Record changes to the audit log in the Windows Security log: Windows audit policy and the SQL Server account''s rights (when SQL Server is this machine), then Database/Manual/07'
+        Condition = { $InstallSqlServerAudit }; SkipReason = 'InstallSqlServerAudit is off' }
     @{ Name = 'Iis.Certificate'; Needs = @('Certificate'); Description = 'Resolve or generate the HTTPS certificate' }
     @{ Name = 'Iis.Site'; Needs = @('Certificate', 'ApiInstallPath', 'WebInstallPath'); Description = 'Create the site, /BlueTrack Application and bindings' }
     @{ Name = 'Iis.WebConfig'; Description = 'Write the site-root web.config and recycle the app pool' }
@@ -338,6 +342,12 @@ function Resolve-InstallAnswer {
                 Register-InstallAnswer GrantAppPoolSqlAccess $grant
             }
         }
+        'InstallSqlServerAudit' {
+            if (-not $script:Answered.Contains('InstallSqlServerAudit')) {
+                $audit = (Read-Host "Record every change to BlueTrack's audit log in the Windows Security log (SQL Server Audit; sets the Windows audit policy and the SQL Server account's rights, which take effect after a SQL Server restart)? (Y/n)") -notmatch '^[Nn]'
+                Register-InstallAnswer InstallSqlServerAudit $audit
+            }
+        }
         default { throw "Unknown step need '$Name'." }
     }
 }
@@ -486,6 +496,11 @@ $StepActions = @{
         Get-InstallConnectionString | Out-Null
         Install-BlueTrackNightlyJob -RepoRoot $RepoRoot -SqlServerInstance $SqlServerInstance -DatabaseName $DatabaseName `
             -ImportSources $ImportSources -ExportFolderPath $ExportFolderPath `
+            -TrustServerCertificate (Get-InstallTrustServerCertificate)
+    }
+    'Db.SqlServerAudit' = {
+        Get-InstallConnectionString | Out-Null
+        Install-BlueTrackSqlServerAudit -RepoRoot $RepoRoot -SqlServerInstance $SqlServerInstance -DatabaseName $DatabaseName `
             -TrustServerCertificate (Get-InstallTrustServerCertificate)
     }
     'Db.AppPoolAccess' = {
