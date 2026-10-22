@@ -10,8 +10,27 @@ namespace BlueTrack.Api.Controllers;
 [ApiController]
 [Route("api/audit-log")]
 [Authorize(Policy = Permissions.ViewAuditLog)]
-public sealed class AuditLogController(AuditRepository repository, ReportExportService exportService) : ControllerBase
+public sealed class AuditLogController(AuditRepository repository, ReportExportService exportService,
+    Audit.AuditChainService auditChain, CurrentUserResolver currentUserResolver, Audit.AuditLogger auditLogger) : ControllerBase
 {
+    /// <summary>D-295: how far sealing has got, and the last Verify.</summary>
+    [HttpGet("chain")]
+    public async Task<IActionResult> GetChainStatus() => Ok(await auditChain.GetStatusAsync());
+
+    /// <summary>
+    /// D-295: seals what is waiting, then checks every seal (the whole log; this can take a while on a large one).
+    /// Logged as AuditChainVerified with the result.
+    /// </summary>
+    [HttpPost("chain/verify")]
+    public async Task<IActionResult> VerifyChain(CancellationToken cancellationToken)
+    {
+        var user = await currentUserResolver.ResolveAsync(User);
+        if (user is null) return Unauthorized();
+        var result = await auditChain.VerifyAsync(cancellationToken);
+        await auditLogger.LogAsync("AuditChainVerified", user.UserKey, "audit_chain", null, detail: Audit.AuditLogger.ClipDetail(result.Summary));
+        return Ok(result);
+    }
+
     /// <summary>D-124 Phase 3: page/pageSize add server-side paging; X-Filtered-Count carries how many rows match the current filter, ignoring paging.</summary>
     [HttpGet]
     public async Task<IActionResult> GetEvents(

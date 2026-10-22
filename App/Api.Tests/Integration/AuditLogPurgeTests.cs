@@ -1,3 +1,5 @@
+using BlueTrack.Api.Audit;
+using BlueTrack.Api.Secrets;
 using Dapper;
 using Microsoft.Data.SqlClient;
 using Xunit;
@@ -29,6 +31,8 @@ public class AuditLogPurgeTests
         try
         {
             await SetRetentionDaysAsync(connection, 30);
+            // D-295: only sealed events are purged; the API seals within seconds, this test at once.
+            await new AuditChainService(new TestDbConnectionFactory(), new WindowsDpapiProtector()).SealAllAsync();
 
             var purge = await RunPurgeAsync(connection);
 

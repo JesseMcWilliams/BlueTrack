@@ -36,7 +36,7 @@ public class NotificationChecksTests : IClassFixture<BlueTrackWebApplicationFact
 
     private readonly List<long> _pullKeys = [];
 
-    private static readonly string[] NewTypes = [BlueTrack.Api.CyberArkDirect.SelfHostedPullFailedCheck.TypeName, NightlyImportFailedCheck.TypeName, OverdueRiskExceptionsCheck.TypeName, WeeklySummaryCheck.TypeName, ApiKeyExpiringCheck.TypeName, ApiKeyExpiredCheck.TypeName, SamlCertificateExpiringCheck.TypeName, CpmHealthCheck.TypeName];
+    private static readonly string[] NewTypes = [BlueTrack.Api.CyberArkDirect.SelfHostedPullFailedCheck.TypeName, NightlyImportFailedCheck.TypeName, OverdueRiskExceptionsCheck.TypeName, WeeklySummaryCheck.TypeName, ApiKeyExpiringCheck.TypeName, ApiKeyExpiredCheck.TypeName, SamlCertificateExpiringCheck.TypeName, CpmHealthCheck.TypeName, AuditChainBrokenCheck.TypeName];
 
     /// <summary>D-287: certificates by thumbprint, in place of the Windows store.</summary>
     private sealed class FakeCertificates : ISamlCertificateLookup
@@ -440,6 +440,37 @@ public class NotificationChecksTests : IClassFixture<BlueTrackWebApplicationFact
         finally
         {
             await connection.ExecuteAsync("DELETE FROM fact_account WHERE AccountKey = @accountKey", new { accountKey });
+        }
+    }
+
+    /// <summary>D-295: at the digest time the seals are checked; a changed audit event is emailed, once that day.</summary>
+    [Fact]
+    public async Task AuditChainBroken_EmailsWhenAnAuditEventWasChanged_Once()
+    {
+        await SetEnabledAsync(true, AuditChainBrokenCheck.TypeName);
+        await using var connection = new SqlConnection(TestDatabase.ConnectionString);
+        var userKey = await TestUsers.GetUserKeyAsync("IntegrationTestUser1");
+        var eventKey = await connection.QuerySingleAsync<long>("""
+            INSERT INTO web.audit_event (AuditEventTypeKey, PerformedByUserKey, EntityName, Detail)
+            OUTPUT inserted.AuditEventKey
+            SELECT (SELECT AuditEventTypeKey FROM web.dim_audit_event_type WHERE EventTypeName = 'FieldEdit'), @userKey, 'NotifyTestChain', 'before'
+            """, new { userKey });
+        try
+        {
+            await _factory.Services.GetRequiredService<BlueTrack.Api.Audit.AuditChainService>().SealAllAsync();
+            await connection.ExecuteAsync("UPDATE web.audit_event SET Detail = 'after' WHERE AuditEventKey = @eventKey", new { eventKey });
+
+            _clock.Set(new DateTimeOffset(2001, 1, 4, 7, 0, 0, TimeSpan.Zero));
+            await NewService().RunOnceAsync(CancellationToken.None);
+            await NewService().RunOnceAsync(CancellationToken.None);
+
+            var sent = Assert.Single(_sender.Messages, m => m.Subject == "BlueTrack: The audit log was changed outside BlueTrack");
+            Assert.Contains(_recipient, sent.To);
+            Assert.Contains("The event or its seal was changed", sent.Body);
+        }
+        finally
+        {
+            await connection.ExecuteAsync("DELETE FROM web.audit_event WHERE AuditEventKey = @eventKey", new { eventKey });
         }
     }
 

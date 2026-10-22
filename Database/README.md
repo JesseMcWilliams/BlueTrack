@@ -69,6 +69,7 @@ instead.
 | 51 | `51_BlueTrack_SeedFieldPermissions.sql` | D-291: default `RequiredPermission` on six Account Progress fields (Account Type, Source of Record, Application, Blueprint Stage, Actual Completion Date, Risk Level), only where none is set. |
 | 52 | `52_BlueTrack_RememberLastSignIn.sql` | D-292: `web.app_config.RememberLastSignInMethod` (off). |
 | 53 | `53_BlueTrack_FormatCulture.sql` | D-294: `web.app_config.FormatCulture` (`en-US`), the number and date format of emails and run summaries. |
+| 54 | `54_BlueTrack_AuditChain.sql` | D-295: `web.audit_chain`, `web.audit_chain_key`, `web.audit_chain_state`, `web.audit_chain_purged`; the AuditChainVerified audit event type and the AuditChainBroken notification type (off); recreates `usp_PurgeAuditLog` (only sealed events, records what it deleted). |
 
 ## The baseline (D-195)
 
@@ -93,7 +94,7 @@ scripts but not up to `51` is refused; upgrade it first from the
 
 ## Adding a script
 
-1. Name it `NN_BlueTrack_<Topic>.sql`, with `NN` the next number (`54` is next).
+1. Name it `NN_BlueTrack_<Topic>.sql`, with `NN` the next number (`55` is next).
 2. Start with a header comment: the file name, `RUN THIS AFTER 01-NN.`, what
    it changes and why (with the `D-n` decision), and whether it's safe to
    re-run.
@@ -132,6 +133,7 @@ Numbered in the order they're run; run only the ones that apply.
 | `04_BlueTrack_ScheduleImportLoadJob.sql` | Real environments, once Import and Load have each been run by hand and work: creates the nightly 2:00 AM Import + Load SQL Agent job in `msdb` (one step since D-224: `EXEC usp_RunNightlyImportLoad;`, which also takes the daily snapshot when the Import or Load fails; re-run it after script 21 to get that). `sqlcmd -S <server> -C -v DatabaseName="BlueTrack" -i Database/Manual/04_BlueTrack_ScheduleImportLoadJob.sql`, on a copy with its four `__TOKENS__` replaced. The job reads its source settings from `web.cyberark_source_config` (Admin > Data Sources); the script writes that row only when none exists (D-211). The installer's nightly-job option runs a filled-in copy. |
 | `05_BlueTrack_ScheduleAuditLogPurgeJob.sql` | Real environments, once `RetentionDays` is set on Global Application Configuration: the 3:00 AM job calling `usp_PurgeAuditLog`. Same `sqlcmd` form. |
 | `06_BlueTrack_DevFakeAuthUserMapping.sql` | Development only: maps your Windows username to Admin through DevFakeAuth. Replace `@DevFakeAuthUsername` first. |
+| `07_BlueTrack_SqlServerAudit.sql` | Real environments (D-295): SQL Server Audit of UPDATE/DELETE on the audit log's tables, to the Windows Security log. `sqlcmd -S <server> -C -v DatabaseName="BlueTrack" -i Database/Manual/07_BlueTrack_SqlServerAudit.sql`, after Windows allows it (see its header); the installer's `Db.SqlServerAudit` step does both. Safe to re-run. |
 
 The SQL Agent and backup-status scripts can't run through DbUp: they
 `USE msdb;` and never switch back, so DbUp's journal write after them
