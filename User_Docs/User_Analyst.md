@@ -21,7 +21,7 @@ Opening an account tries to acquire an edit lock automatically — if someone el
 To change many accounts at once, tick **Select accounts for bulk actions**, select them, and click **Bulk edit…**. See `User_Guide.md`, "Selecting accounts for bulk actions".
 
 The edit form has up to three tabs:
-- **Details** — stage, status, risk level, owner, business unit, dates, notes. A Reason is required only when regressing an account to an earlier stage.
+- **Details** — stage, status, risk level, account type, application, owner, business unit, dates, notes. A Reason is required only when regressing an account to an earlier stage. On a new install an Analyst can't change **Source of Record** (Admin only) or **Actual Completion Date** (Admin and Approver): they show read-only, naming the permission needed.
 - **Risk Score** — read-only computed values, a **Recalculate** button, and an editable Override Score.
 - **Risk Exception** — appears only when Status is "Risk Accepted / Excluded"; pick an existing Active exception or create one inline.
 

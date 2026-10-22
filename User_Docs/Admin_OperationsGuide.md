@@ -217,7 +217,7 @@ A successful pull replaces the Self-Hosted staging tables in one go: the `stg_sh
 
 `RetentionDays` (Global Application Configuration) is backed by a real nightly purge — the `usp_PurgeAuditLog` procedure (from `Database/06_BlueTrack_Baseline_WebLogic.sql`, applied by the Migrator like every other `Database/*.sql` script) and `Database/Manual/05_BlueTrack_ScheduleAuditLogPurgeJob.sql` (the SQL Agent job scheduling it, which you run by hand with `sqlcmd`, like the Import+Load job above).
 
-Runs nightly at **3:00 AM**, one hour after Import+Load, so a long ETL run never overlaps the purge. Each run deletes `web.audit_field_change` rows before their parent `web.audit_event` rows (FK dependency) older than `RetentionDays` days (while SIEM forwarding is on, not events still waiting to be forwarded; see "Monitoring SIEM Forwarding"), and records exactly one row in `web.audit_purge_log` either way:
+Runs nightly at **3:00 AM**, one hour after Import+Load, so a long ETL run never overlaps the purge. Each run deletes `web.audit_field_change` rows before their parent `web.audit_event` rows (FK dependency) older than `RetentionDays` days (while SIEM forwarding is on, not events still waiting to be forwarded; see "Monitoring SIEM Forwarding"). Since 1.6 it deletes only events BlueTrack has already sealed (an unsealed one waits for the next night) together with their seals, and records each run of seals it deleted in `web.audit_chain_purged`, so **Verify** still passes afterwards. It records exactly one row in `web.audit_purge_log` either way:
 
 - **`Status = 'Succeeded'`**, with `RowsPurged` = how many `audit_event` rows were deleted (`0` is a valid, real outcome — nothing was old enough yet).
 - **`Status = 'Skipped'`**, `RowsPurged = NULL`, `ErrorMessage` explaining why — this is what happens every night until an admin sets a real `RetentionDays` value on Global Application Configuration. **Installing the job does not, by itself, start deleting anything** — `RetentionDays` is empty by design on a fresh install, so nothing purges until a human picks a real number.
@@ -231,6 +231,16 @@ ORDER BY StartedAt DESC;
 ```
 
 **Re-running it manually** (e.g. right after setting `RetentionDays` for the first time, rather than waiting for 3:00 AM): `EXEC dbo.usp_PurgeAuditLog;` directly against the target database, signed in as yourself (the app's own SQL account is denied this procedure), or restart the job through SQL Server Agent (`EXEC msdb.dbo.sp_start_job @job_name = 'BlueTrack (BlueTrack) - Audit Log Purge';`).
+
+## Audit Log Seals and the SQL Server Audit
+
+**Seals.** The API seals every audit event within seconds (table `web.audit_chain`), with a key it keeps protected under the app pool account; the app's own SQL account can add seals but not change or delete them. After an upgrade the existing log is sealed in the background, oldest first. **Verify** on the Audit Log page (anyone with `ViewAuditLog`) checks every seal; the **AuditChainBroken** notification does it daily. If it reports a problem, the database was changed outside BlueTrack: find who in the SQL Server audit (below) and compare with the SIEM's copy. Don't restore the key table or the seals from another backup: the seals only match the key they were made with.
+
+**SQL Server audit of the audit log.** The installer's `Db.SqlServerAudit` step (Admin_SettingsReference.md, section 5) creates the server audit **BlueTrack (*database*) - Audit Log Changes**, writing to the Windows Security log every UPDATE or DELETE on the audit tables and their seals, by anyone. Check that it's recording:
+```sql
+SELECT name, status_desc, status_time FROM sys.dm_server_audit_status;
+```
+`STARTED` is good. Anything else (for example `TARGET_CREATION_FAILED`) means Windows isn't letting SQL Server write to the Security log yet: the SQL Server service needs a restart after the installer granted its account *Generate security audits*, or a domain Group Policy turned the *Application Generated* audit policy off (`auditpol /get /subcategory:"Application Generated"`). The events appear in Event Viewer > Windows Logs > Security; the first time, note the source and event ID your SQL Server writes them with, so you can filter on them (and forward them to your SIEM). Keep the Security log large enough, or forward it to your SIEM, so they aren't overwritten.
 
 ## Changing Identity Provider or Secrets Store Backend After Go-Live
 

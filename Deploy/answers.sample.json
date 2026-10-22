@@ -10,6 +10,7 @@
     "ExportFolderPath": "D:\\DataDrop\\Exports\\PrivilegedCloud",
     "BackupFolder": "D:\\SQLBackups\\BlueTrack",
     "GrantAppPoolSqlAccess": true,
+    "InstallSqlServerAudit": true,
     "AppPoolSqlLogin": "",
     "ResetIis": true,
     "SiteName": "BlueTrack",

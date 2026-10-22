@@ -4,8 +4,4 @@
 
 | Date | Change | User doc / section it affects |
 |---|---|---|
-| 2026-10-21 | Per-field permissions seeded (D-291, corrected by D-296): Source of Record, Actual Completion Date and Risk Level need their own permission; read-only on the account page, not offered in bulk edit | User_Guide (editing an account, bulk edit); Admin_SettingsReference (Field Metadata); Admin_UpgradeGuide |
-| 2026-10-21 | Identity Providers: Remember each browser's last method (D-292) | Admin_SettingsReference (Identity Providers); the sign-in section of the User_Guide |
-| 2026-10-21 | Platform Mapping suggestions (D-293): Use and Fill in suggestions; saved only by Save; none for group platforms | Admin_SettingsReference (Platform Mapping) |
-| 2026-10-21 | Number and date formats (D-294): dates on the pages in the viewer's format; Number and date format setting for emails and run summaries | User_Guide (dates and numbers); Admin_SettingsReference (Global Application Configuration); Admin_Notifications or the notifications section |
-| 2026-10-21 | Tamper-evident audit log (D-295): seals, Verify on the Audit Log page, AuditChainBroken notification, installer step Db.SqlServerAudit | User_Guide or Admin_OperationsGuide (Audit Log, Verify); Admin_Installation and Admin_UpgradeGuide (Db.SqlServerAudit, SQL Server restart); notifications list |
+| 2026-10-21 | Next release's Upgrade Guide section 5 row (written in the release's own docs PR): the field permission defaults (D-291/D-296), re-run `Db.AppPoolAccess`, run `Db.SqlServerAudit` and restart SQL Server when it says so (D-295), optional AuditChainBroken notification | Admin_UpgradeGuide (section 5); taken from Release_Notes.md, Unreleased > Upgrading |
