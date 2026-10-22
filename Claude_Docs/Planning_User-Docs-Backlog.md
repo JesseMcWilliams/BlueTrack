@@ -4,3 +4,4 @@
 
 | Date | Change | User doc / section it affects |
 |---|---|---|
+| 2026-10-22 | `Db.SqlServerAudit` no longer re-grants "Generate security audits" or asks for an unneeded SQL Server restart on a re-run | Release_Notes (Fixed); no guide change |
