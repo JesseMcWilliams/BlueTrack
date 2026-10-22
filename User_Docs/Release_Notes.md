@@ -6,6 +6,16 @@ What changed in each BlueTrack release, newest first, for users and administrato
 
 ### New
 
+### Changed
+
+### Fixed
+
+### Upgrading
+
+## 1.6.0 (2026-10-22)
+
+### New
+
 - **Admin > Identity Providers**: **Remember each browser's last method**. When ticked, the sign-in page starts the method that browser last signed in with instead of the default.
 - **Admin > Platform Mapping** suggests an account type and source of record for each unmapped platform: the mapping of the same platform in the other CyberArk source, or one that fits a word in the platform's name (Windows domain, Unix, Oracle and so on). **Use** fills in one, **Fill in suggestions** fills in all of them; nothing is saved until you click Save on the row. Group platforms get no suggestion.
 - **Global Application Configuration**: **Number and date format** (for example en-US, en-GB or de-DE) for the emails and the run summaries the server writes. It shows an example as you type.
@@ -17,8 +27,6 @@ What changed in each BlueTrack release, newest first, for users and administrato
 - Dates on the pages are shown in your browser's or chosen language's format (for example 10/21/2026 or 21.10.2026) instead of 2026-10-21, and more counts, percentages and risk scores use its number format (1,234 or 1.234). The Deployment page's backup runs and SIEM Forwarding show times in your own time zone.
 - Notification emails and the data feed and Self-Hosted pull summaries use the installation's number and date format (en-US unless changed), with thousands separators.
 - Some account fields now need a permission of their own to change by hand: **Source of Record** needs the Admin role's Curate Platform Mapping, **Actual Completion Date** needs Confirm Reconciliation (Admin, Approver), and **Risk Level** needs Manage Targets (Admin, Analyst). The account page shows such a field read-only, with the permission it needs, to anyone without it, and bulk edit doesn't offer it. Progress Rules still move stages each night.
-
-### Fixed
 
 ### Upgrading
 
