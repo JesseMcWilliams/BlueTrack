@@ -8,6 +8,7 @@ import { useRouter } from 'vue-router'
 import { flash, savedMessage } from '../../composables/useFlash'
 import { useI18n } from 'vue-i18n'
 import { fieldLabels, operatorLabels, NO_VALUE } from './progressRuleLabels'
+import { formatCount } from '../../utils/formatCount'
 
 const { t } = useI18n()
 const props = defineProps({ ruleKey: { type: [String, Number], required: false, default: null } })
@@ -211,7 +212,7 @@ async function save() {
       </p>
       <p v-if="previewError" role="alert">{{ previewError }}</p>
       <div v-if="preview" role="status" class="preview">
-        <p>{{ t('admin.progressRuleEdit.previewCount', { count: preview.matchCount }, preview.matchCount) }}</p>
+        <p>{{ t('admin.progressRuleEdit.previewCount', { count: formatCount(preview.matchCount) }, preview.matchCount) }}</p>
         <ul v-if="preview.accounts.length">
           <li v-for="a in preview.accounts" :key="a.accountKey">
             <router-link :to="{ name: 'account-progress-detail', params: { accountKey: a.accountKey } }">{{ a.accountName }}</router-link>

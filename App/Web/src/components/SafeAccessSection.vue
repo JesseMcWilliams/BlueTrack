@@ -6,6 +6,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { formatUtcDateTime } from '../utils/formatLocale'
 import { useI18n } from 'vue-i18n'
+import { formatCount } from '../utils/formatCount'
 
 const props = defineProps({ accountKey: { type: [String, Number], required: true } })
 const { t } = useI18n()
@@ -36,7 +37,7 @@ onMounted(async () => {
     <p v-else-if="!access" role="status">{{ t('common.loading') }}</p>
     <template v-else>
       <details>
-        <summary>{{ t('pages.safeAccess.peopleSummary', { count: people.length }, people.length) }}</summary>
+        <summary>{{ t('pages.safeAccess.peopleSummary', { count: formatCount(people.length) }, people.length) }}</summary>
         <p v-if="people.length === 0">{{ t('pages.safeAccess.noPeople') }}</p>
         <table v-else>
           <thead>

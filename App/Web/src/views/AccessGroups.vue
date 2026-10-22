@@ -325,8 +325,8 @@ async function remove(item) {
             <td>{{ item.groupIdentifier }}</td>
             <td>{{ item.groupScope }}<span v-if="item.foundOnTargetName"> ({{ item.foundOnTargetName }})</span></td>
             <td>{{ item.sorTypeName ?? '—' }}</td>
-            <td>{{ item.baseRiskScore }}</td>
-            <td>{{ item.computedRiskScore ?? t('pages.accessGroups.notYetCalculated') }}<span v-if="item.isRiskScoreStale">{{ ' ' + t('pages.accessGroups.stale') }}</span></td>
+            <td>{{ formatCount(item.baseRiskScore) }}</td>
+            <td>{{ formatCount(item.computedRiskScore) || t('pages.accessGroups.notYetCalculated') }}<span v-if="item.isRiskScoreStale">{{ ' ' + t('pages.accessGroups.stale') }}</span></td>
             <td>{{ item.sorAddress ?? '—' }}</td>
             <td>{{ item.discoverySource ?? '—' }}</td>
             <td>

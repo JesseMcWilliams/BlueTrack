@@ -161,7 +161,6 @@
     "defManaged": "In Scope accounts at Blueprint stage 4 or later.",
     "defCompliantTerm": "Compliant",
     "defCompliant": "Accounts at the final stage (5) with the status Complete.",
-    "percent": "{value}%",
     "listNote": "Each count opens the Accounts list showing those accounts. The Accounts list shows accounts that have progress tracking, so an In Scope or All Accounts count can be higher than the list if some accounts have none yet.",
     "totalAccounts": "{count} account(s) total."
   },

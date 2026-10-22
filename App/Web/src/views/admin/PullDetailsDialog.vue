@@ -6,6 +6,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { formatRunTime } from './dataFeedFormat'
+import { formatCount } from '../../utils/formatCount'
 
 const props = defineProps({ pull: { type: Object, required: true } })
 const emit = defineEmits(['close'])
@@ -33,15 +34,15 @@ const seconds = computed(() => {
 // Keys are written out in full (D-227's key coverage check forbids building one at run time).
 // D-250: Safes and accounts also show what the last good pull had, which is what the change guard compared with.
 function withBaseline(value, baseline) {
-  return baseline === null || baseline === undefined || baseline === value ? value : `${value} ${t('admin.dataSources.pullWas', { n: baseline })}`
+  return baseline === null || baseline === undefined || baseline === value ? formatCount(value) : `${formatCount(value)} ${t('admin.dataSources.pullWas', { n: formatCount(baseline) })}`
 }
 const counts = computed(() => props.pull.safeCount === null || props.pull.safeCount === undefined ? [] : [
   [t('admin.dataSources.pullCount_safes'), withBaseline(props.pull.safeCount, props.pull.baselineSafeCount)],
   [t('admin.dataSources.pullCount_accounts'), withBaseline(props.pull.accountCount, props.pull.baselineAccountCount)],
-  [t('admin.dataSources.pullCount_members'), props.pull.memberCount],
-  [t('admin.dataSources.pullCount_users'), props.pull.userCount],
-  [t('admin.dataSources.pullCount_groups'), props.pull.groupCount],
-  [t('admin.dataSources.pullCount_platforms'), props.pull.platformCount]
+  [t('admin.dataSources.pullCount_members'), formatCount(props.pull.memberCount)],
+  [t('admin.dataSources.pullCount_users'), formatCount(props.pull.userCount)],
+  [t('admin.dataSources.pullCount_groups'), formatCount(props.pull.groupCount)],
+  [t('admin.dataSources.pullCount_platforms'), formatCount(props.pull.platformCount)]
 ])
 
 const meaning = computed(() => ({
@@ -72,7 +73,7 @@ function onKeydown(event) {
       <p>
         <strong :class="`outcome-${pull.status}`">{{ pull.status }}</strong>
         {{ ' ' + t('admin.dataSources.pullDetailsStarted', { when: formatRunTime(pull.startedAt), by: pull.triggeredBy }) }}
-        <template v-if="seconds !== null">{{ ' ' + t('admin.dataSources.pullDetailsDuration', { seconds }) }}</template>
+        <template v-if="seconds !== null">{{ ' ' + t('admin.dataSources.pullDetailsDuration', { seconds: formatCount(seconds) }) }}</template>
         <template v-if="pull.acceptedChange">{{ ' ' + t('admin.dataSources.pullDetailsAccepted') }}</template>
       </p>
       <p>{{ meaning }}</p>

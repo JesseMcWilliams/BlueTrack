@@ -3,6 +3,7 @@ import { mount, flushPromises } from '@vue/test-utils'
 import { createRouter, createMemoryHistory } from 'vue-router'
 import ApiKeyEdit from './ApiKeyEdit.vue'
 import { useFlashState } from '../../composables/useFlash'
+import { formatDate } from '../../utils/formatDate'
 
 // D-243: edit an API key in place.
 function jsonResponse(body, ok = true, status = 200) {
@@ -126,7 +127,7 @@ describe('ApiKeyEdit.vue', () => {
 
       const date = wrapper.get('input[type="date"]')
       expect(date.attributes('min')).toBeUndefined()
-      expect(wrapper.text()).toContain('This key expired on 2020-01-15.')
+      expect(wrapper.text()).toContain(`This key expired on ${formatDate('2020-01-15')}.`)
     })
 
     it('sends no expiry when only the name changed', async () => {

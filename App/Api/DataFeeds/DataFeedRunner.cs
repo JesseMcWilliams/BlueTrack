@@ -3,6 +3,7 @@ using BlueTrack.Api.Data;
 using BlueTrack.Api.Imports;
 using BlueTrack.Api.Models;
 using BlueTrack.Api.RiskScoring;
+using BlueTrack.Api.Formatting;
 
 namespace BlueTrack.Api.DataFeeds;
 
@@ -178,17 +179,17 @@ public sealed class DataFeedRunner(
             case "Applications":
             {
                 var r = await applications.ImportApplicationsAsync(rows, userKey!.Value);
-                return (r.TotalRows, r.Errors.Count, $"{r.CreatedCount} created, {r.UpdatedCount} updated, {r.UnchangedCount} unchanged, {r.Errors.Count} errors", r);
+                return (r.TotalRows, r.Errors.Count, $"{ServerTextCulture.Count(r.CreatedCount)} created, {ServerTextCulture.Count(r.UpdatedCount)} updated, {ServerTextCulture.Count(r.UnchangedCount)} unchanged, {ServerTextCulture.Count(r.Errors.Count)} errors", r);
             }
             case "SafeAssignments":
             {
                 var r = await applications.ImportSafeAssignmentsAsync(rows, userKey!.Value);
-                return (r.TotalRows, r.Errors.Count, $"{r.AssignedCount} assigned, {r.ChangedCount} changed, {r.UnchangedCount} unchanged, {r.Errors.Count} errors", r);
+                return (r.TotalRows, r.Errors.Count, $"{ServerTextCulture.Count(r.AssignedCount)} assigned, {ServerTextCulture.Count(r.ChangedCount)} changed, {ServerTextCulture.Count(r.UnchangedCount)} unchanged, {ServerTextCulture.Count(r.Errors.Count)} errors", r);
             }
             case "AccountAssignments":   // D-241
             {
                 var r = await applications.ImportAccountAssignmentsAsync(rows, userKey!.Value);
-                return (r.TotalRows, r.Errors.Count, $"{r.AssignedCount} assigned, {r.ChangedCount} changed, {r.UnchangedCount} unchanged, {r.Errors.Count} errors", r);
+                return (r.TotalRows, r.Errors.Count, $"{ServerTextCulture.Count(r.AssignedCount)} assigned, {ServerTextCulture.Count(r.ChangedCount)} changed, {ServerTextCulture.Count(r.UnchangedCount)} unchanged, {ServerTextCulture.Count(r.Errors.Count)} errors", r);
             }
             case "AccountInventory":   // D-212
             {
@@ -208,7 +209,7 @@ public sealed class DataFeedRunner(
             "AccountTargetMap" => await riskScoring.ImportAccountTargetMapAsync(rows, profile, fileName),
             _ => throw new InvalidOperationException($"Unknown feed type '{feed.FeedType}'.")
         };
-        var summary = $"{result.SucceededCount} succeeded ({result.CreatedCount} created, {result.MergedCount} merged, {result.PendingReviewCount} pending review{(result.IgnoredCount > 0 ? $", {result.IgnoredCount} ignored before" : "")}), {result.Errors.Count} errors";
+        var summary = $"{ServerTextCulture.Count(result.SucceededCount)} succeeded ({ServerTextCulture.Count(result.CreatedCount)} created, {ServerTextCulture.Count(result.MergedCount)} merged, {ServerTextCulture.Count(result.PendingReviewCount)} pending review{(result.IgnoredCount > 0 ? $", {ServerTextCulture.Count(result.IgnoredCount)} ignored before" : "")}), {ServerTextCulture.Count(result.Errors.Count)} errors";
         return (result.TotalRows, result.Errors.Count, summary, result);
     }
 

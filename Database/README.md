@@ -68,6 +68,7 @@ instead.
 | 50 | `50_BlueTrack_CpmHealth.sql` | D-288: `fact_account.CpmFailureSince`, `dim_platform.RequirePsm`, `usp_Load_CpmHealth`, `vw_cpm_health`; `fn_ProgressAccountFields` adds RequiresPsm; recreates `usp_RunFullLoad` with the CPM step; the CpmHealth notification type (off). |
 | 51 | `51_BlueTrack_SeedFieldPermissions.sql` | D-291: default `RequiredPermission` on six Account Progress fields (Account Type, Source of Record, Application, Blueprint Stage, Actual Completion Date, Risk Level), only where none is set. |
 | 52 | `52_BlueTrack_RememberLastSignIn.sql` | D-292: `web.app_config.RememberLastSignInMethod` (off). |
+| 53 | `53_BlueTrack_FormatCulture.sql` | D-294: `web.app_config.FormatCulture` (`en-US`), the number and date format of emails and run summaries. |
 
 ## The baseline (D-195)
 
@@ -92,7 +93,7 @@ scripts but not up to `51` is refused; upgrade it first from the
 
 ## Adding a script
 
-1. Name it `NN_BlueTrack_<Topic>.sql`, with `NN` the next number (`53` is next).
+1. Name it `NN_BlueTrack_<Topic>.sql`, with `NN` the next number (`54` is next).
 2. Start with a header comment: the file name, `RUN THIS AFTER 01-NN.`, what
    it changes and why (with the `D-n` decision), and whether it's safe to
    re-run.

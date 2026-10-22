@@ -87,6 +87,22 @@ async function load() {
 
 onMounted(load)
 
+// D-294: the number and date format of emails and run summaries. Common choices are offered; any culture name works.
+const FORMAT_CULTURES = ['en-US', 'en-GB', 'en-CA', 'en-AU', 'en-IN', 'de-DE', 'fr-FR', 'es-ES', 'it-IT', 'nl-NL', 'pt-BR', 'sv-SE', 'ja-JP']
+const formatSample = computed(() => {
+  try {
+    const culture = config.value?.formatCulture
+    if (!culture) return ''
+    const sample = new Date(Date.UTC(2026, 9, 21))
+    return t('admin.globalApplicationConfiguration.formatCultureSample', {
+      number: new Intl.NumberFormat(culture).format(1234567.5),
+      date: new Intl.DateTimeFormat(culture, { timeZone: 'UTC' }).format(sample)
+    })
+  } catch {
+    return t('admin.globalApplicationConfiguration.formatCultureUnknown')
+  }
+})
+
 const businessDays = computed({
   get: () => (config.value?.businessDays ?? '').split(',').map(d => d.trim()).filter(Boolean),
   set: days => { config.value.businessDays = dayNames.filter(d => days.includes(d)).join(',') }
@@ -140,6 +156,11 @@ async function save() {
             <option value="TopRight">{{ t('admin.globalApplicationConfiguration.topRight') }}</option>
           </select>
         </label>
+      </p>
+      <p>
+        <label class="field-label"><span class="field-label-text">{{ t('admin.globalApplicationConfiguration.formatCultureLabel') }}</span> <input v-model.trim="config.formatCulture" list="format-cultures" maxlength="20" required /></label>
+        <datalist id="format-cultures"><option v-for="c in FORMAT_CULTURES" :key="c" :value="c" /></datalist>
+        <small>{{ t('admin.globalApplicationConfiguration.formatCultureHint') }} {{ formatSample }}</small>
       </p>
       <p>
         <label class="field-label"><span class="field-label-text">{{ t('admin.globalApplicationConfiguration.exceptionIdPatternLabel') }}</span> <input v-model="config.exceptionIdPattern" required /></label>

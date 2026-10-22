@@ -321,7 +321,7 @@ public class NotificationChecksTests : IClassFixture<BlueTrackWebApplicationFact
             await NewService().RunOnceAsync(CancellationToken.None);
 
             var message = Assert.Single(_sender.Messages, m => m.Subject == "BlueTrack: weekly summary");
-            Assert.Contains("Snapshot of 2026-02-10 compared with 2026-02-02.", message.Body);
+            Assert.Contains("Snapshot of 2/10/2026 compared with 2/2/2026.", message.Body);   // D-294: the installation culture, en-US by default
             Assert.Contains("% complete: 0.0% to 66.7% (+66.7 points)", message.Body);
         }
         finally
@@ -502,7 +502,7 @@ public class NotificationChecksTests : IClassFixture<BlueTrackWebApplicationFact
             Assert.Equal($"BlueTrack: API key \"{soon}\" expires in 7 days", lead.Subject);
             Assert.Equal([owner], lead.To);   // The owner only, not the admins.
             Assert.Contains("Role: Viewer", lead.Body);
-            Assert.Contains("Expires: 2001-01-08", lead.Body);
+            Assert.Contains("Expires: 1/8/2001", lead.Body);
             Assert.NotNull(lead.Html);
             Assert.Empty(MessagesFor(later));
             Assert.Empty(MessagesFor(noOwner));
@@ -554,7 +554,7 @@ public class NotificationChecksTests : IClassFixture<BlueTrackWebApplicationFact
         Assert.Contains("Safes went from 40 to 10", message.Body);
         Assert.Contains("Safes no longer returned (30)", message.Body);
         Assert.Contains("40 before, 10 now", message.Body);
-        Assert.Contains("2452 before, 100 now", message.Body);
+        Assert.Contains("2,452 before, 100 now", message.Body);
         Assert.Contains("Accept the change and pull", message.Body);
         Assert.Contains("Admin > Data Sources (https://bluetrack-test.example.com/admin/data-sources)", message.Body);
         Assert.Contains("&lt;b&gt;Alpha&lt;/b&gt;", message.Html);   // escaped

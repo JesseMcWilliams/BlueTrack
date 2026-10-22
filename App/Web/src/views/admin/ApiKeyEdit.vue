@@ -35,7 +35,7 @@ onMounted(async () => {
     if (!optionsResponse.ok) throw new Error(t('common.requestFailed', { status: optionsResponse.status }))
     key.value = await keyResponse.json()
     options.value = await optionsResponse.json()
-    originalExpiresOn.value = formatDate(key.value.expiresAt)
+    originalExpiresOn.value = key.value.expiresAt ? String(key.value.expiresAt).slice(0, 10) : '' // yyyy-mm-dd, as the date input takes it
     form.value = {
       displayName: key.value.displayName,
       appRoleKey: key.value.appRoleKey,
@@ -103,7 +103,7 @@ function cancel() {
       <p>
         <label class="field-label"><span class="field-label-text">{{ t('admin.apiKeyEdit.expiresLabel') }}</span> <input v-model="form.expiresOn" type="date" :min="minExpiry" :max="latest" required /></label>
         <small>{{ t('admin.apiKeyEdit.expiresHint', { max: options.maxLifetimeDays }) }}</small>
-        <small v-if="isExpired" role="status">{{ ' ' + t('admin.apiKeyEdit.expiredNote', { date: originalExpiresOn }) }}</small>
+        <small v-if="isExpired" role="status">{{ ' ' + t('admin.apiKeyEdit.expiredNote', { date: formatDate(originalExpiresOn) }) }}</small>
       </p>
       <p>
         <label class="field-label"><span class="field-label-text">{{ t('admin.apiKeyCreate.ownerLabel') }}</span> <input v-model="form.ownerEmail" type="email" maxlength="320" /></label>

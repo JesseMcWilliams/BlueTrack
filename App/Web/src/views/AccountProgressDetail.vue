@@ -686,9 +686,9 @@ onUnmounted(releaseLock)
           aria-labelledby="account-progress-tab-risk-score"
         >
           <dl>
-            <dt>{{ t('pages.accountProgressDetail.calculatedRisk') }}</dt><dd>{{ detail.computedRiskScore ?? t('pages.accountProgressDetail.notYetCalculated') }}</dd>
+            <dt>{{ t('pages.accountProgressDetail.calculatedRisk') }}</dt><dd>{{ formatCount(detail.computedRiskScore) || t('pages.accountProgressDetail.notYetCalculated') }}</dd>
             <dt>{{ t('pages.accountProgressDetail.riskBand') }}</dt><dd>{{ detail.riskScoreBandName ?? '—' }}</dd>
-            <dt>{{ t('pages.accountProgressDetail.effectiveRiskScore') }}</dt><dd>{{ detail.effectiveRiskScore ?? '—' }}</dd>
+            <dt>{{ t('pages.accountProgressDetail.effectiveRiskScore') }}</dt><dd>{{ formatCount(detail.effectiveRiskScore) || '—' }}</dd>
           </dl>
           <p v-if="recalculateError" role="alert">{{ recalculateError }}</p>
           <p>
@@ -752,11 +752,11 @@ onUnmounted(releaseLock)
           <dd>{{ displayValueFor(field) }}</dd>
         </template>
         <dt>{{ t('pages.accountProgressDetail.lastUpdated') }}</dt><dd>{{ formatDate(detail.lastUpdated) }}</dd>
-        <dt>{{ t('pages.accountProgressDetail.calculatedRisk') }}</dt><dd>{{ detail.computedRiskScore ?? t('pages.accountProgressDetail.notYetCalculated') }}</dd>
+        <dt>{{ t('pages.accountProgressDetail.calculatedRisk') }}</dt><dd>{{ formatCount(detail.computedRiskScore) || t('pages.accountProgressDetail.notYetCalculated') }}</dd>
         <dt>{{ t('pages.accountProgressDetail.riskBand') }}</dt><dd>{{ detail.riskScoreBandName ?? '—' }}</dd>
-        <dt>{{ t('pages.accountProgressDetail.effectiveRiskScore') }}</dt><dd>{{ detail.effectiveRiskScore ?? '—' }}</dd>
+        <dt>{{ t('pages.accountProgressDetail.effectiveRiskScore') }}</dt><dd>{{ formatCount(detail.effectiveRiskScore) || '—' }}</dd>
         <template v-if="detail.overrideRiskScore !== null">
-          <dt>{{ t('pages.accountProgressDetail.overrideRiskScore') }}</dt><dd>{{ detail.overrideRiskScore }}</dd>
+          <dt>{{ t('pages.accountProgressDetail.overrideRiskScore') }}</dt><dd>{{ formatCount(detail.overrideRiskScore) }}</dd>
         </template>
         <template v-if="linkedException">
           <dt>{{ t('pages.accountProgressDetail.riskException') }}</dt>

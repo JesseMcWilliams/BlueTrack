@@ -11,6 +11,7 @@ vi.mock('../composables/useConfirmDialog', () => ({
   confirmDelete: vi.fn().mockResolvedValue(true)
 }))
 import { confirmDelete } from '../composables/useConfirmDialog'
+import { formatDate } from '../utils/formatDate'
 
 function makeRouter() {
   return createRouter({
@@ -370,12 +371,12 @@ describe('AccountProgressDetail.vue', () => {
     expect(text).toContain('Risk LevelHigh')
     expect(text).toContain('ApplicationBilling')   // D-238
     expect(text).toContain('Business UnitFinance')
-    expect(text).toContain('Target Remediation Date2026-03-01')
-    expect(text).toContain('Last Updated2026-01-01')
+    expect(text).toContain('Target Remediation Date' + formatDate('2026-03-01'))
+    expect(text).toContain('Last Updated' + formatDate('2026-01-01'))
     expect(text).toContain('Calculated Risk100')
     expect(text).toContain('Effective Risk Score400')
     expect(text).toContain('Override Risk Score400')
-    expect(text).toContain('Risk ExceptionEX-7 (Active) — Approved by CISO, reviewed 2026-06-01')
+    expect(text).toContain('Risk ExceptionEX-7 (Active) — Approved by CISO, reviewed ' + formatDate('2026-06-01'))
   })
 
   // UI review W2-2: Save and Cancel used to land on an unfiltered page 1 of the list.
@@ -538,7 +539,7 @@ describe('AccountProgressDetail.vue: an account in a CyberArk internal Safe', ()
     expect(section.text()).toContain('CPM status:')
     expect(section.find('.cpm-failing').text()).toContain('failure, failing since')
     expect(section.text()).toContain('Managed by the CPM:No ((CPM)MaxRetries)')
-    expect(section.text()).toContain('Last verified:2026-10-01')
+    expect(section.text()).toContain('Last verified:' + formatDate('2026-10-01'))
     expect(section.text()).not.toContain('Last reconciled:')
     expect(section.text()).toContain('Platform requires PSM:Yes')
   })

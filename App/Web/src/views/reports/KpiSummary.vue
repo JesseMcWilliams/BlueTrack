@@ -7,7 +7,7 @@
 // requires both the final stage and status Complete specifically.
 import { ref, computed, onMounted } from 'vue'
 import { formatCount } from '../../utils/formatCount'
-import { formatUtcDateTime } from '../../utils/formatLocale'
+import { formatUtcDateTime, formatPercent } from '../../utils/formatLocale'
 import ReportExportButtons from '../../components/ReportExportButtons.vue'
 import { useI18n } from 'vue-i18n'
 
@@ -33,9 +33,10 @@ onMounted(async () => {
   }
 })
 
+// D-294: the fraction, formatted by formatPercent in the viewer's format.
 function pct(numerator, denominator) {
   if (!denominator) return null
-  return Math.round((numerator / denominator) * 1000) / 10
+  return numerator / denominator
 }
 
 const kpis = computed(() => {
@@ -76,7 +77,7 @@ const kpis = computed(() => {
               <router-link v-if="kpi.denominator > 0" :to="{ name: 'account-progress-list', query: { kpi: kpi.denominatorKpi } }">{{ formatCount(kpi.denominator) }}</router-link>
               <template v-else>{{ formatCount(kpi.denominator) }}</template>
             </td>
-            <td>{{ pct(kpi.numerator, kpi.denominator) === null ? t('reports.kpiSummary.notApplicable') : t('reports.kpiSummary.percent', { value: pct(kpi.numerator, kpi.denominator) }) }}</td>
+            <td>{{ pct(kpi.numerator, kpi.denominator) === null ? t('reports.kpiSummary.notApplicable') : formatPercent(pct(kpi.numerator, kpi.denominator)) }}</td>
           </tr>
         </tbody>
       </table>

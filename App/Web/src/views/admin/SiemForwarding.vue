@@ -8,6 +8,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { formatCount } from '../../utils/formatCount'
+import { formatUtcDateTime } from '../../utils/formatLocale'
 
 const { t } = useI18n()
 
@@ -37,9 +38,9 @@ const DEFAULT_PORTS = { Tcp: 514, Tls: 6514 }
 
 const isTls = computed(() => settings.value?.transport === 'Tls')
 
-// Database times are UTC without a zone; shown as stored, like the Audit Log Viewer.
+// Database times are UTC without a zone; shown in the viewer's time zone and format, like the Audit Log Viewer (D-294).
 function utc(value) {
-  return value ? t('admin.siemForwarding.utcTime', { time: String(value).replace('T', ' ').slice(0, 19) }) : t('admin.siemForwarding.never')
+  return value ? formatUtcDateTime(value) : t('admin.siemForwarding.never')
 }
 
 async function problemText(response) {
@@ -160,7 +161,7 @@ onMounted(load)
           <dd>{{ formatCount(status.pendingCount) }}<template v-if="status.oldestPendingAt">{{ ' ' + t('admin.siemForwarding.oldestPending', { time: utc(status.oldestPendingAt) }) }}</template></dd>
           <template v-if="status.lastError">
             <dt>{{ t('admin.siemForwarding.statusLastError') }}</dt>
-            <dd class="error-text">{{ t('admin.siemForwarding.lastError', { time: utc(status.lastErrorAt), count: status.consecutiveFailures, error: status.lastError }) }}</dd>
+            <dd class="error-text">{{ t('admin.siemForwarding.lastError', { time: utc(status.lastErrorAt), count: formatCount(status.consecutiveFailures), error: status.lastError }) }}</dd>
           </template>
           <template v-if="status.enabledFromAuditEventKey !== null && status.enabledFromAuditEventKey !== undefined">
             <dt>{{ t('admin.siemForwarding.statusStartedAfter') }}</dt>

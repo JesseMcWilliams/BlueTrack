@@ -1,3 +1,5 @@
+using BlueTrack.Api.Formatting;
+
 namespace BlueTrack.Api.CyberArkDirect;
 
 /// <summary>
@@ -28,7 +30,7 @@ public static class PullChangeGuard
             var change = after - before;
             if (Math.Abs(change) > allowed)
             {
-                reasons.Add($"{what} went from {before} to {after} ({(change > 0 ? "+" : "-")}{Math.Abs(change)}; at most {allowed} allowed at {maxPercent}%)");
+                reasons.Add($"{what} went from {ServerTextCulture.Count(before)} to {ServerTextCulture.Count(after)} ({(change > 0 ? "+" : "-")}{ServerTextCulture.Count(Math.Abs(change))}; at most {ServerTextCulture.Count(allowed)} allowed at {maxPercent}%)");
             }
         }
     }

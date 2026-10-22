@@ -38,7 +38,8 @@ const baseConfig = {
   safeIgnoreMode: 'Off',
   safeIgnoreValue: null,
   regexSupported: false,
-  siteUrl: null
+  siteUrl: null,
+  formatCulture: 'en-US'
 }
 
 // GETs return the queue in order (the last one repeats); PUTs go to putHandler.
@@ -114,5 +115,34 @@ describe('GlobalApplicationConfiguration.vue', () => {
 
     expect(wrapper.find('[role="alert"]').text()).toContain('Save failed: The Site URL must use https://')
     expect(wrapper.text()).not.toContain('Saved.')
+  })
+})
+
+// D-294: the number and date format of emails and run summaries.
+describe('GlobalApplicationConfiguration.vue number and date format', () => {
+  afterEach(() => vi.restoreAllMocks())
+
+  it('shows an example in the chosen format and saves the culture name', async () => {
+    let sent = null
+    mockFetch([{ ...baseConfig, formatCulture: 'de-DE' }], body => { sent = body; return { ok: true, status: 204 } })
+    const wrapper = mount(GlobalApplicationConfiguration)
+    await flushPromises()
+
+    const input = wrapper.find('input[list="format-cultures"]')
+    expect(input.element.value).toBe('de-DE')
+    expect(wrapper.text()).toContain('Example: 1.234.567,5, 21.10.2026.')
+
+    await input.setValue('en-GB')
+    expect(wrapper.text()).toContain('Example: 1,234,567.5, 21/10/2026.')
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+    expect(sent.formatCulture).toBe('en-GB')
+  })
+
+  it('says so when the browser does not know the name', async () => {
+    mockFetch([{ ...baseConfig, formatCulture: 'not a culture!' }])
+    const wrapper = mount(GlobalApplicationConfiguration)
+    await flushPromises()
+    expect(wrapper.text()).toContain('Not a culture name this browser knows.')
   })
 })

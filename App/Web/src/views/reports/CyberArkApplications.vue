@@ -4,6 +4,8 @@
 // many accounts and Safes each can retrieve from. Applications deleted in CyberArk are kept, marked, at the end.
 import { ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { formatDate } from '../../utils/formatDate'
+import { formatCount } from '../../utils/formatCount'
 
 const { t } = useI18n()
 const items = ref([])
@@ -63,7 +65,7 @@ onMounted(async () => {
             <template v-if="app.isDeletedInSource">{{ t('reports.cyberArkApplications.deleted') }}</template>
             <template v-else-if="app.disabled">{{ t('reports.cyberArkApplications.disabled') }}</template>
             <template v-else>{{ t('reports.cyberArkApplications.enabled') }}</template>
-            <template v-if="app.expirationDate"><br /><small>{{ t('reports.cyberArkApplications.expires', { date: app.expirationDate }) }}</small></template>
+            <template v-if="app.expirationDate"><br /><small>{{ t('reports.cyberArkApplications.expires', { date: formatDate(app.expirationDate) }) }}</small></template>
           </td>
           <td>{{ hours(app) }}</td>
           <td>
@@ -72,8 +74,8 @@ onMounted(async () => {
               <li v-for="(a, i) in app.authentications" :key="i">{{ method(a) }}</li>
             </ul>
           </td>
-          <td>{{ app.accountCount }}</td>
-          <td>{{ app.safeCount }}</td>
+          <td>{{ formatCount(app.accountCount) }}</td>
+          <td>{{ formatCount(app.safeCount) }}</td>
         </tr>
       </tbody>
     </table>

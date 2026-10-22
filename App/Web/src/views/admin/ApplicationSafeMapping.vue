@@ -21,6 +21,7 @@ import { useI18n } from 'vue-i18n'
 import { confirmDelete } from '../../composables/useConfirmDialog'
 import { problemMessage } from '../../utils/problemText'
 import EmptyListMessage from '../../components/EmptyListMessage.vue'
+import { formatCount } from '../../utils/formatCount'
 
 const { t } = useI18n()
 
@@ -188,7 +189,7 @@ async function assignSafe(safe, applicationKeyRaw) {
             <td>{{ app.applicationCode }}</td>
             <td><router-link :to="{ name: 'admin-application-edit', params: { applicationKey: app.applicationKey } }">{{ app.applicationName }}</router-link></td>
             <td>{{ app.ownerName }}</td>
-            <td>{{ t('admin.applicationSafeMapping.usage', { safes: app.safeCount, accounts: app.accountCount, targets: app.targetCount, exceptions: app.exceptionCount }) }}</td>
+            <td>{{ t('admin.applicationSafeMapping.usage', { safes: formatCount(app.safeCount), accounts: formatCount(app.accountCount), targets: formatCount(app.targetCount), exceptions: formatCount(app.exceptionCount) }) }}</td>
             <td><button type="button" :disabled="usedBy(app) > 0" :title="usedBy(app) > 0 ? t('admin.applicationSafeMapping.inUse') : undefined" :aria-label="t('common.deleteNamed', { name: app.applicationName })" @click="removeApplication(app)">{{ t('common.delete') }}</button></td>
           </tr>
         </tbody>

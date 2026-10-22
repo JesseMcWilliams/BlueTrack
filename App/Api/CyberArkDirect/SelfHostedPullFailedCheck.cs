@@ -2,6 +2,7 @@ using System.Globalization;
 using Dapper;
 using BlueTrack.Api.Data;
 using BlueTrack.Api.Notifications;
+using BlueTrack.Api.Formatting;
 
 namespace BlueTrack.Api.CyberArkDirect;
 
@@ -61,8 +62,8 @@ public sealed class SelfHostedPullFailedCheck(IDbConnectionFactory connectionFac
         };
         if (pull.SafeCount is not null)
         {
-            facts.Add(("Safes", pull.BaselineSafeCount is null ? $"{pull.SafeCount}" : $"{pull.BaselineSafeCount} before, {pull.SafeCount} now"));
-            facts.Add(("Accounts", pull.BaselineAccountCount is null ? $"{pull.AccountCount}" : $"{pull.BaselineAccountCount} before, {pull.AccountCount} now"));
+            facts.Add(("Safes", BeforeAndNow(pull.BaselineSafeCount, pull.SafeCount)));
+            facts.Add(("Accounts", BeforeAndNow(pull.BaselineAccountCount, pull.AccountCount)));
         }
         facts.Add(("Pull", pull.PullKey.ToString(CultureInfo.InvariantCulture)));
         email.Facts(facts);
@@ -87,4 +88,8 @@ public sealed class SelfHostedPullFailedCheck(IDbConnectionFactory connectionFac
             HtmlBody: email.Html,
             DedupKey: DedupKeyFor(pull.PullKey));
     }
+
+    // D-294: counts in the installation's format culture.
+    private static string BeforeAndNow(int? before, int? now) =>
+        before is null ? ServerTextCulture.Count(now ?? 0) : $"{ServerTextCulture.Count(before.Value)} before, {ServerTextCulture.Count(now ?? 0)} now";
 }

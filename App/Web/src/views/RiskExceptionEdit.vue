@@ -15,6 +15,7 @@ import { confirmDelete } from '../composables/useConfirmDialog'
 import { useI18n } from 'vue-i18n'
 import Combobox from '../components/Combobox.vue'
 import { formatUtcDateTime } from '../utils/formatLocale'
+import { formatCount } from '../utils/formatCount'
 
 const { t } = useI18n()
 
@@ -227,7 +228,7 @@ async function revoke() {
             <p v-if="covered.error" role="alert">{{ t('pages.riskExceptionEdit.coveredFailed', { error: covered.error }) }}</p>
             <template v-else-if="covered.total === 0">{{ t('pages.riskExceptionEdit.coveredNone') }}</template>
             <template v-else>
-              <span>{{ covered.total > covered.accounts.length ? t('pages.riskExceptionEdit.coveredFirst', { shown: covered.accounts.length, total: covered.total }) : t('pages.riskExceptionEdit.coveredAll', { total: covered.total }) }}</span>
+              <span>{{ covered.total > covered.accounts.length ? t('pages.riskExceptionEdit.coveredFirst', { shown: formatCount(covered.accounts.length), total: formatCount(covered.total) }) : t('pages.riskExceptionEdit.coveredAll', { total: formatCount(covered.total) }) }}</span>
               <ul class="covered-accounts">
                 <li v-for="account in covered.accounts" :key="account.accountKey">
                   <router-link :to="{ name: 'account-progress-detail', params: { accountKey: account.accountKey } }">{{ account.userName || account.accountName }}</router-link>

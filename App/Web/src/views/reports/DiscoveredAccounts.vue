@@ -34,6 +34,7 @@ import Pager from '../../components/Pager.vue'
 import ReportExportButtons from '../../components/ReportExportButtons.vue'
 import { useI18n } from 'vue-i18n'
 import EmptyListMessage from '../../components/EmptyListMessage.vue'
+import { formatCount } from '../../utils/formatCount'
 
 const { t } = useI18n()
 
@@ -375,7 +376,7 @@ onMounted(load)
               </template>
               <template v-else>{{ '—' }}</template>
             </td>
-            <td>{{ row.computedRiskScore ?? '—' }}</td>
+            <td>{{ formatCount(row.computedRiskScore) || '—' }}</td>
             <td>{{ row.riskScoreBandName ?? '—' }}</td>
             <td>{{ formatDate(row.discoveredDate) }}</td>
             <td>{{ formatDate(row.lastSeenDate) }}</td>

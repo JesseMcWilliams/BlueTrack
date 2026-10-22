@@ -2,6 +2,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
 import { createRouter, createMemoryHistory } from 'vue-router'
 import CpmHealth from './CpmHealth.vue'
+import { formatDate } from '../../utils/formatDate'
 
 // D-288: Reports > CPM Health.
 function jsonResponse(body, { ok = true, status = 200 } = {}) {
@@ -27,7 +28,7 @@ describe('CpmHealth.vue', () => {
 
     expect(globalThis.fetch).toHaveBeenCalledWith('/api/reports/cpm-health')
     const cells = wrapper.findAll('tbody td').map(td => td.text())
-    expect(cells).toEqual(['root@host1', 'Unix', 'UnixSSH', 'Self-Hosted', '2026-10-20', 'Change (Failure)', '2026-10-01', '', 'No ((CPM)MaxRetries)', 'Ops'])
+    expect(cells).toEqual(['root@host1', 'Unix', 'UnixSSH', 'Self-Hosted', formatDate('2026-10-20'), 'Change (Failure)', formatDate('2026-10-01'), '', 'No ((CPM)MaxRetries)', 'Ops'])
     expect(wrapper.find('tbody a').attributes('href')).toBe('/accounts/12')
   })
 

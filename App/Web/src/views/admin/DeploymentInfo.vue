@@ -10,6 +10,7 @@ import { ref, onMounted } from 'vue'
 import { formatCount } from '../../utils/formatCount'
 import { useI18n } from 'vue-i18n'
 import { confirmDelete } from '../../composables/useConfirmDialog'
+import { formatUtcDateTime } from '../../utils/formatLocale'
 
 const { t } = useI18n()
 
@@ -133,11 +134,11 @@ async function backupApp() {
         <p v-if="recentBackups.length === 0">{{ t('admin.deploymentInfo.noneRecorded') }}</p>
         <table v-else>
           <thead>
-            <tr><th>{{ t('admin.deploymentInfo.startedUtc') }}</th><th>{{ t('admin.deploymentInfo.type') }}</th><th>{{ t('admin.deploymentInfo.outcome') }}</th><th>{{ t('admin.deploymentInfo.file') }}</th><th>{{ t('admin.deploymentInfo.oldFilesDeleted') }}</th><th>{{ t('admin.deploymentInfo.note') }}</th></tr>
+            <tr><th>{{ t('admin.deploymentInfo.started') }}</th><th>{{ t('admin.deploymentInfo.type') }}</th><th>{{ t('admin.deploymentInfo.outcome') }}</th><th>{{ t('admin.deploymentInfo.file') }}</th><th>{{ t('admin.deploymentInfo.oldFilesDeleted') }}</th><th>{{ t('admin.deploymentInfo.note') }}</th></tr>
           </thead>
           <tbody>
             <tr v-for="run in recentBackups" :key="run.backupRunKey">
-              <td>{{ run.startedAt.replace('T', ' ').slice(0, 19) }}</td>
+              <td>{{ formatUtcDateTime(run.startedAt) }}</td>
               <td>{{ run.triggerType === 'Schedule' ? t('admin.deploymentInfo.scheduled') : (run.triggeredByName ? t('admin.deploymentInfo.manualBy', { name: run.triggeredByName }) : t('admin.deploymentInfo.manual')) }}</td>
               <td :class="{ 'status-bad': run.outcome === 'Failed' }"><span v-if="run.outcome === 'Failed'" aria-hidden="true">⚠ </span>{{ run.outcome }}</td>
               <td>{{ run.filePath ?? '' }}</td>

@@ -1,5 +1,6 @@
 using Dapper;
 using BlueTrack.Api.Data;
+using BlueTrack.Api.Formatting;
 
 namespace BlueTrack.Api.Notifications;
 
@@ -47,7 +48,7 @@ public sealed class DevFakeAuthEnabledCheck(IDbConnectionFactory connectionFacto
             return [];
         }
 
-        var since = row.ModifiedDate.Value.ToString("yyyy-MM-dd");
+        var since = ServerTextCulture.Date(row.ModifiedDate.Value);
         var body = $"DevFakeAuth has been enabled on this BlueTrack environment for over {StaleAfter.Days} days (since {since}). " +
             "It bypasses real authentication and should only be left on briefly during local development.";
         return [new NotificationCheckResult(Subject: "BlueTrack: DevFakeAuth enabled too long", Body: body, Detail: $"ModifiedDate={since}")];

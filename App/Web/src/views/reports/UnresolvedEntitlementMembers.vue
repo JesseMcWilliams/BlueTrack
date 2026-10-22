@@ -17,6 +17,7 @@ import { confirmDelete } from '../../composables/useConfirmDialog'
 import ReportExportButtons from '../../components/ReportExportButtons.vue'
 import Combobox from '../../components/Combobox.vue'
 import { useI18n } from 'vue-i18n'
+import { formatCount } from '../../utils/formatCount'
 
 const { t } = useI18n()
 const rights = useRightsStore()
@@ -210,7 +211,7 @@ onMounted(load)
 
     <section v-if="editing" class="resolve-form" aria-labelledby="resolve-heading">
       <h3 id="resolve-heading" tabindex="-1">{{ t('reports.unresolvedEntitlementMembers.resolveTitle', { name: editing.memberName }) }}</h3>
-      <p>{{ t('reports.unresolvedEntitlementMembers.resolveAppliesTo', { id: editing.sourceMemberId, count: editing.count }, editing.count) }}</p>
+      <p>{{ t('reports.unresolvedEntitlementMembers.resolveAppliesTo', { id: editing.sourceMemberId, count: formatCount(editing.count) }, editing.count) }}</p>
       <fieldset>
         <legend>{{ t('reports.unresolvedEntitlementMembers.resolveAs') }}</legend>
         <p>

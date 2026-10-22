@@ -1,3 +1,5 @@
+using BlueTrack.Api.Formatting;
+
 namespace BlueTrack.Api.CyberArkDirect;
 
 /// <summary>
@@ -24,7 +26,7 @@ public static class SafeDifference
             var sorted = names.OrderBy(n => n, StringComparer.OrdinalIgnoreCase).ToList();
             if (sorted.Count == 0) return;
             var shown = string.Join(", ", sorted.Take(MaxNames));
-            lines.Add($"{label} ({sorted.Count}): {shown}{(sorted.Count > MaxNames ? $" and {sorted.Count - MaxNames} more" : "")}");
+            lines.Add($"{label} ({ServerTextCulture.Count(sorted.Count)}): {shown}{(sorted.Count > MaxNames ? $" and {ServerTextCulture.Count(sorted.Count - MaxNames)} more" : "")}");
         }
     }
 }

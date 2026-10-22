@@ -1,6 +1,7 @@
 using System.Globalization;
 using BlueTrack.Api.ApiAccess;
 using BlueTrack.Api.Data;
+using BlueTrack.Api.Formatting;
 
 namespace BlueTrack.Api.Notifications;
 
@@ -74,7 +75,7 @@ public sealed class ApiKeyExpiringCheck(
                 ("Key", key.DisplayName),
                 ("Starts with", key.KeyPrefix),
                 ("Role", key.RoleName),
-                ("Expires", key.ExpiresAt.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)),
+                ("Expires", ServerTextCulture.Date(key.ExpiresAt)),
             ])
             .SeePage(SiteLinks.ApiKeys);
 }
