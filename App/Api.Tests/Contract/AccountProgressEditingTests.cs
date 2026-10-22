@@ -327,8 +327,8 @@ public class AccountProgressEditingTests : IClassFixture<BlueTrackWebApplication
         var created = await admin.PostAsJsonAsync("/api/applications", new { applicationCode = $"CTEDIT{suffix}", applicationName = $"Edit test {suffix}" });
         Assert.Equal(HttpStatusCode.Created, created.StatusCode);
         var applicationKey = (await created.Content.ReadFromJsonAsync<ApplicationCreated>())!.ApplicationKey;
-        // D-291: changing the Application needs CurateApplicationMapping (Admin).
-        var client = admin;
+        // D-296: an Approver (or Analyst) may change the Application.
+        var client = CreateClientAs("TestUser.Approver");
         var stage = await LookupStageKeyAsync("Onboarded to Vault");
         var status = await LookupStatusKeyAsync("In Progress");
 
@@ -345,8 +345,8 @@ public class AccountProgressEditingTests : IClassFixture<BlueTrackWebApplication
     }
 
     /// <summary>
-    /// D-291 (seeded by Database/51): Blueprint Stage needs ConfirmReconciliation, which the Analyst role doesn't
-    /// hold; a save that leaves the stage as it is goes through. Bulk edit's refusal is in SecurityHardening2Tests.
+    /// D-291 (seeded by Database/51): Actual Completion Date needs ConfirmReconciliation, which the Analyst role
+    /// doesn't hold; D-296: the stage doesn't, so an Analyst moves it. Bulk edit's refusal is in SecurityHardening2Tests.
     /// </summary>
     [Fact]
     public async Task Update_RefusesAFieldWhosePermissionTheUserLacks()
@@ -363,12 +363,12 @@ public class AccountProgressEditingTests : IClassFixture<BlueTrackWebApplication
         var analyst = CreateClientAs("TestUser.Analyst");
         await analyst.PostAsync($"/api/account-progress/{accountKey}/lock", null);
         var refused = await analyst.PutAsJsonAsync($"/api/account-progress/{accountKey}",
-            new { currentStageKey = await LookupStageKeyAsync("Discovered"), currentStatusKey = inProgress, reason = "Field permission test" });
+            new { currentStageKey = onboarded, currentStatusKey = inProgress, actualCompletionDate = "2026-10-21" });
         Assert.Equal(HttpStatusCode.BadRequest, refused.StatusCode);
         Assert.Contains("ConfirmReconciliation", await refused.Content.ReadAsStringAsync());
 
         var allowed = await analyst.PutAsJsonAsync($"/api/account-progress/{accountKey}",
-            new { currentStageKey = onboarded, currentStatusKey = inProgress, ownerName = "Field permission test" });
+            new { currentStageKey = await LookupStageKeyAsync("Discovered"), currentStatusKey = inProgress, reason = "Field permission test", ownerName = "Field permission test" });
         Assert.Equal(HttpStatusCode.NoContent, allowed.StatusCode);
     }
 
