@@ -4,4 +4,3 @@
 
 | Date | Change | User doc / section it affects |
 |---|---|---|
-| 2026-10-21 | Next release's Upgrade Guide section 5 row (written in the release's own docs PR): the field permission defaults (D-291/D-296), re-run `Db.AppPoolAccess`, run `Db.SqlServerAudit` and restart SQL Server when it says so (D-295), optional AuditChainBroken notification | Admin_UpgradeGuide (section 5); taken from Release_Notes.md, Unreleased > Upgrading |

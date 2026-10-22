@@ -37,7 +37,7 @@ Go down the table and stop at the first row that matches your site.
 From the `Deploy` folder of the version you run now:
 
 ```powershell
-.\Update-BlueTrack.ps1 -Release v1.5.0      # a specific release, or no -Release for the latest
+.\Update-BlueTrack.ps1 -Release v1.6.0      # a specific release, or no -Release for the latest
 ```
 
 It downloads the signed release, copies your saved installer answers into it and offers to run its installer, which backs up, migrates the database, publishes the site and runs a health check (`Smoke`). Afterwards:
@@ -61,6 +61,7 @@ Most database changes need nothing from you; these do.
 | 1.3.4 | None. |
 | 1.4.0 | Only on a site that no longer imports Self-Hosted from the EVD (the installer stops otherwise, changing nothing). The shadow pull and its comparison are gone; their stored history stays in the database. The installer no longer asks for an EVD database. Going back to 1.3.4 needs the database restore in section 6: 1.4.0 drops columns 1.3.4 reads. |
 | 1.5.0 | None required. With Self-Hosted Direct, the first pull after the upgrade reads every account's details from PVWA (one call per account), so it takes longer than usual: raise **Pull time limit** on Edit CyberArk sources if it stops, or let it finish over the next nights. The automatic move to Onboarded to Vault is now the first rule on Admin > Progress Rules and also moves Discovered accounts whose status isn't Not Started (check it with **Test**). To get the new emails, turn on **CpmHealth**, **SignInRejected** and **SamlCertificateExpiring** on Admin > Notifications. Step-up MFA for admin work is left to your identity provider. |
+| 1.6.0 | Source of Record, Actual Completion Date and Risk Level now need a permission of their own to change by hand; to keep one open to every editor, clear its **Required permission** on Admin > Field Metadata. Re-run the installer's `Db.AppPoolAccess` step so the app's SQL account can't change the audit seals. Run `Db.SqlServerAudit` (answer yes) to record changes to the audit log in the Windows Security log; if it says SQL Server needs a restart, restart the SQL Server service at a quiet time and run the step again. Optional: turn on **AuditChainBroken** on Admin > Notifications. The existing audit log is sealed in the background after the upgrade. |
 
 ## 6. If something breaks: going back
 
