@@ -166,3 +166,47 @@ describe('PlatformMapping.vue', () => {
     expect(wrapper.text()).toContain('No platforms to show.')
   })
 })
+
+// D-293: suggestions fill the drop-downs; nothing is saved until Save.
+describe('PlatformMapping.vue suggestions', () => {
+  afterEach(() => vi.restoreAllMocks())
+
+  const suggested = [
+    { ...rows[0], suggestion: { accountTypeKey: 2, accountTypeName: 'Local/OS Account', sorKey: null, sourceOfRecord: null, basis: 'Keyword', detail: 'unix' } },
+    { ...rows[0], platformKey: 13, platformId: 'WinDomain', platformName: 'WinDomain', sourceSystemName: 'Self-Hosted',
+      suggestion: { accountTypeKey: 1, accountTypeName: 'Domain Account', sorKey: 7, sourceOfRecord: 'Active Directory', basis: 'OtherSource', detail: 'Privilege Cloud' } },
+    rows[1]
+  ]
+
+  it('says what is suggested and why, and Use fills only that row without saving', async () => {
+    const wrapper = await mountPage(suggested)
+
+    expect(wrapper.text()).toContain('Suggested: Local/OS Account (the name contains "unix")')
+    expect(wrapper.text()).toContain('Suggested: Domain Account / Active Directory (as the same platform in Privilege Cloud)')
+
+    await wrapper.get('button[aria-label="Use the suggestion for WinDomain"]').trigger('click')
+    expect(wrapper.get('select[aria-label="Account type for WinDomain"]').element.value).toBe('1')
+    expect(wrapper.get('select[aria-label="Source of record for WinDomain"]').element.value).toBe('7')
+    expect(wrapper.get('select[aria-label="Account type for UnixSSH"]').element.value).toBe('(not mapped)')
+    expect(wrapper.find('button[aria-label="Use the suggestion for WinDomain"]').exists()).toBe(false)
+    expect(globalThis.fetch.mock.calls.some(([, init]) => init?.method === 'PUT')).toBe(false)
+  })
+
+  it('fills in every suggestion at once, and never one where a type is already chosen', async () => {
+    const wrapper = await mountPage(suggested)
+    await pick(wrapper.get('select[aria-label="Account type for UnixSSH"]'), 'Domain Account')
+
+    const fillAll = wrapper.findAll('button').find(b => b.text() === 'Fill in 1 suggestion')
+    await fillAll.trigger('click')
+
+    expect(wrapper.get('select[aria-label="Account type for UnixSSH"]').element.value).toBe('1')
+    expect(wrapper.get('select[aria-label="Account type for WinDomain"]').element.value).toBe('1')
+    expect(wrapper.findAll('button').some(b => b.text().startsWith('Fill in'))).toBe(false)
+  })
+
+  it('offers nothing when no platform has a suggestion', async () => {
+    const wrapper = await mountPage()
+    expect(wrapper.text()).not.toContain('Suggested:')
+    expect(wrapper.findAll('button').some(b => b.text().startsWith('Fill in'))).toBe(false)
+  })
+})

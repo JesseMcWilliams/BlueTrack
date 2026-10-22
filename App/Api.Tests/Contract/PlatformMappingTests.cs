@@ -147,4 +147,38 @@ public class PlatformMappingTests : IClassFixture<BlueTrackWebApplicationFactory
             await CleanUpAsync(connection, platformKey, accounts);
         }
     }
+
+    private sealed record SuggestionRow(int PlatformKey, Suggestion? Suggestion);
+    private sealed record Suggestion(int AccountTypeKey, string AccountTypeName, int? SorKey, string? SourceOfRecord, string Basis, string Detail);
+
+    /// <summary>D-293: an unmapped platform whose ID is mapped in another source gets that mapping as a suggestion; listing saves nothing.</summary>
+    [Fact]
+    public async Task TheList_SuggestsTheMappingOfTheSamePlatformInAnotherSource()
+    {
+        var admin = Client();
+        var tag = Guid.NewGuid().ToString("N")[..8];
+        await using var connection = new SqlConnection(TestDatabase.ConnectionString);
+        var (platformKey, platformId, accounts) = await AddPlatformWithAccountsAsync(connection, tag);
+        var otherKey = await connection.QuerySingleAsync<int>(
+            "INSERT INTO dbo.dim_platform (SourceSystemKey, PlatformID, PlatformName, PlatformType) OUTPUT inserted.PlatformKey VALUES (2, @platformId, @platformId, 'regular')", new { platformId });
+        try
+        {
+            var options = (await admin.GetFromJsonAsync<JsonObject>("/api/admin/platform-mapping/options"))!;
+            var database = options["accountTypes"]!.AsArray().Single(t => t!["name"]!.GetValue<string>() == "Database Account")!["key"]!.GetValue<int>();
+            Assert.Equal(HttpStatusCode.OK, (await admin.PutAsJsonAsync($"/api/admin/platform-mapping/{otherKey}", new { accountTypeKey = database, sorKey = (int?)null })).StatusCode);
+
+            var row = (await admin.GetFromJsonAsync<List<SuggestionRow>>("/api/admin/platform-mapping"))!.Single(r => r.PlatformKey == platformKey);
+
+            Assert.NotNull(row.Suggestion);
+            Assert.Equal(database, row.Suggestion!.AccountTypeKey);
+            Assert.Equal("OtherSource", row.Suggestion.Basis);
+            Assert.Equal("CyberArk Self-Hosted Vault", row.Suggestion.Detail);
+            Assert.Equal(0, await connection.QuerySingleAsync<int>("SELECT COUNT(*) FROM dbo.platform_account_type_map WHERE PlatformKey = @platformKey", new { platformKey }));
+        }
+        finally
+        {
+            await CleanUpAsync(connection, platformKey, accounts);
+            await connection.ExecuteAsync("DELETE FROM dbo.platform_account_type_map WHERE PlatformKey = @otherKey; DELETE FROM dbo.dim_platform WHERE PlatformKey = @otherKey;", new { otherKey });
+        }
+    }
 }

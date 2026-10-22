@@ -4,7 +4,12 @@ namespace BlueTrack.Api.Data;
 
 public sealed record PlatformMappingRow(
     int PlatformKey, string SourceSystemName, string PlatformId, string? PlatformName, int? AccountTypeKey, string? AccountTypeName,
-    int? SorKey, string? SourceOfRecord, string? Notes, bool IsUnmapped, int AccountCount, int AccountsWithoutType, int AccountsWithoutSor);
+    int? SorKey, string? SourceOfRecord, string? Notes, bool IsUnmapped, int AccountCount, int AccountsWithoutType, int AccountsWithoutSor,
+    string? PlatformType)
+{
+    /// <summary>D-293: set by <see cref="PlatformMappingSuggester"/> on unmapped, non-group platforms.</summary>
+    public PlatformMappingSuggestion? Suggestion { get; init; }
+}
 
 public sealed record PlatformMappingOptions(IReadOnlyList<PlatformMappingChoice> AccountTypes, IReadOnlyList<PlatformMappingChoice> SourcesOfRecord);
 
@@ -26,7 +31,7 @@ public sealed class PlatformMappingRepository(IDbConnectionFactory connectionFac
             SELECT p.PlatformKey, ss.SourceSystemName, p.PlatformID AS PlatformId, p.PlatformName,
                    pm.AccountTypeKey, at.AccountTypeName, pm.SORKey AS SorKey, sor.SORName AS SourceOfRecord, pm.Notes,
                    CAST(CASE WHEN pm.PlatformKey IS NULL THEN 1 ELSE 0 END AS BIT) AS IsUnmapped,
-                   counts.AccountCount, counts.AccountsWithoutType, counts.AccountsWithoutSor
+                   counts.AccountCount, counts.AccountsWithoutType, counts.AccountsWithoutSor, p.PlatformType
             FROM dbo.dim_platform p
             JOIN dbo.dim_source_system ss ON ss.SourceSystemKey = p.SourceSystemKey
             LEFT JOIN dbo.platform_account_type_map pm ON pm.PlatformKey = p.PlatformKey
@@ -42,7 +47,7 @@ public sealed class PlatformMappingRepository(IDbConnectionFactory connectionFac
             ) counts
             ORDER BY CASE WHEN pm.PlatformKey IS NULL THEN 0 ELSE 1 END, counts.AccountCount DESC, ss.SourceSystemName, p.PlatformID
             """);
-        return rows.AsList();
+        return PlatformMappingSuggester.Suggest(rows.AsList(), await GetOptionsAsync());
     }
 
     public async Task<PlatformMappingOptions> GetOptionsAsync()
