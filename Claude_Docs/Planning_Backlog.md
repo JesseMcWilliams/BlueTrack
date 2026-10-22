@@ -9,7 +9,6 @@
 ## From the requirements review (2026-10-21)
 Gaps against the original design (commit f0561ce) and the Blueprint theme. Built from that review: Progress Rules (D-283), editable stages (D-284), rejected sign-in logging (D-285), the SAML certificate reminder (D-287); step-up MFA is left to the SSO provider (D-286).
 - **Reload Rights re-maps the session's groups only** (D-13): a group change at the IdP or in AD shows after the next sign-in, not on Reload Rights. A live lookup (Graph, LDAP) would close it.
-- **Platform Mapping is empty on the dev site**: all 53 platforms unmapped, so about 2,459 accounts have no account type or source of record (`Planning_Questions-Backlog.md` Q2, Q3). Needs the platform-to-type decisions.
 - **No SMTP on the dev site**: no host or recipients, so the overdue-exception alerts (D-19) and the other notifications reach nobody (Questions Q8). The break-glass email is unproven for the same reason.
 - **Stale docs**: `Planning_API-Access-For-Scripts.md` still lists phases 2 and 3 as to build (D-243 built them); rename it `Design_API-Access.md`. `Planning_Handoff-2026-10-18.md` should be archived.
 - **Confirm these stay dropped**: no pending exception state or ApprovalsWaiting notification, SoD off by default (D-70, D-140); per-field permissions enforced but none seeded (D-198); no tamper-evident audit log (D-63); no ad hoc fields (D-08); the default IdP is the lowest DisplayOrder, not the user's last used (D-100).
