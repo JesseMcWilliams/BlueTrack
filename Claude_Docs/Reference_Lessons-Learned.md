@@ -331,3 +331,15 @@ AD Account Discovery with an explicit bind (a CyberArk CP credential) failed wit
 
 A redeploy run with `-Force` (to get past a step's "already exists") failed only its smoke test: "The App Pool account can't use the SP certificate's private key". `-Force` also reaches `Iis.AppPool`, where `New-BlueTrackAppPool` deletes and recreates an existing pool with the default `ApplicationPoolIdentity`, so the site lost its gMSA identity, and `Db.AppPoolAccess` then granted a SQL login to `IIS APPPOOL\BlueTrack-AppPool`. Fixed by setting the pool back to the gMSA (IIS keeps earlier `applicationHost.config` copies in `C:\inetpub\history`, which showed the old `processModel`). Don't pass `-Force` for a redeploy over a site with a custom App Pool identity.
 
+## 2026-10-21 -- `| Select-Object -First 1` on a native command left a failing `$LASTEXITCODE` (D-295)
+
+`$x = (& sqlcmd ... | Select-Object -First 1); if ($LASTEXITCODE -ne 0) { throw }` threw although the query worked: `Select-Object -First 1` stops the pipeline once it has its item, which stops `sqlcmd` early and leaves a non-zero exit code. Collect the output first (`$output = @(& sqlcmd ...)`), check `$LASTEXITCODE`, then take the first line. Seen in `Install-BlueTrackSqlServerAudit`.
+
+## 2026-10-21 -- `powershell -File script.ps1 -Flag $false` passes the text "$false" to a `[bool]` parameter
+
+Running `Install-BlueTrack.ps1 -InstallSqlServerAudit $false` through `powershell -File` failed parameter binding ("Cannot convert value System.String to type System.Boolean"): with `-File`, every argument is a string. Use a small wrapper script that calls the installer with `& .\Deploy\Install-BlueTrack.ps1 ... -InstallSqlServerAudit $false`, or `-Command`. Nothing ran, since binding failed first.
+
+## 2026-10-21 -- Live Playwright checks: `page.request` didn't trust the lab CA that Chromium did
+
+Against the deployed dev site, `page.request.get(...)` failed with "unable to verify the first certificate" while the browser pages loaded fine: Playwright's request client runs in Node, which doesn't use the Windows certificate store the browser trusts. In `App/E2E/live`, call the API from inside the page (`page.evaluate(() => fetch(...))`). Windows sign-in needs `--auth-server-allowlist=<host>` in the browser's launch arguments.
+
