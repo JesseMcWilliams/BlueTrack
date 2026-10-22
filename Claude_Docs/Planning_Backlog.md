@@ -4,21 +4,25 @@
 
 ## Requested, not started
 - **Privilege Cloud Direct** (requested 2026-10-19, with Self-Hosted Direct, D-248): read Privilege Cloud through its API into `stg_pc_*` instead of the export folder, as a fourth option on the CyberArk sources page (already listed there, unavailable). Needs the Privilege Cloud API's logon (an Identity OAuth client, `Platform/Developer` and `PAM/Privilege-Cloud-Standard` in the Idira reference), a lab tenant, and the same change guard.
+- **Chosen 2026-10-21, built in this order** (D-289, D-290), each its own PR:
+  1. **Seed per-field permissions** (D-291): Account Type and Source of Record need `CuratePlatformMapping`; Application `CurateApplicationMapping`; Blueprint Stage and Actual Completion Date `ConfirmReconciliation`; Risk Level `ManageTargets`; the rest nothing extra. Set only where none is set.
+  2. **Default sign-in provider setting** (D-292): lowest display order (today's behaviour, the default) or last used on this browser, falling back to the lowest order.
+  3. **Platform Mapping suggestions** (D-293): from the same platform ID already mapped in the other source first, then platform-name keywords; group platforms skipped; the admin accepts each.
+  4. **Number and date formats** (D-294): check the SPA for values not formatted by `utils/formatLocale.js`; an installation-wide format culture (default `en-US`) for server-written text (emails, feed run summaries); CSV exports stay invariant.
+  5. **Tamper-evident audit log** (D-295): a keyed hash chain with a Verify and a purge checkpoint; SQL Server Audit on the audit tables to the Windows Security log (installer step); SIEM forwarding (D-234) documented as the off-server copy.
 
 
 ## From the requirements review (2026-10-21)
 Gaps against the original design (commit f0561ce) and the Blueprint theme. Built from that review: Progress Rules (D-283), editable stages (D-284), rejected sign-in logging (D-285), the SAML certificate reminder (D-287); step-up MFA is left to the SSO provider (D-286).
 - **Reload Rights re-maps the session's groups only** (D-13): a group change at the IdP or in AD shows after the next sign-in, not on Reload Rights. A live lookup (Graph, LDAP) would close it.
-- **No SMTP on the dev site**: no host or recipients, so the overdue-exception alerts (D-19) and the other notifications reach nobody (Questions Q8). The break-glass email is unproven for the same reason.
-- **Stale docs**: `Planning_API-Access-For-Scripts.md` still lists phases 2 and 3 as to build (D-243 built them); rename it `Design_API-Access.md`. `Planning_Handoff-2026-10-18.md` should be archived.
-- **Confirm these stay dropped**: no pending exception state or ApprovalsWaiting notification, SoD off by default (D-70, D-140); per-field permissions enforced but none seeded (D-198); no tamper-evident audit log (D-63); no ad hoc fields (D-08); the default IdP is the lowest DisplayOrder, not the user's last used (D-100).
+- **No SMTP on the dev site**: no host or recipients, so the overdue-exception alerts (D-19) and the other notifications reach nobody On hold until a test mail environment exists (D-289). The break-glass email is unproven for the same reason.
+- **Stale docs**: `Planning_API-Access-For-Scripts.md` still lists phases 2 and 3 as to build (D-243 built them); rename it `Design_API-Access.md`.
 - **PSM for Privilege Cloud** (D-288): the RequiresPsm rule condition reads the platform policy of a Self-Hosted Direct pull; Privilege Cloud's platform export has no PSM column, so it's empty there until Privilege Cloud Direct reads the platform policy.
 - **Suggestion: email the application owner** (D-46 `OwnerEmail`) when an application-scoped exception comes up for review, not only the configured recipients.
 - **Suggestion: least-privilege view**: who holds Manage Safe, Manage Safe Members or full rights, across Safes (the per-account "Who can use this account" and the Power BI entitlement view exist).
 - **Suggestion: sponsor view of progress against target dates over time**, from Trends and `TargetRemediationDate`.
 
 ## Requested, deferred
-- **Localize server-side text** (requested 2026-10-14): API error messages (ProblemDetails), audit details, feed run summaries and emails are English only; D-227 covers the SPA. A proposal (error codes translated in the SPA, audit details kept in English, one installation-wide email language) is in `Planning_Server-Side-Localization.md`; whether to build it depends on a second language being planned (`Planning_Questions-Backlog.md`, question 5).
 
 ## From Self-Hosted Direct (D-248, 2026-10-19)
 - **Direct is unproven on a large Vault and over time** (Medium): measured on 40 Safes, 2,452 accounts and 43 users (about 8 seconds), through the REST API and through a fake PVWA, and compared once with the EVD. Not yet run as a scheduled night, against thousands of Safes (one call each) or users (one call each), or through the Agent job's Import gate on a real run.
@@ -41,8 +45,6 @@ Gaps against the original design (commit f0561ce) and the Blueprint theme. Built
 
 ## Found in the real CyberArk data (checked 2026-10-13)
 Self-Hosted: EVD `CyberArkSH`, loaded 2026-10-13. Privilege Cloud: the export CSVs in the configured folder (loaded since D-228, 2026-10-14).
-- **Privilege Cloud columns always empty** in the current export: `LastReconciled`, `RemoteMachines`, `Deleted`, and the new Users `Enabled`/`Suspended` and Groups `Directory` (stored since D-228); `LastVerified`, `Platform_LogonDomain` and `CPMStatus` are mostly empty.
-- **Privilege Cloud exports with no importer**: `Export LDAP Group Members.csv` and `Export_ApplicationsList.csv`. Self-Hosted now gets both from the source (D-281 reads Safe groups' members from AD, D-282 the CyberArk Applications from PVWA); decide whether Privilege Cloud needs them.
 - **Nested AD group path** (D-281): "Via AD group" names the Safe's group; a person in a nested group isn't shown the group in between.
 - **Direct Account→Target links**: neither CyberArk source lists remote machines (Privilege Cloud `RemoteMachines` is empty; Self-Hosted has no such property), so the Address-derived links (D-193) are the CyberArk side. The `AccountTargetMap` data feed exists (`App/Api/DataFeeds/FeedColumns.cs:21`); what's missing is a non-CyberArk system to supply it.
 

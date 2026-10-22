@@ -1,6 +1,6 @@
 # BlueTrack: Server-side localization (proposal)
 
-> **Stage: Planning.** Written 2026-10-18 for the backlog item requested 2026-10-14. **Nothing here is decided or built.** It needs the answers in `Planning_Questions-Backlog.md` (question 5) first, above all whether a second language is planned: only English exists today (`SUPPORTED_LOCALES = ['en']`, D-227), so localizing the server now would translate nothing.
+> **Stage: Archive (not built).** No second language is planned (D-289), so this proposal was archived unbuilt on 2026-10-21; number and date formats are handled by D-294. Written 2026-10-18 for the backlog item requested 2026-10-14. **Nothing here is decided or built.** It needs the answers in `Planning_Questions-Backlog.md` (question 5) first, above all whether a second language is planned: only English exists today (`SUPPORTED_LOCALES = ['en']`, D-227), so localizing the server now would translate nothing.
 
 ## What the server says, and to whom
 Counted in `App/Api` on 2026-10-18:

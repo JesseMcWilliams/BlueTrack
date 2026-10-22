@@ -181,5 +181,5 @@ What P5 touches (from the 2026-10-19 inventory):
 10. ~~Service user roles~~ Answered 2026-10-20: the Auditors group for Safes and accounts, Vault Admins for platform details; Vault Admins is acceptable for the production service user.
 
 ## 8. Not in this plan
-- Automatic Blueprint stages 4 and 5 (`Reference_Handoff-2026-10-19.md`, section 7). They need P3's CPM fields and the user's answers there.
+- Automatic Blueprint stages 4 and 5 (`Archive_Reference_Handoff-2026-10-19.md`, section 7). Built later as Progress Rules (D-283) and CPM health (D-288).
 - Privilege Cloud Direct (`Planning_Backlog.md`). It should reuse this table pattern as `stg_pcd_*`.
