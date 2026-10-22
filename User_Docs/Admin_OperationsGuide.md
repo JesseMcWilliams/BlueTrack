@@ -240,7 +240,7 @@ ORDER BY StartedAt DESC;
 ```sql
 SELECT name, status_desc, status_time FROM sys.dm_server_audit_status;
 ```
-`STARTED` is good. Anything else (for example `TARGET_CREATION_FAILED`) means Windows isn't letting SQL Server write to the Security log yet: the SQL Server service needs a restart after the installer granted its account *Generate security audits*, or a domain Group Policy turned the *Application Generated* audit policy off (`auditpol /get /subcategory:"Application Generated"`). The events appear in Event Viewer > Windows Logs > Security (source *MSSQLSERVER*, event ID 33205). Keep the Security log large enough, or forward it to your SIEM, so they aren't overwritten.
+`STARTED` is good. Anything else (for example `TARGET_CREATION_FAILED`) means Windows isn't letting SQL Server write to the Security log yet: the SQL Server service needs a restart after the installer granted its account *Generate security audits*, or a domain Group Policy turned the *Application Generated* audit policy off (`auditpol /get /subcategory:"Application Generated"`). The events appear in Event Viewer > Windows Logs > Security; the first time, note the source and event ID your SQL Server writes them with, so you can filter on them (and forward them to your SIEM). Keep the Security log large enough, or forward it to your SIEM, so they aren't overwritten.
 
 ## Changing Identity Provider or Secrets Store Backend After Go-Live
 
