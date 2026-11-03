@@ -346,6 +346,9 @@ test.describe('Audit Log Viewer admin page', () => {
 
     await expect(page.getByText('Loading...')).toHaveCount(0)
 
+    // Event Type is a text box until the event-type list arrives (a request of its own), then a choice:
+    // wait for the choice, or selectOption can land on the text box.
+    await expect(page.getByLabel('Event Type:')).toHaveJSProperty('tagName', 'SELECT')
     await page.getByLabel('Event Type:').selectOption('FieldEdit') // a choice since UI review W11-1
     await page.getByRole('button', { name: 'Filter', exact: true }).click()
     await expect(page.getByText('Loading...')).toHaveCount(0)
@@ -362,6 +365,7 @@ test.describe('Audit Log Viewer admin page', () => {
     await page.goto('/admin/audit-log')
     await expect(page.getByText('Loading...')).toHaveCount(0)
 
+    await expect(page.getByLabel('Event Type:')).toHaveJSProperty('tagName', 'SELECT') // as above
     await page.getByLabel('Event Type:').selectOption('ReportExport')
     await page.getByRole('button', { name: 'Filter', exact: true }).click()
     await expect(page.getByText('Loading...')).toHaveCount(0)
