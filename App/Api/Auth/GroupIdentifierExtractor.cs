@@ -32,6 +32,24 @@ public static class GroupIdentifierExtractor
         return [];
     }
 
+    /// <summary>D-303: the Windows user's own SID, which the directory is searched by; null for any other sign-in.</summary>
+    public static string? GetWindowsUserSid(ClaimsPrincipal principal) =>
+        (principal.Identity as WindowsIdentity)?.User?.Value;
+
+    /// <summary>
+    /// D-303: the sign-in token's group SIDs with those of the user's own domain replaced by the directory's current
+    /// ones. The token's other SIDs (well-known ones such as Authenticated Users, this server's local groups, other
+    /// domains') stay as they are, since the user's domain doesn't hold them.
+    /// </summary>
+    public static IReadOnlyList<string> MergeDirectoryGroups(IReadOnlyList<string> tokenSids, string userSid, IReadOnlyList<string> directorySids)
+    {
+        var domainPrefix = userSid[..(userSid.LastIndexOf('-') + 1)];
+        return tokenSids.Where(sid => !sid.StartsWith(domainPrefix, StringComparison.OrdinalIgnoreCase))
+            .Concat(directorySids)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
     /// <summary>OIDC/SAML (D-84): reads every claim matching the provider-configured group claim type/name.</summary>
     public static IReadOnlyList<string> GetClaimBasedGroupIdentifiers(ClaimsPrincipal principal, string groupClaimType)
     {

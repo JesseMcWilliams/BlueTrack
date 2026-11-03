@@ -134,7 +134,7 @@ sqlcmd -S <server> -C -d BlueTrack -i 02_BlueTrack_GrantAppServiceAccountAccess.
 
 - **`ViewDashboard` is needed to see tracked data.** Being signed in isn't enough: Account Progress, the dashboard, Risk Exceptions, the Applications list and the reports built on them all need a role holding `ViewDashboard`. If a custom role was built without it, its members see errors or empty pages there; add `ViewDashboard` to the role on **Admin > Roles & Permissions**.
 - **Changes made in BlueTrack apply on everyone's next request.** Saving a role on **Roles & Permissions**, a mapping on **Group → Role Mapping**, or a provider on **Identity Providers** clears every user's cached rights.
-- **Changes made outside BlueTrack apply within 15 minutes.** A user added to or removed from an AD group keeps their cached rights for at most 15 minutes, even while they keep working. A user can pick up a change at once with **Reload My Rights** on their profile page.
+- **Changes made outside BlueTrack apply within 15 minutes.** A user added to or removed from an AD group keeps their cached rights for at most 15 minutes, even while they keep working. A user can pick up a change at once with **Reload My Rights** on their profile page: with Windows sign-in and an LDAP domain set up on Admin > Credentials & LDAP, it reads their groups from AD, and keeps doing so until their next Windows sign-in. With OIDC or SAML sign-in, a group change at the identity provider needs the user to sign out of BlueTrack and back in.
 
 ## Data Feed and Backup Folders
 

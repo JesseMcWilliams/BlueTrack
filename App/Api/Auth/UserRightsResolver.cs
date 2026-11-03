@@ -7,6 +7,9 @@ namespace BlueTrack.Api.Auth;
 
 public sealed record UserRights(IReadOnlyList<string> RoleNames, IReadOnlyList<string> PermissionNames);
 
+/// <summary>D-303: a Reload Rights' result, and where the groups came from (<see cref="GroupSources"/>).</summary>
+public sealed record RightsReload(UserRights Rights, string GroupSource);
+
 /// <summary>
 /// Claims Normalization Pipeline steps 2-4 (Design_Authorization-Model.md),
 /// now cached per identity (D-13/D-82) -- a live group -> role ->
@@ -26,7 +29,8 @@ public sealed class UserRightsResolver(
     ApiAccess.ApiKeyRepository apiKeyRepository,
     ApiAccess.ApiClientMappingRepository apiClientMappingRepository,
     Notifications.BreakGlassAlerter breakGlassAlerter,
-    IHttpContextAccessor httpContextAccessor)
+    IHttpContextAccessor httpContextAccessor,
+    DirectoryGroups directoryGroups)
 {
     private static readonly UserRights None = new([], []);
 
@@ -60,7 +64,7 @@ public sealed class UserRightsResolver(
             return cached;
         }
 
-        var rights = await ResolveLiveAsync(principal, provider);
+        var (rights, _) = await ResolveLiveAsync(principal, provider, externalIdentifier, reload: false);
         await rightsCache.SetAsync(provider.ProviderKey, externalIdentifier, rights);
 
         var user = await currentUserResolver.ResolveAsync(principal);
@@ -82,31 +86,34 @@ public sealed class UserRightsResolver(
         return rights;
     }
 
-    /// <summary>Bypasses the cache, always resolves live, and refreshes the cache -- self-service Reload Rights (D-14). Not a logon: no audit event here.</summary>
-    public async Task<UserRights> RefreshAsync(ClaimsPrincipal principal)
+    /// <summary>
+    /// Bypasses the cache, always resolves live, and refreshes the cache -- self-service Reload Rights (D-14). Not a
+    /// logon: no audit event here. D-303: a Windows user's groups are read from AD (when an LDAP domain is set up).
+    /// </summary>
+    public async Task<RightsReload> RefreshAsync(ClaimsPrincipal principal)
     {
         // D-197: a disabled provider grants nothing -- including to OIDC/SAML
         // sessions signed in before an admin disabled it.
         var provider = await negotiateProviderResolver.ResolveAsync(principal);
         if (provider is null || !provider.IsEnabled)
         {
-            return None;
+            return new RightsReload(None, GroupSources.SignIn);
         }
 
         var externalIdentifier = ExternalIdentifierReader.Resolve(principal);
         if (string.IsNullOrEmpty(externalIdentifier))
         {
-            return None;
+            return new RightsReload(None, GroupSources.SignIn);
         }
 
         if (provider.ProviderType == ApiAccess.ApiAccessRules.ProviderType)
         {
-            return await ResolveApiAccessAsync(principal, externalIdentifier);
+            return new RightsReload(await ResolveApiAccessAsync(principal, externalIdentifier), GroupSources.SignIn);
         }
 
-        var rights = await ResolveLiveAsync(principal, provider);
+        var (rights, groupSource) = await ResolveLiveAsync(principal, provider, externalIdentifier, reload: true);
         await rightsCache.SetAsync(provider.ProviderKey, externalIdentifier, rights);
-        return rights;
+        return new RightsReload(rights, groupSource);
     }
 
     /// <summary>
@@ -135,7 +142,8 @@ public sealed class UserRightsResolver(
         return None;
     }
 
-    private async Task<UserRights> ResolveLiveAsync(ClaimsPrincipal principal, IdentityProviderConfig provider)
+    private async Task<(UserRights Rights, string GroupSource)> ResolveLiveAsync(ClaimsPrincipal principal, IdentityProviderConfig provider,
+        string externalIdentifier, bool reload)
     {
         var groupIdentifiers = provider.ProviderType switch
         {
@@ -145,14 +153,21 @@ public sealed class UserRightsResolver(
             _ => GroupIdentifierExtractor.GetGroupIdentifiers(principal)
         };
 
+        // D-303: OIDC and SAML groups are the sign-in's claims; a Windows user's can come from AD (DirectoryGroups).
+        var groupSource = GroupSources.SignIn;
+        if (provider.ProviderType == "WindowsIntegrated" && GroupIdentifierExtractor.GetWindowsUserSid(principal) is { } userSid)
+        {
+            (groupIdentifiers, groupSource) = await directoryGroups.ResolveAsync(provider.ProviderKey, externalIdentifier, userSid, groupIdentifiers, reload);
+        }
+
         if (groupIdentifiers.Count == 0)
         {
-            return None;
+            return (None, groupSource);
         }
 
         var roleNames = await authorizationRepository.GetMatchedRoleNamesAsync(provider.ProviderKey, groupIdentifiers);
         var permissionNames = await authorizationRepository.GetEffectivePermissionNamesAsync(provider.ProviderKey, groupIdentifiers);
 
-        return new UserRights(roleNames, permissionNames);
+        return (new UserRights(roleNames, permissionNames), groupSource);
     }
 }

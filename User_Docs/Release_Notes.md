@@ -16,6 +16,7 @@ What changed in each BlueTrack release, newest first, for users and administrato
 
 - "In scope" on the KPI Summary, Dashboard and Trends now also leaves out Archived accounts.
 - The nightly load now loads Safe members before it applies the Progress Rules, so rules see the same night's Safe access results.
+- **Reload My Rights** reads a Windows user's groups from Active Directory (through the LDAP domains on Admin > Credentials & LDAP), so a group change applies without signing out of Windows; it keeps reading AD until the user's next Windows sign-in. With OIDC or SAML sign-in the page says a group change needs signing out and back in. (User Guide, Profile & Preferences)
 
 ### Fixed
 

@@ -38,6 +38,8 @@ public sealed class AdminUsersController(
         }
 
         await rightsCache.InvalidateAsync(targetUser.ProviderKey, targetUser.ExternalIdentifier);
+        // D-303: a Windows user's next request reads their groups from AD, as their own Reload Rights would.
+        await rightsCache.SetDirectoryGroupsTokenAsync(targetUser.ProviderKey, targetUser.ExternalIdentifier, "");
 
         var admin = await currentUserResolver.ResolveAsync(User);
         if (admin is not null)

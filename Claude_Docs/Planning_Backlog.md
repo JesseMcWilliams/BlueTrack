@@ -7,7 +7,6 @@
 
 ## From the requirements review (2026-10-21)
 Gaps against the original design (commit f0561ce) and the Blueprint theme. Built from that review: Progress Rules (D-283), editable stages (D-284), rejected sign-in logging (D-285), the SAML certificate reminder (D-287); step-up MFA is left to the SSO provider (D-286).
-- **Reload Rights re-maps the session's groups only** (D-13): a group change at the IdP or in AD shows after the next sign-in, not on Reload Rights. A live lookup (Graph, LDAP) would close it.
 - **No SMTP on the dev site**: no host or recipients, so the overdue-exception alerts (D-19) and the other notifications reach nobody On hold until a test mail environment exists (D-289). The break-glass email is unproven for the same reason.
 - **Stale docs**: `Planning_API-Access-For-Scripts.md` still lists phases 2 and 3 as to build (D-243 built them); rename it `Design_API-Access.md`.
 - **PSM for Privilege Cloud** (D-288): the RequiresPsm rule condition reads the platform policy of a Self-Hosted Direct pull; Privilege Cloud's platform export has no PSM column, so it's empty there until Privilege Cloud Direct reads the platform policy.
