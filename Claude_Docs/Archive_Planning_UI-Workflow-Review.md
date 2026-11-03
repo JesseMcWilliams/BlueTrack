@@ -103,11 +103,13 @@ Works well: the user menu is a proper disclosure (Escape returns focus, closes o
 1. ~~Quick, high-value fixes: the bugs and the missing confirmations.~~ Shipped (D-251). The last three confirmations shipped in D-256.
 2. ~~List state in the URL and drill-down.~~ Shipped (D-252, D-258, D-259, D-261).
 3. ~~One shared error helper, empty states and "saved" messages.~~ Shipped (D-253).
-4. ~~No-access experience (W1-1, W1-2).~~ Shipped (D-254, D-255). Still open: pages without a route-level permission still show "Request failed: 403" to a user who holds some roles but not that page's permission.
+4. ~~No-access experience (W1-1, W1-2).~~ Shipped (D-254, D-255). The pages that still showed "Request failed: 403" to a user who holds some roles but not that page's permission now go to Access Denied too (D-304, 2026-11-03).
 5. ~~The rest by workflow.~~ Shipped (D-256 to D-269).
 
 ## Not built
 
+Reviewed with the user on 2026-11-03 (D-304): the first and last are left out for good; the middle one is built.
+
 - Inline Extend and Revoke on the two risk exception worklists (W3-6): the exceptions list's bulk actions and the exception's own page do both.
-- The Credentials LDAP save, the Notifications selects and Account Detail's other-status branch still show only a status code on failure (theme 1).
-- Text typed into a form is not kept across an idle sign-out (W12-1); signing in again returns to the page.
+- ~~The Credentials LDAP save, the Notifications selects and Account Detail's other-status branch still show only a status code on failure (theme 1).~~ Built (D-304).
+- Text typed into a form is not kept across an idle sign-out (W12-1); signing in again returns to the page. Keeping drafts in the browser could keep sensitive values there.

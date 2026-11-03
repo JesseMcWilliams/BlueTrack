@@ -29,6 +29,7 @@ import { useRouter } from 'vue-router'
 import { confirmDelete } from '../../composables/useConfirmDialog'
 import { formatCount } from '../../utils/formatCount'
 import { useI18n } from 'vue-i18n'
+import { problemMessage } from '../../utils/problemText'
 
 const { t } = useI18n()
 
@@ -207,7 +208,7 @@ async function setTargetRole(type) {
   })
   if (!response.ok) {
     // UI review W9-6: the select already shows the role that was picked; reload so it shows what is saved.
-    const message = t('common.saveFailed', { status: response.status })
+    const message = await problemMessage(response, t('common.saveFailed', { status: response.status }))   // UI review theme 1
     await loadTypes()
     typesError.value = message
     return
@@ -223,7 +224,7 @@ async function setTypeEnabled(type, isEnabled) {
     body: JSON.stringify({ isEnabled })
   })
   if (!response.ok) {
-    typesError.value = t('common.saveFailed', { status: response.status })
+    typesError.value = await problemMessage(response, t('common.saveFailed', { status: response.status }))
     return
   }
   await loadTypes()
@@ -258,7 +259,7 @@ async function toggleRecipientActive(recipient) {
     body: JSON.stringify({ email: recipient.email, displayName: recipient.displayName, isActive: !recipient.isActive })
   })
   if (!response.ok) {
-    recipientsError.value = t('admin.notifications.updateFailed', { status: response.status })
+    recipientsError.value = await problemMessage(response, t('admin.notifications.updateFailed', { status: response.status }))
     return
   }
   await loadRecipients()
@@ -269,7 +270,7 @@ async function removeRecipient(recipient) {
   recipientsError.value = null
   const response = await fetch(`/api/admin/notifications/recipients/${recipient.recipientKey}`, { method: 'DELETE' })
   if (!response.ok) {
-    recipientsError.value = t('common.deleteFailed', { status: response.status })
+    recipientsError.value = await problemMessage(response, t('common.deleteFailed', { status: response.status }))
     return
   }
   await loadRecipients()
