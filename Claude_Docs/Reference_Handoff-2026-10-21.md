@@ -1,18 +1,18 @@
 # BlueTrack: Handoff, 2026-10-21
 
-> **Stage: Reference (point-in-time snapshot).** Written at the end of the 2026-10-21 session for whoever picks the project up next (a person or another Claude session), brought up to date after the session's second batch (D-289 to D-297) and again on 2026-10-23 (release 1.5.1, the dev-site upgrade, SQL Server Audit live, and the customer upgrade questions in section 2a), and on 2026-11-03 (Archived status, Safe Access Policies and compliance review; section 2b). Supersedes `Archive_Reference_Handoff-2026-10-19.md` and `Archive_Planning_Handoff-2026-10-18.md`. Facts about the code live in the code and the other `Claude_Docs/` files; this note points at them.
+> **Stage: Reference (point-in-time snapshot).** Written at the end of the 2026-10-21 session for whoever picks the project up next (a person or another Claude session), brought up to date after the session's second batch (D-289 to D-297) and again on 2026-10-23 (release 1.5.1, the dev-site upgrade, SQL Server Audit live, and the customer upgrade questions in section 2a), and on 2026-11-03 (Archived status, Safe Access Policies and compliance review; section 2b, then section 2c). Supersedes `Archive_Reference_Handoff-2026-10-19.md` and `Archive_Planning_Handoff-2026-10-18.md`. Facts about the code live in the code and the other `Claude_Docs/` files; this note points at them.
 
 ## 1. Where things stand
 
 - **Released: v1.5.1** (2026-10-22; signed tag on `477fd01`, GitHub verified the signature; GitHub release; rebuilt `Published_Docs` and `Sbom/`). It holds everything in section 2 marked 1.5.1. Before it: v1.5.0, v1.4.0 (EVD removal, D-278) and v1.3.4.
 - **Release numbers go up by 0.0.1 only**, whatever a release holds (the user, 2026-10-22). A **v1.6.0** was published first by mistake and withdrawn within minutes: its GitHub release and tag were deleted and PR #232 put `<Version>`, the notes, `Published_Docs` and `Sbom/` back before 1.5.1 was made. No v1.6.0 exists.
-- **`main`** holds PRs #235 to #238 (2026-11-03). **Unreleased** lists the 2026-11-03 features (section 2b) and one fix (`Db.SqlServerAudit`'s rights check, below); the next release is **1.5.2**, and its Upgrade Guide section 5 row is written (its own PR, 2026-11-03).
+- **`main`** holds PRs #235 to #240 (2026-11-03). **Open, not merged:** #241 to #244 (section 2c). **Unreleased** lists the 2026-11-03 features (section 2b) and one fix (`Db.SqlServerAudit`'s rights check, below); the next release is **1.5.2**, and its Upgrade Guide section 5 row is written (its own PR, 2026-11-03).
 - **Dev site** (`https://bluetrack.company.com`) runs **1.5.1**, installed 2026-10-22 from the `v1.5.1` commit with the saved answers, without `-Force`: pre-upgrade backup taken, no new database scripts, app pool kept its gMSA, smoke test healthy, Deployment page `1.5.1`. `Test-BlueTrackHealth.ps1`, `Test-BlueTrackSso.ps1` and `npm run test:live` were **not** re-run on this build.
 - **SQL Server Audit is live on the dev host** (`Db.SqlServerAudit`, D-295): Windows audit policy set, the SQL Server service account granted *Generate security audits* and the Security-log registry key, SQL Server restarted by the user, audit `STARTED`. Checked with an UPDATE of `web.audit_event` that matched no rows and was rolled back: Security log event 33205 from `MSSQLSERVER$AUDIT`, with the statement and the login. No data or seal changed.
 - **AuditChainBroken** is turned on for the dev site (through the admin API, so it is in the Audit Log); no target role, and nothing is sent without SMTP.
 - **Tests** (last full local run, 2026-11-03): API 1,394, web 872, E2E 105, all passing. CI green on every PR.
 - **The dev site has none of the 2026-11-03 work** (it runs 1.5.1).
-- **Decision register:** the last row is **D-301**; next is D-302. **Database scripts:** the last is `57_BlueTrack_SafeAccessPolicies.sql`; next is `58`.
+- **Decision register:** the last row on `main` is **D-301**; #242 to #244 add D-302 to D-304, so the next is D-305. **Database scripts:** the last on `main` is `57_BlueTrack_SafeAccessPolicies.sql`; #242 adds `58` (and `Database/Manual/08`), so the next is `59`.
 
 ## 2. What the 2026-10-21 session delivered
 
@@ -54,17 +54,40 @@ The user asked for three things, in this order:
 | #237 | **Archived status** (`Database/56_*`): out of scope for the KPIs, no Risk Exception, its own count on KPI Summary and Dashboard; left out of "in scope" there and on Trends. Progress Rules get an action, **Archives accounts** (any stage, applied before the stage rules), and two fields: **Folder** (read from PVWA classic details) and **Why the CPM doesn't manage it** (the CPM disable reason, for example LCD's `ADArchive`). An account stays Archived until someone changes its status; a hand change exempts it from that rule until the rule stops matching. Optional **re-read of account details** on CyberArk sources (off by default; days 1 to 365, up to 1 to 100,000 accounts per pull), because a folder move may not change the account's `categoryModificationTime`. | D-298, D-299 |
 | #238 | **Safe Access Policies** (`Database/57_*`, `Design_Safe-Access-Policies.md`): Safe roles (sets of Safe permissions); policies chosen by Safe name pattern, first enabled one by order; Required and Forbidden member rules with `{SafeName}` and `*`, optionally requiring people in the group. Checked in the nightly load before the Progress Rules, or with **Check now**; results on **Reports > Safe Access**. **Compliance review** once per account (account page, or a whole Safe from the report), cleared when the account changes Safe or someone clears it. Two Progress Rule fields: **Safe access compliant**, **Compliance reviewed**. New permissions `ManageSafeAccessPolicies` (Admin) and `ReviewAccountCompliance` (Admin, Approver). A disabled example policy and an "End user" role are seeded. | D-300, D-301 |
 
+## 2c. Second round, 2026-11-03 (open PRs, for 1.5.2)
+
+The user's answers to the open items, then built on topic branches; each PR is open, not merged.
+
+| PR | Piece | Decisions |
+|---|---|---|
+| #241 | The Audit Log E2E tests wait for the Event Type choice (a text box until the event-type list arrives, so `selectOption` could land on it); `Planning_API-Access-For-Scripts.md` renamed `Design_API-Access.md` (D-243's phases 1 to 5 are built) | |
+| #242 | **Pull now starts the Import and Load SQL Agent job** when the pull succeeds. The app's SQL account can't run the Import and Load itself (TRUNCATE of staging, BULK INSERT of Privilege Cloud files), so the user chose the job: the app's login joins msdb's `SQLAgentOperatorRole` (`Database/Manual/08`, run by `Db.AppPoolAccess`; re-run it on upgrade). Script 58 records the request and any refusal; Data Sources shows the load's result from `etl_run_log` | D-302 |
+| #243 | **Reload Rights reads a Windows user's groups from AD** (`tokenGroups` through the LDAP domains), and keeps reading AD at each rights refresh until the next Windows sign-in or 7 days; AD unreachable falls back to the sign-in's groups and says so. OIDC/SAML: no live lookup, the page says to sign out and back in | D-303 |
+| #244 | Tracked-data pages need their permission at the router (Access Denied instead of "Request failed: 403"); the remaining status-code-only save failures show the server's reason | D-304 |
+
+Answers that needed no code: no 1.3.5 maintenance release (not needed); the four 2026-11-03 design choices confirmed as built; PSM for Privilege Cloud goes into Privilege Cloud Direct (`Planning_Backlog.md`); inline Extend/Revoke on the worklists and keeping typed text across an idle sign-out are left out for good.
+
+## 2c. Second round, 2026-11-03 (open PRs, for 1.5.2)
+
+The user's answers to the open items, then built on topic branches; each PR is open, not merged.
+
+| PR | Piece | Decisions |
+|---|---|---|
+| #241 | The Audit Log E2E tests wait for the Event Type choice (a text box until the event-type list arrives, so `selectOption` could land on it); `Planning_API-Access-For-Scripts.md` renamed `Design_API-Access.md` (D-243's phases 1 to 5 are built) | |
+| #242 | **Pull now starts the Import and Load SQL Agent job** when the pull succeeds. The app's SQL account can't run the Import and Load itself (TRUNCATE of staging, BULK INSERT of Privilege Cloud files), so the user chose the job: the app's login joins msdb's `SQLAgentOperatorRole` (`Database/Manual/08`, run by `Db.AppPoolAccess`; re-run it on upgrade). Script 58 records the request and any refusal; Data Sources shows the load's result from `etl_run_log` | D-302 |
+| #243 | **Reload Rights reads a Windows user's groups from AD** (`tokenGroups` through the LDAP domains), and keeps reading AD at each rights refresh until the next Windows sign-in or 7 days; AD unreachable falls back to the sign-in's groups and says so. OIDC/SAML: no live lookup, the page says to sign out and back in | D-303 |
+| #244 | Tracked-data pages need their permission at the router (Access Denied instead of "Request failed: 403"); the remaining status-code-only save failures show the server's reason | D-304 |
+
+Answers that needed no code: no 1.3.5 maintenance release (not needed); the four 2026-11-03 design choices confirmed as built; PSM for Privilege Cloud goes into Privilege Cloud Direct (`Planning_Backlog.md`); inline Extend/Revoke on the worklists and keeping typed text across an idle sign-out are left out for good.
+
 ## 3. Open items
 
-1. **1.3.5 for EVD sites** (section 2a, item 5): waiting for the user to say what it should contain.
-2. **Pull now and the load** (section 2a, item 3): a doc sentence or a behaviour change; waiting for the user.
-3. **Release 1.5.2** when the user asks: the Upgrade Guide section 5 row is written (2026-11-03); run the release tool with `-Version 1.5.2`.
-8. **Folder-move test in the lab** (2026-11-03, not done): does moving an account to another folder change its `categoryModificationTime`? This host has no PrivateArk Client or PACLI, and the REST API has no call that moves an account between folders. The user would move one account in PrivateArk Client and run **Pull now**; then check, read-only, whether the account's details were read again. If not, the re-read option (section 2b) is what picks up folder moves.
-9. **Design choices to confirm with the user** (2026-11-03, made and documented, not yet confirmed): an account taken out of Archived by hand stays exempt from that archive rule until the rule stops matching it; Risk Accepted / Excluded accounts are never archived; when several Safe access policies match a Safe, only the first enabled one by order applies; "schedule and quantity" for the re-read was read as "older than N days" and "at most N accounts per pull".
-4. **Requirements review backlog** (`Planning_Backlog.md`): Reload Rights doesn't query the IdP or AD live (D-13); stale `Planning_API-Access-For-Scripts.md` (rename to `Design_API-Access.md`); PSM data for Privilege Cloud; suggestions (application-owner emails, least-privilege view, sponsor view).
-5. **Not proven live:** Azure, AWS and Conjur secrets backends; every email (no SMTP); SIEM forwarding against a real SIEM; OAuth2 SMTP; LDAPS from another machine and a real second AD domain; identity provider tokens for API access; the AD group read and CyberArk Applications on a large Vault.
-6. **Privilege Cloud Direct**; **nested AD group path** on "Via AD group"; three UI items left out on purpose (`Archive_Planning_UI-Workflow-Review.md`).
-7. Intermittent E2E failures seen once each this session (nav links; the Audit Log export's Event Type filter still free text) passed on re-run; the second may have been load from the first big seal of the log, now paced (250 ms between full batches).
+1. **Review and merge #241 to #244** (the user merges, or asks). #242 and #243 each add a Decision Register row after D-301 and a Release Notes line in the same place, and #244 too, so merging the second and third will conflict there: keep every row, in D-number order.
+2. **Release 1.5.2** when the user asks (not yet: the user, 2026-11-03). The Upgrade Guide row is written; #242 adds "re-run `Db.AppPoolAccess`" to it. Then the release tool with `-Version 1.5.2`.
+3. **Next round** (the user, 2026-11-03): the suggestions (application-owner emails, least-privilege view, sponsor view) and the nested AD group path on "Via AD group" (`Planning_Backlog.md`).
+4. **Later** (the user, 2026-11-03): Privilege Cloud Direct, with PSM data for Privilege Cloud in it; the folder-move test in the lab (does moving an account to another folder change its `categoryModificationTime`? This host has no PrivateArk Client or PACLI, and the REST API has no call that moves an account; the user would move one in PrivateArk Client and run **Pull now**, then check read-only); live testing.
+5. **Not proven live:** Azure, AWS and Conjur secrets backends; every email (no SMTP); SIEM forwarding against a real SIEM; OAuth2 SMTP; LDAPS from another machine and a real second AD domain; identity provider tokens for API access; the AD group read and CyberArk Applications on a large Vault; Pull now starting the real job (#242) and Reload Rights reading AD through the deployed site (#243).
+6. One intermittent E2E failure on 2026-11-03: the Audit Log filter test, on a branch without #241's wait; it passed 3 of 3 on its own.
 
 ## 4. Conventions that are easy to get wrong
 
@@ -120,6 +143,6 @@ The user decides the order.
 
 1. Check the first scheduled nights on 1.5.1 (Admin > Data Sources; Reports > CPM Health) and Verify on the Audit Log page.
 2. Re-run the live checks on 1.5.1: `Tools/Test-BlueTrackHealth.ps1`, `Tools/Test-BlueTrackSso.ps1`, `npm run test:live`.
-3. Get the user's answers on 1.3.5 and on Pull now (section 3, items 1 and 2), and their confirmation of the 2026-11-03 design choices (item 9).
-4. Release 1.5.2 and install it on the dev site; then set up a real Safe access policy and an archive rule there, and run the folder-move test (item 8).
-5. Pick from the other open items in section 3.
+3. Merge #241 to #244 (section 3, item 1).
+4. When the user asks: release 1.5.2 and install it on the dev site (with `Db.AppPoolAccess`); then try Pull now's load and Reload Rights there, and set up a real Safe access policy and an archive rule.
+5. The next round (section 3, item 3).
