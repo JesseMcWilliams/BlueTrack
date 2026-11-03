@@ -271,5 +271,5 @@ function cancel() {
 </template>
 
 <style scoped>
-.check-failed { color: var(--color-error, #b00020); }
+.check-failed { color: var(--color-error-text); }
 </style>

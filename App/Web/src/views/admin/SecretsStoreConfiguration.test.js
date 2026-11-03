@@ -48,6 +48,20 @@ describe('SecretsStoreConfiguration.vue', () => {
     vi.restoreAllMocks()
   })
 
+  // D-306: Windows DPAPI, CP and CCP never read the credential; Azure reads it only as a service principal.
+  it('shows the credential box only for a backend that uses it', async () => {
+    mockApi()
+    const wrapper = await mountPage()
+    const credentialCell = type => rowFor(wrapper, type).findAll('td')[3]
+
+    expect(credentialCell('WindowsDpapi').text()).toBe('(not used)')
+    expect(credentialCell('CyberArkCP').find('input').exists()).toBe(false)
+    expect(credentialCell('AzureKeyVault').find('input').exists()).toBe(false)   // Managed identity by default
+
+    await rowFor(wrapper, 'AzureKeyVault').find('select').setValue('ServicePrincipal')
+    expect(credentialCell('AzureKeyVault').find('input[type="password"]').exists()).toBe(true)
+  })
+
   it('Make active asks first, naming the backend, and changes nothing when declined', async () => {
     confirmDelete.mockResolvedValue(false)
     mockApi()

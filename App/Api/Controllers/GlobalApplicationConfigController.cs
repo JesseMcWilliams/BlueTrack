@@ -16,7 +16,8 @@ public sealed class GlobalApplicationConfigController(
     AuditLogger auditLogger,
     DecommissionRepository decommissionRepository,
     Security.AllowedFileRoots allowedFileRoots,
-    Microsoft.Extensions.Caching.Memory.IMemoryCache memoryCache) : ControllerBase
+    Microsoft.Extensions.Caching.Memory.IMemoryCache memoryCache,
+    RiskScoreReportRepository riskScoreReportRepository) : ControllerBase
 {
     /// <summary>
     /// D-186: the settings page's pattern helper -- which sample names each
@@ -173,7 +174,10 @@ public sealed class GlobalApplicationConfigController(
         if (before.BackupFolder != request.BackupFolder)
             changes.Add(new FieldChange("BackupFolder", before.BackupFolder, request.BackupFolder));
         if (before.ActiveRiskAlgorithm != request.ActiveRiskAlgorithm)
+        {
             changes.Add(new FieldChange("ActiveRiskAlgorithm", before.ActiveRiskAlgorithm, request.ActiveRiskAlgorithm));
+            await riskScoreReportRepository.MarkAllStaleAsync();   // D-306: every score changes with the algorithm
+        }
         if (before.EnforceRiskExceptionSegregationOfDuties != request.EnforceRiskExceptionSegregationOfDuties)
             changes.Add(new FieldChange("EnforceRiskExceptionSegregationOfDuties", before.EnforceRiskExceptionSegregationOfDuties.ToString(), request.EnforceRiskExceptionSegregationOfDuties.ToString()));
 

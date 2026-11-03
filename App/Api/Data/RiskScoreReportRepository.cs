@@ -111,9 +111,25 @@ public sealed class RiskScoreReportRepository(IDbConnectionFactory connectionFac
     /// refresh after editing a Target/Access Group rather than waiting for
     /// the next scheduled load -- this is that manual trigger.
     /// </summary>
+    /// <summary>
+    /// D-306: usp_RecalculateRiskScores recomputes only the rows marked stale, so Recalculate Now marks every
+    /// Access Group and every scored account stale first; otherwise it changed nothing after, say, a change of
+    /// risk algorithm, which marks nothing.
+    /// </summary>
     public async Task RecalculateAllAsync()
     {
         using var connection = connectionFactory.Create();
+        await MarkAllStaleAsync(connection);
         await connection.ExecuteAsync("EXEC usp_RecalculateRiskScores", commandTimeout: 300);
     }
+
+    /// <summary>D-306: marks every score stale, so the next recalculation (Recalculate Now or the nightly load) redoes them all.</summary>
+    public async Task MarkAllStaleAsync()
+    {
+        using var connection = connectionFactory.Create();
+        await MarkAllStaleAsync(connection);
+    }
+
+    private static Task MarkAllStaleAsync(System.Data.IDbConnection connection) => connection.ExecuteAsync(
+        "UPDATE web.dim_access_group SET IsRiskScoreStale = 1; UPDATE web.account_risk_score SET IsRiskScoreStale = 1;");
 }

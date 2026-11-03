@@ -24,6 +24,10 @@ What changed in each BlueTrack release, newest first, for users and administrato
 
 ### Fixed
 
+- **Recalculate Now** on Reports > Risk Score recalculates every score. Before, it redid only scores already marked as needing it, so after a change of risk algorithm it changed nothing. Changing the risk algorithm in Global Configuration now has the next nightly load redo every score too.
+- The **Pull details** dialog on Admin > Data Sources follows the theme; it was always white, which left light text on white in the Dark theme. Failed results on Data Sources and Edit CyberArk sources use the theme's error color.
+- On Admin > Secrets Store Configuration, the **Credential** column shows a box only for a backend that uses one (Conjur, Azure Key Vault as a service principal, AWS with an access key); the others say "(not used)".
+- The **Search** and **Owner** boxes on Accounts search once you pause typing, not on every keystroke.
 - The installer's `Db.SqlServerAudit` step no longer re-grants "Generate security audits" on every run and then asks for a SQL Server restart that isn't needed.
 
 ### Upgrading
