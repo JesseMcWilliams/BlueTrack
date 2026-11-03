@@ -13,6 +13,7 @@ import { flash, savedMessage } from '../composables/useFlash'
 import { decomNote } from '../utils/decomNote'
 import { formatCount } from '../utils/formatCount'
 import { useI18n } from 'vue-i18n'
+import { problemMessage } from '../utils/problemText'
 import SafeAccessSection from '../components/SafeAccessSection.vue'
 import ComplianceSection from '../components/ComplianceSection.vue'
 
@@ -451,7 +452,7 @@ async function save() {
       } else if (response.status === 409) {
         saveError.value = t('pages.accountProgressDetail.noLongerLocked')
       } else {
-        saveError.value = t('common.saveFailed', { status: response.status })
+        saveError.value = await problemMessage(response, t('common.saveFailed', { status: response.status }))   // UI review theme 1
       }
       return
     }

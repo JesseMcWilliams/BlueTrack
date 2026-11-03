@@ -40,7 +40,29 @@ const OTHER = {
   'reports-possible-matches': 'ConfirmReconciliation',
   'reports-risk-score': 'ViewRiskReport',
   'reports-risk-exception-sod': 'ViewRiskExceptionSodReport',
-  'reports-discovered-accounts': 'ViewDiscoveredAccounts'
+  'reports-discovered-accounts': 'ViewDiscoveredAccounts',
+  // UI review step 4 (D-304): the pages of tracked data, which showed "Request failed: 403" to a signed-in user
+  // without the permission their data needs (the API's gate on each page's first request).
+  dashboard: 'ViewDashboard',
+  'account-progress-list': 'ViewDashboard',
+  'account-progress-detail': 'ViewDashboard',
+  'account-progress-bulk-edit': 'EditAccountProgress',
+  'risk-exceptions-list': 'ViewDashboard',
+  'risk-exceptions-overdue-worklist': 'ViewDashboard',
+  'risk-exception-edit': 'ViewDashboard',
+  'risk-exception-create': 'ApproveExceptions',
+  'risk-exceptions-bulk-import': 'ApproveExceptions',
+  'risk-exceptions-approval-worklist': 'ApproveExceptions',
+  'reports-cpm-health': 'ViewDashboard',
+  'reports-cyberark-applications': 'ViewDashboard',
+  'reports-decom-accounts': 'ViewDashboard',
+  'reports-decom-safes': 'ViewDashboard',
+  'reports-kpi-summary': 'ViewDashboard',
+  'reports-overdue-worklist': 'ViewDashboard',
+  'reports-safe-access': 'ViewDashboard',
+  'reports-stage-status-summary': 'ViewDashboard',
+  'reports-trends': 'ViewDashboard',
+  'reports-unresolved-entitlement-members': 'ViewDashboard'
 }
 
 export const ROUTE_PERMISSIONS = { ...OTHER }

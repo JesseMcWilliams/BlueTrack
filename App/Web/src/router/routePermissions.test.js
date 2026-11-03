@@ -36,8 +36,19 @@ describe('accessRedirect', () => {
   it('lets a user through to a page they hold the permission for, and to pages that need none', () => {
     expect(accessRedirect(rights(['ManageTargets']), { name: 'targets' })).toBeNull()
     expect(accessRedirect(rights(['ManageApiKeys']), { name: 'admin-api-key-create' })).toBeNull()
-    expect(accessRedirect(rights(['ManageTargets']), { name: 'account-progress-list' })).toBeNull()
+    expect(accessRedirect(rights(['ManageTargets']), { name: 'reports' })).toBeNull()
     expect(accessRedirect(rights(['ManageTargets']), { name: 'not-found' })).toBeNull()
+  })
+
+  // D-304: the tracked-data pages need the permission their data needs, so they say Access Denied, not "Request failed: 403".
+  it('sends a user without ViewDashboard to Access Denied from the tracked-data pages', () => {
+    for (const name of ['dashboard', 'account-progress-list', 'account-progress-detail', 'risk-exceptions-list', 'reports-kpi-summary', 'reports-safe-access']) {
+      expect(accessRedirect(rights(['ManageTargets']), { name })).toEqual({ name: 'access-denied' })
+      expect(accessRedirect(rights(['ViewDashboard']), { name })).toBeNull()
+    }
+    expect(accessRedirect(rights(['ViewDashboard']), { name: 'account-progress-bulk-edit' })).toEqual({ name: 'access-denied' })
+    expect(accessRedirect(rights(['ViewDashboard']), { name: 'risk-exception-create' })).toEqual({ name: 'access-denied' })
+    expect(accessRedirect(rights(['ViewDashboard', 'ApproveExceptions']), { name: 'risk-exceptions-approval-worklist' })).toBeNull()
   })
 
   it('opens the first Admin section the user can see when the first one is not theirs', () => {

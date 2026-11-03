@@ -207,17 +207,12 @@ test.describe('Risk Exception create/extend/revoke workflow', () => {
     await expect(page.getByText('The exception was revoked.')).toBeVisible()
   })
 
-  test('Viewer is denied creating an exception with the permission-specific message', async ({ page }) => {
+  test('Viewer is sent to Access Denied from the new exception page', async ({ page }) => {
     await signInAs(page, 'TestUser.Viewer')
 
     await page.goto('/exceptions/new')
-    await pickAccount(page, 'TestAccount03')
-    await page.fill('textarea', 'Should be rejected')
-    const reviewDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
-    await page.fill('input[type="date"]', reviewDate)
-    await page.click('button[type="submit"]')
 
-    await expect(page.getByText('You do not have the ApproveExceptions permission.')).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Access Denied' })).toBeVisible() // D-304: the router, not the API's 403 text
   })
 })
 
