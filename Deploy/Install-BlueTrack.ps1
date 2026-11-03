@@ -176,7 +176,7 @@ $Steps = @(
     @{ Name = 'Db.NightlyJob'; Needs = @('Database', 'InstallNightlyJob'); Description = 'Install the nightly Import+Load+Snapshot SQL Agent job'
         Condition = { $InstallNightlyJob }; SkipReason = 'InstallNightlyJob is off' }
     @{ Name = 'Iis.AppPool'; Description = 'Create the Application Pool' }
-    @{ Name = 'Db.AppPoolAccess'; Needs = @('Database', 'GrantAppPoolSqlAccess'); Description = 'Give the app pool''s account a SQL login + Database/Manual/02 grants'
+    @{ Name = 'Db.AppPoolAccess'; Needs = @('Database', 'GrantAppPoolSqlAccess'); Description = 'Give the app pool''s account a SQL login + Database/Manual/02 grants + 08 (msdb SQLAgentOperatorRole, D-302)'
         Condition = { $UseWindowsAuth -and $GrantAppPoolSqlAccess }; SkipReason = 'GrantAppPoolSqlAccess is off, or the API uses SQL authentication' }
     @{ Name = 'Db.SqlServerAudit'; Needs = @('Database', 'InstallSqlServerAudit'); Description = 'Record changes to the audit log in the Windows Security log: Windows audit policy and the SQL Server account''s rights (when SQL Server is this machine), then Database/Manual/07'
         Condition = { $InstallSqlServerAudit }; SkipReason = 'InstallSqlServerAudit is off' }

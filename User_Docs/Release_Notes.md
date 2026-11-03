@@ -16,6 +16,7 @@ What changed in each BlueTrack release, newest first, for users and administrato
 
 - "In scope" on the KPI Summary, Dashboard and Trends now also leaves out Archived accounts.
 - The nightly load now loads Safe members before it applies the Progress Rules, so rules see the same night's Safe access results.
+- **Pull now** on Admin > Data Sources now runs the Import and Load once the pull succeeds (by starting the nightly SQL Agent job), so the accounts change within minutes instead of at the next night. The pull's row shows how the load went. (Administrator Settings, CyberArk sources)
 
 ### Fixed
 
@@ -23,6 +24,7 @@ What changed in each BlueTrack release, newest first, for users and administrato
 
 ### Upgrading
 
+- Re-run the installer's `Db.AppPoolAccess` step: it adds the app's SQL account to msdb's `SQLAgentOperatorRole`, which Pull now needs to start the Import and Load job. Without it, Pull now still pulls and says the job couldn't be started.
 - The first Self-Hosted Direct pull after the upgrade reads every account's details once more (one PVWA call per account) to fill in the folder, so it takes longer than usual; on a large Vault it may finish over a few nights within the pull time limit.
 
 ## 1.5.1 (2026-10-22)

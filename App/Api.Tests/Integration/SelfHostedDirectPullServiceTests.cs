@@ -229,6 +229,82 @@ public class SelfHostedDirectPullServiceTests : IClassFixture<BlueTrackWebApplic
         Assert.Equal(("tester", 30, 60), (last!.TriggeredBy, last.SafeCount, last.AccountCount));
     }
 
+    /// <summary>
+    /// D-302: Pull now (the runner's TryStart) that succeeds asks the Agent for the Import and Load job. The test
+    /// database has no such job (only the installer creates one), so the start fails and the pull says why.
+    /// </summary>
+    [Fact]
+    public async Task PullNow_ThatSucceeds_StartsTheImportLoadJob_AndRecordsWhyItCouldNot()
+    {
+        var runner = _factory.Services.GetRequiredService<SelfHostedDirectRunner>();
+        Assert.True(runner.TryStart("tester", acceptChange: false));
+        for (var i = 0; i < 600 && runner.IsRunning; i++) await Task.Delay(100);
+        Assert.False(runner.IsRunning);
+
+        using var scope = _factory.Services.CreateScope();
+        var pull = (await scope.ServiceProvider.GetRequiredService<SelfHostedDirectRepository>().GetRecentAsync(1)).Single();
+        Assert.Equal("Succeeded", pull.Status);
+        Assert.NotNull(pull.LoadRequestedAt);
+        Assert.Equal("NotStarted", pull.LoadStatus);
+        Assert.Contains("Import and Load", pull.LoadMessage);
+    }
+
+    [Fact]
+    public async Task ANightlyPull_DoesNotStartTheImportLoadJob()
+    {
+        await _factory.Services.GetRequiredService<SelfHostedDirectRunner>().RunScheduledAsync(CancellationToken.None);
+
+        using var scope = _factory.Services.CreateScope();
+        var pull = (await scope.ServiceProvider.GetRequiredService<SelfHostedDirectRepository>().GetRecentAsync(1)).Single();
+        Assert.Equal("Succeeded", pull.Status);
+        Assert.Null(pull.LoadRequestedAt);
+        Assert.Null(pull.LoadStatus);
+    }
+
+    /// <summary>D-302: the load's result is read from the Import and Load rows the job logs after the request.</summary>
+    [Theory]
+    [InlineData(null, null, "Running", null)]
+    [InlineData("Started", null, "Running", null)]
+    [InlineData("Failed", null, "Failed", "import broke")]
+    [InlineData("Succeeded", "Started", "Running", null)]
+    [InlineData("Succeeded", "Failed", "Failed", "load broke")]
+    [InlineData("Succeeded", "Succeeded", "Succeeded", null)]
+    public async Task ALoadsResult_ComesFromTheEtlRunLog(string? import, string? load, string expectedStatus, string? expectedMessage)
+    {
+        Assert.Equal("Succeeded", (await PullAsync()).Status);
+        await using (var connection = new SqlConnection(TestDatabase.ConnectionString))
+        {
+            await connection.ExecuteAsync("""
+                DECLARE @pullKey BIGINT = (SELECT MAX(PullKey) FROM dbo.cyberark_direct_pull);
+                UPDATE dbo.cyberark_direct_pull SET LoadRequestedAt = DATEADD(SECOND, -5, SYSUTCDATETIME()) WHERE PullKey = @pullKey;
+                IF @import IS NOT NULL
+                    INSERT INTO dbo.etl_run_log (StepName, Status, ErrorMessage) VALUES (N'Import', @import, CASE WHEN @import = N'Failed' THEN N'import broke' END);
+                IF @load IS NOT NULL
+                    INSERT INTO dbo.etl_run_log (StepName, Status, ErrorMessage) VALUES (N'Load', @load, CASE WHEN @load = N'Failed' THEN N'load broke' END);
+                """, new { import, load });
+        }
+
+        using var scope = _factory.Services.CreateScope();
+        var pull = (await scope.ServiceProvider.GetRequiredService<SelfHostedDirectRepository>().GetRecentAsync(1)).Single();
+        Assert.Equal((expectedStatus, expectedMessage), (pull.LoadStatus, pull.LoadMessage));
+    }
+
+    [Fact]
+    public async Task ALoadThatNeverLoggedAnImport_IsUnknown_AfterTenMinutes()
+    {
+        Assert.Equal("Succeeded", (await PullAsync()).Status);
+        await using (var connection = new SqlConnection(TestDatabase.ConnectionString))
+        {
+            await connection.ExecuteAsync("""
+                UPDATE dbo.cyberark_direct_pull SET LoadRequestedAt = DATEADD(MINUTE, -11, SYSUTCDATETIME())
+                WHERE PullKey = (SELECT MAX(PullKey) FROM dbo.cyberark_direct_pull);
+                """);
+        }
+
+        using var scope = _factory.Services.CreateScope();
+        Assert.Equal("Unknown", (await scope.ServiceProvider.GetRequiredService<SelfHostedDirectRepository>().GetRecentAsync(1)).Single().LoadStatus);
+    }
+
     [Fact]
     public async Task APullThatSucceeds_AlsoFillsTheDirectTables_UnderTheSameBatch()
     {

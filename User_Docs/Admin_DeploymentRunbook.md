@@ -30,6 +30,7 @@ The installer runs steps 1-3 for you (`Db.Migrate`, and `Db.SeedTestData` when y
 4. **Load real data**: see "First Data Load" below.
 5. **Run the manual scripts that apply**, from `Database/Manual/`, numbered in the order they're run (`Database/README.md`, "Manual scripts", has the full list):
    - `02_BlueTrack_GrantAppServiceAccountAccess.sql`: the App Pool account's database permissions (the installer's `Db.AppPoolAccess` step; `Admin_Installation.md`, section 3).
+   - `08_BlueTrack_GrantAppAgentJobStart.sql`: msdb's `SQLAgentOperatorRole` for the same account, so **Pull now** can start the Import and Load job (also `Db.AppPoolAccess`).
    - `03_BlueTrack_GrantBackupStatusReaderRole.sql`: optional, lets the Deployment page read SQL Server's backup history.
    - `04_BlueTrack_ScheduleImportLoadJob.sql`: real (non-disposable) environments only, once step 4 has worked by hand at least once. Creates the nightly 2:00 AM Import+Load SQL Agent job, one step that runs `usp_RunNightlyImportLoad` (the Import, the Load if the Import succeeded, then the daily snapshot for Reports > Trends whatever happened):
      ```
