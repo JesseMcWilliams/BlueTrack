@@ -70,13 +70,37 @@ for (const section of ADMIN_SECTIONS) {
   for (const name of [section.list, ...section.routes]) ROUTE_PERMISSIONS[name] = section.permission
 }
 
+// The reports in ReportsHub.vue's order, so the Reports entry can open the first one the user may see.
+export const REPORT_PAGES = [
+  'reports-overdue-worklist', 'reports-stage-status-summary', 'reports-reconciliation-review', 'reports-possible-matches',
+  'reports-unresolved-entitlement-members', 'reports-cpm-health', 'reports-cyberark-applications', 'reports-risk-score',
+  'reports-risk-exception-sod', 'reports-discovered-accounts', 'reports-decom-safes', 'reports-decom-accounts',
+  'reports-kpi-summary', 'reports-trends', 'reports-safe-access'
+]
+
+// D-305: where a user who can't open the Dashboard starts, in the top nav's order (App.vue).
+const FIRST_PAGE_ORDER = [
+  'dashboard', 'access-groups', 'account-progress-list', 'risk-exceptions-list', 'targets',
+  ...REPORT_PAGES, ...ADMIN_SECTIONS.map(s => s.list)
+]
+
+export function canOpen(rights, name) {
+  const needed = ROUTE_PERMISSIONS[name]
+  return !needed || rights.hasPermission(needed)
+}
+
+/** The first page in the top nav's order the user may open, or null when there is none. */
+export function firstPage(rights) {
+  return FIRST_PAGE_ORDER.find(name => canOpen(rights, name)) ?? null
+}
+
 // Pages a user with no permissions may still open: signing in, the profile (it shows their roles), and the two
 // pages that explain.
 const OPEN_TO_ANYONE = ['login', 'login-provider', 'my-profile', 'access-denied', 'no-access']
 
 /**
  * Where the router should send a signed-in user instead of `to`, or null to let them through.
- * `rights` is the loaded rights store; `to` is the target route (with redirectedFrom when it was a redirect; the Admin entry's has no route name, so its path is used).
+ * `rights` is the loaded rights store; `to` is the target route (with redirectedFrom when it was a redirect; the Admin and Reports entries' have no route name, so their path is used).
  */
 export function accessRedirect(rights, to) {
   if (!rights.loaded || rights.error || rights.authenticated !== true) return null
@@ -84,13 +108,20 @@ export function accessRedirect(rights, to) {
   if (rights.permissionNames.length === 0) {
     return OPEN_TO_ANYONE.includes(name) ? null : { name: 'no-access' }
   }
-  if (name === 'no-access') return { name: 'dashboard' }
-  const needed = ROUTE_PERMISSIONS[name]
-  if (!needed || rights.hasPermission(needed)) return null
-  // The Admin entry opens the first section; if that isn't theirs, open the first one that is.
-  if (/^\/admin\/?$/.test(to.redirectedFrom?.path ?? '')) {
+  // D-305: the home page (and the no-access page, for a user who has permissions) opens the first page they may see.
+  if (name === 'no-access' || (name === 'dashboard' && !canOpen(rights, name))) {
+    return { name: firstPage(rights) ?? 'access-denied' }
+  }
+  if (canOpen(rights, name)) return null
+  // The Admin and Reports entries open their first page; if that isn't theirs, open the first one that is.
+  const from = to.redirectedFrom?.path ?? ''
+  if (/^\/admin\/?$/.test(from)) {
     const first = ADMIN_SECTIONS.find(s => rights.hasPermission(s.permission))
     if (first) return { name: first.list }
+  }
+  if (/^\/reports\/?$/.test(from)) {
+    const first = REPORT_PAGES.find(n => canOpen(rights, n))
+    if (first) return { name: first }
   }
   return { name: 'access-denied' }
 }

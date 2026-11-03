@@ -24,7 +24,7 @@ Your organization may also forward the audit log to its SIEM (**Admin > SIEM For
 
 ## The Dashboard and tracked data
 
-The Dashboard, **Accounts**, **Exceptions** and most **Reports** need `ViewDashboard`, which this role doesn't include. You still see those entries in the top nav, but they open **Access Denied**, as does signing in, which starts on the Dashboard. If you need them, ask an administrator to add a role with `ViewDashboard` (for example Viewer) to your group.
+The Dashboard, **Accounts**, **Exceptions** and most **Reports** need `ViewDashboard`, which this role doesn't include. The top nav doesn't show those entries, and signing in takes you straight to the **Audit Log**. If you need them, ask an administrator to add a role with `ViewDashboard` (for example Viewer) to your group.
 
 ## Your profile
 

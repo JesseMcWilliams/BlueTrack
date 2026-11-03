@@ -61,6 +61,12 @@ describe('ReportsHub.vue', () => {
     ])
   })
 
+  it('shows a user without ViewDashboard only the reports their own permission opens (D-305)', async () => {
+    const wrapper = await mountHub(['ViewRiskReport', 'ViewAuditLog'])
+
+    expect(links(wrapper)).toEqual(['Risk Score'])
+  })
+
   it('marks the open report as the current page', async () => {
     const wrapper = await mountHub(['ViewDashboard'])
     const current = wrapper.findAll('nav a').filter(a => a.attributes('aria-current') === 'page')

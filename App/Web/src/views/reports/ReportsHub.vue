@@ -5,10 +5,12 @@
 // (ConfirmReconciliation, D-56/D-212), Risk Score (ViewRiskReport,
 // D-101-105 Phase E), Risk Exception SoD (ViewRiskExceptionSodReport) and
 // Discovered Accounts (ViewDiscoveredAccounts) are shown only to holders of
-// that permission. The rest stay unconditionally visible, as before: their
-// API endpoints need only ViewDashboard (D-197), which every role has.
+// that permission. The rest need ViewDashboard (D-197), which the seeded
+// Auditor role lacks (D-304), so each report is shown only to those who may
+// open it (routePermissions.js).
 import { computed } from 'vue'
 import { useRightsStore } from '../../stores/rights'
+import { canOpen } from '../../router/routePermissions'
 import { useI18n } from 'vue-i18n'
 
 const { t } = useI18n()
@@ -18,14 +20,14 @@ const rights = useRightsStore()
 const reports = [
   { name: 'reports-overdue-worklist', labelKey: 'reports.reportsHub.overdueWorklist' },
   { name: 'reports-stage-status-summary', labelKey: 'reports.reportsHub.stageStatusSummary' },
-  { name: 'reports-reconciliation-review', labelKey: 'reports.reportsHub.reconciliationReview', permission: 'ConfirmReconciliation' },
-  { name: 'reports-possible-matches', labelKey: 'reports.reportsHub.possibleMatches', permission: 'ConfirmReconciliation' },
+  { name: 'reports-reconciliation-review', labelKey: 'reports.reportsHub.reconciliationReview' },
+  { name: 'reports-possible-matches', labelKey: 'reports.reportsHub.possibleMatches' },
   { name: 'reports-unresolved-entitlement-members', labelKey: 'reports.reportsHub.unresolvedEntitlementMembers' },
   { name: 'reports-cpm-health', labelKey: 'reports.reportsHub.cpmHealth' },   // D-288
   { name: 'reports-cyberark-applications', labelKey: 'reports.reportsHub.cyberArkApplications' },   // D-282
-  { name: 'reports-risk-score', labelKey: 'reports.reportsHub.riskScore', permission: 'ViewRiskReport' },
-  { name: 'reports-risk-exception-sod', labelKey: 'reports.reportsHub.riskExceptionSod', permission: 'ViewRiskExceptionSodReport' },
-  { name: 'reports-discovered-accounts', labelKey: 'reports.reportsHub.discoveredAccounts', permission: 'ViewDiscoveredAccounts' },
+  { name: 'reports-risk-score', labelKey: 'reports.reportsHub.riskScore' },
+  { name: 'reports-risk-exception-sod', labelKey: 'reports.reportsHub.riskExceptionSod' },
+  { name: 'reports-discovered-accounts', labelKey: 'reports.reportsHub.discoveredAccounts' },
   { name: 'reports-decom-safes', labelKey: 'reports.reportsHub.decomSafes' },
   { name: 'reports-decom-accounts', labelKey: 'reports.reportsHub.decomAccounts' },
   { name: 'reports-kpi-summary', labelKey: 'reports.reportsHub.kpiSummary' },
@@ -33,7 +35,7 @@ const reports = [
   { name: 'reports-safe-access', labelKey: 'reports.reportsHub.safeAccess' }   // D-300
 ]
 
-const visibleReports = computed(() => reports.filter(r => !r.permission || rights.hasPermission(r.permission)))
+const visibleReports = computed(() => reports.filter(r => canOpen(rights, r.name)))
 </script>
 
 <template>
