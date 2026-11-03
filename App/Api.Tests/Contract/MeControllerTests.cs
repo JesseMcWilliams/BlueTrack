@@ -67,6 +67,7 @@ public class MeControllerTests : IClassFixture<BlueTrackWebApplicationFactory>
         var rights = await response.Content.ReadFromJsonAsync<RightsResponse>();
         Assert.NotNull(rights);
         Assert.Contains("Admin", rights!.RoleNames);
+        Assert.Equal("SignIn", rights.GroupSource);   // D-303: DevFakeAuth's groups come from the sign-in
     }
 
     /// <summary>D-93: a generalized per-user preference store -- Theme is the first consumer.</summary>
@@ -157,5 +158,6 @@ public class MeControllerTests : IClassFixture<BlueTrackWebApplicationFactory>
     {
         public List<string> RoleNames { get; set; } = [];
         public List<string> PermissionNames { get; set; } = [];
+        public string GroupSource { get; set; } = "";
     }
 }

@@ -52,6 +52,25 @@ public sealed class UserRightsCache(IDistributedCache cache, AppConfigRepository
     public Task InvalidateAsync(int providerKey, string externalIdentifier) =>
         cache.RemoveAsync(BuildKey(providerKey, externalIdentifier));
 
+    // D-303: after a Reload Rights, a Windows user's groups keep coming from the directory, not from the sign-in
+    // token, at each re-resolve, until the token's groups change (a new Windows sign-in) or this many days pass.
+    private static readonly TimeSpan DirectoryGroupsFor = TimeSpan.FromDays(7);
+    private const string DirectoryKeyPrefix = "rights-directory:";
+
+    /// <summary>
+    /// D-303: the token the directory groups were read for (a fingerprint of its group SIDs), or "" when an admin
+    /// reloaded and the user's next request should take whatever token it brings; null when not set.
+    /// </summary>
+    public Task<string?> GetDirectoryGroupsTokenAsync(int providerKey, string externalIdentifier) =>
+        cache.GetStringAsync(DirectoryKeyPrefix + $"{providerKey}:{externalIdentifier}");
+
+    public Task SetDirectoryGroupsTokenAsync(int providerKey, string externalIdentifier, string tokenFingerprint) =>
+        cache.SetStringAsync(DirectoryKeyPrefix + $"{providerKey}:{externalIdentifier}", tokenFingerprint,
+            new DistributedCacheEntryOptions { AbsoluteExpirationRelativeToNow = DirectoryGroupsFor });
+
+    public Task ClearDirectoryGroupsTokenAsync(int providerKey, string externalIdentifier) =>
+        cache.RemoveAsync(DirectoryKeyPrefix + $"{providerKey}:{externalIdentifier}");
+
     /// <summary>
     /// D-197: drops every user's cached rights, so a change to a role's
     /// permissions, a group mapping or an identity provider applies on each

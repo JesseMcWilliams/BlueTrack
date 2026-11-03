@@ -65,6 +65,8 @@ builder.Services.AddScoped<CredentialRepository>();
 builder.Services.AddScoped<LdapConfigRepository>();
 builder.Services.AddScoped<LdapContextFactory>();
 builder.Services.AddScoped<LdapGroupMemberResolver>();
+builder.Services.AddScoped<IDirectoryGroupReader, AdTokenGroupsReader>();   // D-303
+builder.Services.AddScoped<DirectoryGroups>();
 builder.Services.AddScoped<TargetRepository>();
 builder.Services.AddScoped<AccessGroupRepository>();
 builder.Services.AddScoped<RiskScoringImportRepository>();

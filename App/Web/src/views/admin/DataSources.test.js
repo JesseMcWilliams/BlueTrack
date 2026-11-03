@@ -192,6 +192,46 @@ describe('DataSources.vue', () => {
     expect(wrapper.text()).toContain('Safes went from 40 to 10')
   })
 
+  // D-302: a Pull now's Import and Load result shows under the pull.
+  it('shows the Import and Load that a Pull now started', async () => {
+    routeFetch(directHandlers([
+      pull({ pullKey: 9, loadStatus: 'Failed', loadMessage: 'Login timeout' }),
+      pull({ pullKey: 8, loadStatus: 'NotStarted', loadMessage: 'The specified job does not exist.' }),
+      pull({ pullKey: 7, loadStatus: 'Succeeded' }),
+      pull({ pullKey: 6, loadStatus: null })
+    ]))
+    const wrapper = mount(DataSources, { global: { plugins: [makeRouter()] } })
+    await flushPromises()
+
+    expect(wrapper.find('.load-Failed').text()).toBe('The Import and Load failed: Login timeout')
+    expect(wrapper.find('.load-NotStarted').text()).toContain("couldn't be started, so the accounts change at the next nightly job: The specified job does not exist.")
+    expect(wrapper.find('.load-Succeeded').text()).toBe('Imported and loaded.')
+    expect(wrapper.findAll('[class^="load-"]')).toHaveLength(3)
+  })
+
+  it('keeps refreshing the pull log while the Import and Load runs', async () => {
+    vi.useFakeTimers()
+    try {
+      let latest = pull({ loadStatus: 'Running' })
+      routeFetch(directHandlers([], false, { 'GET /api/admin/cyberark-sources/direct/pulls': () => jsonResponse({ running: false, pulls: [latest] }) }))
+      const wrapper = mount(DataSources, { global: { plugins: [makeRouter()] } })
+      await flushPromises()
+      expect(wrapper.text()).toContain('Import and Load running…')
+
+      latest = pull({ loadStatus: 'Succeeded' })
+      await vi.advanceTimersByTimeAsync(3000)
+      await flushPromises()
+      expect(wrapper.text()).toContain('Imported and loaded.')
+      const calls = () => globalThis.fetch.mock.calls.filter(([url]) => url.endsWith('/direct/pulls')).length
+      const before = calls()
+      await vi.advanceTimersByTimeAsync(9000)
+      expect(calls()).toBe(before)
+      wrapper.unmount()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   // D-278: Self-Hosted off shows no pull log; Self-Hosted on (Direct) isn't also called off.
   it('with Self-Hosted off, says so and does not load the pull log', async () => {
     routeFetch({

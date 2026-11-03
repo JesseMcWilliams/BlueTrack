@@ -16,6 +16,10 @@ What changed in each BlueTrack release, newest first, for users and administrato
 
 - "In scope" on the KPI Summary, Dashboard and Trends now also leaves out Archived accounts.
 - The nightly load now loads Safe members before it applies the Progress Rules, so rules see the same night's Safe access results.
+- **Pull now** on Admin > Data Sources now runs the Import and Load once the pull succeeds (by starting the nightly SQL Agent job), so the accounts change within minutes instead of at the next night. The pull's row shows how the load went. (Administrator Settings, CyberArk sources)
+- **Reload My Rights** reads a Windows user's groups from Active Directory (through the LDAP domains on Admin > Credentials & LDAP), so a group change applies without signing out of Windows; it keeps reading AD until the user's next Windows sign-in. With OIDC or SAML sign-in the page says a group change needs signing out and back in. (User Guide, Profile & Preferences)
+- The Dashboard, Accounts, Exceptions and the reports of tracked data open **Access Denied** for someone without the permission they need, instead of showing "Request failed: 403". Access Denied offers **Go to the Dashboard** only to those who can open it. (User Guide)
+- Saving or deleting an LDAP domain, changing a notification type, updating or deleting a recipient, and saving an account now show the server's reason when they fail, not only the status code.
 
 ### Fixed
 
@@ -23,6 +27,7 @@ What changed in each BlueTrack release, newest first, for users and administrato
 
 ### Upgrading
 
+- Re-run the installer's `Db.AppPoolAccess` step: it adds the app's SQL account to msdb's `SQLAgentOperatorRole`, which Pull now needs to start the Import and Load job. Without it, Pull now still pulls and says the job couldn't be started.
 - The first Self-Hosted Direct pull after the upgrade reads every account's details once more (one PVWA call per account) to fill in the folder, so it takes longer than usual; on a large Vault it may finish over a few nights within the pull time limit.
 
 ## 1.5.1 (2026-10-22)

@@ -44,7 +44,7 @@ The list's **Used by** column shows what uses each credential (Notifications, an
 
 ### LDAP Configuration
 
-On the same page: one row per Active Directory domain or forest BlueTrack queries (notification recipient lookup and AD account discovery).
+On the same page: one row per Active Directory domain or forest BlueTrack queries (notification recipient lookup, AD account discovery, and a Windows user's groups when they click **Reload My Rights**, D-303).
 
 | Setting | What it does | Default | Recommended | Why |
 |---|---|---|---|---|

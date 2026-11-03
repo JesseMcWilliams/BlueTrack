@@ -64,7 +64,12 @@ onMounted(() => rights.ensureLoaded())
       <p v-else>{{ t('common.none') }}</p>
       <button :disabled="rights.loading" @click="reloadRights">{{ t('shell.myProfile.reloadRights') }}</button>
       <span v-if="rights.loading" role="status">{{ ' ' + t('common.loading') }}</span>
-      <span v-else-if="reloaded" role="status">{{ ' ' + t('shell.myProfile.rightsReloaded') }}</span>
+      <span v-else-if="reloaded" role="status">{{ ' ' + t('shell.myProfile.rightsReloaded') }}
+        <template v-if="rights.groupSource === 'Directory'">{{ t('shell.myProfile.groupsFromDirectory') }}</template>
+        <template v-else-if="rights.groupSource === 'DirectoryUnavailable'">{{ t('shell.myProfile.groupsDirectoryUnavailable') }}</template>
+        <template v-else-if="rights.groupSource === 'WindowsSignIn'">{{ t('shell.myProfile.groupsFromWindowsSignIn') }}</template>
+        <template v-else-if="rights.groupSource === 'SignIn'">{{ t('shell.myProfile.groupsFromSignIn') }}</template>
+      </span>
       <span v-if="rights.loaded && rights.error" role="alert">{{ ' ' + rights.error }}</span>
       <p><small>{{ t('shell.myProfile.reloadRightsHint') }}</small></p>
 

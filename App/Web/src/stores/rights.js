@@ -24,6 +24,8 @@ export const useRightsStore = defineStore('rights', {
     authenticated: null,
     // D-209: minutes without activity before the SPA signs out (useIdleSignOut).
     idleTimeoutMinutes: null,
+    // D-303: where the last Reload My Rights took the groups from (Directory, DirectoryUnavailable, WindowsSignIn, SignIn).
+    groupSource: null,
     _loadPromise: null
   }),
   getters: {
@@ -102,6 +104,7 @@ export const useRightsStore = defineStore('rights', {
         const data = await response.json()
         this.roleNames = data.roleNames
         this.permissionNames = data.permissionNames
+        this.groupSource = data.groupSource ?? null
       } catch (err) {
         this.error = err.message
       } finally {

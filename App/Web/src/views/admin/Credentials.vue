@@ -13,6 +13,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useRightsStore } from '../../stores/rights'
 import { confirmDelete } from '../../composables/useConfirmDialog'
 import { useI18n } from 'vue-i18n'
+import { problemMessage } from '../../utils/problemText'
 
 const { t } = useI18n()
 const route = useRoute()
@@ -150,7 +151,7 @@ async function saveLdapConfig() {
     body: JSON.stringify(ldapEditing.value)
   })
   if (!response.ok) {
-    ldapError.value = t('common.saveFailed', { status: response.status })
+    ldapError.value = await problemMessage(response, t('common.saveFailed', { status: response.status }))   // UI review theme 1
     return
   }
   ldapEditing.value = null
@@ -161,7 +162,7 @@ async function removeLdapConfig(config) {
   if (!(await confirmDelete(t('admin.credentials.confirmDeleteLdap', { name: config.domainName })))) return
   const response = await fetch(`/api/admin/credentials/ldap-config/${config.ldapConfigKey}`, { method: 'DELETE' })
   if (!response.ok) {
-    ldapError.value = t('common.deleteFailed', { status: response.status })
+    ldapError.value = await problemMessage(response, t('common.deleteFailed', { status: response.status }))
     return
   }
   await load()

@@ -6,14 +6,9 @@ import { signInAs } from './auth.js'
 // reachable end to end -- real browser, real running API + built SPA,
 // real BlueTrackTest database.
 //
-// The frontend doesn't yet pre-emptively hide controls based on
-// rights.permissionNames (RiskExceptionsApprovalWorklist.vue's own
-// comment: "this app doesn't check rights.permissionNames from /api/me
-// before rendering yet") -- so this asserts what actually happens today:
-// an ApproveExceptions-gated page surfaces the API's 403 as an in-page
-// message. When that frontend gating is built, this test's Viewer
-// assertion is the one to update to "the approve controls aren't
-// rendered at all," per D-78.
+// D-304: the approval worklist needs ApproveExceptions at the router
+// (routePermissions.js), so a Viewer opening it is sent to Access Denied
+// instead of seeing the API's 403 inside the page.
 
 test.describe('MyProfile reflects the signed-in DevFakeAuth role', () => {
   test('Approver sees the Approver role and ApproveExceptions permission', async ({ page }) => {
@@ -57,11 +52,11 @@ test.describe('Exception Approval Worklist enforces ApproveExceptions', () => {
     await expect(page.getByText('Loading...')).toHaveCount(0)
   })
 
-  test('Viewer is denied with the permission-specific message, not a generic failure', async ({ page }) => {
+  test('Viewer is sent to Access Denied, not shown the API refusal', async ({ page }) => {
     await signInAs(page, 'TestUser.Viewer')
 
     await page.goto('/exceptions/approvals')
 
-    await expect(page.getByText('You do not have the ApproveExceptions permission.')).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Access Denied' })).toBeVisible() // D-304: the router, not the API's 403 text
   })
 })
