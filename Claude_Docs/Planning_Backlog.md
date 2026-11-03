@@ -5,6 +5,27 @@
 ## Requested, not started
 - **Privilege Cloud Direct** (requested 2026-10-19, with Self-Hosted Direct, D-248; later, the user, 2026-11-03, and with PSM below): read Privilege Cloud through its API into `stg_pc_*` instead of the export folder, as a fourth option on the CyberArk sources page (already listed there, unavailable). Needs the Privilege Cloud API's logon (an Identity OAuth client, `Platform/Developer` and `PAM/Privilege-Cloud-Standard` in the Idira reference), a lab tenant, and the same change guard.
 
+## From the user's notes (checked 2026-11-03)
+The user's consolidated notes, checked against the code on 2026-11-03. Built then: 3, 7, 16 and 20 (D-306) and the landing page (D-307). Already built before: 9 (D-302: Pull now runs the full Import and Load, update tasks included, not the daily snapshot), 17 (Targets and Access Groups pages, their imports and feeds, D-101 to D-104, D-193, D-137), 22 for Self-Hosted (D-270), and the KPIs (D-143). 21, the shadow pull, was removed with the EVD source (D-278). Not built:
+- **1. Credential Provider added after install:** Admin > Secrets Store switches backends, but CP support is compiled in only when the CyberArk SDK is present at build time; no doc covers installing the SDK after BlueTrack.
+- **2. Version file** in the release and install folders (the version is already in About, Admin > Deployment, the tag and the SBOM).
+- **4. Reason on CP and CCP requests:** none is sent. The user, 2026-11-03: the reason is configured on the credential entry.
+- **5. PVWA behind a load balancer:** one PVWA URL per source, no failover list; each pull logs on once and reuses the token over one HTTP client (which keeps cookies). Never tried behind a real load balancer.
+- **6. Quick Test on Edit CyberArk sources:** Test reads the whole Vault (as a pull does, writing nothing); it should only check sign-in and access.
+- **8. Power BI access page:** how to connect Power BI and which views to use; only the SQL views exist (D-22).
+- **10. The account's Safe** on the account page and as a column on Accounts.
+- **11. Safe details page,** with the account's Safe linking to it.
+- **12. The Safe's BlueTrack application** on the Safe details page (the user, 2026-11-03: the BlueTrack application mapped to the Safe, `dim_safe.ApplicationKey`, D-31, not the CyberArk AppIDs).
+- **13. The Safe's accounts** on the Safe details page (the likely reading of "the account details should show as well").
+- **14. Bulk actions on Reports > Risk Score,** for example the override on several accounts at once.
+- **15. Imports that update:** a Target import doesn't change an existing Target's risk score (`TargetMatchingService`: only missing identifiers are added); there is no import of account overrides.
+- **18. LDAP / AD under Data Sources:** the LDAP domains are on Admin > Credentials & LDAP, and AD account discovery runs on a fixed daily timer with no page to schedule it.
+- **19. Accounts export and re-import with updated values:** bulk edit exists (D-182) and a CSV export view in SQL (`vw_export_account_progress`), but no Export button on Accounts and no re-import.
+- **22 for Privilege Cloud:** whether its export includes the built-in Safe members wasn't checked.
+- **23. Discovery feed sample:** no file named "AccountsFeedDiscoveryLogs" is in the repo or `Reference/`; the user to supply it if it is the sample for a discovery feed.
+- **24. DNA (Discovery & Audit) ingestion:** not built; the nearest are AD account discovery (D-137) and the AccountInventory feed (D-212).
+- **KPI 1, all discovered accounts:** the KPI's total counts CyberArk and feed accounts, not the AD-discovered candidates on Reports > Discovered Accounts.
+
 ## From the requirements review (2026-10-21)
 Gaps against the original design (commit f0561ce) and the Blueprint theme. Built from that review: Progress Rules (D-283), editable stages (D-284), rejected sign-in logging (D-285), the SAML certificate reminder (D-287); step-up MFA is left to the SSO provider (D-286).
 - **No SMTP on the dev site**: no host or recipients, so the overdue-exception alerts (D-19) and the other notifications reach nobody On hold until a test mail environment exists (D-289). The break-glass email is unproven for the same reason.
