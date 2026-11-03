@@ -9,8 +9,9 @@ using BlueTrack.Api.Models;
 namespace BlueTrack.Api.Controllers;
 
 /// <summary>
-/// D-283: Admin > Progress Rules -- the rules the nightly load uses to move accounts to the next Blueprint stage, and
-/// Test (how many accounts a rule would move now). ManageProgressRules; changes are audit-logged as ProgressRuleChanged.
+/// D-283: Admin > Progress Rules -- the rules the nightly load uses to move accounts to the next Blueprint stage (D-298:
+/// or to archive them), and Test (how many accounts a rule would move now). ManageProgressRules; changes are
+/// audit-logged as ProgressRuleChanged.
 /// </summary>
 [ApiController]
 [Route("api/admin/progress-rules")]
@@ -52,7 +53,7 @@ public sealed class ProgressRulesController(
     public async Task<IActionResult> Preview([FromBody] SaveProgressRuleRequest request)
     {
         if (await ValidateAsync(request, needName: false) is { } bad) return bad;
-        return Ok(await repository.PreviewAsync(request.FromStageKey!.Value, request.Conditions!));
+        return Ok(await repository.PreviewAsync(IsArchive(request) ? null : request.FromStageKey!.Value, request.Conditions!));
     }
 
     private async Task<IActionResult> SaveAsync(int? ruleKey, SaveProgressRuleRequest request)
@@ -65,7 +66,8 @@ public sealed class ProgressRulesController(
         if (key is null) return NotFoundRule();
         var conditions = string.Join(" AND ", request.Conditions!.Select(c => $"{c.FieldName} {c.Operator}{(ProgressRuleFields.NoValue.Contains(c.Operator!) ? "" : $" '{c.Value?.Trim()}'")}"));
         await auditLogger.LogAsync(AuditEventType, user.UserKey, "progress_rule", key.Value.ToString(),
-            detail: AuditLogger.ClipDetail($"Progress Rule '{request.RuleName!.Trim()}' {(ruleKey is null ? "added" : "changed")}: from stage {request.FromStageKey} to {request.ToStageKey}, "
+            detail: AuditLogger.ClipDetail($"Progress Rule '{request.RuleName!.Trim()}' {(ruleKey is null ? "added" : "changed")}: "
+                + (IsArchive(request) ? "archive (any stage), " : $"from stage {request.FromStageKey} to {request.ToStageKey}, ")
                 + $"{(request.IsEnabled ? "enabled" : "disabled")}, when {conditions}"));
         return ruleKey is null ? CreatedAtAction(nameof(GetAll), new { }, new { progressRuleKey = key }) : NoContent();
     }
@@ -75,12 +77,18 @@ public sealed class ProgressRulesController(
         if (needName && (string.IsNullOrWhiteSpace(request.RuleName) || request.RuleName.Trim().Length > 200))
             return Bad("Name the rule (at most 200 characters).");
         if (request.Description is { Length: > 1000 }) return Bad("The description can be at most 1,000 characters.");
-        var fromOrder = request.FromStageKey is { } from ? await repository.GetStageOrderAsync(from) : null;
-        if (fromOrder is null) return Bad("Choose the stage the rule moves accounts from.");
-        var toOrder = request.ToStageKey is { } to ? await repository.GetStageOrderAsync(to) : null;
-        if (toOrder is null) return Bad("Choose the stage the rule moves accounts to.");
-        if (toOrder <= fromOrder) return Bad("A rule moves accounts forward: choose a later stage to move them to.");
-        if (request.Conditions is not { Count: > 0 }) return Bad("Add at least one condition: a rule with none would move every account at the stage.");
+        if (request.RuleAction is not (null or ProgressRule.MoveStage or ProgressRule.Archive)) return Bad("The rule either moves accounts to a stage or archives them.");
+        if (!IsArchive(request))
+        {
+            var fromOrder = request.FromStageKey is { } from ? await repository.GetStageOrderAsync(from) : null;
+            if (fromOrder is null) return Bad("Choose the stage the rule moves accounts from.");
+            var toOrder = request.ToStageKey is { } to ? await repository.GetStageOrderAsync(to) : null;
+            if (toOrder is null) return Bad("Choose the stage the rule moves accounts to.");
+            if (toOrder <= fromOrder) return Bad("A rule moves accounts forward: choose a later stage to move them to.");
+        }
+        if (request.Conditions is not { Count: > 0 })
+            return Bad(IsArchive(request) ? "Add at least one condition: a rule with none would archive every account."
+                                          : "Add at least one condition: a rule with none would move every account at the stage.");
         if (request.Conditions.Count > MaxConditions) return Bad($"A rule can have at most {MaxConditions} conditions.");
         foreach (var condition in request.Conditions)
         {
@@ -88,6 +96,8 @@ public sealed class ProgressRulesController(
         }
         return null;
     }
+
+    private static bool IsArchive(SaveProgressRuleRequest request) => request.RuleAction == ProgressRule.Archive;
 
     private ObjectResult Bad(string detail) => Problem(title: "Can't save the rule", detail: detail, statusCode: StatusCodes.Status400BadRequest);
 

@@ -21,9 +21,9 @@ public static class ProgressRuleFields
 
     public static readonly IReadOnlyList<ProgressRuleField> All =
     [
-        Field("Source", Text), Field("SafeName", Text), Field("PlatformId", Text), Field("PlatformName", Text),
+        Field("Source", Text), Field("SafeName", Text), Field("Folder", Text), Field("PlatformId", Text), Field("PlatformName", Text),
         Field("AccountName", Text), Field("UserName", Text), Field("Address", Text),
-        Field("AutoManaged", YesNo), Field("RequiresPsm", YesNo), Field("CPMStatus", Text), Field("SecretType", Text),
+        Field("AutoManaged", YesNo), Field("CpmDisabledReason", Text), Field("RequiresPsm", YesNo), Field("CPMStatus", Text), Field("SecretType", Text),
         Field("LastVerified", Date), Field("LastReconciled", Date), Field("LastChanged", Date),
         Field("LastCPMAction", Text), Field("LastCPMActionResult", Text), Field("LastCPMActionTime", Date),
         Field("DeviceType", Text), Field("CreationMethod", Text),

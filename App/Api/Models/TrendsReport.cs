@@ -30,7 +30,7 @@ public sealed class TrendsPeriod
     /// <summary>The snapshot the period's values come from.</summary>
     public required DateOnly SnapshotDate { get; init; }
     public required int TotalAccounts { get; init; }
-    /// <summary>D-143's rule: not status Risk Accepted / Excluded.</summary>
+    /// <summary>D-143's rule: not status Risk Accepted / Excluded (D-298: nor Archived).</summary>
     public required int InScopeAccounts { get; init; }
     /// <summary>D-143's rule: the Compliant stage (D-284: the one marked so) or later, and status Complete.</summary>
     public required int CompliantAccounts { get; init; }

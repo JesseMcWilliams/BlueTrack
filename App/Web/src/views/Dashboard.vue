@@ -110,8 +110,11 @@ const pieSlices = computed(() => buildPieSlices(stageFunnel.value.map(s => ({ na
 const kpiFunnelBuckets = computed(() => {
   const s = kpiSummary.value
   if (!s) return []
+  // D-298: Archived is out of scope, but gets its own slice.
+  const archived = s.archivedAccounts ?? 0
   return [
-    { name: t('pages.dashboard.bucketOutOfScope'), count: s.totalAccounts - s.inScopeAccounts },
+    { name: t('pages.dashboard.bucketOutOfScope'), count: s.totalAccounts - s.inScopeAccounts - archived },
+    { name: t('pages.dashboard.bucketArchived'), count: archived },
     { name: t('pages.dashboard.bucketInScopeNotOnboarded'), count: s.inScopeAccounts - s.onboardedAccounts },
     { name: t('pages.dashboard.bucketOnboardedNotManaged'), count: s.onboardedAccounts - s.managedAccounts },
     { name: t('pages.dashboard.bucketManagedNotCompliant'), count: s.managedAccounts - s.compliantAccounts },

@@ -34,6 +34,11 @@ public sealed class CyberArkSourceSettings
     public int DirectMaxChangePercent { get; init; } = 20;
     /// <summary>D-273: a pull still running after this many minutes is stopped and logged as failed.</summary>
     public int DirectPullTimeLimitMinutes { get; init; } = 45;
+    /// <summary>D-299: also re-read the classic account details (folder, device type, ...) of accounts read more than DetailRefreshDays ago.</summary>
+    public bool DetailRefreshEnabled { get; init; }
+    public int DetailRefreshDays { get; init; } = 7;
+    /// <summary>D-299: the most accounts a pull re-reads that way, the oldest read first.</summary>
+    public int DetailRefreshMaxAccounts { get; init; } = 1000;
 
     /// <summary>The seven Privilege Cloud files, with the labels the page and Test show.</summary>
     public IEnumerable<(string Field, string Label, string FileName)> Files() =>

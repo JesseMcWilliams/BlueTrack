@@ -59,14 +59,15 @@ public class CyberArkSourcesControllerTests : IClassFixture<BlueTrackWebApplicat
         await connection.ExecuteAsync("DELETE FROM web.cyberark_source_config");
         if (savedRowJson is null) return;
         await connection.ExecuteAsync("""
-            INSERT INTO web.cyberark_source_config (CyberArkSourceConfigKey, ImportPrivilegeCloud, ExportFolderPath, PlatformsFileName, UsersFileName, GroupsFileName, GroupMembersFileName, SafesFileName, AccountsFileName, EntitlementsFileName, ImportSelfHosted, ModifiedBy, ModifiedDate, SelfHostedSource, PvwaBaseUrl, PvwaCredentialKey, PvwaLogonMethod, DirectPullTime, DirectMaxChangePercent, DirectPullTimeLimitMinutes)
-            SELECT CyberArkSourceConfigKey, ImportPrivilegeCloud, ExportFolderPath, PlatformsFileName, UsersFileName, GroupsFileName, GroupMembersFileName, SafesFileName, AccountsFileName, EntitlementsFileName, ImportSelfHosted, ModifiedBy, ModifiedDate, SelfHostedSource, PvwaBaseUrl, PvwaCredentialKey, PvwaLogonMethod, DirectPullTime, DirectMaxChangePercent, ISNULL(DirectPullTimeLimitMinutes, 45) FROM OPENJSON(@json) WITH (
+            INSERT INTO web.cyberark_source_config (CyberArkSourceConfigKey, ImportPrivilegeCloud, ExportFolderPath, PlatformsFileName, UsersFileName, GroupsFileName, GroupMembersFileName, SafesFileName, AccountsFileName, EntitlementsFileName, ImportSelfHosted, ModifiedBy, ModifiedDate, SelfHostedSource, PvwaBaseUrl, PvwaCredentialKey, PvwaLogonMethod, DirectPullTime, DirectMaxChangePercent, DirectPullTimeLimitMinutes, DetailRefreshEnabled, DetailRefreshDays, DetailRefreshMaxAccounts)
+            SELECT CyberArkSourceConfigKey, ImportPrivilegeCloud, ExportFolderPath, PlatformsFileName, UsersFileName, GroupsFileName, GroupMembersFileName, SafesFileName, AccountsFileName, EntitlementsFileName, ImportSelfHosted, ModifiedBy, ModifiedDate, SelfHostedSource, PvwaBaseUrl, PvwaCredentialKey, PvwaLogonMethod, DirectPullTime, DirectMaxChangePercent, ISNULL(DirectPullTimeLimitMinutes, 45),
+                   ISNULL(DetailRefreshEnabled, 0), ISNULL(DetailRefreshDays, 7), ISNULL(DetailRefreshMaxAccounts, 1000) FROM OPENJSON(@json) WITH (
                 CyberArkSourceConfigKey INT, ImportPrivilegeCloud BIT, ExportFolderPath NVARCHAR(400),
                 PlatformsFileName NVARCHAR(200), UsersFileName NVARCHAR(200), GroupsFileName NVARCHAR(200),
                 GroupMembersFileName NVARCHAR(200), SafesFileName NVARCHAR(200), AccountsFileName NVARCHAR(200),
                 EntitlementsFileName NVARCHAR(200), ImportSelfHosted BIT,
                 ModifiedBy INT, ModifiedDate DATETIME2, SelfHostedSource NVARCHAR(10), PvwaBaseUrl NVARCHAR(400), PvwaCredentialKey INT, PvwaLogonMethod NVARCHAR(20), DirectPullTime NVARCHAR(5), DirectMaxChangePercent INT,
-                DirectPullTimeLimitMinutes INT)
+                DirectPullTimeLimitMinutes INT, DetailRefreshEnabled BIT, DetailRefreshDays INT, DetailRefreshMaxAccounts INT)
             """, new { json = savedRowJson });
     }
 
@@ -253,6 +254,38 @@ public class CyberArkSourcesControllerTests : IClassFixture<BlueTrackWebApplicat
                 """, new { url })).ToList();
             Assert.Contains("PvwaBaseUrl", fields);
             Assert.Contains("DirectMaxChangePercent", fields);
+        }
+        finally
+        {
+            await RestoreAsync(saved);
+            await using var connection = new SqlConnection(TestDatabase.ConnectionString);
+            await connection.ExecuteAsync("DELETE FROM web.credential WHERE CredentialKey = @credentialKey", new { credentialKey });
+        }
+    }
+
+    [Fact]
+    public async Task Save_DetailRefresh_RoundTrips_AndIsValidated()
+    {
+        var client = Client("TestUser.Admin");
+        var saved = await SavedRowJsonAsync();
+        var credentialKey = await AddCredentialAsync("DirectTest" + Guid.NewGuid().ToString("N")[..8]);
+        JsonObject Body(int days, int max)
+        {
+            var body = System.Text.Json.JsonSerializer.SerializeToNode(DirectSettings($"https://pvwa-{Guid.NewGuid():N}.example.com", credentialKey))!.AsObject();
+            body["detailRefreshEnabled"] = true;
+            body["detailRefreshDays"] = days;
+            body["detailRefreshMaxAccounts"] = max;
+            return body;
+        }
+        try
+        {
+            // D-299: off by default; every 1 to 365 days, 1 to 100,000 accounts a pull.
+            Assert.Equal(HttpStatusCode.BadRequest, (await client.PutAsJsonAsync("/api/admin/cyberark-sources", Body(0, 500))).StatusCode);
+            Assert.Equal(HttpStatusCode.BadRequest, (await client.PutAsJsonAsync("/api/admin/cyberark-sources", Body(14, 0))).StatusCode);
+            Assert.Equal(HttpStatusCode.NoContent, (await client.PutAsJsonAsync("/api/admin/cyberark-sources", Body(14, 500))).StatusCode);
+
+            var settings = (await client.GetFromJsonAsync<JsonObject>("/api/admin/cyberark-sources"))!["settings"]!;
+            Assert.Equal((true, 14, 500), (settings["detailRefreshEnabled"]!.GetValue<bool>(), settings["detailRefreshDays"]!.GetValue<int>(), settings["detailRefreshMaxAccounts"]!.GetValue<int>()));
         }
         finally
         {

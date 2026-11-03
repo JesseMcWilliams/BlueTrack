@@ -73,8 +73,8 @@ test.describe('Top navigation (D-213)', () => {
     await signInAs(page, 'TestUser.Admin')
     await page.goto('/')
 
-    const links = await page.locator('nav.top-nav > a').allTextContents()
-    expect(links.map(l => l.trim())).toEqual(['Dashboard', 'Access Groups', 'Accounts', 'Exceptions', 'Targets', 'Reports', 'Admin'])
+    // toHaveText retries: the permission-gated links appear once /api/me has answered.
+    await expect(page.locator('nav.top-nav > a')).toHaveText(['Dashboard', 'Access Groups', 'Accounts', 'Exceptions', 'Targets', 'Reports', 'Admin'])
 
     await page.locator('button.user-menu__button').click()
     await page.getByRole('button', { name: 'About' }).click()

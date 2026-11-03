@@ -163,12 +163,30 @@ public sealed class SelfHostedDirectRepository(IDbConnectionFactory connectionFa
     public async Task<IReadOnlyDictionary<string, PvwaAccountDetail>> GetAccountDetailCacheAsync()
     {
         using var connection = connectionFactory.Create();
-        var rows = await connection.QueryAsync<PvwaAccountDetail>("""
+        var rows = await connection.QueryAsync<CachedDetailRow>("""
             SELECT AccountId, CategoryModificationTime, DeviceType, CreationMethod, LogonSafe, LogonFolder, LogonName,
-                   ReconcileSafe, ReconcileFolder, ReconcileName
+                   ReconcileSafe, ReconcileFolder, ReconcileName, Folder, ReadAt
             FROM dbo.cyberark_direct_account_detail
             """);
-        return rows.ToDictionary(r => r.AccountId, StringComparer.Ordinal);
+        return rows.Select(r => new PvwaAccountDetail(r.AccountId, r.CategoryModificationTime, r.DeviceType, r.CreationMethod,
+                r.LogonSafe, r.LogonFolder, r.LogonName, r.ReconcileSafe, r.ReconcileFolder, r.ReconcileName) { Folder = r.Folder, ReadAt = r.ReadAt })
+            .ToDictionary(r => r.AccountId, StringComparer.Ordinal);
+    }
+
+    private sealed class CachedDetailRow
+    {
+        public required string AccountId { get; init; }
+        public DateTime? CategoryModificationTime { get; init; }
+        public string? DeviceType { get; init; }
+        public string? CreationMethod { get; init; }
+        public string? LogonSafe { get; init; }
+        public string? LogonFolder { get; init; }
+        public string? LogonName { get; init; }
+        public string? ReconcileSafe { get; init; }
+        public string? ReconcileFolder { get; init; }
+        public string? ReconcileName { get; init; }
+        public string? Folder { get; init; }
+        public DateTime ReadAt { get; init; }
     }
 
     /// <summary>D-280: adds or replaces the cached details of the accounts just read.</summary>
@@ -182,11 +200,11 @@ public sealed class SelfHostedDirectRepository(IDbConnectionFactory connectionFa
                 USING (SELECT @AccountId AS AccountId) AS s ON t.AccountId = s.AccountId
                 WHEN MATCHED THEN UPDATE SET CategoryModificationTime = @CategoryModificationTime, DeviceType = @DeviceType,
                     CreationMethod = @CreationMethod, LogonSafe = @LogonSafe, LogonFolder = @LogonFolder, LogonName = @LogonName,
-                    ReconcileSafe = @ReconcileSafe, ReconcileFolder = @ReconcileFolder, ReconcileName = @ReconcileName, ReadAt = SYSUTCDATETIME()
+                    ReconcileSafe = @ReconcileSafe, ReconcileFolder = @ReconcileFolder, ReconcileName = @ReconcileName, Folder = @Folder, ReadAt = SYSUTCDATETIME()
                 WHEN NOT MATCHED THEN INSERT (AccountId, CategoryModificationTime, DeviceType, CreationMethod, LogonSafe, LogonFolder, LogonName,
-                    ReconcileSafe, ReconcileFolder, ReconcileName)
+                    ReconcileSafe, ReconcileFolder, ReconcileName, Folder)
                     VALUES (@AccountId, @CategoryModificationTime, @DeviceType, @CreationMethod, @LogonSafe, @LogonFolder, @LogonName,
-                    @ReconcileSafe, @ReconcileFolder, @ReconcileName);
+                    @ReconcileSafe, @ReconcileFolder, @ReconcileName, @Folder);
                 """, chunk.Select(Fit));
         }
     }
@@ -206,7 +224,8 @@ public sealed class SelfHostedDirectRepository(IDbConnectionFactory connectionFa
     {
         DeviceType = Cut(d.DeviceType, 100), CreationMethod = Cut(d.CreationMethod, 100),
         LogonSafe = Cut(d.LogonSafe, 300), LogonFolder = Cut(d.LogonFolder, 300), LogonName = Cut(d.LogonName, 512),
-        ReconcileSafe = Cut(d.ReconcileSafe, 300), ReconcileFolder = Cut(d.ReconcileFolder, 300), ReconcileName = Cut(d.ReconcileName, 512)
+        ReconcileSafe = Cut(d.ReconcileSafe, 300), ReconcileFolder = Cut(d.ReconcileFolder, 300), ReconcileName = Cut(d.ReconcileName, 512),
+        Folder = Cut(d.Folder, 300)
     };
 
     private static string? Cut(string? value, int max) => value is null || value.Length <= max ? value : value[..max];

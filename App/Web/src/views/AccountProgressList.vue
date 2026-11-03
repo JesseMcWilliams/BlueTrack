@@ -154,14 +154,15 @@ const deletedFilter = ref('Hide')
 // D-212: a feed account linked to a CyberArk account is hidden unless shown here.
 const linkedFilter = ref('Hide')
 // UI review W7-1: one of the KPI Summary's counts (D-143), opened from a count there; '' = no KPI filter.
-const KPI_FILTERS = ['total', 'inScope', 'onboarded', 'managed', 'compliant']
+const KPI_FILTERS = ['total', 'inScope', 'onboarded', 'managed', 'compliant', 'archived']
 const kpiFilter = ref('')
 const kpiNames = computed(() => ({
   total: t('pages.accountProgressList.kpiTotal'),
   inScope: t('pages.accountProgressList.kpiInScope'),
   onboarded: t('pages.accountProgressList.kpiOnboarded'),
   managed: t('pages.accountProgressList.kpiManaged'),
-  compliant: t('pages.accountProgressList.kpiCompliant')
+  compliant: t('pages.accountProgressList.kpiCompliant'),
+  archived: t('pages.accountProgressList.kpiArchived')   // D-298
 }))
 
 // Each entry: { field, descending }. Order in this array IS sort priority.

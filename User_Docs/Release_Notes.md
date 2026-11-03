@@ -6,13 +6,21 @@ What changed in each BlueTrack release, newest first, for users and administrato
 
 ### New
 
+- **Archived status.** An account can be Archived: out of scope for the KPIs like Risk Accepted / Excluded, but with no Risk Exception, and counted on its own on the KPI Summary and the Dashboard. A Progress Rule can now archive accounts at any stage (Admin > Progress Rules, "Archives accounts"), for example accounts whose CPM disable reason is ADArchive in an Archive folder. An archived account stays Archived until someone changes its status. (User Guide; Administrator Settings, Progress Rules)
+- **Folder** of a Self-Hosted account, read from PVWA, on the account page and as a Progress Rule field, with **Why the CPM doesn't manage it** (the CPM disable reason) as another rule field. (User Guide; Administrator Settings, Progress Rules)
+- **Re-read account details**: an option on Admin > Data Sources > CyberArk sources to re-read the folder, device type and linked accounts of accounts read more than a number of days ago, up to a number of accounts per pull. Off by default. (Administrator Settings, CyberArk sources)
+
 ### Changed
+
+- "In scope" on the KPI Summary, Dashboard and Trends now also leaves out Archived accounts.
 
 ### Fixed
 
 - The installer's `Db.SqlServerAudit` step no longer re-grants "Generate security audits" on every run and then asks for a SQL Server restart that isn't needed.
 
 ### Upgrading
+
+- The first Self-Hosted Direct pull after the upgrade reads every account's details once more (one PVWA call per account) to fill in the folder, so it takes longer than usual; on a large Vault it may finish over a few nights within the pull time limit.
 
 ## 1.5.1 (2026-10-22)
 

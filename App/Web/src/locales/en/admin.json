@@ -253,6 +253,11 @@
     "pullTimeHint": "HH:mm, server time, every night. It must come before the nightly import job's time: the import fails if the latest pull is more than 20 hours old or didn't succeed.",
     "timeLimitLabel": "Pull time limit (minutes):",
     "timeLimitHint": "A pull, nightly or Pull now, still running after this long is stopped and logged as failed; the data the nightly load reads is left as it was. The first pull also reads every account's device type and linked accounts, one call each (later pulls only the changed ones), so a large Vault may need more time or a few nights. 5 to 720; the default is 45.",
+    "detailRefreshLabel": "Also re-read account details that haven't changed",
+    "detailRefreshHint": "Each pull reads an account's folder, device type and linked accounts again only when CyberArk says its properties changed. Moving an account to another folder may not count as a change, so this re-reads accounts read long enough ago, the oldest first.",
+    "detailRefreshDaysLabel": "Re-read details older than (days):",
+    "detailRefreshMaxLabel": "Most accounts re-read per pull:",
+    "detailRefreshMaxHint": "One PVWA call per account, 8 at a time; they count against the pull time limit. 1 to 100,000; the default is 1,000.",
     "maxChangeLabel": "Allowed change (%):",
     "maxChangeHint": "The most the number of Safes or of accounts may change from the last good pull before a pull is rejected. A change of 5 or fewer is always allowed.",
     "restoredDraft": "What you had typed here before leaving this page was restored. Nothing is saved until you press Save.",
@@ -1165,7 +1170,7 @@
   },
   "progressRules": {
     "title": "Progress Rules",
-    "intro": "Each night, after the import, an account moves from a rule's From stage to its To stage when all of the rule's conditions match it. Accounts only move forward, can move through several stages in one night, and are never moved while Risk Accepted / Excluded; their status is kept. Change the stages themselves on Blueprint Stages.",
+    "intro": "Each night, after the import, an account moves from a rule's From stage to its To stage when all of the rule's conditions match it. Accounts only move forward, can move through several stages in one night, and are never moved while Risk Accepted / Excluded or Archived; their status is kept. An archive rule instead sets matching accounts at any stage to Archived (out of scope, counted on its own); the archive rules run first. Archived stays until someone changes the status, and an account someone took out of Archived isn't archived again until the archive rules have stopped matching it. Change the stages themselves on Blueprint Stages.",
     "stagesLink": "Blueprint Stages",
     "newRule": "New rule",
     "colMove": "Moves accounts",
@@ -1173,6 +1178,7 @@
     "colEnabled": "Enabled",
     "colActions": "Actions",
     "move": "from {from} to {to}",
+    "archive": "to Archived (any stage)",
     "confirmDelete": "Delete the rule \"{name}\"? Accounts it already moved stay where they are.",
     "empty": "No rules: accounts change stage only when someone edits them.",
     "field": {
@@ -1201,7 +1207,9 @@
       "ownerName": "Owner",
       "businessUnit": "Business unit",
       "application": "Application",
-      "requiresPsm": "Platform requires PSM (Self-Hosted)"
+      "requiresPsm": "Platform requires PSM (Self-Hosted)",
+      "folder": "Folder (Self-Hosted)",
+      "cpmDisabledReason": "Why the CPM doesn't manage it"
     },
     "operator": {
       "equals": "is",
@@ -1222,6 +1230,9 @@
     "editTitle": "Edit Progress Rule",
     "notFound": "That rule no longer exists.",
     "name": "Name",
+    "action": "The rule",
+    "actionMove": "Moves accounts to a later stage",
+    "actionArchive": "Archives accounts (any stage)",
     "from": "Move accounts from",
     "to": "To",
     "enabled": "Enabled (the nightly load uses it)",
@@ -1237,7 +1248,10 @@
     "sourceHint": "PRIVCLOUD, SELFHOSTED, DISCOVERY, or a data feed's source code.",
     "description": "Description (optional)",
     "test": "Test",
-    "previewCount": "{count} account at the From stage would move now. | {count} accounts at the From stage would move now (up to 50 are listed)."
+    "previewCount": "{count} account at the From stage would move now. | {count} accounts at the From stage would move now (up to 50 are listed).",
+    "previewArchiveCount": "{count} account would be archived now. | {count} accounts would be archived now (up to 50 are listed).",
+    "folderHint": "Root is the top of the Safe; read from PVWA's account details (Self-Hosted Direct).",
+    "cpmDisabledReasonHint": "The reason given when automatic management was turned off, for example ADArchive."
   },
   "blueprintStages": {
     "title": "Blueprint Stages",

@@ -55,16 +55,28 @@ public sealed record PvwaAccount(
 /// </summary>
 public sealed record PvwaAccountDetail(
     string AccountId, DateTime? CategoryModificationTime, string? DeviceType, string? CreationMethod,
-    string? LogonSafe, string? LogonFolder, string? LogonName, string? ReconcileSafe, string? ReconcileFolder, string? ReconcileName);
+    string? LogonSafe, string? LogonFolder, string? LogonName, string? ReconcileSafe, string? ReconcileFolder, string? ReconcileName)
+{
+    /// <summary>D-299: the account's folder (Properties "Folder"; Root at the top).</summary>
+    public string? Folder { get; init; }
+
+    /// <summary>D-299: when a cached detail was read (UTC); null for a fresh read.</summary>
+    public DateTime? ReadAt { get; init; }
+}
 
 /// <summary>
 /// D-280: what a pull does beyond REST. <see cref="CachedDetails"/> null means the classic account details aren't read
 /// (Test); otherwise an account is read only when it isn't cached or its CategoryModificationTime changed, and each
 /// fresh read is added to <see cref="FreshDetails"/> as it arrives, so a pull that is stopped still keeps them.
+/// D-299: with <see cref="RefreshReadBefore"/> set, up to <see cref="RefreshMaxAccounts"/> more accounts whose details
+/// were read before it are read again, the oldest first (moving an account to another folder may not change its
+/// CategoryModificationTime).
 /// </summary>
 public sealed class PvwaPullOptions
 {
     public IReadOnlyDictionary<string, PvwaAccountDetail>? CachedDetails { get; init; }
+    public DateTime? RefreshReadBefore { get; init; }
+    public int RefreshMaxAccounts { get; init; }
     public System.Collections.Concurrent.ConcurrentBag<PvwaAccountDetail> FreshDetails { get; } = [];
 }
 

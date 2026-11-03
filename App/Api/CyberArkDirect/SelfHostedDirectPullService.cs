@@ -53,7 +53,13 @@ public sealed class SelfHostedDirectPullService(
         try
         {
             var pullKey = await repository.StartPullAsync(triggeredBy, acceptChange);
-            var options = new PvwaPullOptions { CachedDetails = await repository.GetAccountDetailCacheAsync() };
+            var options = new PvwaPullOptions
+            {
+                CachedDetails = await repository.GetAccountDetailCacheAsync(),
+                // D-299: also re-read details read more than DetailRefreshDays ago, at most DetailRefreshMaxAccounts a pull.
+                RefreshReadBefore = s.DetailRefreshEnabled ? timeProvider.GetUtcNow().UtcDateTime.AddDays(-s.DetailRefreshDays) : null,
+                RefreshMaxAccounts = s.DetailRefreshEnabled ? s.DetailRefreshMaxAccounts : 0
+            };
             using var timeLimit = new CancellationTokenSource(TimeSpan.FromMinutes(s.DirectPullTimeLimitMinutes), timeProvider);
             using var linked = CancellationTokenSource.CreateLinkedTokenSource(ct, timeLimit.Token, cancelRequested);
             try

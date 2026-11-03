@@ -166,7 +166,8 @@ public sealed class SelfHostedStagingMapper
             {
                 tables.DirectAccountDetails.Rows.Add(batchId, source, a.Id, Db(d.CategoryModificationTime), Db(Cut(d.DeviceType, 100)), Db(Cut(d.CreationMethod, 100)),
                     Db(Cut(d.LogonSafe, 300)), Db(Cut(d.LogonFolder, 300)), Db(Cut(d.LogonName, 512)),
-                    Db(Cut(d.ReconcileSafe, 300)), Db(Cut(d.ReconcileFolder, 300)), Db(Cut(d.ReconcileName, 512)), a.DetailReadThisPull);
+                    Db(Cut(d.ReconcileSafe, 300)), Db(Cut(d.ReconcileFolder, 300)), Db(Cut(d.ReconcileName, 512)), a.DetailReadThisPull,
+                    Db(Cut(d.Folder, 300)));
             }
         }
 
@@ -343,7 +344,8 @@ public sealed class StagingTables
     public DataTable DirectAccountDetails { get; } = Table("stg_shd_account_details", ("ImportBatchId", typeof(Guid)), ("SourceFileName", typeof(string)),
         ("AccountId", typeof(string)), ("CategoryModificationTime", typeof(DateTime)), ("DeviceType", typeof(string)), ("CreationMethod", typeof(string)),
         ("LogonSafe", typeof(string)), ("LogonFolder", typeof(string)), ("LogonName", typeof(string)),
-        ("ReconcileSafe", typeof(string)), ("ReconcileFolder", typeof(string)), ("ReconcileName", typeof(string)), ("ReadThisPull", typeof(bool)));
+        ("ReconcileSafe", typeof(string)), ("ReconcileFolder", typeof(string)), ("ReconcileName", typeof(string)), ("ReadThisPull", typeof(bool)),
+        ("Folder", typeof(string)));   // D-299 (56_BlueTrack_ArchivedStatusAndFolder.sql)
 
     public DataTable DirectSafeMembers { get; } = Table("stg_shd_safe_members",
         [("ImportBatchId", typeof(Guid)), ("SourceFileName", typeof(string)), ("SafeUrlId", typeof(string)), ("SafeName", typeof(string)),

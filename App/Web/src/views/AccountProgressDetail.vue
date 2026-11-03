@@ -621,8 +621,11 @@ onUnmounted(releaseLock)
         </dl>
         <!-- D-283: which Progress Rule moved the account to its stage. -->
         <p v-if="detail.lastAdvancedByRuleName" class="account-progress-identity-secondary moved-by-rule">{{ t('pages.accountProgressDetail.movedByRule', { rule: detail.lastAdvancedByRuleName, date: formatUtcDateTime(detail.lastAdvancedAt) }) }}</p>
-        <!-- D-280: Self-Hosted Direct only, from PVWA's classic account details. -->
-        <p v-if="detail.deviceType || detail.creationMethod || detail.linkedLogonAccount || detail.linkedReconcileAccount" class="account-progress-identity-secondary classic-facts">
+        <!-- D-298: the archive rule that archived it (cleared when the status changes). -->
+        <p v-if="detail.archivedByRuleName" class="account-progress-identity-secondary archived-by-rule">{{ t('pages.accountProgressDetail.archivedByRule', { rule: detail.archivedByRuleName, date: formatUtcDateTime(detail.archivedAt) }) }}</p>
+        <!-- D-280: Self-Hosted Direct only, from PVWA's classic account details (D-299: and the folder). -->
+        <p v-if="detail.deviceType || detail.creationMethod || detail.folder || detail.linkedLogonAccount || detail.linkedReconcileAccount" class="account-progress-identity-secondary classic-facts">
+          <span v-if="detail.folder" class="account-progress-identity-item"><strong>{{ t('pages.accountProgressDetail.folder') }}</strong> {{ detail.folder }}</span>
           <span v-if="detail.deviceType" class="account-progress-identity-item"><strong>{{ t('pages.accountProgressDetail.deviceType') }}</strong> {{ detail.deviceType }}</span>
           <span v-if="detail.creationMethod" class="account-progress-identity-item"><strong>{{ t('pages.accountProgressDetail.creationMethod') }}</strong> {{ detail.creationMethod }}</span>
           <span v-if="detail.linkedLogonAccount" class="account-progress-identity-item"><strong>{{ t('pages.accountProgressDetail.linkedLogonAccount') }}</strong> <router-link v-if="detail.linkedLogonAccountKey" :to="{ name: 'account-progress-detail', params: { accountKey: detail.linkedLogonAccountKey } }">{{ detail.linkedLogonAccount }}</router-link><template v-else>{{ detail.linkedLogonAccount }}</template></span>

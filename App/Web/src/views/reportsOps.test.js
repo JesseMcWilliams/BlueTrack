@@ -32,13 +32,15 @@ describe('reports and operations fixes', () => {
   afterEach(() => vi.restoreAllMocks())
 
   it('KPI Summary says what each count means and when it was read (W7-3)', async () => {
-    globalThis.fetch = vi.fn(() => Promise.resolve(answer({ totalAccounts: 10, inScopeAccounts: 8, onboardedAccounts: 4, managedAccounts: 2, compliantAccounts: 1 })))
+    globalThis.fetch = vi.fn(() => Promise.resolve(answer({ totalAccounts: 10, inScopeAccounts: 8, onboardedAccounts: 4, managedAccounts: 2, compliantAccounts: 1, archivedAccounts: 1 })))
     const wrapper = mount(KpiSummary, { global: { plugins: [makeRouter()] } })
     await flushPromises()
 
     expect(wrapper.find('h3').text()).toBe('What the counts mean')
-    expect(wrapper.findAll('dt').map(d => d.text())).toEqual(['All Accounts', 'In Scope', 'Onboarded', 'Managed', 'Compliant'])
+    expect(wrapper.findAll('dt').map(d => d.text())).toEqual(['All Accounts', 'In Scope', 'Onboarded', 'Managed', 'Compliant', 'Archived'])
     expect(wrapper.text()).toContain('Counts read ')
+    // D-298: Archived is counted on its own and opens the list.
+    expect(wrapper.text()).toContain('Archived (out of scope): 1')
   })
 
   it('Risk Score says when there are no accounts, and an opened account links to its detail (W7-6, W7-7)', async () => {

@@ -83,6 +83,13 @@ public sealed class AccountProgressDetail
     /// <summary>D-283: the Progress Rule that last moved this account to the next stage, and when (UTC); null when none did (or the rule was deleted, for the name).</summary>
     public string? LastAdvancedByRuleName { get; init; }
     public DateTime? LastAdvancedAt { get; init; }
+
+    /// <summary>D-298: the archive rule that set the status to Archived, and when (UTC); null when a person set it (or the rule was deleted, for the name).</summary>
+    public string? ArchivedByRuleName { get; init; }
+    public DateTime? ArchivedAt { get; init; }
+
+    /// <summary>D-299: the account's folder in its Safe (Self-Hosted Direct; Root at the top).</summary>
+    public string? Folder { get; init; }
     public string? CreationMethod { get; init; }
     public string? LinkedLogonAccount { get; init; }
     public long? LinkedLogonAccountKey { get; init; }
