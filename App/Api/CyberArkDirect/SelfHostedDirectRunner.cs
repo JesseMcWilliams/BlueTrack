@@ -7,6 +7,8 @@ namespace BlueTrack.Api.CyberArkDirect;
 /// D-248: starts Self-Hosted Direct pulls. A Singleton, like DataFeedRunner, so its one-at-a-time gate spans the
 /// nightly run and Run now. Each pull gets its own DI scope, since the pull service uses Scoped repositories.
 /// D-275: the running pull, nightly or Run now, can be cancelled (<see cref="Cancel"/>).
+/// D-302: a Pull now that succeeds then starts the Import and Load SQL Agent job; the nightly pull doesn't, since the
+/// job's own schedule follows it.
 /// </summary>
 public sealed class SelfHostedDirectRunner(IServiceScopeFactory scopeFactory, IHostApplicationLifetime lifetime, ILogger<SelfHostedDirectRunner> logger)
 {
@@ -39,7 +41,7 @@ public sealed class SelfHostedDirectRunner(IServiceScopeFactory scopeFactory, IH
         {
             try
             {
-                await RunCoreAsync(triggeredBy, acceptChange, lifetime.ApplicationStopping);
+                await RunCoreAsync(triggeredBy, acceptChange, lifetime.ApplicationStopping, startLoad: true);
             }
             catch (Exception ex)
             {
@@ -59,7 +61,7 @@ public sealed class SelfHostedDirectRunner(IServiceScopeFactory scopeFactory, IH
         if (Interlocked.CompareExchange(ref _running, 1, 0) != 0) return;
         try
         {
-            await RunCoreAsync("schedule", acceptChange: false, ct);
+            await RunCoreAsync("schedule", acceptChange: false, ct, startLoad: false);
         }
         finally
         {
@@ -67,7 +69,7 @@ public sealed class SelfHostedDirectRunner(IServiceScopeFactory scopeFactory, IH
         }
     }
 
-    private async Task RunCoreAsync(string triggeredBy, bool acceptChange, CancellationToken ct)
+    private async Task RunCoreAsync(string triggeredBy, bool acceptChange, CancellationToken ct, bool startLoad)
     {
         using var cancel = new CancellationTokenSource();
         Volatile.Write(ref _cancel, cancel);
@@ -76,6 +78,12 @@ public sealed class SelfHostedDirectRunner(IServiceScopeFactory scopeFactory, IH
             using var scope = scopeFactory.CreateScope();
             var outcome = await scope.ServiceProvider.GetRequiredService<SelfHostedDirectPullService>().RunAsync(triggeredBy, acceptChange, ct, cancel.Token);
             logger.LogInformation("Self-Hosted Direct pull ({TriggeredBy}): {Status}. {Message}", triggeredBy, outcome.Status, outcome.Message);
+            if (startLoad && outcome is { Status: "Succeeded", PullKey: { } pullKey })
+            {
+                var error = await scope.ServiceProvider.GetRequiredService<SelfHostedDirectRepository>().StartImportLoadJobAsync(pullKey);
+                if (error is null) logger.LogInformation("Started the Import and Load job after the pull.");
+                else logger.LogWarning("Couldn't start the Import and Load job after the pull: {Error}", error);
+            }
         }
         finally
         {

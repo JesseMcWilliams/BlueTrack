@@ -28,6 +28,15 @@ public sealed class DirectPullRecord
     /// </summary>
     public int? BaselineSafeCount { get; init; }
     public int? BaselineAccountCount { get; init; }
+
+    /// <summary>
+    /// D-302: after a Pull now that succeeded, the Import and Load job it started. LoadStatus: null (no load was asked
+    /// for), NotStarted (LoadMessage says why), Running, Succeeded, Failed (LoadMessage: the Import's or the Load's
+    /// error) or Unknown (the job recorded no Import within 10 minutes, or it ran more than 6 hours ago without an end).
+    /// </summary>
+    public DateTime? LoadRequestedAt { get; init; }
+    public string? LoadStatus { get; init; }
+    public string? LoadMessage { get; init; }
 }
 
 /// <summary>D-248: the pull log, and the one place that writes the stg_sh_* tables from a pull.</summary>
@@ -83,15 +92,60 @@ public sealed class SelfHostedDirectRepository(IDbConnectionFactory connectionFa
     public async Task<IReadOnlyList<DirectPullRecord>> GetRecentAsync(int count)
     {
         using var connection = connectionFactory.Create();
+        // D-302: the load a Pull now started is the first Import the job logged within 10 minutes of the request, and
+        // the Load after it (the job runs them back to back; a failed Import stops it).
         return (await connection.QueryAsync<DirectPullRecord>($"""
             SELECT TOP (@count) p.PullKey, p.StartedAt, p.CompletedAt, p.Status, p.TriggeredBy, p.AcceptedChange, p.SafeCount, p.AccountCount,
                    p.UserCount, p.GroupCount, p.MemberCount, p.PlatformCount, p.Message,
-                   COALESCE(p.BaselineSafeCount, b.SafeCount) AS BaselineSafeCount, COALESCE(p.BaselineAccountCount, b.AccountCount) AS BaselineAccountCount
+                   COALESCE(p.BaselineSafeCount, b.SafeCount) AS BaselineSafeCount, COALESCE(p.BaselineAccountCount, b.AccountCount) AS BaselineAccountCount,
+                   p.LoadRequestedAt,
+                   CASE WHEN p.LoadRequestedAt IS NULL THEN NULL
+                        WHEN p.LoadStartError IS NOT NULL THEN N'NotStarted'
+                        WHEN li.Status = N'Failed' OR ll.Status = N'Failed' THEN N'Failed'
+                        WHEN ll.Status = N'Succeeded' THEN N'Succeeded'
+                        WHEN li.EtlRunKey IS NULL AND p.LoadRequestedAt < DATEADD(MINUTE, -10, SYSUTCDATETIME()) THEN N'Unknown'
+                        WHEN p.LoadRequestedAt < DATEADD(HOUR, -6, SYSUTCDATETIME()) THEN N'Unknown'
+                        ELSE N'Running' END AS LoadStatus,
+                   COALESCE(p.LoadStartError, CASE WHEN li.Status = N'Failed' THEN li.ErrorMessage ELSE ll.ErrorMessage END) AS LoadMessage
             FROM dbo.cyberark_direct_pull p
             OUTER APPLY (SELECT TOP (1) SafeCount, AccountCount FROM dbo.cyberark_direct_pull
                          WHERE Status = N'Succeeded' AND PullKey < p.PullKey ORDER BY PullKey DESC) b
+            OUTER APPLY (SELECT TOP (1) EtlRunKey, Status, ErrorMessage FROM dbo.etl_run_log
+                         WHERE p.LoadStartError IS NULL AND StepName = N'Import'
+                           AND StartedAt >= p.LoadRequestedAt AND StartedAt < DATEADD(MINUTE, 10, p.LoadRequestedAt)
+                         ORDER BY EtlRunKey) li
+            OUTER APPLY (SELECT TOP (1) Status, ErrorMessage FROM dbo.etl_run_log
+                         WHERE li.Status = N'Succeeded' AND StepName = N'Load' AND EtlRunKey > li.EtlRunKey ORDER BY EtlRunKey) ll
             ORDER BY p.PullKey DESC
             """, new { count })).ToList();
+    }
+
+    /// <summary>
+    /// D-302: starts this database's Import and Load SQL Agent job (Database/Manual/04) for a Pull now that succeeded,
+    /// and records it on the pull. Returns null when the Agent accepted the request, else why it didn't: the app's login
+    /// isn't in msdb's SQLAgentOperatorRole (Database/Manual/08), the job doesn't exist, the Agent isn't running, or the
+    /// job is already running (then that run loads this pull, if it hasn't passed its Import yet).
+    /// </summary>
+    public async Task<string?> StartImportLoadJobAsync(long pullKey)
+    {
+        string? error = null;
+        using var connection = connectionFactory.Create();
+        // Before the start, so the Import the job logs is never earlier than the request.
+        await connection.ExecuteAsync(
+            "UPDATE dbo.cyberark_direct_pull SET LoadRequestedAt = SYSUTCDATETIME(), LoadStartError = NULL WHERE PullKey = @pullKey", new { pullKey });
+        try
+        {
+            await connection.ExecuteAsync("""
+                DECLARE @job SYSNAME = N'BlueTrack (' + DB_NAME() + N') - Import and Load';
+                EXEC msdb.dbo.sp_start_job @job_name = @job;
+                """);
+        }
+        catch (SqlException ex)
+        {
+            error = ex.Message is { Length: > 2000 } ? ex.Message[..2000] : ex.Message;
+            await connection.ExecuteAsync("UPDATE dbo.cyberark_direct_pull SET LoadStartError = @error WHERE PullKey = @pullKey", new { pullKey, error });
+        }
+        return error;
     }
 
     /// <summary>The Safes the last good pull staged (a rejected or failed pull leaves staging alone), for naming what disappeared.</summary>
