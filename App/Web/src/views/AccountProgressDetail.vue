@@ -14,6 +14,7 @@ import { decomNote } from '../utils/decomNote'
 import { formatCount } from '../utils/formatCount'
 import { useI18n } from 'vue-i18n'
 import SafeAccessSection from '../components/SafeAccessSection.vue'
+import ComplianceSection from '../components/ComplianceSection.vue'
 
 const { t } = useI18n()
 
@@ -766,6 +767,9 @@ onUnmounted(releaseLock)
           <dd>{{ t('pages.accountProgressDetail.linkedExceptionValue', { id: linkedException.exceptionID, status: linkedException.statusName, justification: linkedException.justification, date: formatDate(linkedException.reviewDate) }) }}</dd>
         </template>
       </dl>
+
+      <!-- D-300/D-301 -->
+      <ComplianceSection :account-key="accountKey" />
 
       <!-- D-281/D-282 -->
       <SafeAccessSection :account-key="accountKey" />

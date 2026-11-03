@@ -29,7 +29,8 @@ const reports = [
   { name: 'reports-decom-safes', labelKey: 'reports.reportsHub.decomSafes' },
   { name: 'reports-decom-accounts', labelKey: 'reports.reportsHub.decomAccounts' },
   { name: 'reports-kpi-summary', labelKey: 'reports.reportsHub.kpiSummary' },
-  { name: 'reports-trends', labelKey: 'reports.reportsHub.trends' }   // D-221
+  { name: 'reports-trends', labelKey: 'reports.reportsHub.trends' },   // D-221
+  { name: 'reports-safe-access', labelKey: 'reports.reportsHub.safeAccess' }   // D-300
 ]
 
 const visibleReports = computed(() => reports.filter(r => !r.permission || rights.hasPermission(r.permission)))

@@ -198,6 +198,13 @@ const routes = [
         name: 'reports-trends',
         meta: { breadcrumb: 'shell.routes.reportsTrends', breadcrumbParent: 'reports' },
         component: () => import('../views/reports/Trends.vue')
+      },
+      // D-300/D-301: each Safe's Safe access policy check and its accounts' compliance reviews.
+      {
+        path: 'safe-access',
+        name: 'reports-safe-access',
+        meta: { breadcrumb: 'shell.routes.reportsSafeAccess', breadcrumbParent: 'reports' },
+        component: () => import('../views/reports/SafeAccessReport.vue')
       }
     ]
   },
@@ -518,6 +525,39 @@ const routes = [
         name: 'admin-blueprint-stages',
         meta: { breadcrumb: 'shell.routes.adminBlueprintStages', breadcrumbParent: 'admin' },
         component: () => import('../views/admin/BlueprintStages.vue')
+      },
+      // D-300: Safe roles and Safe access policies.
+      {
+        path: 'safe-access-policies',
+        name: 'admin-safe-access-policies',
+        meta: { breadcrumb: 'shell.routes.adminSafeAccessPolicies', breadcrumbParent: 'admin' },
+        component: () => import('../views/admin/SafeAccessPolicies.vue')
+      },
+      {
+        path: 'safe-access-policies/new',
+        name: 'admin-safe-access-policy-create',
+        meta: { breadcrumb: 'shell.routes.adminSafeAccessPolicyCreate', breadcrumbParent: 'admin-safe-access-policies' },
+        component: () => import('../views/admin/SafeAccessPolicyEdit.vue')
+      },
+      {
+        path: 'safe-access-policies/:policyKey',
+        name: 'admin-safe-access-policy-edit',
+        meta: { breadcrumb: 'shell.routes.adminSafeAccessPolicyEdit', breadcrumbParent: 'admin-safe-access-policies' },
+        component: () => import('../views/admin/SafeAccessPolicyEdit.vue'),
+        props: true
+      },
+      {
+        path: 'safe-roles/new',
+        name: 'admin-safe-role-create',
+        meta: { breadcrumb: 'shell.routes.adminSafeRoleCreate', breadcrumbParent: 'admin-safe-access-policies' },
+        component: () => import('../views/admin/SafeRoleEdit.vue')
+      },
+      {
+        path: 'safe-roles/:roleKey',
+        name: 'admin-safe-role-edit',
+        meta: { breadcrumb: 'shell.routes.adminSafeRoleEdit', breadcrumbParent: 'admin-safe-access-policies' },
+        component: () => import('../views/admin/SafeRoleEdit.vue'),
+        props: true
       },
       {
         path: 'risk-score-bands',
