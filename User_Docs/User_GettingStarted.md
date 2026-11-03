@@ -70,7 +70,7 @@ A few things to know:
 - The Dashboard, **Accounts**, **Exceptions** and most reports need `ViewDashboard`. Without it, those pages show **Access Denied**. The Auditor role doesn't include it.
 - Inside **Admin**, the sidebar lists only the sections you have permission for.
 - Some work is admin-only out of the box: deleting accounts, the Discovered Accounts report, and data feeds. (Analysts can also see the Risk Score report.) Your administrator can grant these to other roles.
-- To check exactly what you hold, open **Profile & Preferences**. If you've just been added to a group, click **Reload My Rights**. Otherwise the change can take up to 15 minutes to reach you.
+- To check exactly what you hold, open **Profile & Preferences**. If you've just been added to a group, click **Reload My Rights**; if the page says your groups come from your sign-in, sign out and back in. Otherwise the change can take up to 15 minutes to reach you.
 
 ## How data gets into BlueTrack
 

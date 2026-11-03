@@ -4,8 +4,8 @@ using BlueTrack.Api.Formatting;
 
 namespace BlueTrack.Api.CyberArkDirect;
 
-/// <summary>How a pull ended. Skipped: Self-Hosted is off, so nothing was done.</summary>
-public sealed record PullOutcome(string Status, string? Message, PullCounts? Counts)
+/// <summary>How a pull ended. Skipped: Self-Hosted is off, so nothing was done. PullKey: the log row, on a success (D-302).</summary>
+public sealed record PullOutcome(string Status, string? Message, PullCounts? Counts, long? PullKey = null)
 {
     public static PullOutcome Skipped(string reason) => new("Skipped", reason, null);
 }
@@ -190,7 +190,7 @@ public sealed class SelfHostedDirectPullService(
         notes.AddRange(tables.Warnings);
         var message = notes.Count == 0 ? null : string.Join(" | ", notes);
         await repository.CompleteAsync(pullKey, "Succeeded", counts, message, batchId, baseline);
-        return new PullOutcome("Succeeded", message, counts);
+        return new PullOutcome("Succeeded", message, counts, pullKey);
     }
 
     /// <summary>D-281: the Safe-member groups' AD users. Never fails the pull: a problem is a warning, and the Load keeps what it had.</summary>

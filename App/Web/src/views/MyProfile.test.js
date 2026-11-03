@@ -44,6 +44,22 @@ describe('MyProfile', () => {
     expect(wrapper.find('h2').exists()).toBe(true)
   })
 
+  // D-303: the user is told where the groups came from, and what to do after a group change when not from AD.
+  it.each([
+    ['Directory', 'Your groups were read from Active Directory just now.'],
+    ['DirectoryUnavailable', "Active Directory couldn't be reached"],
+    ['WindowsSignIn', 'sign out of Windows and back on.'],
+    ['SignIn', 'sign out of BlueTrack and back in.']
+  ])('Reload My Rights says where the groups came from: %s', async (groupSource, text) => {
+    const wrapper = mountPage(() => Promise.resolve(json({ roleNames: ['Viewer'], permissionNames: ['ViewDashboard'], groupSource })))
+    await flushPromises()
+
+    await wrapper.findAll('button').find(b => b.text() === 'Reload My Rights').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('[role="status"]').text()).toContain(text)
+  })
+
   it('a failed reload shows the error beside the button, not instead of the page', async () => {
     const wrapper = mountPage(() => Promise.resolve(json(null, false, 500)))
     await flushPromises()

@@ -108,7 +108,7 @@ public sealed class MeController(
     [HttpPost("reload-rights")]
     public async Task<IActionResult> ReloadRights()
     {
-        var rights = await rightsResolver.RefreshAsync(User);
+        var reload = await rightsResolver.RefreshAsync(User);
 
         var user = await currentUserResolver.ResolveAsync(User);
         if (user is not null)
@@ -116,6 +116,7 @@ public sealed class MeController(
             await auditLogger.LogAsync("ReloadRights", user.UserKey, "app_user", user.UserKey.ToString(), detail: "Self-service Reload My Rights");
         }
 
-        return Ok(rights);
+        // D-303: groupSource says whether the groups were read from AD just now, or come from the sign-in.
+        return Ok(new { reload.Rights.RoleNames, reload.Rights.PermissionNames, reload.GroupSource });
     }
 }

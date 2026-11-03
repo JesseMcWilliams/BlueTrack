@@ -387,7 +387,9 @@ function Grant-BlueTrackAppPoolSqlAccess {
     .SYNOPSIS
         Gives the IIS Application Pool's account the SQL Server access the API
         needs (D-170): CREATE LOGIN if it's missing, then
-        Database/Manual/02_BlueTrack_GrantAppServiceAccountAccess.sql for that account.
+        Database/Manual/02_BlueTrack_GrantAppServiceAccountAccess.sql for that account,
+        then Database/Manual/08_BlueTrack_GrantAppAgentJobStart.sql (D-302: msdb's
+        SQLAgentOperatorRole, so Pull now can start the Import and Load job).
     .DESCRIPTION
         Script 41's own rules still apply: least privilege (db_datareader,
         db_datawriter, EXECUTE on dbo/web -- not db_owner), and the tracked
@@ -421,6 +423,12 @@ function Grant-BlueTrackAppPoolSqlAccess {
     $createLogin = "IF NOT EXISTS (SELECT 1 FROM sys.server_principals WHERE name = N'$Account') CREATE LOGIN [$Account] FROM WINDOWS;"
     $tempScript = Join-Path $env:TEMP "02_BlueTrack_GrantAppServiceAccountAccess.$([guid]::NewGuid()).sql"
     Set-Content -Path $tempScript -Value ((Get-Content -Path $sourceScript -Raw).Replace('__TARGET_ACCOUNT__', $Account)) -Encoding UTF8
+    $agentSourceScript = Join-Path $RepoRoot 'Database\Manual\08_BlueTrack_GrantAppAgentJobStart.sql'
+    if (-not (Test-Path $agentSourceScript)) {
+        throw "Could not find '$agentSourceScript'."
+    }
+    $agentTempScript = Join-Path $env:TEMP "08_BlueTrack_GrantAppAgentJobStart.$([guid]::NewGuid()).sql"
+    Set-Content -Path $agentTempScript -Value ((Get-Content -Path $agentSourceScript -Raw).Replace('__TARGET_ACCOUNT__', $Account)) -Encoding UTF8
 
     try {
         if ($PSCmdlet.ShouldProcess($SqlServerInstance, "CREATE LOGIN [$Account] FROM WINDOWS (if missing)")) {
@@ -437,8 +445,15 @@ function Grant-BlueTrackAppPoolSqlAccess {
                 throw "sqlcmd failed granting '$Account' access to '$DatabaseName' (exit code $LASTEXITCODE) -- see the output above."
             }
         }
+        # D-302: Pull now starts the Import and Load job, which needs msdb's SQLAgentOperatorRole.
+        if ($PSCmdlet.ShouldProcess($SqlServerInstance, "Run 08_BlueTrack_GrantAppAgentJobStart.sql for '$Account' (msdb SQLAgentOperatorRole)")) {
+            & sqlcmd -S $SqlServerInstance @trustArgs -i $agentTempScript | Out-Host
+            if ($LASTEXITCODE -ne 0) {
+                throw "sqlcmd failed adding '$Account' to msdb's SQLAgentOperatorRole (exit code $LASTEXITCODE) -- see the output above."
+            }
+        }
     } finally {
-        Remove-Item -Path $tempScript -ErrorAction SilentlyContinue -WhatIf:$false
+        Remove-Item -Path $tempScript, $agentTempScript -ErrorAction SilentlyContinue -WhatIf:$false
     }
 }
 

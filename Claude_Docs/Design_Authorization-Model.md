@@ -75,6 +75,8 @@ Since a user can hold multiple roles and roles can change over time, a role/perm
 - **Self-service:** a user can trigger "Reload My Rights" themselves after knowing they were just added to a new group, without waiting for their session to expire.
 - **Administrative:** an Admin-permission holder can trigger a reload for another user's active session — useful immediately after correcting a group-role mapping mistake.
 
+**Built 2026-11-03 (D-303), for Windows sign-in only:** Reload Rights reads the user's groups from AD (`tokenGroups`, through the LDAP domains on Admin > Credentials & LDAP) and keeps doing so at each cache refresh until the user's Windows sign-in changes, or 7 days; if AD can't be read, the sign-in's groups are used and the user is told. OIDC and SAML groups still come from the sign-in's claims, and the page tells the user to sign out and back in after a group change. Until D-303 Reload Rights only re-mapped the session's own groups.
+
 **Resolved 2026-08-27:** Reload Rights performs a **live query** against the IdP/AD in real time — it does not refresh from a cached group-membership snapshot. (D-13) Self-service Reload Rights is available to **every user**, not restricted to Admins acting on someone else's session — the administrative reload-for-another-user path remains available in addition to, not instead of, self-service. (D-14)
 
 ## Claims Normalization Pipeline

@@ -68,12 +68,17 @@ async function loadDirectPulls() {
   directPulls.value = await response.json()
 }
 
+// D-302: a Pull now that succeeded starts the Import and Load; the page keeps refreshing until that ends too.
+function directBusy() {
+  return directPulls.value.running || directPulls.value.pulls[0]?.loadStatus === 'Running'
+}
+
 function startDirectPolling() {
   if (directTimer) return
   directTimer = setInterval(async () => {
     try {
       await loadDirectPulls()
-      if (!directPulls.value.running) stopDirectPolling()
+      if (!directBusy()) stopDirectPolling()
     } catch (err) {
       stopDirectPolling()
       error.value = err.message
@@ -136,7 +141,7 @@ async function load() {
     await Promise.all([loadFeeds(), loadStatus(), loadCyberArk()])
     if (isDirect()) {
       await loadDirectPulls()
-      if (directPulls.value.running) startDirectPolling()
+      if (directBusy()) startDirectPolling()
     }
     if (status.value.isRunning) startPolling()
   } catch (err) {
@@ -253,6 +258,15 @@ async function remove(feed) {
               <td>
                 <strong :class="`outcome-${p.status}`">{{ p.status }}</strong>
                 <br /><small v-if="p.message">{{ p.message }}</small>
+                <template v-if="p.loadStatus">
+                  <br /><small :class="`load-${p.loadStatus}`">
+                    <template v-if="p.loadStatus === 'Running'">{{ t('admin.dataSources.loadRunning') }}</template>
+                    <template v-else-if="p.loadStatus === 'Succeeded'">{{ t('admin.dataSources.loadSucceeded') }}</template>
+                    <template v-else-if="p.loadStatus === 'Failed'">{{ t('admin.dataSources.loadFailed', { message: p.loadMessage ?? '' }) }}</template>
+                    <template v-else-if="p.loadStatus === 'NotStarted'">{{ t('admin.dataSources.loadNotStarted', { message: p.loadMessage ?? '' }) }}</template>
+                    <template v-else>{{ t('admin.dataSources.loadUnknown') }}</template>
+                  </small>
+                </template>
               </td>
               <td>
                 <template v-if="p.status === 'Rejected' && p.safeCount !== null && p.baselineSafeCount !== null">{{ t('admin.dataSources.pullCountsChange', { safesBefore: formatCount(p.baselineSafeCount), safes: formatCount(p.safeCount), accountsBefore: formatCount(p.baselineAccountCount), accounts: formatCount(p.accountCount) }) }}</template>
@@ -321,5 +335,5 @@ async function remove(feed) {
 </template>
 
 <style scoped>
-.outcome-Failed, .outcome-Rejected, .pull-banner { color: var(--color-error, #b00020); }
+.outcome-Failed, .outcome-Rejected, .load-Failed, .load-NotStarted, .pull-banner { color: var(--color-error, #b00020); }
 </style>
