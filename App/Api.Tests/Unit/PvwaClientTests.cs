@@ -261,6 +261,34 @@ public class PvwaClientTests
     }
 
     [Fact]
+    public async Task ClassicDetails_ReadTheFolder_AndAnUnchangedAccountReadBeforeTheRefreshDateIsReadAgain()
+    {
+        var fake = RichPvwa();
+        fake.Routes[ClassicSearch] = _ => Ok(ClassicRec.Replace("""{"Key":"Safe","Value":"My Safe"}""", """{"Key":"Safe","Value":"My Safe"},{"Key":"Folder","Value":"Archive"}"""));
+        var rec = DateTimeOffset.FromUnixTimeSeconds(1792455167).UtcDateTime;
+        var now = DateTime.UtcNow;
+        PvwaPullOptions Options(DateTime readAt, DateTime? before, int max) => new()
+        {
+            CachedDetails = new Dictionary<string, PvwaAccountDetail> { ["60_6"] = Cached("60_6", rec, "Cached type") with { ReadAt = readAt } },
+            RefreshReadBefore = before, RefreshMaxAccounts = max
+        };
+
+        // D-299: read 10 days ago, refresh after 7: read again, with its folder.
+        var snapshot = await Client(fake).PullAsync(Token, CancellationToken.None, Options(now.AddDays(-10), now.AddDays(-7), 5));
+        var account = snapshot.Accounts.Single(a => a.Id == "60_6");
+        Assert.Equal(("Archive", "Operating System", true), (account.Detail!.Folder, account.Detail.DeviceType, account.DetailReadThisPull));
+
+        // Read 2 days ago, or no room left this pull: kept as it was.
+        foreach (var options in new[] { Options(now.AddDays(-2), now.AddDays(-7), 5), Options(now.AddDays(-10), now.AddDays(-7), 0), Options(now.AddDays(-10), null, 5) })
+        {
+            var again = RichPvwa();
+            again.Routes[ClassicSearch] = _ => Ok(ClassicRec);
+            var kept = (await Client(again).PullAsync(Token, CancellationToken.None, options)).Accounts.Single(a => a.Id == "60_6");
+            Assert.Equal(("Cached type", false), (kept.Detail!.DeviceType, kept.DetailReadThisPull));
+        }
+    }
+
+    [Fact]
     public async Task ClassicDetails_AFailedCallIsTriedOnceMore_BeforeItCountsAsFailed()
     {
         // D-288: the lab's PVWA answered some of these calls with a 302 under load and the same call a moment later with a 200.

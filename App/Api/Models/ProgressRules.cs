@@ -36,14 +36,21 @@ public sealed class ProgressRuleCondition
     public string? Value { get; init; }
 }
 
-/// <summary>D-283: a Progress Rule: accounts at FromStageKey move to ToStageKey (a later stage) when every condition matches.</summary>
+/// <summary>
+/// D-283: a Progress Rule: accounts at FromStageKey move to ToStageKey (a later stage) when every condition matches.
+/// D-298: an archive rule (RuleAction Archive) instead sets matching accounts at any stage to Archived; it has no stages.
+/// </summary>
 public sealed class ProgressRule
 {
+    public const string MoveStage = "MoveStage";
+    public const string Archive = "Archive";
+
     public int ProgressRuleKey { get; init; }
     public required string RuleName { get; init; }
-    public int FromStageKey { get; init; }
+    public string RuleAction { get; init; } = MoveStage;
+    public int? FromStageKey { get; init; }
     public string? FromStageName { get; init; }
-    public int ToStageKey { get; init; }
+    public int? ToStageKey { get; init; }
     public string? ToStageName { get; init; }
     public bool IsEnabled { get; init; }
     public string? Description { get; init; }
@@ -55,6 +62,8 @@ public sealed class ProgressRule
 public sealed class SaveProgressRuleRequest
 {
     public string? RuleName { get; init; }
+    /// <summary>MoveStage (the default) or Archive (D-298; the stages are ignored).</summary>
+    public string? RuleAction { get; init; }
     public int? FromStageKey { get; init; }
     public int? ToStageKey { get; init; }
     public bool IsEnabled { get; init; } = true;
@@ -62,7 +71,7 @@ public sealed class SaveProgressRuleRequest
     public IReadOnlyList<ProgressRuleCondition>? Conditions { get; init; }
 }
 
-/// <summary>D-283: Test: how many accounts at the stage the conditions would move now, and up to 50 of them.</summary>
+/// <summary>D-283: Test: how many accounts at the stage the conditions would move now (D-298: or archive, at any stage), and up to 50 of them.</summary>
 public sealed class ProgressRulePreview
 {
     public int MatchCount { get; init; }

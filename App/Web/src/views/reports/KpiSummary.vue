@@ -82,6 +82,12 @@ const kpis = computed(() => {
         </tbody>
       </table>
       <p>{{ t('reports.kpiSummary.totalAccounts', { count: formatCount(summary.totalAccounts) }) }}</p>
+      <!-- D-298: Archived accounts are out of scope and counted on their own. -->
+      <p>
+        {{ t('reports.kpiSummary.archivedAccounts') }}
+        <router-link v-if="summary.archivedAccounts > 0" :to="{ name: 'account-progress-list', query: { kpi: 'archived' } }">{{ formatCount(summary.archivedAccounts) }}</router-link>
+        <template v-else>{{ formatCount(summary.archivedAccounts) }}</template>
+      </p>
       <p v-if="asOf"><small>{{ t('reports.kpiSummary.asOf', { time: formatUtcDateTime(asOf.toISOString()) }) }}</small></p>
       <!-- UI review W7-3: what the words mean (D-143). -->
       <h3>{{ t('reports.kpiSummary.definitionsHeading') }}</h3>
@@ -91,6 +97,7 @@ const kpis = computed(() => {
         <dt>{{ t('reports.kpiSummary.defOnboardedTerm') }}</dt><dd>{{ t('reports.kpiSummary.defOnboarded') }}</dd>
         <dt>{{ t('reports.kpiSummary.defManagedTerm') }}</dt><dd>{{ t('reports.kpiSummary.defManaged') }}</dd>
         <dt>{{ t('reports.kpiSummary.defCompliantTerm') }}</dt><dd>{{ t('reports.kpiSummary.defCompliant') }}</dd>
+        <dt>{{ t('reports.kpiSummary.defArchivedTerm') }}</dt><dd>{{ t('reports.kpiSummary.defArchived') }}</dd>
       </dl>
       <p><small>{{ t('reports.kpiSummary.listNote') }}</small></p>
     </template>

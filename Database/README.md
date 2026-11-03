@@ -71,6 +71,7 @@ instead.
 | 53 | `53_BlueTrack_FormatCulture.sql` | D-294: `web.app_config.FormatCulture` (`en-US`), the number and date format of emails and run summaries. |
 | 54 | `54_BlueTrack_AuditChain.sql` | D-295: `web.audit_chain`, `web.audit_chain_key`, `web.audit_chain_state`, `web.audit_chain_purged`; the AuditChainVerified audit event type and the AuditChainBroken notification type (off); recreates `usp_PurgeAuditLog` (only sealed events, records what it deleted). |
 | 55 | `55_BlueTrack_AnalystFieldAccess.sql` | D-296: Blueprint Stage, Account Type and Application need no permission beyond EditAccountProgress again (clears script 51's value only where it is unchanged). |
+| 56 | `56_BlueTrack_ArchivedStatusAndFolder.sql` | D-298: the Archived status; `fact_account_progress.ArchivedByRuleKey/ArchivedAt/ArchiveRuleExempt`; `web.progress_rule.RuleAction` (MoveStage, Archive; stages nullable for Archive); `fn_ArchiveRuleMatch`; recreates `fn_ProgressAccountFields` (adds Folder, CpmDisabledReason), `usp_Load_AccountProgressAutoAdvance` and `usp_Preview_ProgressRule`. D-299: `Folder` on the classic-detail cache, `stg_shd_account_details` and `fact_account` (every cached detail read once more); `web.cyberark_source_config.DetailRefreshEnabled/Days/MaxAccounts`; recreates `usp_Load_FactAccountClassicDetail`. |
 
 ## The baseline (D-195)
 
@@ -95,7 +96,7 @@ scripts but not up to `51` is refused; upgrade it first from the
 
 ## Adding a script
 
-1. Name it `NN_BlueTrack_<Topic>.sql`, with `NN` the next number (`56` is next).
+1. Name it `NN_BlueTrack_<Topic>.sql`, with `NN` the next number (`57` is next).
 2. Start with a header comment: the file name, `RUN THIS AFTER 01-NN.`, what
    it changes and why (with the `D-n` decision), and whether it's safe to
    re-run.

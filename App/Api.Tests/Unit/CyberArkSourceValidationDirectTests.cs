@@ -63,6 +63,32 @@ public class CyberArkSourceValidationDirectTests
     [Fact]
     public void PullTimeLimit_DefaultsTo45Minutes() => Assert.Equal(45, CyberArkSourceValidation.Normalize(new CyberArkSourceSettings()).DirectPullTimeLimitMinutes);
 
+    [Theory]
+    [InlineData(1, 1, true)]
+    [InlineData(365, 100_000, true)]
+    [InlineData(0, 1000, false)]
+    [InlineData(366, 1000, false)]
+    [InlineData(7, 0, false)]
+    [InlineData(7, 100_001, false)]
+    public void DetailRefresh_IsEvery1To365Days_1To100000Accounts(int days, int max, bool valid)
+    {
+        var s = CyberArkSourceValidation.Normalize(Direct());
+        var errors = CyberArkSourceValidation.Validate(new CyberArkSourceSettings
+        {
+            ImportSelfHosted = s.ImportSelfHosted, PvwaBaseUrl = s.PvwaBaseUrl, PvwaCredentialKey = s.PvwaCredentialKey,
+            DetailRefreshEnabled = true, DetailRefreshDays = days, DetailRefreshMaxAccounts = max
+        }, NoRoots);
+
+        Assert.Equal(valid, errors.Count == 0);
+    }
+
+    [Fact]
+    public void DetailRefresh_IsOffByDefault_Every7Days_1000Accounts()
+    {
+        var s = CyberArkSourceValidation.Normalize(new CyberArkSourceSettings());
+        Assert.Equal((false, 7, 1000), (s.DetailRefreshEnabled, s.DetailRefreshDays, s.DetailRefreshMaxAccounts));
+    }
+
     [Fact]
     public void MissingAddressAndCredential_AreBothRequired()
     {

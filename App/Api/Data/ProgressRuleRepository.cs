@@ -160,13 +160,14 @@ public sealed class ProgressRuleRepository(IDbConnectionFactory connectionFactor
     {
         using var connection = connectionFactory.Create();
         using var multi = await connection.QueryMultipleAsync("""
-            SELECT r.ProgressRuleKey, r.RuleName, r.FromStageKey, fs.StageName AS FromStageName, r.ToStageKey, ts.StageName AS ToStageName,
+            SELECT r.ProgressRuleKey, r.RuleName, r.RuleAction, r.FromStageKey, fs.StageName AS FromStageName, r.ToStageKey, ts.StageName AS ToStageName,
                    r.IsEnabled, r.Description, u.DisplayName AS ModifiedByName, r.ModifiedDate
             FROM web.progress_rule r
-            JOIN dbo.dim_blueprint_stage fs ON fs.StageKey = r.FromStageKey
-            JOIN dbo.dim_blueprint_stage ts ON ts.StageKey = r.ToStageKey
+            LEFT JOIN dbo.dim_blueprint_stage fs ON fs.StageKey = r.FromStageKey
+            LEFT JOIN dbo.dim_blueprint_stage ts ON ts.StageKey = r.ToStageKey
             LEFT JOIN web.app_user u ON u.UserKey = r.ModifiedBy
-            ORDER BY fs.StageOrder, r.ProgressRuleKey;
+            -- D-298: archive rules first, as the Load applies them first.
+            ORDER BY CASE r.RuleAction WHEN 'Archive' THEN 0 ELSE 1 END, fs.StageOrder, r.ProgressRuleKey;
 
             SELECT ProgressRuleKey, FieldName, Operator, Value FROM web.progress_rule_condition ORDER BY ProgressRuleKey, ProgressRuleConditionKey;
             """);
@@ -192,15 +193,23 @@ public sealed class ProgressRuleRepository(IDbConnectionFactory connectionFactor
         using var connection = connectionFactory.Create();
         connection.Open();
         using var transaction = connection.BeginTransaction();
-        var p = new { ruleKey, RuleName = request.RuleName!.Trim(), request.FromStageKey, request.ToStageKey, request.IsEnabled, Description = string.IsNullOrWhiteSpace(request.Description) ? null : request.Description.Trim(), userKey };
+        // D-298: an archive rule has no stages.
+        var archive = request.RuleAction == ProgressRule.Archive;
+        var p = new
+        {
+            ruleKey, RuleName = request.RuleName!.Trim(), RuleAction = archive ? ProgressRule.Archive : ProgressRule.MoveStage,
+            FromStageKey = archive ? null : request.FromStageKey, ToStageKey = archive ? null : request.ToStageKey,
+            request.IsEnabled, Description = string.IsNullOrWhiteSpace(request.Description) ? null : request.Description.Trim(), userKey
+        };
         int? key = ruleKey is null
             ? await connection.QuerySingleAsync<int>("""
-                INSERT INTO web.progress_rule (RuleName, FromStageKey, ToStageKey, IsEnabled, Description, ModifiedBy) VALUES (@RuleName, @FromStageKey, @ToStageKey, @IsEnabled, @Description, @userKey);
+                INSERT INTO web.progress_rule (RuleName, RuleAction, FromStageKey, ToStageKey, IsEnabled, Description, ModifiedBy)
+                VALUES (@RuleName, @RuleAction, @FromStageKey, @ToStageKey, @IsEnabled, @Description, @userKey);
                 SELECT CAST(SCOPE_IDENTITY() AS INT);
                 """, p, transaction)
             : await connection.ExecuteAsync("""
-                UPDATE web.progress_rule SET RuleName = @RuleName, FromStageKey = @FromStageKey, ToStageKey = @ToStageKey, IsEnabled = @IsEnabled, Description = @Description,
-                    ModifiedBy = @userKey, ModifiedDate = SYSUTCDATETIME()
+                UPDATE web.progress_rule SET RuleName = @RuleName, RuleAction = @RuleAction, FromStageKey = @FromStageKey, ToStageKey = @ToStageKey,
+                    IsEnabled = @IsEnabled, Description = @Description, ModifiedBy = @userKey, ModifiedDate = SYSUTCDATETIME()
                 WHERE ProgressRuleKey = @ruleKey
                 """, p, transaction) == 0 ? null : ruleKey;
         if (key is null) return null;
@@ -222,7 +231,8 @@ public sealed class ProgressRuleRepository(IDbConnectionFactory connectionFactor
             "DELETE FROM web.progress_rule OUTPUT deleted.RuleName WHERE ProgressRuleKey = @ruleKey", new { ruleKey });
     }
 
-    public async Task<ProgressRulePreview> PreviewAsync(int fromStageKey, IReadOnlyList<ProgressRuleCondition> conditions)
+    /// <summary>fromStageKey null: an archive rule (D-298), which looks at accounts at every stage.</summary>
+    public async Task<ProgressRulePreview> PreviewAsync(int? fromStageKey, IReadOnlyList<ProgressRuleCondition> conditions)
     {
         using var connection = connectionFactory.Create();
         var json = JsonSerializer.Serialize(conditions.Select(c => new { c.FieldName, c.Operator, c.Value }));

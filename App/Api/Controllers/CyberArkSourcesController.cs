@@ -78,6 +78,9 @@ public sealed class CyberArkSourcesController(
         Track(nameof(settings.DirectPullTime), old.DirectPullTime, settings.DirectPullTime);
         Track(nameof(settings.DirectMaxChangePercent), old.DirectMaxChangePercent.ToString(), settings.DirectMaxChangePercent.ToString());
         Track(nameof(settings.DirectPullTimeLimitMinutes), old.DirectPullTimeLimitMinutes.ToString(), settings.DirectPullTimeLimitMinutes.ToString());
+        Track(nameof(settings.DetailRefreshEnabled), old.DetailRefreshEnabled.ToString(), settings.DetailRefreshEnabled.ToString());
+        Track(nameof(settings.DetailRefreshDays), old.DetailRefreshDays.ToString(), settings.DetailRefreshDays.ToString());
+        Track(nameof(settings.DetailRefreshMaxAccounts), old.DetailRefreshMaxAccounts.ToString(), settings.DetailRefreshMaxAccounts.ToString());
         if (changes.Count > 0)
         {
             await auditLogger.LogAsync("FieldEdit", user.UserKey, "cyberark_source_config", "1",

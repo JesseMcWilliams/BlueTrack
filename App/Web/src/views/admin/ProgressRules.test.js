@@ -76,7 +76,8 @@ describe('Progress Rules and Blueprint Stages', () => {
     const wrapper = mount(ProgressRuleEdit, { global: { plugins: [router] } })
     await flushPromises()
 
-    const [from, to] = wrapper.findAll('select').slice(0, 2)
+    const [action, from, to] = wrapper.findAll('select').slice(0, 3)
+    expect(action.element.value).toBe('MoveStage')
     expect(from.element.value).toBe('1')
     expect(to.findAll('option').map(o => o.text())).toEqual(['Assessed / Prioritized', 'Onboarded to Vault'])
     await to.setValue('3')
@@ -97,7 +98,36 @@ describe('Progress Rules and Blueprint Stages', () => {
     await wrapper.find('form').trigger('submit')
     await flushPromises()
     const saved = globalThis.fetch.mock.calls.find(([url, init]) => url === '/api/admin/progress-rules' && init?.method === 'POST')
-    expect(JSON.parse(saved[1].body)).toMatchObject({ ruleName: 'Managed', fromStageKey: 1, toStageKey: 3, isEnabled: true })
+    expect(JSON.parse(saved[1].body)).toMatchObject({ ruleName: 'Managed', ruleAction: 'MoveStage', fromStageKey: 1, toStageKey: 3, isEnabled: true })
+  })
+
+  it('an archive rule (D-298) has no stages, is listed as such, and Test counts what it would archive', async () => {
+    globalThis.fetch = vi.fn((url, init) => {
+      if (url === '/api/admin/blueprint-stages') return Promise.resolve(jsonResponse(stages))
+      if (url === '/api/admin/progress-rules/fields') return Promise.resolve(jsonResponse(fields))
+      if (url === '/api/admin/progress-rules/preview') return Promise.resolve(jsonResponse({ matchCount: 3, accounts: [] }))
+      if (init?.method === 'POST') return Promise.resolve(jsonResponse({ progressRuleKey: 9 }, { status: 201 }))
+      return Promise.resolve(jsonResponse(null, { ok: false, status: 404 }))
+    })
+    const wrapper = mount(ProgressRuleEdit, { global: { plugins: [makeRouter()] } })
+    await flushPromises()
+
+    await wrapper.find('select').setValue('Archive')
+    expect(wrapper.findAll('label').some(l => l.text().startsWith('Move accounts from'))).toBe(false)
+    await wrapper.find('input[maxlength="200"]').setValue('LCD archive')
+    await wrapper.find('.condition input').setValue('failure')
+    await wrapper.findAll('button').find(b => b.text() === 'Test').trigger('click')
+    await flushPromises()
+    expect(wrapper.find('.preview').text()).toContain('3 accounts would be archived now')
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+    const saved = globalThis.fetch.mock.calls.find(([url, init]) => url === '/api/admin/progress-rules' && init?.method === 'POST')
+    expect(JSON.parse(saved[1].body)).toMatchObject({ ruleName: 'LCD archive', ruleAction: 'Archive', fromStageKey: null, toStageKey: null })
+
+    globalThis.fetch = vi.fn(() => Promise.resolve(jsonResponse([{ ...rule, ruleAction: 'Archive', fromStageKey: null, fromStageName: null, toStageKey: null, toStageName: null }])))
+    const list = mount(ProgressRules, { global: { plugins: [makeRouter()] } })
+    await flushPromises()
+    expect(list.findAll('tbody td')[1].text()).toBe('to Archived (any stage)')
   })
 
   it('stages: saves a row, moves one, shows a refusal, and adds one at the end', async () => {

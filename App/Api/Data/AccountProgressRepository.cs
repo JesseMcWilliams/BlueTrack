@@ -57,10 +57,12 @@ public sealed class AccountProgressRepository(IDbConnectionFactory connectionFac
           AND (@SearchPattern IS NULL OR fa.UserName LIKE @SearchPattern OR fa.Address LIKE @SearchPattern OR fa.AccountName LIKE @SearchPattern)
           -- UI review W7-1: the KPI Summary's counts (D-143), so each count can open the accounts behind it.
           AND (@Kpi IS NULL OR @Kpi = 'total'
-               OR (@Kpi = 'inScope'    AND sts.StatusName <> 'Risk Accepted / Excluded')
+               -- D-298: Archived is out of scope too.
+               OR (@Kpi = 'inScope'    AND sts.StatusName NOT IN ('Risk Accepted / Excluded', 'Archived'))
                -- D-284: each KPI counts from the stage marked with its milestone.
-               OR (@Kpi = 'onboarded'  AND sts.StatusName <> 'Risk Accepted / Excluded' AND stg.StageOrder >= dbo.fn_MilestoneStageOrder(N'Onboarded'))
-               OR (@Kpi = 'managed'    AND sts.StatusName <> 'Risk Accepted / Excluded' AND stg.StageOrder >= dbo.fn_MilestoneStageOrder(N'Managed'))
+               OR (@Kpi = 'onboarded'  AND sts.StatusName NOT IN ('Risk Accepted / Excluded', 'Archived') AND stg.StageOrder >= dbo.fn_MilestoneStageOrder(N'Onboarded'))
+               OR (@Kpi = 'managed'    AND sts.StatusName NOT IN ('Risk Accepted / Excluded', 'Archived') AND stg.StageOrder >= dbo.fn_MilestoneStageOrder(N'Managed'))
+               OR (@Kpi = 'archived'   AND sts.StatusName = 'Archived')
                OR (@Kpi = 'compliant'  AND stg.StageOrder >= dbo.fn_MilestoneStageOrder(N'Compliant') AND sts.StatusName = 'Complete'))
         """;
 
@@ -207,7 +209,7 @@ public sealed class AccountProgressRepository(IDbConnectionFactory connectionFac
         })).AsList();
     }
 
-    /// <summary>UI review W7-1: one of the KPI Summary's counts (total, inScope, onboarded, managed, compliant), or null for no KPI filter; an unknown value is ignored.</summary>
+    /// <summary>UI review W7-1: one of the KPI Summary's counts (total, inScope, onboarded, managed, compliant; D-298 archived), or null for no KPI filter; an unknown value is ignored.</summary>
     private static string? NormalizeKpi(string? kpi) => kpi?.ToLowerInvariant() switch
     {
         "total" => "total",
@@ -215,6 +217,7 @@ public sealed class AccountProgressRepository(IDbConnectionFactory connectionFac
         "onboarded" => "onboarded",
         "managed" => "managed",
         "compliant" => "compliant",
+        "archived" => "archived",
         _ => null
     };
 
@@ -255,7 +258,7 @@ public sealed class AccountProgressRepository(IDbConnectionFactory connectionFac
             SELECT
                 fap.ProgressKey, fap.AccountKey, fa.AccountName, fa.UserName, fa.Address,
                 fa.CreatedTime, fa.LastCPMAction, fa.LastCPMActionResult, fa.LastCPMActionTime,
-                fa.DeviceType, fa.CreationMethod, fa.LinkedLogonAccount, fa.LinkedReconcileAccount,
+                fa.DeviceType, fa.CreationMethod, fa.LinkedLogonAccount, fa.LinkedReconcileAccount, fa.Folder,
                 -- D-288: CPM health, for both sources.
                 fa.CPMStatus, fa.CpmFailureSince, fa.AutoManaged, fa.ManualReason, fa.LastVerifiedDate, fa.LastReconciledDate, fa.LastCPMModifiedDate,
                 (SELECT pl.RequirePsm FROM dbo.dim_platform pl WHERE pl.PlatformKey = fa.PlatformKey) AS RequirePsm,
@@ -265,6 +268,9 @@ public sealed class AccountProgressRepository(IDbConnectionFactory connectionFac
                 -- D-283: the Progress Rule that last moved the account (its name, if the rule still exists).
                 (SELECT pr.RuleName FROM web.progress_rule pr WHERE pr.ProgressRuleKey = fap.LastAdvancedByRuleKey) AS LastAdvancedByRuleName,
                 CASE WHEN fap.LastAdvancedByRuleKey IS NOT NULL THEN fap.LastAdvancedAt END AS LastAdvancedAt,
+                -- D-298: the archive rule that archived it, while it is Archived.
+                (SELECT pr.RuleName FROM web.progress_rule pr WHERE pr.ProgressRuleKey = fap.ArchivedByRuleKey) AS ArchivedByRuleName,
+                CASE WHEN fap.ArchivedByRuleKey IS NOT NULL THEN fap.ArchivedAt END AS ArchivedAt,
                 fap.CurrentStageKey, fap.CurrentStatusKey, fap.RiskLevelKey, fap.AccountTypeKey, fap.SORKey, fap.ApplicationKey,
                 fap.OwnerName, fap.BusinessUnit, fap.TargetRemediationDate, fap.ActualCompletionDate, fap.Notes,
                 fap.LastUpdated, fap.ExceptionKey,
@@ -297,15 +303,22 @@ public sealed class AccountProgressRepository(IDbConnectionFactory connectionFac
     /// resolves it first (required + must be an Active exception on this
     /// account when status = Risk Accepted / Excluded; cleared otherwise).
     /// </summary>
+    /// <remarks>D-298: a person who changes the status off Archived makes the archive rules leave the account alone until
+    /// they stop matching it (ArchiveRuleExempt); any status change forgets the rule that archived it.</remarks>
     public async Task UpdateAsync(long accountKey, SaveAccountProgressRequest request, int? exceptionKey)
     {
         using var connection = connectionFactory.Create();
         const string sql = """
+            DECLARE @Archived INT = (SELECT StatusKey FROM dbo.dim_progress_status WHERE StatusName = N'Archived');
             UPDATE dbo.fact_account_progress
             SET CurrentStageKey = @CurrentStageKey, CurrentStatusKey = @CurrentStatusKey, RiskLevelKey = @RiskLevelKey,
                 AccountTypeKey = @AccountTypeKey, SORKey = @SORKey, ApplicationKey = @ApplicationKey, OwnerName = @OwnerName, BusinessUnit = @BusinessUnit,
                 TargetRemediationDate = @TargetRemediationDate, ActualCompletionDate = @ActualCompletionDate,
-                Notes = @Notes, ExceptionKey = @ExceptionKey, LastUpdated = SYSUTCDATETIME()
+                Notes = @Notes, ExceptionKey = @ExceptionKey, LastUpdated = SYSUTCDATETIME(),
+                ArchiveRuleExempt = CASE WHEN CurrentStatusKey = @Archived AND @CurrentStatusKey <> @Archived THEN 1
+                                         WHEN @CurrentStatusKey = @Archived THEN 0 ELSE ArchiveRuleExempt END,
+                ArchivedByRuleKey = CASE WHEN CurrentStatusKey = @CurrentStatusKey THEN ArchivedByRuleKey END,
+                ArchivedAt = CASE WHEN CurrentStatusKey = @CurrentStatusKey THEN ArchivedAt END
             WHERE AccountKey = @AccountKey
             """;
         await connection.ExecuteAsync(sql, new

@@ -221,6 +221,20 @@ function cancel() {
                 <label class="field-label"><span class="field-label-text">{{ t('admin.cyberArkSourcesEdit.timeLimitLabel') }}</span> <input v-model.number="editing.directPullTimeLimitMinutes" type="number" min="5" max="720" required /></label>
                 <small>{{ t('admin.cyberArkSourcesEdit.timeLimitHint') }}</small>
               </p>
+              <!-- D-299: re-read the classic account details (folder, device type, ...) every so often. -->
+              <p>
+                <label><input v-model="editing.detailRefreshEnabled" type="checkbox" /> {{ t('admin.cyberArkSourcesEdit.detailRefreshLabel') }}</label>
+                <small>{{ ' ' + t('admin.cyberArkSourcesEdit.detailRefreshHint') }}</small>
+              </p>
+              <template v-if="editing.detailRefreshEnabled">
+                <p>
+                  <label class="field-label"><span class="field-label-text">{{ t('admin.cyberArkSourcesEdit.detailRefreshDaysLabel') }}</span> <input v-model.number="editing.detailRefreshDays" type="number" min="1" max="365" required /></label>
+                </p>
+                <p>
+                  <label class="field-label"><span class="field-label-text">{{ t('admin.cyberArkSourcesEdit.detailRefreshMaxLabel') }}</span> <input v-model.number="editing.detailRefreshMaxAccounts" type="number" min="1" max="100000" required /></label>
+                  <small>{{ t('admin.cyberArkSourcesEdit.detailRefreshMaxHint') }}</small>
+                </p>
+              </template>
             </template>
             <template v-if="usesPvwa">
               <p>

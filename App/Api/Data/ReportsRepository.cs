@@ -119,7 +119,8 @@ public sealed class ReportsRepository(IDbConnectionFactory connectionFactory)
     /// computed directly from this one row. "In scope" reuses the existing
     /// Risk Accepted / Excluded status (D-19/D-59) rather than a new
     /// exception type -- an account only leaves scope through that same,
-    /// already-enforced accepted-exception mechanism. Onboarded/Managed count
+    /// already-enforced accepted-exception mechanism, or (D-298) by being
+    /// Archived, which is also counted on its own. Onboarded/Managed count
     /// accounts at or past the stage marked with that milestone (D-284; were
     /// fixed positions 3 and 4), and both are additionally restricted to
     /// accounts still in scope so the funnel stays strictly nested; Compliant
@@ -148,10 +149,11 @@ public sealed class ReportsRepository(IDbConnectionFactory connectionFactory)
             )
             SELECT
                 COUNT(*) AS TotalAccounts,
-                SUM(CASE WHEN ISNULL(StatusName, '') <> 'Risk Accepted / Excluded' THEN 1 ELSE 0 END) AS InScopeAccounts,
-                SUM(CASE WHEN ISNULL(StatusName, '') <> 'Risk Accepted / Excluded' AND StageOrder >= @Onboarded THEN 1 ELSE 0 END) AS OnboardedAccounts,
-                SUM(CASE WHEN ISNULL(StatusName, '') <> 'Risk Accepted / Excluded' AND StageOrder >= @Managed THEN 1 ELSE 0 END) AS ManagedAccounts,
-                SUM(CASE WHEN StageOrder >= @Compliant AND StatusName = 'Complete' THEN 1 ELSE 0 END) AS CompliantAccounts
+                SUM(CASE WHEN ISNULL(StatusName, '') NOT IN ('Risk Accepted / Excluded', 'Archived') THEN 1 ELSE 0 END) AS InScopeAccounts,
+                SUM(CASE WHEN ISNULL(StatusName, '') NOT IN ('Risk Accepted / Excluded', 'Archived') AND StageOrder >= @Onboarded THEN 1 ELSE 0 END) AS OnboardedAccounts,
+                SUM(CASE WHEN ISNULL(StatusName, '') NOT IN ('Risk Accepted / Excluded', 'Archived') AND StageOrder >= @Managed THEN 1 ELSE 0 END) AS ManagedAccounts,
+                SUM(CASE WHEN StageOrder >= @Compliant AND StatusName = 'Complete' THEN 1 ELSE 0 END) AS CompliantAccounts,
+                SUM(CASE WHEN StatusName = 'Archived' THEN 1 ELSE 0 END) AS ArchivedAccounts   -- D-298
             FROM scope
             """;
 

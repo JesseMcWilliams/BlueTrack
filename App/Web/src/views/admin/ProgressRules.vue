@@ -1,6 +1,7 @@
 <script setup>
 // D-283: Admin > Progress Rules -- the rules the nightly load uses to move an account from one Blueprint stage to a
-// later one when all of a rule's conditions match. GET/DELETE /api/admin/progress-rules (ManageProgressRules).
+// later one when all of a rule's conditions match (D-298: or archive it, at any stage). GET/DELETE
+// /api/admin/progress-rules (ManageProgressRules).
 // Add and edit are on ProgressRuleEdit.vue.
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
@@ -65,7 +66,7 @@ async function remove(item) {
         <tbody>
           <tr v-for="item in items" :key="item.progressRuleKey">
             <td><router-link :to="{ name: 'admin-progress-rule-edit', params: { ruleKey: item.progressRuleKey } }">{{ item.ruleName }}</router-link></td>
-            <td>{{ t('admin.progressRules.move', { from: item.fromStageName, to: item.toStageName }) }}</td>
+            <td>{{ item.ruleAction === 'Archive' ? t('admin.progressRules.archive') : t('admin.progressRules.move', { from: item.fromStageName, to: item.toStageName }) }}</td>
             <td>
               <ul class="conditions">
                 <li v-for="(c, i) in item.conditions" :key="i">{{ describeCondition(t, c) }}</li>

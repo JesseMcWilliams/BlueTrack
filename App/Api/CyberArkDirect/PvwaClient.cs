@@ -469,6 +469,15 @@ public sealed class PvwaClient(HttpClient http, Uri apiRoot)
             var a = snapshot.Accounts[i];
             return a.CategoryModificationTime is null || !cached.TryGetValue(a.Id, out var c) || c.CategoryModificationTime != a.CategoryModificationTime;
         }).ToList();
+        // D-299: and some of those read long enough ago, the oldest first.
+        if (options.RefreshReadBefore is { } before && options.RefreshMaxAccounts > 0)
+        {
+            var changed = indexes.ToHashSet();
+            indexes.AddRange(Enumerable.Range(0, snapshot.Accounts.Count)
+                .Where(i => !changed.Contains(i) && cached.TryGetValue(snapshot.Accounts[i].Id, out var c) && c.ReadAt < before)
+                .OrderBy(i => cached[snapshot.Accounts[i].Id].ReadAt)
+                .Take(options.RefreshMaxAccounts));
+        }
         var found = new ConcurrentDictionary<int, PvwaAccountDetail>();
         var problems = new ConcurrentBag<string>();
         var failed = new ConcurrentBag<int>();
@@ -546,7 +555,8 @@ public sealed class PvwaClient(HttpClient http, Uri apiRoot)
                 }
                 string? V(string key) => values.GetValueOrDefault(key);
                 return new PvwaAccountDetail(account.Id, account.CategoryModificationTime, V("DeviceType"), V("CreationMethod"),
-                    V("ExtraPass1Safe"), V("ExtraPass1Folder"), V("ExtraPass1Name"), V("ExtraPass3Safe"), V("ExtraPass3Folder"), V("ExtraPass3Name"));
+                    V("ExtraPass1Safe"), V("ExtraPass1Folder"), V("ExtraPass1Name"), V("ExtraPass3Safe"), V("ExtraPass3Folder"), V("ExtraPass3Name"))
+                    { Folder = V("Folder") };
             }
         }
         return null;

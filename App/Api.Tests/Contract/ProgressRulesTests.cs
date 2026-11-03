@@ -162,6 +162,96 @@ public class ProgressRulesTests : IClassFixture<BlueTrackWebApplicationFactory>,
     }
 
     [Fact]
+    public async Task AnArchiveRule_ArchivesAtAnyStage_APersonCanTakeItOut_AndTheKpiCountsItOutOfScope()
+    {
+        var admin = Client("TestUser.Admin");
+        await using var connection = new SqlConnection(TestDatabase.ConnectionString);
+        var token = $"ar{Guid.NewGuid():N}"[..12];
+        var accountKey = await connection.QuerySingleAsync<long>("""
+            INSERT INTO fact_account (SourceSystemKey, SourceAccountId, AccountName, IsDeleted, AutoManaged, ManualReason, Folder)
+            OUTPUT inserted.AccountKey
+            VALUES (1, @token, @token, 0, 0, 'ADArchive', 'Archive');
+            """, new { token });
+        try
+        {
+            await connection.ExecuteAsync("""
+                INSERT INTO fact_account_progress (AccountKey, CurrentStageKey, CurrentStatusKey)
+                VALUES (@accountKey, @stage, (SELECT StatusKey FROM dim_progress_status WHERE StatusName = 'In Progress'))
+                """, new { accountKey, stage = Stage("Onboarded to Vault") });
+            await connection.ExecuteAsync("UPDATE web.progress_rule SET IsEnabled = 0");
+
+            // D-298: an archive rule needs no stages, but still needs a condition.
+            Assert.Equal(HttpStatusCode.BadRequest, (await admin.PostAsJsonAsync("/api/admin/progress-rules", new
+            {
+                RuleName = "x", RuleAction = "Archive", Conditions = Array.Empty<object>()
+            })).StatusCode);
+            Assert.Equal(HttpStatusCode.BadRequest, (await admin.PostAsJsonAsync("/api/admin/progress-rules", new
+            {
+                RuleName = "x", RuleAction = "Delete", Conditions = new[] { new { FieldName = "Folder", Operator = "Equals", Value = "Archive" } }
+            })).StatusCode);
+            var conditions = new object[]
+            {
+                new { FieldName = "AccountName", Operator = "Equals", Value = token },
+                new { FieldName = "CpmDisabledReason", Operator = "Equals", Value = "ADArchive" },
+                new { FieldName = "Folder", Operator = "Equals", Value = "archive" }
+            };
+            Assert.Equal(HttpStatusCode.Created, (await admin.PostAsJsonAsync("/api/admin/progress-rules", new
+            {
+                RuleName = "test: LCD archive", RuleAction = "Archive", FromStageKey = Stage("Discovered"), Conditions = conditions
+            })).StatusCode);
+            var rule = Assert.Single((await admin.GetFromJsonAsync<List<ProgressRule>>("/api/admin/progress-rules"))!, r => r.RuleName == "test: LCD archive");
+            Assert.Equal(("Archive", (int?)null, (int?)null), (rule.RuleAction, rule.FromStageKey, rule.ToStageKey));   // the stage sent is dropped
+
+            var preview = (await (await admin.PostAsJsonAsync("/api/admin/progress-rules/preview", new { RuleAction = "Archive", Conditions = conditions }))
+                .Content.ReadFromJsonAsync<ProgressRulePreview>())!;
+            Assert.Equal(accountKey, Assert.Single(preview.Accounts).AccountKey);
+
+            var kpiBefore = (await admin.GetFromJsonAsync<KpiSummary>("/api/reports/kpi-summary"))!;
+            await connection.ExecuteAsync("EXEC usp_Load_AccountProgressAutoAdvance");
+            string Status() => connection.QuerySingle<string>("""
+                SELECT s.StatusName FROM fact_account_progress p JOIN dim_progress_status s ON s.StatusKey = p.CurrentStatusKey WHERE p.AccountKey = @accountKey
+                """, new { accountKey });
+            Assert.Equal("Archived", Status());
+            var detail = (await admin.GetFromJsonAsync<AccountProgressDetail>($"/api/account-progress/{accountKey}"))!;
+            Assert.Equal(("test: LCD archive", "Archive"), (detail.ArchivedByRuleName, detail.Folder));
+            var kpiAfter = (await admin.GetFromJsonAsync<KpiSummary>("/api/reports/kpi-summary"))!;
+            Assert.Equal((kpiBefore.ArchivedAccounts + 1, kpiBefore.InScopeAccounts - 1, kpiBefore.TotalAccounts),
+                (kpiAfter.ArchivedAccounts, kpiAfter.InScopeAccounts, kpiAfter.TotalAccounts));
+
+            // A person takes it out of Archived: the rule leaves it alone while it still matches...
+            Assert.Equal(HttpStatusCode.OK, (await admin.PostAsync($"/api/account-progress/{accountKey}/lock", null)).StatusCode);
+            Assert.Equal(HttpStatusCode.NoContent, (await admin.PutAsJsonAsync($"/api/account-progress/{accountKey}", new
+            {
+                currentStageKey = Stage("Onboarded to Vault"),
+                currentStatusKey = await connection.QuerySingleAsync<int>("SELECT StatusKey FROM dim_progress_status WHERE StatusName = 'In Progress'")
+            })).StatusCode);
+            await new BlueTrack.Api.Data.AccountProgressLockRepository(new TestDbConnectionFactory()).ForceReleaseAsync(accountKey);
+            await connection.ExecuteAsync("EXEC usp_Load_AccountProgressAutoAdvance");
+            Assert.Equal("In Progress", Status());
+            Assert.Null((await admin.GetFromJsonAsync<AccountProgressDetail>($"/api/account-progress/{accountKey}"))!.ArchivedByRuleName);
+
+            // ...and archives it again once it has stopped matching and matches again.
+            await connection.ExecuteAsync("UPDATE fact_account SET Folder = 'Root' WHERE AccountKey = @accountKey; EXEC usp_Load_AccountProgressAutoAdvance;", new { accountKey });
+            Assert.Equal("In Progress", Status());
+            await connection.ExecuteAsync("UPDATE fact_account SET Folder = 'Archive' WHERE AccountKey = @accountKey; EXEC usp_Load_AccountProgressAutoAdvance;", new { accountKey });
+            Assert.Equal("Archived", Status());
+
+            // Stage rules don't move an Archived account.
+            Assert.Equal(HttpStatusCode.Created, (await admin.PostAsJsonAsync("/api/admin/progress-rules", new
+            {
+                RuleName = "test: managed", FromStageKey = Stage("Onboarded to Vault"), ToStageKey = Stage("Managed / Rotation Enabled"), Conditions = new[] { conditions[0] }
+            })).StatusCode);
+            await connection.ExecuteAsync("EXEC usp_Load_AccountProgressAutoAdvance");
+            Assert.Equal(Stage("Onboarded to Vault"), await connection.QuerySingleAsync<int>("SELECT CurrentStageKey FROM fact_account_progress WHERE AccountKey = @accountKey", new { accountKey }));
+        }
+        finally
+        {
+            await new BlueTrack.Api.Data.AccountProgressLockRepository(new TestDbConnectionFactory()).ForceReleaseAsync(accountKey);
+            await connection.ExecuteAsync("DELETE FROM fact_account_progress WHERE AccountKey = @accountKey; DELETE FROM fact_account WHERE AccountKey = @accountKey;", new { accountKey });
+        }
+    }
+
+    [Fact]
     public async Task Stages_CanBeRenamedAddedReorderedAndDeleted_AndTheKpiFollowsItsMilestone()
     {
         var admin = Client("TestUser.Admin");

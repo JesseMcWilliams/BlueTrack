@@ -1,8 +1,8 @@
 <script setup>
 // D-283: add or edit a Progress Rule: the stage it moves accounts from and to (a later one; the next by default),
-// and conditions that must all match. Test shows how many accounts at the From stage it would move now, without
-// saving. POST/PUT /api/admin/progress-rules, POST .../preview, GET .../fields; the stages from
-// GET /api/admin/blueprint-stages.
+// and conditions that must all match. D-298: or an archive rule, which sets matching accounts at any stage to
+// Archived and has no stages. Test shows how many accounts it would move (or archive) now, without saving.
+// POST/PUT /api/admin/progress-rules, POST .../preview, GET .../fields; the stages from GET /api/admin/blueprint-stages.
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { flash, savedMessage } from '../../composables/useFlash'
@@ -25,7 +25,8 @@ const preview = ref(null)
 const previewError = ref(null)
 const previewing = ref(false)
 
-const editing = ref({ ruleName: '', fromStageKey: null, toStageKey: null, isEnabled: true, description: '', conditions: [] })
+const editing = ref({ ruleName: '', ruleAction: 'MoveStage', fromStageKey: null, toStageKey: null, isEnabled: true, description: '', conditions: [] })
+const isArchive = computed(() => editing.value.ruleAction === 'Archive')
 
 const fieldNames = computed(() => fieldLabels(t))
 const operatorNames = computed(() => operatorLabels(t))
@@ -43,6 +44,8 @@ function valueHint(condition) {
   if (kind === 'Date') return t('admin.progressRuleEdit.daysHint')
   if (condition.operator === 'In' || condition.operator === 'NotIn') return t('admin.progressRuleEdit.listHint')
   if (condition.fieldName === 'Source') return t('admin.progressRuleEdit.sourceHint')
+  if (condition.fieldName === 'Folder') return t('admin.progressRuleEdit.folderHint')
+  if (condition.fieldName === 'CpmDisabledReason') return t('admin.progressRuleEdit.cpmDisabledReasonHint')
   return ''
 }
 
@@ -84,7 +87,12 @@ onMounted(async () => {
     if (rulesResponse) {
       const match = (await rulesResponse.json()).find(r => String(r.progressRuleKey) === String(props.ruleKey))
       if (!match) throw new Error(t('admin.progressRuleEdit.notFound'))
-      editing.value = { ...match, description: match.description ?? '', conditions: match.conditions.map(c => ({ ...c, value: c.value ?? '' })) }
+      editing.value = {
+        ...match,
+        fromStageKey: match.fromStageKey ?? stages.value[0]?.stageKey ?? null,
+        description: match.description ?? '',
+        conditions: match.conditions.map(c => ({ ...c, value: c.value ?? '' }))
+      }
     } else {
       editing.value.fromStageKey = stages.value[0]?.stageKey ?? null
       addCondition()
@@ -98,8 +106,9 @@ onMounted(async () => {
 function body() {
   return {
     ruleName: editing.value.ruleName,
-    fromStageKey: editing.value.fromStageKey,
-    toStageKey: editing.value.toStageKey,
+    ruleAction: editing.value.ruleAction,
+    fromStageKey: isArchive.value ? null : editing.value.fromStageKey,
+    toStageKey: isArchive.value ? null : editing.value.toStageKey,
     isEnabled: editing.value.isEnabled,
     description: editing.value.description,
     conditions: editing.value.conditions.map(c => ({ fieldName: c.fieldName, operator: c.operator, value: NO_VALUE.includes(c.operator) ? null : c.value }))
@@ -158,19 +167,29 @@ async function save() {
     <form v-else @submit.prevent="save">
       <p><label class="field-label"><span class="field-label-text">{{ t('admin.progressRuleEdit.name') }}</span> <input v-model="editing.ruleName" required maxlength="200" /></label></p>
       <p>
-        <label class="field-label"><span class="field-label-text">{{ t('admin.progressRuleEdit.from') }}</span>
-          <select v-model="editing.fromStageKey" required>
-            <option v-for="s in stages" :key="s.stageKey" :value="s.stageKey">{{ s.stageName }}</option>
+        <label class="field-label"><span class="field-label-text">{{ t('admin.progressRuleEdit.action') }}</span>
+          <select v-model="editing.ruleAction">
+            <option value="MoveStage">{{ t('admin.progressRuleEdit.actionMove') }}</option>
+            <option value="Archive">{{ t('admin.progressRuleEdit.actionArchive') }}</option>
           </select>
         </label>
       </p>
-      <p>
-        <label class="field-label"><span class="field-label-text">{{ t('admin.progressRuleEdit.to') }}</span>
-          <select v-model="editing.toStageKey" required>
-            <option v-for="s in laterStages" :key="s.stageKey" :value="s.stageKey">{{ s.stageName }}</option>
-          </select>
-        </label>
-      </p>
+      <template v-if="!isArchive">
+        <p>
+          <label class="field-label"><span class="field-label-text">{{ t('admin.progressRuleEdit.from') }}</span>
+            <select v-model="editing.fromStageKey" required>
+              <option v-for="s in stages" :key="s.stageKey" :value="s.stageKey">{{ s.stageName }}</option>
+            </select>
+          </label>
+        </p>
+        <p>
+          <label class="field-label"><span class="field-label-text">{{ t('admin.progressRuleEdit.to') }}</span>
+            <select v-model="editing.toStageKey" required>
+              <option v-for="s in laterStages" :key="s.stageKey" :value="s.stageKey">{{ s.stageName }}</option>
+            </select>
+          </label>
+        </p>
+      </template>
       <p><label><input v-model="editing.isEnabled" type="checkbox" /> {{ t('admin.progressRuleEdit.enabled') }}</label></p>
 
       <fieldset>
@@ -212,7 +231,9 @@ async function save() {
       </p>
       <p v-if="previewError" role="alert">{{ previewError }}</p>
       <div v-if="preview" role="status" class="preview">
-        <p>{{ t('admin.progressRuleEdit.previewCount', { count: formatCount(preview.matchCount) }, preview.matchCount) }}</p>
+        <p>{{ isArchive
+          ? t('admin.progressRuleEdit.previewArchiveCount', { count: formatCount(preview.matchCount) }, preview.matchCount)
+          : t('admin.progressRuleEdit.previewCount', { count: formatCount(preview.matchCount) }, preview.matchCount) }}</p>
         <ul v-if="preview.accounts.length">
           <li v-for="a in preview.accounts" :key="a.accountKey">
             <router-link :to="{ name: 'account-progress-detail', params: { accountKey: a.accountKey } }">{{ a.accountName }}</router-link>

@@ -32,7 +32,10 @@ public static class CyberArkSourceValidation
         PvwaLogonMethod = s.PvwaLogonMethod?.Trim() ?? "CyberArk",
         DirectPullTime = s.DirectPullTime?.Trim() ?? "01:30",
         DirectMaxChangePercent = s.DirectMaxChangePercent,
-        DirectPullTimeLimitMinutes = s.DirectPullTimeLimitMinutes
+        DirectPullTimeLimitMinutes = s.DirectPullTimeLimitMinutes,
+        DetailRefreshEnabled = s.DetailRefreshEnabled,
+        DetailRefreshDays = s.DetailRefreshDays,
+        DetailRefreshMaxAccounts = s.DetailRefreshMaxAccounts
     };
 
     private static bool IsValidPvwaUrl(string url) =>
@@ -44,6 +47,9 @@ public static class CyberArkSourceValidation
 
     /// <summary>D-273: the range the pull time limit may be set to, in minutes (5 minutes to 12 hours).</summary>
     public const int MinPullTimeLimitMinutes = 5, MaxPullTimeLimitMinutes = 720;
+
+    /// <summary>D-299: the ranges of the account-detail re-read: every 1 to 365 days, 1 to 100,000 accounts a pull.</summary>
+    public const int MaxDetailRefreshDays = 365, MaxDetailRefreshAccounts = 100_000;
 
     /// <summary>Every problem with the (normalized) settings; empty when they can be saved.</summary>
     public static IReadOnlyList<string> Validate(CyberArkSourceSettings s, AllowedFileRoots allowedFileRoots)
@@ -74,6 +80,10 @@ public static class CyberArkSourceValidation
         if (s.DirectMaxChangePercent is < 0 or > 100) errors.Add("Allowed change must be between 0 and 100 percent.");
         if (s.DirectPullTimeLimitMinutes is < MinPullTimeLimitMinutes or > MaxPullTimeLimitMinutes)
             errors.Add($"Pull time limit must be between {MinPullTimeLimitMinutes} and {MaxPullTimeLimitMinutes} minutes.");
+        if (s.DetailRefreshDays is < 1 or > MaxDetailRefreshDays)
+            errors.Add($"Re-read account details must be every 1 to {MaxDetailRefreshDays} days.");
+        if (s.DetailRefreshMaxAccounts is < 1 or > MaxDetailRefreshAccounts)
+            errors.Add($"Accounts re-read per pull must be between 1 and {Formatting.ServerTextCulture.Count(MaxDetailRefreshAccounts)}.");
 
         if (s.ImportSelfHosted)
         {
