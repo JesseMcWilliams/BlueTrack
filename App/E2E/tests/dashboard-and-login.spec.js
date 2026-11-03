@@ -9,7 +9,7 @@ import { signInAs } from './auth.js'
 test.describe('Dashboard', () => {
   test('Viewer sees the stage funnel, overdue-at-risk, and overdue-review cards, but not the ApproveExceptions-gated card', async ({ page }) => {
     await signInAs(page, 'TestUser.Viewer')
-    await page.goto('/')
+    await page.goto('/dashboard')
 
     await expect(page.getByText('Loading...')).toHaveCount(0)
     await expect(page.getByRole('heading', { name: 'Accounts by Stage' })).toBeVisible()
@@ -21,12 +21,27 @@ test.describe('Dashboard', () => {
 
   test('Approver (who holds ApproveExceptions) also sees the active-exceptions card', async ({ page }) => {
     await signInAs(page, 'TestUser.Approver')
-    await page.goto('/')
+    await page.goto('/dashboard')
 
     await expect(page.getByText('Loading...')).toHaveCount(0)
     await expect(page.getByText(/active exception\(s\) awaiting approval/)).toBeVisible()
     await page.getByRole('link', { name: 'View worklist' }).last().click()
     await expect(page).toHaveURL(/\/exceptions\/approvals$/)
+  })
+})
+
+// D-307: everyone with a role starts on Home.
+test.describe('Home', () => {
+  test('Viewer is greeted, sees the KPI funnel, and opens the Dashboard from its card', async ({ page }) => {
+    await signInAs(page, 'TestUser.Viewer')
+    await page.goto('/')
+
+    await expect(page.getByRole('heading', { level: 1 })).toContainText('Welcome')
+    await expect(page.getByRole('heading', { name: 'Key Progress Indicators' })).toBeVisible()
+    await expect(page.locator('.home-funnel tbody tr')).toHaveCount(5)
+    await page.locator('.home-area').getByRole('link', { name: 'Dashboard' }).click()
+    await expect(page).toHaveURL(/\/dashboard$/)
+    await expect(page.getByRole('heading', { name: 'Accounts by Stage' })).toBeVisible()
   })
 })
 
@@ -74,7 +89,7 @@ test.describe('Top navigation (D-213)', () => {
     await page.goto('/')
 
     // toHaveText retries: the permission-gated links appear once /api/me has answered.
-    await expect(page.locator('nav.top-nav > a')).toHaveText(['Dashboard', 'Access Groups', 'Accounts', 'Exceptions', 'Targets', 'Reports', 'Admin'])
+    await expect(page.locator('nav.top-nav > a')).toHaveText(['Home', 'Dashboard', 'Access Groups', 'Accounts', 'Exceptions', 'Targets', 'Reports', 'Admin'])
 
     await page.locator('button.user-menu__button').click()
     await page.getByRole('button', { name: 'About' }).click()

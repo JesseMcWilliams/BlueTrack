@@ -9,6 +9,6 @@ const { t } = useI18n()
   <div>
     <h1>{{ t('shell.notFound.title') }}</h1>
     <p>{{ t('shell.notFound.message') }}</p>
-    <p><router-link :to="{ name: 'dashboard' }">{{ t('shell.notFound.home') }}</router-link></p>
+    <p><router-link :to="{ name: 'home' }">{{ t('shell.notFound.home') }}</router-link></p>
   </div>
 </template>

@@ -1,4 +1,38 @@
 {
+  "home": {
+    "welcome": "Welcome to BlueTrack",
+    "welcomeName": "Welcome, {name}",
+    "yourRoles": "Your roles: {roles}.",
+    "seeProfile": "See your profile",
+    "kpiTitle": "Key Progress Indicators",
+    "kpiStep": "Step",
+    "kpiAccounts": "Accounts",
+    "kpiShare": "Of the step before",
+    "kpiBar": "Share of all accounts",
+    "kpiAll": "All accounts",
+    "kpiInScope": "In scope",
+    "kpiOnboarded": "Onboarded",
+    "kpiManaged": "Managed",
+    "kpiCompliant": "Compliant",
+    "outOfScope": "Out of scope (Risk Accepted / Excluded, or Archived): {count}.",
+    "areasTitle": "Where to go",
+    "areas": {
+      "dashboard": "Dashboard",
+      "dashboardText": "Accounts by stage, the KPIs, overdue and at-risk work, and exceptions.",
+      "accounts": "Accounts",
+      "accountsText": "Every tracked account, its stage, status, owner and risk.",
+      "exceptions": "Exceptions",
+      "exceptionsText": "Risk exceptions, their reviews and approvals.",
+      "accessGroups": "Access Groups",
+      "accessGroupsText": "The groups that give access to targets, and their risk scores.",
+      "targets": "Targets",
+      "targetsText": "The servers and systems accounts are used on, and their risk scores.",
+      "reports": "Reports",
+      "reportsText": "The reports your roles allow.",
+      "admin": "Admin",
+      "adminText": "The settings your roles allow you to manage."
+    }
+  },
   "dashboard": {
     "title": "Dashboard",
     "bucketOutOfScope": "Out of Scope",

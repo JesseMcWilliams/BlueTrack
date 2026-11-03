@@ -11,7 +11,7 @@ function makeRouter() {
   return createRouter({
     history: createMemoryHistory(),
     routes: [
-      { path: '/', name: 'dashboard', component: page },
+      { path: '/', name: 'home', component: page },
       { path: '/accounts', name: 'account-progress-list', meta: { breadcrumb: 'shell.routes.accountProgressList' }, component: page },
       { path: '/accounts/:accountKey', name: 'account-progress-detail', meta: { breadcrumb: 'shell.routes.accountProgressDetail', breadcrumbParent: 'account-progress-list' }, component: page }
     ]
@@ -37,7 +37,7 @@ describe('Breadcrumbs.vue', () => {
     const wrapper = await mountAt('/accounts/42')
 
     const links = wrapper.findAll('a')
-    expect(links[0].attributes('href')).toBe('/')   // the Dashboard
+    expect(links[0].attributes('href')).toBe('/')   // Home (D-307)
     expect(links[1].attributes('href')).toBe('/accounts?stage=Discovery&page=2')
     expect(links).toHaveLength(3)
   })

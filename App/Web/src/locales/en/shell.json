@@ -6,6 +6,7 @@
   },
   "nav": {
     "ariaLabel": "Primary",
+    "home": "Home",
     "dashboard": "Dashboard",
     "accessGroups": "Access Groups",
     "accounts": "Accounts",
@@ -20,6 +21,7 @@
   "routes": {
     "login": "Login",
     "loginProvider": "Login",
+    "dashboard": "Dashboard",
     "accountProgressList": "Accounts",
     "accountProgressBulkEdit": "Bulk Edit",
     "accountProgressDetail": "Account Detail",
@@ -150,13 +152,13 @@
   "accessDenied": {
     "title": "Access Denied",
     "message": "You don't have permission to view this page. If you need it, ask an administrator to give your account a role that includes it.",
-    "home": "Go to the Dashboard",
+    "home": "Go to Home",
     "profile": "See my roles"
   },
   "notFound": {
     "title": "Page Not Found",
     "message": "There is no page at this address. It may have moved, or the address may be mistyped.",
-    "home": "Go to the Dashboard"
+    "home": "Go to Home"
   },
   "idleWarning": {
     "message": "You will be signed out in about {count} minute because you have not been active. | You will be signed out in about {count} minutes because you have not been active.",

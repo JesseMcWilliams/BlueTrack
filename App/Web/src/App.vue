@@ -17,13 +17,13 @@ import { useRightsStore } from './stores/rights'
 import { flashNavigated } from './composables/useFlash'
 import { useRouter } from 'vue-router'
 import { formatDate } from './utils/formatDate'
-import { canOpen, REPORT_PAGES } from './router/routePermissions'
+import { canOpen, canOpenReports as canOpenReportsFor } from './router/routePermissions'
 
 const { t } = useI18n()
 const rights = useRightsStore()
 // UI review step 4b: a signed-in user with no permissions gets no menu entries, only the user menu.
 // D-305: the tracked-data pages and Reports need ViewDashboard (or a report's own permission); hide what the user can't open.
-const canOpenReports = computed(() => REPORT_PAGES.some(name => canOpen(rights, name)))
+const canOpenReports = computed(() => canOpenReportsFor(rights))
 const hasAccess = computed(() => !(rights.loaded && rights.authenticated === true && rights.permissionNames.length === 0))
 // UI review theme 3: a "saved" line set before a navigation shows on the page it lands on, and goes at the next one.
 useRouter().afterEach(() => flashNavigated())
@@ -109,6 +109,7 @@ onMounted(async () => {
          pinned right. -->
     <nav class="top-nav" :aria-label="t('shell.nav.ariaLabel')">
       <template v-if="hasAccess">
+      <router-link :to="{ name: 'home' }">{{ t('shell.nav.home') }}</router-link>
       <router-link v-if="canOpen(rights, 'dashboard')" :to="{ name: 'dashboard' }">{{ t('shell.nav.dashboard') }}</router-link>
       <!-- D-121: Targets/Access Groups gated per-permission here, same
            hasPermission() pattern AdminHub.vue's own sidebar already uses for
