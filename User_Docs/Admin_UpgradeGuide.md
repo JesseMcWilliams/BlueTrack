@@ -18,6 +18,8 @@ Go down the table and stop at the first row that matches your site.
 
 **Why the EVD stop:** 1.4.0 and later have no EVD source. Their installer checks first and stops, changing nothing, on a site that still imports Self-Hosted from the EVD. 1.3.4 is the last version that has both the EVD and everything needed to move off it.
 
+**Account groups on the shadow comparison:** the EVD lists each account group's own object (the entry on the group platform) as an account, but PVWA's account list doesn't return it, so it shows as *missing from Direct* every night. Mark it **Expected** to get clean nights. The accounts in the group are read as usual. After the switch, the group objects drop out of BlueTrack at the first Direct load, like any account deleted in CyberArk.
+
 **Skipping versions is fine** (for example 1.0.7 straight to 1.3.4): the installer applies every database script you're missing, in order. But do the hand-made steps of each version you skip, listed in section 5.
 
 ## 3. Before you upgrade
