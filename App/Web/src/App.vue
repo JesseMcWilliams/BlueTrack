@@ -17,10 +17,13 @@ import { useRightsStore } from './stores/rights'
 import { flashNavigated } from './composables/useFlash'
 import { useRouter } from 'vue-router'
 import { formatDate } from './utils/formatDate'
+import { canOpen, REPORT_PAGES } from './router/routePermissions'
 
 const { t } = useI18n()
 const rights = useRightsStore()
 // UI review step 4b: a signed-in user with no permissions gets no menu entries, only the user menu.
+// D-305: the tracked-data pages and Reports need ViewDashboard (or a report's own permission); hide what the user can't open.
+const canOpenReports = computed(() => REPORT_PAGES.some(name => canOpen(rights, name)))
 const hasAccess = computed(() => !(rights.loaded && rights.authenticated === true && rights.permissionNames.length === 0))
 // UI review theme 3: a "saved" line set before a navigation shows on the page it lands on, and goes at the next one.
 useRouter().afterEach(() => flashNavigated())
@@ -106,16 +109,16 @@ onMounted(async () => {
          pinned right. -->
     <nav class="top-nav" :aria-label="t('shell.nav.ariaLabel')">
       <template v-if="hasAccess">
-      <router-link :to="{ name: 'dashboard' }">{{ t('shell.nav.dashboard') }}</router-link>
-      <!-- D-121: Targets/Access Groups gated per-permission here (unlike
-           Dashboard/Accounts/Exceptions/Reports/Admin, which need no gate
-           of their own), same hasPermission() pattern AdminHub.vue's own
-           sidebar already uses for each of its sections. -->
+      <router-link v-if="canOpen(rights, 'dashboard')" :to="{ name: 'dashboard' }">{{ t('shell.nav.dashboard') }}</router-link>
+      <!-- D-121: Targets/Access Groups gated per-permission here, same
+           hasPermission() pattern AdminHub.vue's own sidebar already uses for
+           each of its sections. D-305: Dashboard/Accounts/Exceptions/Reports
+           too, by the router's own map; Admin needs no gate of its own. -->
       <router-link v-if="rights.hasPermission('ManageAccessGroups')" :to="{ name: 'access-groups' }">{{ t('shell.nav.accessGroups') }}</router-link>
-      <router-link :to="{ name: 'account-progress-list' }">{{ t('shell.nav.accounts') }}</router-link>
-      <router-link :to="{ name: 'risk-exceptions-list' }">{{ t('shell.nav.exceptions') }}</router-link>
+      <router-link v-if="canOpen(rights, 'account-progress-list')" :to="{ name: 'account-progress-list' }">{{ t('shell.nav.accounts') }}</router-link>
+      <router-link v-if="canOpen(rights, 'risk-exceptions-list')" :to="{ name: 'risk-exceptions-list' }">{{ t('shell.nav.exceptions') }}</router-link>
       <router-link v-if="rights.hasPermission('ManageTargets')" :to="{ name: 'targets' }">{{ t('shell.nav.targets') }}</router-link>
-      <router-link :to="{ name: 'reports' }">{{ t('shell.nav.reports') }}</router-link>
+      <router-link v-if="canOpenReports" :to="{ name: 'reports' }">{{ t('shell.nav.reports') }}</router-link>
       <router-link :to="{ name: 'admin' }">{{ t('shell.nav.admin') }}</router-link>
       </template>
       <UserMenu v-if="rights.authenticated" />

@@ -12,7 +12,7 @@
 - **AuditChainBroken** is turned on for the dev site (through the admin API, so it is in the Audit Log); no target role, and nothing is sent without SMTP.
 - **Tests** (last full local run, 2026-11-03): API 1,394, web 872, E2E 105, all passing. CI green on every PR.
 - **The dev site has none of the 2026-11-03 work** (it runs 1.5.1).
-- **Decision register:** the last row on `main` is **D-304**; next is D-305. **Database scripts:** the last on `main` is `58_BlueTrack_PullNowLoad.sql` (with `Database/Manual/08`); next is `59`.
+- **Decision register:** the last row on `main` is **D-305** (2026-11-03-first-page); next is D-306. **Database scripts:** the last on `main` is `58_BlueTrack_PullNowLoad.sql` (with `Database/Manual/08`); next is `59`.
 
 ## 2. What the 2026-10-21 session delivered
 
@@ -64,12 +64,13 @@ The user's answers to the open items, built on topic branches; merged 2026-11-03
 | #242 | **Pull now starts the Import and Load SQL Agent job** when the pull succeeds. The app's SQL account can't run the Import and Load itself (TRUNCATE of staging, BULK INSERT of Privilege Cloud files), so the user chose the job: the app's login joins msdb's `SQLAgentOperatorRole` (`Database/Manual/08`, run by `Db.AppPoolAccess`; re-run it on upgrade). Script 58 records the request and any refusal; Data Sources shows the load's result from `etl_run_log` | D-302 |
 | #243 | **Reload Rights reads a Windows user's groups from AD** (`tokenGroups` through the LDAP domains), and keeps reading AD at each rights refresh until the next Windows sign-in or 7 days; AD unreachable falls back to the sign-in's groups and says so. OIDC/SAML: no live lookup, the page says to sign out and back in | D-303 |
 | #244 | Tracked-data pages need their permission at the router (Access Denied instead of "Request failed: 403"); the remaining status-code-only save failures show the server's reason | D-304 |
+| 2026-11-03-first-page | A user who can't open the Dashboard starts on the first page they may open, in the top nav's order (the seeded Auditor: the Audit Log); the Reports entry opens the first report they may see; the top nav and Reports hub hide what they can't open. A dedicated landing page was considered and not built (the user asked "Maybe a dedicated landing page is needed?") | D-305 |
 
 Answers that needed no code: no 1.3.5 maintenance release (not needed); the four 2026-11-03 design choices confirmed as built; PSM for Privilege Cloud goes into Privilege Cloud Direct (`Planning_Backlog.md`); inline Extend/Revoke on the worklists and keeping typed text across an idle sign-out are left out for good.
 
 ## 3. Open items
 
-1. **Merged 2026-11-03:** #241 to #245 (the user: "Merge them").
+1. **Merged 2026-11-03:** #241 to #245 (the user: "Merge them"). The first-page change (D-305) is open as its own PR. A dedicated landing page: not built; worth it only if a role's first page turns out to be a poor start (D-305).
 2. **Release 1.5.2** when the user asks (not yet: the user, 2026-11-03). The Upgrade Guide row is written; #242 adds "re-run `Db.AppPoolAccess`" to it. Then the release tool with `-Version 1.5.2`.
 3. **Next round** (the user, 2026-11-03): the suggestions (application-owner emails, least-privilege view, sponsor view) and the nested AD group path on "Via AD group" (`Planning_Backlog.md`).
 4. **Later** (the user, 2026-11-03): Privilege Cloud Direct, with PSM data for Privilege Cloud in it; the folder-move test in the lab (does moving an account to another folder change its `categoryModificationTime`? This host has no PrivateArk Client or PACLI, and the REST API has no call that moves an account; the user would move one in PrivateArk Client and run **Pull now**, then check read-only); live testing.

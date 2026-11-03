@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { accessRedirect, ROUTE_PERMISSIONS, ADMIN_SECTIONS } from './routePermissions'
+import { accessRedirect, firstPage, ROUTE_PERMISSIONS, ADMIN_SECTIONS, REPORT_PAGES } from './routePermissions'
 import router from './index'
 
 function rights(permissionNames, extra = {}) {
@@ -23,8 +23,33 @@ describe('accessRedirect', () => {
     expect(accessRedirect(rights([]), { name: 'login' })).toBeNull()
   })
 
-  it('sends a user who has permissions away from the no-access page', () => {
-    expect(accessRedirect(rights(['ViewAccounts']), { name: 'no-access' })).toEqual({ name: 'dashboard' })
+  it('sends a user who has permissions away from the no-access page, to the first page they may open', () => {
+    expect(accessRedirect(rights(['ViewDashboard']), { name: 'no-access' })).toEqual({ name: 'dashboard' })
+    expect(accessRedirect(rights(['ViewAuditLog']), { name: 'no-access' })).toEqual({ name: 'admin-audit-log' })
+  })
+
+  it('opens the first page a user may see in place of a Dashboard they cannot open (D-305)', () => {
+    expect(accessRedirect(rights(['ViewDashboard']), { name: 'dashboard' })).toBeNull()
+    // The seeded Auditor role holds only ViewAuditLog.
+    expect(accessRedirect(rights(['ViewAuditLog']), { name: 'dashboard' })).toEqual({ name: 'admin-audit-log' })
+    expect(accessRedirect(rights(['ManageTargets', 'ViewAuditLog']), { name: 'dashboard' })).toEqual({ name: 'targets' })
+    expect(accessRedirect(rights(['ViewRiskReport']), { name: 'dashboard' })).toEqual({ name: 'reports-risk-score' })
+    // Permissions that open no page of their own.
+    expect(accessRedirect(rights(['EditAccountProgress']), { name: 'dashboard' })).toEqual({ name: 'access-denied' })
+  })
+
+  it('picks the first page in the top nav order', () => {
+    expect(firstPage(rights(['ViewDashboard', 'ManageAccessGroups']))).toBe('dashboard')
+    expect(firstPage(rights(['ManageTargets', 'ManageAccessGroups']))).toBe('access-groups')
+    expect(firstPage(rights(['ManageApiKeys', 'ConfirmReconciliation']))).toBe('reports-reconciliation-review')
+    expect(firstPage(rights(['EditAccountProgress']))).toBeNull()
+  })
+
+  it('opens the first report the user can see from the Reports entry', () => {
+    const to = { name: 'reports-overdue-worklist', redirectedFrom: { path: '/reports' } }
+    expect(accessRedirect(rights(['ViewDashboard']), to)).toBeNull()
+    expect(accessRedirect(rights(['ViewRiskReport']), to)).toEqual({ name: 'reports-risk-score' })
+    expect(accessRedirect(rights(['ViewAuditLog']), to)).toEqual({ name: 'access-denied' })
   })
 
   it('sends a user to Access Denied for a page their permissions do not cover', () => {
@@ -41,8 +66,9 @@ describe('accessRedirect', () => {
   })
 
   // D-304: the tracked-data pages need the permission their data needs, so they say Access Denied, not "Request failed: 403".
+  // The Dashboard itself opens their first page instead (D-305, tested above).
   it('sends a user without ViewDashboard to Access Denied from the tracked-data pages', () => {
-    for (const name of ['dashboard', 'account-progress-list', 'account-progress-detail', 'risk-exceptions-list', 'reports-kpi-summary', 'reports-safe-access']) {
+    for (const name of ['account-progress-list', 'account-progress-detail', 'risk-exceptions-list', 'reports-kpi-summary', 'reports-safe-access']) {
       expect(accessRedirect(rights(['ManageTargets']), { name })).toEqual({ name: 'access-denied' })
       expect(accessRedirect(rights(['ViewDashboard']), { name })).toBeNull()
     }
@@ -77,5 +103,10 @@ describe('route permission map', () => {
     const missing = [...routeNames].filter(n => n.startsWith('admin-') && !covered.has(n))
     expect(missing).toEqual([])
     expect(ADMIN_SECTIONS.length).toBeGreaterThan(0)
+  })
+
+  it('lists every report for the Reports entry', () => {
+    expect(REPORT_PAGES.filter(n => !routeNames.has(n))).toEqual([])
+    expect([...routeNames].filter(n => n.startsWith('reports-') && !REPORT_PAGES.includes(n))).toEqual([])
   })
 })

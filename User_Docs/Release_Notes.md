@@ -19,6 +19,7 @@ What changed in each BlueTrack release, newest first, for users and administrato
 - **Pull now** on Admin > Data Sources now runs the Import and Load once the pull succeeds (by starting the nightly SQL Agent job), so the accounts change within minutes instead of at the next night. The pull's row shows how the load went. (Administrator Settings, CyberArk sources)
 - **Reload My Rights** reads a Windows user's groups from Active Directory (through the LDAP domains on Admin > Credentials & LDAP), so a group change applies without signing out of Windows; it keeps reading AD until the user's next Windows sign-in. With OIDC or SAML sign-in the page says a group change needs signing out and back in. (User Guide, Profile & Preferences)
 - The Dashboard, Accounts, Exceptions and the reports of tracked data open **Access Denied** for someone without the permission they need, instead of showing "Request failed: 403". Access Denied offers **Go to the Dashboard** only to those who can open it. (User Guide)
+- Someone who can't open the Dashboard starts on the first page they can open after signing in (the Audit Log for the Auditor role), and the top nav no longer shows them Dashboard, Accounts, Exceptions or Reports when they can't open those. **Reports** opens the first report they can see. (User Guide)
 - Saving or deleting an LDAP domain, changing a notification type, updating or deleting a recipient, and saving an account now show the server's reason when they fail, not only the status code.
 
 ### Fixed
