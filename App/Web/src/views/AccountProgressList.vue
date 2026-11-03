@@ -3,7 +3,7 @@
 // stacked with AND) plus multi-column sort -- click a column header to sort
 // by just that column; shift-click another header to add it as a secondary
 // sort key without losing the first (badges show the resulting priority).
-import { ref, computed, watch, onMounted, nextTick } from 'vue'
+import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { formatDate } from '../utils/formatDate'
 import { useTotalCount } from '../composables/useTotalCount'
 import { useLatestRequest } from '../composables/useLatestRequest'
@@ -309,13 +309,28 @@ onMounted(async () => {
   await load()
 })
 
+// D-306: the typed boxes (Search, Owner) search after a short pause in typing, not on every keystroke.
+const TYPING_PAUSE_MS = 400
+let typingTimer = null
+
 // D-124 Phase 3: a filter/sort change resets to page 1 -- see Targets.vue's
 // identical comment for why page-size/Prev/Next changes are handled separately.
-watch([stageFilter, statusFilter, riskLevelFilter, ownerFilter, searchFilter, deletedFilter, linkedFilter, kpiFilter, sortQueryParam], () => {
+watch([stageFilter, statusFilter, riskLevelFilter, deletedFilter, linkedFilter, kpiFilter, sortQueryParam], () => {
   if (applyingAddress) return
+  clearTimeout(typingTimer)
   page.value = 1
   load()
 })
+
+watch([ownerFilter, searchFilter], () => {
+  if (applyingAddress) return
+  clearTimeout(typingTimer)
+  typingTimer = setTimeout(() => {
+    page.value = 1
+    load()
+  }, TYPING_PAUSE_MS)
+})
+onBeforeUnmount(() => clearTimeout(typingTimer))
 
 watch([stageFilter, statusFilter, riskLevelFilter, ownerFilter, searchFilter, deletedFilter, linkedFilter, kpiFilter, sortQueryParam, page], writeAddress, { flush: 'post' })
 

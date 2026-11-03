@@ -118,7 +118,7 @@ function onKeydown(event) {
   z-index: 1000;
 }
 .pull-details {
-  background: var(--color-background, #fff);
+  background: var(--color-bg);
   color: var(--color-text, #000);
   max-width: 40rem;
   width: calc(100% - 2rem);
@@ -130,5 +130,5 @@ function onKeydown(event) {
 .pull-details-messages { padding-left: 1.25rem; }
 .pull-details-counts th { text-align: left; padding-right: 1.5rem; font-weight: normal; }
 .pull-details-actions { text-align: right; }
-.outcome-Failed, .outcome-Rejected { color: var(--color-error, #b00020); }
+.outcome-Failed, .outcome-Rejected { color: var(--color-error-text); }
 </style>

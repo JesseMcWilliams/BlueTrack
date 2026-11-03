@@ -783,6 +783,7 @@
     "regionPlaceholder": "us-east-1",
     "accessKeyId": "Access Key ID:",
     "noSettings": "(no settings)",
+    "credentialNotUsed": "(not used)",
     "alreadySet": "(already set -- leave blank to keep)",
     "noneSet": "(none set)",
     "activateTitle": "Make {name} the active backend?",

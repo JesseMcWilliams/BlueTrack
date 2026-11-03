@@ -335,5 +335,5 @@ async function remove(feed) {
 </template>
 
 <style scoped>
-.outcome-Failed, .outcome-Rejected, .load-Failed, .load-NotStarted, .pull-banner { color: var(--color-error, #b00020); }
+.outcome-Failed, .outcome-Rejected, .load-Failed, .load-NotStarted, .pull-banner { color: var(--color-error-text); }
 </style>

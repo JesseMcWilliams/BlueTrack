@@ -190,6 +190,39 @@ public class RiskScoreReportControllerTests : IClassFixture<BlueTrackWebApplicat
         }
     }
 
+    // D-306: Recalculate Now redoes every score, not only those already marked stale.
+    [Fact]
+    public async Task RecalculateNow_RecomputesAScoreThatWasNotStale()
+    {
+        var client = AdminClient();
+        await using var connection = new SqlConnection(TestDatabase.ConnectionString);
+        await connection.OpenAsync();
+
+        var accountKey = await connection.QuerySingleAsync<long>(
+            "INSERT INTO fact_account (SourceSystemKey, SourceAccountId, AccountName, IsDeleted) OUTPUT inserted.AccountKey VALUES (1, @SourceAccountId, 'ContractTest Recalculate All Account', 0)",
+            new { SourceAccountId = $"ContractTest_{Guid.NewGuid():N}" });
+        await connection.ExecuteAsync(
+            "INSERT INTO web.account_risk_score (AccountKey, ComputedRiskScore, RiskScoreCalculatedDate, IsRiskScoreStale) VALUES (@AccountKey, 999, '2000-01-01', 0)",
+            new { AccountKey = accountKey });
+
+        try
+        {
+            var response = await client.PostAsync("/api/reports/risk-score/recalculate", null);
+            Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+
+            var calculated = await connection.QuerySingleAsync<DateTime>(
+                "SELECT RiskScoreCalculatedDate FROM web.account_risk_score WHERE AccountKey = @AccountKey", new { AccountKey = accountKey });
+            Assert.True(calculated > new DateTime(2000, 1, 2));
+        }
+        finally
+        {
+            await connection.ExecuteAsync("DELETE FROM web.account_risk_score WHERE AccountKey = @AccountKey", new { AccountKey = accountKey });
+            await connection.ExecuteAsync("DELETE FROM dbo.fact_account_progress_history WHERE AccountKey = @AccountKey", new { AccountKey = accountKey });
+            await connection.ExecuteAsync("DELETE FROM dbo.fact_account_progress WHERE AccountKey = @AccountKey", new { AccountKey = accountKey });
+            await connection.ExecuteAsync("DELETE FROM fact_account WHERE AccountKey = @AccountKey", new { AccountKey = accountKey });
+        }
+    }
+
     [Fact]
     public async Task SetRiskScoreOverride_WithoutReason_ReturnsBadRequest()
     {
