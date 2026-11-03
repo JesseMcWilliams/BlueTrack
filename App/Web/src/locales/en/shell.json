@@ -101,7 +101,13 @@
     "adminProgressRuleCreate": "New Progress Rule",
     "adminProgressRuleEdit": "Edit Progress Rule",
     "adminBlueprintStages": "Blueprint Stages",
-    "reportsCpmHealth": "CPM Health"
+    "adminSafeAccessPolicies": "Safe Access Policies",
+    "adminSafeAccessPolicyCreate": "New Policy",
+    "adminSafeAccessPolicyEdit": "Edit Policy",
+    "adminSafeRoleCreate": "New Safe Role",
+    "adminSafeRoleEdit": "Edit Safe Role",
+    "reportsCpmHealth": "CPM Health",
+    "reportsSafeAccess": "Safe Access"
   },
   "userMenu": {
     "account": "Account",

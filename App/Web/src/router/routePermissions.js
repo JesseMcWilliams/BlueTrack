@@ -23,7 +23,8 @@ export const ADMIN_SECTIONS = [
   { list: 'admin-platform-mapping', permission: 'CuratePlatformMapping', routes: [] },
   { list: 'admin-api-keys', permission: 'ManageApiKeys', routes: ['admin-api-key-create', 'admin-api-key-edit'] },
   { list: 'admin-progress-rules', permission: 'ManageProgressRules', routes: ['admin-progress-rule-create', 'admin-progress-rule-edit'] },   // D-283
-  { list: 'admin-blueprint-stages', permission: 'ManageProgressRules', routes: [] }   // D-284
+  { list: 'admin-blueprint-stages', permission: 'ManageProgressRules', routes: [] },   // D-284
+  { list: 'admin-safe-access-policies', permission: 'ManageSafeAccessPolicies', routes: ['admin-safe-access-policy-create', 'admin-safe-access-policy-edit', 'admin-safe-role-create', 'admin-safe-role-edit'] }   // D-300
 ]
 
 const OTHER = {

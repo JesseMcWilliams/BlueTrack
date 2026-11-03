@@ -96,6 +96,20 @@
     "linkedHidden": ": to CyberArk account {name}",
     "sortHint": "Click a column to sort by it; shift-click another column to add it as a secondary sort key."
   },
+  "compliance": {
+    "title": "Compliance",
+    "loadFailed": "Couldn't load the compliance check: {error}",
+    "passed": "Its Safe passed the policy \"{policy}\" ({date}).",
+    "failed": "Its Safe failed the policy \"{policy}\" ({date}):",
+    "noPolicy": "No Safe access policy applies to its Safe.",
+    "reviewed": "Compliance reviewed by {name} on {date}.",
+    "reviewNote": "Note: {note}",
+    "notReviewed": "Compliance not reviewed.",
+    "noteLabel": "Note (optional)",
+    "markReviewed": "Mark reviewed",
+    "reviewAgain": "Review again",
+    "clearReview": "Clear review"
+  },
   "safeAccess": {
     "title": "Who can use this account",
     "loadFailed": "Couldn't load who can use this account: {error}",

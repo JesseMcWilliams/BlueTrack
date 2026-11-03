@@ -245,6 +245,7 @@ builder.Services.AddScoped<BlueTrack.Api.AdDiscovery.IAdDirectory, BlueTrack.Api
 builder.Services.AddScoped<BlueTrack.Api.CyberArkDirect.SafeGroupAdExpansionService>();   // D-281
 builder.Services.AddScoped<SafeAccessRepository>();   // D-281/D-282
 builder.Services.AddScoped<ProgressRuleRepository>();   // D-283/D-284
+builder.Services.AddScoped<SafeAccessPolicyRepository>();   // D-300/D-301
 builder.Services.AddScoped<CpmHealthRepository>();      // D-288
 builder.Services.AddScoped<AdAccountDiscoveryService>();
 builder.Services.AddScoped<AccountClassificationRepository>();   // D-233

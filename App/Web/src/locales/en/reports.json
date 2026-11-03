@@ -14,7 +14,28 @@
     "decomAccounts": "Accounts Flagged for Deletion",
     "kpiSummary": "KPI Summary",
     "trends": "Trends",
-    "cpmHealth": "CPM Health"
+    "cpmHealth": "CPM Health",
+    "safeAccess": "Safe Access"
+  },
+  "safeAccess": {
+    "title": "Safe Access",
+    "hint": "Each Safe with accounts, checked each night (or by Check now on Admin > Safe Access Policies) against the first enabled Safe access policy whose Safe names match it: the members it must have, with the Safe role they must hold, and the members it must not have. Failing Safes are listed first. An account counts as reviewed once someone with the ReviewAccountCompliance permission has reviewed it; a review lasts until the account moves to another Safe or someone clears it.",
+    "loadFailed": "Couldn't load the Safe access results: {error}",
+    "empty": "Nothing checked yet. Add a policy on Admin > Safe Access Policies, then Check now or wait for the nightly load.",
+    "checkedAt": "Checked {time}.",
+    "failingOnly": "Only failing Safes",
+    "colSafe": "Safe",
+    "colPolicy": "Policy",
+    "colResult": "Result",
+    "colProblems": "What failed",
+    "colReviewed": "Accounts reviewed",
+    "colActions": "Actions",
+    "passed": "Passed",
+    "failed": "Failed",
+    "noPolicy": "No policy",
+    "reviewedOf": "{reviewed} of {total}",
+    "reviewAccounts": "Review accounts",
+    "reviewedFlash": "{count} account in {safe} marked reviewed. | {count} accounts in {safe} marked reviewed."
   },
   "cyberArkApplications": {
     "title": "CyberArk Applications",
