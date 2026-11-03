@@ -6,3 +6,4 @@
 |---|---|---|
 | 2026-10-22 | `Db.SqlServerAudit` no longer re-grants "Generate security audits" or asks for an unneeded SQL Server restart on a re-run | Release_Notes (Fixed); no guide change |
 | 2026-11-03 | D-298/D-299 (covered in User_Guide and Admin_SettingsReference): the next release's Upgrade Guide section 5 row must say the first Self-Hosted Direct pull re-reads every account's details | Admin_UpgradeGuide section 5 |
+| 2026-11-03 | D-300/D-301 (covered in User_Guide and Admin_SettingsReference): the Upgrade Guide row should say the example Safe access policy is disabled and the two new permissions go to Admin (and Approver for reviews) | Admin_UpgradeGuide section 5 |

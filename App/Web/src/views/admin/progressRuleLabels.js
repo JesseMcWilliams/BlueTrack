@@ -23,6 +23,8 @@ export function fieldLabels(t) {
     LastCPMActionTime: t('admin.progressRules.field.lastCpmActionTime'),
     DeviceType: t('admin.progressRules.field.deviceType'),
     CreationMethod: t('admin.progressRules.field.creationMethod'),
+    SafeAccessCompliant: t('admin.progressRules.field.safeAccessCompliant'),
+    ComplianceReviewed: t('admin.progressRules.field.complianceReviewed'),
     AccountType: t('admin.progressRules.field.accountType'),
     SourceOfRecord: t('admin.progressRules.field.sourceOfRecord'),
     RiskLevel: t('admin.progressRules.field.riskLevel'),
