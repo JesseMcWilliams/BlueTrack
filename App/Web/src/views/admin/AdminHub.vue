@@ -32,7 +32,8 @@ const sections = [
   { name: 'admin-platform-mapping', labelKey: 'admin.adminHub.platformMapping', permission: 'CuratePlatformMapping' },
   { name: 'admin-api-keys', labelKey: 'admin.adminHub.apiKeys', permission: 'ManageApiKeys' },
   { name: 'admin-progress-rules', labelKey: 'admin.adminHub.progressRules', permission: 'ManageProgressRules' },   // D-283
-  { name: 'admin-blueprint-stages', labelKey: 'admin.adminHub.blueprintStages', permission: 'ManageProgressRules' }   // D-284
+  { name: 'admin-blueprint-stages', labelKey: 'admin.adminHub.blueprintStages', permission: 'ManageProgressRules' },   // D-284
+  { name: 'admin-safe-access-policies', labelKey: 'admin.adminHub.safeAccessPolicies', permission: 'ManageSafeAccessPolicies' }   // D-300
 ]
 
 const visibleSections = computed(() => sections.filter(s => rights.hasPermission(s.permission)))

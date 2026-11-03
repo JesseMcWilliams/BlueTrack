@@ -27,6 +27,7 @@ public static class ProgressRuleFields
         Field("LastVerified", Date), Field("LastReconciled", Date), Field("LastChanged", Date),
         Field("LastCPMAction", Text), Field("LastCPMActionResult", Text), Field("LastCPMActionTime", Date),
         Field("DeviceType", Text), Field("CreationMethod", Text),
+        Field("SafeAccessCompliant", YesNo), Field("ComplianceReviewed", YesNo),
         Field("AccountType", Text), Field("SourceOfRecord", Text), Field("RiskLevel", Text), Field("Status", Text),
         Field("OwnerName", Text), Field("BusinessUnit", Text), Field("Application", Text)
     ];

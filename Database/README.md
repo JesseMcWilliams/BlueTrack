@@ -72,6 +72,7 @@ instead.
 | 54 | `54_BlueTrack_AuditChain.sql` | D-295: `web.audit_chain`, `web.audit_chain_key`, `web.audit_chain_state`, `web.audit_chain_purged`; the AuditChainVerified audit event type and the AuditChainBroken notification type (off); recreates `usp_PurgeAuditLog` (only sealed events, records what it deleted). |
 | 55 | `55_BlueTrack_AnalystFieldAccess.sql` | D-296: Blueprint Stage, Account Type and Application need no permission beyond EditAccountProgress again (clears script 51's value only where it is unchanged). |
 | 56 | `56_BlueTrack_ArchivedStatusAndFolder.sql` | D-298: the Archived status; `fact_account_progress.ArchivedByRuleKey/ArchivedAt/ArchiveRuleExempt`; `web.progress_rule.RuleAction` (MoveStage, Archive; stages nullable for Archive); `fn_ArchiveRuleMatch`; recreates `fn_ProgressAccountFields` (adds Folder, CpmDisabledReason), `usp_Load_AccountProgressAutoAdvance` and `usp_Preview_ProgressRule`. D-299: `Folder` on the classic-detail cache, `stg_shd_account_details` and `fact_account` (every cached detail read once more); `web.cyberark_source_config.DetailRefreshEnabled/Days/MaxAccounts`; recreates `usp_Load_FactAccountClassicDetail`. |
+| 57 | `57_BlueTrack_SafeAccessPolicies.sql` | D-300: `web.safe_role(_permission)`, `web.safe_access_policy(_rule)`, `dbo.safe_access_result`, `dbo.safe_access_problem`, `fn_SafeAccessLike`, `usp_Check_SafeAccessPolicies`; recreates `usp_RunFullLoad` (Safe entitlements and the check before the Progress Rules) and `fn_ProgressAccountFields` (SafeAccessCompliant, ComplianceReviewed). D-301: `web.account_compliance_review`. ManageSafeAccessPolicies (Admin), ReviewAccountCompliance (Admin, Approver); audit types SafeAccessPolicyChanged, AccountComplianceReviewed; a disabled example policy and role. |
 
 ## The baseline (D-195)
 
@@ -96,7 +97,7 @@ scripts but not up to `51` is refused; upgrade it first from the
 
 ## Adding a script
 
-1. Name it `NN_BlueTrack_<Topic>.sql`, with `NN` the next number (`57` is next).
+1. Name it `NN_BlueTrack_<Topic>.sql`, with `NN` the next number (`58` is next).
 2. Start with a header comment: the file name, `RUN THIS AFTER 01-NN.`, what
    it changes and why (with the `D-n` decision), and whether it's safe to
    re-run.

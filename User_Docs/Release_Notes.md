@@ -9,10 +9,13 @@ What changed in each BlueTrack release, newest first, for users and administrato
 - **Archived status.** An account can be Archived: out of scope for the KPIs like Risk Accepted / Excluded, but with no Risk Exception, and counted on its own on the KPI Summary and the Dashboard. A Progress Rule can now archive accounts at any stage (Admin > Progress Rules, "Archives accounts"), for example accounts whose CPM disable reason is ADArchive in an Archive folder. An archived account stays Archived until someone changes its status. (User Guide; Administrator Settings, Progress Rules)
 - **Folder** of a Self-Hosted account, read from PVWA, on the account page and as a Progress Rule field, with **Why the CPM doesn't manage it** (the CPM disable reason) as another rule field. (User Guide; Administrator Settings, Progress Rules)
 - **Re-read account details**: an option on Admin > Data Sources > CyberArk sources to re-read the folder, device type and linked accounts of accounts read more than a number of days ago, up to a number of accounts per pull. Off by default. (Administrator Settings, CyberArk sources)
+- **Safe Access Policies** (Admin > Safe Access Policies, new permission `ManageSafeAccessPolicies`, Admin): Safe roles (sets of Safe permissions) and policies, chosen by Safe name pattern, saying which members a Safe must have with which role (optionally with people in them, from the Vault or AD) and which it must not have (for example Vault Admins). Every Safe with accounts is checked each night, or with **Check now**; the results are on the new **Reports > Safe Access**. Progress Rules can use **Safe access compliant**. A disabled example policy is included to edit. (Administrator Settings, Safe Access Policies; User Guide, Reports)
+- **Compliance review**: holders of the new `ReviewAccountCompliance` permission (Admin and Approver) mark an account's compliance reviewed on its page (**Compliance** section), or every account of a Safe at once on Reports > Safe Access. A review lasts until the account moves to another Safe or someone clears it. Progress Rules can use **Compliance reviewed**. (User Guide)
 
 ### Changed
 
 - "In scope" on the KPI Summary, Dashboard and Trends now also leaves out Archived accounts.
+- The nightly load now loads Safe members before it applies the Progress Rules, so rules see the same night's Safe access results.
 
 ### Fixed
 
