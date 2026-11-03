@@ -3,15 +3,15 @@
 > **Stage: Planning.** Work that isn't built or proven yet. Carried forward from the 2026-09-16 survey (`Archive_Planning_Outstanding-Work-Survey-2026-09-16.md`); items that survey listed but the audit tracker records as resolved were left in the archive. Items tagged *(verify)* may already be done; confirm before starting. When an item ships, delete it here and record it in the relevant `Design_` doc.
 
 ## Requested, not started
-- **Privilege Cloud Direct** (requested 2026-10-19, with Self-Hosted Direct, D-248): read Privilege Cloud through its API into `stg_pc_*` instead of the export folder, as a fourth option on the CyberArk sources page (already listed there, unavailable). Needs the Privilege Cloud API's logon (an Identity OAuth client, `Platform/Developer` and `PAM/Privilege-Cloud-Standard` in the Idira reference), a lab tenant, and the same change guard.
+- **Privilege Cloud Direct** (requested 2026-10-19, with Self-Hosted Direct, D-248; later, the user, 2026-11-03, and with PSM below): read Privilege Cloud through its API into `stg_pc_*` instead of the export folder, as a fourth option on the CyberArk sources page (already listed there, unavailable). Needs the Privilege Cloud API's logon (an Identity OAuth client, `Platform/Developer` and `PAM/Privilege-Cloud-Standard` in the Idira reference), a lab tenant, and the same change guard.
 
 ## From the requirements review (2026-10-21)
 Gaps against the original design (commit f0561ce) and the Blueprint theme. Built from that review: Progress Rules (D-283), editable stages (D-284), rejected sign-in logging (D-285), the SAML certificate reminder (D-287); step-up MFA is left to the SSO provider (D-286).
 - **No SMTP on the dev site**: no host or recipients, so the overdue-exception alerts (D-19) and the other notifications reach nobody On hold until a test mail environment exists (D-289). The break-glass email is unproven for the same reason.
-- **PSM for Privilege Cloud** (D-288): the RequiresPsm rule condition reads the platform policy of a Self-Hosted Direct pull; Privilege Cloud's platform export has no PSM column, so it's empty there until Privilege Cloud Direct reads the platform policy.
-- **Suggestion: email the application owner** (D-46 `OwnerEmail`) when an application-scoped exception comes up for review, not only the configured recipients.
-- **Suggestion: least-privilege view**: who holds Manage Safe, Manage Safe Members or full rights, across Safes (the per-account "Who can use this account" and the Power BI entitlement view exist).
-- **Suggestion: sponsor view of progress against target dates over time**, from Trends and `TargetRemediationDate`.
+- **PSM for Privilege Cloud** (D-288; the user, 2026-11-03: build it as part of Privilege Cloud Direct. The local Idira docs for Privilege Cloud Standard, fetched 2026-10-15, list the same Get platforms call, `/PasswordVault/API/Platforms/`, with `sessionManagement.requirePrivilegedSessionMonitoringAndIsolation`, the field the Self-Hosted pull reads; how a service user signs in to Privilege Cloud's API isn't described there and still needs checking): the RequiresPsm rule condition reads the platform policy of a Self-Hosted Direct pull; Privilege Cloud's platform export has no PSM column, so it's empty there until Privilege Cloud Direct reads the platform policy.
+- **Next round (the user, 2026-11-03). Suggestion: email the application owner** (D-46 `OwnerEmail`) when an application-scoped exception comes up for review, not only the configured recipients.
+- **Next round. Suggestion: least-privilege view**: who holds Manage Safe, Manage Safe Members or full rights, across Safes (the per-account "Who can use this account" and the Power BI entitlement view exist).
+- **Next round. Suggestion: sponsor view of progress against target dates over time**, from Trends and `TargetRemediationDate`.
 
 ## Requested, deferred
 
@@ -36,7 +36,7 @@ Gaps against the original design (commit f0561ce) and the Blueprint theme. Built
 
 ## Found in the real CyberArk data (checked 2026-10-13)
 Self-Hosted: EVD `CyberArkSH`, loaded 2026-10-13. Privilege Cloud: the export CSVs in the configured folder (loaded since D-228, 2026-10-14).
-- **Nested AD group path** (D-281): "Via AD group" names the Safe's group; a person in a nested group isn't shown the group in between.
+- **Nested AD group path** (D-281; next round, the user, 2026-11-03): "Via AD group" names the Safe's group; a person in a nested group isn't shown the group in between.
 - **Direct Account→Target links**: neither CyberArk source lists remote machines (Privilege Cloud `RemoteMachines` is empty; Self-Hosted has no such property), so the Address-derived links (D-193) are the CyberArk side. The `AccountTargetMap` data feed exists (`App/Api/DataFeeds/FeedColumns.cs:21`); what's missing is a non-CyberArk system to supply it.
 
 ## Process and tooling
