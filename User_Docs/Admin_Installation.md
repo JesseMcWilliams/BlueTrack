@@ -127,7 +127,7 @@ The last step, `Smoke`, makes two checks as the user running the installer: the 
 
 **What `ApplicationPoolIdentity` means for SQL Server**: with SQL Server on the same machine (the normal single-server layout), the App Pool reaches it as its own virtual account, `IIS APPPOOL\<pool>` (for example `IIS APPPOOL\BlueTrack-AppPool`); with SQL Server on another machine, as the server's computer account, `DOMAIN\HOSTNAME$`. The installer's `Db.AppPoolAccess` step works out which, and grants that account its SQL login and permissions (see `Deploy/README.md`, "App pool SQL access"). Watch for one trap: with SQL Server on the same machine, the `Login failed for user '...'` message names the *computer account*, although the login that's needed is `IIS APPPOOL\<pool>`. Granting the computer account doesn't help; it works once `IIS APPPOOL\<pool>` has the login.
 
-**Re-run `Db.AppPoolAccess` on an existing install after upgrading**: the grants it applies change from time to time. The current version makes the audit log and its seals append-only for the app's account (it can add audit entries and seals but not change or delete them) and adds `db_backupoperator` for the Deployment page's backups. To apply them:
+**Re-run `Db.AppPoolAccess` on an existing install after upgrading**: the grants it applies change from time to time. The current version makes the audit log and its seals append-only for the app's account (it can add audit entries and seals but not change or delete them) adds `db_backupoperator` for the Deployment page's backups, and adds msdb's `SQLAgentOperatorRole` so **Pull now** can start the Import and Load job (1.5.2). To apply them:
 
 ```powershell
 .\Install-BlueTrack.ps1 -Step Db.AppPoolAccess -GrantAppPoolSqlAccess $true

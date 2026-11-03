@@ -114,7 +114,8 @@ BlueTrack connects to SQL Server with Windows Integrated Authentication — no S
 
 - `db_datareader` + `db_datawriter`, and `EXECUTE` on the `dbo` and `web` schemas;
 - `db_backupoperator`, for the Deployment page's **Backup App** and scheduled backups;
-- an **append-only audit log**: the account may add audit rows but not change or delete them, and may not run the retention purge (that runs from its own SQL Agent job, below).
+- an **append-only audit log**: the account may add audit rows but not change or delete them, and may not run the retention purge (that runs from its own SQL Agent job, below);
+- msdb's `SQLAgentOperatorRole`, from `Database/Manual/08_BlueTrack_GrantAppAgentJobStart.sql`, so **Pull now** can start the Import and Load job. The role lets the account start, stop, enable and disable every SQL Agent job on the instance (not create or change them). On an instance shared with other applications you can take it back (`ALTER ROLE SQLAgentOperatorRole DROP MEMBER [<account>];` in msdb); Pull now then leaves the load to the nightly job.
 
 The installer does this for you: `.\Install-BlueTrack.ps1 -Step Db.AppPoolAccess -GrantAppPoolSqlAccess $true` works out the account, creates its login if it's missing, and runs a filled-in copy of the script (`-AppPoolSqlLogin` overrides the account). The installing user needs `securityadmin` (or `sysadmin`) on the instance. **On an existing install, re-run this step after upgrading** to pick up the backup role and the append-only audit log; it's safe to re-run.
 
@@ -122,6 +123,7 @@ By hand instead (replace the `__TARGET_ACCOUNT__` placeholder first — the scri
 
 ```
 sqlcmd -S <server> -C -d BlueTrack -i 02_BlueTrack_GrantAppServiceAccountAccess.sql
+sqlcmd -S <server> -C -i 08_BlueTrack_GrantAppAgentJobStart.sql
 ```
 
 **Never run this through `App/Migrator`** — granting a real account real permissions is a deliberate, DBA-run action.
@@ -195,7 +197,7 @@ ORDER BY h.instance_id DESC;
 ```
 `run_status`: `0` = Failed, `1` = Succeeded, `2` = Retry, `3` = Canceled, `4` = In progress (standard `sysjobhistory` semantics, not BlueTrack-specific). The job name embeds the database name (`BlueTrack (BlueTrack) - Import and Load` for a database named `BlueTrack`), so jobs for two databases can coexist on the same SQL Server instance without colliding.
 
-**Re-running it manually** (e.g. after fixing a bad export file): either restart the job through SQL Server Agent (`EXEC msdb.dbo.sp_start_job @job_name = 'BlueTrack (BlueTrack) - Import and Load';`), or run `EXEC usp_RunNightlyImportLoad;` against the target database, which does exactly what the job does. Running a snapshot again the same day replaces that day's snapshot. For more control, run the Import and Load yourself — see `Admin_DeploymentRunbook.md`'s "First Data Load" section for the exact `usp_Import_All`/`usp_RunFullLoad` call shape and its real prerequisites (for Self-Hosted, a successful pull first, with `@SelfHostedStaged = 1`; for Privilege Cloud, the SQL Server *service account*, not your own login, needs read access to the export folder).
+**Re-running it manually** (e.g. after fixing a bad export file): a successful **Pull now** on Admin > Data Sources starts this job for you (D-302). Otherwise, either restart the job through SQL Server Agent (`EXEC msdb.dbo.sp_start_job @job_name = 'BlueTrack (BlueTrack) - Import and Load';`), or run `EXEC usp_RunNightlyImportLoad;` against the target database, which does exactly what the job does. Running a snapshot again the same day replaces that day's snapshot. For more control, run the Import and Load yourself — see `Admin_DeploymentRunbook.md`'s "First Data Load" section for the exact `usp_Import_All`/`usp_RunFullLoad` call shape and its real prerequisites (for Self-Hosted, a successful pull first, with `@SelfHostedStaged = 1`; for Privilege Cloud, the SQL Server *service account*, not your own login, needs read access to the export folder).
 
 **Never edit `Database/Manual/04_BlueTrack_ScheduleImportLoadJob.sql` for a routine change.** Change the export folder, file names, Self-Hosted Direct settings or sources on Admin > Data Sources. To change the 2:00 AM run time, use `sp_update_schedule` against the existing job's schedule; there's no need to touch the script at all.
 
