@@ -176,7 +176,7 @@ public class TargetLinkingTests : IClassFixture<BlueTrackWebApplicationFactory>
     }
 
     [Fact]
-    public async Task AStrongMatchOnALinkedTarget_MergesIntoIt_AndChangesNothingElse()
+    public async Task AStrongMatchOnALinkedTarget_MergesIntoIt_TakingOnlyTheRowsRiskScore()
     {
         var client = Client();
         var token = $"str{Guid.NewGuid():N}"[..14];
@@ -199,7 +199,7 @@ public class TargetLinkingTests : IClassFixture<BlueTrackWebApplicationFactory>
 
             var target = (await client.GetFromJsonAsync<TargetResponse>($"/api/admin/targets/{linked}"))!;
             Assert.Equal($"{token}-db", target.TargetName);
-            Assert.Equal(300, target.RiskScore);
+            Assert.Equal(999, target.RiskScore);   // D-316: the row's score; nothing else changes
             Assert.Equal(primary, target.LinkedToTargetKey);
             Assert.Contains(target.Identifiers, i => i.IdentifierType == "FQDN" && i.IdentifierValue == $"{token}.example.test");
             Assert.DoesNotContain(target.Identifiers, i => i.IdentifierValue == ip);

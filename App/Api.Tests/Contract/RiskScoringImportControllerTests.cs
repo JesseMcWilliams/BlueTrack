@@ -1,6 +1,9 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text;
+using BlueTrack.Api.Tests.Integration;
+using Dapper;
+using Microsoft.Data.SqlClient;
 using Xunit;
 
 namespace BlueTrack.Api.Tests.Contract;
@@ -65,6 +68,45 @@ public class RiskScoringImportControllerTests : IClassFixture<BlueTrackWebApplic
         await client.DeleteAsync($"/api/admin/targets/{created.TargetKey}");
     }
 
+    // D-316: a re-import that changes a Target's score marks the accounts that reach it for recalculation; the same score doesn't.
+    [Fact]
+    public async Task TargetInventoryReimport_WithANewScore_MarksTheAccountsThatReachItStale()
+    {
+        var client = AdminClient();
+        var adGuid = Guid.NewGuid().ToString();
+        var createResponse = await client.PostAsJsonAsync("/api/admin/targets", new
+        {
+            targetTypeKey = await GetTargetTypeKeyAsync(client, "Server"),
+            targetName = $"ContractTestReimport_{Guid.NewGuid():N}",
+            riskScore = 200,
+            identifiers = new[] { new { identifierType = "ADGuid", identifierValue = adGuid } }
+        });
+        var created = await createResponse.Content.ReadFromJsonAsync<TargetKeyResponse>();
+        var accountKey = await TestAccounts.GetAccountKeyAsync("TestAccount01");
+        await using var connection = new SqlConnection(TestDatabase.ConnectionString);
+        await connection.ExecuteAsync("INSERT INTO web.account_target_map (AccountKey, TargetKey, SourceMethod) VALUES (@accountKey, @targetKey, 'ManualImport')",
+            new { accountKey, targetKey = created!.TargetKey });
+        async Task<bool> StaleAsync() => await connection.QuerySingleOrDefaultAsync<bool?>(
+            "SELECT IsRiskScoreStale FROM web.account_risk_score WHERE AccountKey = @accountKey", new { accountKey }) ?? false;
+        async Task ImportAsync(int score) => (await client.PostAsync("/api/admin/risk-scoring/import/target-inventory",
+            BuildCsvUpload($"TargetType,TargetName,RiskScore,Description,DiscoverySource,ADGuid\nServer,Whatever,{score},,,{adGuid}\n"))).EnsureSuccessStatusCode();
+        try
+        {
+            await connection.ExecuteAsync("UPDATE web.account_risk_score SET IsRiskScoreStale = 0 WHERE AccountKey = @accountKey", new { accountKey });
+            await ImportAsync(200);
+            Assert.False(await StaleAsync());
+
+            await ImportAsync(650);
+            Assert.True(await StaleAsync());
+            Assert.Equal(650, await connection.QuerySingleAsync<int>("SELECT RiskScore FROM web.dim_target WHERE TargetKey = @key", new { key = created.TargetKey }));
+        }
+        finally
+        {
+            await connection.ExecuteAsync("DELETE FROM web.account_target_map WHERE TargetKey = @key", new { key = created.TargetKey });
+            await client.DeleteAsync($"/api/admin/targets/{created.TargetKey}");
+        }
+    }
+
     [Fact]
     public async Task TargetInventoryImport_MatchingStrongIdentifier_MergesIntoExistingTarget()
     {
@@ -92,8 +134,9 @@ public class RiskScoringImportControllerTests : IClassFixture<BlueTrackWebApplic
             Assert.Equal(0, result.CreatedCount);
 
             var targets = await client.GetFromJsonAsync<List<TargetResponse>>("/api/admin/targets");
-            // Still the original Target row (matched, not duplicated) -- its own name/risk score untouched by the merge.
-            Assert.Single(targets!, t => t.TargetKey == created!.TargetKey && t.TargetName == originalName && t.RiskScore == 500);
+            // Still the original Target row (matched, not duplicated) -- its own name untouched by the merge; D-316: the
+            // row's risk score replaces its own, so a re-import updates scores.
+            Assert.Single(targets!, t => t.TargetKey == created!.TargetKey && t.TargetName == originalName && t.RiskScore == 999);
         }
         finally
         {

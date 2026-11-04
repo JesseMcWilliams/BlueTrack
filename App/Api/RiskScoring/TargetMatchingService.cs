@@ -91,10 +91,12 @@ public sealed class TargetMatchingService(IDbConnectionFactory connectionFactory
         // Step 3: a strong (RequiresReview = 0) match -> auto-merge. Add any
         // identifier values this row supplied that no Target carries yet
         // (an IP address its primary has stays there when the match is a
-        // linked target, D-229). Nothing else on the Target changes.
+        // linked target, D-229), and D-316: take the row's risk score.
+        // Nothing else on the Target changes.
         if (!best.RequiresReview)
         {
             await AddMissingIdentifiersAsync(connection, transaction, best.TargetKey, identifiers);
+            await UpdateRiskScoreAsync(connection, transaction, best.TargetKey, riskScore, modifiedByUserKey);
             transaction.Commit();
             return new TargetMatchResult(TargetMatchOutcome.Merged, best.TargetKey);
         }
@@ -128,6 +130,7 @@ public sealed class TargetMatchingService(IDbConnectionFactory connectionFactory
         if (knownTargetKey is { } knownKey)
         {
             await AddMissingIdentifiersAsync(connection, transaction, knownKey, identifiers);
+            await UpdateRiskScoreAsync(connection, transaction, knownKey, riskScore, modifiedByUserKey);
             transaction.Commit();
             return new TargetMatchResult(TargetMatchOutcome.Merged, knownKey);
         }
@@ -174,6 +177,20 @@ public sealed class TargetMatchingService(IDbConnectionFactory connectionFactory
 
         transaction.Commit();
         return new TargetMatchResult(TargetMatchOutcome.PendingReview, null);
+    }
+
+    /// <summary>
+    /// D-316: an import (or the TargetInventory feed) that matches a Target sets its risk score to the row's, so a
+    /// re-import updates scores; when it changes, whatever reaches the Target is marked stale for recalculation, as
+    /// an edit on the Targets page does. The same score changes nothing.
+    /// </summary>
+    private static async Task UpdateRiskScoreAsync(System.Data.IDbConnection connection, System.Data.IDbTransaction transaction, int targetKey, int riskScore, int? modifiedByUserKey)
+    {
+        var changed = await connection.ExecuteAsync("""
+            UPDATE web.dim_target SET RiskScore = @RiskScore, ModifiedBy = @ModifiedBy, ModifiedDate = SYSUTCDATETIME()
+            WHERE TargetKey = @TargetKey AND (RiskScore IS NULL OR RiskScore <> @RiskScore)
+            """, new { TargetKey = targetKey, RiskScore = riskScore, ModifiedBy = modifiedByUserKey }, transaction);
+        if (changed > 0) await RiskScoreStalenessPropagator.MarkEntitiesReachingTargetStaleAsync(connection, transaction, targetKey);
     }
 
     /// <summary>Gives <paramref name="targetKey"/> every identifier in <paramref name="identifiers"/> that no Target carries yet.</summary>
