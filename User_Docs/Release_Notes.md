@@ -6,6 +6,7 @@ What changed in each BlueTrack release, newest first, for users and administrato
 
 ### New
 
+- **Bulk override on Reports > Risk Score**: select accounts and set an override score (with a reason) on all of them, or clear it. Needs `EditAccountProgress`, as on one account. (User Guide)
 - **Admin > Power BI** (permission `ViewDeploymentInfo`): the server and database to connect Power BI to, the views and tables to import with their columns, how to relate them, and a script that gives an account read access to just those. (Administrator Operations Guide)
 - **Version files.** A `VERSION` file at the top of a release's folder names its version, and the installer writes `BlueTrack.version.txt` (the version, and when it was built) into the API's install folder. (Upgrade Guide)
 - **Reason for CyberArk CP and CCP retrievals.** Admin > Secrets Store Configuration takes an optional **Reason** for the Credential Provider and the Central Credential Provider; BlueTrack sends it with each retrieval, and the Credential Provider records it in its audit log. (Administrator Settings Reference)

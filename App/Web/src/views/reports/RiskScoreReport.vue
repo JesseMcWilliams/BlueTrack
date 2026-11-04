@@ -16,6 +16,9 @@ import FilterCountSummary from '../../components/FilterCountSummary.vue'
 import Pager from '../../components/Pager.vue'
 import ReportExportButtons from '../../components/ReportExportButtons.vue'
 import EmptyListMessage from '../../components/EmptyListMessage.vue'
+import SelectionBar from '../../components/SelectionBar.vue'
+import { useListSelectionStore } from '../../stores/listSelection'
+import { problemMessage } from '../../utils/problemText'
 import { useI18n } from 'vue-i18n'
 import { formatCount } from '../../utils/formatCount'
 
@@ -47,6 +50,43 @@ const recalculateError = ref(null)
 // D-198: recalculating changes stored scores, so it needs ManageTargets, not just ViewRiskReport.
 const rights = useRightsStore()
 const recalculated = ref(false)
+
+// D-315: set or clear the override on many accounts at once, for holders of EditAccountProgress (as on one account).
+const canOverride = computed(() => rights.hasPermission('EditAccountProgress'))
+const selection = useListSelectionStore('risk-score')
+const pageKeys = computed(() => rows.value.map(r => r.accountKey))
+const bulk = ref(null)   // { action: 'set' | 'clear', score, reason }
+const bulkSaving = ref(false)
+const bulkError = ref(null)
+const bulkResult = ref(null)
+
+function startBulk(action) {
+  bulk.value = { action, score: '', reason: '' }
+  bulkError.value = null
+  bulkResult.value = null
+}
+
+async function applyBulk() {
+  bulkSaving.value = true
+  bulkError.value = null
+  try {
+    const setting = bulk.value.action === 'set'
+    const response = await fetch('/api/account-progress/risk-score-override/bulk', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ accountKeys: selection.keys, overrideRiskScore: setting ? Number(bulk.value.score) : null, reason: bulk.value.reason.trim() || null })
+    })
+    if (!response.ok) throw new Error(await problemMessage(response, t('common.requestFailed', { status: response.status })))
+    bulkResult.value = await response.json()
+    bulk.value = null
+    selection.clear()
+    await load()
+  } catch (err) {
+    bulkError.value = err.message
+  } finally {
+    bulkSaving.value = false
+  }
+}
 
 const expandedAccountKey = ref(null)
 const contributors = ref([])
@@ -189,6 +229,22 @@ onMounted(load)
       <span v-if="recalculateError" role="alert"> {{ recalculateError }}</span>
     </p>
     <ReportExportButtons path="/api/reports/risk-score/export" :params="{ sort: sortQueryParam }" />
+    <SelectionBar v-if="canOverride" :selection="selection" :page-keys="pageKeys" :filtered-count="filteredCount" keys-url="/api/reports/risk-score/keys">
+      <button type="button" :disabled="selection.count === 0" @click="startBulk('set')">{{ t('reports.riskScoreReport.bulkSet') }}</button>
+      <button type="button" :disabled="selection.count === 0" @click="startBulk('clear')">{{ t('reports.riskScoreReport.bulkClear') }}</button>
+    </SelectionBar>
+    <form v-if="bulk" class="bulk-override-form" @submit.prevent="applyBulk">
+      <label v-if="bulk.action === 'set'" class="field-label"><span class="field-label-text">{{ t('reports.riskScoreReport.bulkScore') }}</span>
+        <input v-model="bulk.score" type="number" min="0" max="1000" required /></label>
+      <label class="field-label"><span class="field-label-text">{{ bulk.action === 'set' ? t('reports.riskScoreReport.bulkReason') : t('reports.riskScoreReport.bulkReasonOptional') }}</span>
+        <input v-model="bulk.reason" size="50" maxlength="1000" :required="bulk.action === 'set'" /></label>
+      <button type="submit" class="btn-primary" :disabled="bulkSaving">{{ bulk.action === 'set'
+        ? t('reports.riskScoreReport.bulkApplySet', { count: formatCount(selection.count) }, selection.count)
+        : t('reports.riskScoreReport.bulkApplyClear', { count: formatCount(selection.count) }, selection.count) }}</button>
+      <button type="button" @click="bulk = null">{{ t('common.cancel') }}</button>
+    </form>
+    <p v-if="bulkError" role="alert">{{ bulkError }}</p>
+    <p v-if="bulkResult" role="status">{{ t('reports.riskScoreReport.bulkDone', { count: formatCount(bulkResult.changed) }, bulkResult.changed) }}<template v-if="bulkResult.notFound.length">{{ ' ' + t('reports.riskScoreReport.bulkNotFound', { count: formatCount(bulkResult.notFound.length) }, bulkResult.notFound.length) }}</template></p>
     <FilterCountSummary :shown="rows.length" :filtered-count="filteredCount" :total="totalCount" :page="page" :page-size="pageSizeStore.current" />
     <Pager :page="page" :page-count="pageCount" @update:page="onPageChange" @page-size-change="onPageSizeChange" />
     <p v-if="loading" role="status">{{ t('common.loading') }}</p>
@@ -196,6 +252,7 @@ onMounted(load)
     <table v-else>
       <thead>
         <tr>
+          <th v-if="selection.enabled && canOverride"><span class="visually-hidden">{{ t('reports.riskScoreReport.selected') }}</span></th>
           <th v-for="col in columns" :key="col.field" :aria-sort="ariaSortFor(col.field)">
             <button type="button" @click="toggleSort(col.field, $event)">
               {{ t(col.labelKey) }} <span aria-hidden="true">{{ sortIndicator(col.field) }}</span>
@@ -206,6 +263,9 @@ onMounted(load)
       <tbody>
         <template v-for="row in rows" :key="row.accountKey">
           <tr>
+            <td v-if="selection.enabled && canOverride">
+              <input type="checkbox" :checked="selection.isSelected(row.accountKey)" :aria-label="t('reports.riskScoreReport.selectRow', { name: row.accountName })" @change="selection.toggle(row.accountKey)" />
+            </td>
             <td>
               <button type="button" class="link-button" :aria-expanded="expandedAccountKey === row.accountKey" @click="toggleDrilldown(row.accountKey)">
                 {{ row.accountName }}
@@ -219,7 +279,7 @@ onMounted(load)
             <td>{{ formatDate(row.riskScoreCalculatedDate) }}</td>
           </tr>
           <tr v-if="expandedAccountKey === row.accountKey">
-            <td colspan="7">
+            <td :colspan="selection.enabled && canOverride ? 8 : 7">
               <!-- UI review W7-6: the account name expands this panel, so the account itself is one link away. -->
               <p><router-link :to="{ name: 'account-progress-detail', params: { accountKey: row.accountKey } }">{{ t('reports.riskScoreReport.openAccount', { name: row.accountName }) }}</router-link></p>
               <p v-if="contributorsLoading" role="status">{{ t('reports.riskScoreReport.loadingContributors') }}</p>
