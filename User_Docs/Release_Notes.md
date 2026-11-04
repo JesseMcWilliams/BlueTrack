@@ -20,6 +20,7 @@ What changed in each BlueTrack release, newest first, for users and administrato
 
 ### Changed
 
+- Re-importing **Target Inventory** (or its feed) updates an existing Target's **Risk Score** to the file's, and the accounts that reach it are recalculated. Its name, type and description still aren't changed by an import. (User Guide)
 - **Test** on Admin > Data Sources > CyberArk sources is quick for Self-Hosted: it reads one Safe and one account and PVWA's totals, instead of everything a pull reads. **Test with a full read** does the full read. (Administrator Settings Reference)
 - The Settings Reference says how to point BlueTrack at several PVWAs behind a load balancer (its address, with sticky sessions, as CyberArk requires). (Administrator Settings Reference)
 - Choosing the CyberArk CP secrets backend on a server where BlueTrack was built without the CyberArk Application Password SDK now says so, and how to add it (re-run the installer's `Build.Api` step once the Credential Provider is installed). (Administrator Operations Guide)
