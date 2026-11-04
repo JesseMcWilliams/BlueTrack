@@ -53,7 +53,8 @@ public sealed class PvwaClient(HttpClient http, Uri apiRoot)
     /// Reads everything Self-Hosted Direct loads. Discovered (pending) accounts are deliberately not read. D-280:
     /// <paramref name="options"/> asks for the classic account details too (a nightly or Pull now pull; Test doesn't).
     /// </summary>
-    public async Task<PvwaSnapshot> PullAsync(string token, CancellationToken ct, PvwaPullOptions? options = null)
+    /// <remarks>D-327: <paramref name="includeBuiltInSafes"/> also reads CyberArk's internal Safes, which REST's Safe list leaves out.</remarks>
+    public async Task<PvwaSnapshot> PullAsync(string token, CancellationToken ct, PvwaPullOptions? options = null, bool includeBuiltInSafes = false)
     {
         var snapshot = new PvwaSnapshot();
 
@@ -94,19 +95,10 @@ public sealed class PvwaClient(HttpClient http, Uri apiRoot)
 
         foreach (var item in await GetPagedAsync(token, "Safes?extendedDetails=true", ct))
         {
-            var number = Long(item, "safeNumber");
-            var name = Str(item, "safeName");
-            var urlId = Str(item, "safeUrlId") ?? name;
-            if (number is null || name is null || urlId is null) { snapshot.Warnings.Add("A Safe without a number or name was skipped."); continue; }
-            var creator = Obj(item, "creator");
-            snapshot.Safes.Add(new PvwaSafe(number.Value, urlId, name, Str(item, "location"), Str(creator, "name"),
-                Epoch(item, "creationTime"), (int?)Long(item, "numberOfDaysRetention"), (int?)Long(item, "numberOfVersionsRetention"))
-            {
-                Description = Str(item, "description"), CreatorId = Str(creator, "id") ?? Long(creator, "id")?.ToString(CultureInfo.InvariantCulture),
-                OlacEnabled = Bool(item, "olacEnabled"), ManagingCpm = Str(item, "managingCPM"), AutoPurgeEnabled = Bool(item, "autoPurgeEnabled"),
-                LastModificationTime = EpochAnyUnit(item, "lastModificationTime"), IsExpiredMember = Bool(item, "isExpiredMember")
-            });
+            if (SafeFrom(item) is { } safe) snapshot.Safes.Add(safe);
+            else snapshot.Warnings.Add("A Safe without a number or name was skipped.");
         }
+        if (includeBuiltInSafes) await ReadBuiltInSafesAsync(token, snapshot, ct);
 
         foreach (var item in await GetPagedAsync(token, "Accounts", ct))
         {
@@ -342,16 +334,72 @@ public sealed class PvwaClient(HttpClient http, Uri apiRoot)
 
     private static string? Blank(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
+    private static PvwaSafe? SafeFrom(JsonElement item)
+    {
+        var number = Long(item, "safeNumber");
+        var name = Str(item, "safeName");
+        var urlId = Str(item, "safeUrlId") ?? name;
+        if (number is null || name is null || urlId is null) return null;
+        var creator = Obj(item, "creator");
+        return new PvwaSafe(number.Value, urlId, name, Str(item, "location"), Str(creator, "name"),
+            Epoch(item, "creationTime"), (int?)Long(item, "numberOfDaysRetention"), (int?)Long(item, "numberOfVersionsRetention"))
+        {
+            Description = Str(item, "description"), CreatorId = Str(creator, "id") ?? Long(creator, "id")?.ToString(CultureInfo.InvariantCulture),
+            OlacEnabled = Bool(item, "olacEnabled"), ManagingCpm = Str(item, "managingCPM"), AutoPurgeEnabled = Bool(item, "autoPurgeEnabled"),
+            LastModificationTime = EpochAnyUnit(item, "lastModificationTime"), IsExpiredMember = Bool(item, "isExpiredMember")
+        };
+    }
+
+    /// <summary>
+    /// D-327: CyberArk's internal (built-in) Safes. REST's Safe list leaves them out ("The Safes returned in the results do
+    /// not include Internal Safes"); the classic Safe list includes them but has no Safe number, so each one REST didn't
+    /// return is read with Get Safe details, as the others are. Their members follow with the rest. A Safe that can't be
+    /// read is a warning, not a failure: the option is there to review whether this data is useful.
+    /// </summary>
+    private async Task ReadBuiltInSafesAsync(string token, PvwaSnapshot snapshot, CancellationToken ct)
+    {
+        List<string> names;
+        try
+        {
+            names = ArrayOf(await GetJsonAsync(token, "../WebServices/PIMServices.svc/Safes", ct), "GetSafesResult")
+                .Select(s => Str(s, "SafeName")).OfType<string>().ToList();
+        }
+        catch (PvwaException ex)
+        {
+            snapshot.Warnings.Add($"CyberArk's built-in Safes weren't read: {ex.Message}");
+            return;
+        }
+        var known = snapshot.Safes.Select(s => s.SafeName).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var failed = new List<string>();
+        foreach (var name in names.Where(n => !known.Contains(n)))
+        {
+            try
+            {
+                if (SafeFrom(await GetJsonAsync(token, $"Safes/{Uri.EscapeDataString(name)}/", ct)) is { } safe) snapshot.Safes.Add(safe);
+                else failed.Add(name);
+            }
+            catch (PvwaException)
+            {
+                failed.Add(name);
+            }
+        }
+        if (failed.Count > 0)
+            snapshot.Warnings.Add($"{ServerTextCulture.Count(failed.Count)} built-in Safe(s) not read: {string.Join(", ", failed.Take(10))}{(failed.Count > 10 ? ", ..." : "")}.");
+    }
+
     /// <summary>
     /// D-313: the quick Test. Reads the first Safe and the first account (limit=1), which proves the credential can list
     /// both, and the totals PVWA reports with them (<c>count</c>, beside <c>value</c> in Get Safes and Get accounts);
     /// null when it reports none.
     /// </summary>
-    public async Task<PvwaProbe> ProbeAsync(string token, CancellationToken ct)
+    public async Task<PvwaProbe> ProbeAsync(string token, CancellationToken ct, bool includeBuiltInSafes = false)
     {
         var safes = await GetJsonAsync(token, "Safes?limit=1&offset=0", ct);
         var accounts = await GetJsonAsync(token, "Accounts?limit=1&offset=0", ct);
-        return new PvwaProbe(ArrayOf(safes, "value").Count, CountOf(safes), ArrayOf(accounts, "value").Count, CountOf(accounts));
+        var safeCount = CountOf(safes);
+        // D-327: with the built-in Safes, a pull reads every Safe of the classic list, which includes them.
+        if (includeBuiltInSafes) safeCount = ArrayOf(await GetJsonAsync(token, "../WebServices/PIMServices.svc/Safes", ct), "GetSafesResult").Count;
+        return new PvwaProbe(ArrayOf(safes, "value").Count, safeCount, ArrayOf(accounts, "value").Count, CountOf(accounts));
     }
 
     private static int? CountOf(JsonElement root) =>

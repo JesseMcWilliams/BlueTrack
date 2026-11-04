@@ -200,6 +200,11 @@ function cancel() {
                   <textarea v-model="editing.pvwaFallbackUrls" rows="3" cols="50" :placeholder="t('admin.cyberArkSourcesEdit.pvwaFallbackPlaceholder')"></textarea></label>
                 <small>{{ t('admin.cyberArkSourcesEdit.pvwaFallbackHint') }}</small>
               </p>
+              <!-- D-327: CyberArk's built-in Safes, off by default, to review whether they are useful. -->
+              <p>
+                <label><input v-model="editing.includeBuiltInSafes" type="checkbox" /> {{ t('admin.cyberArkSourcesEdit.includeBuiltInSafes') }}</label>
+                <br /><small>{{ t('admin.cyberArkSourcesEdit.includeBuiltInSafesHint') }}</small>
+              </p>
               <p>
                 <label class="field-label"><span class="field-label-text">{{ t('admin.cyberArkSourcesEdit.credentialLabel') }}</span>
                   <select v-model="editing.pvwaCredentialKey" required>

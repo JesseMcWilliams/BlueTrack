@@ -368,6 +368,8 @@
     "pvwaAddressPlaceholder": "https://pvwa.example.com",
     "pvwaAddressHint": "https only. The /PasswordVault part is optional.",
     "pvwaFallbackLabel": "Other PVWA addresses (optional):",
+    "includeBuiltInSafes": "Include CyberArk's built-in Safes",
+    "includeBuiltInSafesHint": "Also reads the Vault's internal Safes (such as PasswordManager_Accounts and PVWAConfig) and their members, which PVWA's Safe list leaves out. They show as CyberArk internal Safes. Off by default; turn it on to review whether that data is useful. The first pull after turning it on counts more Safes, which Allowed change may need to accept.",
     "pvwaFallbackPlaceholder": "https://pvwa2.example.com",
     "pvwaFallbackHint": "One per line, up to 5. Each pull and Test signs in to the PVWA address first; when it can't be reached (no connection, no answer, or 502/503/504), the next address is tried. A refused credential is never tried elsewhere.",
     "credentialLabel": "Credential:",

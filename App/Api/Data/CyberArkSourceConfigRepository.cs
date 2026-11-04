@@ -21,6 +21,7 @@ public sealed class CyberArkSourceConfigRepository(IDbConnectionFactory connecti
         public string SelfHostedSource { get; init; } = "Direct";
         public string? PvwaBaseUrl { get; init; }
         public string? PvwaFallbackUrls { get; init; }
+        public bool IncludeBuiltInSafes { get; init; }
         public int? PvwaCredentialKey { get; init; }
         public string PvwaLogonMethod { get; init; } = "CyberArk";
         public string DirectPullTime { get; init; } = "01:30";
@@ -39,7 +40,7 @@ public sealed class CyberArkSourceConfigRepository(IDbConnectionFactory connecti
         var row = await connection.QuerySingleOrDefaultAsync<Row>("""
             SELECT c.ImportPrivilegeCloud, c.ExportFolderPath, c.PlatformsFileName, c.UsersFileName, c.GroupsFileName,
                    c.GroupMembersFileName, c.SafesFileName, c.AccountsFileName, c.EntitlementsFileName,
-                   c.ImportSelfHosted, c.SelfHostedSource, c.PvwaBaseUrl, c.PvwaFallbackUrls, c.PvwaCredentialKey,
+                   c.ImportSelfHosted, c.SelfHostedSource, c.PvwaBaseUrl, c.PvwaFallbackUrls, c.IncludeBuiltInSafes, c.PvwaCredentialKey,
                    c.PvwaLogonMethod, c.DirectPullTime, c.DirectMaxChangePercent, c.DirectPullTimeLimitMinutes,
                    c.DetailRefreshEnabled, c.DetailRefreshDays, c.DetailRefreshMaxAccounts, c.ModifiedDate, u.DisplayName AS ModifiedByName
             FROM web.cyberark_source_config c
@@ -71,6 +72,7 @@ public sealed class CyberArkSourceConfigRepository(IDbConnectionFactory connecti
                 SelfHostedSource = row.SelfHostedSource,
                 PvwaBaseUrl = row.PvwaBaseUrl,
                 PvwaFallbackUrls = row.PvwaFallbackUrls,
+                IncludeBuiltInSafes = row.IncludeBuiltInSafes,
                 PvwaCredentialKey = row.PvwaCredentialKey,
                 PvwaLogonMethod = row.PvwaLogonMethod,
                 DirectPullTime = row.DirectPullTime,
@@ -95,24 +97,24 @@ public sealed class CyberArkSourceConfigRepository(IDbConnectionFactory connecti
                 PlatformsFileName = @PlatformsFileName, UsersFileName = @UsersFileName, GroupsFileName = @GroupsFileName,
                 GroupMembersFileName = @GroupMembersFileName, SafesFileName = @SafesFileName, AccountsFileName = @AccountsFileName,
                 EntitlementsFileName = @EntitlementsFileName, ImportSelfHosted = @ImportSelfHosted,
-                SelfHostedSource = @SelfHostedSource, PvwaBaseUrl = @PvwaBaseUrl, PvwaFallbackUrls = @PvwaFallbackUrls, PvwaCredentialKey = @PvwaCredentialKey,
+                SelfHostedSource = @SelfHostedSource, PvwaBaseUrl = @PvwaBaseUrl, PvwaFallbackUrls = @PvwaFallbackUrls, IncludeBuiltInSafes = @IncludeBuiltInSafes, PvwaCredentialKey = @PvwaCredentialKey,
                 PvwaLogonMethod = @PvwaLogonMethod, DirectPullTime = @DirectPullTime, DirectMaxChangePercent = @DirectMaxChangePercent, DirectPullTimeLimitMinutes = @DirectPullTimeLimitMinutes,
                 DetailRefreshEnabled = @DetailRefreshEnabled, DetailRefreshDays = @DetailRefreshDays, DetailRefreshMaxAccounts = @DetailRefreshMaxAccounts,
                 ModifiedBy = @userKey, ModifiedDate = SYSUTCDATETIME()
             WHEN NOT MATCHED THEN INSERT
                 (CyberArkSourceConfigKey, ImportPrivilegeCloud, ExportFolderPath, PlatformsFileName, UsersFileName, GroupsFileName,
                  GroupMembersFileName, SafesFileName, AccountsFileName, EntitlementsFileName, ImportSelfHosted,
-                 SelfHostedSource, PvwaBaseUrl, PvwaFallbackUrls, PvwaCredentialKey, PvwaLogonMethod, DirectPullTime, DirectMaxChangePercent, DirectPullTimeLimitMinutes,
+                 SelfHostedSource, PvwaBaseUrl, PvwaFallbackUrls, IncludeBuiltInSafes, PvwaCredentialKey, PvwaLogonMethod, DirectPullTime, DirectMaxChangePercent, DirectPullTimeLimitMinutes,
                  DetailRefreshEnabled, DetailRefreshDays, DetailRefreshMaxAccounts, ModifiedBy)
                 VALUES (1, @ImportPrivilegeCloud, @ExportFolderPath, @PlatformsFileName, @UsersFileName, @GroupsFileName,
                  @GroupMembersFileName, @SafesFileName, @AccountsFileName, @EntitlementsFileName, @ImportSelfHosted,
-                 @SelfHostedSource, @PvwaBaseUrl, @PvwaFallbackUrls, @PvwaCredentialKey, @PvwaLogonMethod, @DirectPullTime, @DirectMaxChangePercent, @DirectPullTimeLimitMinutes,
+                 @SelfHostedSource, @PvwaBaseUrl, @PvwaFallbackUrls, @IncludeBuiltInSafes, @PvwaCredentialKey, @PvwaLogonMethod, @DirectPullTime, @DirectMaxChangePercent, @DirectPullTimeLimitMinutes,
                  @DetailRefreshEnabled, @DetailRefreshDays, @DetailRefreshMaxAccounts, @userKey);
             """, new
         {
             settings.ImportPrivilegeCloud, settings.ExportFolderPath, settings.PlatformsFileName, settings.UsersFileName,
             settings.GroupsFileName, settings.GroupMembersFileName, settings.SafesFileName, settings.AccountsFileName,
-            settings.EntitlementsFileName, settings.ImportSelfHosted, settings.SelfHostedSource, settings.PvwaBaseUrl, settings.PvwaFallbackUrls,
+            settings.EntitlementsFileName, settings.ImportSelfHosted, settings.SelfHostedSource, settings.PvwaBaseUrl, settings.PvwaFallbackUrls, settings.IncludeBuiltInSafes,
             settings.PvwaCredentialKey, settings.PvwaLogonMethod, settings.DirectPullTime, settings.DirectMaxChangePercent, settings.DirectPullTimeLimitMinutes,
             settings.DetailRefreshEnabled, settings.DetailRefreshDays, settings.DetailRefreshMaxAccounts, userKey
         });
