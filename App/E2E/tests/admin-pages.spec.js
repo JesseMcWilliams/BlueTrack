@@ -899,3 +899,18 @@ test.describe('Platform Mapping admin page', () => {
     await expect(page.locator('nav.admin-subnav').getByRole('link', { name: 'Platform Mapping' })).toHaveCount(0)
   })
 })
+
+// D-314: Admin > Power BI, for holders of ViewDeploymentInfo.
+test.describe('Power BI admin page', () => {
+  test('Admin sees where to connect, what to import, and a read-access script', async ({ page }) => {
+    await signInAs(page, 'TestUser.Admin')
+    await page.goto('/admin')
+    await page.locator('nav.admin-subnav').getByRole('link', { name: 'Power BI' }).click()
+
+    await expect(page).toHaveURL(/\/admin\/power-bi$/)
+    await expect(page.getByRole('heading', { name: 'Where to connect' })).toBeVisible()
+    await expect(page.getByText('dbo.vw_powerbi_accounts')).toBeVisible()
+    await page.getByLabel('Account or group:').fill('CORP\BI Readers')
+    await expect(page.locator('.power-bi-script')).toContainText('GRANT SELECT ON [dbo].[vw_powerbi_accounts] TO [CORP\BI Readers];')
+  })
+})

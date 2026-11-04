@@ -6,6 +6,7 @@ What changed in each BlueTrack release, newest first, for users and administrato
 
 ### New
 
+- **Admin > Power BI** (permission `ViewDeploymentInfo`): the server and database to connect Power BI to, the views and tables to import with their columns, how to relate them, and a script that gives an account read access to just those. (Administrator Operations Guide)
 - **Version files.** A `VERSION` file at the top of a release's folder names its version, and the installer writes `BlueTrack.version.txt` (the version, and when it was built) into the API's install folder. (Upgrade Guide)
 - **Reason for CyberArk CP and CCP retrievals.** Admin > Secrets Store Configuration takes an optional **Reason** for the Credential Provider and the Central Credential Provider; BlueTrack sends it with each retrieval, and the Credential Provider records it in its audit log. (Administrator Settings Reference)
 - **Safe pages.** An account's page and the Accounts list (a new **Safe** column, sortable) name the account's Safe; the name opens the Safe's page, with the BlueTrack application mapped to it, whether it is flagged for deletion or ignored, its account counts and its first 50 accounts, and **Show all on Accounts**, which filters the list to that Safe. (User Guide)

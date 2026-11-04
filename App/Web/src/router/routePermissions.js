@@ -12,6 +12,7 @@ export const ADMIN_SECTIONS = [
   { list: 'admin-audit-log', permission: 'ViewAuditLog', routes: [] },
   { list: 'admin-configuration', permission: 'ManageApplicationConfiguration', routes: [] },
   { list: 'admin-deployment', permission: 'ViewDeploymentInfo', routes: [] },
+  { list: 'admin-power-bi', permission: 'ViewDeploymentInfo', routes: [] },   // D-314
   { list: 'admin-notifications', permission: 'ManageNotifications', routes: ['admin-notification-recipient-create'] },
   { list: 'admin-credentials', permission: 'ManageCredentials', routes: [] },
   { list: 'admin-target-match-review', permission: 'ManageTargets', routes: [] },

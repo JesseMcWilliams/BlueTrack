@@ -74,6 +74,7 @@ builder.Services.AddScoped<TargetMatchReviewRepository>();
 builder.Services.AddScoped<ImportMappingProfileRepository>();
 builder.Services.AddScoped<RiskScoreReportRepository>();
 builder.Services.AddScoped<SafeDetailRepository>();   // D-308
+builder.Services.AddScoped<PowerBiRepository>();   // D-314
 builder.Services.AddScoped<RiskScoreBandRepository>();
 builder.Services.AddScoped<TargetMatchingService>();
 builder.Services.AddScoped<ImportMappingService>();

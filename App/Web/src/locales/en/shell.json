@@ -75,6 +75,7 @@
     "adminAuditLog": "Audit Log",
     "adminConfiguration": "Configuration",
     "adminDeployment": "Deployment Info",
+    "adminPowerBi": "Power BI",
     "adminNotifications": "Notifications",
     "adminNotificationRecipientCreate": "Add Recipient",
     "adminCredentials": "Credentials & LDAP",

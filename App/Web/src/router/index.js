@@ -441,6 +441,13 @@ const routes = [
         meta: { breadcrumb: 'shell.routes.adminDeployment', breadcrumbParent: 'admin' },
         component: () => import('../views/admin/DeploymentInfo.vue')
       },
+      // D-314: how to report on BlueTrack's data in Power BI.
+      {
+        path: 'power-bi',
+        name: 'admin-power-bi',
+        meta: { breadcrumb: 'shell.routes.adminPowerBi', breadcrumbParent: 'admin' },
+        component: () => import('../views/admin/PowerBiAccess.vue')
+      },
       {
         path: 'notifications',
         name: 'admin-notifications',
