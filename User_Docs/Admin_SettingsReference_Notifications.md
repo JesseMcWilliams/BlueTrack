@@ -13,11 +13,13 @@ This is the second part of the settings reference. The first part, [Admin_Settin
 | Backend | Settings | Credential column | Recommended when | Why |
 |---|---|---|---|---|
 | WindowsDpapi | None | Not used | You have no central vault, or for a single server | Built in, no dependency. Secrets are tied to this server and can't be shared with another. |
-| CyberArkCP | App ID | Not used | The CyberArk Credential Provider is installed on the server | Retrieval from the local CyberArk agent. Works only if BlueTrack was built with the CyberArk Application Password SDK. |
-| CyberArkCCP | Base URL (`https://`), App ID | Not used | You use the CyberArk Central Credential Provider | No local agent needed. |
+| CyberArkCP | App ID, Reason (optional) | Not used | The CyberArk Credential Provider is installed on the server | Retrieval from the local CyberArk agent. Works only if BlueTrack was built with the CyberArk Application Password SDK. |
+| CyberArkCCP | Base URL (`https://`), App ID, Reason (optional) | Not used | You use the CyberArk Central Credential Provider | No local agent needed. |
 | CyberArkConjur | Appliance URL (`https://`), Account, Login | The Conjur API key | You use Conjur | The API key is stored encrypted on the server. |
 | AzureKeyVault | Vault URI (`https://`), Auth Method (ManagedIdentity or ServicePrincipal), Tenant ID and Client ID for a service principal, Client ID for a user-assigned managed identity | The client secret, for ServicePrincipal only | BlueTrack runs in Azure | Prefer **ManagedIdentity** (the default): no secret is stored at all. |
 | AwsSecretsManager | Region, Auth Method (IamRole or AccessKey), Access Key ID for AccessKey | The secret access key, for AccessKey only | BlueTrack runs in AWS | Prefer **IamRole** (the default): no key is stored at all. |
+
+**Reason** (CP and CCP): sent with every retrieval as the Credential Provider's `Reason`, which it writes to its audit log (CyberArk Credential Providers docs, "Call the Web Service using REST" and the .NET Application Password SDK). Leave it blank to send none.
 
 Notes:
 

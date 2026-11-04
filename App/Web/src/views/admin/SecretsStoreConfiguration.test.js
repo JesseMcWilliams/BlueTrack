@@ -80,6 +80,18 @@ describe('SecretsStoreConfiguration.vue', () => {
     expect(wrapper.find('[role="status"]').exists()).toBe(false)
   })
 
+  // D-309: the CP and CCP settings carry the reason the Credential Provider audits with each retrieval.
+  it('saves the reason typed for the Credential Provider with its settings', async () => {
+    mockApi()
+    const wrapper = await mountPage()
+
+    await rowFor(wrapper, 'CyberArkCP').find('input[placeholder="Audited with each retrieval (optional)"]').setValue('BlueTrack data feed')
+    await rowFor(wrapper, 'CyberArkCP').find('button').trigger('click')
+    await flushPromises()
+
+    expect(JSON.parse(JSON.parse(puts()[0][1].body).backendSettings)).toEqual({ AppId: 'APP_Test', Reason: 'BlueTrack data feed' })
+  })
+
   it('a confirmed Make active switches the backend and says so', async () => {
     mockApi()
     const wrapper = await mountPage()
