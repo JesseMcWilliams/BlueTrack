@@ -1,4 +1,14 @@
 {
+  "dna": {
+    "heading": "CyberArk Discovery & Audit (DNA)",
+    "intro": "Upload DNA's account-list workbook (.xlsx). Its finding sheets' accounts are stored and listed on Reports > DNA Accounts; each upload replaces the one before. The hard-coded credentials sheet (HCC), the raw database scan and any column of credentials are never read.",
+    "file": "DNA workbook:",
+    "import": "Import",
+    "imported": "Imported.",
+    "latest": "Latest: {file}, imported {when} by {by}: {count} accounts, {tracked} of them tracked in BlueTrack.",
+    "seeAccounts": "See the accounts on Reports > DNA Accounts",
+    "none": "No DNA workbook has been imported yet."
+  },
   "adDiscovery": {
     "heading": "Active Directory account discovery",
     "intro": "Reads the members of the inventoried Access Groups from each enabled LDAP domain, nightly, and lists the accounts found on Reports > Discovered Accounts.",

@@ -15,6 +15,7 @@ import { confirmDelete } from '../../composables/useConfirmDialog'
 import { feedTypeLabel, formatRunTime } from './dataFeedFormat'
 import PullDetailsDialog from './PullDetailsDialog.vue'
 import AdDiscoverySection from './AdDiscoverySection.vue'
+import DnaSection from './DnaSection.vue'
 import { useI18n } from 'vue-i18n'
 import { formatCount } from '../../utils/formatCount'
 
@@ -289,6 +290,8 @@ async function remove(feed) {
 
       <!-- D-317: AD Account Discovery is a data source too. -->
       <AdDiscoverySection />
+      <!-- D-325: DNA (Discovery & Audit) workbooks. -->
+      <DnaSection />
 
       <h3>{{ t('admin.dataSources.dataFeedsHeading') }}</h3>
       <p>
