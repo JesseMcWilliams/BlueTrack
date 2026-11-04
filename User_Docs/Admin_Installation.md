@@ -8,7 +8,7 @@ Whoever is standing up a brand-new BlueTrack environment for the first time. Thi
 
 ## 1. Prerequisites
 
-You need: the .NET 10 SDK, Node.js, SQL Server reachable from this host, and (for a real environment) IIS with its Windows Authentication role service, the ASP.NET Core Hosting Bundle **10.0.13 or later** and the IIS URL Rewrite Module. `Deploy/Install-BlueTrack.ps1` checks for all of these and offers to install what's missing, except SQL Server itself (see `Deploy/README.md`, "What it deliberately does NOT do").
+You need: the .NET 10 SDK, Node.js, SQL Server reachable from this host, and (for a real environment) IIS with its Windows Authentication and Application Initialization role services, the ASP.NET Core Hosting Bundle **10.0.13 or later** and the IIS URL Rewrite Module. `Deploy/Install-BlueTrack.ps1` checks for all of these and offers to install what's missing, except SQL Server itself (see `Deploy/README.md`, "What it deliberately does NOT do").
 
 - **Hosting Bundle version**: some security fixes BlueTrack relies on are in .NET itself, so the server must run .NET 10.0.13 or later. The installer checks it: a Hosting Bundle whose newest ASP.NET Core runtime is older than 10.0.13 counts as missing, and the installer offers to install the current one (`-Step Prereq.HostingBundle`; see `Deploy/README.md`). You can also check with `dotnet --list-runtimes` (it should list `Microsoft.AspNetCore.App 10.0.13` or higher). Installing it restarts IIS.
 
