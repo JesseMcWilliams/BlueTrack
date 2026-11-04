@@ -11,6 +11,12 @@ namespace BlueTrack.Api.Data;
 /// </summary>
 public sealed class PowerBiRepository(IDbConnectionFactory connectionFactory)
 {
+    /// <summary>D-321: the role Database/Manual/09 creates, with SELECT on exactly <see cref="ObjectNames"/>.</summary>
+    public const string ReaderRole = "BlueTrack_PowerBI_Reader";
+
+    /// <summary>D-321: schema.name of every object here; a test keeps Database/Manual/09's grants equal to it.</summary>
+    public static IReadOnlyList<string> ObjectNames => Objects.Select(o => $"{o.Schema}.{o.Name}").ToList();
+
     private static readonly (string Schema, string Name, string Kind, string Description)[] Objects =
     [
         ("dbo", "vw_powerbi_accounts", "Fact", "One row per account, as it is now: its progress (stage, status, risk level, dates) and CPM state, with keys to the dimension tables."),
@@ -56,8 +62,9 @@ public sealed class PowerBiRepository(IDbConnectionFactory connectionFactory)
     public async Task<PowerBiAccess> GetAsync()
     {
         using var connection = connectionFactory.Create();
-        var (server, database) = await connection.QuerySingleAsync<(string, string)>(
-            "SELECT CAST(SERVERPROPERTY('ServerName') AS NVARCHAR(256)), DB_NAME()");
+        var (server, database, roleExists) = await connection.QuerySingleAsync<(string, string, bool)>(
+            "SELECT CAST(SERVERPROPERTY('ServerName') AS NVARCHAR(256)), DB_NAME(), CAST(CASE WHEN DATABASE_PRINCIPAL_ID(@ReaderRole) IS NULL THEN 0 ELSE 1 END AS BIT)",
+            new { ReaderRole });
         var columns = (await connection.QueryAsync<(string Schema, string Table, string Column)>("""
             SELECT TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS ORDER BY TABLE_SCHEMA, TABLE_NAME, ORDINAL_POSITION
             """)).ToLookup(c => (c.Schema.ToLowerInvariant(), c.Table.ToLowerInvariant()), c => c.Column);
@@ -75,6 +82,7 @@ public sealed class PowerBiRepository(IDbConnectionFactory connectionFactory)
         {
             ServerName = server,
             DatabaseName = database,
+            ReaderRoleExists = roleExists,
             Objects = objects,
             Relationships = Relationships.Where(r => present.Contains(r.FromObject) && present.Contains(r.ToObject)).ToList()
         };

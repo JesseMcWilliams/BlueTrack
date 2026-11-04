@@ -38,6 +38,8 @@
     "to": "To (one)",
     "accessTitle": "Read access",
     "accessHint": "Give a database administrator this script: it lets one account or group read only these objects. Type the account or group it is for.",
+    "roleExists": "The BlueTrack_PowerBI_Reader role is set up in this database: it may read exactly these objects. Add the account or group Power BI connects with to it, with the installer (Install-BlueTrack.ps1 -Step Db.PowerBiAccess -PowerBiReaderAccount DOMAIN\\Name) or with the script below.",
+    "roleMissing": "The BlueTrack_PowerBI_Reader role isn't set up yet. The installer's Db.PowerBiAccess step creates it and adds an account or group (Install-BlueTrack.ps1 -Step Db.PowerBiAccess -PowerBiReaderAccount DOMAIN\\Name); or give a database administrator the script below, which grants the same objects to one account.",
     "reader": "Account or group:",
     "readerPlaceholder": "DOMAIN\\PowerBI-Readers"
   },

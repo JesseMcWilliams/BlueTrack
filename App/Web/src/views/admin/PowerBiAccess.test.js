@@ -46,6 +46,17 @@ describe('PowerBiAccess.vue', () => {
     expect(script).toContain('GRANT SELECT ON [dbo].[vw_powerbi_accounts] TO [CORP\\BI]]Team];')
   })
 
+  // D-321: once the reader role is set up, adding the account to it is all the script needs to do.
+  it('adds the account to the reader role when the role is set up', async () => {
+    const wrapper = await mountPage({ ok: true, status: 200, json: () => Promise.resolve({ ...ACCESS, readerRoleExists: true }) })
+    await wrapper.find('input').setValue('CORP\\BI Readers')
+
+    const script = wrapper.find('.power-bi-script').text()
+    expect(script).toContain('ALTER ROLE BlueTrack_PowerBI_Reader ADD MEMBER [CORP\\BI Readers];')
+    expect(script).not.toContain('GRANT SELECT')
+    expect(wrapper.text()).toContain('The BlueTrack_PowerBI_Reader role is set up')
+  })
+
   it('says when the details could not be loaded', async () => {
     const wrapper = await mountPage({ ok: false, status: 403, json: () => Promise.resolve(null) })
 

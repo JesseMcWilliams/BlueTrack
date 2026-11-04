@@ -76,6 +76,7 @@ Preview without changing anything:
 | `-SeedTestData` | Also run `Database/Test` (DevFakeAuth/synthetic accounts) — never for Production | prompted |
 | `-InstallNightlyJob` | Install the nightly Import+Load SQL Agent job | prompted |
 | `-GrantAppPoolSqlAccess` | Give the App Pool's account a SQL login and the grants in `Database/Manual/02_BlueTrack_GrantAppServiceAccountAccess.sql` (`Db.AppPoolAccess` step). Only asked with Windows Integrated Security | prompted |
+| `-PowerBiReaderAccount` | A Windows account or group (`DOMAIN\Name`) to give read access to the Power BI views and tables: `Db.PowerBiAccess` creates its SQL login if missing and runs `Database/Manual/09_BlueTrack_PowerBiReaderRole.sql` (role `BlueTrack_PowerBI_Reader`, D-321) | prompted (blank skips) |
 | `-InstallSqlServerAudit` | Record every change to the audit log in the Windows Security log (`Db.SqlServerAudit`, D-295; see below) | prompted (default yes) |
 | `-AppPoolSqlLogin` | Account to grant, overriding the one worked out from the App Pool (e.g. on a server that isn't domain-joined) | worked out |
 | `-TrustServerCertificate` | Skip validating SQL Server's TLS certificate (`TrustServerCertificate=True`, and `sqlcmd -C`). Leave it unset: the default trusts it only when SQL Server is on this machine; for a remote server the certificate must then be trusted here (D-197) | worked out |

@@ -263,7 +263,7 @@ Later upgrades on that server build CP in by themselves, since the SDK is then p
 
 ## Reporting in Power BI
 
-**Admin > Power BI** (permission `ViewDeploymentInfo`) has what a Power BI author needs: the SQL Server and database to connect to, the views and tables to import (`vw_powerbi_accounts`, `vw_powerbi_entitlements`, `fact_account_progress_history` and the dimension tables), each with its columns, the relationships to set between them, and when the data changes. It also writes a `GRANT SELECT` script for exactly those objects, for the account or group you type; a database administrator runs it. Schedule Power BI's refresh after the nightly Import and Load.
+**Admin > Power BI** (permission `ViewDeploymentInfo`) has what a Power BI author needs: the SQL Server and database to connect to, the views and tables to import (`vw_powerbi_accounts`, `vw_powerbi_entitlements`, `fact_account_progress_history` and the dimension tables), each with its columns, the relationships to set between them, and when the data changes. Read access: the installer's `Db.PowerBiAccess` step (`Install-BlueTrack.ps1 -Step Db.PowerBiAccess -PowerBiReaderAccount DOMAIN\Name`) creates the database role `BlueTrack_PowerBI_Reader`, which may read exactly those objects and nothing else, and adds that account or group to it (creating its SQL Server login if needed; the installing user needs `securityadmin`). Run it again to add another. The page says whether the role is set up, and writes the matching script for the account or group you type (adding it to the role, or, without the role, granting the objects to it) for a database administrator who'd rather run it by hand. Schedule Power BI's refresh after the nightly Import and Load.
 
 ## Replacing the Bootstrap Admin Group
 
