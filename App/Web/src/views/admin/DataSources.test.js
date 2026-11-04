@@ -79,7 +79,7 @@ describe('DataSources.vue', () => {
       'GET /api/admin/cyberark-sources': jsonResponse(cyberArk())
     })
 
-    const wrapper = mount(DataSources, { global: { plugins: [makeRouter()] } })
+    const wrapper = mount(DataSources, { global: { plugins: [makeRouter()], stubs: { AdDiscoverySection: true } } })
     await flushPromises()
 
     expect(wrapper.text()).toContain('Nightly safes')
@@ -98,7 +98,7 @@ describe('DataSources.vue', () => {
       'GET /api/admin/cyberark-sources': jsonResponse(cyberArk({ isConfigured: false }))
     })
 
-    const wrapper = mount(DataSources, { global: { plugins: [makeRouter()] } })
+    const wrapper = mount(DataSources, { global: { plugins: [makeRouter()], stubs: { AdDiscoverySection: true } } })
     await flushPromises()
 
     expect(wrapper.find('[role="alert"]').text()).toContain('Not set up yet')
@@ -111,7 +111,7 @@ describe('DataSources.vue', () => {
       'GET /api/admin/cyberark-sources': jsonResponse(cyberArk()),
       'POST /api/admin/data-feeds/run': jsonResponse(null, true, 202)
     })
-    const wrapper = mount(DataSources, { global: { plugins: [makeRouter()] } })
+    const wrapper = mount(DataSources, { global: { plugins: [makeRouter()], stubs: { AdDiscoverySection: true } } })
     await flushPromises()
 
     await wrapper.findAll('button').find(b => b.text() === 'Run now').trigger('click')
@@ -131,7 +131,7 @@ describe('DataSources.vue', () => {
       'GET /api/admin/data-feeds/status': jsonResponse(status({ withinBusinessHours: true })),
       'GET /api/admin/cyberark-sources': jsonResponse(cyberArk())
     })
-    const wrapper = mount(DataSources, { global: { plugins: [makeRouter()] } })
+    const wrapper = mount(DataSources, { global: { plugins: [makeRouter()], stubs: { AdDiscoverySection: true } } })
     await flushPromises()
 
     await wrapper.findAll('button').find(b => b.text() === 'Run all').trigger('click')
@@ -148,7 +148,7 @@ describe('DataSources.vue', () => {
       'GET /api/admin/cyberark-sources': jsonResponse(cyberArk()),
       'POST /api/admin/data-feeds/run': jsonResponse({ detail: 'Running: Other feed' }, false, 409)
     })
-    const wrapper = mount(DataSources, { global: { plugins: [makeRouter()] } })
+    const wrapper = mount(DataSources, { global: { plugins: [makeRouter()], stubs: { AdDiscoverySection: true } } })
     await flushPromises()
 
     await wrapper.findAll('button').find(b => b.text() === 'Run now').trigger('click')
@@ -182,7 +182,7 @@ describe('DataSources.vue', () => {
 
   it('summarizes Self-Hosted Direct and lists the recent pulls with their counts', async () => {
     routeFetch(directHandlers([pull(), pull({ pullKey: 4, status: 'Rejected', message: 'Safes went from 40 to 10', safeCount: 10, accountCount: 100 })]))
-    const wrapper = mount(DataSources, { global: { plugins: [makeRouter()] } })
+    const wrapper = mount(DataSources, { global: { plugins: [makeRouter()], stubs: { AdDiscoverySection: true } } })
     await flushPromises()
 
     expect(wrapper.text()).toContain('Self-Hosted: on, read from PVWA at https://pvwa.example.com every night at 01:30')
@@ -200,7 +200,7 @@ describe('DataSources.vue', () => {
       pull({ pullKey: 7, loadStatus: 'Succeeded' }),
       pull({ pullKey: 6, loadStatus: null })
     ]))
-    const wrapper = mount(DataSources, { global: { plugins: [makeRouter()] } })
+    const wrapper = mount(DataSources, { global: { plugins: [makeRouter()], stubs: { AdDiscoverySection: true } } })
     await flushPromises()
 
     expect(wrapper.find('.load-Failed').text()).toBe('The Import and Load failed: Login timeout')
@@ -214,7 +214,7 @@ describe('DataSources.vue', () => {
     try {
       let latest = pull({ loadStatus: 'Running' })
       routeFetch(directHandlers([], false, { 'GET /api/admin/cyberark-sources/direct/pulls': () => jsonResponse({ running: false, pulls: [latest] }) }))
-      const wrapper = mount(DataSources, { global: { plugins: [makeRouter()] } })
+      const wrapper = mount(DataSources, { global: { plugins: [makeRouter()], stubs: { AdDiscoverySection: true } } })
       await flushPromises()
       expect(wrapper.text()).toContain('Import and Load running…')
 
@@ -239,7 +239,7 @@ describe('DataSources.vue', () => {
       'GET /api/admin/data-feeds/status': jsonResponse(status()),
       'GET /api/admin/cyberark-sources': jsonResponse(cyberArk({ settings: { importPrivilegeCloud: true, exportFolderPath: 'D:/Exports', importSelfHosted: false } }))
     })
-    const wrapper = mount(DataSources, { global: { plugins: [makeRouter()] } })
+    const wrapper = mount(DataSources, { global: { plugins: [makeRouter()], stubs: { AdDiscoverySection: true } } })
     await flushPromises()
 
     expect(wrapper.text()).toContain('Self-Hosted: off')
@@ -249,7 +249,7 @@ describe('DataSources.vue', () => {
 
   it('with Self-Hosted Direct on, does not also say Self-Hosted is off', async () => {
     routeFetch(directHandlers([pull()]))
-    const wrapper = mount(DataSources, { global: { plugins: [makeRouter()] } })
+    const wrapper = mount(DataSources, { global: { plugins: [makeRouter()], stubs: { AdDiscoverySection: true } } })
     await flushPromises()
 
     expect(wrapper.text()).toContain('read from PVWA')
@@ -259,7 +259,7 @@ describe('DataSources.vue', () => {
   it('Pull now starts a pull without asking outside business hours', async () => {
     const post = vi.fn(() => jsonResponse(null, true, 202))
     routeFetch(directHandlers([pull()], false, { 'POST /api/admin/cyberark-sources/direct/pull': post }))
-    const wrapper = mount(DataSources, { global: { plugins: [makeRouter()] } })
+    const wrapper = mount(DataSources, { global: { plugins: [makeRouter()], stubs: { AdDiscoverySection: true } } })
     await flushPromises()
 
     await wrapper.findAll('button').find(b => b.text() === 'Pull now').trigger('click')
@@ -274,7 +274,7 @@ describe('DataSources.vue', () => {
   it('offers Accept the change and pull after a rejected pull, and always asks first', async () => {
     const post = vi.fn(() => jsonResponse(null, true, 202))
     routeFetch(directHandlers([pull({ status: 'Rejected', message: 'Safes went from 40 to 10' })], false, { 'POST /api/admin/cyberark-sources/direct/pull': post }))
-    const wrapper = mount(DataSources, { global: { plugins: [makeRouter()] } })
+    const wrapper = mount(DataSources, { global: { plugins: [makeRouter()], stubs: { AdDiscoverySection: true } } })
     await flushPromises()
 
     await wrapper.findAll('button').find(b => b.text() === 'Accept the change and pull').trigger('click')
@@ -288,7 +288,7 @@ describe('DataSources.vue', () => {
   it('does not start a pull when the confirmation is declined', async () => {
     confirmDelete.mockResolvedValue(false)
     routeFetch(directHandlers([pull({ status: 'Rejected' })]))
-    const wrapper = mount(DataSources, { global: { plugins: [makeRouter()] } })
+    const wrapper = mount(DataSources, { global: { plugins: [makeRouter()], stubs: { AdDiscoverySection: true } } })
     await flushPromises()
 
     await wrapper.findAll('button').find(b => b.text() === 'Accept the change and pull').trigger('click')
@@ -299,7 +299,7 @@ describe('DataSources.vue', () => {
 
   it('has no Accept button after a good pull, and disables Pull now while one runs', async () => {
     routeFetch(directHandlers([pull()], true))
-    const wrapper = mount(DataSources, { global: { plugins: [makeRouter()] } })
+    const wrapper = mount(DataSources, { global: { plugins: [makeRouter()], stubs: { AdDiscoverySection: true } } })
     await flushPromises()
 
     expect(wrapper.text()).toContain('A pull is running')
@@ -312,7 +312,7 @@ describe('DataSources.vue', () => {
   it('offers Cancel pull only while a pull runs, asks first, and asks the API to stop it', async () => {
     const cancel = vi.fn(() => jsonResponse(null, true, 202))
     routeFetch(directHandlers([pull()], true, { 'POST /api/admin/cyberark-sources/direct/cancel': cancel }))
-    const wrapper = mount(DataSources, { global: { plugins: [makeRouter()] } })
+    const wrapper = mount(DataSources, { global: { plugins: [makeRouter()], stubs: { AdDiscoverySection: true } } })
     await flushPromises()
 
     await wrapper.findAll('button').find(b => b.text() === 'Cancel pull').trigger('click')
@@ -326,7 +326,7 @@ describe('DataSources.vue', () => {
 
   it('has no Cancel pull button when nothing is running', async () => {
     routeFetch(directHandlers([pull()]))
-    const wrapper = mount(DataSources, { global: { plugins: [makeRouter()] } })
+    const wrapper = mount(DataSources, { global: { plugins: [makeRouter()], stubs: { AdDiscoverySection: true } } })
     await flushPromises()
 
     expect(wrapper.findAll('button').some(b => b.text() === 'Cancel pull')).toBe(false)
@@ -336,7 +336,7 @@ describe('DataSources.vue', () => {
     routeFetch(directHandlers([pull()], false, {
       'POST /api/admin/cyberark-sources/direct/pull': jsonResponse({ detail: 'Save Self-Hosted Direct as the source first.' }, false, 400)
     }))
-    const wrapper = mount(DataSources, { global: { plugins: [makeRouter()] } })
+    const wrapper = mount(DataSources, { global: { plugins: [makeRouter()], stubs: { AdDiscoverySection: true } } })
     await flushPromises()
 
     await wrapper.findAll('button').find(b => b.text() === 'Pull now').trigger('click')
@@ -371,19 +371,19 @@ describe('DataSources.vue', () => {
   // D-250
   it('shows a warning banner when the latest pull failed or was rejected, and not after a good one', async () => {
     routeFetch(directHandlers([pull({ status: 'Failed', message: 'boom', safeCount: null }), pull({ pullKey: 4 })]))
-    const failed = mount(DataSources, { global: { plugins: [makeRouter()] } })
+    const failed = mount(DataSources, { global: { plugins: [makeRouter()], stubs: { AdDiscoverySection: true } } })
     await flushPromises()
     expect(failed.find('.pull-banner').text()).toContain('The latest pull failed')
     failed.unmount()
 
     routeFetch(directHandlers([pull({ status: 'Rejected', message: 'x' })]))
-    const rejected = mount(DataSources, { global: { plugins: [makeRouter()] } })
+    const rejected = mount(DataSources, { global: { plugins: [makeRouter()], stubs: { AdDiscoverySection: true } } })
     await flushPromises()
     expect(rejected.find('.pull-banner').text()).toContain('rejected')
     rejected.unmount()
 
     routeFetch(directHandlers([pull(), pull({ pullKey: 4, status: 'Failed', message: 'older' })]))
-    const good = mount(DataSources, { global: { plugins: [makeRouter()] } })
+    const good = mount(DataSources, { global: { plugins: [makeRouter()], stubs: { AdDiscoverySection: true } } })
     await flushPromises()
     expect(good.find('.pull-banner').exists()).toBe(false)   // only the newest pull counts
     good.unmount()
@@ -391,7 +391,7 @@ describe('DataSources.vue', () => {
 
   it('shows what a rejected pull changed, before and after', async () => {
     routeFetch(directHandlers([pull({ status: 'Rejected', safeCount: 10, accountCount: 100, baselineSafeCount: 40, baselineAccountCount: 2452, message: 'm' })]))
-    const wrapper = mount(DataSources, { global: { plugins: [makeRouter()] } })
+    const wrapper = mount(DataSources, { global: { plugins: [makeRouter()], stubs: { AdDiscoverySection: true } } })
     await flushPromises()
 
     expect(wrapper.text()).toContain(`Safes 40 → 10, accounts ${formatCount(2452)} → 100`)
@@ -399,7 +399,7 @@ describe('DataSources.vue', () => {
 
   it('shows the counts as they are for a pull that was not rejected', async () => {
     routeFetch(directHandlers([pull({ baselineSafeCount: 39, baselineAccountCount: 2400 })]))
-    const wrapper = mount(DataSources, { global: { plugins: [makeRouter()] } })
+    const wrapper = mount(DataSources, { global: { plugins: [makeRouter()], stubs: { AdDiscoverySection: true } } })
     await flushPromises()
 
     expect(wrapper.text()).toContain(`40 Safes, ${formatCount(2452)} accounts`)

@@ -46,18 +46,19 @@ public sealed class AdAccountDiscoveryService(
     /// <summary>D-233: at most this many names, and this many employee IDs, are looked up for owners per domain per run.</summary>
     public const int MaxOwnerLookupValuesPerDomain = 1000;
 
-    public async Task RunAsync(CancellationToken cancellationToken = default)
+    /// <remarks>D-317: says what the run did, for its row in web.ad_discovery_run.</remarks>
+    public async Task<AdDiscoveryRunSummary> RunAsync(CancellationToken cancellationToken = default)
     {
         var configs = await ldapConfigRepository.GetEnabledAsync();
         if (configs.Count == 0)
         {
-            return;
+            return AdDiscoveryRunSummary.Skip("No LDAP domain is enabled (Admin > Credentials & LDAP).");
         }
 
         var accessGroups = await accessGroupRepository.GetAllIdentifiersAsync();
         if (accessGroups.Count == 0)
         {
-            return;
+            return AdDiscoveryRunSummary.Skip("No Access Groups are inventoried, so there are no group members to look for.");
         }
 
         var settings = await classificationRepository.GetSettingsAsync();
@@ -67,16 +68,27 @@ public sealed class AdAccountDiscoveryService(
                 .ToList()
             : [];
 
+        var domainsRead = 0;
+        var accountsFound = 0;
+        var problems = new List<string>();
         foreach (var config in configs)
         {
             cancellationToken.ThrowIfCancellationRequested();
             try
             {
-                await ProcessDomainAsync(config, accessGroups, settings, ownerNameRules, cancellationToken);
+                var found = await ProcessDomainAsync(config, accessGroups, settings, ownerNameRules, cancellationToken);
+                if (found is null)
+                {
+                    problems.Add($"{config.DomainName}: couldn't connect.");
+                    continue;
+                }
+                domainsRead++;
+                accountsFound += found.Value;
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 logger.LogWarning(ex, "AD Account Discovery failed for domain '{DomainName}' -- continuing with any other configured domains.", config.DomainName);
+                problems.Add($"{config.DomainName}: {ex.Message}");
             }
         }
 
@@ -87,10 +99,14 @@ public sealed class AdAccountDiscoveryService(
         catch (Exception ex)
         {
             logger.LogWarning(ex, "Account classification after AD Account Discovery failed -- the accounts were stored; Reclassify now can retry it.");
+            problems.Add("Classifying the accounts failed; they were stored, and Reclassify now on Discovered Accounts can retry it.");
         }
+
+        return new AdDiscoveryRunSummary(configs.Count, domainsRead, accountsFound, problems, null);
     }
 
-    private async Task ProcessDomainAsync(
+    /// <returns>D-317: how many accounts the domain's inventoried groups hold, or null when it couldn't be opened.</returns>
+    private async Task<int?> ProcessDomainAsync(
         LdapConfig config,
         IReadOnlyList<(int AccessGroupKey, string GroupName, string GroupIdentifier)> accessGroups,
         AccountClassificationSettings settings,
@@ -100,7 +116,7 @@ public sealed class AdAccountDiscoveryService(
         using var session = await directory.OpenAsync(config);
         if (session is null)
         {
-            return;
+            return null;
         }
 
         // Aggregate across every matched Access Group before scoring -- one
@@ -154,6 +170,7 @@ public sealed class AdAccountDiscoveryService(
             cancellationToken.ThrowIfCancellationRequested();
             await ScoreAndStoreAsync(config.DomainName, user, matchedAccessGroupKeys.ToList(), attributesRead);
         }
+        return matchedUsers.Count;
     }
 
     /// <summary>
@@ -235,4 +252,18 @@ public sealed class AdAccountDiscoveryService(
         var discoveredAccountKey = await discoveredAccountRepository.UpsertCandidateAsync(candidate, score);
         await discoveredAccountRepository.ReplaceAccessGroupMappingsAsync(discoveredAccountKey, matchedAccessGroupKeys);
     }
+}
+
+/// <summary>
+/// D-317: what one AD Account Discovery run did. <see cref="SkippedReason"/> is set when there was nothing to do (no
+/// enabled domain, no inventoried Access Group); <see cref="Problems"/> names each domain that failed.
+/// </summary>
+public sealed record AdDiscoveryRunSummary(int DomainCount, int DomainsRead, int AccountsFound, IReadOnlyList<string> Problems, string? SkippedReason)
+{
+    public static AdDiscoveryRunSummary Skip(string reason) => new(0, 0, 0, [], reason);
+
+    public string Status => SkippedReason is not null ? "Skipped"
+        : Problems.Count == 0 ? "Succeeded"
+        : DomainsRead > 0 ? "Partial"
+        : "Failed";
 }

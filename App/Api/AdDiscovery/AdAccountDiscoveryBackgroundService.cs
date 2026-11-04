@@ -1,56 +1,68 @@
+using BlueTrack.Api.Data;
+using BlueTrack.Api.DataFeeds;
+
 namespace BlueTrack.Api.AdDiscovery;
 
 /// <summary>
-/// AD Account Discovery feature (2026-09-16): runs AdAccountDiscoveryService
-/// nightly, following NotificationCheckBackgroundService's exact precedent
-/// (this app's only other same-process recurring-work example) -- a
-/// Singleton BackgroundService that creates its own DI scope per run (since
-/// AdAccountDiscoveryService depends on Scoped repositories) and a plain
-/// Task.Delay(1 day) loop rather than a cron-style scheduler, matching this
-/// project's stated preference for the simplest mechanism that works over
-/// introducing new scheduling infrastructure.
-///
-/// Per-domain failure isolation already lives inside
-/// AdAccountDiscoveryService itself (one unreachable domain doesn't stop the
-/// others); the outer try/catch here is a second, coarser safety net so an
-/// entirely unexpected failure (e.g. resolving a repository) still can't
-/// crash this background service or stop future nightly runs.
+/// AD Account Discovery feature (2026-09-16): runs AdAccountDiscoveryService nightly. D-317: at
+/// web.app_config.AdDiscoveryRunTime (default 04:30), the same way DataFeedBackgroundService runs the feeds -- it
+/// wakes every minute and re-reads the time, so a change on Data Sources applies without a restart -- instead of
+/// once a day counted from whenever the app started. Each run is recorded (AdDiscoveryRunner), and run records older
+/// than DataFeedRunRetentionDays are purged after the scheduled run.
 /// </summary>
 public sealed class AdAccountDiscoveryBackgroundService(
     IServiceScopeFactory scopeFactory,
+    AdDiscoveryRunner runner,
+    TimeProvider timeProvider,
     ILogger<AdAccountDiscoveryBackgroundService> logger) : BackgroundService
 {
-    private static readonly TimeSpan RunInterval = TimeSpan.FromDays(1);
+    private static readonly TimeSpan WakeInterval = TimeSpan.FromMinutes(1);
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        while (!stoppingToken.IsCancellationRequested)
-        {
-            await RunOnceAsync();
-
-            try
-            {
-                await Task.Delay(RunInterval, stoppingToken);
-            }
-            catch (OperationCanceledException)
-            {
-                // Expected on shutdown.
-            }
-        }
-    }
-
-    private async Task RunOnceAsync()
-    {
-        using var scope = scopeFactory.CreateScope();
-        var service = scope.ServiceProvider.GetRequiredService<AdAccountDiscoveryService>();
-
         try
         {
-            await service.RunAsync();
+            using var scope = scopeFactory.CreateScope();
+            await scope.ServiceProvider.GetRequiredService<AdDiscoveryRunRepository>().CloseInterruptedAsync();
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "AD Account Discovery run failed unexpectedly -- will try again next cycle.");
+            logger.LogWarning(ex, "Couldn't close AD Account Discovery runs cut off by a restart.");
+        }
+
+        var lastWake = timeProvider.GetLocalNow().DateTime;
+        while (!stoppingToken.IsCancellationRequested)
+        {
+            try
+            {
+                await Task.Delay(WakeInterval, timeProvider, stoppingToken);
+            }
+            catch (OperationCanceledException)
+            {
+                return; // Shutdown.
+            }
+
+            var now = timeProvider.GetLocalNow().DateTime;
+            try
+            {
+                using var scope = scopeFactory.CreateScope();
+                var runs = scope.ServiceProvider.GetRequiredService<AdDiscoveryRunRepository>();
+                if (FeedSchedule.TryParseTime(await runs.GetRunTimeAsync(), out var runTime) && FeedSchedule.RunTimeFellBetween(lastWake, now, runTime))
+                {
+                    await runner.RunScheduledAsync(stoppingToken);
+                    var retention = (await scope.ServiceProvider.GetRequiredService<AppConfigRepository>().GetAsync()).DataFeedRunRetentionDays;
+                    await runs.PurgeAsync(retention);
+                }
+            }
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+            {
+                return;
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "AD Account Discovery's schedule check failed -- will try again in a minute.");
+            }
+            lastWake = now;
         }
     }
 }

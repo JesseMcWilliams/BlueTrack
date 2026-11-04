@@ -252,6 +252,8 @@ builder.Services.AddScoped<ProgressRuleRepository>();   // D-283/D-284
 builder.Services.AddScoped<SafeAccessPolicyRepository>();   // D-300/D-301
 builder.Services.AddScoped<CpmHealthRepository>();      // D-288
 builder.Services.AddScoped<AdAccountDiscoveryService>();
+builder.Services.AddScoped<AdDiscoveryRunRepository>();   // D-317
+builder.Services.AddSingleton<AdDiscoveryRunner>();   // D-317: one run at a time, for the schedule and Run now
 builder.Services.AddScoped<AccountClassificationRepository>();   // D-233
 builder.Services.AddScoped<BlueTrack.Api.AdDiscovery.AccountClassificationService>();
 builder.Services.AddHostedService<AdAccountDiscoveryBackgroundService>();

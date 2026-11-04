@@ -74,6 +74,7 @@ instead.
 | 56 | `56_BlueTrack_ArchivedStatusAndFolder.sql` | D-298: the Archived status; `fact_account_progress.ArchivedByRuleKey/ArchivedAt/ArchiveRuleExempt`; `web.progress_rule.RuleAction` (MoveStage, Archive; stages nullable for Archive); `fn_ArchiveRuleMatch`; recreates `fn_ProgressAccountFields` (adds Folder, CpmDisabledReason), `usp_Load_AccountProgressAutoAdvance` and `usp_Preview_ProgressRule`. D-299: `Folder` on the classic-detail cache, `stg_shd_account_details` and `fact_account` (every cached detail read once more); `web.cyberark_source_config.DetailRefreshEnabled/Days/MaxAccounts`; recreates `usp_Load_FactAccountClassicDetail`. |
 | 57 | `57_BlueTrack_SafeAccessPolicies.sql` | D-300: `web.safe_role(_permission)`, `web.safe_access_policy(_rule)`, `dbo.safe_access_result`, `dbo.safe_access_problem`, `fn_SafeAccessLike`, `usp_Check_SafeAccessPolicies`; recreates `usp_RunFullLoad` (Safe entitlements and the check before the Progress Rules) and `fn_ProgressAccountFields` (SafeAccessCompliant, ComplianceReviewed). D-301: `web.account_compliance_review`. ManageSafeAccessPolicies (Admin), ReviewAccountCompliance (Admin, Approver); audit types SafeAccessPolicyChanged, AccountComplianceReviewed; a disabled example policy and role. |
 | 58 | `58_BlueTrack_PullNowLoad.sql` | D-302: `cyberark_direct_pull.LoadRequestedAt/LoadStartError`: a Pull now that succeeds starts the Import and Load SQL Agent job, and records it (the grant it needs is `Manual/08`). |
+| 59 | `59_BlueTrack_AdDiscoveryRuns.sql` | D-317: `app_config.AdDiscoveryRunTime` and `web.ad_discovery_run`: AD Account Discovery runs at a set time and records each run (Admin > Data Sources). |
 
 ## The baseline (D-195)
 
@@ -98,7 +99,7 @@ scripts but not up to `51` is refused; upgrade it first from the
 
 ## Adding a script
 
-1. Name it `NN_BlueTrack_<Topic>.sql`, with `NN` the next number (`59` is next).
+1. Name it `NN_BlueTrack_<Topic>.sql`, with `NN` the next number (`60` is next).
 2. Start with a header comment: the file name, `RUN THIS AFTER 01-NN.`, what
    it changes and why (with the `D-n` decision), and whether it's safe to
    re-run.
