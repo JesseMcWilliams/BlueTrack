@@ -8,6 +8,8 @@ Open **Admin > Deployment**: a release shows its plain number, such as `1.3.3`. 
 
 ## 2. Which version to install
 
+**The version you run now** is on **About** (the user menu) and **Admin > Deployment**, in `BlueTrack.version.txt` in the API's install folder (written by the installer's `Build.Api` step, with when it was built), and, for a downloaded release, in the `VERSION` file at the top of its folder.
+
 Go down the table and stop at the first row that matches your site.
 
 | Your site | Install | Then |

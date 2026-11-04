@@ -10,7 +10,8 @@
       neither the tag nor the release branch exists yet, and Release Notes'
       Unreleased section lists something. Then, on a new branch
       YYYY-MM-DD-release-v<Version>:
-        - sets <Version> in App/Api/BlueTrack.Api.csproj;
+        - sets <Version> in App/Api/BlueTrack.Api.csproj, and the VERSION file
+          at the repo root (D-311);
         - in User_Docs/Release_Notes.md, renames "## Unreleased" to
           "## <Version> (<Date>)", drops its empty subsections, and starts a
           new, empty Unreleased section above it;
@@ -71,6 +72,9 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 $csprojRelative = 'App/Api/BlueTrack.Api.csproj'
 $notesRelative = 'User_Docs/Release_Notes.md'
 $csprojPath = Join-Path $repoRoot $csprojRelative
+# D-311: the release's version in a plain file at the repo root, so a checkout or source zip says which release it is.
+$versionFileRelative = 'VERSION'
+$versionFilePath = Join-Path $repoRoot $versionFileRelative
 $notesPath = Join-Path $repoRoot $notesRelative
 $tagName = "v$Version"
 
@@ -373,6 +377,7 @@ try {
     }
 
     Set-ReleaseTextFile -Path $csprojPath -Text $newCsproj -HasBom $csproj.HasBom
+    Set-ReleaseTextFile -Path $versionFilePath -Text "$Version$($csproj.Newline)" -HasBom $false
     Set-ReleaseTextFile -Path $notesPath -Text $releasedText -HasBom $notes.HasBom
     if (-not $WhatIfPreference) { Write-Step "<Version> $currentVersion -> $Version; Unreleased -> $Version ($Date)" }
 
@@ -395,7 +400,7 @@ try {
     Set-ReleaseTextFile -Path $notesPath -Text $finalText -HasBom $notes.HasBom
 
     if ($PSCmdlet.ShouldProcess($branchName, "Commit 'Release $tagName'")) {
-        [void](Invoke-ReleaseGit -Arguments @('add', '--', $csprojRelative, $notesRelative, 'Published_Docs', 'Sbom'))
+        [void](Invoke-ReleaseGit -Arguments @('add', '--', $csprojRelative, $versionFileRelative, $notesRelative, 'Published_Docs', 'Sbom'))
         [void](Invoke-ReleaseGit -Arguments @('commit', '--quiet', '-m', "Release $tagName"))
         $committed = $true
         Write-Step "committed 'Release $tagName'"
