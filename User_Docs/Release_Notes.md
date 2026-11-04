@@ -53,6 +53,7 @@ What changed in each BlueTrack release, newest first, for users and administrato
 - On Admin > Secrets Store Configuration, the **Credential** column shows a box only for a backend that uses one (Conjur, Azure Key Vault as a service principal, AWS with an access key); the others say "(not used)".
 - The **Search** and **Owner** boxes on Accounts search once you pause typing, not on every keystroke.
 - The installer's `Db.SqlServerAudit` step no longer re-grants "Generate security audits" on every run and then asks for a SQL Server restart that isn't needed.
+- When the installer runs where it can't ask a question (a scheduled task, or with its input redirected) and an answer is missing, it stops and names the parameter or `-ConfigFile` entry to add. Before, it failed with "You cannot call a method on a null-valued expression", or took a yes/no answer as its default without asking.
 
 ### Upgrading
 
