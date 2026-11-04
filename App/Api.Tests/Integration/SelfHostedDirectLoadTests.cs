@@ -334,6 +334,34 @@ public class SelfHostedDirectLoadTests
         await transaction.RollbackAsync();
     }
 
+    // D-319: the built-in Safes CyberArk's documentation names, such as AccountsFeedDiscoveryLogs (the user's example),
+    // even with no CPM user to match them by name.
+    [Fact]
+    public async Task DocumentedBuiltInSafes_AreInternal()
+    {
+        await using var connection = new SqlConnection(TestDatabase.ConnectionString);
+        await connection.OpenAsync();
+        await using var transaction = (SqlTransaction)await connection.BeginTransactionAsync();
+        await connection.ExecuteAsync("""
+            DECLARE @sh INT = (SELECT SourceSystemKey FROM dbo.dim_source_system WHERE SourceSystemCode = 'SELFHOSTED');
+            INSERT INTO dbo.dim_safe (SourceSystemKey, SafeUrlId, SafeName) VALUES
+                (@sh, '987301', 'AccountsFeedDiscoveryLogs'), (@sh, '987302', 'AccountsFeedADAccounts'), (@sh, '987303', 'PasswordManager_Pending'),
+                (@sh, '987304', 'PVWAReports'), (@sh, '987305', 'SharedAuth_Internal'), (@sh, '987306', 'AccountsFeed Business Safe');
+            """, transaction: transaction);
+
+        var internalSafes = (await connection.QueryAsync<(string Name, string Reason)>("""
+            SELECT s.SafeName, i.InternalReason FROM dbo.vw_selfhosted_internal_safe i JOIN dbo.dim_safe s ON s.SafeKey = i.SafeKey
+            WHERE s.SafeUrlId LIKE '9873__' ORDER BY s.SafeName
+            """, transaction: transaction)).ToList();
+
+        Assert.Equal(new List<(string, string)>
+        {
+            ("AccountsFeedADAccounts", "BuiltIn"), ("AccountsFeedDiscoveryLogs", "BuiltIn"), ("PasswordManager_Pending", "BuiltIn"),
+            ("PVWAReports", "BuiltIn"), ("SharedAuth_Internal", "BuiltIn")
+        }, internalSafes);
+        await transaction.RollbackAsync();
+    }
+
     private const string AccountSql = """
         SELECT fa.AutoManaged, fa.ManualReason, fa.CPMStatus, fa.SecretType, fa.RemoteAccessRestricted, fa.LastCPMModifiedDate,
                fa.LastReconciledDate, fa.LastVerifiedDate, fa.CreatedTime, fa.LastCPMAction, fa.LastCPMActionResult, fa.LastCPMActionTime,
