@@ -325,6 +325,40 @@ public sealed class AccountProgressController(
     }
 
     /// <summary>
+    /// D-315: the same override for many accounts (Reports > Risk Score's bulk action): the same rules as one account
+    /// (a reason to set one, none needed to clear), at most BulkEditMaxAccounts at once, and one audit entry per account.
+    /// </summary>
+    [HttpPost("risk-score-override/bulk")]
+    [Authorize(Policy = Permissions.EditAccountProgress)]
+    public async Task<IActionResult> SetRiskScoreOverrides([FromBody] BulkRiskScoreOverrideRequest request)
+    {
+        var user = await currentUserResolver.ResolveAsync(User);
+        if (user is null) return Unauthorized();
+
+        var keys = request.AccountKeys.Distinct().ToList();
+        var max = (await appConfigRepository.GetAsync()).BulkEditMaxAccounts;
+        string? error = keys.Count == 0 ? "Select at least one account."
+            : keys.Count > max ? $"At most {max} accounts can be changed at once."
+            : request.OverrideRiskScore is not null && string.IsNullOrWhiteSpace(request.Reason) ? "A Reason is required when setting a risk score override."
+            : request.OverrideRiskScore is < 0 or > 1000 ? "OverrideRiskScore must be between 0 and 1000."
+            : null;
+        if (error is not null) return Problem(title: "Validation failed", detail: error, statusCode: StatusCodes.Status400BadRequest);
+
+        var existing = (await repository.GetExistingAccountKeysAsync(keys)).ToHashSet();
+        var reason = string.IsNullOrWhiteSpace(request.Reason) ? null : request.Reason.Trim();
+        foreach (var accountKey in keys.Where(existing.Contains))
+        {
+            var before = await repository.GetRiskScoreOverrideAsync(accountKey);
+            await repository.SetRiskScoreOverrideAsync(accountKey, request.OverrideRiskScore, reason, user.UserKey);
+            await auditLogger.LogAsync("FieldEdit", user.UserKey, "account_risk_score", accountKey.ToString(),
+                reason: reason,
+                fieldChanges: [new FieldChange("OverrideRiskScore", before.OverrideRiskScore?.ToString(), request.OverrideRiskScore?.ToString())]);
+        }
+
+        return Ok(new BulkRiskScoreOverrideResult { Changed = existing.Count, NotFound = keys.Where(k => !existing.Contains(k)).ToList() });
+    }
+
+    /// <summary>
     /// D-131: recalculates just this one account's ComputedRiskScore right
     /// now, regardless of its IsRiskScoreStale flag -- the bulk
     /// usp_RecalculateRiskScores (ReportsController's own "Recalculate Now")

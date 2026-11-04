@@ -248,6 +248,17 @@
     "colLinkedOn": "Linked On"
   },
   "riskScoreReport": {
+    "bulkSet": "Set override...",
+    "bulkClear": "Clear override...",
+    "bulkScore": "Override score (0-1000):",
+    "bulkReason": "Reason:",
+    "bulkReasonOptional": "Reason (optional):",
+    "bulkApplySet": "Set on {count} account | Set on {count} accounts",
+    "bulkApplyClear": "Clear on {count} account | Clear on {count} accounts",
+    "bulkDone": "Changed {count} account. | Changed {count} accounts.",
+    "bulkNotFound": "{count} selected account no longer exists and was left alone. | {count} selected accounts no longer exist and were left alone.",
+    "selected": "Selected",
+    "selectRow": "Select {name}",
     "openAccount": "Open {name}",
     "emptyNone": "No accounts have a risk score yet.",
     "title": "Risk Score",

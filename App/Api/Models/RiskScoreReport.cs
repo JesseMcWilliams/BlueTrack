@@ -33,3 +33,18 @@ public sealed class SaveRiskScoreOverrideRequest
     public int? OverrideRiskScore { get; init; }
     public string? Reason { get; init; }
 }
+
+/// <summary>D-315: one override (or, with a null score, clearing it) for many accounts, from Reports > Risk Score.</summary>
+public sealed class BulkRiskScoreOverrideRequest
+{
+    public IReadOnlyList<long> AccountKeys { get; init; } = [];
+    public int? OverrideRiskScore { get; init; }
+    public string? Reason { get; init; }
+}
+
+/// <summary>D-315: how many accounts changed, and the keys of any that no longer exist (left alone).</summary>
+public sealed class BulkRiskScoreOverrideResult
+{
+    public int Changed { get; init; }
+    public required IReadOnlyList<long> NotFound { get; init; }
+}

@@ -65,6 +65,15 @@ public sealed class RiskScoreReportRepository(IDbConnectionFactory connectionFac
         return await connection.QuerySingleAsync<int>("SELECT COUNT(*) FROM dbo.fact_account fa WHERE fa.IsDeleted = 0 AND NOT EXISTS (SELECT 1 FROM dbo.vw_linked_feed_account l WHERE l.AccountKey = fa.AccountKey)");
     }
 
+    /// <summary>D-315: the report's account keys, for "Select all matching"; at most <paramref name="limit"/>.</summary>
+    public async Task<IReadOnlyList<long>> GetKeysAsync(int limit)
+    {
+        using var connection = connectionFactory.Create();
+        return (await connection.QueryAsync<long>(
+            "SELECT TOP (@limit) fa.AccountKey FROM dbo.fact_account fa WHERE fa.IsDeleted = 0 AND NOT EXISTS (SELECT 1 FROM dbo.vw_linked_feed_account l WHERE l.AccountKey = fa.AccountKey) ORDER BY fa.AccountKey",
+            new { limit })).AsList();
+    }
+
     /// <summary>D-124 Phase 3: backs the new X-Filtered-Count header. This report takes no filter params, so it's always equal to GetTotalCountAsync -- kept as its own method for consistency with the other five paginated endpoints, all of which have a real filter/unfiltered distinction.</summary>
     public async Task<int> GetFilteredCountAsync()
     {

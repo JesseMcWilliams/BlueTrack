@@ -176,6 +176,17 @@ public sealed class ReportsController(
         return Ok(results);
     }
 
+    /// <summary>D-315: every account the report lists, for the bulk override's "Select all matching"; none when more than one bulk change may touch.</summary>
+    [HttpGet("risk-score/keys")]
+    [Authorize(Policy = Permissions.ViewRiskReport)]
+    public async Task<IActionResult> GetRiskScoreKeys([FromServices] AppConfigRepository appConfigRepository)
+    {
+        var max = (await appConfigRepository.GetAsync()).BulkEditMaxAccounts;
+        var matching = await riskScoreReportRepository.GetFilteredCountAsync();
+        var keys = matching > max ? [] : await riskScoreReportRepository.GetKeysAsync(max);
+        return Ok(new AccountProgressKeysResult { MatchingCount = matching, MaxAccounts = max, AccountKeys = keys });
+    }
+
     /// <summary>Manual trigger for usp_RecalculateRiskScores -- it also runs automatically inside usp_RunFullLoad, this is just an immediate refresh.</summary>
     [HttpPost("risk-score/recalculate")]
     [Authorize(Policy = Permissions.ManageTargets)]   // D-198: it changes stored scores; a view permission isn't enough

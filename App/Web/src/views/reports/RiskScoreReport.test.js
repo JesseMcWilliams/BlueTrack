@@ -3,6 +3,7 @@ import { mount, flushPromises } from '@vue/test-utils'
 import { createRouter, createMemoryHistory } from 'vue-router'
 import { createPinia, setActivePinia } from 'pinia'
 import RiskScoreReport from './RiskScoreReport.vue'
+import { useRightsStore } from '../../stores/rights'
 
 // D-124 Phase 3: this page had no component-level Vitest coverage before
 // this phase -- establishes coverage for the new pager UI and the
@@ -152,6 +153,66 @@ describe('RiskScoreReport.vue', () => {
 
       expect(calls().length).toBe(before + 1)
       expect(lastCall().get('page')).toBe('3')
+    })
+  })
+  // D-315: set or clear the override on the selected accounts.
+  describe('bulk override', () => {
+    function mockWithBulk(bulkResponse = jsonResponse({ changed: 2, notFound: [] })) {
+      globalThis.fetch = vi.fn((url, init) => {
+        if (url === '/api/account-progress/risk-score-override/bulk') return Promise.resolve(bulkResponse)
+        if (url.startsWith('/api/reports/risk-score')) return Promise.resolve(jsonResponse([sampleRow, { ...sampleRow, accountKey: 2, accountName: 'svc-db01' }], { totalCount: 2 }))
+        return Promise.resolve(jsonResponse(null, { ok: false, status: 404 }))
+      })
+    }
+
+    async function mountAs(permissionNames) {
+      useRightsStore().$patch({ loaded: true, authenticated: true, permissionNames })
+      const wrapper = mount(RiskScoreReport)
+      await flushPromises()
+      return wrapper
+    }
+
+    const button = (wrapper, text) => wrapper.findAll('button').find(b => b.text() === text)
+    const bulkCall = () => globalThis.fetch.mock.calls.find(([url]) => url === '/api/account-progress/risk-score-override/bulk')
+
+    it('is offered only to holders of EditAccountProgress', async () => {
+      mockWithBulk()
+      const viewer = await mountAs(['ViewRiskReport'])
+      expect(viewer.find('.selection-bar').exists()).toBe(false)
+
+      const editor = await mountAs(['ViewRiskReport', 'EditAccountProgress'])
+      expect(editor.find('.selection-bar').exists()).toBe(true)
+    })
+
+    it('sets the score with its reason on the selected accounts, then says how many changed', async () => {
+      mockWithBulk()
+      const wrapper = await mountAs(['ViewRiskReport', 'EditAccountProgress'])
+
+      await wrapper.find('.selection-bar input[type="checkbox"]').setValue(true)
+      await button(wrapper, 'Select all on page').trigger('click')
+      await button(wrapper, 'Set override...').trigger('click')
+      await wrapper.find('.bulk-override-form input[type="number"]').setValue('650')
+      await wrapper.findAll('.bulk-override-form input')[1].setValue('Agreed with the owner')
+      await wrapper.find('.bulk-override-form').trigger('submit')
+      await flushPromises()
+
+      expect(JSON.parse(bulkCall()[1].body)).toEqual({ accountKeys: [1, 2], overrideRiskScore: 650, reason: 'Agreed with the owner' })
+      expect(wrapper.text()).toContain('Changed 2 accounts.')
+    })
+
+    it('clears with no score, and shows the reason a refusal gives', async () => {
+      mockWithBulk(jsonResponse({ detail: 'At most 1 accounts can be changed at once.' }, { ok: false, status: 400 }))
+      const wrapper = await mountAs(['ViewRiskReport', 'EditAccountProgress'])
+
+      await wrapper.find('.selection-bar input[type="checkbox"]').setValue(true)
+      await button(wrapper, 'Select all on page').trigger('click')
+      await button(wrapper, 'Clear override...').trigger('click')
+      expect(wrapper.find('.bulk-override-form input[type="number"]').exists()).toBe(false)
+      await wrapper.find('.bulk-override-form').trigger('submit')
+      await flushPromises()
+
+      expect(JSON.parse(bulkCall()[1].body)).toEqual({ accountKeys: [1, 2], overrideRiskScore: null, reason: null })
+      expect(wrapper.find('[role="alert"]').text()).toContain('At most 1 accounts can be changed at once.')
     })
   })
 })

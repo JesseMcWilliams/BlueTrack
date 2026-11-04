@@ -109,3 +109,28 @@ test.describe('Risk Score report', () => {
     await expect(nav.getByRole('link', { name: 'Risk Score' })).toHaveCount(0)
   })
 })
+
+// D-315: Reports > Risk Score sets, then clears, an override on the selected accounts.
+test.describe('Risk Score bulk override', () => {
+  test('Admin sets an override on the accounts of the first page, then clears it', async ({ page }) => {
+    await signInAs(page, 'TestUser.Admin')
+    await page.goto('/reports/risk-score')
+    await expect(page.locator('tbody tr').first()).toBeVisible()
+
+    await page.getByLabel('Select for bulk actions').check()
+    await page.locator('tbody input[type="checkbox"]').first().check()
+    await page.getByRole('button', { name: 'Set override...' }).click()
+    await page.getByLabel('Override score (0-1000):').fill('987')
+    await page.getByLabel('Reason:', { exact: true }).fill('E2E bulk override')
+    await page.getByRole('button', { name: 'Set on 1 account' }).click()
+    await expect(page.getByText('Changed 1 account.')).toBeVisible()
+    await expect(page.locator('tbody')).toContainText('987')
+
+    await page.getByLabel('Select for bulk actions').check()
+    await page.locator('tbody tr', { hasText: '987' }).getByRole('checkbox').check()
+    await page.getByRole('button', { name: 'Clear override...' }).click()
+    await page.getByRole('button', { name: 'Clear on 1 account' }).click()
+    await expect(page.getByText('Changed 1 account.')).toBeVisible()
+    await expect(page.locator('tbody')).not.toContainText('987')
+  })
+})

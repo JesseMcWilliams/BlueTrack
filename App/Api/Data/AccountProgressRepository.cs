@@ -400,6 +400,13 @@ public sealed class AccountProgressRepository(IDbConnectionFactory connectionFac
     /// creates the row (same "insert if missing" convention Phase B/C's
     /// load paths already use) since not every Account has been scored yet.
     /// </summary>
+    /// <summary>D-315: which of these keys are accounts that exist.</summary>
+    public async Task<IReadOnlyList<long>> GetExistingAccountKeysAsync(IReadOnlyList<long> accountKeys)
+    {
+        using var connection = connectionFactory.Create();
+        return (await connection.QueryAsync<long>("SELECT AccountKey FROM dbo.fact_account WHERE AccountKey IN @accountKeys", new { accountKeys })).AsList();
+    }
+
     public async Task SetRiskScoreOverrideAsync(long accountKey, int? overrideRiskScore, string? reason, int setByUserKey)
     {
         using var connection = connectionFactory.Create();
