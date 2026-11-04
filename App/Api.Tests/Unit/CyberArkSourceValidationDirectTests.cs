@@ -172,4 +172,44 @@ public class CyberArkSourceValidationDirectTests
         Assert.Equal(["SelfHostedDirect", "PrivilegeCloudFolder", "PrivilegeCloudDirect"], options.Select(o => o.Key));
         Assert.Equal([true, true, false], options.Select(o => o.Available));
     }
+    // D-320: the other PVWA addresses: one per line or comma-separated, each https, at most five; repeats and a trailing slash dropped.
+    [Fact]
+    public void OtherPvwaAddresses_AreNormalized_AndChecked()
+    {
+        var normalized = CyberArkSourceValidation.Normalize(new CyberArkSourceSettings
+        {
+            ImportSelfHosted = true, SelfHostedSource = "Direct", PvwaBaseUrl = "https://pvwa1.example.com", PvwaCredentialKey = 3,
+            PvwaFallbackUrls = " https://pvwa2.example.com/ \r\nhttps://PVWA2.example.com, https://pvwa3.example.com/PasswordVault\n\n"
+        });
+        Assert.Equal("https://pvwa2.example.com\nhttps://pvwa3.example.com/PasswordVault", normalized.PvwaFallbackUrls);
+        Assert.Empty(CyberArkSourceValidation.Validate(normalized, NoRoots));
+
+        var bad = CyberArkSourceValidation.Normalize(new CyberArkSourceSettings
+        {
+            ImportSelfHosted = true, SelfHostedSource = "Direct", PvwaBaseUrl = "https://pvwa1.example.com", PvwaCredentialKey = 3,
+            PvwaFallbackUrls = "http://plain.example.com"
+        });
+        Assert.Contains(CyberArkSourceValidation.Validate(bad, NoRoots), e => e.Contains("http://plain.example.com"));
+
+        var many = CyberArkSourceValidation.Normalize(new CyberArkSourceSettings
+        {
+            ImportSelfHosted = true, SelfHostedSource = "Direct", PvwaBaseUrl = "https://pvwa1.example.com", PvwaCredentialKey = 3,
+            PvwaFallbackUrls = string.Join("\n", Enumerable.Range(2, 6).Select(i => $"https://pvwa{i}.example.com"))
+        });
+        Assert.Contains(CyberArkSourceValidation.Validate(many, NoRoots), e => e.Contains("At most 5"));
+    }
+
+    [Theory]
+    [InlineData(null, true)]   // HttpRequestException inside: no connection
+    [InlineData(503, true)]
+    [InlineData(504, true)]
+    [InlineData(401, false)]
+    [InlineData(403, false)]
+    public void APvwaError_IsUnreachable_OnlyWhenNoPvwaAnswered(int? status, bool unreachable)
+    {
+        var ex = status is null
+            ? new BlueTrack.Api.CyberArkDirect.PvwaException("no", new HttpRequestException("down"))
+            : new BlueTrack.Api.CyberArkDirect.PvwaException("refused", statusCode: status);
+        Assert.Equal(unreachable, ex.Unreachable);
+    }
 }

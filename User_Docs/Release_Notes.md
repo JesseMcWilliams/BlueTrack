@@ -6,6 +6,7 @@ What changed in each BlueTrack release, newest first, for users and administrato
 
 ### New
 
+- **Other PVWA addresses** on Admin > Data Sources > CyberArk sources: Self-Hosted Direct tries them in order when the PVWA address can't be reached, and says when it did. A refused credential is never tried on another. (Administrator Settings Reference)
 - **Accounts export and import**: **Export CSV / Excel** on Accounts downloads the filtered list with its editable fields, and **Import changes...** reads such a CSV back, saving each row's changed values with the edit page's rules and reporting any row it couldn't apply. (User Guide)
 - **Active Directory account discovery on Admin > Data Sources**: when it runs (default 04:30), **Run now**, and its recent runs with what each found and any domain it couldn't read. Before, it ran a day after whenever the application last started, and kept no record. (Administrator Data Management)
 - **Bulk override on Reports > Risk Score**: select accounts and set an override score (with a reason) on all of them, or clear it. Needs `EditAccountProgress`, as on one account. (User Guide)
@@ -45,6 +46,7 @@ What changed in each BlueTrack release, newest first, for users and administrato
 
 ### Upgrading
 
+- The upgrade adds database script 61 (the other PVWA addresses); the installer applies it.
 - The upgrade adds database script 60 (the longer list of CyberArk built-in Safes); the installer applies it.
 - The upgrade adds database script 59 (AD Account Discovery's run time and run log); the installer applies it. AD Account Discovery now runs at 04:30 server time; change it on Admin > Data Sources.
 - Re-run the installer's `Db.AppPoolAccess` step: it adds the app's SQL account to msdb's `SQLAgentOperatorRole`, which Pull now needs to start the Import and Load job. Without it, Pull now still pulls and says the job couldn't be started.

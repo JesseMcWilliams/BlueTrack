@@ -47,11 +47,19 @@ public class SelfHostedDirectPullServiceTests : IClassFixture<BlueTrackWebApplic
         /// <summary>D-280: the classic search for this Safe hangs, and <see cref="OnClassicHang"/> runs when it starts.</summary>
         public string? ClassicHangSafe { get; set; }
         public Action? OnClassicHang { get; set; }
+        /// <summary>D-320: hosts that can't be reached (the request fails), and hosts whose logon refuses the credential.</summary>
+        public HashSet<string> UnreachableHosts { get; } = new(StringComparer.OrdinalIgnoreCase);
+        public HashSet<string> RefusingHosts { get; } = new(StringComparer.OrdinalIgnoreCase);
+        public List<string> Hosts { get; } = [];
 
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
             var absolute = request.RequestUri!.AbsolutePath;
             var path = (absolute.StartsWith("/PasswordVault/API/", StringComparison.Ordinal) ? absolute["/PasswordVault/API/".Length..] : absolute).TrimEnd('/');
+            lock (Hosts) Hosts.Add(request.RequestUri.Host);
+            if (UnreachableHosts.Contains(request.RequestUri.Host)) throw new HttpRequestException("No such host is known.");
+            if (RefusingHosts.Contains(request.RequestUri.Host) && path.StartsWith("auth/", StringComparison.OrdinalIgnoreCase))
+                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.Unauthorized) { Content = new StringContent("{\"ErrorMessage\":\"Authentication failure\"}") });
             if (path == "Safes" && SafesDelay > TimeSpan.Zero) return HangThenAnswerAsync(request, cancellationToken);
             var query = System.Web.HttpUtility.ParseQueryString(request.RequestUri.Query);
             if (path == "/PasswordVault/WebServices/PIMServices.svc/Accounts" && query["Safe"] == ClassicHangSafe) return HangAsync(cancellationToken);
@@ -414,6 +422,54 @@ public class SelfHostedDirectPullServiceTests : IClassFixture<BlueTrackWebApplic
         Assert.Contains("the credential was refused", outcome.Message);
         Assert.DoesNotContain("ThisIsMy_FAKE_Password6!", outcome.Message);
         Assert.Equal((0, 0, 0, 0, 0), await StagedAsync());
+    }
+
+    // D-320: other PVWA addresses are tried when the ones before can't be reached, and never when one refuses the credential.
+    private static async Task SetAddressesAsync(string primary, string? others)
+    {
+        await using var connection = new SqlConnection(TestDatabase.ConnectionString);
+        await connection.ExecuteAsync("UPDATE web.cyberark_source_config SET PvwaBaseUrl = @primary, PvwaFallbackUrls = @others", new { primary, others });
+    }
+
+    [Fact]
+    public async Task APvwaThatCantBeReached_IsPassedOver_ForTheNextAddress_AndThePullSaysSo()
+    {
+        _pvwa.UnreachableHosts.Add("pvwa-down.pulltest.example.com");
+        await SetAddressesAsync("https://pvwa-down.pulltest.example.com", "https://pvwa.pulltest.example.com");
+        try
+        {
+            var outcome = await PullAsync();
+
+            Assert.Equal("Succeeded", outcome.Status);
+            Assert.Contains("Read from pvwa.pulltest.example.com; couldn't reach pvwa-down.pulltest.example.com", outcome.Message);
+            using var scope = _factory.Services.CreateScope();
+            var settings = (await scope.ServiceProvider.GetRequiredService<CyberArkSourceConfigRepository>().GetAsync()).Settings;
+            var checks = await scope.ServiceProvider.GetRequiredService<SelfHostedDirectPullService>().TestAsync(settings, CancellationToken.None);
+            Assert.Contains("Logged on to pvwa.pulltest.example.com", checks.Single(c => c.Item == "PVWA logon").Message);
+        }
+        finally
+        {
+            await SetAddressesAsync("https://pvwa.pulltest.example.com", null);
+        }
+    }
+
+    [Fact]
+    public async Task ARefusedCredential_IsNeverTriedOnTheOtherAddresses()
+    {
+        _pvwa.RefusingHosts.Add("pvwa-refuses.pulltest.example.com");
+        await SetAddressesAsync("https://pvwa-refuses.pulltest.example.com", "https://pvwa.pulltest.example.com");
+        try
+        {
+            var outcome = await PullAsync();
+
+            Assert.Equal("Failed", outcome.Status);
+            Assert.Contains("the credential was refused", outcome.Message);
+            lock (_pvwa.Hosts) Assert.DoesNotContain("pvwa.pulltest.example.com", _pvwa.Hosts);
+        }
+        finally
+        {
+            await SetAddressesAsync("https://pvwa.pulltest.example.com", null);
+        }
     }
 
     private sealed class RefusingStub : HttpMessageHandler
