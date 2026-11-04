@@ -8,7 +8,7 @@ Whoever is standing up a brand-new BlueTrack environment for the first time. Thi
 
 ## 1. Prerequisites
 
-You need: the .NET 10 SDK, Node.js, SQL Server reachable from this host, and (for a real environment) IIS with its Windows Authentication role service, the ASP.NET Core Hosting Bundle **10.0.13 or later** and the IIS URL Rewrite Module. `Deploy/Install-BlueTrack.ps1` checks for all of these and offers to install what's missing, except SQL Server itself (see `Deploy/README.md`, "What it deliberately does NOT do").
+You need: the .NET 10 SDK, Node.js, SQL Server reachable from this host, and (for a real environment) IIS with its Windows Authentication and Application Initialization role services, the ASP.NET Core Hosting Bundle **10.0.13 or later** and the IIS URL Rewrite Module. `Deploy/Install-BlueTrack.ps1` checks for all of these and offers to install what's missing, except SQL Server itself (see `Deploy/README.md`, "What it deliberately does NOT do").
 
 - **Hosting Bundle version**: some security fixes BlueTrack relies on are in .NET itself, so the server must run .NET 10.0.13 or later. The installer checks it: a Hosting Bundle whose newest ASP.NET Core runtime is older than 10.0.13 counts as missing, and the installer offers to install the current one (`-Step Prereq.HostingBundle`; see `Deploy/README.md`). You can also check with `dotnet --list-runtimes` (it should list `Microsoft.AspNetCore.App 10.0.13` or higher). Installing it restarts IIS.
 
@@ -33,7 +33,7 @@ This one script builds the API and SPA, creates and migrates the database, write
 
 ### Using an answer file
 
-For a repeatable or unattended install, copy `Deploy/answers.sample.json` to `answers.<env>.json` (git-ignored), edit it, and run `.\Install-BlueTrack.ps1 -ConfigFile .\answers.<env>.json`. Leave a setting out to be prompted for it. Never put a password in it: the SQL login (`SqlCredential`) is always prompted and never saved. Command-line parameters win over the file.
+For a repeatable or unattended install, copy `Deploy/answers.sample.json` to `answers.<env>.json` (git-ignored), edit it, and run `.\Install-BlueTrack.ps1 -ConfigFile .\answers.<env>.json`. Leave a setting out to be prompted for it. A prompt needs a console: run the installer in a PowerShell window. Started where it can't ask (no console input, such as from a scheduled task or an automation tool), it stops before any step on the first setting the file or the command line doesn't give, and names the parameter or file entry to add; nothing is changed. For a fully unattended install (Windows authentication to SQL Server, since a SQL login is always asked for), give every setting in the parameter table below (an empty value, such as `"PowerBiReaderAccount": ""`, where blank means skip). Never put a password in it: the SQL login (`SqlCredential`) is always prompted and never saved. Command-line parameters win over the file.
 
 ### Steps, resuming and re-running
 

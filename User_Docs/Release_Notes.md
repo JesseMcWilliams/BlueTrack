@@ -52,6 +52,7 @@ What changed in each BlueTrack release, newest first, for users and administrato
 
 ### Fixed
 
+- The nightly Self-Hosted Direct pull, AD account discovery, data feeds and notifications run on a server where nobody uses BlueTrack overnight. IIS stopped the BlueTrack application after 20 idle minutes, so they didn't run, and the nightly import then failed because the pull was too old. The installer now keeps the application running (Installation Guide).
 - **Recalculate Now** on Reports > Risk Score recalculates every score. Before, it redid only scores already marked as needing it, so after a change of risk algorithm it changed nothing. Changing the risk algorithm in Global Configuration now has the next nightly load redo every score too.
 - The **Pull details** dialog on Admin > Data Sources follows the theme; it was always white, which left light text on white in the Dark theme. Failed results on Data Sources and Edit CyberArk sources use the theme's error color.
 - On Admin > Secrets Store Configuration, the **Credential** column shows a box only for a backend that uses one (Conjur, Azure Key Vault as a service principal, AWS with an access key); the others say "(not used)".
@@ -61,6 +62,7 @@ What changed in each BlueTrack release, newest first, for users and administrato
 
 ### Upgrading
 
+- The installer adds the IIS **Application Initialization** feature (step `Prereq.IisAppInit`) and sets BlueTrack's application pool never to stop for being idle and the API to start with it. Nothing to do by hand; say yes when it offers to install the feature.
 - The upgrade adds database script 67 (the application owners' email options); the installer applies it. With **OverdueRiskExceptions** on, application owners with an Owner Email start getting their own email the day after the upgrade; clear an Owner Email to leave that owner out.
 - The upgrade adds database script 66 (the nested groups on Via AD group); the installer applies it.
 - The upgrade adds database script 65 (Use for BlueTrack's own lookups, on for every existing LDAP domain); the installer applies it.
@@ -70,6 +72,7 @@ What changed in each BlueTrack release, newest first, for users and administrato
 - The upgrade adds database script 61 (the other PVWA addresses); the installer applies it.
 - The upgrade adds database script 60 (the longer list of CyberArk built-in Safes); the installer applies it.
 - The upgrade adds database script 59 (AD Account Discovery's run time and run log); the installer applies it. AD Account Discovery now runs at 04:30 server time; change it on Admin > Data Sources.
+- The installer asks one new question, the Power BI reader account (leave it blank to skip). For an unattended upgrade, add `"PowerBiReaderAccount": ""` (or the account) to the saved answers first, or the installer stops and asks you to.
 - Re-run the installer's `Db.AppPoolAccess` step: it adds the app's SQL account to msdb's `SQLAgentOperatorRole`, which Pull now needs to start the Import and Load job. Without it, Pull now still pulls and says the job couldn't be started.
 - The first Self-Hosted Direct pull after the upgrade reads every account's details once more (one PVWA call per account) to fill in the folder, so it takes longer than usual; on a large Vault it may finish over a few nights within the pull time limit.
 

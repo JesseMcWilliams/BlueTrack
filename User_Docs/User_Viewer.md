@@ -12,7 +12,7 @@ Open BlueTrack and sign in with the method your organization has set up: Windows
 
 ## The Dashboard
 
-**Where**: the home page after signing in (also **Dashboard** in the top nav).
+**Where**: **Dashboard** in the top nav, or its card on **Home** (the page you start on after signing in).
 
 Four cards, each linking into more detail:
 
