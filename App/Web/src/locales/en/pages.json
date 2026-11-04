@@ -1,9 +1,10 @@
 {
   "accountProgressImport": {
     "toggle": "Import changes...",
-    "intro": "Export the list, change the values in the file, save it as CSV and import it here. Each row's \"Account Key\" finds the account; a blank cell leaves that field as it is, and Username, Address, Account Name and Safe are only for reading. Each row is saved with the same rules as the edit page.",
-    "file": "CSV file:",
-    "reason": "Reason (needed to move an account to an earlier stage):",
+    "intro": "Export the list, change the values in the file and import it here, as CSV or Excel. Each row's \"Account Key\" finds the account; Username, Address, Account Name and Safe are only for reading. A Risk Score Override needs an Override Reason (or the reason below). Each row is saved with the same rules as the edit page.",
+    "file": "File (CSV or Excel):",
+    "reason": "Reason (to move an account to an earlier stage, or for an override with none):",
+    "clearBlanks": "Clear a field when its cell is blank (otherwise a blank cell leaves the field as it is; Stage and Status are never cleared)",
     "import": "Import",
     "done": "Read {rows} rows: {updated} accounts changed, {unchanged} already as the file says, {problems} not applied.",
     "problem": "Row {row}: {reason}"

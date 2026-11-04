@@ -77,6 +77,9 @@ public sealed class AccountProgressExportRow
     public DateTime? TargetRemediationDate { get; init; }
     public DateTime? ActualCompletionDate { get; init; }
     public string? Notes { get; init; }
+    /// <summary>D-323: the account's risk score override and its reason, which the import reads back too.</summary>
+    public int? OverrideRiskScore { get; init; }
+    public string? OverrideReason { get; init; }
 }
 
 /// <summary>D-318: what an Accounts import did: rows read, accounts updated or already as the file says, and the rows it couldn't apply.</summary>

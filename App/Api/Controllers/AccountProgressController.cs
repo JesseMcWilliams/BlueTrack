@@ -115,18 +115,29 @@ public sealed class AccountProgressController(
     [HttpPost("import")]
     [Authorize(Policy = Permissions.EditAccountProgress)]
     [RequestSizeLimit(30_000_000)]   // D-198: also outside IIS, whose default is ~30 MB
-    public async Task<IActionResult> Import(IFormFile file, [FromForm] string? reason,
+    public async Task<IActionResult> Import(IFormFile file, [FromForm] string? reason, [FromForm] bool clearBlanks,
         [FromServices] AccountProgress.AccountProgressImportService importService)
     {
         var user = await currentUserResolver.ResolveAsync(User);
         if (user is null) return Unauthorized();
 
-        var rows = await RiskScoring.CsvFileReader.ReadRowsAsync(file.OpenReadStream());
+        // D-323: an Excel workbook (the Excel export, changed) or a CSV.
+        IReadOnlyList<IReadOnlyDictionary<string, string>> rows;
+        try
+        {
+            rows = file.FileName.EndsWith(".xlsx", StringComparison.OrdinalIgnoreCase)
+                ? RiskScoring.XlsxFileReader.ReadRows(file.OpenReadStream())
+                : await RiskScoring.CsvFileReader.ReadRowsAsync(file.OpenReadStream());
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or InvalidDataException or DocumentFormat.OpenXml.Packaging.OpenXmlPackageException)
+        {
+            return Problem(title: "Can't import the file", detail: $"The file couldn't be read: {ex.Message}", statusCode: StatusCodes.Status400BadRequest);
+        }
         if (await importService.ValidateAsync(rows) is { } error)
         {
             return Problem(title: "Can't import the file", detail: error, statusCode: StatusCodes.Status400BadRequest);
         }
-        return Ok(await importService.ImportAsync(rows, file.FileName, reason, user.UserKey));
+        return Ok(await importService.ImportAsync(rows, file.FileName, reason, clearBlanks, user.UserKey));
     }
 
     /// <summary>D-182: one set of field values applied to many accounts; see AccountProgressBulkEditService.</summary>

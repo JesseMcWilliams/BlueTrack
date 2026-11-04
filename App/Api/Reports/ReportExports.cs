@@ -134,7 +134,9 @@ public static class ReportExports
         new("Business Unit", r => r.BusinessUnit),
         new("Target Remediation Date", r => Day(r.TargetRemediationDate)),
         new("Actual Completion Date", r => Day(r.ActualCompletionDate)),
-        new("Notes", r => r.Notes)
+        new("Notes", r => r.Notes),
+        new("Risk Score Override", r => r.OverrideRiskScore),   // D-323
+        new("Override Reason", r => r.OverrideReason)
     ];
 
     public static readonly IReadOnlyList<ExportColumn<RiskScoreReportRow>> RiskScoreColumns =
