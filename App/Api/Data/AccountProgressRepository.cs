@@ -235,7 +235,8 @@ public sealed class AccountProgressRepository(IDbConnectionFactory connectionFac
                    (SELECT t.AccountTypeName FROM dbo.dim_account_type t WHERE t.AccountTypeKey = fap.AccountTypeKey) AS AccountTypeName,
                    (SELECT r.SORName FROM dbo.dim_source_of_record r WHERE r.SORKey = fap.SORKey) AS SORName,
                    (SELECT a.ApplicationName FROM web.dim_application a WHERE a.ApplicationKey = fap.ApplicationKey) AS ApplicationName,
-                   fap.OwnerName, fap.BusinessUnit, fap.TargetRemediationDate, fap.ActualCompletionDate, fap.Notes
+                   fap.OwnerName, fap.BusinessUnit, fap.TargetRemediationDate, fap.ActualCompletionDate, fap.Notes,
+                   ars.OverrideRiskScore, ars.OverrideReason
             {FilterFromSql}
             ORDER BY {BuildOrderByClause(sortBy)}
             """;

@@ -13,6 +13,8 @@ const { t } = useI18n()
 const open = ref(false)
 const file = ref(null)
 const reason = ref('')
+// D-323: off by default, so a blank cell never clears anything unless asked.
+const clearBlanks = ref(false)
 const busy = ref(false)
 const error = ref(null)
 const result = ref(null)
@@ -25,6 +27,7 @@ async function importFile() {
     const form = new FormData()
     form.append('file', file.value)
     if (reason.value.trim()) form.append('reason', reason.value.trim())
+    if (clearBlanks.value) form.append('clearBlanks', 'true')
     const response = await fetch('/api/account-progress/import', { method: 'POST', body: form })
     if (!response.ok) throw new Error(await problemMessage(response, t('common.requestFailed', { status: response.status })))
     result.value = await response.json()
@@ -43,9 +46,10 @@ async function importFile() {
     <form v-if="open" class="account-import-form" @submit.prevent="importFile">
       <p>{{ t('pages.accountProgressImport.intro') }}</p>
       <label class="field-label"><span class="field-label-text">{{ t('pages.accountProgressImport.file') }}</span>
-        <input type="file" accept=".csv,text/csv" required @change="file = $event.target.files[0] ?? null" /></label>
+        <input type="file" accept=".csv,text/csv,.xlsx" required @change="file = $event.target.files[0] ?? null" /></label>
       <label class="field-label"><span class="field-label-text">{{ t('pages.accountProgressImport.reason') }}</span>
         <input v-model="reason" size="50" maxlength="1000" /></label>
+      <label class="account-import-clear"><input v-model="clearBlanks" type="checkbox" /> {{ t('pages.accountProgressImport.clearBlanks') }}</label>
       <button type="submit" class="btn-primary" :disabled="busy || !file">{{ t('pages.accountProgressImport.import') }}</button>
     </form>
     <p v-if="error" role="alert">{{ error }}</p>
@@ -60,6 +64,7 @@ async function importFile() {
 
 <style scoped>
 .account-import { margin: var(--space-2) 0; }
+.account-import-clear { display: block; margin: var(--space-2) 0; }
 .account-import-form {
   border: 1px solid var(--color-border);
   padding: var(--space-2) var(--space-3);

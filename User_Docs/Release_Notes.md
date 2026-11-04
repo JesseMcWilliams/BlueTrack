@@ -24,6 +24,7 @@ What changed in each BlueTrack release, newest first, for users and administrato
 
 ### Changed
 
+- The Accounts import reads Excel files as well as CSV, can clear fields whose cells are blank when you tick that option (off by default), and sets or clears risk score overrides from the export's new **Risk Score Override** and **Override Reason** columns. (User Guide)
 - Re-importing **Target Inventory** also updates a matched Target's name, type and (when the file has one) description, as well as its risk score. (User Guide)
 - More of CyberArk's built-in Safes are recognised as internal (AccountsFeedDiscoveryLogs, AccountsFeedADAccounts, the PasswordManager Safes, PVWAReports and others the CyberArk documentation names), so their accounts and Safe pages say so.
 - Re-importing **Target Inventory** (or its feed) updates an existing Target's **Risk Score** to the file's, and the accounts that reach it are recalculated. Its name, type and description still aren't changed by an import. (User Guide)

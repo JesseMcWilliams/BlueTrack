@@ -7,12 +7,13 @@ function jsonResponse(body, ok = true, status = 200) {
   return { ok, status, json: () => Promise.resolve(body) }
 }
 
-async function chooseFileAndImport(wrapper, reason = '') {
+async function chooseFileAndImport(wrapper, reason = '', clearBlanks = false) {
   await wrapper.find('button').trigger('click')   // Import changes...
   const input = wrapper.find('input[type="file"]')
   Object.defineProperty(input.element, 'files', { value: [new File(['Account Key,Owner\n1,Jane\n'], 'accounts.csv', { type: 'text/csv' })] })
   await input.trigger('change')
   if (reason) await wrapper.findAll('input')[1].setValue(reason)
+  if (clearBlanks) await wrapper.find('input[type="checkbox"]').setValue(true)
   await wrapper.find('form').trigger('submit')
   await flushPromises()
 }
@@ -32,9 +33,21 @@ describe('AccountProgressImport.vue', () => {
     expect(url).toBe('/api/account-progress/import')
     expect(init.body.get('file').name).toBe('accounts.csv')
     expect(init.body.get('reason')).toBe('Quarterly review')
+    expect(init.body.get('clearBlanks')).toBeNull()   // D-323: off unless chosen
     expect(wrapper.text()).toContain('Read 3 rows: 1 accounts changed, 1 already as the file says, 1 not applied.')
     expect(wrapper.text()).toContain('Row 4: No account has this key.')
     expect(wrapper.emitted('imported')).toHaveLength(1)
+  })
+
+  // D-323: clearing blanks is asked for only when chosen; Excel files are offered too.
+  it('sends clearBlanks when chosen, and accepts Excel files', async () => {
+    globalThis.fetch = vi.fn(() => Promise.resolve(jsonResponse({ rows: 1, updated: 1, unchanged: 0, problems: [] })))
+    const wrapper = mount(AccountProgressImport)
+
+    await chooseFileAndImport(wrapper, '', true)
+
+    expect(globalThis.fetch.mock.calls[0][1].body.get('clearBlanks')).toBe('true')
+    expect(wrapper.find('input[type="file"]').attributes('accept')).toContain('.xlsx')
   })
 
   it('shows why a file was refused', async () => {
