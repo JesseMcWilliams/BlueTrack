@@ -29,10 +29,10 @@ const crumbs = computed(() => {
   const seen = new Set()
   let current = routesByName.get(route.name)
 
-  while (current && current.name !== 'dashboard' && !seen.has(current.name)) {
+  while (current && current.name !== 'home' && !seen.has(current.name)) {
     seen.add(current.name)
     trail.unshift({ name: current.name, label: current.meta?.breadcrumb ? t(current.meta.breadcrumb) : String(current.name) })
-    current = routesByName.get(current.meta?.breadcrumbParent ?? 'dashboard')
+    current = routesByName.get(current.meta?.breadcrumbParent ?? 'home')
   }
 
   return trail
@@ -41,7 +41,7 @@ const crumbs = computed(() => {
 
 <template>
   <nav class="breadcrumbs breadcrumbs--top-left" :aria-label="t('shell.breadcrumbs.ariaLabel')">
-    <router-link :to="{ name: 'dashboard' }">{{ t('shell.nav.dashboard') }}</router-link>
+    <router-link :to="{ name: 'home' }">{{ t('shell.nav.home') }}</router-link>
     <span v-for="crumb in crumbs" :key="crumb.name">
       <span class="breadcrumbs__separator">/</span>
       <router-link :to="{ name: crumb.name, query: listState.queryFor(crumb.name) }">{{ crumb.label }}</router-link>

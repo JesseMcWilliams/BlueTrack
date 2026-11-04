@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { accessRedirect, firstPage, ROUTE_PERMISSIONS, ADMIN_SECTIONS, REPORT_PAGES } from './routePermissions'
+import { accessRedirect, canOpenReports, canOpenAdmin, ROUTE_PERMISSIONS, ADMIN_SECTIONS, REPORT_PAGES } from './routePermissions'
 import router from './index'
 
 function rights(permissionNames, extra = {}) {
@@ -23,26 +23,25 @@ describe('accessRedirect', () => {
     expect(accessRedirect(rights([]), { name: 'login' })).toBeNull()
   })
 
-  it('sends a user who has permissions away from the no-access page, to the first page they may open', () => {
-    expect(accessRedirect(rights(['ViewDashboard']), { name: 'no-access' })).toEqual({ name: 'dashboard' })
-    expect(accessRedirect(rights(['ViewAuditLog']), { name: 'no-access' })).toEqual({ name: 'admin-audit-log' })
+  // D-307: Home is where everyone with a role starts.
+  it('sends a user who has permissions away from the no-access page, to Home', () => {
+    expect(accessRedirect(rights(['ViewDashboard']), { name: 'no-access' })).toEqual({ name: 'home' })
+    expect(accessRedirect(rights(['ViewAuditLog']), { name: 'no-access' })).toEqual({ name: 'home' })
   })
 
-  it('opens the first page a user may see in place of a Dashboard they cannot open (D-305)', () => {
-    expect(accessRedirect(rights(['ViewDashboard']), { name: 'dashboard' })).toBeNull()
+  it('lets anyone with a role open Home, and sends one without ViewDashboard to Access Denied from the Dashboard', () => {
     // The seeded Auditor role holds only ViewAuditLog.
-    expect(accessRedirect(rights(['ViewAuditLog']), { name: 'dashboard' })).toEqual({ name: 'admin-audit-log' })
-    expect(accessRedirect(rights(['ManageTargets', 'ViewAuditLog']), { name: 'dashboard' })).toEqual({ name: 'targets' })
-    expect(accessRedirect(rights(['ViewRiskReport']), { name: 'dashboard' })).toEqual({ name: 'reports-risk-score' })
-    // Permissions that open no page of their own.
-    expect(accessRedirect(rights(['EditAccountProgress']), { name: 'dashboard' })).toEqual({ name: 'access-denied' })
+    expect(accessRedirect(rights(['ViewAuditLog']), { name: 'home' })).toBeNull()
+    expect(accessRedirect(rights(['EditAccountProgress']), { name: 'home' })).toBeNull()
+    expect(accessRedirect(rights(['ViewDashboard']), { name: 'dashboard' })).toBeNull()
+    expect(accessRedirect(rights(['ViewAuditLog']), { name: 'dashboard' })).toEqual({ name: 'access-denied' })
   })
 
-  it('picks the first page in the top nav order', () => {
-    expect(firstPage(rights(['ViewDashboard', 'ManageAccessGroups']))).toBe('dashboard')
-    expect(firstPage(rights(['ManageTargets', 'ManageAccessGroups']))).toBe('access-groups')
-    expect(firstPage(rights(['ManageApiKeys', 'ConfirmReconciliation']))).toBe('reports-reconciliation-review')
-    expect(firstPage(rights(['EditAccountProgress']))).toBeNull()
+  it('says whether the Reports and Admin entries have anything for the user', () => {
+    expect(canOpenReports(rights(['ViewRiskReport']))).toBe(true)
+    expect(canOpenReports(rights(['ViewAuditLog']))).toBe(false)
+    expect(canOpenAdmin(rights(['ViewAuditLog']))).toBe(true)
+    expect(canOpenAdmin(rights(['ViewDashboard']))).toBe(false)
   })
 
   it('opens the first report the user can see from the Reports entry', () => {
@@ -66,9 +65,8 @@ describe('accessRedirect', () => {
   })
 
   // D-304: the tracked-data pages need the permission their data needs, so they say Access Denied, not "Request failed: 403".
-  // The Dashboard itself opens their first page instead (D-305, tested above).
   it('sends a user without ViewDashboard to Access Denied from the tracked-data pages', () => {
-    for (const name of ['account-progress-list', 'account-progress-detail', 'risk-exceptions-list', 'reports-kpi-summary', 'reports-safe-access']) {
+    for (const name of ['dashboard', 'account-progress-list', 'account-progress-detail', 'risk-exceptions-list', 'reports-kpi-summary', 'reports-safe-access']) {
       expect(accessRedirect(rights(['ManageTargets']), { name })).toEqual({ name: 'access-denied' })
       expect(accessRedirect(rights(['ViewDashboard']), { name })).toBeNull()
     }

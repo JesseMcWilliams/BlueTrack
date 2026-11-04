@@ -11,7 +11,7 @@ async function mountPage() {
   const router = createRouter({
     history: createMemoryHistory(),
     routes: [
-      { path: '/', name: 'dashboard', component: stub },
+      { path: '/', name: 'home', component: stub },
       { path: '/profile', name: 'my-profile', component: stub },
       { path: '/no-access', name: 'no-access', component: stub },
       { path: '/login', name: 'login', component: stub }
@@ -42,12 +42,12 @@ describe('NoAccess landing page', () => {
     expect(wrapper.find('a').attributes('href')).toBe('/profile')
   })
 
-  it('Check again goes to the Dashboard once a role has been given', async () => {
+  it('Check again goes to Home once a role has been given', async () => {
     reloadAnswers(['ViewAccounts'])
     const { wrapper, router } = await mountPage()
     await wrapper.findAll('button').find(b => b.text() === 'Check again').trigger('click')
     await flushPromises()
-    expect(router.currentRoute.value.name).toBe('dashboard')
+    expect(router.currentRoute.value.name).toBe('home')
   })
 
   it('Check again says so when there is still no role', async () => {

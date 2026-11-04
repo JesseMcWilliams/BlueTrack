@@ -6,6 +6,7 @@ What changed in each BlueTrack release, newest first, for users and administrato
 
 ### New
 
+- **Home page.** Signing in opens Home: a greeting, your roles, a card for each area you can open and, if you can see tracked data, the KPI funnel (all accounts, in scope, onboarded, managed, compliant; each count opens Accounts filtered to it). The Dashboard moved to its own top-nav entry, at `/dashboard`. (User Guide)
 - **Archived status.** An account can be Archived: out of scope for the KPIs like Risk Accepted / Excluded, but with no Risk Exception, and counted on its own on the KPI Summary and the Dashboard. A Progress Rule can now archive accounts at any stage (Admin > Progress Rules, "Archives accounts"), for example accounts whose CPM disable reason is ADArchive in an Archive folder. An archived account stays Archived until someone changes its status. (User Guide; Administrator Settings, Progress Rules)
 - **Folder** of a Self-Hosted account, read from PVWA, on the account page and as a Progress Rule field, with **Why the CPM doesn't manage it** (the CPM disable reason) as another rule field. (User Guide; Administrator Settings, Progress Rules)
 - **Re-read account details**: an option on Admin > Data Sources > CyberArk sources to re-read the folder, device type and linked accounts of accounts read more than a number of days ago, up to a number of accounts per pull. Off by default. (Administrator Settings, CyberArk sources)
@@ -19,7 +20,7 @@ What changed in each BlueTrack release, newest first, for users and administrato
 - **Pull now** on Admin > Data Sources now runs the Import and Load once the pull succeeds (by starting the nightly SQL Agent job), so the accounts change within minutes instead of at the next night. The pull's row shows how the load went. (Administrator Settings, CyberArk sources)
 - **Reload My Rights** reads a Windows user's groups from Active Directory (through the LDAP domains on Admin > Credentials & LDAP), so a group change applies without signing out of Windows; it keeps reading AD until the user's next Windows sign-in. With OIDC or SAML sign-in the page says a group change needs signing out and back in. (User Guide, Profile & Preferences)
 - The Dashboard, Accounts, Exceptions and the reports of tracked data open **Access Denied** for someone without the permission they need, instead of showing "Request failed: 403". Access Denied offers **Go to the Dashboard** only to those who can open it. (User Guide)
-- Someone who can't open the Dashboard starts on the first page they can open after signing in (the Audit Log for the Auditor role), and the top nav no longer shows them Dashboard, Accounts, Exceptions or Reports when they can't open those. **Reports** opens the first report they can see. (User Guide)
+- The top nav no longer shows Dashboard, Accounts, Exceptions or Reports to someone who can't open them. **Reports** opens the first report they can see. (User Guide)
 - Saving or deleting an LDAP domain, changing a notification type, updating or deleting a recipient, and saving an account now show the server's reason when they fail, not only the status code.
 
 ### Fixed

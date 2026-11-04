@@ -21,7 +21,7 @@ async function checkAgain() {
   await rights.reload()
   if (rights.error) return
   if (rights.permissionNames.length > 0) {
-    await router.push({ name: 'dashboard' })
+    await router.push({ name: 'home' })
   } else {
     stillNone.value = true
   }

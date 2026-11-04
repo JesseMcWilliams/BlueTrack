@@ -6,10 +6,10 @@ import { useRightsStore } from '../stores/rights'
 // D-43), with Admin (D-47) and Reports (D-56) as hub pages with sub-navigation
 // rather than flat top-level entries.
 //
-// Every route (except 'dashboard', the implicit root) carries meta.breadcrumb
+// Every route (except 'home', the implicit root, D-307) carries meta.breadcrumb
 // (the i18n key of its crumb label, D-227: 'shell.routes.<routeName>' in
 // src/locales/en/shell.json) and, where its logical parent isn't
-// 'dashboard', meta.breadcrumbParent (the parent route's name). Breadcrumbs.vue
+// 'home', meta.breadcrumbParent (the parent route's name). Breadcrumbs.vue
 // walks this meta chain to build the trail -- deliberately NOT Vue Router's
 // own route.matched, which only reflects actual nested-route parentage.
 // That's correct for Reports/Admin's hub+children structure below, but
@@ -38,9 +38,16 @@ const routes = [
     meta: { breadcrumb: 'shell.routes.loginProvider' },
     component: () => import('../views/Login.vue')
   },
+  // D-307: everyone with a role starts on Home; the Dashboard has its own address.
   {
     path: '/',
+    name: 'home',
+    component: () => import('../views/Home.vue')
+  },
+  {
+    path: '/dashboard',
     name: 'dashboard',
+    meta: { breadcrumb: 'shell.routes.dashboard' },
     component: () => import('../views/Dashboard.vue')
   },
   {

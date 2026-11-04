@@ -9,7 +9,7 @@ import NotFound from './NotFound.vue'
 const stub = { template: '<div />' }
 const router = createRouter({
   history: createMemoryHistory(),
-  routes: [{ path: '/', name: 'dashboard', component: stub }, { path: '/profile', name: 'my-profile', component: stub }]
+  routes: [{ path: '/', name: 'home', component: stub }, { path: '/profile', name: 'my-profile', component: stub }]
 })
 
 // UI review W1-2: a page you may not open and an address that matches no page are different messages, each with a way on.
@@ -23,12 +23,12 @@ describe('access denied and not found pages', () => {
     expect(wrapper.findAll('a').map(a => a.attributes('href'))).toEqual(['/', '/profile'])
   })
 
-  // D-304: the Dashboard needs ViewDashboard, so without it the page doesn't offer it.
-  it('Access Denied links only to My Profile for a user without ViewDashboard', () => {
+  // D-307: Home, which everyone with a role may open, is offered whatever the user's permissions.
+  it('Access Denied links home for a user without ViewDashboard too', () => {
     setActivePinia(createPinia())
     useRightsStore().$patch({ loaded: true, authenticated: true, permissionNames: ['ViewAuditLog'] })
     const wrapper = mount(AccessDenied, { global: { plugins: [router] } })
-    expect(wrapper.findAll('a').map(a => a.attributes('href'))).toEqual(['/profile'])
+    expect(wrapper.findAll('a').map(a => a.attributes('href'))).toEqual(['/', '/profile'])
   })
 
   it('Not Found says the address matches no page and links home', () => {

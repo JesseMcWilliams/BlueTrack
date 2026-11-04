@@ -78,20 +78,19 @@ export const REPORT_PAGES = [
   'reports-kpi-summary', 'reports-trends', 'reports-safe-access'
 ]
 
-// D-305: where a user who can't open the Dashboard starts, in the top nav's order (App.vue).
-const FIRST_PAGE_ORDER = [
-  'dashboard', 'access-groups', 'account-progress-list', 'risk-exceptions-list', 'targets',
-  ...REPORT_PAGES, ...ADMIN_SECTIONS.map(s => s.list)
-]
-
 export function canOpen(rights, name) {
   const needed = ROUTE_PERMISSIONS[name]
   return !needed || rights.hasPermission(needed)
 }
 
-/** The first page in the top nav's order the user may open, or null when there is none. */
-export function firstPage(rights) {
-  return FIRST_PAGE_ORDER.find(name => canOpen(rights, name)) ?? null
+/** Whether the Reports entry has a report for this user. */
+export function canOpenReports(rights) {
+  return REPORT_PAGES.some(name => canOpen(rights, name))
+}
+
+/** Whether the Admin entry has a section for this user. */
+export function canOpenAdmin(rights) {
+  return ADMIN_SECTIONS.some(s => rights.hasPermission(s.permission))
 }
 
 // Pages a user with no permissions may still open: signing in, the profile (it shows their roles), and the two
@@ -108,10 +107,8 @@ export function accessRedirect(rights, to) {
   if (rights.permissionNames.length === 0) {
     return OPEN_TO_ANYONE.includes(name) ? null : { name: 'no-access' }
   }
-  // D-305: the home page (and the no-access page, for a user who has permissions) opens the first page they may see.
-  if (name === 'no-access' || (name === 'dashboard' && !canOpen(rights, name))) {
-    return { name: firstPage(rights) ?? 'access-denied' }
-  }
+  // D-307: Home is where everyone with a role starts (D-305 sent them to their first page instead).
+  if (name === 'no-access') return { name: 'home' }
   if (canOpen(rights, name)) return null
   // The Admin and Reports entries open their first page; if that isn't theirs, open the first one that is.
   const from = to.redirectedFrom?.path ?? ''
