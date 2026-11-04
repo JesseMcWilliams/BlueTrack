@@ -38,7 +38,7 @@ test.describe('Home', () => {
 
     await expect(page.getByRole('heading', { level: 1 })).toContainText('Welcome')
     await expect(page.getByRole('heading', { name: 'Key Progress Indicators' })).toBeVisible()
-    await expect(page.locator('.home-funnel tbody tr')).toHaveCount(5)
+    await expect(page.locator('.home-funnel tbody tr')).toHaveCount(6)   // D-326: everything discovered, then the five
     await page.locator('.home-area').getByRole('link', { name: 'Dashboard' }).click()
     await expect(page).toHaveURL(/\/dashboard$/)
     await expect(page.getByRole('heading', { name: 'Accounts by Stage' })).toBeVisible()
