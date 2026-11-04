@@ -63,8 +63,11 @@ onMounted(async () => {
     if (BACKEND_TYPES.includes(wanted)) editing.value.backendType = wanted
     returnToSources.value = route.query.returnTo === 'cyberark-sources'
   }
-  // D-324: "Add a domain" on Data Sources opens a new domain's form here.
-  if (route?.query?.newDomain) startCreateLdapConfig()
+  // D-324: "Add a domain" on Data Sources opens a new domain's form here; D-328: as a discovery place only.
+  if (route?.query?.newDomain) {
+    startCreateLdapConfig()
+    if (route.query.newDomain === 'discovery') ldapEditing.value.useForIntegration = false
+  }
 })
 
 const isCyberArkVault = computed(() => editing.value?.backendType === 'CyberArkCP' || editing.value?.backendType === 'CyberArkCCP')
@@ -133,7 +136,7 @@ async function testLdapConfig() {
 
 function startCreateLdapConfig() {
   ldapTest.value = null
-  ldapEditing.value = { domainName: '', isEnabled: false, domainController: '', searchBase: '', useSsl: false, useTrustedConnection: false, credentialKey: null, useAsDataSource: true }
+  ldapEditing.value = { domainName: '', isEnabled: false, domainController: '', searchBase: '', useSsl: false, useTrustedConnection: false, credentialKey: null, useAsDataSource: true, useForIntegration: true }
 }
 function startEditLdapConfig(config) {
   ldapTest.value = null
@@ -269,7 +272,7 @@ async function removeLdapConfig(config) {
           <tr v-for="config in ldapConfigs" :key="config.ldapConfigKey">
             <td>{{ config.domainName }}</td>
             <td>{{ config.isEnabled ? t('admin.credentials.yes') : t('admin.credentials.no') }}</td>
-            <td>{{ config.useAsDataSource ? t('admin.credentials.yes') : t('admin.credentials.no') }}</td>
+            <td>{{ config.useAsDataSource ? t('admin.credentials.yes') : t('admin.credentials.no') }}<template v-if="!config.useForIntegration">{{ ' ' + t('admin.credentials.discoveryOnly') }}</template></td>
             <td>{{ config.domainController || t('admin.credentials.defaultDomain') }}</td>
             <td>{{ config.useTrustedConnection ? t('admin.credentials.trustedConnection') : (config.credentialName || t('common.none')) }}</td>
             <td>
@@ -285,6 +288,7 @@ async function removeLdapConfig(config) {
         <p><label class="field-label"><span class="field-label-text">{{ t('admin.credentials.domainNameLabel') }}</span> <input v-model="ldapEditing.domainName" required :placeholder="t('admin.credentials.domainNamePlaceholder')" /></label></p>
         <p><label><input v-model="ldapEditing.isEnabled" type="checkbox" /> {{ t('common.enabled') }}</label></p>
         <p><label><input v-model="ldapEditing.useAsDataSource" type="checkbox" /> {{ t('admin.credentials.useAsDataSource') }}</label></p>
+        <p><label><input v-model="ldapEditing.useForIntegration" type="checkbox" /> {{ t('admin.credentials.useForIntegration') }}</label></p>
         <p><label class="field-label"><span class="field-label-text">{{ t('admin.credentials.domainControllerLabel') }}</span> <input v-model="ldapEditing.domainController" :placeholder="t('admin.credentials.domainControllerPlaceholder')" /></label></p>
         <p><label class="field-label"><span class="field-label-text">{{ t('admin.credentials.searchBaseLabel') }}</span> <input v-model="ldapEditing.searchBase" :placeholder="t('admin.credentials.searchBasePlaceholder')" /></label></p>
         <p><label><input v-model="ldapEditing.useSsl" type="checkbox" /> {{ t('admin.credentials.useSsl') }}</label></p>

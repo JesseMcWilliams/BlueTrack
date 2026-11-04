@@ -22,6 +22,8 @@ public sealed class LdapConfig
     public string? CredentialName { get; init; }
     /// <summary>D-324: AD Account Discovery (Admin > Data Sources) reads this domain. Its other uses don't look at this.</summary>
     public bool UseAsDataSource { get; init; }
+    /// <summary>D-328: BlueTrack's own lookups use this domain (notification recipients, Reload Rights, Safe group members); off makes it a discovery place only.</summary>
+    public bool UseForIntegration { get; init; }
 }
 
 public sealed class SaveLdapConfigRequest
@@ -35,4 +37,6 @@ public sealed class SaveLdapConfigRequest
     public int? CredentialKey { get; init; }
     /// <summary>D-324: read by AD Account Discovery; on unless turned off.</summary>
     public bool UseAsDataSource { get; init; } = true;
+    /// <summary>D-328: used by BlueTrack's own lookups; on unless turned off.</summary>
+    public bool UseForIntegration { get; init; } = true;
 }

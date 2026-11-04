@@ -68,7 +68,7 @@ public sealed class AdDiscoveryRunRepository(IDbConnectionFactory connectionFact
     {
         using var connection = connectionFactory.Create();
         return (await connection.QueryAsync<AdDiscoveryDomain>(
-            "SELECT LdapConfigKey, DomainName, IsEnabled, UseAsDataSource FROM web.ldap_config ORDER BY DomainName")).AsList();
+            "SELECT LdapConfigKey, DomainName, IsEnabled, UseAsDataSource, UseForIntegration FROM web.ldap_config ORDER BY DomainName")).AsList();
     }
 }
 
@@ -79,6 +79,8 @@ public sealed class AdDiscoveryDomain
     public required string DomainName { get; init; }
     public bool IsEnabled { get; init; }
     public bool UseAsDataSource { get; init; }
+    /// <summary>D-328: false for a discovery place only.</summary>
+    public bool UseForIntegration { get; init; }
 }
 
 /// <summary>D-317: one row of the AD Account Discovery run log, as Data Sources shows it.</summary>

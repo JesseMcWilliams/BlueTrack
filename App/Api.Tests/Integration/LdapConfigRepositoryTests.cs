@@ -167,4 +167,25 @@ public class LdapConfigRepositoryTests
             await repository.DeleteAsync(disabledKey);
         }
     }
+    // D-328: a discovery place only (not for BlueTrack's own lookups) is read by AD discovery and left out of the lookups.
+    [Fact]
+    public async Task ADiscoveryOnlyDomain_IsADataSource_ButNotUsedForLookups()
+    {
+        var repository = new LdapConfigRepository(new TestDbConnectionFactory());
+        var domain = $"ct-disc-{Guid.NewGuid():N}"[..20] + ".local";
+        var key = await repository.CreateAsync(new SaveLdapConfigRequest
+        {
+            DomainName = domain, IsEnabled = true, UseTrustedConnection = true, UseAsDataSource = true, UseForIntegration = false
+        }, null);
+        try
+        {
+            Assert.DoesNotContain(await repository.GetEnabledAsync(), c => c.DomainName == domain);
+            Assert.Contains(await repository.GetDataSourcesAsync(), c => c.DomainName == domain);
+            Assert.False((await repository.GetByKeyAsync(key))!.UseForIntegration);
+        }
+        finally
+        {
+            await repository.DeleteAsync(key);
+        }
+    }
 }

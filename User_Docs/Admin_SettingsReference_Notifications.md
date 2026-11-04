@@ -46,7 +46,7 @@ The list's **Used by** column shows what uses each credential (Notifications, an
 
 ### LDAP Configuration
 
-On the same page: one row per Active Directory domain or forest BlueTrack queries (notification recipient lookup, AD account discovery, and a Windows user's groups when they click **Reload My Rights**, D-303). **Use as a data source** (on for a domain added before this option, and for a new one unless unticked) decides whether AD account discovery on **Admin > Data Sources** reads the domain; the domain's other uses don't depend on it. Data Sources lists the domains with this tick, and its **Add a domain** opens a new domain here.
+On the same page: one row per Active Directory domain or forest BlueTrack queries (notification recipient lookup, AD account discovery, and a Windows user's groups when they click **Reload My Rights**, D-303). **Use as a data source** (on for a domain added before this option, and for a new one unless unticked) decides whether AD account discovery on **Admin > Data Sources** reads the domain; the domain's other uses don't depend on it. **Use for BlueTrack's own lookups** (on for every existing domain) decides whether notification recipient lookups, Reload Rights' AD read and the Safe groups' AD members use the domain; untick it for a domain that should only be a place AD account discovery looks. Data Sources lists the domains with their **Use as a data source** tick, and its **Add a domain for discovery only** opens a new domain here with **Use for BlueTrack's own lookups** unticked.
 
 | Setting | What it does | Default | Recommended | Why |
 |---|---|---|---|---|
