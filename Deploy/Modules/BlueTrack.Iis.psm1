@@ -24,20 +24,35 @@ function New-BlueTrackAppPool {
     )
 
     $existing = Get-Item "IIS:\AppPools\$Name" -ErrorAction SilentlyContinue
-    if ($existing) {
-        if (-not $Force) {
-            Write-Host "Application Pool '$Name' already exists -- leaving it alone (pass -Force to recreate)."
-            return
-        }
-        if ($PSCmdlet.ShouldProcess("IIS:\AppPools\$Name", 'Remove existing Application Pool')) {
-            Remove-WebAppPool -Name $Name
-        }
+    if ($existing -and $Force -and $PSCmdlet.ShouldProcess("IIS:\AppPools\$Name", 'Remove existing Application Pool')) {
+        Remove-WebAppPool -Name $Name
+        $existing = $null
     }
 
-    if ($PSCmdlet.ShouldProcess("IIS:\AppPools\$Name", 'Create Application Pool (No Managed Code -- ANCM manages its own runtime)')) {
+    if ($existing) {
+        Write-Host "Application Pool '$Name' already exists -- leaving it alone (pass -Force to recreate); only its start mode and idle time-out are checked."
+    } elseif ($PSCmdlet.ShouldProcess("IIS:\AppPools\$Name", 'Create Application Pool (No Managed Code -- ANCM manages its own runtime)')) {
         New-WebAppPool -Name $Name | Out-Null
         Set-ItemProperty "IIS:\AppPools\$Name" -Name managedRuntimeVersion -Value ''
-        Set-ItemProperty "IIS:\AppPools\$Name" -Name startMode -Value 'AlwaysRunning'
+    }
+
+    # D-332: the API's background services (the nightly Self-Hosted Direct
+    # pull, AD discovery, data feeds, notifications) only run while its worker
+    # process is up. IIS's default idle time-out (20 minutes) stopped it
+    # overnight on a quiet server, so the 01:30 pull never ran (found on the
+    # dev host 2026-11-04). Applied on every run, not only at creation, so an
+    # existing pool is corrected by an upgrade. preloadEnabled on the
+    # /BlueTrack Application (New-BlueTrackSite) loads the API when the pool starts.
+    if ($PSCmdlet.ShouldProcess("IIS:\AppPools\$Name", 'Set startMode AlwaysRunning and idle time-out 0 (never)')) {
+        $pool = Get-Item "IIS:\AppPools\$Name"
+        if ($pool.startMode -ne 'AlwaysRunning') {
+            Set-ItemProperty "IIS:\AppPools\$Name" -Name startMode -Value 'AlwaysRunning'
+            Write-Host "Application Pool '$Name': start mode set to AlwaysRunning."
+        }
+        if ($pool.processModel.idleTimeout -ne [TimeSpan]::Zero) {
+            Set-ItemProperty "IIS:\AppPools\$Name" -Name processModel.idleTimeout -Value ([TimeSpan]::Zero)
+            Write-Host "Application Pool '$Name': idle time-out turned off (was $($pool.processModel.idleTimeout))."
+        }
     }
 }
 
@@ -159,6 +174,19 @@ function New-BlueTrackSite {
             New-WebApplication -Site $SiteName -Name 'BlueTrack' -PhysicalPath $ApiPhysicalPath -ApplicationPool $AppPoolName | Out-Null
         }
     }
+    # D-332: load the API as soon as the pool starts (and after each
+    # recycle), not at the first request, so its background services run on a
+    # quiet server. Needs IIS Application Initialization (Prereq.IisAppInit).
+    # Stored in applicationHost.config, so publish doesn't undo it; set on
+    # every run, so an existing Application gets it on upgrade.
+    if ($PSCmdlet.ShouldProcess("$SiteName/BlueTrack", 'Set preloadEnabled')) {
+        $apiApp = Get-WebApplication -Site $SiteName -Name 'BlueTrack' -ErrorAction SilentlyContinue
+        if ($apiApp -and -not $apiApp.preloadEnabled) {
+            Set-ItemProperty "IIS:\Sites\$SiteName\BlueTrack" -Name preloadEnabled -Value $true
+            Write-Host "Application '/BlueTrack': preload turned on."
+        }
+    }
+
     # Note: the /BlueTrack Application's own web.config (ANCM registration)
     # is generated automatically by `dotnet publish` into $ApiPhysicalPath --
     # nothing to author here.

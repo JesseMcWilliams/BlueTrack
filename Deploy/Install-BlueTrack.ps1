@@ -162,6 +162,7 @@ $Steps = @(
     @{ Name = 'Prereq.NodeJs'; PrereqKey = 'NodeJs'; Description = 'Node.js' }
     @{ Name = 'Prereq.Iis'; PrereqKey = 'Iis'; Description = 'IIS Web-Server role' }
     @{ Name = 'Prereq.IisWindowsAuth'; PrereqKey = 'IisWindowsAuth'; Description = 'IIS Windows Authentication role service' }
+    @{ Name = 'Prereq.IisAppInit'; PrereqKey = 'IisAppInit'; Description = 'IIS Application Initialization role service (D-332)' }
     @{ Name = 'Prereq.HostingBundle'; PrereqKey = 'HostingBundle'; Description = 'ASP.NET Core Hosting Bundle (ANCM)' }
     @{ Name = 'Prereq.UrlRewrite'; PrereqKey = 'UrlRewrite'; Description = 'IIS URL Rewrite Module' }
     @{ Name = 'Prereq.CyberArkSdk'; PrereqKey = 'CyberArkSdk'; Description = 'CyberArk Application Password SDK (check only)' }
