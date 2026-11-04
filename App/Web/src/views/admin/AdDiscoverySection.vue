@@ -2,7 +2,7 @@
 // D-317: AD Account Discovery as a data source on Admin > Data Sources: which LDAP domains it reads (set on
 // Credentials & LDAP), when it runs, Run now, and its recent runs. While a run is going, it checks back every few
 // seconds.
-import { ref, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { formatRunTime } from './dataFeedFormat'
 import { formatCount } from '../../utils/formatCount'
@@ -29,6 +29,24 @@ async function load() {
   }
   clearTimeout(pollTimer)
   if (status.value?.isRunning) pollTimer = setTimeout(load, POLL_MS)
+}
+
+// D-324: the domains discovery reads (enabled, and used as a data source); each can be turned on or off here.
+const readCount = computed(() => status.value?.domains.filter(d => d.isEnabled && d.useAsDataSource).length ?? 0)
+
+async function setDataSource(domain, useAsDataSource) {
+  error.value = null
+  notice.value = null
+  const response = await fetch(`/api/admin/ad-discovery/domains/${domain.ldapConfigKey}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ useAsDataSource })
+  })
+  if (!response.ok) {
+    error.value = await problemMessage(response, t('common.requestFailed', { status: response.status }))
+    return
+  }
+  await load()
 }
 
 async function saveRunTime() {
@@ -72,8 +90,17 @@ onBeforeUnmount(() => clearTimeout(pollTimer))
     <h3>{{ t('admin.adDiscovery.heading') }}</h3>
     <p>{{ t('admin.adDiscovery.intro') }}</p>
     <template v-if="status">
+      <p>{{ t('admin.adDiscovery.domains', { count: formatCount(readCount) }, readCount) }}</p>
+      <ul v-if="status.domains.length" class="ad-domains">
+        <li v-for="domain in status.domains" :key="domain.ldapConfigKey">
+          <label><input type="checkbox" :checked="domain.useAsDataSource" @change="setDataSource(domain, $event.target.checked)" />
+            {{ domain.domainName }}</label>
+          <small v-if="!domain.isEnabled">{{ ' ' + t('admin.adDiscovery.domainDisabled') }}</small>
+        </li>
+      </ul>
       <p>
-        {{ t('admin.adDiscovery.domains', { count: formatCount(status.enabledDomainCount) }, status.enabledDomainCount) }}
+        <router-link :to="{ name: 'admin-credentials', query: { newDomain: '1' } }">{{ t('admin.adDiscovery.addDomain') }}</router-link>
+        |
         <router-link :to="{ name: 'admin-credentials' }">{{ t('admin.adDiscovery.domainsLink') }}</router-link>
       </p>
       <form class="filter-row" @submit.prevent="saveRunTime">
@@ -108,4 +135,5 @@ onBeforeUnmount(() => clearTimeout(pollTimer))
 
 <style scoped>
 .outcome-Failed { color: var(--color-error-text); }
+.ad-domains { list-style: none; padding-left: 0; }
 </style>

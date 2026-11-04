@@ -57,9 +57,33 @@ public class AdDiscoveryTests(BlueTrackWebApplicationFactory factory) : IClassFi
         Assert.NotNull(run);
         Assert.Equal("Skipped", run.Value.Status);
         Assert.Contains("TestUser.Admin", run.Value.TriggeredBy);
-        Assert.Contains("No LDAP domain is enabled", run.Value.Message);
+        Assert.Contains("No enabled LDAP domain is used as a data source", run.Value.Message);
         var recent = (await Client("TestUser.Admin").GetFromJsonAsync<JsonObject>("/api/admin/ad-discovery"))!["recentRuns"]!.AsArray();
         Assert.Contains(recent, r => r!["status"]!.GetValue<string>() == "Skipped");
+    }
+
+    // D-324: Data Sources turns a domain's use as a data source on and off, and lists the domains with it.
+    [Fact]
+    public async Task ADomainsUseAsADataSource_IsSetFromDataSources()
+    {
+        await using var connection = new SqlConnection(TestDatabase.ConnectionString);
+        var domain = $"ct-flag-{Guid.NewGuid():N}"[..20] + ".local";
+        var key = await connection.QuerySingleAsync<int>(
+            "INSERT INTO web.ldap_config (DomainName, IsEnabled, UseTrustedConnection, UseSsl) OUTPUT inserted.LdapConfigKey VALUES (@domain, 1, 1, 0)", new { domain });
+        try
+        {
+            var client = Client("TestUser.Admin");
+            Assert.Equal(HttpStatusCode.NoContent, (await client.PutAsJsonAsync($"/api/admin/ad-discovery/domains/{key}", new { useAsDataSource = false })).StatusCode);
+            Assert.False(await connection.QuerySingleAsync<bool>("SELECT UseAsDataSource FROM web.ldap_config WHERE LdapConfigKey = @key", new { key }));
+
+            var domains = (await client.GetFromJsonAsync<JsonObject>("/api/admin/ad-discovery"))!["domains"]!.AsArray();
+            Assert.Contains(domains, d => d!["domainName"]!.GetValue<string>() == domain && !d["useAsDataSource"]!.GetValue<bool>());
+            Assert.Equal(HttpStatusCode.NotFound, (await client.PutAsJsonAsync("/api/admin/ad-discovery/domains/2147483647", new { useAsDataSource = true })).StatusCode);
+        }
+        finally
+        {
+            await connection.ExecuteAsync("DELETE FROM web.ldap_config WHERE LdapConfigKey = @key", new { key });
+        }
     }
 
     [Fact]

@@ -21,10 +21,33 @@ public sealed class AdDiscoveryController(
     public async Task<IActionResult> Get() => Ok(new
     {
         runTime = await repository.GetRunTimeAsync(),
-        enabledDomainCount = await repository.CountEnabledDomainsAsync(),
+        domains = await repository.GetDomainsAsync(),   // D-324
         isRunning = runner.IsRunning,
         recentRuns = await repository.GetRecentAsync(10)
     });
+
+    public sealed class AdDiscoveryDomainRequest
+    {
+        public bool UseAsDataSource { get; init; }
+    }
+
+    /// <summary>D-324: whether discovery reads this LDAP domain. The domain itself is set up on Credentials & LDAP.</summary>
+    [HttpPut("domains/{ldapConfigKey:int}")]
+    public async Task<IActionResult> SetDomain(int ldapConfigKey, [FromBody] AdDiscoveryDomainRequest request,
+        [FromServices] Data.LdapConfigRepository ldapConfigRepository)
+    {
+        var user = await currentUserResolver.ResolveAsync(User);
+        if (user is null) return Unauthorized();
+        var before = await ldapConfigRepository.GetByKeyAsync(ldapConfigKey);
+        if (before is null) return NotFound();
+        await ldapConfigRepository.SetUseAsDataSourceAsync(ldapConfigKey, request.UseAsDataSource, user.UserKey);
+        if (before.UseAsDataSource != request.UseAsDataSource)
+        {
+            await auditLogger.LogAsync("FieldEdit", user.UserKey, "ldap_config", ldapConfigKey.ToString(),
+                fieldChanges: [new FieldChange("UseAsDataSource", before.UseAsDataSource.ToString(), request.UseAsDataSource.ToString())]);
+        }
+        return NoContent();
+    }
 
     public sealed class AdDiscoverySettingsRequest
     {

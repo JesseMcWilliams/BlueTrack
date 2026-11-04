@@ -20,6 +20,8 @@ public sealed class LdapConfig
     public bool UseTrustedConnection { get; init; }
     public int? CredentialKey { get; init; }
     public string? CredentialName { get; init; }
+    /// <summary>D-324: AD Account Discovery (Admin > Data Sources) reads this domain. Its other uses don't look at this.</summary>
+    public bool UseAsDataSource { get; init; }
 }
 
 public sealed class SaveLdapConfigRequest
@@ -31,4 +33,6 @@ public sealed class SaveLdapConfigRequest
     public bool UseSsl { get; init; }
     public bool UseTrustedConnection { get; init; }
     public int? CredentialKey { get; init; }
+    /// <summary>D-324: read by AD Account Discovery; on unless turned off.</summary>
+    public bool UseAsDataSource { get; init; } = true;
 }

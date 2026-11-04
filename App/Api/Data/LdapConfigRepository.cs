@@ -14,7 +14,7 @@ public sealed class LdapConfigRepository(IDbConnectionFactory connectionFactory)
 {
     private const string SelectSql = """
         SELECT lc.LdapConfigKey, lc.DomainName, lc.IsEnabled, lc.DomainController, lc.SearchBase, lc.UseSsl,
-               lc.UseTrustedConnection, lc.CredentialKey, c.CredentialName
+               lc.UseTrustedConnection, lc.CredentialKey, c.CredentialName, lc.UseAsDataSource
         FROM web.ldap_config lc
         LEFT JOIN web.credential c ON c.CredentialKey = lc.CredentialKey
         """;
@@ -34,6 +34,23 @@ public sealed class LdapConfigRepository(IDbConnectionFactory connectionFactory)
         return rows.AsList();
     }
 
+    /// <summary>D-324: the enabled domains AD Account Discovery reads (Use as a data source).</summary>
+    public async Task<IReadOnlyList<LdapConfig>> GetDataSourcesAsync()
+    {
+        using var connection = connectionFactory.Create();
+        var rows = await connection.QueryAsync<LdapConfig>($"{SelectSql} WHERE lc.IsEnabled = 1 AND lc.UseAsDataSource = 1 ORDER BY lc.DomainName");
+        return rows.AsList();
+    }
+
+    /// <summary>D-324: turns one domain's use as a data source on or off (Admin > Data Sources).</summary>
+    public async Task<bool> SetUseAsDataSourceAsync(int ldapConfigKey, bool useAsDataSource, int? modifiedByUserKey)
+    {
+        using var connection = connectionFactory.Create();
+        return await connection.ExecuteAsync(
+            "UPDATE web.ldap_config SET UseAsDataSource = @useAsDataSource, ModifiedBy = @modifiedByUserKey, ModifiedDate = SYSUTCDATETIME() WHERE LdapConfigKey = @ldapConfigKey",
+            new { ldapConfigKey, useAsDataSource, modifiedByUserKey }) > 0;
+    }
+
     public async Task<LdapConfig?> GetByKeyAsync(int ldapConfigKey)
     {
         using var connection = connectionFactory.Create();
@@ -45,9 +62,9 @@ public sealed class LdapConfigRepository(IDbConnectionFactory connectionFactory)
     {
         using var connection = connectionFactory.Create();
         const string sql = """
-            INSERT INTO web.ldap_config (DomainName, IsEnabled, DomainController, SearchBase, UseSsl, UseTrustedConnection, CredentialKey, ModifiedBy, ModifiedDate)
+            INSERT INTO web.ldap_config (DomainName, IsEnabled, DomainController, SearchBase, UseSsl, UseTrustedConnection, CredentialKey, UseAsDataSource, ModifiedBy, ModifiedDate)
             OUTPUT INSERTED.LdapConfigKey
-            VALUES (@DomainName, @IsEnabled, @DomainController, @SearchBase, @UseSsl, @UseTrustedConnection, @CredentialKey, @ModifiedBy, SYSUTCDATETIME())
+            VALUES (@DomainName, @IsEnabled, @DomainController, @SearchBase, @UseSsl, @UseTrustedConnection, @CredentialKey, @UseAsDataSource, @ModifiedBy, SYSUTCDATETIME())
             """;
         return await connection.QuerySingleAsync<int>(sql, new
         {
@@ -58,6 +75,7 @@ public sealed class LdapConfigRepository(IDbConnectionFactory connectionFactory)
             request.UseSsl,
             request.UseTrustedConnection,
             request.CredentialKey,
+            request.UseAsDataSource,
             ModifiedBy = createdByUserKey
         });
     }
@@ -69,7 +87,7 @@ public sealed class LdapConfigRepository(IDbConnectionFactory connectionFactory)
             UPDATE web.ldap_config
             SET DomainName = @DomainName, IsEnabled = @IsEnabled, DomainController = @DomainController, SearchBase = @SearchBase,
                 UseSsl = @UseSsl, UseTrustedConnection = @UseTrustedConnection, CredentialKey = @CredentialKey,
-                ModifiedBy = @ModifiedBy, ModifiedDate = SYSUTCDATETIME()
+                UseAsDataSource = @UseAsDataSource, ModifiedBy = @ModifiedBy, ModifiedDate = SYSUTCDATETIME()
             WHERE LdapConfigKey = @LdapConfigKey
             """;
         await connection.ExecuteAsync(sql, new
@@ -82,6 +100,7 @@ public sealed class LdapConfigRepository(IDbConnectionFactory connectionFactory)
             request.UseSsl,
             request.UseTrustedConnection,
             request.CredentialKey,
+            request.UseAsDataSource,
             ModifiedBy = modifiedByUserKey
         });
     }
