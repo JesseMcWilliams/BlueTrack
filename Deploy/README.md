@@ -51,7 +51,7 @@ Run from an elevated PowerShell session, from the `Deploy` folder (the script li
     -GenerateSelfSignedCert
 ```
 
-Or unattended, via a config file. Start from `answers.sample.json`: copy it to `answers.<env>.json` (git-ignored) and edit it. Leave a setting out to be prompted for it; `SqlCredential` is always prompted and never saved.
+Or unattended, via a config file. Start from `answers.sample.json`: copy it to `answers.<env>.json` (git-ignored) and edit it. Leave a setting out to be prompted for it; `SqlCredential` is always prompted and never saved. Where there is no console to prompt in (a scheduled task, redirected input), a missing answer stops the install with the parameter to add (D-331), rather than being taken as blank or "No".
 
 ```powershell
 .\Install-BlueTrack.ps1 -ConfigFile .\answers.prod.json

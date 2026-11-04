@@ -197,14 +197,27 @@ $StepNames = @($Steps | ForEach-Object { $_.Name })
 #endregion
 
 #region Helpers for required interactive prompts
+# Read-Host returns $null, not '', when there's no console input (a
+# background or redirected session): stop and name the missing answer
+# rather than reading it as blank or "No" (D-331).
+function Read-BlueTrackAnswer {
+    param([Parameter(Mandatory)] [string]$Prompt, [string]$Name)
+    $value = Read-Host $Prompt
+    if ($null -eq $value) {
+        $how = if ($Name) { "pass -$Name or add $Name to the -ConfigFile" } else { 'give the answer on the command line (Deploy/README.md)' }
+        throw "No answer for '$Prompt': this session has no console input. Run the installer in a PowerShell window, or $how."
+    }
+    return $value
+}
+
 # A blank answer here (just pressing Enter) must never silently proceed --
 # each of these values is load-bearing several steps later, so catching a
 # blank answer immediately, at the prompt itself, is much cheaper than
 # surfacing it as a cryptic parameter-binding error afterward.
 function Read-BlueTrackRequiredValue {
-    param([Parameter(Mandatory)] [string]$Prompt)
+    param([Parameter(Mandatory)] [string]$Prompt, [string]$Name)
     do {
-        $value = Read-Host $Prompt
+        $value = Read-BlueTrackAnswer $Prompt $Name
         if (-not $value) { Write-Warning 'This value is required and cannot be blank.' }
     } while (-not $value)
     return $value
@@ -213,7 +226,7 @@ function Read-BlueTrackRequiredValue {
 function Read-BlueTrackEnvironment {
     $allowed = 'Development', 'Test', 'Staging', 'Production'
     do {
-        $value = Read-Host "Environment ($($allowed -join '/'))"
+        $value = Read-BlueTrackAnswer "Environment ($($allowed -join '/'))" Environment
         if ($value -notin $allowed) { Write-Warning "Must be one of: $($allowed -join ', ')." }
     } while ($value -notin $allowed)
     return $value
@@ -267,7 +280,7 @@ function Resolve-InstallAnswer {
         }
         'Database' {
             if (-not $script:SqlServerInstance) {
-                Register-InstallAnswer SqlServerInstance (Read-BlueTrackRequiredValue 'SQL Server instance (e.g. localhost, SERVER\INSTANCE)')
+                Register-InstallAnswer SqlServerInstance (Read-BlueTrackRequiredValue 'SQL Server instance (e.g. localhost, SERVER\INSTANCE)' SqlServerInstance)
             }
             if (-not $script:UseWindowsAuth -and -not $script:SqlCredential) {
                 # Not via Register-InstallAnswer: a credential is never saved.
@@ -275,21 +288,21 @@ function Resolve-InstallAnswer {
             }
         }
         'Hostname' {
-            if (-not $script:Hostname) { Register-InstallAnswer Hostname (Read-BlueTrackRequiredValue 'Site hostname (e.g. bluetrack.company.com)') }
+            if (-not $script:Hostname) { Register-InstallAnswer Hostname (Read-BlueTrackRequiredValue 'Site hostname (e.g. bluetrack.company.com)' Hostname) }
         }
         'SeedTestData' {
             if (-not $script:Answered.Contains('SeedTestData')) {
                 Resolve-InstallAnswer Environment
                 $seed = $false
                 if ($script:Environment -ne 'Production') {
-                    $seed = (Read-Host 'Seed DevFakeAuth/synthetic test data (Database/Test)? Never do this for Production. (y/N)') -match '^[Yy]'
+                    $seed = (Read-BlueTrackAnswer 'Seed DevFakeAuth/synthetic test data (Database/Test)? Never do this for Production. (y/N)' SeedTestData) -match '^[Yy]'
                 }
                 Register-InstallAnswer SeedTestData $seed
             }
         }
         'InstallNightlyJob' {
             if (-not $script:Answered.Contains('InstallNightlyJob')) {
-                Register-InstallAnswer InstallNightlyJob ((Read-Host 'Install the nightly Import+Load SQL Agent job now? (y/N)') -match '^[Yy]')
+                Register-InstallAnswer InstallNightlyJob ((Read-BlueTrackAnswer 'Install the nightly Import+Load SQL Agent job now? (y/N)' InstallNightlyJob) -match '^[Yy]')
             }
             if ($script:InstallNightlyJob) {
                 # D-176: an implementation may have only one CyberArk source;
@@ -297,18 +310,18 @@ function Resolve-InstallAnswer {
                 if (-not $script:ImportSources) {
                     $allowed = 'Both', 'PrivilegeCloud', 'SelfHosted'
                     do {
-                        $value = Read-Host "Which CyberArk sources does this implementation have? ($($allowed -join '/'))"
+                        $value = Read-BlueTrackAnswer "Which CyberArk sources does this implementation have? ($($allowed -join '/'))" ImportSources
                         if ($value -notin $allowed) { Write-Warning "Must be one of: $($allowed -join ', ')." }
                     } while ($value -notin $allowed)
                     Register-InstallAnswer ImportSources $value
                 }
-                if ($script:ImportSources -in 'Both', 'PrivilegeCloud' -and -not $script:ExportFolderPath) { Register-InstallAnswer ExportFolderPath (Read-BlueTrackRequiredValue 'Privilege Cloud CSV export folder path (local to the SQL Server service account)') }
+                if ($script:ImportSources -in 'Both', 'PrivilegeCloud' -and -not $script:ExportFolderPath) { Register-InstallAnswer ExportFolderPath (Read-BlueTrackRequiredValue 'Privilege Cloud CSV export folder path (local to the SQL Server service account)' ExportFolderPath) }
             }
         }
         'Certificate' {
             Resolve-InstallAnswer Hostname
             if (-not $script:CertificateThumbprint -and -not $script:GenerateSelfSignedCert) {
-                $certChoice = Read-Host "HTTPS certificate: enter a thumbprint, or leave blank to generate a self-signed cert for '$($script:Hostname)' (Dev/Test only)"
+                $certChoice = Read-BlueTrackAnswer "HTTPS certificate: enter a thumbprint, or leave blank to generate a self-signed cert for '$($script:Hostname)' (Dev/Test only)" CertificateThumbprint
                 if ($certChoice) { Register-InstallAnswer CertificateThumbprint $certChoice } else { Register-InstallAnswer GenerateSelfSignedCert $true }
             }
         }
@@ -334,7 +347,7 @@ function Resolve-InstallAnswer {
         }
         'ResetIis' {
             if (-not $script:Answered.Contains('ResetIis')) {
-                $reset = (Read-Host 'Restart IIS (iisreset) after the IIS steps, so every change takes effect? This briefly stops EVERY site on this server. Recommended for the first install and after IIS changes. (y/N)') -match '^[Yy]'
+                $reset = (Read-BlueTrackAnswer 'Restart IIS (iisreset) after the IIS steps, so every change takes effect? This briefly stops EVERY site on this server. Recommended for the first install and after IIS changes. (y/N)' ResetIis) -match '^[Yy]'
                 Register-InstallAnswer ResetIis $reset
             }
         }
@@ -342,19 +355,19 @@ function Resolve-InstallAnswer {
             # Only meaningful with Windows Integrated Security: with a SQL
             # login, the API connects as that login, not the app pool.
             if ($script:UseWindowsAuth -and -not $script:Answered.Contains('GrantAppPoolSqlAccess')) {
-                $grant = (Read-Host "Give the IIS app pool's Windows account a SQL Server login and read/write/execute rights on '$($script:DatabaseName)' (Database/Manual/02, not db_owner)? The site can't reach the database without it. (y/N)") -match '^[Yy]'
+                $grant = (Read-BlueTrackAnswer "Give the IIS app pool's Windows account a SQL Server login and read/write/execute rights on '$($script:DatabaseName)' (Database/Manual/02, not db_owner)? The site can't reach the database without it. (y/N)" GrantAppPoolSqlAccess) -match '^[Yy]'
                 Register-InstallAnswer GrantAppPoolSqlAccess $grant
             }
         }
         'PowerBiReaderAccount' {
             if (-not $script:Answered.Contains('PowerBiReaderAccount')) {
-                $reader = (Read-Host "Windows account or group Power BI reads BlueTrack's data with (DOMAIN\Name), to add to the BlueTrack_PowerBI_Reader role (Database/Manual/09)? Leave blank to skip").Trim()
+                $reader = (Read-BlueTrackAnswer "Windows account or group Power BI reads BlueTrack's data with (DOMAIN\Name), to add to the BlueTrack_PowerBI_Reader role (Database/Manual/09)? Leave blank to skip" PowerBiReaderAccount).Trim()
                 Register-InstallAnswer PowerBiReaderAccount $reader
             }
         }
         'InstallSqlServerAudit' {
             if (-not $script:Answered.Contains('InstallSqlServerAudit')) {
-                $audit = (Read-Host "Record every change to BlueTrack's audit log in the Windows Security log (SQL Server Audit; sets the Windows audit policy and the SQL Server account's rights, which take effect after a SQL Server restart)? (Y/n)") -notmatch '^[Nn]'
+                $audit = (Read-BlueTrackAnswer "Record every change to BlueTrack's audit log in the Windows Security log (SQL Server Audit; sets the Windows audit policy and the SQL Server account's rights, which take effect after a SQL Server restart)? (Y/n)" InstallSqlServerAudit) -notmatch '^[Nn]'
                 Register-InstallAnswer InstallSqlServerAudit $audit
             }
         }
@@ -421,7 +434,7 @@ function Invoke-PrerequisiteStep {
         return @{ Status = 'Declined'; Message = '-SkipPrerequisiteInstall' }
     }
     # Naming the step with -Step is the confirmation; otherwise ask.
-    if (-not $Explicit -and (Read-Host "$($item.Name) is missing. Install it now? (y/N)") -notmatch '^[Yy]') {
+    if (-not $Explicit -and (Read-BlueTrackAnswer "$($item.Name) is missing. Install it now? (y/N)") -notmatch '^[Yy]') {
         Write-Warning "Skipping $($item.Name) -- the install may fail later without it. Install it later with -Step Prereq.$Key."
         return @{ Status = 'Declined'; Message = 'Operator declined the install' }
     }
@@ -471,7 +484,7 @@ $StepActions = @{
             return @{ Status = 'Completed'; Message = 'No existing schema -- nothing to back up' }
         }
         if (-not $BackupFolder) {
-            Register-InstallAnswer BackupFolder (Read-BlueTrackRequiredValue 'Existing database detected. Backup folder for the pre-deployment rollback point (local to the SQL Server service account)')
+            Register-InstallAnswer BackupFolder (Read-BlueTrackRequiredValue 'Existing database detected. Backup folder for the pre-deployment rollback point (local to the SQL Server service account)' BackupFolder)
             Save-InstallAnswer
         }
         # D-203: the folder is limited to specific accounts; the App Pool's needs Modify to clean up scheduled backups (D-200).

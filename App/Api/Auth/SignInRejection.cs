@@ -39,7 +39,7 @@ public sealed class SignInRejectionRecorder(
         {
             logger.LogError(ex, "Rejected {Provider} sign-in could not be audit-logged.", providerType);
         }
-        alerter.SendInBackground(providerType, reason, sourceIpAddress, DateTime.UtcNow);
+        _ = alerter.SendInBackground(providerType, reason, sourceIpAddress, DateTime.UtcNow);
     }
 }
 
