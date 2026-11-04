@@ -43,6 +43,8 @@ const kpis = computed(() => {
   if (!summary.value) return []
   const s = summary.value
   return [
+    // D-326: everything discovered has no list of its own on Accounts (much of it isn't tracked), so it isn't a link.
+    { label: t('reports.kpiSummary.allVsDiscovered'), numerator: s.totalAccounts, denominator: s.discoveredAccounts, numeratorKpi: 'total', denominatorKpi: null },
     { label: t('reports.kpiSummary.inScopeVsAll'), numerator: s.inScopeAccounts, denominator: s.totalAccounts, numeratorKpi: 'inScope', denominatorKpi: 'total' },
     { label: t('reports.kpiSummary.onboardedVsInScope'), numerator: s.onboardedAccounts, denominator: s.inScopeAccounts, numeratorKpi: 'onboarded', denominatorKpi: 'inScope' },
     { label: t('reports.kpiSummary.managedVsOnboarded'), numerator: s.managedAccounts, denominator: s.onboardedAccounts, numeratorKpi: 'managed', denominatorKpi: 'onboarded' },
@@ -74,7 +76,7 @@ const kpis = computed(() => {
               <router-link v-if="kpi.numerator > 0" :to="{ name: 'account-progress-list', query: { kpi: kpi.numeratorKpi } }">{{ formatCount(kpi.numerator) }}</router-link>
               <template v-else>{{ formatCount(kpi.numerator) }}</template>
               /
-              <router-link v-if="kpi.denominator > 0" :to="{ name: 'account-progress-list', query: { kpi: kpi.denominatorKpi } }">{{ formatCount(kpi.denominator) }}</router-link>
+              <router-link v-if="kpi.denominator > 0 && kpi.denominatorKpi" :to="{ name: 'account-progress-list', query: { kpi: kpi.denominatorKpi } }">{{ formatCount(kpi.denominator) }}</router-link>
               <template v-else>{{ formatCount(kpi.denominator) }}</template>
             </td>
             <td>{{ pct(kpi.numerator, kpi.denominator) === null ? t('reports.kpiSummary.notApplicable') : formatPercent(pct(kpi.numerator, kpi.denominator)) }}</td>
@@ -82,6 +84,7 @@ const kpis = computed(() => {
         </tbody>
       </table>
       <p>{{ t('reports.kpiSummary.totalAccounts', { count: formatCount(summary.totalAccounts) }) }}</p>
+      <p>{{ t('reports.kpiSummary.discoveredBreakdown', { count: formatCount(summary.discoveredAccounts), tracked: formatCount(summary.totalAccounts), ad: formatCount(summary.untrackedAdCandidates), dna: formatCount(summary.untrackedDnaAccounts) }) }}</p>
       <!-- D-298: Archived accounts are out of scope and counted on their own. -->
       <p>
         {{ t('reports.kpiSummary.archivedAccounts') }}
@@ -92,6 +95,7 @@ const kpis = computed(() => {
       <!-- UI review W7-3: what the words mean (D-143). -->
       <h3>{{ t('reports.kpiSummary.definitionsHeading') }}</h3>
       <dl>
+        <dt>{{ t('reports.kpiSummary.defDiscoveredTerm') }}</dt><dd>{{ t('reports.kpiSummary.defDiscovered') }}</dd>
         <dt>{{ t('reports.kpiSummary.defAllTerm') }}</dt><dd>{{ t('reports.kpiSummary.defAll') }}</dd>
         <dt>{{ t('reports.kpiSummary.defInScopeTerm') }}</dt><dd>{{ t('reports.kpiSummary.defInScope') }}</dd>
         <dt>{{ t('reports.kpiSummary.defOnboardedTerm') }}</dt><dd>{{ t('reports.kpiSummary.defOnboarded') }}</dd>

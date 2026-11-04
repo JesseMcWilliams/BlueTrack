@@ -188,6 +188,7 @@
   "kpiSummary": {
     "title": "KPI Summary",
     "loadFailed": "Could not load KPI summary: {error}",
+    "allVsDiscovered": "All Accounts vs. Everything Discovered",
     "inScopeVsAll": "Accounts In Scope vs. All Accounts",
     "onboardedVsInScope": "Accounts Onboarded vs. Accounts In Scope",
     "managedVsOnboarded": "Accounts Managed vs. Onboarded",
@@ -198,6 +199,8 @@
     "notApplicable": "N/A",
     "asOf": "Counts read {time}.",
     "definitionsHeading": "What the counts mean",
+    "defDiscoveredTerm": "Everything Discovered",
+    "defDiscovered": "All Accounts, plus the accounts found but not tracked yet: AD-discovered candidates (Reports > Discovered Accounts) that aren't accepted and match no tracked account, and DNA accounts (Reports > DNA Accounts) that match none, each counted once.",
     "defAllTerm": "All Accounts",
     "defAll": "Every inventory account that is not deleted, excluding feed accounts linked to a CyberArk account.",
     "defInScopeTerm": "In Scope",
@@ -212,7 +215,8 @@
     "defArchived": "Accounts with the status Archived, set by an archive Progress Rule or by hand (for example workstation accounts moved to an archive folder). They are out of scope.",
     "archivedAccounts": "Archived (out of scope):",
     "listNote": "Each count opens the Accounts list showing those accounts. The Accounts list shows accounts that have progress tracking, so an In Scope or All Accounts count can be higher than the list if some accounts have none yet.",
-    "totalAccounts": "{count} account(s) total."
+    "totalAccounts": "{count} account(s) total.",
+    "discoveredBreakdown": "Everything discovered: {count} ({tracked} tracked, {ad} AD-discovered and {dna} DNA accounts not tracked yet)."
   },
   "overdueAtRiskWorklist": {
     "title": "Overdue / At-Risk Worklist",

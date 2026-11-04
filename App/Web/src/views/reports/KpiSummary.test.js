@@ -47,12 +47,14 @@ describe('KpiSummary.vue', () => {
 
   // UI review W7-1
   it('links each count to the accounts behind it, and leaves a zero as plain text', async () => {
-    mockSummary({ totalAccounts: 100, inScopeAccounts: 80, onboardedAccounts: 40, managedAccounts: 20, compliantAccounts: 0 })
+    mockSummary({ totalAccounts: 100, inScopeAccounts: 80, onboardedAccounts: 40, managedAccounts: 20, compliantAccounts: 0, discoveredAccounts: 150 })
     const wrapper = mount(KpiSummary, { global: { plugins: [makeRouter()] } })
     await flushPromises()
 
+    // D-326: everything discovered (150) has no list on Accounts, so it isn't a link.
     const links = wrapper.findAll('tbody a').map(a => `${a.text()}=${a.attributes('href')}`)
     expect(links).toEqual([
+      '100=/accounts?kpi=total',
       '80=/accounts?kpi=inScope', '100=/accounts?kpi=total',
       '40=/accounts?kpi=onboarded', '80=/accounts?kpi=inScope',
       '20=/accounts?kpi=managed', '40=/accounts?kpi=onboarded',

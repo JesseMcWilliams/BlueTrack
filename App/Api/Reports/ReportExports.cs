@@ -275,11 +275,12 @@ public static class ReportExports
         return new ReportTable(headers, table);
     }
 
-    /// <summary>KpiSummary.vue's four ratios: KPI, Count ("n / d", as shown), Percentage (one decimal; "N/A" with no denominator).</summary>
+    /// <summary>KpiSummary.vue's ratios (D-326: five, from everything discovered): KPI, Count ("n / d", as shown), Percentage (one decimal; "N/A" with no denominator).</summary>
     public static ReportTable KpiTable(KpiSummary s)
     {
         (string Label, int Numerator, int Denominator)[] kpis =
         [
+            ("All Accounts vs. Everything Discovered", s.TotalAccounts, s.DiscoveredAccounts),   // D-326
             ("Accounts In Scope vs. All Accounts", s.InScopeAccounts, s.TotalAccounts),
             ("Accounts Onboarded vs. Accounts In Scope", s.OnboardedAccounts, s.InScopeAccounts),
             ("Accounts Managed vs. Onboarded", s.ManagedAccounts, s.OnboardedAccounts),
