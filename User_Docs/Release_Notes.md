@@ -18,6 +18,7 @@ What changed in each BlueTrack release, newest first, for users and administrato
 
 ### Changed
 
+- The Settings Reference says how to point BlueTrack at several PVWAs behind a load balancer (its address, with sticky sessions, as CyberArk requires). (Administrator Settings Reference)
 - Choosing the CyberArk CP secrets backend on a server where BlueTrack was built without the CyberArk Application Password SDK now says so, and how to add it (re-run the installer's `Build.Api` step once the Credential Provider is installed). (Administrator Operations Guide)
 - "In scope" on the KPI Summary, Dashboard and Trends now also leaves out Archived accounts.
 - The nightly load now loads Safe members before it applies the Progress Rules, so rules see the same night's Safe access results.

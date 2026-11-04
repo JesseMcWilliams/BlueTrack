@@ -269,7 +269,9 @@ builder.Services.AddSingleton<BlueTrack.Api.CyberArkDirect.SelfHostedDirectRunne
 builder.Services.AddHostedService<BlueTrack.Api.CyberArkDirect.SelfHostedDirectBackgroundService>();
 builder.Services.AddHttpClient(BlueTrack.Api.CyberArkDirect.SelfHostedDirectPullService.HttpClientName)
     .ConfigureHttpClient(c => c.Timeout = TimeSpan.FromMinutes(5))
-    .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler { AllowAutoRedirect = false });
+    // D-312: UseCookies (the default, said here on purpose) keeps a load balancer's sticky-session cookie, so the one
+    // logon of a pull or test and every call after it reach the same PVWA, as CyberArk requires of a load balancer.
+    .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler { AllowAutoRedirect = false, UseCookies = true });
 builder.Services.AddScoped<AccountInventoryRepository>();   // D-212
 builder.Services.AddScoped<PossibleMatchRepository>();
 builder.Services.AddScoped<EntitlementMemberResolutionRepository>();   // D-232
