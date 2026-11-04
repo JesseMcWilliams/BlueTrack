@@ -64,7 +64,8 @@ function makeRouter() {
     routes: [
       { path: '/', name: 'home', component: { template: '<div />' } },
       { path: '/accounts', name: 'account-progress-list', component: { template: '<div />' } },
-      { path: '/account-progress/:accountKey', name: 'account-progress-detail', component: { template: '<div />' } }
+      { path: '/account-progress/:accountKey', name: 'account-progress-detail', component: { template: '<div />' } },
+      { path: '/safes/:safeKey', name: 'safe-detail', component: { template: '<div />' } }
     ]
   })
 }
@@ -370,6 +371,31 @@ describe('AccountProgressList.vue', () => {
     }
 
     const listCalls = () => globalThis.fetch.mock.calls.map(c => c[0]).filter(u => u.startsWith('/api/account-progress?'))
+
+    // D-308: a Safe's page links here with ?safe=<key>; the rows name the Safe, and each row's Safe opens its page.
+    it('reads one Safe from the address, names it from the rows, and Show every Safe removes it', async () => {
+      globalThis.fetch = vi.fn((url) => {
+        if (url === '/api/account-progress/reference-data') return Promise.resolve(jsonResponse(referenceData))
+        if (url.startsWith('/api/account-progress')) return Promise.resolve(jsonResponse([{ ...sampleAccount, safeKey: 7, safeName: 'LIN_Web' }], { totalCount: 200, filteredCount: 1 }))
+        return Promise.resolve(jsonResponse(null, { ok: false, status: 404 }))
+      })
+      const { wrapper, router } = await mountAt('/accounts?safe=7')
+
+      expect(listCalls().at(-1)).toContain('safe=7')
+      expect(wrapper.text()).toContain('Showing the accounts in Safe LIN_Web.')
+      expect(wrapper.find('tbody a[href="/safes/7"]').text()).toBe('LIN_Web')
+
+      await wrapper.findAll('button').find(b => b.text() === 'Show every Safe').trigger('click')
+      await flushPromises()
+      expect(listCalls().at(-1)).not.toContain('safe=')
+      expect(router.currentRoute.value.query.safe).toBeUndefined()
+    })
+
+    it('ignores a Safe in the address that is not a number', async () => {
+      mockWithReferenceData()
+      await mountAt('/accounts?safe=abc')
+      expect(listCalls().at(-1)).not.toContain('safe=')
+    })
     const lastListCall = () => new URLSearchParams(listCalls().at(-1).split('?')[1])
 
     it('reads the filters, sort and page from the address into the first request and the controls', async () => {

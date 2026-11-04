@@ -14,6 +14,9 @@ public sealed class AccountProgressSummary
     /// <summary>D-212: for a feed account linked to a CyberArk account, that account (shown only with linked=Show).</summary>
     public long? LinkedToAccountKey { get; init; }
     public string? LinkedToAccountName { get; init; }
+    /// <summary>D-308: the account's Safe.</summary>
+    public int? SafeKey { get; init; }
+    public string? SafeName { get; init; }
 
     // D-133: the list page shows these instead of AccountName -- fact_account's
     // own UserName/Address, distinct from the synthetic AccountName CyberArk

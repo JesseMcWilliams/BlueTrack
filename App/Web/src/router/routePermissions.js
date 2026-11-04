@@ -46,6 +46,7 @@ const OTHER = {
   dashboard: 'ViewDashboard',
   'account-progress-list': 'ViewDashboard',
   'account-progress-detail': 'ViewDashboard',
+  'safe-detail': 'ViewDashboard',   // D-308
   'account-progress-bulk-edit': 'EditAccountProgress',
   'risk-exceptions-list': 'ViewDashboard',
   'risk-exceptions-overdue-worklist': 'ViewDashboard',

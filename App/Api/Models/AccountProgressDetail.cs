@@ -90,6 +90,10 @@ public sealed class AccountProgressDetail
 
     /// <summary>D-299: the account's folder in its Safe (Self-Hosted Direct; Root at the top).</summary>
     public string? Folder { get; init; }
+
+    /// <summary>D-308: the account's Safe, linked to its page (null for a feed account with no Safe).</summary>
+    public int? SafeKey { get; init; }
+    public string? SafeName { get; init; }
     public string? CreationMethod { get; init; }
     public string? LinkedLogonAccount { get; init; }
     public long? LinkedLogonAccountKey { get; init; }

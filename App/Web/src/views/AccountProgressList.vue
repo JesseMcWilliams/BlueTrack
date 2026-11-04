@@ -115,6 +115,7 @@ function currentFilterParams() {
   if (deletedFilter.value !== 'Hide') params.set('deleted', deletedFilter.value)
   if (linkedFilter.value !== 'Hide') params.set('linked', linkedFilter.value)
   if (kpiFilter.value) params.set('kpi', kpiFilter.value)
+  if (safeFilter.value) params.set('safe', safeFilter.value)
   return params
 }
 
@@ -156,6 +157,9 @@ const linkedFilter = ref('Hide')
 // UI review W7-1: one of the KPI Summary's counts (D-143), opened from a count there; '' = no KPI filter.
 const KPI_FILTERS = ['total', 'inScope', 'onboarded', 'managed', 'compliant', 'archived']
 const kpiFilter = ref('')
+// D-308: one Safe's accounts, opened from the Safe's page; '' = every Safe. Its name comes with the rows.
+const safeFilter = ref('')
+const safeFilterName = computed(() => accounts.value[0]?.safeName ?? `#${safeFilter.value}`)
 const kpiNames = computed(() => ({
   total: t('pages.accountProgressList.kpiTotal'),
   inScope: t('pages.accountProgressList.kpiInScope'),
@@ -171,6 +175,7 @@ const sortColumns = ref([])
 const columns = [
   { field: 'userName', labelKey: 'pages.accountProgressList.colUsername' },
   { field: 'address', labelKey: 'pages.accountProgressList.colAddress' },
+  { field: 'safeName', labelKey: 'pages.accountProgressList.colSafe' },   // D-308
   { field: 'stageName', labelKey: 'pages.accountProgressList.colStage' },
   { field: 'statusName', labelKey: 'pages.accountProgressList.colStatus' },
   { field: 'riskLevelName', labelKey: 'pages.accountProgressList.colRiskLevel' },
@@ -227,7 +232,7 @@ const sortQueryParam = computed(() => formatSort(sortColumns.value))
 // report can link straight to a stage. Defaults are left out of the address.
 // UI review W2-7: Clear filters puts every filter back to its default (the sort stays); one change, so one reload.
 const filtersActive = computed(() => !!(stageFilter.value || statusFilter.value || riskLevelFilter.value || ownerFilter.value
-  || searchFilter.value.trim() || deletedFilter.value !== 'Hide' || linkedFilter.value !== 'Hide' || kpiFilter.value))
+  || searchFilter.value.trim() || deletedFilter.value !== 'Hide' || linkedFilter.value !== 'Hide' || kpiFilter.value || safeFilter.value))
 
 function clearFilters() {
   stageFilter.value = ''
@@ -238,6 +243,7 @@ function clearFilters() {
   deletedFilter.value = 'Hide'
   linkedFilter.value = 'Hide'
   kpiFilter.value = ''
+  safeFilter.value = ''
 }
 
 const LIST_ROUTE = 'account-progress-list'
@@ -253,6 +259,7 @@ function applyAddress(query) {
   deletedFilter.value = readOneOf(query, 'deleted', ['Hide', 'Show', 'Only'], 'Hide')
   linkedFilter.value = readOneOf(query, 'linked', ['Hide', 'Show'], 'Hide')
   kpiFilter.value = readOneOf(query, 'kpi', KPI_FILTERS, '')
+  safeFilter.value = /^\d+$/.test(readText(query, 'safe')) ? readText(query, 'safe') : ''
   sortColumns.value = parseSort(readText(query, 'sort'), columns.map(c => c.field))
   page.value = readPage(query)
 }
@@ -260,7 +267,7 @@ function applyAddress(query) {
 function currentAddress() {
   return compactQuery({
     stage: stageFilter.value, status: statusFilter.value, riskLevel: riskLevelFilter.value, owner: ownerFilter.value,
-    search: searchFilter.value.trim(), deleted: deletedFilter.value, linked: linkedFilter.value, kpi: kpiFilter.value, sort: sortQueryParam.value, page: page.value
+    search: searchFilter.value.trim(), deleted: deletedFilter.value, linked: linkedFilter.value, kpi: kpiFilter.value, safe: safeFilter.value, sort: sortQueryParam.value, page: page.value
   }, QUERY_DEFAULTS)
 }
 
@@ -315,7 +322,7 @@ let typingTimer = null
 
 // D-124 Phase 3: a filter/sort change resets to page 1 -- see Targets.vue's
 // identical comment for why page-size/Prev/Next changes are handled separately.
-watch([stageFilter, statusFilter, riskLevelFilter, deletedFilter, linkedFilter, kpiFilter, sortQueryParam], () => {
+watch([stageFilter, statusFilter, riskLevelFilter, deletedFilter, linkedFilter, kpiFilter, safeFilter, sortQueryParam], () => {
   if (applyingAddress) return
   clearTimeout(typingTimer)
   page.value = 1
@@ -332,7 +339,7 @@ watch([ownerFilter, searchFilter], () => {
 })
 onBeforeUnmount(() => clearTimeout(typingTimer))
 
-watch([stageFilter, statusFilter, riskLevelFilter, ownerFilter, searchFilter, deletedFilter, linkedFilter, kpiFilter, sortQueryParam, page], writeAddress, { flush: 'post' })
+watch([stageFilter, statusFilter, riskLevelFilter, ownerFilter, searchFilter, deletedFilter, linkedFilter, kpiFilter, safeFilter, sortQueryParam, page], writeAddress, { flush: 'post' })
 
 // Back and Forward (or a link to this list while it is open) change the address under the page: show what it says.
 watch(() => route.query, async (query) => {
@@ -389,6 +396,11 @@ watch(() => route.query, async (query) => {
       {{ t('pages.accountProgressList.kpiShowing', { name: kpiNames[kpiFilter] }) }}
       <button type="button" @click="kpiFilter = ''">{{ t('pages.accountProgressList.kpiRemove') }}</button>
     </p>
+    <p v-if="safeFilter" class="kpi-filter">
+      {{ t('pages.accountProgressList.safeShowing', { name: safeFilterName }) }}
+      <router-link :to="{ name: 'safe-detail', params: { safeKey: safeFilter } }">{{ t('pages.accountProgressList.safeOpen') }}</router-link>
+      <button type="button" @click="safeFilter = ''">{{ t('pages.accountProgressList.safeRemove') }}</button>
+    </p>
     <SelectionBar v-if="canEdit || canDelete" :selection="selection" :page-keys="pageKeys" :filtered-count="filteredCount"
                   :keys-url="keysUrl" :toggle-label="t('pages.accountProgressList.selectToggle')">
       <button v-if="canEdit" type="button" class="btn-primary" :disabled="selection.count === 0" @click="router.push({ name: 'account-progress-bulk-edit' })">{{ t('pages.accountProgressList.bulkEdit') }}</button>
@@ -444,6 +456,7 @@ watch(() => route.query, async (query) => {
                 :title="t('pages.accountProgressList.linkedTitle', { name: account.linkedToAccountName })">{{ t('pages.accountProgressList.linked') }}<span class="visually-hidden">{{ t('pages.accountProgressList.linkedHidden', { name: account.linkedToAccountName }) }}</span></router-link>
             </td>
             <td>{{ account.address }}</td>
+            <td><router-link v-if="account.safeKey" :to="{ name: 'safe-detail', params: { safeKey: account.safeKey } }">{{ account.safeName }}</router-link></td>
             <td>{{ account.stageName }}</td>
             <td>{{ account.statusName }}</td>
             <td>{{ account.riskLevelName }}</td>

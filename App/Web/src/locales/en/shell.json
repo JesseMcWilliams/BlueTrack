@@ -25,6 +25,7 @@
     "accountProgressList": "Accounts",
     "accountProgressBulkEdit": "Bulk Edit",
     "accountProgressDetail": "Account Detail",
+    "safeDetail": "Safe",
     "riskExceptionsList": "Exceptions",
     "riskExceptionsBulkImport": "Bulk Actions",
     "riskExceptionCreate": "New Exception",

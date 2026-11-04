@@ -40,7 +40,8 @@ test.describe('Account Progress List', () => {
     // whenever Address was added before Stage, always failing (Address is
     // legitimately blank for synthetic accounts), not flaky.
     for (let i = 0; i < filteredCount; i++) {
-      await expect(filteredRows.nth(i).locator('td').nth(2)).toHaveText('Onboarded to Vault')
+      // D-308 added Safe after Address, so Stage is index 3.
+      await expect(filteredRows.nth(i).locator('td').nth(3)).toHaveText('Onboarded to Vault')
     }
     await page.getByLabel('Stage:').selectOption('')
 
@@ -56,7 +57,7 @@ test.describe('Account Progress List', () => {
     await expect(targetRow).toBeVisible()
     // D-92: the account name is now a real <a> (not the whole <tr>), so
     // native keyboard/AT navigation works -- click it specifically.
-    await targetRow.getByRole('link').click()
+    await targetRow.getByRole('link', { name: 'TestAccount03' }).click()   // D-308: the row's Safe is a link too
     await expect(page).toHaveURL(/\/accounts\/\d+$/)
     await expect(page.getByRole('heading', { name: /Account Progress — TestAccount03/ })).toBeVisible()
   })
