@@ -329,6 +329,7 @@
     "createCredentialHint": "Opens Admin > Credentials, then returns here with it chosen. What you've typed here is kept.",
     "plannedSources": "Privilege Cloud Direct (reading Privilege Cloud through its API instead of the export folder) is planned, and not available yet.",
     "test": "Test",
+    "testFullRead": "Test with a full read",
     "testing": "Testing...",
     "checkOk": "OK: {item}: {message}",
     "checkProblem": "Problem: {item}: {message}",

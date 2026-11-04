@@ -106,12 +106,13 @@ onMounted(async () => {
   loading.value = false
 })
 
-async function test() {
+// D-313: Test is quick (the first Safe and account, and PVWA's totals); Test with a full read reads all a pull reads.
+async function test(fullRead = false) {
   testing.value = true
   testChecks.value = null
   testError.value = null
   try {
-    const response = await fetch('/api/admin/cyberark-sources/test', {
+    const response = await fetch(`/api/admin/cyberark-sources/test${fullRead ? '?full=true' : ''}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(editing.value)
@@ -251,7 +252,8 @@ function cancel() {
         <p><small>{{ t('admin.cyberArkSourcesEdit.plannedSources') }}</small></p>
 
         <p>
-          <button type="button" :disabled="testing" @click="test">{{ t('admin.cyberArkSourcesEdit.test') }}</button>
+          <button type="button" :disabled="testing" @click="test(false)">{{ t('admin.cyberArkSourcesEdit.test') }}</button>
+          <button v-if="editing.importSelfHosted" type="button" :disabled="testing" @click="test(true)">{{ t('admin.cyberArkSourcesEdit.testFullRead') }}</button>
           <span v-if="testing" role="status">{{ ' ' + t('admin.cyberArkSourcesEdit.testing') }}</span>
         </p>
         <p v-if="testError" role="alert">{{ testError }}</p>

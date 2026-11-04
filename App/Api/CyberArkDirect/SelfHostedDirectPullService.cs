@@ -226,10 +226,11 @@ public sealed class SelfHostedDirectPullService(
     }
 
     /// <summary>
-    /// Test, on unsaved values: logs on and counts what the credential can see, writing nothing. Returns lines for
-    /// the page: each check's name, whether it passed, and a message.
+    /// Test, on unsaved values: logs on and checks what the credential can see, writing nothing. Returns lines for
+    /// the page: each check's name, whether it passed, and a message. D-313: quick by default (the first Safe and
+    /// account, and PVWA's totals); <paramref name="fullRead"/> reads everything a pull reads, as Test always did.
     /// </summary>
-    public async Task<IReadOnlyList<Models.CyberArkSourceTestCheck>> TestAsync(Models.CyberArkSourceSettings s, CancellationToken ct)
+    public async Task<IReadOnlyList<Models.CyberArkSourceTestCheck>> TestAsync(Models.CyberArkSourceSettings s, CancellationToken ct, bool fullRead = false)
     {
         var checks = new List<Models.CyberArkSourceTestCheck>();
         if (!await configRepository.CredentialExistsAsync(s.PvwaCredentialKey!.Value))
@@ -260,6 +261,11 @@ public sealed class SelfHostedDirectPullService(
             checks.Add(new Models.CyberArkSourceTestCheck { Item = "PVWA logon", Ok = true, Message = $"Logged on to {PvwaClient.ApiRootFor(s.PvwaBaseUrl!).Host} with {s.PvwaLogonMethod} authentication." });
             try
             {
+                if (!fullRead)
+                {
+                    await QuickReadAsync(client, token, s, checks, ct);
+                    return checks;
+                }
                 var snapshot = await client.PullAsync(token, ct);
                 var counts = PullCounts.Of(snapshot);
                 checks.Add(new Models.CyberArkSourceTestCheck
@@ -292,5 +298,33 @@ public sealed class SelfHostedDirectPullService(
             checks.Add(new Models.CyberArkSourceTestCheck { Item = "PVWA", Ok = false, Message = ex.Message });
         }
         return checks;
+    }
+
+    /// <summary>D-313: the quick Test's read: the first Safe and account, PVWA's totals, and the change check on those totals.</summary>
+    private async Task QuickReadAsync(PvwaClient client, string token, Models.CyberArkSourceSettings s, List<Models.CyberArkSourceTestCheck> checks, CancellationToken ct)
+    {
+        var probe = await client.ProbeAsync(token, ct);
+        var totals = probe.SafeCount is { } safeCount && probe.AccountCount is { } accountCount
+            ? $" PVWA reports {ServerTextCulture.Count(safeCount)} Safes and {ServerTextCulture.Count(accountCount)} accounts."
+            : " PVWA didn't report its totals.";
+        checks.Add(new Models.CyberArkSourceTestCheck
+        {
+            Item = "Read",
+            Ok = probe.SafesReturned > 0,
+            Message = (probe.SafesReturned > 0 ? "Can list Safes" : "The credential sees no Safes")
+                + (probe.AccountsReturned > 0 ? " and accounts." : "; it sees no accounts.") + totals
+        });
+        var baseline = await BaselineAsync();
+        if (baseline is not null && probe.SafeCount is not null && probe.AccountCount is not null)
+        {
+            var rejection = PullChangeGuard.Evaluate(baseline with { UserCount = 0, GroupCount = 0, MemberCount = 0, PlatformCount = 0 },
+                new PullCounts(probe.SafeCount.Value, probe.AccountCount.Value, 0, 0, 0, 0), s.DirectMaxChangePercent);
+            checks.Add(new Models.CyberArkSourceTestCheck
+            {
+                Item = "Change since the last pull",
+                Ok = rejection is null,
+                Message = rejection is null ? $"Within the allowed {s.DirectMaxChangePercent}%, by PVWA's totals." : "By PVWA's totals, a pull now would be rejected: " + rejection
+            });
+        }
     }
 }

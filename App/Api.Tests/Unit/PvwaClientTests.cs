@@ -666,4 +666,27 @@ public class PvwaClientTests
     {
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) => throw exception;
     }
+    // D-313: the quick Test's probe: one Safe and one account (limit=1), and PVWA's totals when it reports them.
+    [Fact]
+    public async Task Probe_AsksForOneSafeAndOneAccount_AndReadsTheTotals()
+    {
+        var fake = new FakePvwa()
+            .Json("/PasswordVault/API/Safes", "{\"value\":[{\"safeName\":\"S\"}],\"count\":1769}")
+            .Json("/PasswordVault/API/Accounts", "{\"value\":[{\"id\":\"1_1\"}],\"count\":5000}");
+
+        var probe = await Client(fake).ProbeAsync(Token, CancellationToken.None);
+
+        Assert.Equal(new PvwaProbe(1, 1769, 1, 5000), probe);
+        Assert.Equal(["/PasswordVault/API/Safes?limit=1&offset=0", "/PasswordVault/API/Accounts?limit=1&offset=0"], fake.Requests.Select(r => r.PathAndQuery));
+    }
+
+    [Fact]
+    public async Task Probe_WithoutTotals_ReportsNone()
+    {
+        var fake = new FakePvwa()
+            .Json("/PasswordVault/API/Safes", "{\"value\":[]}")
+            .Json("/PasswordVault/API/Accounts", "{\"value\":[]}");
+
+        Assert.Equal(new PvwaProbe(0, null, 0, null), await Client(fake).ProbeAsync(Token, CancellationToken.None));
+    }
 }

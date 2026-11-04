@@ -57,6 +57,7 @@ public class SelfHostedDirectPullServiceTests : IClassFixture<BlueTrackWebApplic
             if (path == "/PasswordVault/WebServices/PIMServices.svc/Accounts" && query["Safe"] == ClassicHangSafe) return HangAsync(cancellationToken);
             lock (Requests) Requests.Add(request.Method + " " + path);   // D-280: classic reads run in parallel
             int offset = int.TryParse(query["offset"], out var o) ? o : 0;
+            int limit = int.TryParse(query["limit"], out var l) ? l : int.MaxValue;   // D-313: the quick Test asks for limit=1
             string json;
             if (path.StartsWith("auth/", StringComparison.OrdinalIgnoreCase)) json = "\"stub-token\"";
             else if (path.Equals("Auth/Logoff", StringComparison.OrdinalIgnoreCase)) json = "{}";
@@ -84,16 +85,18 @@ public class SelfHostedDirectPullServiceTests : IClassFixture<BlueTrackWebApplic
             {
                 json = new JsonObject
                 {
-                    ["value"] = new JsonArray(offset > 0 ? [] : Enumerable.Range(1, Safes).Select(i => (JsonNode)new JsonObject
+                    ["value"] = new JsonArray(offset > 0 ? [] : Enumerable.Range(1, Safes).Take(limit).Select(i => (JsonNode)new JsonObject
                     {
                         ["safeNumber"] = 910_000 + i, ["safeName"] = $"PullTestSafe{i:00}", ["safeUrlId"] = $"PullTestSafe{i:00}", ["location"] = "\\"
-                    }).ToArray())
+                    }).ToArray()),
+                    ["count"] = Safes
                 }.ToJsonString();
             }
             else if (path == "Accounts")
             {
                 json = new JsonObject
                 {
+                    ["count"] = Safes * AccountsPerSafe,
                     ["value"] = new JsonArray(offset > 0 ? [] : Enumerable.Range(1, Safes).SelectMany(s => Enumerable.Range(1, AccountsPerSafe).Select(a => (JsonNode)new JsonObject
                     {
                         ["id"] = $"{910_000 + s}_{a}", ["name"] = $"acct{s}-{a}", ["address"] = "host", ["userName"] = "u", ["platformId"] = "UnixSSH", ["safeName"] = $"PullTestSafe{s:00}",
@@ -102,7 +105,7 @@ public class SelfHostedDirectPullServiceTests : IClassFixture<BlueTrackWebApplic
                         ["secretManagement"] = s == 1 && a == 1
                             ? new JsonObject { ["automaticManagementEnabled"] = true, ["status"] = "success", ["lastReconciledTime"] = 1792455153 }
                             : new JsonObject { ["automaticManagementEnabled"] = true }
-                    })).ToArray())
+                    })).Take(limit).ToArray())
                 }.ToJsonString();
             }
             else if (path.StartsWith("Safes/") && path.EndsWith("/Members")) json = """{"value":[]}""";
@@ -511,13 +514,31 @@ public class SelfHostedDirectPullServiceTests : IClassFixture<BlueTrackWebApplic
         Assert.Equal(0, await connection.QuerySingleAsync<int>("SELECT COUNT(*) FROM stg_shd_account_details"));
     }
 
+    // D-313: the quick Test reads the first Safe and account and PVWA's totals, nothing else.
     [Fact]
-    public async Task Test_ReportsTheCredentialLogonAndCounts_WritingNothing()
+    public async Task Test_IsQuick_ReadingOneSafeAndOneAccountAndPvwasTotals()
+    {
+        using var scope = _factory.Services.CreateScope();
+        var settings = (await scope.ServiceProvider.GetRequiredService<CyberArkSourceConfigRepository>().GetAsync()).Settings;
+        lock (_pvwa.Requests) _pvwa.Requests.Clear();
+
+        var checks = await scope.ServiceProvider.GetRequiredService<SelfHostedDirectPullService>().TestAsync(settings, CancellationToken.None);
+
+        Assert.All(checks, c => Assert.True(c.Ok, c.Item + ": " + c.Message));
+        Assert.Equal("Can list Safes and accounts. PVWA reports 30 Safes and 60 accounts.", checks.Single(c => c.Item == "Read").Message);
+        string[] reads;
+        lock (_pvwa.Requests) reads = _pvwa.Requests.Where(r => r.StartsWith("GET ")).ToArray();
+        Assert.Equal(["GET Safes", "GET Accounts"], reads);
+        Assert.Equal((0, 0, 0, 0, 0), await StagedAsync());
+    }
+
+    [Fact]
+    public async Task Test_WithAFullRead_ReportsTheCredentialLogonAndCounts_WritingNothing()
     {
         using var scope = _factory.Services.CreateScope();
         var settings = (await scope.ServiceProvider.GetRequiredService<CyberArkSourceConfigRepository>().GetAsync()).Settings;
 
-        var checks = await scope.ServiceProvider.GetRequiredService<SelfHostedDirectPullService>().TestAsync(settings, CancellationToken.None);
+        var checks = await scope.ServiceProvider.GetRequiredService<SelfHostedDirectPullService>().TestAsync(settings, CancellationToken.None, fullRead: true);
 
         Assert.All(checks, c => Assert.True(c.Ok, c.Item + ": " + c.Message));
         Assert.Contains(checks, c => c.Item == "Credential" && c.Message.Contains("CA_PullTest"));

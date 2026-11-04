@@ -96,8 +96,9 @@ public sealed class CyberArkSourcesController(
     /// SQL Server's service account reads the files at import, so it needs
     /// read access as well; the page says so.
     /// </summary>
+    /// <remarks>D-313: <paramref name="full"/> reads everything a pull reads; without it the Self-Hosted check is quick.</remarks>
     [HttpPost("test")]
-    public async Task<IActionResult> Test([FromBody] CyberArkSourceSettings request)
+    public async Task<IActionResult> Test([FromBody] CyberArkSourceSettings request, [FromQuery] bool full = false)
     {
         var settings = CyberArkSourceValidation.Normalize(request);
         var errors = CyberArkSourceValidation.Validate(settings, allowedFileRoots);
@@ -106,7 +107,7 @@ public sealed class CyberArkSourcesController(
         var checks = new List<CyberArkSourceTestCheck>();
         if (settings.ImportSelfHosted)
         {
-            checks.AddRange(await directPullService.TestAsync(settings, HttpContext.RequestAborted));
+            checks.AddRange(await directPullService.TestAsync(settings, HttpContext.RequestAborted, full));
         }
 
         if (settings.ImportPrivilegeCloud)

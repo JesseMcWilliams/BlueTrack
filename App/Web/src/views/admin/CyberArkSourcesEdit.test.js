@@ -125,6 +125,33 @@ describe('CyberArkSourcesEdit.vue', () => {
     expect(wrapper.find('.check-failed').text()).toContain('Problem: Export folder: D:/Missing was not found.')
   })
 
+  // D-313: Test is quick; Test with a full read (Self-Hosted only) asks for everything a pull reads.
+  it('offers a full read beside the quick Test for Self-Hosted, and asks for it with full=true', async () => {
+    routeFetch({
+      'GET /api/admin/cyberark-sources': jsonResponse({ isConfigured: true, settings: { ...defaults, importSelfHosted: true, pvwaBaseUrl: 'https://pvwa', pvwaCredentialKey: 3 } }),
+      'GET /api/admin/cyberark-sources/credentials': jsonResponse(credentials),
+      'POST /api/admin/cyberark-sources/test': jsonResponse([{ item: 'Read', ok: true, message: 'Can list Safes and accounts.' }]),
+      'POST /api/admin/cyberark-sources/test?full=true': jsonResponse([{ item: 'Read', ok: true, message: '3 Safes, 9 accounts.' }])
+    })
+    const wrapper = await mountPage()
+    const button = name => wrapper.findAll('button').find(b => b.text() === name)
+
+    await button('Test').trigger('click')
+    await flushPromises()
+    expect(wrapper.find('.check-ok').text()).toContain('Can list Safes and accounts.')
+
+    await button('Test with a full read').trigger('click')
+    await flushPromises()
+    expect(wrapper.find('.check-ok').text()).toContain('3 Safes, 9 accounts.')
+  })
+
+  it('offers no full read when only Privilege Cloud is on', async () => {
+    routeFetch({ 'GET /api/admin/cyberark-sources': jsonResponse({ isConfigured: true, settings: { ...defaults, importPrivilegeCloud: true, exportFolderPath: 'D:/Exports' } }) })
+    const wrapper = await mountPage()
+
+    expect(wrapper.findAll('button').some(b => b.text() === 'Test with a full read')).toBe(false)
+  })
+
   // D-248: Self-Hosted Direct.
   const credentials = [
     { credentialKey: 3, credentialName: 'PVWA service user', backendType: 'CyberArkCP' },
