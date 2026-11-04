@@ -143,6 +143,22 @@ function Test-BlueTrackPrerequisite {
         Detail          = if ($windowsAuthInstalled) { 'Installed' } else { 'Web-Windows-Auth Windows feature not installed -- needed for BlueTrack.Api to defer Windows Integrated Auth to IIS when IIS-hosted (D-162)' }
     }
 
+    # --- IIS Application Initialization role service (D-332) ---------------
+    # The nightly work (Self-Hosted Direct pull, AD discovery, data feeds,
+    # notifications) runs in the API's background services, so the API must
+    # be loaded with no requests coming in. preloadEnabled on the /BlueTrack
+    # Application (New-BlueTrackSite) only takes effect with this feature.
+    $appInitFeature = Get-WindowsFeature -Name Web-AppInit -ErrorAction SilentlyContinue
+    $appInitInstalled = [bool]($appInitFeature -and $appInitFeature.InstallState -eq 'Installed')
+    $results += [pscustomobject]@{
+        Key             = 'IisAppInit'
+        Name            = 'IIS Application Initialization'
+        Installed       = $appInitInstalled
+        Version         = $null
+        AutoInstallable = $true
+        Detail          = if ($appInitInstalled) { 'Installed' } else { 'Web-AppInit Windows feature not installed -- without it the API is not started until the first request, so the nightly pull, AD discovery and data feeds do not run on a quiet server (D-332)' }
+    }
+
     # --- ASP.NET Core Hosting Bundle (installs the ANCM IIS module) --------
     $ancmPath = Join-Path ${env:ProgramFiles} 'IIS\Asp.Net Core Module\V2\aspnetcorev2.dll'
     $ancmInstalled = Test-Path $ancmPath
@@ -402,6 +418,12 @@ function Install-BlueTrackPrerequisite {
         'IisWindowsAuth' {
             if ($PSCmdlet.ShouldProcess('Web-Windows-Auth role service', 'Install-WindowsFeature')) {
                 Install-WindowsFeature -Name Web-Windows-Auth
+            }
+            return
+        }
+        'IisAppInit' {
+            if ($PSCmdlet.ShouldProcess('Web-AppInit role service', 'Install-WindowsFeature')) {
+                Install-WindowsFeature -Name Web-AppInit
             }
             return
         }
