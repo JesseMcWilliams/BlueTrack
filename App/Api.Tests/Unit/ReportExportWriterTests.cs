@@ -201,13 +201,14 @@ public class ReportExportWriterTests
     {
         var table = ReportExports.KpiTable(new KpiSummary
         {
-            TotalAccounts = 3, InScopeAccounts = 2, OnboardedAccounts = 1, ManagedAccounts = 0, CompliantAccounts = 0
+            TotalAccounts = 3, InScopeAccounts = 2, OnboardedAccounts = 1, ManagedAccounts = 0, CompliantAccounts = 0, UntrackedAdCandidates = 1
         });
 
         Assert.Equal(["KPI", "Count", "Percentage"], table.Headers);
-        Assert.Equal("2 / 3", table.Rows[0][1]);
-        Assert.Equal(66.7, table.Rows[0][2]);
-        Assert.Equal("N/A", table.Rows[3][2]);
+        Assert.Equal("3 / 4", table.Rows[0][1]);   // D-326: All Accounts vs. Everything Discovered
+        Assert.Equal("2 / 3", table.Rows[1][1]);
+        Assert.Equal(66.7, table.Rows[1][2]);
+        Assert.Equal("N/A", table.Rows[4][2]);
     }
 
     [Fact]

@@ -16,7 +16,7 @@ function makeRouter() {
   })
 }
 
-const KPIS = { totalAccounts: 200, inScopeAccounts: 150, onboardedAccounts: 120, managedAccounts: 60, compliantAccounts: 30, archivedAccounts: 10 }
+const KPIS = { totalAccounts: 200, inScopeAccounts: 150, onboardedAccounts: 120, managedAccounts: 60, compliantAccounts: 30, archivedAccounts: 10, discoveredAccounts: 250 }
 
 async function mountHome(permissionNames, roleNames = ['Viewer']) {
   useRightsStore().$patch({ loaded: true, authenticated: true, displayName: 'Jane Doe', permissionNames, roleNames })
@@ -48,9 +48,12 @@ describe('Home.vue', () => {
 
     expect(globalThis.fetch).toHaveBeenCalledWith('/api/reports/kpi-summary')
     const rows = wrapper.findAll('.home-funnel tbody tr')
-    expect(rows.map(r => r.findAll('td')[0].text())).toEqual(['All accounts', 'In scope', 'Onboarded', 'Managed', 'Compliant'])
-    expect(rows[1].find('a').attributes('href')).toBe('/account-progress-list?kpi=inScope')
-    expect(rows[3].findAll('td')[2].text()).toBe('50%')   // managed 60 of onboarded 120
+    // D-326: the funnel starts with everything discovered, which has no Accounts list to open.
+    expect(rows.map(r => r.findAll('td')[0].text())).toEqual(['Everything discovered', 'All accounts', 'In scope', 'Onboarded', 'Managed', 'Compliant'])
+    expect(rows[0].find('a').exists()).toBe(false)
+    expect(rows[1].findAll('td')[2].text()).toBe('80%')   // 200 tracked of 250 discovered
+    expect(rows[2].find('a').attributes('href')).toBe('/account-progress-list?kpi=inScope')
+    expect(rows[4].findAll('td')[2].text()).toBe('50%')   // managed 60 of onboarded 120
     expect(wrapper.text()).toContain('Out of scope (Risk Accepted / Excluded, or Archived): 50.')
     expect(cards(wrapper)).toEqual(['Dashboard', 'Accounts', 'Exceptions', 'Reports'])
   })

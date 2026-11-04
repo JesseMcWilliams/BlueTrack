@@ -17,4 +17,13 @@ public sealed class KpiSummary
     public int ManagedAccounts { get; init; }
     public int CompliantAccounts { get; init; }
     public int ArchivedAccounts { get; init; }
+
+    /// <summary>
+    /// D-326: everything discovered: every tracked account (TotalAccounts), plus the AD-discovered candidates that aren't
+    /// tracked (not accepted and with no possible tracked match) and the DNA accounts no tracked account matched (each
+    /// counted once). The funnel's first step, above All Accounts.
+    /// </summary>
+    public int DiscoveredAccounts => TotalAccounts + UntrackedAdCandidates + UntrackedDnaAccounts;
+    public int UntrackedAdCandidates { get; init; }
+    public int UntrackedDnaAccounts { get; init; }
 }

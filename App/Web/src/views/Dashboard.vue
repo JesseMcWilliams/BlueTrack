@@ -205,6 +205,7 @@ onMounted(load)
               <tr><th>{{ t('pages.dashboard.kpi') }}</th><th>{{ t('pages.dashboard.percentage') }}</th></tr>
             </thead>
             <tbody>
+              <tr><td>{{ t('pages.dashboard.kpiTracked') }}</td><td>{{ kpiSummary.discoveredAccounts ? formatPercent(kpiSummary.totalAccounts / kpiSummary.discoveredAccounts) : t('pages.dashboard.notApplicable') }}</td></tr>
               <tr><td>{{ t('pages.dashboard.kpiInScope') }}</td><td>{{ kpiSummary.totalAccounts ? formatPercent(kpiSummary.inScopeAccounts / kpiSummary.totalAccounts) : t('pages.dashboard.notApplicable') }}</td></tr>
               <tr><td>{{ t('pages.dashboard.kpiOnboarded') }}</td><td>{{ kpiSummary.inScopeAccounts ? formatPercent(kpiSummary.onboardedAccounts / kpiSummary.inScopeAccounts) : t('pages.dashboard.notApplicable') }}</td></tr>
               <tr><td>{{ t('pages.dashboard.kpiManaged') }}</td><td>{{ kpiSummary.onboardedAccounts ? formatPercent(kpiSummary.managedAccounts / kpiSummary.onboardedAccounts) : t('pages.dashboard.notApplicable') }}</td></tr>

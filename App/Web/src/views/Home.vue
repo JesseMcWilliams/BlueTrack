@@ -33,8 +33,10 @@ const funnel = computed(() => {
   const s = kpiSummary.value
   if (!s) return []
   const step = (kpi, labelKey, count, of) => ({ kpi, labelKey, count, share: of ? count / of : null })
+  // D-326: the funnel starts with everything discovered (tracked, plus AD and DNA accounts not tracked yet).
   return [
-    step('total', 'pages.home.kpiAll', s.totalAccounts, null),
+    step(null, 'pages.home.kpiDiscovered', s.discoveredAccounts, null),
+    step('total', 'pages.home.kpiAll', s.totalAccounts, s.discoveredAccounts),
     step('inScope', 'pages.home.kpiInScope', s.inScopeAccounts, s.totalAccounts),
     step('onboarded', 'pages.home.kpiOnboarded', s.onboardedAccounts, s.inScopeAccounts),
     step('managed', 'pages.home.kpiManaged', s.managedAccounts, s.onboardedAccounts),
@@ -43,7 +45,7 @@ const funnel = computed(() => {
 })
 const outOfScope = computed(() => (kpiSummary.value ? kpiSummary.value.totalAccounts - kpiSummary.value.inScopeAccounts : null))
 const barWidth = (count) => {
-  const total = kpiSummary.value?.totalAccounts
+  const total = kpiSummary.value?.discoveredAccounts
   return total ? `${Math.max(1, Math.round((count / total) * 100))}%` : '0'
 }
 
@@ -77,9 +79,12 @@ onMounted(async () => {
             <tr><th>{{ t('pages.home.kpiStep') }}</th><th>{{ t('pages.home.kpiAccounts') }}</th><th>{{ t('pages.home.kpiShare') }}</th><th><span class="visually-hidden">{{ t('pages.home.kpiBar') }}</span></th></tr>
           </thead>
           <tbody>
-            <tr v-for="step in funnel" :key="step.kpi">
+            <tr v-for="step in funnel" :key="step.labelKey">
               <td>{{ t(step.labelKey) }}</td>
-              <td><router-link :to="{ name: 'account-progress-list', query: { kpi: step.kpi } }">{{ formatCount(step.count) }}</router-link></td>
+              <td>
+                <router-link v-if="step.kpi" :to="{ name: 'account-progress-list', query: { kpi: step.kpi } }">{{ formatCount(step.count) }}</router-link>
+                <template v-else>{{ formatCount(step.count) }}</template>
+              </td>
               <td>{{ step.share === null ? '' : formatPercent(step.share) }}</td>
               <td class="home-funnel-bar-cell" aria-hidden="true"><span class="home-funnel-bar" :style="{ width: barWidth(step.count) }"></span></td>
             </tr>

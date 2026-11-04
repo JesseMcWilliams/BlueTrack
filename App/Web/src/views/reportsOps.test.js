@@ -37,7 +37,7 @@ describe('reports and operations fixes', () => {
     await flushPromises()
 
     expect(wrapper.find('h3').text()).toBe('What the counts mean')
-    expect(wrapper.findAll('dt').map(d => d.text())).toEqual(['All Accounts', 'In Scope', 'Onboarded', 'Managed', 'Compliant', 'Archived'])
+    expect(wrapper.findAll('dt').map(d => d.text())).toEqual(['Everything Discovered', 'All Accounts', 'In Scope', 'Onboarded', 'Managed', 'Compliant', 'Archived'])
     expect(wrapper.text()).toContain('Counts read ')
     // D-298: Archived is counted on its own and opens the list.
     expect(wrapper.text()).toContain('Archived (out of scope): 1')
