@@ -6,6 +6,7 @@ What changed in each BlueTrack release, newest first, for users and administrato
 
 ### New
 
+- **Active Directory account discovery on Admin > Data Sources**: when it runs (default 04:30), **Run now**, and its recent runs with what each found and any domain it couldn't read. Before, it ran a day after whenever the application last started, and kept no record. (Administrator Data Management)
 - **Bulk override on Reports > Risk Score**: select accounts and set an override score (with a reason) on all of them, or clear it. Needs `EditAccountProgress`, as on one account. (User Guide)
 - **Admin > Power BI** (permission `ViewDeploymentInfo`): the server and database to connect Power BI to, the views and tables to import with their columns, how to relate them, and a script that gives an account read access to just those. (Administrator Operations Guide)
 - **Version files.** A `VERSION` file at the top of a release's folder names its version, and the installer writes `BlueTrack.version.txt` (the version, and when it was built) into the API's install folder. (Upgrade Guide)
@@ -42,6 +43,7 @@ What changed in each BlueTrack release, newest first, for users and administrato
 
 ### Upgrading
 
+- The upgrade adds database script 59 (AD Account Discovery's run time and run log); the installer applies it. AD Account Discovery now runs at 04:30 server time; change it on Admin > Data Sources.
 - Re-run the installer's `Db.AppPoolAccess` step: it adds the app's SQL account to msdb's `SQLAgentOperatorRole`, which Pull now needs to start the Import and Load job. Without it, Pull now still pulls and says the job couldn't be started.
 - The first Self-Hosted Direct pull after the upgrade reads every account's details once more (one PVWA call per account) to fill in the folder, so it takes longer than usual; on a large Vault it may finish over a few nights within the pull time limit.
 

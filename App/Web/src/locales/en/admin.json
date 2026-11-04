@@ -1,4 +1,22 @@
 {
+  "adDiscovery": {
+    "heading": "Active Directory account discovery",
+    "intro": "Reads the members of the inventoried Access Groups from each enabled LDAP domain, nightly, and lists the accounts found on Reports > Discovered Accounts.",
+    "domains": "Reads {count} enabled LDAP domain. | Reads {count} enabled LDAP domains.",
+    "domainsLink": "Set up the domains on Credentials & LDAP",
+    "runTime": "Runs at (server time):",
+    "runNow": "Run now",
+    "running": "Running...",
+    "runStarted": "Started; the result shows below when it finishes.",
+    "saved": "Saved.",
+    "noRuns": "It hasn't run since this was added.",
+    "started": "Started",
+    "by": "By",
+    "result": "Result",
+    "found": "Found",
+    "foundValue": "{accounts} accounts from {read} of {domains} domains",
+    "message": "Notes"
+  },
   "powerBi": {
     "title": "Power BI",
     "intro": "Power BI reads BlueTrack's data straight from its SQL Server database. Import the objects below, relate them as listed, and give the account Power BI connects with read access to them.",

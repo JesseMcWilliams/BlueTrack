@@ -14,6 +14,7 @@ import { useRouter } from 'vue-router'
 import { confirmDelete } from '../../composables/useConfirmDialog'
 import { feedTypeLabel, formatRunTime } from './dataFeedFormat'
 import PullDetailsDialog from './PullDetailsDialog.vue'
+import AdDiscoverySection from './AdDiscoverySection.vue'
 import { useI18n } from 'vue-i18n'
 import { formatCount } from '../../utils/formatCount'
 
@@ -285,6 +286,9 @@ async function remove(feed) {
       <p><button type="button" @click="router.push({ name: 'admin-cyberark-sources-edit' })">{{ t('admin.dataSources.editCyberArk') }}</button></p>
 
       <PullDetailsDialog v-if="selectedPull" :pull="selectedPull" @close="selectedPull = null" />
+
+      <!-- D-317: AD Account Discovery is a data source too. -->
+      <AdDiscoverySection />
 
       <h3>{{ t('admin.dataSources.dataFeedsHeading') }}</h3>
       <p>

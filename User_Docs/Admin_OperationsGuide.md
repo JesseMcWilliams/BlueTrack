@@ -166,7 +166,7 @@ Unlike the grants above, `EnforceRiskExceptionSegregationOfDuties` (Global Appli
 The Import+Load SQL Agent job (`Database/Manual/04_BlueTrack_ScheduleImportLoadJob.sql`, created once per environment per `Admin_DeploymentRunbook.md` step 5, or by the installer's `Db.NightlyJob` step) runs at 2:00 AM. It has one step, **Import, Load and Snapshot**, which runs `usp_RunNightlyImportLoad`:
 
 1. **Import** (`usp_Import_Configured`) refreshes staging from the Privilege Cloud/Self-Hosted exports.
-2. **Load** (`usp_RunFullLoad`), only if the Import succeeded. It also drives the risk-scoring recalculation and the AD Account Discovery nightly pass.
+2. **Load** (`usp_RunFullLoad`), only if the Import succeeded. It also drives the risk-scoring recalculation. (AD Account Discovery isn't part of the job; BlueTrack runs it at the time set on Admin > Data Sources, D-317.)
 3. **Daily snapshot** (`usp_RunDailySnapshot`), the data behind **Reports > Trends**, taken **whether or not the Import and Load succeeded**, so Trends has no gap after a failed night (it then records the unchanged data).
 
 If the Import or Load failed, the step still fails afterwards, so SQL Server Agent's history shows the failure. The job lives entirely in `msdb`, like `db_backupstatus_reader` above.
