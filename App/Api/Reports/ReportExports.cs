@@ -29,6 +29,7 @@ public static class ReportExports
     public static readonly ReportExportInfo Trends = new("trends", "Trends", "Trends");
     public static readonly ReportExportInfo AuditLog = new("audit-log", "AuditLog", "Audit Log");
     public static readonly ReportExportInfo CpmHealth = new("cpm-health", "CpmHealth", "CPM Health");   // D-288
+    public static readonly ReportExportInfo Accounts = new("accounts", "Accounts", "Accounts");   // D-318
 
     // The pages show every date as yyyy-MM-dd (formatDate), so the exports do too.
     private static DateOnly? Day(DateTime? value) => value is { } v ? DateOnly.FromDateTime(v) : null;
@@ -111,6 +112,30 @@ public static class ReportExports
         EntitlementResolutionMethods.External => $"External / cloud role (by {r.ResolvedByName})" + (string.IsNullOrEmpty(r.ResolutionNote) ? "" : $": {r.ResolutionNote}"),
         var other => other
     };
+
+    /// <summary>
+    /// D-318: the Accounts export. Its headers are the ones the Accounts import reads back (AccountProgressImportService):
+    /// "Account Key" finds the account, the identity columns are only for reading, and the rest are the editable fields.
+    /// </summary>
+    public static readonly IReadOnlyList<ExportColumn<AccountProgressExportRow>> AccountsColumns =
+    [
+        new("Account Key", r => r.AccountKey),
+        new("Username", r => r.UserName),
+        new("Address", r => r.Address),
+        new("Account Name", r => r.AccountName),
+        new("Safe", r => r.SafeName),
+        new("Stage", r => r.StageName),
+        new("Status", r => r.StatusName),
+        new("Risk Level", r => r.RiskLevelName),
+        new("Account Type", r => r.AccountTypeName),
+        new("Source of Record", r => r.SORName),
+        new("Application", r => r.ApplicationName),
+        new("Owner", r => r.OwnerName),
+        new("Business Unit", r => r.BusinessUnit),
+        new("Target Remediation Date", r => Day(r.TargetRemediationDate)),
+        new("Actual Completion Date", r => Day(r.ActualCompletionDate)),
+        new("Notes", r => r.Notes)
+    ];
 
     public static readonly IReadOnlyList<ExportColumn<RiskScoreReportRow>> RiskScoreColumns =
     [

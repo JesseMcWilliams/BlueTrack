@@ -40,3 +40,36 @@ test.describe('Report export', () => {
     expect(xlsxHeaderRow(xlsx.bytes)).toEqual(riskScoreHeaders)
   })
 })
+
+// D-318: the Accounts list exports, and the export is read back with a changed Owner. TestAccount02, since other
+// tests open TestAccount03's edit page, which keeps it locked to them for a while.
+test.describe('Accounts export and import', () => {
+  test('Admin exports one account, imports it back with a new owner, then puts the owner back', async ({ page }) => {
+    await signInAs(page, 'TestUser.Admin')
+    await page.goto('/accounts?search=TestAccount02')
+    await expect(page.locator('tbody tr', { hasText: 'TestAccount02' })).toBeVisible()
+
+    const { name, bytes } = await exportAs(page, 'Export CSV')
+    expect(name).toMatch(/^BlueTrack_Accounts_\d{8}-\d{4}\.csv$/)
+    const lines = bytes.toString('utf8').replace(/^﻿/, '').split('\r\n').filter(Boolean)
+    const headers = lines[0].split(',')
+    const ownerAt = headers.indexOf('Owner')
+    const keyAt = headers.indexOf('Account Key')
+    const row = lines.slice(1).find(l => l.includes('TestAccount02')).split(',')
+    const original = row[ownerAt]
+
+    async function importOwner(owner) {
+      const csv = `Account Key,Owner\r\n${row[keyAt]},${owner}\r\n`
+      if (!(await page.locator('.account-import-form').isVisible())) await page.getByRole('button', { name: 'Import changes...' }).click()
+      await page.locator('.account-import-form input[type="file"]').setInputFiles({ name: 'accounts.csv', mimeType: 'text/csv', buffer: Buffer.from(csv) })
+      await page.getByRole('button', { name: 'Import', exact: true }).click()
+    }
+
+    await importOwner('E2E Imported Owner')
+    await expect(page.getByText('Read 1 rows: 1 accounts changed')).toBeVisible()
+    await expect(page.locator('tbody tr', { hasText: 'TestAccount02' })).toContainText('E2E Imported Owner')
+
+    await importOwner(original || 'Jane Analyst')
+    await expect(page.getByText(/Read 1 rows: 1 accounts changed/)).toBeVisible()
+  })
+})

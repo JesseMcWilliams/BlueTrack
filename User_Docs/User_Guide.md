@@ -69,6 +69,12 @@ A **⚠** next to a username means the account is flagged for deletion: it's in 
 
 **Accounts from other systems.** An account an administrator imports from another system (an account inventory data feed) is marked **from** and the system's name. When CyberArk has the same account (the same user name and address), BlueTrack links the two: the other system's account moves from **Discovered** to **Onboarded to Vault** and is hidden, so the list and the reports count the account once, as its CyberArk account. Set the **Linked feed accounts** filter to **Show** to see them; each is marked **Linked**, and the mark opens its CyberArk account.
 
+### Exporting and importing the list
+
+**Export CSV** and **Export Excel** above the list download every account the list's filters match (not only the page shown), in its sort order: **Account Key**, the account's Username, Address, Account Name and Safe, and the fields you can edit (Stage, Status, Risk Level, Account Type, Source of Record, Application, Owner, Business Unit, the two dates and Notes).
+
+With `EditAccountProgress`, **Import changes...** reads such a file back. Change values in the file, save it as CSV (an Excel file needs saving as CSV first) and import it. Each row's **Account Key** finds the account; a blank cell leaves that field as it is (to clear a field, use the account's page or **Bulk Edit**), names are matched ignoring case, dates are `yyyy-MM-dd`, and Username, Address, Account Name and Safe are only for reading. Each row is saved with the same rules as the edit page: an account someone else is editing is skipped, a row a rule refuses (for example an earlier stage without a **Reason**) is reported, and every change is in the Audit Log. At most **Bulk Edit Max Accounts** rows at once.
+
 ### A Safe's page
 
 The **Safe** column on the list, and the Safe named on an account's page, open the Safe's page: the BlueTrack application mapped to the Safe (its name, code and owner; an administrator maps it on Admin > Application Mapping), its description, source, managing CPM and created date, a note if the decommission or ignore patterns name it, how many accounts it holds, and its first 50 accounts. **Show all on Accounts** opens the list filtered to that Safe; **Show every Safe** there removes the filter.

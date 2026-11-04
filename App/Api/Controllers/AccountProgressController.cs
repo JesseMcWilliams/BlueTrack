@@ -77,6 +77,58 @@ public sealed class AccountProgressController(
         return Ok(new AccountProgressKeysResult { MatchingCount = matching, MaxAccounts = max, AccountKeys = keys });
     }
 
+    /// <summary>
+    /// D-318: the Accounts list as CSV or Excel, with the same filters and sort: the key, the identity columns and the
+    /// editable fields by name, which the import below reads back.
+    /// </summary>
+    [Authorize(Policy = Permissions.ViewDashboard)]
+    [HttpGet("export")]
+    public async Task<IActionResult> Export(
+        [FromServices] Reports.ReportExportService exportService,
+        [FromQuery] string? format,
+        [FromQuery] string? stage = null,
+        [FromQuery] string? status = null,
+        [FromQuery] string? riskLevel = null,
+        [FromQuery] string? owner = null,
+        [FromQuery] string? sort = null,
+        [FromQuery] string? search = null,
+        [FromQuery] string? deleted = null,
+        [FromQuery] string? linked = null,
+        [FromQuery] string? kpi = null,
+        [FromQuery] int? safe = null)
+    {
+        var parameters = new Dictionary<string, string?>
+        {
+            ["stage"] = stage, ["status"] = status, ["riskLevel"] = riskLevel, ["owner"] = owner, ["sort"] = sort,
+            ["search"] = search, ["deleted"] = deleted, ["linked"] = linked, ["kpi"] = kpi, ["safe"] = safe?.ToString()
+        };
+        return await exportService.ExportAsync(this, Reports.ReportExports.Accounts, format, parameters,
+            await repository.GetFilteredCountAsync(stage, status, riskLevel, owner, search, deleted, linked, kpi, safe),
+            async limit => Reports.ReportTable.From(Reports.ReportExports.AccountsColumns,
+                await repository.GetExportRowsAsync(stage, status, riskLevel, owner, SortParser.Parse(sort), search, deleted, linked, kpi, safe, limit)));
+    }
+
+    /// <summary>
+    /// D-318: an Accounts export (CSV) read back with changed values; see AccountProgressImportService. The reason is
+    /// used where a row moves an account to an earlier stage.
+    /// </summary>
+    [HttpPost("import")]
+    [Authorize(Policy = Permissions.EditAccountProgress)]
+    [RequestSizeLimit(30_000_000)]   // D-198: also outside IIS, whose default is ~30 MB
+    public async Task<IActionResult> Import(IFormFile file, [FromForm] string? reason,
+        [FromServices] AccountProgress.AccountProgressImportService importService)
+    {
+        var user = await currentUserResolver.ResolveAsync(User);
+        if (user is null) return Unauthorized();
+
+        var rows = await RiskScoring.CsvFileReader.ReadRowsAsync(file.OpenReadStream());
+        if (await importService.ValidateAsync(rows) is { } error)
+        {
+            return Problem(title: "Can't import the file", detail: error, statusCode: StatusCodes.Status400BadRequest);
+        }
+        return Ok(await importService.ImportAsync(rows, file.FileName, reason, user.UserKey));
+    }
+
     /// <summary>D-182: one set of field values applied to many accounts; see AccountProgressBulkEditService.</summary>
     [HttpPost("bulk-edit")]
     [Authorize(Policy = Permissions.EditAccountProgress)]

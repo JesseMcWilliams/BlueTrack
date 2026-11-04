@@ -219,6 +219,41 @@ public sealed class AccountProgressRepository(IDbConnectionFactory connectionFac
         })).AsList();
     }
 
+    /// <summary>
+    /// D-318: the Accounts export: every account matching the list's filters, in the list's order, with the editable
+    /// fields by name (what the import reads back). At most <paramref name="limit"/>.
+    /// </summary>
+    public async Task<IReadOnlyList<AccountProgressExportRow>> GetExportRowsAsync(
+        string? stageName, string? statusName, string? riskLevelName, string? ownerContains,
+        IReadOnlyList<(string Field, bool Descending)>? sortBy, string? search, string? deleted, string? linked, string? kpi, int? safeKey, int limit)
+    {
+        using var connection = connectionFactory.Create();
+        var sql = $"""
+            SELECT TOP (@Limit)
+                   fa.AccountKey, fa.UserName, fa.Address, fa.AccountName, sf.SafeName,
+                   stg.StageName, sts.StatusName, rl.RiskLevelName,
+                   (SELECT t.AccountTypeName FROM dbo.dim_account_type t WHERE t.AccountTypeKey = fap.AccountTypeKey) AS AccountTypeName,
+                   (SELECT r.SORName FROM dbo.dim_source_of_record r WHERE r.SORKey = fap.SORKey) AS SORName,
+                   (SELECT a.ApplicationName FROM web.dim_application a WHERE a.ApplicationKey = fap.ApplicationKey) AS ApplicationName,
+                   fap.OwnerName, fap.BusinessUnit, fap.TargetRemediationDate, fap.ActualCompletionDate, fap.Notes
+            {FilterFromSql}
+            ORDER BY {BuildOrderByClause(sortBy)}
+            """;
+        return (await connection.QueryAsync<AccountProgressExportRow>(sql, new
+        {
+            StageName = stageName,
+            StatusName = statusName,
+            RiskLevelName = riskLevelName,
+            OwnerContains = ownerContains,
+            SearchPattern = ToContainsPattern(search),
+            DeletedFilter = NormalizeDeleted(deleted),
+            LinkedFilter = NormalizeLinked(linked),
+            Kpi = NormalizeKpi(kpi),
+            SafeKey = safeKey,
+            Limit = limit
+        })).AsList();
+    }
+
     /// <summary>UI review W7-1: one of the KPI Summary's counts (total, inScope, onboarded, managed, compliant; D-298 archived), or null for no KPI filter; an unknown value is ignored.</summary>
     private static string? NormalizeKpi(string? kpi) => kpi?.ToLowerInvariant() switch
     {

@@ -54,3 +54,43 @@ public sealed class AccountProgressKeysResult
     public int MaxAccounts { get; init; }
     public required IReadOnlyList<long> AccountKeys { get; init; }
 }
+
+/// <summary>
+/// D-318: one row of the Accounts export, which the import reads back: the key, the account's identity (read only),
+/// and the editable fields by name, as the edit page shows them.
+/// </summary>
+public sealed class AccountProgressExportRow
+{
+    public long AccountKey { get; init; }
+    public string? UserName { get; init; }
+    public string? Address { get; init; }
+    public string? AccountName { get; init; }
+    public string? SafeName { get; init; }
+    public string? StageName { get; init; }
+    public string? StatusName { get; init; }
+    public string? RiskLevelName { get; init; }
+    public string? AccountTypeName { get; init; }
+    public string? SORName { get; init; }
+    public string? ApplicationName { get; init; }
+    public string? OwnerName { get; init; }
+    public string? BusinessUnit { get; init; }
+    public DateTime? TargetRemediationDate { get; init; }
+    public DateTime? ActualCompletionDate { get; init; }
+    public string? Notes { get; init; }
+}
+
+/// <summary>D-318: what an Accounts import did: rows read, accounts updated or already as the file says, and the rows it couldn't apply.</summary>
+public sealed class AccountProgressImportResult
+{
+    public int Rows { get; init; }
+    public int Updated { get; init; }
+    public int Unchanged { get; init; }
+    public required IReadOnlyList<AccountProgressImportProblem> Problems { get; init; }
+}
+
+public sealed class AccountProgressImportProblem
+{
+    public int RowNumber { get; init; }
+    public long? AccountKey { get; init; }
+    public required string Reason { get; init; }
+}

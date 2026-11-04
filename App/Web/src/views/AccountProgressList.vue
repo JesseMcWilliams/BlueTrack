@@ -12,6 +12,8 @@ import FilterCountSummary from '../components/FilterCountSummary.vue'
 import Pager from '../components/Pager.vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useListStateStore } from '../stores/listState'
+import ReportExportButtons from '../components/ReportExportButtons.vue'
+import AccountProgressImport from './AccountProgressImport.vue'
 import { readText, readOneOf, readPage, parseSort, formatSort, compactQuery, sameQuery } from '../utils/listQuery'
 import { useRightsStore } from '../stores/rights'
 import { useAccountSelectionStore } from '../stores/accountSelection'
@@ -104,6 +106,8 @@ function isFeedAccount(account) {
 const pageKeys = computed(() => accounts.value.map(a => a.accountKey))
 
 const keysUrl = computed(() => `/api/account-progress/keys?${currentFilterParams().toString()}`)
+// D-318: the export takes the list's filters and sort.
+const exportParams = computed(() => ({ ...Object.fromEntries(currentFilterParams()), sort: sortQueryParam.value }))
 
 function currentFilterParams() {
   const params = new URLSearchParams()
@@ -392,6 +396,9 @@ watch(() => route.query, async (query) => {
       </label>
       <button v-if="filtersActive" type="button" @click="clearFilters">{{ t('pages.accountProgressList.clearFilters') }}</button>
     </p>
+    <!-- D-318: the filtered list as a file, and that file read back with changed values. -->
+    <ReportExportButtons path="/api/account-progress/export" :params="exportParams" />
+    <AccountProgressImport v-if="canEdit" @imported="load" />
     <p v-if="kpiFilter" class="kpi-filter">
       {{ t('pages.accountProgressList.kpiShowing', { name: kpiNames[kpiFilter] }) }}
       <button type="button" @click="kpiFilter = ''">{{ t('pages.accountProgressList.kpiRemove') }}</button>
