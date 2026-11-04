@@ -40,6 +40,7 @@ const reports = [
   { name: 'reports-risk-score', labelKey: 'reports.reportsHub.riskScore', group: 'risk' },
   { name: 'reports-risk-exception-sod', labelKey: 'reports.reportsHub.riskExceptionSod', group: 'risk' },
   { name: 'reports-safe-access', labelKey: 'reports.reportsHub.safeAccess', group: 'risk' },   // D-300
+  { name: 'reports-safe-administrators', labelKey: 'reports.reportsHub.safeAdministrators', group: 'risk' },   // D-335
   { name: 'reports-cyberark-applications', labelKey: 'reports.reportsHub.cyberArkApplications', group: 'risk' },   // D-282
   { name: 'reports-cpm-health', labelKey: 'reports.reportsHub.cpmHealth', group: 'risk' },   // D-288
   { name: 'reports-decom-safes', labelKey: 'reports.reportsHub.decomSafes', group: 'decommission' },

@@ -67,7 +67,7 @@ const safes = ref([])
 const report = ref(null)
 const loading = ref(true)
 const error = ref(null)
-const showTable = reactive({ stages: false, percent: false, risks: false })
+const showTable = reactive({ stages: false, percent: false, targets: false, risks: false })
 const theme = useChartTheme()
 
 const safeOptions = computed(() => filters.applicationKey === ''
@@ -228,7 +228,23 @@ const percentChart = computed(() => ({
   }]
 }))
 
+// D-336: progress against target dates, a burn-up: Planned (accounts whose target date has come; current target
+// dates, the snapshot has none), Completed (compliant that day, as % complete counts them) and Overdue. Planned is
+// dashed so the lines differ by more than colour.
+function lineDataset(label, data, color, dashed = false) {
+  return { label, data, borderColor: color, backgroundColor: color, borderWidth: 2, pointRadius: 3, pointHoverRadius: 5, spanGaps: false, ...(dashed ? { borderDash: [6, 4] } : {}) }
+}
+const targetChart = computed(() => ({
+  labels: labels.value,
+  datasets: [
+    lineDataset(t('reports.trends.planned'), periods.value.map(p => p.plannedAccounts), theme.value.riskNone, true),
+    lineDataset(t('reports.trends.completed'), periods.value.map(p => p.compliantAccounts), theme.value.line),
+    lineDataset(t('reports.trends.overdue'), periods.value.map(p => p.overdueAccounts), theme.value.risks[theme.value.risks.length - 1])
+  ]
+}))
+
 const stackedOptions = computed(() => baseOptions(theme.value, { stacked: true, percent: false }))
+const countOptions = computed(() => baseOptions(theme.value, { stacked: false, percent: false }))
 const percentOptions = computed(() => baseOptions(theme.value, { stacked: false, percent: true }))
 </script>
 
@@ -331,6 +347,36 @@ const percentOptions = computed(() => baseOptions(theme.value, { stacked: false,
         </table>
       </section>
 
+      <section class="trends-chart" aria-labelledby="trends-targets-title">
+        <h3 id="trends-targets-title">{{ t('reports.trends.targetsTitle') }}</h3>
+        <p class="trends-note">{{ t('reports.trends.targetsNote') }}</p>
+        <div class="trends-canvas" role="img" :aria-label="t('reports.trends.targetsChartLabel', { range: rangeText })">
+          <Line :data="targetChart" :options="countOptions" />
+        </div>
+        <button type="button" aria-controls="trends-targets-table" :aria-expanded="showTable.targets ? 'true' : 'false'" @click="showTable.targets = !showTable.targets">
+          {{ showTable.targets ? t('reports.trends.hideTable') : t('reports.trends.showTable') }}
+        </button>
+        <table id="trends-targets-table" :class="{ 'visually-hidden': !showTable.targets }">
+          <caption>{{ t('reports.trends.targetsTitle') }}</caption>
+          <thead>
+            <tr>
+              <th scope="col">{{ isWeek ? t('reports.trends.week') : t('reports.trends.day') }}</th>
+              <th scope="col">{{ t('reports.trends.planned') }}</th>
+              <th scope="col">{{ t('reports.trends.completed') }}</th>
+              <th scope="col">{{ t('reports.trends.overdue') }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="(p, i) in periods" :key="p.periodStart">
+              <th scope="row">{{ labels[i] }}</th>
+              <td>{{ formatCount(p.plannedAccounts) }}</td>
+              <td>{{ formatCount(p.compliantAccounts) }}</td>
+              <td>{{ formatCount(p.overdueAccounts) }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
       <section class="trends-chart" aria-labelledby="trends-risks-title">
         <h3 id="trends-risks-title">{{ t('reports.trends.risksTitle') }}</h3>
         <div class="trends-canvas" role="img" :aria-label="t('reports.trends.risksChartLabel', { range: rangeText })">
@@ -368,6 +414,9 @@ const percentOptions = computed(() => baseOptions(theme.value, { stacked: false,
   height: 300px;
   max-width: 960px;
   margin-bottom: var(--space-2);
+}
+.trends-note {
+  max-width: 60em;
 }
 .trends-chart table {
   margin-top: var(--space-2);

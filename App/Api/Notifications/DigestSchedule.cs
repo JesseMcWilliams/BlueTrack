@@ -40,12 +40,16 @@ public static class DigestSchedule
     }
 
     /// <summary>Validation messages for a schedule save; empty when valid.</summary>
+    /// <summary>D-334: the furthest ahead an application owner can be reminded of a review (67_BlueTrack_ApplicationOwnerReviewEmails.sql's CHECK).</summary>
+    public const int MaxOwnerReminderDays = 90;
+
     public static IReadOnlyList<string> Validate(NotificationSchedule schedule)
     {
         var errors = new List<string>();
         if (!FeedSchedule.TryParseTime(schedule.DailyDigestTime, out _)) errors.Add("DailyDigestTime must be a time as HH:mm (24-hour).");
         if (!FeedSchedule.TryParseTime(schedule.WeeklySummaryTime, out _)) errors.Add("WeeklySummaryTime must be a time as HH:mm (24-hour).");
         if (!DayNames.Contains(schedule.WeeklySummaryDay, StringComparer.Ordinal)) errors.Add("WeeklySummaryDay must be one of Sun, Mon, Tue, Wed, Thu, Fri, Sat.");
+        if (schedule.OwnerReminderDays is < 0 or > MaxOwnerReminderDays) errors.Add($"OwnerReminderDays must be between 0 and {MaxOwnerReminderDays}.");
         return errors;
     }
 }

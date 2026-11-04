@@ -118,7 +118,8 @@ public class TrendsReportTests : IClassFixture<BlueTrackWebApplicationFactory>, 
         "Period", "Snapshot Date",
         "Stage: Discovered", "Stage: Assessed / Prioritized", "Stage: Onboarded to Vault", "Stage: Managed / Rotation Enabled", "Stage: Verified / Compliant",
         "Total Accounts", "In Scope", "Compliant", "% Complete",
-        "Risk: Low", "Risk: Medium", "Risk: High", "Risk: Critical", "Risk: Not set"
+        "Risk: Low", "Risk: Medium", "Risk: High", "Risk: Critical", "Risk: Not set",
+        "Planned by target date", "Overdue"
     ];
 
     [Fact]
@@ -133,8 +134,8 @@ public class TrendsReportTests : IClassFixture<BlueTrackWebApplicationFactory>, 
         var lines = new UTF8Encoding(false).GetString(bytes, 3, bytes.Length - 3).Split("\r\n", StringSplitOptions.RemoveEmptyEntries);
         Assert.Equal(ExpectedHeaders, lines[0].Split(','));
         Assert.Equal(4, lines.Length);
-        Assert.Equal("2026-02-04,2026-02-04,1,0,1,0,1,3,2,1,50,1,1,1,0,0", lines[2]);
-        Assert.Equal("2026-02-10,2026-02-10,0,0,0,0,3,3,3,2,66.7,1,1,0,1,0", lines[3]);
+        Assert.Equal("2026-02-04,2026-02-04,1,0,1,0,1,3,2,1,50,1,1,1,0,0,0,0", lines[2]);
+        Assert.Equal("2026-02-10,2026-02-10,0,0,0,0,3,3,3,2,66.7,1,1,0,1,0,0,0", lines[3]);
     }
 
     [Fact]

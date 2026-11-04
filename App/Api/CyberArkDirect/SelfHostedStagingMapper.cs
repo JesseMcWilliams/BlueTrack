@@ -249,7 +249,8 @@ public sealed class SelfHostedStagingMapper
         foreach (var m in ad.Members)
         {
             tables.DirectAdGroupMembers.Rows.Add(batchId, source, m.Group.Source, Cut(m.Group.Ref, 256), Cut(m.DomainName, 256), Cut(m.User.SamAccountName, 256),
-                Db(Cut(m.User.DistinguishedName, 1000)), Db(Cut(m.User.ObjectSid, 200)), Db(Cut(m.User.DisplayName, 400)), m.User.IsEnabled);
+                Db(Cut(m.User.DistinguishedName, 1000)), Db(Cut(m.User.ObjectSid, 200)), Db(Cut(m.User.DisplayName, 400)), m.User.IsEnabled,
+                Db(Cut(m.User.NestedPath, 1000)));
         }
     }
 
@@ -378,7 +379,8 @@ public sealed class StagingTables
 
     public DataTable DirectAdGroupMembers { get; } = Table("stg_shd_ad_group_members", ("ImportBatchId", typeof(Guid)), ("SourceFileName", typeof(string)),
         ("GroupSource", typeof(string)), ("GroupRef", typeof(string)), ("DomainName", typeof(string)), ("SamAccountName", typeof(string)),
-        ("DistinguishedName", typeof(string)), ("ObjectSid", typeof(string)), ("DisplayName", typeof(string)), ("IsEnabled", typeof(bool)));
+        ("DistinguishedName", typeof(string)), ("ObjectSid", typeof(string)), ("DisplayName", typeof(string)), ("IsEnabled", typeof(bool)),
+        ("NestedPath", typeof(string)));   // D-333 (66_BlueTrack_AdNestedGroupPath.sql)
 
     // D-282 (48_BlueTrack_SelfHostedDirectExtras.sql).
     public DataTable DirectApplications { get; } = Table("stg_shd_applications", ("ImportBatchId", typeof(Guid)), ("SourceFileName", typeof(string)),

@@ -25,7 +25,7 @@ const report = {
   ],
   riskLevels: [{ order: 1, name: 'Low' }, { order: 2, name: 'Medium' }, { order: 3, name: 'High' }, { order: 4, name: 'Critical' }, { order: null, name: 'Not set' }],
   periods: [
-    { periodStart: '2026-02-02', snapshotDate: '2026-02-02', totalAccounts: 1500, inScopeAccounts: 1200, compliantAccounts: 300, percentComplete: 25, stageCounts: [1000, 200, 100, 100, 100], riskCounts: [500, 400, 300, 200, 100] },
+    { periodStart: '2026-02-02', snapshotDate: '2026-02-02', totalAccounts: 1500, inScopeAccounts: 1200, compliantAccounts: 300, percentComplete: 25, plannedAccounts: 400, overdueAccounts: 120, stageCounts: [1000, 200, 100, 100, 100], riskCounts: [500, 400, 300, 200, 100] },
     { periodStart: '2026-02-03', snapshotDate: '2026-02-03', totalAccounts: 1500, inScopeAccounts: 0, compliantAccounts: 0, percentComplete: null, stageCounts: [1500, 0, 0, 0, 0], riskCounts: [0, 0, 0, 0, 1500] }
   ]
 }
@@ -125,17 +125,22 @@ describe('Trends.vue', () => {
     expect(lastQuery().get('from')).toBe('2020-01-01')
   })
 
-  it('draws the three charts, each with a title and its series', async () => {
+  it('draws the four charts, each with a title and its series', async () => {
     mockApi()
     const wrapper = mount(Trends)
     await flushPromises()
 
-    expect(wrapper.findAll('h3').map(h => h.text())).toEqual(['Accounts by stage', '% complete', 'Accounts by risk level'])
+    expect(wrapper.findAll('h3').map(h => h.text())).toEqual(['Accounts by stage', '% complete', 'Progress against target dates', 'Accounts by risk level'])
     const bars = wrapper.findAll('.chart-Bar')
     expect(bars[0].attributes('data-series')).toBe('Discovered|Assessed / Prioritized|Onboarded to Vault|Managed / Rotation Enabled|Verified / Compliant')
     expect(bars[1].attributes('data-series')).toBe('Low|Medium|High|Critical|Not set')
-    expect(wrapper.get('.chart-Line').attributes('data-series')).toBe('% complete')
-    expect(wrapper.findAll('[role="img"]').length).toBe(3)
+    const lines = wrapper.findAll('.chart-Line')
+    expect(lines[0].attributes('data-series')).toBe('% complete')
+    // D-336: progress against target dates.
+    expect(lines[1].attributes('data-series')).toBe('Planned|Completed|Overdue')
+    expect(wrapper.findAll('[role="img"]').length).toBe(4)
+    const targetRow = wrapper.get('#trends-targets-table').findAll('tbody tr')[0].findAll('td').map(td => td.text())
+    expect(targetRow).toEqual(['400', '300', '120'])
   })
 
   it('has a data table per chart for screen readers, shown on screen by its toggle', async () => {

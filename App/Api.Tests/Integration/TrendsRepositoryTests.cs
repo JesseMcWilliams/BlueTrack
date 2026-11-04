@@ -61,6 +61,34 @@ public class TrendsRepositoryTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task TargetDates_PlannedIsDueByTheSnapshot_OverdueIsPastItAndNotCompliant_OutOfScopeLeftOut()
+    {
+        // D-336: target dates (current values): A1 Feb 3, A2 Feb 5, B1 Feb 3.
+        await using (var connection = new SqlConnection(TestDatabase.ConnectionString))
+        {
+            await connection.ExecuteAsync("""
+                INSERT INTO dbo.fact_account_progress (AccountKey, CurrentStageKey, CurrentStatusKey, TargetRemediationDate)
+                SELECT fa.AccountKey, (SELECT MIN(StageKey) FROM dbo.dim_blueprint_stage),
+                       (SELECT StatusKey FROM dbo.dim_progress_status WHERE StatusName = 'Not Started'), v.Target
+                FROM (VALUES ('TrendsTest-A1', '2026-02-03'), ('TrendsTest-A2', '2026-02-05'), ('TrendsTest-B1', '2026-02-03')) AS v(Account, Target)
+                JOIN dbo.fact_account fa ON fa.SourceAccountId = v.Account
+                WHERE NOT EXISTS (SELECT 1 FROM dbo.fact_account_progress p WHERE p.AccountKey = fa.AccountKey);
+                """);
+        }
+
+        var report = await Get();
+
+        // Feb 2: nothing due yet.
+        Assert.Equal((0, 0), (On(report, 2).PlannedAccounts, On(report, 2).OverdueAccounts));
+        // Feb 4: A1 due Feb 3 and in progress (overdue); B1 due Feb 3 but Risk Accepted (out of scope that day, left out).
+        Assert.Equal((1, 1), (On(report, 4).PlannedAccounts, On(report, 4).OverdueAccounts));
+        // Feb 10: all three due; A1 and A2 compliant; B1 at stage 5 but In Progress, so overdue.
+        Assert.Equal((3, 1), (On(report, 10).PlannedAccounts, On(report, 10).OverdueAccounts));
+        // The Safe filter applies too: Safe B holds only B1.
+        Assert.Equal((1, 1), (On(await Get(safeKey: _keys.SafeBKey), 10).PlannedAccounts, On(await Get(safeKey: _keys.SafeBKey), 10).OverdueAccounts));
+    }
+
+    [Fact]
     public async Task Week_UsesTheLastSnapshotInEachIsoWeek_NotASum()
     {
         var report = await Get(TrendsRepository.Week);

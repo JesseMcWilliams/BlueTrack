@@ -12,7 +12,7 @@ const names = [
   'reports-overdue-worklist', 'reports-stage-status-summary', 'reports-reconciliation-review',
   'reports-possible-matches', 'reports-unresolved-entitlement-members', 'reports-cpm-health', 'reports-cyberark-applications', 'reports-risk-score',
   'reports-risk-exception-sod', 'reports-discovered-accounts', 'reports-dna-accounts', 'reports-decom-safes',
-  'reports-decom-accounts', 'reports-kpi-summary', 'reports-trends', 'reports-safe-access'
+  'reports-decom-accounts', 'reports-kpi-summary', 'reports-trends', 'reports-safe-access', 'reports-safe-administrators'
 ]
 
 async function mountHub(permissionNames) {
@@ -46,7 +46,7 @@ describe('ReportsHub.vue', () => {
     expect(links(wrapper)).toEqual([
       'Overdue / At-Risk', 'Stage/Status Summary', 'KPI Summary', 'Trends',
       'Reconciliation Review', 'Possible Account Matches', 'Unresolved Entitlement Members', 'Discovered Accounts', 'DNA Accounts',
-      'Risk Score', 'Risk Exception SoD', 'Safe Access', 'CyberArk Applications', 'CPM Health',
+      'Risk Score', 'Risk Exception SoD', 'Safe Access', 'Safe Administrators', 'CyberArk Applications', 'CPM Health',
       'Safes Flagged for Deletion', 'Accounts Flagged for Deletion'
     ])
     const groups = wrapper.findAll('nav [role="group"]')
@@ -62,7 +62,7 @@ describe('ReportsHub.vue', () => {
 
     expect(links(wrapper)).toEqual([
       'Overdue / At-Risk', 'Stage/Status Summary', 'KPI Summary', 'Trends', 'Unresolved Entitlement Members',
-      'Safe Access', 'CyberArk Applications', 'CPM Health', 'Safes Flagged for Deletion', 'Accounts Flagged for Deletion'
+      'Safe Access', 'Safe Administrators', 'CyberArk Applications', 'CPM Health', 'Safes Flagged for Deletion', 'Accounts Flagged for Deletion'
     ])
   })
 

@@ -10,7 +10,7 @@ public sealed record SafeMemberGroup(string Source, string Ref, string Name, str
 /// <summary>D-281: how one group's AD read went: Found (in DomainName), NotFound in every domain tried, or Failed.</summary>
 public sealed record AdGroupRead(SafeMemberGroup Group, string Status, string? DomainName, int? MemberCount, string? Message);
 
-/// <summary>D-281: one AD user of a group, nested groups flattened.</summary>
+/// <summary>D-281: one AD user of a group, nested groups flattened; D-333: User.NestedPath names the groups in between.</summary>
 public sealed record AdGroupMember(SafeMemberGroup Group, string DomainName, DirectoryUser User);
 
 /// <summary>D-281: what the AD read found; null on the snapshot when no LDAP domain is enabled.</summary>
@@ -26,7 +26,7 @@ public sealed class AdGroupExpansion
 /// is read, through the LDAP domains configured on Admin > Credentials &amp; LDAP and the same directory code as AD
 /// Account Discovery. A Self-Hosted directory group is looked up by its DN in the domain its DC= parts name (every
 /// enabled domain when none matches); a Privilege Cloud group, whose export has no DN, by its name in every domain
-/// (best effort). Nested groups are flattened. A domain that can't be bound, or a lookup that throws, marks the group
+/// (best effort). Nested groups are flattened, and each user keeps the shortest path of groups to it (D-333). A domain that can't be bound, or a lookup that throws, marks the group
 /// Failed, and the Load keeps the members it had; the pull itself never fails on AD.
 /// </summary>
 public sealed class SafeGroupAdExpansionService(
@@ -61,7 +61,7 @@ public sealed class SafeGroupAdExpansionService(
                     if (open.Session is null) { problem ??= open.Problem; continue; }
                     try
                     {
-                        var users = open.Session.GetUserMembers(group.Dn ?? group.Name);
+                        var users = open.Session.GetUserMembers(group.Dn ?? group.Name, withNestedPath: true);
                         if (users is null) continue;
                         expansion.Reads.Add(new AdGroupRead(group, "Found", config.DomainName, users.Count, null));
                         expansion.Members.AddRange(users.Select(u => new AdGroupMember(group, config.DomainName, u)));

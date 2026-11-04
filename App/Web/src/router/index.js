@@ -178,6 +178,13 @@ const routes = [
         component: () => import('../views/reports/CpmHealth.vue')
       },
       {
+        // D-335
+        path: 'safe-administrators',
+        name: 'reports-safe-administrators',
+        meta: { breadcrumb: 'shell.routes.reportsSafeAdministrators', breadcrumbParent: 'reports' },
+        component: () => import('../views/reports/SafeAdministrators.vue')
+      },
+      {
         path: 'cyberark-applications',
         name: 'reports-cyberark-applications',
         meta: { breadcrumb: 'shell.routes.reportsCyberArkApplications', breadcrumbParent: 'reports' },

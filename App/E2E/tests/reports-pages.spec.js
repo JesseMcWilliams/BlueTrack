@@ -134,3 +134,23 @@ test.describe('Risk Score bulk override', () => {
     await expect(page.locator('tbody')).not.toContainText('987')
   })
 })
+
+// D-335: Reports > Safe Administrators, the least-privilege view. The test database may hold no Safe member with
+// Manage Safe, so the page shows either rows or its empty line; the built-in choice and the By person view work
+// either way.
+test.describe('Safe Administrators', () => {
+  test('Viewer opens it from the Reports column, shows the built-in rows and switches to By person', async ({ page }) => {
+    await signInAs(page, 'TestUser.Viewer')
+    await page.goto('/reports')
+
+    const loaded = page.waitForResponse(r => r.url().endsWith('/api/reports/safe-administrators') && r.ok())
+    await page.locator('nav.reports-subnav').getByRole('link', { name: 'Safe Administrators' }).click()
+    await loaded
+    await expect(page).toHaveURL(/\/reports\/safe-administrators$/)
+    await expect(page.getByRole('heading', { name: 'Safe Administrators', level: 2 })).toBeVisible()
+
+    await page.getByLabel("Show CyberArk's built-in users").check()
+    await page.getByRole('combobox', { name: 'Show:', exact: true }).selectOption('person')
+    await expect(page.getByRole('columnheader', { name: 'Safes', exact: true }).or(page.getByText('No one matches these filters.'))).toBeVisible()
+  })
+})

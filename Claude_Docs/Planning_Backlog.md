@@ -9,9 +9,6 @@
 Gaps against the original design (commit f0561ce) and the Blueprint theme. Built from that review: Progress Rules (D-283), editable stages (D-284), rejected sign-in logging (D-285), the SAML certificate reminder (D-287); step-up MFA is left to the SSO provider (D-286).
 - **No SMTP on the dev site**: no host or recipients, so the overdue-exception alerts (D-19) and the other notifications reach nobody On hold until a test mail environment exists (D-289). The break-glass email is unproven for the same reason.
 - **PSM for Privilege Cloud** (D-288; the user, 2026-11-03: build it as part of Privilege Cloud Direct. The local Idira docs for Privilege Cloud Standard, fetched 2026-10-15, list the same Get platforms call, `/PasswordVault/API/Platforms/`, with `sessionManagement.requirePrivilegedSessionMonitoringAndIsolation`, the field the Self-Hosted pull reads; how a service user signs in to Privilege Cloud's API isn't described there and still needs checking): the RequiresPsm rule condition reads the platform policy of a Self-Hosted Direct pull; Privilege Cloud's platform export has no PSM column, so it's empty there until Privilege Cloud Direct reads the platform policy.
-- **Next round (the user, 2026-11-03). Suggestion: email the application owner** (D-46 `OwnerEmail`) when an application-scoped exception comes up for review, not only the configured recipients.
-- **Next round. Suggestion: least-privilege view**: who holds Manage Safe, Manage Safe Members or full rights, across Safes (the per-account "Who can use this account" and the Power BI entitlement view exist).
-- **Next round. Suggestion: sponsor view of progress against target dates over time**, from Trends and `TargetRemediationDate`.
 
 ## Requested, deferred
 
@@ -27,6 +24,7 @@ Gaps against the original design (commit f0561ce) and the Blueprint theme. Built
 - **Admin-only troubleshooting endpoints return exception text** (Info, kept on purpose): backup, credential test, SMTP test, feed test; that text is how an admin diagnoses the failure. Revisit only if those pages are opened to non-admins.
 
 ## Built, but never proven against a real live service
+- **Nested AD group path** (D-333): tested with a fake directory and the path walk alone; the real LDAP walk (`GetMembers(recursive: false)` per nested group) runs first in the dev site's next Self-Hosted Direct pull.
 - **Azure Key Vault, AWS Secrets Manager, CyberArk Conjur** secrets backends: tested only against unreachable placeholder endpoints (error handling, not a real secret round-trip). CyberArk CP, CCP and Windows DPAPI are verified live. The 2026-10-12 review's hardening is done (D-215: User-scope DPAPI for their stored credentials, explicit Azure/AWS timeouts, Conjur's Base64 token header as CyberArk's own .NET client sends it); each still needs a real round trip before use.
 - **Installer on a fresh server**: `Db.AppPoolAccess` (D-171) and `Iis.Reset` (D-175) have only run by hand or with `-WhatIf`; the new `Iis.SiteRestart` (D-188) ran on the dev host only. DCACYBSQL01's app pool SQL login was granted by hand. Check all three on the next real install, with `Db.PowerBiAccess` (D-321, `-PowerBiReaderAccount`), which has run only against the local test database.
 - **AD Account Discovery multi-domain**: tested with a fake two-domain directory (D-214, `AdAccountDiscoveryMultiDomainTests`); still unproven against a real second domain (DCACYBSQL01's domain could be one, once LDAPS works).
@@ -40,7 +38,6 @@ Gaps against the original design (commit f0561ce) and the Blueprint theme. Built
 
 ## Found in the real CyberArk data (checked 2026-10-13)
 Self-Hosted: EVD `CyberArkSH`, loaded 2026-10-13. Privilege Cloud: the export CSVs in the configured folder (loaded since D-228, 2026-10-14).
-- **Nested AD group path** (D-281; next round, the user, 2026-11-03): "Via AD group" names the Safe's group; a person in a nested group isn't shown the group in between.
 - **Direct Account→Target links**: neither CyberArk source lists remote machines (Privilege Cloud `RemoteMachines` is empty; Self-Hosted has no such property), so the Address-derived links (D-193) are the CyberArk side. The `AccountTargetMap` data feed exists (`App/Api/DataFeeds/FeedColumns.cs:21`); what's missing is a non-CyberArk system to supply it.
 
 ## Process and tooling

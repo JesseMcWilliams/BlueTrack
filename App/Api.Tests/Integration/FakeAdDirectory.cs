@@ -25,8 +25,10 @@ public sealed class FakeAdDirectory(
 
     private sealed class Session(FakeAdDirectory owner, string domain, Dictionary<string, DirectoryUser[]> groups, DirectoryUser[] others) : IAdDirectorySession
     {
-        public IReadOnlyList<DirectoryUser>? GetUserMembers(string groupIdentifier) =>
-            groups.GetValueOrDefault(groupIdentifier)?.Select(u => new DirectoryUser(u.SamAccountName, u.DistinguishedName, u.ObjectSid, u.DisplayName, u.IsEnabled)).ToList();
+        // D-333: a user's NestedPath comes back only when asked for, as from the real directory.
+        public IReadOnlyList<DirectoryUser>? GetUserMembers(string groupIdentifier, bool withNestedPath = false) =>
+            groups.GetValueOrDefault(groupIdentifier)?.Select(u => new DirectoryUser(u.SamAccountName, u.DistinguishedName, u.ObjectSid, u.DisplayName, u.IsEnabled)
+            { NestedPath = withNestedPath ? u.NestedPath : null }).ToList();
 
         public IReadOnlyList<DirectoryUser> FindUsers(string attributeName, IReadOnlyCollection<string> values)
         {

@@ -76,6 +76,29 @@ public sealed class TrendsRepository(IDbConnectionFactory connectionFactory)
             SELECT a.SnapshotDateKey, a.StageKey, SUM(a.AccountCount) AS AccountCount
             FROM @agg a GROUP BY a.SnapshotDateKey, a.StageKey;
 
+            -- D-336: progress against target dates. The snapshot has no target date, so each account's current
+            -- TargetRemediationDate is used for every period. Of the accounts in scope that day: Planned = target
+            -- on or before the snapshot date; Overdue = target before it and not compliant (CompliantAccounts' rule)
+            -- in that day's snapshot.
+            SELECT h.SnapshotDateKey,
+                   SUM(CASE WHEN cur.TargetRemediationDate <= dt.SnapshotDate THEN 1 ELSE 0 END) AS PlannedAccounts,
+                   SUM(CASE WHEN cur.TargetRemediationDate < dt.SnapshotDate
+                             AND NOT (stg.StageOrder >= dbo.fn_MilestoneStageOrder(N'Compliant') AND sts.StatusName = 'Complete')
+                            THEN 1 ELSE 0 END) AS OverdueAccounts
+            FROM dbo.fact_account_progress_history h
+            JOIN @dates dt ON dt.SnapshotDateKey = h.SnapshotDateKey
+            JOIN dbo.fact_account fa ON fa.AccountKey = h.AccountKey
+            LEFT JOIN dbo.dim_safe ds ON ds.SafeKey = fa.SafeKey
+            JOIN dbo.fact_account_progress cur ON cur.AccountKey = fa.AccountKey
+            JOIN dbo.dim_blueprint_stage stg ON stg.StageKey = h.StageKey
+            JOIN dbo.dim_progress_status sts ON sts.StatusKey = h.StatusKey
+            WHERE cur.TargetRemediationDate IS NOT NULL
+              AND ISNULL(sts.StatusName, '') NOT IN ('Risk Accepted / Excluded', 'Archived')
+              AND (@SafeKey IS NULL OR fa.SafeKey = @SafeKey)
+              AND (@ApplicationKey IS NULL OR ds.ApplicationKey = @ApplicationKey OR cur.ApplicationKey = @ApplicationKey)
+            GROUP BY h.SnapshotDateKey
+            OPTION (RECOMPILE);
+
             SELECT a.SnapshotDateKey, a.RiskLevelKey, SUM(a.AccountCount) AS AccountCount
             FROM @agg a GROUP BY a.SnapshotDateKey, a.RiskLevelKey;
 
@@ -96,6 +119,7 @@ public sealed class TrendsRepository(IDbConnectionFactory connectionFactory)
         var dates = (await grid.ReadAsync<DateRow>()).AsList();
         var totals = (await grid.ReadAsync<TotalRow>()).ToDictionary(t => t.SnapshotDateKey);
         var stageCounts = (await grid.ReadAsync<KeyCountRow>()).AsList();
+        var targets = (await grid.ReadAsync<TargetRow>()).ToDictionary(t => t.SnapshotDateKey);
         var riskCounts = (await grid.ReadAsync<KeyCountRow>()).AsList();
         var stages = (await grid.ReadAsync<StageRow>()).AsList();
         var risks = (await grid.ReadAsync<RiskRow>()).AsList();
@@ -103,6 +127,7 @@ public sealed class TrendsRepository(IDbConnectionFactory connectionFactory)
         var periods = dates.Select(d =>
         {
             totals.TryGetValue(d.SnapshotDateKey, out var t);
+            targets.TryGetValue(d.SnapshotDateKey, out var target);
             int inScope = t?.InScopeAccounts ?? 0, compliant = t?.CompliantAccounts ?? 0;
             int Count(List<KeyCountRow> rows, int? key) =>
                 rows.Where(r => r.SnapshotDateKey == d.SnapshotDateKey && r.Key == key).Sum(r => r.AccountCount);
@@ -114,6 +139,8 @@ public sealed class TrendsRepository(IDbConnectionFactory connectionFactory)
                 InScopeAccounts = inScope,
                 CompliantAccounts = compliant,
                 PercentComplete = PercentComplete(compliant, inScope),
+                PlannedAccounts = target?.PlannedAccounts ?? 0,
+                OverdueAccounts = target?.OverdueAccounts ?? 0,
                 StageCounts = stages.Select(s => Count(stageCounts, s.StageKey)).ToList(),
                 RiskCounts = risks.Select(r => (int?)r.RiskLevelKey).Append(null).Select(k => Count(riskCounts, k)).ToList()
             };
@@ -174,6 +201,13 @@ public sealed class TrendsRepository(IDbConnectionFactory connectionFactory)
         public int TotalAccounts { get; init; }
         public int InScopeAccounts { get; init; }
         public int CompliantAccounts { get; init; }
+    }
+
+    private sealed class TargetRow
+    {
+        public int SnapshotDateKey { get; init; }
+        public int PlannedAccounts { get; init; }
+        public int OverdueAccounts { get; init; }
     }
 
     private sealed class KeyCountRow

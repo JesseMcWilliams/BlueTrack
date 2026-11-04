@@ -13,6 +13,7 @@ public static class SiteLinks
     public const int MaxLength = 500;
 
     public static readonly SitePage OverdueReviews = new("Risk Exceptions > Overdue Reviews", "/exceptions/overdue");
+    public static readonly SitePage RiskExceptions = new("Risk Exceptions", "/exceptions");   // D-334
     public static readonly SitePage CyberArkSources = new("Admin > Data Sources > CyberArk Sources", "/admin/data-sources/cyberark");
     public static readonly SitePage DataSources = new("Admin > Data Sources", "/admin/data-sources");   // D-250
     public static readonly SitePage KpiSummary = new("Reports > KPI Summary", "/reports/kpi-summary");

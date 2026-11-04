@@ -267,7 +267,8 @@ public sealed class NotificationRepository(IDbConnectionFactory connectionFactor
         using var connection = connectionFactory.Create();
         const string sql = """
             SELECT CONVERT(varchar(5), DailyDigestTime, 108) AS DailyDigestTime, WeeklySummaryDay,
-                   CONVERT(varchar(5), WeeklySummaryTime, 108) AS WeeklySummaryTime
+                   CONVERT(varchar(5), WeeklySummaryTime, 108) AS WeeklySummaryTime,
+                   OwnerIncludeAccountExceptions, OwnerReminderDays
             FROM web.notification_config
             """;
         return await connection.QuerySingleAsync<NotificationSchedule>(sql);
@@ -280,9 +281,10 @@ public sealed class NotificationRepository(IDbConnectionFactory connectionFactor
             UPDATE web.notification_config
             SET DailyDigestTime = CAST(@DailyDigestTime AS time(0)), WeeklySummaryDay = @WeeklySummaryDay,
                 WeeklySummaryTime = CAST(@WeeklySummaryTime AS time(0)),
+                OwnerIncludeAccountExceptions = @OwnerIncludeAccountExceptions, OwnerReminderDays = @OwnerReminderDays,
                 ModifiedBy = @ModifiedBy, ModifiedDate = SYSUTCDATETIME()
             """;
-        await connection.ExecuteAsync(sql, new { schedule.DailyDigestTime, schedule.WeeklySummaryDay, schedule.WeeklySummaryTime, ModifiedBy = modifiedByUserKey });
+        await connection.ExecuteAsync(sql, new { schedule.DailyDigestTime, schedule.WeeklySummaryDay, schedule.WeeklySummaryTime, schedule.OwnerIncludeAccountExceptions, schedule.OwnerReminderDays, ModifiedBy = modifiedByUserKey });
     }
 
     private static string? Truncate(string? value, int length) => value is null || value.Length <= length ? value : value[..length];

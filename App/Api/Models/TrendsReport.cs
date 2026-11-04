@@ -36,6 +36,10 @@ public sealed class TrendsPeriod
     public required int CompliantAccounts { get; init; }
     /// <summary>Compliant / In Scope x 100, one decimal; null with nothing in scope.</summary>
     public double? PercentComplete { get; init; }
+    /// <summary>D-336: accounts in scope whose (current) target remediation date is on or before the snapshot date.</summary>
+    public int PlannedAccounts { get; init; }
+    /// <summary>D-336: of those, the ones past their target date and not compliant in this snapshot.</summary>
+    public int OverdueAccounts { get; init; }
     public required IReadOnlyList<int> StageCounts { get; init; }
     public required IReadOnlyList<int> RiskCounts { get; init; }
 }

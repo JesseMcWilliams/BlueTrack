@@ -38,9 +38,14 @@ Caveats: `ExactMatch` compares the permission rows as loaded, so a source differ
 |---|---|---|
 | Admin > Safe Access Policies (policies, Safe roles, Check now) | `GET/POST/PUT/DELETE /api/admin/safe-access/roles|policies`, `GET .../permissions`, `POST .../check` | `ManageSafeAccessPolicies` (Admin); audit SafeAccessPolicyChanged |
 | Reports > Safe Access | `GET /api/reports/safe-access`; `POST /api/reports/safe-access/{safeKey}/review` | ViewDashboard; ReviewAccountCompliance to review |
+| Reports > Safe Administrators (D-335) | `GET /api/reports/safe-administrators`; `GET .../export?format=&view=safe|person&includeBuiltIn=` | ViewDashboard |
 | Account page, Compliance | `GET /api/account-progress/{key}/compliance`; `PUT/DELETE .../compliance-review` | ViewDashboard; ReviewAccountCompliance to change |
 
 Seeded once, to edit: a Safe role "End user" (ListAccounts, UseAccounts, RetrieveAccounts) and a **disabled** policy "Example: every Safe" (Required `{SafeName}_Users` holding End user with people; Forbidden `Vault Admins`). The names are a suggestion, not a CyberArk default.
+
+## Safe Administrators (D-335)
+
+The least-privilege view, apart from the policies: `SafeAdministratorsRepository` lists, from `vw_safe_access_people` and `bridge_entitlement_permission`, each Safe and person holding **Manage Safe** or **Manage Safe Members**, one row per Safe and person with every way they reach it joined (`AccessPaths`). **Full rights** means holding all of `FullRightsPermissions` (the 19 permissions both sources grant; not the request-authorization levels, not the move permissions, which the sources split differently). A row is **built-in** when the person is one of CyberArk's own users: a Safe member user flagged `fact_safe_entitlement.IsPredefinedUser`, or a Vault user of a built-in or component type (`BuiltInUserTypes`; applications, type 35 or AIMAccount, stay listed). Built-in groups (Vault Admins, PSM and PVWA groups) are not hidden: their people are listed, and only built-in users among them are hidden (the user's choice, 2026-11-04). The page hides built-in rows by default and filters on its own (full rights only, text); **By person** counts each person's Safes (`ByPerson`, mirrored in the page). The export takes the view and `includeBuiltIn`.
 
 ## Not built
 

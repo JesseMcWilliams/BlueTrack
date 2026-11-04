@@ -253,6 +253,7 @@ builder.Services.AddScoped<SafeAccessRepository>();   // D-281/D-282
 builder.Services.AddScoped<ProgressRuleRepository>();   // D-283/D-284
 builder.Services.AddScoped<SafeAccessPolicyRepository>();   // D-300/D-301
 builder.Services.AddScoped<CpmHealthRepository>();      // D-288
+builder.Services.AddScoped<SafeAdministratorsRepository>();   // D-335
 builder.Services.AddScoped<AdAccountDiscoveryService>();
 builder.Services.AddScoped<AdDiscoveryRunRepository>();   // D-317
 builder.Services.AddSingleton<AdDiscoveryRunner>();   // D-317: one run at a time, for the schedule and Run now

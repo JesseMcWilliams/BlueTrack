@@ -239,7 +239,10 @@ async function saveSchedule() {
     body: JSON.stringify({
       dailyDigestTime: schedule.value.dailyDigestTime,
       weeklySummaryDay: schedule.value.weeklySummaryDay,
-      weeklySummaryTime: schedule.value.weeklySummaryTime
+      weeklySummaryTime: schedule.value.weeklySummaryTime,
+      // D-334: the application owners' emails (with OverdueRiskExceptions).
+      ownerIncludeAccountExceptions: schedule.value.ownerIncludeAccountExceptions,
+      ownerReminderDays: Number(schedule.value.ownerReminderDays) || 0
     })
   })
   if (!response.ok) {
@@ -424,6 +427,17 @@ async function sendTestEmail() {
             </label>
           </p>
           <p><label class="field-label"><span class="field-label-text">{{ t('admin.notifications.weeklySummaryTime') }}</span> <input v-model="schedule.weeklySummaryTime" type="time" required /></label></p>
+          <fieldset>
+            <legend>{{ t('admin.notifications.ownerHeading') }}</legend>
+            <p>{{ t('admin.notifications.ownerIntro') }}</p>
+            <p><label><input v-model="schedule.ownerIncludeAccountExceptions" type="checkbox" /> {{ t('admin.notifications.ownerIncludeAccountExceptions') }}</label></p>
+            <p>
+              <label class="field-label">
+                <span class="field-label-text">{{ t('admin.notifications.ownerReminderDays') }}</span>
+                <input v-model.number="schedule.ownerReminderDays" type="number" min="0" max="90" step="1" required />
+              </label>
+            </p>
+          </fieldset>
           <button type="submit" class="btn-primary">{{ t('admin.notifications.saveSchedule') }}</button>
         </form>
       </template>

@@ -112,7 +112,8 @@
     "adminSafeRoleCreate": "New Safe Role",
     "adminSafeRoleEdit": "Edit Safe Role",
     "reportsCpmHealth": "CPM Health",
-    "reportsSafeAccess": "Safe Access"
+    "reportsSafeAccess": "Safe Access",
+    "reportsSafeAdministrators": "Safe Administrators"
   },
   "userMenu": {
     "account": "Account",
