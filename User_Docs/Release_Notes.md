@@ -6,6 +6,7 @@ What changed in each BlueTrack release, newest first, for users and administrato
 
 ### New
 
+- **Reason for CyberArk CP and CCP retrievals.** Admin > Secrets Store Configuration takes an optional **Reason** for the Credential Provider and the Central Credential Provider; BlueTrack sends it with each retrieval, and the Credential Provider records it in its audit log. (Administrator Settings Reference)
 - **Home page.** Signing in opens Home: a greeting, your roles, a card for each area you can open and, if you can see tracked data, the KPI funnel (all accounts, in scope, onboarded, managed, compliant; each count opens Accounts filtered to it). The Dashboard moved to its own top-nav entry, at `/dashboard`. (User Guide)
 - **Archived status.** An account can be Archived: out of scope for the KPIs like Risk Accepted / Excluded, but with no Risk Exception, and counted on its own on the KPI Summary and the Dashboard. A Progress Rule can now archive accounts at any stage (Admin > Progress Rules, "Archives accounts"), for example accounts whose CPM disable reason is ADArchive in an Archive folder. An archived account stays Archived until someone changes its status. (User Guide; Administrator Settings, Progress Rules)
 - **Folder** of a Self-Hosted account, read from PVWA, on the account page and as a Progress Rule field, with **Why the CPM doesn't manage it** (the CPM disable reason) as another rule field. (User Guide; Administrator Settings, Progress Rules)

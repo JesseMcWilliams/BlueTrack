@@ -60,6 +60,7 @@ public sealed class CyberArkCpSecretsProvider(SecretsStoreRepository secretsStor
             Folder = query.Folder,
             Object = query.Object
         };
+        if (!string.IsNullOrWhiteSpace(settings.Reason)) request.Reason = settings.Reason.Trim();   // D-309
 
         try
         {

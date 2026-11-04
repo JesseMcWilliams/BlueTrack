@@ -10,4 +10,6 @@ public sealed class CyberArkCcpSettings
 {
     public required string BaseUrl { get; init; }
     public required string AppId { get; init; }
+    /// <summary>D-309: sent as the Reason query parameter, which the Credential Provider writes to its audit log; blank sends none.</summary>
+    public string? Reason { get; init; }
 }

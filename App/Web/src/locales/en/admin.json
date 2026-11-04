@@ -769,6 +769,8 @@
     "credential": "Credential",
     "yes": "Yes",
     "appId": "App ID:",
+    "reason": "Reason:",
+    "reasonPlaceholder": "Audited with each retrieval (optional)",
     "baseUrl": "Base URL:",
     "baseUrlPlaceholder": "https://pvwa.company.com",
     "applianceUrl": "Appliance URL:",

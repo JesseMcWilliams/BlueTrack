@@ -164,10 +164,14 @@ async function testConnection() {
           <td>
             <template v-if="backend.backendType === 'CyberArkCP'">
               <p><label class="field-label"><span class="field-label-text">{{ t('admin.secretsStoreConfiguration.appId') }}</span> <input v-model="settingsObjects[backend.backendType].AppId" /></label></p>
+              <!-- D-309: the reason the Credential Provider audits with each retrieval. -->
+              <p><label class="field-label"><span class="field-label-text">{{ t('admin.secretsStoreConfiguration.reason') }}</span> <input v-model="settingsObjects[backend.backendType].Reason" :placeholder="t('admin.secretsStoreConfiguration.reasonPlaceholder')" /></label></p>
             </template>
             <template v-else-if="backend.backendType === 'CyberArkCCP'">
               <p><label class="field-label"><span class="field-label-text">{{ t('admin.secretsStoreConfiguration.baseUrl') }}</span> <input v-model="settingsObjects[backend.backendType].BaseUrl" :placeholder="t('admin.secretsStoreConfiguration.baseUrlPlaceholder')" /></label></p>
               <p><label class="field-label"><span class="field-label-text">{{ t('admin.secretsStoreConfiguration.appId') }}</span> <input v-model="settingsObjects[backend.backendType].AppId" /></label></p>
+              <!-- D-309: the reason the Credential Provider audits with each retrieval. -->
+              <p><label class="field-label"><span class="field-label-text">{{ t('admin.secretsStoreConfiguration.reason') }}</span> <input v-model="settingsObjects[backend.backendType].Reason" :placeholder="t('admin.secretsStoreConfiguration.reasonPlaceholder')" /></label></p>
             </template>
             <template v-else-if="backend.backendType === 'CyberArkConjur'">
               <p><label class="field-label"><span class="field-label-text">{{ t('admin.secretsStoreConfiguration.applianceUrl') }}</span> <input v-model="settingsObjects[backend.backendType].ApplianceUrl" /></label></p>
