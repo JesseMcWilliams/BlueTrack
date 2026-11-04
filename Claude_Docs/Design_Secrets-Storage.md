@@ -152,3 +152,5 @@ None remaining as of 2026-08-27. Q-08 is fully resolved: architecture (D-16), ba
 ## CyberArk CP and CCP: a blank folder means Root (D-249)
 
 A CP or CCP request needs a Folder; CP refuses an empty one (`APPPR502E Password query [Folder=;Safe=...;Object=...] is invalid`). `SecretQuery.WithCyberArkFolder()` replaces a blank Folder with `Root` (and trims a given one) in `CyberArkCpSecretsProvider` and `CyberArkCcpSecretsProvider`, so a credential or Secrets Store lookup with no folder works. The fallback cache is keyed on the normalized query. Conjur, Azure Key Vault and AWS Secrets Manager keep their own meaning of Folder (unused, a version, a version stage).
+
+**Updated 2026-11-04:** the Secrets Store's Credential box shows only for the backends that read it (Conjur, Azure as a service principal, AWS with an access key; D-306). CyberArk CP and CCP settings take an optional **Reason**, sent with each retrieval and written to the Credential Provider's audit log (D-309). CP added after install: re-run the installer's `Build.Api` step once the SDK is present; the error says so when CP is chosen but not built in (D-310).

@@ -99,7 +99,7 @@ Define your Low/Medium/High/Critical (or however you name them) bands under **Ad
 
 ## 8. Data Sources
 
-**Admin > Data Sources** (permission `ManageDataSources`, granted to Admin) imports CSV files from folders on a schedule, using the same imports as the Bulk Actions uploads:
+**Admin > Data Sources** (permission `ManageDataSources`, granted to Admin) also sets up the CyberArk sources, AD account discovery (when it runs and which LDAP domains it reads) and DNA workbook uploads (Admin_DataManagement.md). Its data feeds import CSV files from folders on a schedule, using the same imports as the Bulk Actions uploads:
 
 - **A feed** names the import it runs (target inventory, access groups, account links, applications, safe assignments or account inventory), an optional mapping profile, a folder and a file name pattern. The pattern may contain today's date in braces, such as `targets_{yyyy-MM-dd}.csv`, and the `*` and `?` wildcards. The newest matching file is imported and left in place.
 - **Account inventory feeds** add the accounts another system has (a CSV with `UserName` and `Address`) to Account Progress at **Discovered**, under a **source system** you choose or add on the feed's page. Accounts missing from a later file are marked deleted. Details: [Admin_SettingsReference.md](Admin_SettingsReference.md), "Data Sources (feeds)".

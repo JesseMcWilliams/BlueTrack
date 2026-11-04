@@ -111,3 +111,7 @@ Permission-based authorization is fully built: `GroupIdentifierExtractor` → `A
 ## Open Questions
 
 None remaining as of 2026-08-27 — both prior open questions (live vs. cached Reload Rights; self-service scope) were resolved this session as D-13 and D-14 above. Still true as of the 2026-09-05 permission-catalog refresh (`ViewDeploymentInfo` added above) — a documentation correction, not a new open question.
+
+**Updated 2026-11-03 (D-304):** every page of tracked data names the permission its first API call needs in `routePermissions.js`, so the router sends a user without it to Access Denied instead of the page showing "Request failed: 403". The top nav and the Reports hub hide what the user can't open (D-305).
+
+**Updated 2026-11-03 (D-307, replacing D-305's first-page redirect):** everyone with a role starts on **Home** (`/`), which offers only the areas the user may open (`canOpen`, `canOpenReports`, `canOpenAdmin`); the Dashboard is at `/dashboard` and needs ViewDashboard like any tracked-data page.

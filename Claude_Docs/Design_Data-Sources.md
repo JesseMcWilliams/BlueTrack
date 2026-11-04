@@ -129,3 +129,5 @@ BULK INSERT's own errors are re-raised with a plain message naming the file: 730
 ## Open questions
 
 None outstanding as of 2026-10-13 (phase 4's details settled in D-212).
+
+**Updated 2026-11-04:** AD Account Discovery is a data source on Admin > Data Sources: a run time (default 04:30), Run now and a run log (`web.ad_discovery_run`, D-317). It reads only enabled LDAP domains with **Use as a data source** (D-324); a domain can be a discovery place only, unused by BlueTrack's own lookups (`UseForIntegration` off, D-328). **DNA** account-list workbooks are uploaded there too: the finding sheets' accounts go to `web.dna_account` (each upload replaces the last; the HCC sheet and credential columns are never read), matched to tracked accounts, and listed on Reports > DNA Accounts (D-325).
