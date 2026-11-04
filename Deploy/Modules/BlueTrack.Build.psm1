@@ -50,6 +50,7 @@ function Publish-BlueTrackApi {
             if ($LASTEXITCODE -ne 0) {
                 throw "dotnet publish failed for App/Api (exit code $LASTEXITCODE) -- see the output above for the actual build error."
             }
+            Write-BlueTrackVersionFile -OutputDirectory $OutputDirectory
         } finally {
             if ($takenOffline) {
                 Remove-Item -Path $appOffline -ErrorAction SilentlyContinue
@@ -59,6 +60,25 @@ function Publish-BlueTrackApi {
     }
 
     return $OutputDirectory
+}
+
+function Write-BlueTrackVersionFile {
+    <#
+    .SYNOPSIS
+        D-311: writes BlueTrack.version.txt next to the published API, so the install folder says which version it holds
+        (the version About and Admin > Deployment show: the release, or a dev build's stamp), when and where it was built.
+    #>
+    [CmdletBinding()]
+    param([Parameter(Mandatory)] [string]$OutputDirectory)
+
+    $dll = Join-Path $OutputDirectory 'BlueTrack.Api.dll'
+    $version = (Get-Item -LiteralPath $dll).VersionInfo.ProductVersion
+    $lines = @(
+        "BlueTrack $version",
+        "Built $((Get-Date).ToUniversalTime().ToString('yyyy-MM-dd HH:mm:ss')) UTC on $env:COMPUTERNAME"
+    )
+    Set-Content -LiteralPath (Join-Path $OutputDirectory 'BlueTrack.version.txt') -Value $lines -Encoding UTF8
+    Write-Host "Wrote BlueTrack.version.txt (BlueTrack $version)."
 }
 
 function Invoke-BlueTrackWebBuild {

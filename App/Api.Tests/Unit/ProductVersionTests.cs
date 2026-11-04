@@ -32,4 +32,18 @@ public class ProductVersionTests
     {
         Assert.Equal("unknown", AboutController.ProductVersion(null, null));
     }
+    // D-311: the VERSION file at the repo root names the same version as the API project (the release tool sets both).
+    [Fact]
+    public void TheVersionFile_MatchesTheProjectVersion()
+    {
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "VERSION"))) dir = dir.Parent;
+        Assert.NotNull(dir);
+
+        var fileVersion = File.ReadAllText(Path.Combine(dir.FullName, "VERSION")).Trim();
+        var csproj = File.ReadAllText(Path.Combine(dir.FullName, "App", "Api", "BlueTrack.Api.csproj"));
+        var projectVersion = System.Text.RegularExpressions.Regex.Match(csproj, "<Version>([^<]*)</Version>").Groups[1].Value;
+
+        Assert.Equal(projectVersion, fileVersion);
+    }
 }
