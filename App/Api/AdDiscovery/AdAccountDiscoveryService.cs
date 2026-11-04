@@ -49,10 +49,11 @@ public sealed class AdAccountDiscoveryService(
     /// <remarks>D-317: says what the run did, for its row in web.ad_discovery_run.</remarks>
     public async Task<AdDiscoveryRunSummary> RunAsync(CancellationToken cancellationToken = default)
     {
-        var configs = await ldapConfigRepository.GetEnabledAsync();
+        // D-324: only the domains used as a data source.
+        var configs = await ldapConfigRepository.GetDataSourcesAsync();
         if (configs.Count == 0)
         {
-            return AdDiscoveryRunSummary.Skip("No LDAP domain is enabled (Admin > Credentials & LDAP).");
+            return AdDiscoveryRunSummary.Skip("No enabled LDAP domain is used as a data source (Admin > Data Sources).");
         }
 
         var accessGroups = await accessGroupRepository.GetAllIdentifiersAsync();

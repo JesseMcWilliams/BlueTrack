@@ -82,4 +82,48 @@ public class AdAccountDiscoveryMultiDomainTests
                 """, new { domains = new[] { domainA, domainB, domainDown }, accessGroupKeys });
         }
     }
+    // D-324: a domain not used as a data source isn't read, even though it is enabled for its other uses.
+    [Fact]
+    public async Task ADomainNotUsedAsADataSource_IsNotRead()
+    {
+        var id = Guid.NewGuid().ToString("N")[..8];
+        string domainRead = $"ct-read-{id}.local", domainSkipped = $"ct-skip-{id}.local";
+        var group = $"CT_GroupDs_{id}";
+        var factory = new TestDbConnectionFactory();
+        await using var connection = new SqlConnection(TestDatabase.ConnectionString);
+        var accessGroupKeys = new List<int>();
+        try
+        {
+            await connection.ExecuteAsync(
+                "INSERT INTO web.ldap_config (DomainName, IsEnabled, UseTrustedConnection, UseSsl, UseAsDataSource) VALUES (@domainRead, 1, 1, 0, 1), (@domainSkipped, 1, 1, 0, 0)",
+                new { domainRead, domainSkipped });
+            accessGroupKeys.Add(await connection.QuerySingleAsync<int>(
+                "INSERT INTO web.dim_access_group (GroupName, GroupIdentifier, BaseRiskScore) OUTPUT inserted.AccessGroupKey VALUES (@group, @group, 50)", new { group }));
+
+            var directory = new FakeAdDirectory(new()
+            {
+                [domainRead] = new() { [group] = [User($"read_{id}", "r")] },
+                [domainSkipped] = new() { [group] = [User($"skipped_{id}", "s")] }
+            }, failingDomain: null);
+            var classification = new AccountClassificationRepository(factory);
+            var service = new AdAccountDiscoveryService(new LdapConfigRepository(factory), directory, new AccessGroupRepository(factory),
+                new DiscoveredAccountRepository(factory), classification, new AccountClassificationService(classification),
+                NullLogger<AdAccountDiscoveryService>.Instance);
+            await service.RunAsync();
+
+            var found = (await connection.QueryAsync<string>(
+                "SELECT DomainName FROM web.discovered_account WHERE DomainName IN @domains", new { domains = new[] { domainRead, domainSkipped } })).ToList();
+            Assert.Equal([domainRead], found);
+        }
+        finally
+        {
+            await connection.ExecuteAsync("""
+                DELETE m FROM web.discovered_account_access_group_map m JOIN web.discovered_account d ON d.DiscoveredAccountKey = m.DiscoveredAccountKey
+                WHERE d.DomainName IN @domains;
+                DELETE FROM web.discovered_account WHERE DomainName IN @domains;
+                DELETE FROM web.ldap_config WHERE DomainName IN @domains;
+                DELETE FROM web.dim_access_group WHERE AccessGroupKey IN @accessGroupKeys;
+                """, new { domains = new[] { domainRead, domainSkipped }, accessGroupKeys });
+        }
+    }
 }

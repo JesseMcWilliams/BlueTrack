@@ -6,6 +6,7 @@ What changed in each BlueTrack release, newest first, for users and administrato
 
 ### New
 
+- **Use as a data source** on each LDAP domain (Admin > Credentials & LDAP, and listed on Admin > Data Sources with **Add a domain**): AD account discovery reads only the domains ticked. Every existing domain starts ticked, so nothing changes until you untick one. (Administrator Data Management)
 - **Power BI reader role**: the installer's `Db.PowerBiAccess` step (`-PowerBiReaderAccount DOMAIN\Name`) creates the database role `BlueTrack_PowerBI_Reader`, which may read only the Power BI views and tables, and adds that account or group to it. Admin > Power BI says whether it's set up. (Administrator Operations Guide)
 - **Other PVWA addresses** on Admin > Data Sources > CyberArk sources: Self-Hosted Direct tries them in order when the PVWA address can't be reached, and says when it did. A refused credential is never tried on another. (Administrator Settings Reference)
 - **Accounts export and import**: **Export CSV / Excel** on Accounts downloads the filtered list with its editable fields, and **Import changes...** reads such a CSV back, saving each row's changed values with the edit page's rules and reporting any row it couldn't apply. (User Guide)
@@ -49,6 +50,7 @@ What changed in each BlueTrack release, newest first, for users and administrato
 
 ### Upgrading
 
+- The upgrade adds database script 62 (the LDAP domains' Use as a data source, on for every existing domain); the installer applies it.
 - The upgrade adds database script 61 (the other PVWA addresses); the installer applies it.
 - The upgrade adds database script 60 (the longer list of CyberArk built-in Safes); the installer applies it.
 - The upgrade adds database script 59 (AD Account Discovery's run time and run log); the installer applies it. AD Account Discovery now runs at 04:30 server time; change it on Admin > Data Sources.

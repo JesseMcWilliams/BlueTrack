@@ -16,7 +16,8 @@ function makeRouter() {
 }
 
 const STATUS = {
-  runTime: '04:30', enabledDomainCount: 2, isRunning: false,
+  runTime: '04:30', isRunning: false,
+  domains: [{ ldapConfigKey: 1, domainName: 'corp.example', isEnabled: true, useAsDataSource: true }, { ldapConfigKey: 2, domainName: 'lab.example', isEnabled: true, useAsDataSource: true }, { ldapConfigKey: 3, domainName: 'old.example', isEnabled: false, useAsDataSource: false }],
   recentRuns: [{ adDiscoveryRunKey: 1, triggeredBy: 'Schedule', startedAt: '2026-11-04T04:30:00', finishedAt: '2026-11-04T04:31:00', status: 'Partial', domainCount: 2, domainsRead: 1, accountsFound: 40, message: 'corp.example: couldn\'t connect.' }]
 }
 
@@ -43,11 +44,28 @@ describe('AdDiscoverySection.vue', () => {
     routeFetch({ 'GET /api/admin/ad-discovery': jsonResponse(STATUS) })
     const wrapper = await mountSection()
 
-    expect(wrapper.text()).toContain('Reads 2 enabled LDAP domains.')
+    expect(wrapper.text()).toContain('Reads 2 LDAP domains')
+    expect(wrapper.text()).toContain('(disabled on Credentials & LDAP, so not read)')
     expect(wrapper.find('input[type="time"]').element.value).toBe('04:30')
     expect(wrapper.find('tbody').text()).toContain('Partial')
     expect(wrapper.find('tbody').text()).toContain('40 accounts from 1 of 2 domains')
     expect(wrapper.find('tbody').text()).toContain('couldn\'t connect')
+  })
+
+  // D-324: each domain's use as a data source is set here; the domain itself on Credentials & LDAP.
+  it('turns a domain\'s use as a data source off, and links to adding a domain', async () => {
+    routeFetch({
+      'GET /api/admin/ad-discovery': jsonResponse(STATUS),
+      'PUT /api/admin/ad-discovery/domains/2': jsonResponse(null, true, 204)
+    })
+    const wrapper = await mountSection()
+
+    await wrapper.findAll('.ad-domains input')[1].setValue(false)
+    await flushPromises()
+
+    const put = globalThis.fetch.mock.calls.find(([, o]) => o?.method === 'PUT')
+    expect(JSON.parse(put[1].body)).toEqual({ useAsDataSource: false })
+    expect(wrapper.findAll('a').map(a => a.attributes('href'))).toContain('/admin/credentials?newDomain=1')
   })
 
   it('saves the run time', async () => {

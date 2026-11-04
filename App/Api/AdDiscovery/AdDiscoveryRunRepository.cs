@@ -63,11 +63,22 @@ public sealed class AdDiscoveryRunRepository(IDbConnectionFactory connectionFact
             "DELETE FROM web.ad_discovery_run WHERE StartedAt < DATEADD(DAY, -@retentionDays, SYSUTCDATETIME()) AND Status <> 'Running'", new { retentionDays });
     }
 
-    public async Task<int> CountEnabledDomainsAsync()
+    /// <summary>D-324: every LDAP domain, with whether discovery reads it (enabled and used as a data source).</summary>
+    public async Task<IReadOnlyList<AdDiscoveryDomain>> GetDomainsAsync()
     {
         using var connection = connectionFactory.Create();
-        return await connection.QuerySingleAsync<int>("SELECT COUNT(*) FROM web.ldap_config WHERE IsEnabled = 1");
+        return (await connection.QueryAsync<AdDiscoveryDomain>(
+            "SELECT LdapConfigKey, DomainName, IsEnabled, UseAsDataSource FROM web.ldap_config ORDER BY DomainName")).AsList();
     }
+}
+
+/// <summary>D-324: an LDAP domain as Data Sources lists it.</summary>
+public sealed class AdDiscoveryDomain
+{
+    public int LdapConfigKey { get; init; }
+    public required string DomainName { get; init; }
+    public bool IsEnabled { get; init; }
+    public bool UseAsDataSource { get; init; }
 }
 
 /// <summary>D-317: one row of the AD Account Discovery run log, as Data Sources shows it.</summary>
