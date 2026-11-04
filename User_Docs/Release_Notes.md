@@ -18,6 +18,7 @@ What changed in each BlueTrack release, newest first, for users and administrato
 
 ### Changed
 
+- **Test** on Admin > Data Sources > CyberArk sources is quick for Self-Hosted: it reads one Safe and one account and PVWA's totals, instead of everything a pull reads. **Test with a full read** does the full read. (Administrator Settings Reference)
 - The Settings Reference says how to point BlueTrack at several PVWAs behind a load balancer (its address, with sticky sessions, as CyberArk requires). (Administrator Settings Reference)
 - Choosing the CyberArk CP secrets backend on a server where BlueTrack was built without the CyberArk Application Password SDK now says so, and how to add it (re-run the installer's `Build.Api` step once the Credential Provider is installed). (Administrator Operations Guide)
 - "In scope" on the KPI Summary, Dashboard and Trends now also leaves out Archived accounts.

@@ -342,6 +342,21 @@ public sealed class PvwaClient(HttpClient http, Uri apiRoot)
 
     private static string? Blank(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
+    /// <summary>
+    /// D-313: the quick Test. Reads the first Safe and the first account (limit=1), which proves the credential can list
+    /// both, and the totals PVWA reports with them (<c>count</c>, beside <c>value</c> in Get Safes and Get accounts);
+    /// null when it reports none.
+    /// </summary>
+    public async Task<PvwaProbe> ProbeAsync(string token, CancellationToken ct)
+    {
+        var safes = await GetJsonAsync(token, "Safes?limit=1&offset=0", ct);
+        var accounts = await GetJsonAsync(token, "Accounts?limit=1&offset=0", ct);
+        return new PvwaProbe(ArrayOf(safes, "value").Count, CountOf(safes), ArrayOf(accounts, "value").Count, CountOf(accounts));
+    }
+
+    private static int? CountOf(JsonElement root) =>
+        root.ValueKind == JsonValueKind.Object && root.TryGetProperty("count", out var count) && count.TryGetInt32(out var n) ? n : null;
+
     /// <summary>Safe, account and member lists return <c>{value: [...]}</c>; offset and limit page through them.</summary>
     private async Task<List<JsonElement>> GetPagedAsync(string token, string path, CancellationToken ct)
     {
@@ -671,3 +686,6 @@ public sealed class PvwaClient(HttpClient http, Uri apiRoot)
     private static IEnumerable<string> Strings(JsonElement e, string name) =>
         Arr(e, name).Where(v => v.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(v.GetString())).Select(v => v.GetString()!.Trim());
 }
+
+/// <summary>D-313: what the quick Test read: how many Safes and accounts came back (0 or 1) and the totals PVWA reported.</summary>
+public sealed record PvwaProbe(int SafesReturned, int? SafeCount, int AccountsReturned, int? AccountCount);
