@@ -38,4 +38,10 @@ public sealed class NotificationSchedule
     public required string DailyDigestTime { get; init; }
     public required string WeeklySummaryDay { get; init; }
     public required string WeeklySummaryTime { get; init; }
+
+    /// <summary>D-334: the application owners' daily email also lists Active exceptions on single accounts in their applications.</summary>
+    public bool OwnerIncludeAccountExceptions { get; init; }
+
+    /// <summary>D-334: also remind an application's owner this many days before an exception's review date; 0 = no reminder.</summary>
+    public int OwnerReminderDays { get; init; }
 }

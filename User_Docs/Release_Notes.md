@@ -6,6 +6,9 @@ What changed in each BlueTrack release, newest first, for users and administrato
 
 ### New
 
+- **Progress against target dates** on Reports > Trends: planned (target date reached), completed and overdue accounts over time, for sponsors. The Trends export adds two columns at the end. (User Guide)
+- **Reports > Safe Administrators**: who can manage Safes (Manage Safe, Manage Safe Members) and who holds full rights, by Safe or by person, with CyberArk's built-in users hidden unless you ask for them. (User Guide)
+- **Emails to application owners.** With the **OverdueRiskExceptions** notification on, each application's owner (its Owner Email) gets a daily email of their applications' exceptions that are overdue for review. Two options on Admin > Notifications, both off: also list exceptions on single accounts in the application, and remind the owner some days before the review date. (Administrator Settings Reference)
 - **AD domains for discovery only**: an LDAP domain can be a place AD account discovery looks without BlueTrack's own lookups using it (untick **Use for BlueTrack's own lookups**); Data Sources' **Add a domain for discovery only** opens such a domain. (Administrator Settings Reference)
 - **Include CyberArk's built-in Safes** on Admin > Data Sources > CyberArk sources (off by default): Self-Hosted Direct also reads the Vault's internal Safes and their members, to review whether that data is useful. (Administrator Settings Reference)
 - **CyberArk Discovery & Audit (DNA) as a data source**: upload DNA's account-list workbook on Admin > Data Sources, and see its accounts on **Reports > DNA Accounts**, with whether BlueTrack tracks each. Its hard-coded credentials are never read. (Administrator Data Management)
@@ -28,6 +31,7 @@ What changed in each BlueTrack release, newest first, for users and administrato
 
 ### Changed
 
+- **Who can use this account** names the nested groups for someone who reaches a Safe through a group inside a group, for example **Via AD group:** Safe Admins > Team A > Sub-team (the shortest such chain). It shows after the first Self-Hosted Direct pull after the upgrade. (User Guide)
 - **Page layout**: pages use the system's own font; the top nav marks the area you're in and wraps on a narrow window, where tables scroll sideways instead of widening the page; the Admin and Reports lists are in titled groups, with the open page marked; column headings are plain text with the sort arrow; the page controls show only when there is more than one page; on Accounts, **Deleted accounts** and **Linked feed accounts** are under **More filters**, and Export and Import changes sit on one row; the Dashboard puts what needs attention first and keys its pie charts; Home's cards show what needs attention (overdue accounts, exceptions past review or awaiting approval); on an account's page the fields sit side by side, Save and Cancel stay in view, and **Delete account...** is at the end under **Deletion**; the sign-in page shows no menu. Admin is in the menu only for someone with an Admin page. (User Guide)
 - **Everything discovered** counts an account that both AD discovery and DNA found once; dismissed AD candidates count, and only duplicates and linked accounts are left out. (User Guide)
 - The KPI funnel now starts with **Everything discovered**: every tracked account plus the AD-discovered and DNA accounts not tracked yet, on Home, the Dashboard and Reports > KPI Summary (and its export). (User Guide)
@@ -59,6 +63,8 @@ What changed in each BlueTrack release, newest first, for users and administrato
 ### Upgrading
 
 - The installer adds the IIS **Application Initialization** feature (step `Prereq.IisAppInit`) and sets BlueTrack's application pool never to stop for being idle and the API to start with it. Nothing to do by hand; say yes when it offers to install the feature.
+- The upgrade adds database script 67 (the application owners' email options); the installer applies it. With **OverdueRiskExceptions** on, application owners with an Owner Email start getting their own email the day after the upgrade; clear an Owner Email to leave that owner out.
+- The upgrade adds database script 66 (the nested groups on Via AD group); the installer applies it.
 - The upgrade adds database script 65 (Use for BlueTrack's own lookups, on for every existing LDAP domain); the installer applies it.
 - The upgrade adds database script 64 (the built-in Safes option, off); the installer applies it.
 - The upgrade adds database script 63 (the DNA accounts and their imports); the installer applies it.

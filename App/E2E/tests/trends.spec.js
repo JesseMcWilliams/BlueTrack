@@ -14,10 +14,10 @@ test('Viewer opens Trends from the Reports column, filters by week and Safe, and
   await expect(page).toHaveURL(/\/reports\/trends$/)
   await expect(page.getByRole('heading', { name: 'Trends', level: 2 })).toBeVisible()
 
-  for (const title of ['Accounts by stage', '% complete', 'Accounts by risk level']) {
+  for (const title of ['Accounts by stage', '% complete', 'Progress against target dates', 'Accounts by risk level']) {   // D-336: four charts
     await expect(page.getByRole('heading', { name: title, level: 3 })).toBeVisible()
   }
-  await expect(page.locator('.trends-canvas canvas')).toHaveCount(3)
+  await expect(page.locator('.trends-canvas canvas')).toHaveCount(4)
 
   // By week: the request carries it, and the periods become weeks.
   const weekly = page.waitForResponse(r => r.url().includes('/api/reports/trends?') && r.url().includes('granularity=week'))

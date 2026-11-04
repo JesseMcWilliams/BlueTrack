@@ -132,7 +132,8 @@ public class SafeGroupAdExpansionTests
             """, new { token });
         try
         {
-            var directory = new FakeAdDirectory(new() { ["company.com"] = new() { [$"{token} Admins"] = [User("ann"), User("bob")] } });
+            // D-333: bob is in the group through two nested groups.
+            var directory = new FakeAdDirectory(new() { ["company.com"] = new() { [$"{token} Admins"] = [User("ann"), User("bob") with { NestedPath = "Team A > Sub-team" }] } });
             var factory = new TestDbConnectionFactory();
             var service = new SafeGroupAdExpansionService(new LdapConfigRepository(factory), directory, new SelfHostedDirectRepository(factory),
                 NullLogger<SafeGroupAdExpansionService>.Instance);
@@ -144,6 +145,11 @@ public class SafeGroupAdExpansionTests
                 "SELECT SamAccountName FROM dbo.ad_group_member WHERE GroupKey = @groupKey ORDER BY SamAccountName", new { groupKey })).ToList());
             Assert.Equal(("Name", "Found", 2), await connection.QuerySingleAsync<(string, string, int)>(
                 "SELECT MatchedBy, Status, MemberCount FROM dbo.ad_group_read WHERE GroupKey = @groupKey", new { groupKey }));
+            Assert.Equal([("ann", $"Via AD group: {token} Admins"), ("bob", $"Via AD group: {token} Admins > Team A > Sub-team")],
+                (await connection.QueryAsync<(string, string)>("""
+                    SELECT p.SamAccountName, p.AccessPath FROM dbo.vw_safe_access_people p JOIN dim_safe sf ON sf.SafeKey = p.SafeKey
+                    WHERE sf.SafeUrlId = @token + '_Safe' ORDER BY p.SamAccountName
+                    """, new { token })).ToList());
         }
         finally
         {

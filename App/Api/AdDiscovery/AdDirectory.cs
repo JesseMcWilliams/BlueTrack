@@ -20,6 +20,12 @@ public sealed record DirectoryUser(string SamAccountName, string? DistinguishedN
 
     /// <summary>The allow-listed attributes (AccountClassificationAttributes.Allowed) that have a value, keyed by their LDAP name.</summary>
     public IReadOnlyDictionary<string, string>? Attributes { get; init; }
+
+    /// <summary>
+    /// D-333: the nested groups between the group read and this user, outermost first, joined with " > " (the shortest
+    /// such path); null for a direct member, or when GetUserMembers wasn't asked for paths or couldn't work one out.
+    /// </summary>
+    public string? NestedPath { get; init; }
 }
 
 /// <summary>
@@ -35,8 +41,11 @@ public interface IAdDirectory
 
 public interface IAdDirectorySession : IDisposable
 {
-    /// <summary>The group's user members, nested groups included; null when this domain has no such group.</summary>
-    IReadOnlyList<DirectoryUser>? GetUserMembers(string groupIdentifier);
+    /// <summary>
+    /// The group's user members, nested groups included; null when this domain has no such group. With
+    /// <paramref name="withNestedPath"/> (D-333), each user's NestedPath names the groups in between.
+    /// </summary>
+    IReadOnlyList<DirectoryUser>? GetUserMembers(string groupIdentifier, bool withNestedPath = false);
 
     /// <summary>
     /// D-233: the users whose <paramref name="attributeName"/> (sAMAccountName, employeeID or employeeNumber)
@@ -60,7 +69,7 @@ public sealed class LdapAdDirectory(LdapContextFactory contextFactory) : IAdDire
 
     private sealed class Session(PrincipalContext context) : IAdDirectorySession
     {
-        public IReadOnlyList<DirectoryUser>? GetUserMembers(string groupIdentifier)
+        public IReadOnlyList<DirectoryUser>? GetUserMembers(string groupIdentifier, bool withNestedPath = false)
         {
             // Expected to miss for most groups in a multi-domain setup (a group
             // only exists in the domain it was created in), and for any
@@ -80,7 +89,53 @@ public sealed class LdapAdDirectory(LdapContextFactory contextFactory) : IAdDire
                     }
                 }
             }
-            return users;
+            if (!withNestedPath) return users;
+
+            // D-333: the flattened list above stays the source of who is a member (it also covers primary-group
+            // members); a second, level-by-level walk only names the groups in between. Best effort: if the walk
+            // fails, the users are returned without paths.
+            var paths = NestedPathsBySid(group);
+            return paths is null
+                ? users
+                : users.Select(u => u.ObjectSid is not null && paths.TryGetValue(u.ObjectSid, out var path) && path.Count > 0
+                    ? u with { NestedPath = string.Join(NestedGroupPaths.Separator, path) }
+                    : u).ToList();
+        }
+
+        private static Dictionary<string, IReadOnlyList<string>>? NestedPathsBySid(GroupPrincipal root)
+        {
+            var opened = new List<Principal>();
+            try
+            {
+                (List<string> Users, List<(string Key, string Name, GroupPrincipal Group)> Groups) Direct(GroupPrincipal g)
+                {
+                    var users = new List<string>();
+                    var groups = new List<(string, string, GroupPrincipal)>();
+                    foreach (var member in g.GetMembers(recursive: false))
+                    {
+                        if (member is GroupPrincipal nested && nested.Sid is not null)
+                        {
+                            opened.Add(nested);
+                            groups.Add((nested.Sid.Value, nested.Name ?? nested.SamAccountName ?? nested.Sid.Value, nested));
+                            continue;
+                        }
+                        using (member)
+                        {
+                            if (member is UserPrincipal u && u.Sid is not null) users.Add(u.Sid.Value);
+                        }
+                    }
+                    return (users, groups);
+                }
+                return NestedGroupPaths.Shortest(root, root.Sid?.Value ?? root.DistinguishedName ?? "", Direct);
+            }
+            catch (Exception ex) when (ex is PrincipalException or DirectoryServicesCOMException or System.Runtime.InteropServices.COMException or InvalidOperationException)
+            {
+                return null;
+            }
+            finally
+            {
+                foreach (var p in opened) p.Dispose();
+            }
         }
 
         public IReadOnlyList<DirectoryUser> FindUsers(string attributeName, IReadOnlyCollection<string> values)

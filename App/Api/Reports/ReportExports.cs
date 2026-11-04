@@ -30,6 +30,8 @@ public static class ReportExports
     public static readonly ReportExportInfo AuditLog = new("audit-log", "AuditLog", "Audit Log");
     public static readonly ReportExportInfo CpmHealth = new("cpm-health", "CpmHealth", "CPM Health");   // D-288
     public static readonly ReportExportInfo Accounts = new("accounts", "Accounts", "Accounts");   // D-318
+    public static readonly ReportExportInfo SafeAdministrators = new("safe-administrators", "SafeAdministrators", "Safe Administrators");   // D-335
+    public static readonly ReportExportInfo SafeAdministratorsByPerson = new("safe-administrators-by-person", "SafeAdministratorsByPerson", "Safe Administrators by person");   // D-335
 
     // The pages show every date as yyyy-MM-dd (formatDate), so the exports do too.
     private static DateOnly? Day(DateTime? value) => value is { } v ? DateOnly.FromDateTime(v) : null;
@@ -221,6 +223,34 @@ public static class ReportExports
         new("Deleted accounts", r => r.DeletedAccountCount)
     ];
 
+    /// <summary>D-335: as SafeAdministrators.vue's By Safe grid.</summary>
+    public static readonly IReadOnlyList<ExportColumn<SafeAdministratorRow>> SafeAdministratorsColumns =
+    [
+        new("Safe", r => r.SafeName),
+        new("Source", r => r.SourceSystemName),
+        new("Person", r => r.PersonName),
+        new("Name", r => r.DisplayName),
+        new("Enabled", r => YesNo(r.IsEnabled)),
+        new("Manage Safe", r => YesNo(r.ManageSafe)),
+        new("Manage Safe Members", r => YesNo(r.ManageSafeMembers)),
+        new("Full rights", r => YesNo(r.FullRights)),
+        new("How", r => r.AccessPaths),
+        new("Built-in", r => YesNo(r.IsBuiltIn))
+    ];
+
+    /// <summary>D-335: as SafeAdministrators.vue's By person grid.</summary>
+    public static readonly IReadOnlyList<ExportColumn<SafeAdministratorPerson>> SafeAdministratorsByPersonColumns =
+    [
+        new("Person", r => r.PersonName),
+        new("Name", r => r.DisplayName),
+        new("Enabled", r => YesNo(r.IsEnabled)),
+        new("Safes", r => r.Safes),
+        new("Manage Safe", r => r.ManageSafeSafes),
+        new("Manage Safe Members", r => r.ManageSafeMembersSafes),
+        new("Full rights", r => r.FullRightsSafes),
+        new("Built-in", r => YesNo(r.IsBuiltIn))
+    ];
+
     /// <summary>D-288: as CpmHealth.vue's grid.</summary>
     public static readonly IReadOnlyList<ExportColumn<CpmHealthRow>> CpmHealthColumns =
     [
@@ -306,6 +336,7 @@ public static class ReportExports
         headers.AddRange(report.Stages.Select(s => $"Stage: {s.Name}"));
         headers.AddRange(["Total Accounts", "In Scope", "Compliant", "% Complete"]);
         headers.AddRange(report.RiskLevels.Select(r => $"Risk: {r.Name}"));
+        headers.AddRange(["Planned by target date", "Overdue"]);   // D-336, last so the earlier columns keep their places
 
         var rows = report.Periods.Select(p =>
         {
@@ -313,6 +344,7 @@ public static class ReportExports
             cells.AddRange(p.StageCounts.Select(c => (object?)c));
             cells.AddRange([p.TotalAccounts, p.InScopeAccounts, p.CompliantAccounts, p.PercentComplete]);
             cells.AddRange(p.RiskCounts.Select(c => (object?)c));
+            cells.AddRange([p.PlannedAccounts, p.OverdueAccounts]);
             return cells.ToArray();
         }).ToList();
         return new ReportTable(headers, rows);

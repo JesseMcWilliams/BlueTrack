@@ -15,7 +15,7 @@ const types = [
   { notificationTypeKey: 5, notificationTypeName: 'OverdueRiskExceptions', description: 'Daily overdue digest', targetRoleKey: null, isEnabled: false },
   { notificationTypeKey: 6, notificationTypeName: 'WeeklySummary', description: 'Weekly summary', targetRoleKey: null, isEnabled: false }
 ]
-const schedule = { dailyDigestTime: '07:00', weeklySummaryDay: 'Mon', weeklySummaryTime: '07:30' }
+const schedule = { dailyDigestTime: '07:00', weeklySummaryDay: 'Mon', weeklySummaryTime: '07:30', ownerIncludeAccountExceptions: false, ownerReminderDays: 0 }
 
 function respond(overrides = {}) {
   return vi.fn((url, init) => {
@@ -171,11 +171,14 @@ describe('Notifications.vue', () => {
 
     const scheduleForm = wrapper.findAll('form').find(f => f.text().includes('Save Schedule'))
     await scheduleForm.find('input[type="time"]').setValue('06:45')
+    // D-334: the application owners' options.
+    await scheduleForm.find('input[type="checkbox"]').setValue(true)
+    await scheduleForm.find('input[type="number"]').setValue('14')
     await scheduleForm.trigger('submit')
     await flushPromises()
 
     const put = globalThis.fetch.mock.calls.find(([url, init]) => url === '/api/admin/notifications/schedule' && init?.method === 'PUT')
-    expect(JSON.parse(put[1].body)).toEqual({ dailyDigestTime: '06:45', weeklySummaryDay: 'Mon', weeklySummaryTime: '07:30' })
+    expect(JSON.parse(put[1].body)).toEqual({ dailyDigestTime: '06:45', weeklySummaryDay: 'Mon', weeklySummaryTime: '07:30', ownerIncludeAccountExceptions: true, ownerReminderDays: 14 })
     expect(wrapper.text()).toContain('Save failed: 400 -- WeeklySummaryDay must be one of')
   })
 

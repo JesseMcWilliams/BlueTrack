@@ -81,6 +81,8 @@ instead.
 | 63 | `63_BlueTrack_DnaAccounts.sql` | D-325: `web.dna_import`, `web.dna_account`, audit event `DnaImported`: DNA account-list workbooks as a data source. |
 | 64 | `64_BlueTrack_BuiltInSafesOption.sql` | D-327: `cyberark_source_config.IncludeBuiltInSafes`: also read CyberArk's internal Safes (off). |
 | 65 | `65_BlueTrack_LdapIntegrationFlag.sql` | D-328: `ldap_config.UseForIntegration`: an LDAP domain can be a discovery place only (default 1). |
+| 66 | `66_BlueTrack_AdNestedGroupPath.sql` | D-333: `ad_group_member.NestedPath` (and its staging column): the nested groups between a Safe's AD group and the user; `usp_Apply_AdGroupMembers` and `vw_safe_access_people` copied from 48 with it. |
+| 67 | `67_BlueTrack_ApplicationOwnerReviewEmails.sql` | D-334: `notification_config.OwnerIncludeAccountExceptions` and `OwnerReminderDays` (0 to 90): the options of the application owners' review emails. |
 
 ## The baseline (D-195)
 
@@ -105,7 +107,7 @@ scripts but not up to `51` is refused; upgrade it first from the
 
 ## Adding a script
 
-1. Name it `NN_BlueTrack_<Topic>.sql`, with `NN` the next number (`66` is next).
+1. Name it `NN_BlueTrack_<Topic>.sql`, with `NN` the next number (`68` is next).
 2. Start with a header comment: the file name, `RUN THIS AFTER 01-NN.`, what
    it changes and why (with the `D-n` decision), and whether it's safe to
    re-run.

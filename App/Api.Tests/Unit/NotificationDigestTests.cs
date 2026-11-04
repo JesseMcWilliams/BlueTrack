@@ -34,6 +34,18 @@ public class NotificationDigestTests
         Assert.Equal(3, errors.Count);
     }
 
+    [Theory]
+    [InlineData(0, true)]
+    [InlineData(90, true)]
+    [InlineData(-1, false)]
+    [InlineData(91, false)]
+    public void Validate_OwnerReminderDays_From0To90(int days, bool valid)
+    {
+        // D-334.
+        var errors = DigestSchedule.Validate(new NotificationSchedule { DailyDigestTime = "06:30", WeeklySummaryDay = "Fri", WeeklySummaryTime = "17:00", OwnerReminderDays = days });
+        Assert.Equal(valid, errors.Count == 0);
+    }
+
     [Fact]
     public void Email_EncodesEveryValueInHtml_AndKeepsTheTextAsIs()
     {

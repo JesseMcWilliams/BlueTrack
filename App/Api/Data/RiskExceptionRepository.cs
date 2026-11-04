@@ -123,6 +123,56 @@ public sealed class RiskExceptionRepository(IDbConnectionFactory connectionFacto
     }
 
     /// <summary>
+    /// D-334: the Active exceptions an application's owner (dim_application.OwnerEmail) is emailed about: overdue for
+    /// review (ReviewDate before today's UTC date in SQL Server, as GetOverdueReviewAsync) and, with
+    /// <paramref name="reminderDays"/> above 0, due for review exactly that many days ahead. Application-scoped
+    /// exceptions always; with <paramref name="includeAccountExceptions"/>, also single-account ones, through the
+    /// account's own Application or its Safe's (D-238's two routes). An exception reaching two applications with
+    /// different owners is listed for each. Applications without an owner email are left out.
+    /// </summary>
+    public async Task<IReadOnlyList<OwnerReviewRow>> GetOwnerReviewsAsync(bool includeAccountExceptions, int reminderDays)
+    {
+        using var connection = connectionFactory.Create();
+        const string sql = """
+            DECLARE @Today DATE = CAST(SYSUTCDATETIME() AS DATE);
+            WITH ex AS (
+                SELECT re.ExceptionKey, re.ExceptionID, re.ReviewDate, re.ApplicationKey, re.AccountKey,
+                       CASE WHEN re.AccountKey IS NOT NULL THEN 'Account' ELSE 'Application' END AS ScopeType,
+                       COALESCE(NULLIF(fa.UserName, ''), fa.AccountName, da.ApplicationName) AS ScopeName,
+                       CASE WHEN re.ReviewDate < @Today THEN 'Overdue' ELSE 'DueSoon' END AS Kind
+                FROM web.risk_exception re
+                JOIN web.dim_exception_status des ON des.ExceptionStatusKey = re.ExceptionStatusKey
+                LEFT JOIN dbo.fact_account fa ON fa.AccountKey = re.AccountKey
+                LEFT JOIN web.dim_application da ON da.ApplicationKey = re.ApplicationKey
+                WHERE des.StatusName = 'Active'
+                  AND (re.ReviewDate < @Today OR (@ReminderDays > 0 AND re.ReviewDate = DATEADD(DAY, @ReminderDays, @Today)))
+                  AND (re.ApplicationKey IS NOT NULL OR @IncludeAccounts = 1)
+            ),
+            owned AS (
+                SELECT ExceptionKey, ApplicationKey FROM ex WHERE ApplicationKey IS NOT NULL
+                UNION
+                SELECT ex.ExceptionKey, ds.ApplicationKey
+                FROM ex JOIN dbo.fact_account fa ON fa.AccountKey = ex.AccountKey JOIN dbo.dim_safe ds ON ds.SafeKey = fa.SafeKey
+                WHERE ds.ApplicationKey IS NOT NULL
+                UNION
+                SELECT ex.ExceptionKey, fap.ApplicationKey
+                FROM ex JOIN dbo.fact_account_progress fap ON fap.AccountKey = ex.AccountKey
+                WHERE fap.ApplicationKey IS NOT NULL
+            )
+            SELECT LTRIM(RTRIM(app.OwnerEmail)) AS OwnerEmail, app.OwnerName, app.ApplicationName,
+                   ex.ExceptionKey, ex.ExceptionID, ex.ScopeType, ex.ScopeName, ex.ReviewDate, ex.Kind
+            FROM ex
+            JOIN owned o ON o.ExceptionKey = ex.ExceptionKey
+            JOIN web.dim_application app ON app.ApplicationKey = o.ApplicationKey
+            WHERE NULLIF(LTRIM(RTRIM(app.OwnerEmail)), '') IS NOT NULL
+            ORDER BY OwnerEmail, ex.ReviewDate, ex.ExceptionID, app.ApplicationName
+            """;
+        var rows = await connection.QueryAsync<OwnerReviewRow>(sql,
+            new { IncludeAccounts = includeAccountExceptions, ReminderDays = reminderDays });
+        return rows.AsList();
+    }
+
+    /// <summary>
     /// UI review W3-4: the accounts an application-scoped exception covers, the same two routes as
     /// web.vw_account_application_exception (the account's Safe belongs to the application, or the account itself was given
     /// it), not deleted, whatever the exception's status. At most <paramref name="limit"/>, with the full count.

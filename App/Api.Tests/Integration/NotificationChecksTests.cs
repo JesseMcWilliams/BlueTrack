@@ -280,6 +280,91 @@ public class NotificationChecksTests : IClassFixture<BlueTrackWebApplicationFact
         }
     }
 
+    /// <summary>
+    /// D-334: each application's owner gets their own daily email of their applications' overdue exceptions; the two
+    /// options add single-account exceptions in the application and a reminder before the review date.
+    /// </summary>
+    [Fact]
+    public async Task OverdueRiskExceptions_EmailsEachApplicationOwner_TheirOwnExceptions_OnceADay_WithTheOptions()
+    {
+        await SetEnabledAsync(true, OverdueRiskExceptionsCheck.TypeName);
+        var token = $"own{Guid.NewGuid():N}"[..12];
+        var owner = $"{token}@example.com";
+        await using var connection = new SqlConnection(TestDatabase.ConnectionString);
+        var applicationKey = await connection.QuerySingleAsync<int>("""
+            INSERT INTO web.dim_application (ApplicationCode, ApplicationName, OwnerName, OwnerEmail)
+            OUTPUT inserted.ApplicationKey VALUES (@token, @token + ' App', 'Olive Owner', ' ' + @owner + ' ');
+            """, new { token, owner });
+        var accountKey = await TestAccounts.GetAccountKeyAsync("TestAccount04");
+        var originalApplication = await connection.QuerySingleOrDefaultAsync<int?>("SELECT ApplicationKey FROM dbo.fact_account_progress WHERE AccountKey = @accountKey", new { accountKey });
+        await connection.ExecuteAsync("UPDATE dbo.fact_account_progress SET ApplicationKey = @applicationKey WHERE AccountKey = @accountKey", new { applicationKey, accountKey });
+
+        var riskExceptions = new RiskExceptionRepository(new TestDbConnectionFactory());
+        var approver = await TestUsers.GetUserKeyAsync("IntegrationTestUser1");
+        var today = DateTime.UtcNow.Date;
+        var appOverdue = await riskExceptions.CreateAsync(new CreateRiskExceptionRequest { ApplicationKey = applicationKey, Justification = "D-334 app overdue", ReviewDate = today.AddDays(-2) }, approver);
+        var appDueSoon = await riskExceptions.CreateAsync(new CreateRiskExceptionRequest { ApplicationKey = applicationKey, Justification = "D-334 app due soon", ReviewDate = today.AddDays(5) }, approver);
+        var accountOverdue = await riskExceptions.CreateAsync(new CreateRiskExceptionRequest { AccountKey = accountKey, Justification = "D-334 account overdue", ReviewDate = today.AddDays(-1) }, approver);
+        async Task<string> IdOf(int key) => (await riskExceptions.GetByKeyAsync(key))!.ExceptionID + " | ";
+        var (appOverdueId, appDueSoonId, accountOverdueId) = (await IdOf(appOverdue), await IdOf(appDueSoon), await IdOf(accountOverdue));
+        var repository = new NotificationRepository(new TestDbConnectionFactory());
+        List<FakeSender.Message> ToOwner() => _sender.Messages.Where(m => m.To.SequenceEqual([owner])).ToList();
+
+        try
+        {
+            _clock.Set(new DateTimeOffset(2001, 1, 2, 7, 0, 0, TimeSpan.Zero));
+            await NewService().RunOnceAsync(CancellationToken.None);
+            _clock.Set(new DateTimeOffset(2001, 1, 2, 18, 0, 0, TimeSpan.Zero));
+            await NewService().RunOnceAsync(CancellationToken.None);   // Later the same day: not re-sent.
+
+            // Options off: only the application's own overdue exception, to the owner alone (address trimmed).
+            var first = Assert.Single(ToOwner());
+            Assert.Equal($"BlueTrack: 1 Risk Exception for your applications need review", first.Subject);
+            Assert.Contains("Hello Olive Owner", first.Body);
+            Assert.Contains($"{token} App", first.Body);
+            Assert.Contains(appOverdueId, first.Body);
+            Assert.DoesNotContain(appDueSoonId, first.Body);
+            Assert.DoesNotContain(accountOverdueId, first.Body);
+            Assert.Contains("Risk Exceptions", first.Body);
+            // The team's digest still goes to the type's recipients.
+            Assert.Contains(_sender.Messages, m => m.To.Contains(_recipient) && m.Subject.Contains("overdue for review"));
+
+            await repository.SaveScheduleAsync(new NotificationSchedule
+            {
+                DailyDigestTime = "07:00", WeeklySummaryDay = "Mon", WeeklySummaryTime = "07:00",
+                OwnerIncludeAccountExceptions = true, OwnerReminderDays = 5
+            }, null);
+            _clock.Set(new DateTimeOffset(2001, 1, 3, 7, 0, 0, TimeSpan.Zero));
+            await NewService().RunOnceAsync(CancellationToken.None);
+
+            var second = ToOwner()[1];
+            Assert.Equal($"BlueTrack: 3 Risk Exceptions for your applications need review", second.Subject);
+            Assert.Contains(appOverdueId, second.Body);
+            Assert.Contains(accountOverdueId, second.Body);   // the account's own Application
+            Assert.Contains("Due for review in 5 days", second.Body);
+            Assert.Contains(appDueSoonId, second.Body);
+        }
+        finally
+        {
+            foreach (var key in new[] { appOverdue, appDueSoon, accountOverdue }) await riskExceptions.RevokeAsync(key);
+            // The revoked exceptions keep the application (as other tests keep theirs); without an owner email it gets no mail.
+            await connection.ExecuteAsync("""
+                UPDATE dbo.fact_account_progress SET ApplicationKey = @originalApplication WHERE AccountKey = @accountKey;
+                UPDATE web.dim_application SET OwnerEmail = NULL WHERE ApplicationKey = @applicationKey;
+                """, new { originalApplication, accountKey, applicationKey });
+        }
+    }
+
+    [Fact]
+    public void OwnerDedupKey_IsTheDayAndAHashOfTheAddress_SameForAnyCase_AndShortEnough()
+    {
+        var key = OverdueRiskExceptionsCheck.OwnerDedupKey("day:2001-01-02", " Olive@Example.com ");
+        Assert.Equal(key, OverdueRiskExceptionsCheck.OwnerDedupKey("day:2001-01-02", "olive@example.com"));
+        Assert.NotEqual(key, OverdueRiskExceptionsCheck.OwnerDedupKey("day:2001-01-03", "olive@example.com"));
+        Assert.StartsWith("day:2001-01-02|owner:", key);
+        Assert.True(OverdueRiskExceptionsCheck.OwnerDedupKey("day:2001-01-02", new string('a', 320)).Length <= 200);
+    }
+
     [Fact]
     public async Task WeeklySummary_SentOnTheSetDayAndTime_OncePerWeek_SayingNoHistoryWhenThereIsNone()
     {

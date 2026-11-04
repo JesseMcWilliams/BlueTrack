@@ -1,3 +1,4 @@
+using System.Globalization;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using BlueTrack.Api.Audit;
@@ -197,6 +198,10 @@ public sealed class NotificationsController(
         if (before.DailyDigestTime != request.DailyDigestTime) changes.Add(new FieldChange("DailyDigestTime", before.DailyDigestTime, request.DailyDigestTime));
         if (before.WeeklySummaryDay != request.WeeklySummaryDay) changes.Add(new FieldChange("WeeklySummaryDay", before.WeeklySummaryDay, request.WeeklySummaryDay));
         if (before.WeeklySummaryTime != request.WeeklySummaryTime) changes.Add(new FieldChange("WeeklySummaryTime", before.WeeklySummaryTime, request.WeeklySummaryTime));
+        if (before.OwnerIncludeAccountExceptions != request.OwnerIncludeAccountExceptions)
+            changes.Add(new FieldChange("OwnerIncludeAccountExceptions", before.OwnerIncludeAccountExceptions.ToString(), request.OwnerIncludeAccountExceptions.ToString()));
+        if (before.OwnerReminderDays != request.OwnerReminderDays)
+            changes.Add(new FieldChange("OwnerReminderDays", before.OwnerReminderDays.ToString(CultureInfo.InvariantCulture), request.OwnerReminderDays.ToString(CultureInfo.InvariantCulture)));
         if (changes.Count > 0)
         {
             await auditLogger.LogAsync("FieldEdit", user.UserKey, "notification_config", null,

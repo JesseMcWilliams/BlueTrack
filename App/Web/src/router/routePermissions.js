@@ -63,6 +63,7 @@ const OTHER = {
   'reports-kpi-summary': 'ViewDashboard',
   'reports-overdue-worklist': 'ViewDashboard',
   'reports-safe-access': 'ViewDashboard',
+  'reports-safe-administrators': 'ViewDashboard',   // D-335
   'reports-stage-status-summary': 'ViewDashboard',
   'reports-trends': 'ViewDashboard',
   'reports-unresolved-entitlement-members': 'ViewDashboard'
@@ -78,7 +79,7 @@ export const REPORT_PAGES = [
   'reports-overdue-worklist', 'reports-stage-status-summary', 'reports-kpi-summary', 'reports-trends',
   'reports-reconciliation-review', 'reports-possible-matches', 'reports-unresolved-entitlement-members',
   'reports-discovered-accounts', 'reports-dna-accounts', 'reports-risk-score', 'reports-risk-exception-sod',
-  'reports-safe-access', 'reports-cyberark-applications', 'reports-cpm-health', 'reports-decom-safes', 'reports-decom-accounts'
+  'reports-safe-access', 'reports-safe-administrators', 'reports-cyberark-applications', 'reports-cpm-health', 'reports-decom-safes', 'reports-decom-accounts'
 ]
 
 export function canOpen(rights, name) {
