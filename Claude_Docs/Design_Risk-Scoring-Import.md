@@ -92,3 +92,5 @@ Bold = required by the import. Synonyms are a convenience, not a guarantee: the 
 ## See also
 
 - `Design_Risk-Scoring.md` — the data model, target matching/dedup, the scoring algorithm, the admin/report pages, and the full Implementation Status build history for this entire feature (D-119), including this import layer's own Phase B.
+
+**Updated 2026-11-04 (D-316, D-322):** a Target Inventory row that matches a Target (strongly, or a Target known from an earlier link or review) now sets its RiskScore, TargetName, TargetTypeKey and, when the row has one, Description; DiscoverySource stays. A changed score marks whatever reaches the Target stale. Before, a match only added missing identifiers.

@@ -73,3 +73,5 @@ The Account Progress edit form is built end to end against everything decided ab
 ## Open Questions
 
 None remaining as of 2026-08-27 — Q-16 (D-50), Q-18 (D-51), Q-19 (D-52), and Q-20 (D-53) are all resolved above.
+
+**Updated 2026-11-04:** the Accounts list's Search and Owner boxes search 400 ms after typing stops (D-306). The Accounts import (D-318, D-323) saves each row through the bulk edit and save rules (locks, D-51's reason, per-account audit); a blank cell changes nothing unless **Clear a field when its cell is blank** is chosen (never Stage or Status).

@@ -196,23 +196,23 @@ A new install maps `BUILTIN\Administrators` (local administrators of the server)
 | Permission | What it allows | Seeded in |
 |---|---|---|
 | `ViewDashboard` | View the dashboard and read tracked data | Admin, Viewer, Analyst, Approver |
-| `EditAccountProgress` | Edit an account's Blueprint progress record | Admin, Analyst, Approver |
+| `EditAccountProgress` | Edit an account's Blueprint progress record, import changes to Accounts from a file, and set risk score overrides (one account or in bulk on Reports > Risk Score) | Admin, Analyst, Approver |
 | `ApproveExceptions` | Add or approve a risk exception | Admin, Approver |
 | `ConfirmReconciliation` | Confirm an account reconciliation match | Admin, Approver |
 | `ManageTargets` | Manage the Target inventory; also opens Target Match Review and Import Mapping Profiles | Admin, Analyst |
 | `ManageAccessGroups` | Manage Access Groups for risk scoring | Admin, Analyst |
 | `ViewRiskReport` | View the account risk score report | Admin, Analyst |
 | `ManageRiskScoreBands` | Manage Risk Score Bands | Admin |
-| `ViewDiscoveredAccounts` | View the Discovered Accounts report | Admin |
+| `ViewDiscoveredAccounts` | View the Discovered Accounts and DNA Accounts reports | Admin |
 | `ManageDiscoveredAccounts` | Accept or dismiss a Discovered Account | Admin |
 | `ViewRiskExceptionSodReport` | View the Risk Exception segregation-of-duties report | Admin |
 | `DeleteAccounts` | Delete and undelete accounts in BlueTrack, with a reason | Admin |
 | `CuratePlatformMapping` | Curate the platform to account-type mapping | Admin |
 | `CurateApplicationMapping` | Manage Applications and Application ↔ Safe Mapping | Admin |
 | `ManageFieldMetadata` | Manage Field Metadata | Admin |
-| `ManageDataSources` | Manage, test and run data feeds | Admin |
+| `ManageDataSources` | Manage, test and run data feeds, the CyberArk sources, AD account discovery and DNA imports | Admin |
 | `ViewAuditLog` | View and export the audit log | Admin, Auditor |
-| `ViewDeploymentInfo` | View the Deployment page, health checks and backup status | Admin |
+| `ViewDeploymentInfo` | View the Deployment page, health checks and backup status, and Admin > Power BI | Admin |
 | `TriggerBackup` | Run **Backup App** on the Deployment page | Admin |
 | `ManageApplicationConfiguration` | Change Global Application Configuration | Admin |
 | `ManageIdentityProviders` | Configure identity providers | Admin |
@@ -244,6 +244,16 @@ Recommendations:
 - Each page opens only with its permission; otherwise the user sees **Access Denied**. A signed-in user with no role at all sees only a "You don't have access to BlueTrack yet" page naming their account, with **Check again** to re-read their roles once you've mapped one.
 
 ## 3. Data and risk scoring
+
+### Data Sources: AD account discovery and DNA
+
+**Admin > Data Sources** (permission `ManageDataSources`), the **Active Directory account discovery** and **CyberArk Discovery & Audit (DNA)** sections.
+
+| Setting | What it does | Default | Recommended | Why |
+|---|---|---|---|---|
+| Runs at | When AD account discovery runs each day, server time (HH:mm). **Run now** runs it at once. | 04:30 | After the 04:00 data feeds | It reads every inventoried Access Group's members in each domain, which takes a while on a large directory. |
+| Domains (ticks) | Which LDAP domains AD account discovery reads: **Use as a data source** on each domain. Only enabled domains are read. **Add a domain for discovery only** opens a new domain on Credentials & LDAP that BlueTrack's own lookups don't use. | Every existing domain ticked | Tick the domains whose accounts you want discovered | A domain can serve BlueTrack's lookups, discovery, or both. |
+| DNA workbook | Uploads DNA's account-list workbook (.xlsx); it replaces the previous upload. | None | Upload after each DNA scan | The accounts appear on Reports > DNA Accounts and count toward **Everything discovered**. The hard-coded credentials sheet is never read. |
 
 ### Data Sources (feeds)
 

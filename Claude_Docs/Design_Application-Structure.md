@@ -169,3 +169,5 @@ Verified: the API endpoints involved (including the newly-gated one) respond cor
 ## Open Questions
 
 None remaining as of 2026-08-27 — still true as of the 2026-09-05 updates above (Playwright coverage, Dashboard.vue, the `app_config` schema refresh); none of them raised a new open question. Still true as of the 2026-09-10 list-page UX overhaul above.
+
+**Updated 2026-11-04:** Admin > **Power BI** (D-314, ViewDeploymentInfo; the reader role D-321); the Accounts list's **Export** and **Import changes...** (D-318, with Excel, clearing blanks and overrides D-323); Reports > Risk Score's bulk override (D-315); Reports > **DNA Accounts** (D-325, ViewDiscoveredAccounts). The KPI funnel (D-143) now starts with **Everything discovered**: tracked accounts plus untracked AD-discovered and DNA accounts, each once (D-326, D-329); it is the first step on Home, the KPI Summary (and export) and the Dashboard's KPI card.

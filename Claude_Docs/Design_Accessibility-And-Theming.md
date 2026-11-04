@@ -144,3 +144,5 @@ Existing E2E tests that asserted on the old click-anywhere-in-the-row / bare-`<t
 
 ---
 *New document added 2026-09-04, following the user's request to research accessibility requirements and add a Light/Dark/High-Visibility theme system, and their explicit direction (asked directly rather than assumed) to do the full accessibility remediation pass, persist theme choice server-side per user, and write this design document before implementing.*
+
+**Updated 2026-11-03 (D-306):** pages use only the color variables `themes.css` defines (a test fails on any other `--color-*`, except a fallback to `inherit`); the Pull details dialog had used an undefined one and stayed white in Dark.

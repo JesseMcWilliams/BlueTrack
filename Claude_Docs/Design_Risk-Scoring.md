@@ -366,3 +366,5 @@ Within a type, the order shown on the page (Up/Down). No match gives the default
 **Report.** Account Class, Owner and Matched by columns (class and owner sortable), a Class filter (`accountClass=`, also on the export), and **Classify** per row (`PUT /api/reports/discovered-accounts/{key}/classification`). Every change is audited as `AccountClassification` (settings with field changes; each rule add/update/move/delete with its description; Reclassify now; overrides with old and new values).
 
 **Not yet verified against a real domain:** `GetUnderlyingSearcher()` binding with LDAPS or explicit credentials, how extensionAttributeN look in the target forest, and the search cost on a large group set.
+
+**Updated 2026-11-04:** risk score overrides can be set or cleared on many accounts at once from Reports > Risk Score (D-315, EditAccountProgress, one audit entry per account) and from the Accounts import's Risk Score Override column (D-323).
