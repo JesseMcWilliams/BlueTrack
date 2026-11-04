@@ -163,6 +163,36 @@ onMounted(load)
     <p v-if="loading" role="status">{{ t('common.loading') }}</p>
 
     <template v-else>
+      <!-- D-330: what needs someone's attention first, as cards side by side; then the two charts side by side. -->
+      <div class="dash-attention">
+        <section class="dash-card">
+          <h2>{{ t('pages.dashboard.overdueAtRiskTitle') }}</h2>
+          <p v-if="errors.overdueAtRisk" role="alert">{{ errors.overdueAtRisk }}</p>
+          <p v-else>
+            {{ t('pages.dashboard.overdueAtRiskCount', { count: formatCount(overdueAtRiskCount) }) }}
+            <router-link :to="{ name: 'reports-overdue-worklist' }">{{ t('pages.dashboard.viewWorklist') }}</router-link>
+          </p>
+        </section>
+
+        <section class="dash-card">
+          <h2>{{ t('pages.dashboard.exceptionsTitle') }}</h2>
+          <p v-if="errors.overdueReview" role="alert">{{ errors.overdueReview }}</p>
+          <p v-else>
+            {{ t('pages.dashboard.overdueReviewCount', { count: formatCount(overdueReviewCount) }) }}
+            <router-link :to="{ name: 'risk-exceptions-overdue-worklist' }">{{ t('pages.dashboard.viewWorklist') }}</router-link>
+          </p>
+
+          <template v-if="rights.hasPermission('ApproveExceptions')">
+            <p v-if="errors.activeExceptions" role="alert">{{ errors.activeExceptions }}</p>
+            <p v-else>
+              {{ t('pages.dashboard.activeExceptionsCount', { count: formatCount(activeExceptionsCount) }) }}
+              <router-link :to="{ name: 'risk-exceptions-approval-worklist' }">{{ t('pages.dashboard.viewWorklist') }}</router-link>
+            </p>
+          </template>
+        </section>
+      </div>
+
+      <div class="dash-charts">
       <section>
         <h2>{{ t('pages.dashboard.accountsByStage') }}</h2>
         <p v-if="errors.stageFunnel" role="alert">{{ errors.stageFunnel }}</p>
@@ -187,11 +217,17 @@ onMounted(load)
             </table>
             <p>{{ t('pages.dashboard.completeCount', { count: formatCount(completedCount) }) }}</p>
           </div>
-          <svg v-if="pieSlices.length > 0" class="stage-funnel-pie" viewBox="0 0 100 100" aria-hidden="true">
-            <path v-for="slice in pieSlices" :key="slice.name" :d="slice.d" :fill="slice.color">
-              <title>{{ t('pages.dashboard.sliceTitle', { name: slice.name, count: formatCount(slice.count) }) }}</title>
-            </path>
-          </svg>
+          <div v-if="pieSlices.length > 0" class="pie-with-legend">
+            <svg class="stage-funnel-pie" viewBox="0 0 100 100" aria-hidden="true">
+              <path v-for="slice in pieSlices" :key="slice.name" :d="slice.d" :fill="slice.color">
+                <title>{{ t('pages.dashboard.sliceTitle', { name: slice.name, count: formatCount(slice.count) }) }}</title>
+              </path>
+            </svg>
+            <!-- D-330: the key to the colours. Hidden from screen readers, like the pie: the table says the same. -->
+            <ul class="pie-legend" aria-hidden="true">
+              <li v-for="slice in pieSlices" :key="slice.name"><span class="pie-swatch" :style="{ background: slice.color }"></span>{{ t('pages.dashboard.sliceTitle', { name: slice.name, count: formatCount(slice.count) }) }}</li>
+            </ul>
+          </div>
         </div>
         <p><router-link :to="{ name: 'reports-stage-status-summary' }">{{ t('pages.dashboard.viewStageStatus') }}</router-link></p>
       </section>
@@ -212,40 +248,21 @@ onMounted(load)
               <tr><td>{{ t('pages.dashboard.kpiCompliant') }}</td><td>{{ kpiSummary.managedAccounts ? formatPercent(kpiSummary.compliantAccounts / kpiSummary.managedAccounts) : t('pages.dashboard.notApplicable') }}</td></tr>
             </tbody>
           </table>
-          <svg v-if="kpiPieSlices.length > 0" class="stage-funnel-pie" viewBox="0 0 100 100" aria-hidden="true">
-            <path v-for="slice in kpiPieSlices" :key="slice.name" :d="slice.d" :fill="slice.color">
-              <title>{{ t('pages.dashboard.sliceTitle', { name: slice.name, count: formatCount(slice.count) }) }}</title>
-            </path>
-          </svg>
+          <div v-if="kpiPieSlices.length > 0" class="pie-with-legend">
+            <svg class="stage-funnel-pie" viewBox="0 0 100 100" aria-hidden="true">
+              <path v-for="slice in kpiPieSlices" :key="slice.name" :d="slice.d" :fill="slice.color">
+                <title>{{ t('pages.dashboard.sliceTitle', { name: slice.name, count: formatCount(slice.count) }) }}</title>
+              </path>
+            </svg>
+            <ul class="pie-legend" aria-hidden="true">
+              <li v-for="slice in kpiPieSlices" :key="slice.name"><span class="pie-swatch" :style="{ background: slice.color }"></span>{{ t('pages.dashboard.sliceTitle', { name: slice.name, count: formatCount(slice.count) }) }}</li>
+            </ul>
+          </div>
         </div>
         <p><router-link :to="{ name: 'reports-kpi-summary' }">{{ t('pages.dashboard.viewKpiSummary') }}</router-link></p>
       </section>
 
-      <section>
-        <h2>{{ t('pages.dashboard.overdueAtRiskTitle') }}</h2>
-        <p v-if="errors.overdueAtRisk" role="alert">{{ errors.overdueAtRisk }}</p>
-        <p v-else>
-          {{ t('pages.dashboard.overdueAtRiskCount', { count: formatCount(overdueAtRiskCount) }) }}
-          <router-link :to="{ name: 'reports-overdue-worklist' }">{{ t('pages.dashboard.viewWorklist') }}</router-link>
-        </p>
-      </section>
-
-      <section>
-        <h2>{{ t('pages.dashboard.exceptionsTitle') }}</h2>
-        <p v-if="errors.overdueReview" role="alert">{{ errors.overdueReview }}</p>
-        <p v-else>
-          {{ t('pages.dashboard.overdueReviewCount', { count: formatCount(overdueReviewCount) }) }}
-          <router-link :to="{ name: 'risk-exceptions-overdue-worklist' }">{{ t('pages.dashboard.viewWorklist') }}</router-link>
-        </p>
-
-        <template v-if="rights.hasPermission('ApproveExceptions')">
-          <p v-if="errors.activeExceptions" role="alert">{{ errors.activeExceptions }}</p>
-          <p v-else>
-            {{ t('pages.dashboard.activeExceptionsCount', { count: formatCount(activeExceptionsCount) }) }}
-            <router-link :to="{ name: 'risk-exceptions-approval-worklist' }">{{ t('pages.dashboard.viewWorklist') }}</router-link>
-          </p>
-        </template>
-      </section>
+      </div>
     </template>
   </div>
 </template>
@@ -260,6 +277,58 @@ onMounted(load)
 .stage-funnel-pie {
   width: 10em;
   height: 10em;
+  flex-shrink: 0;
+}
+.dash-attention {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr));
+  gap: var(--space-3);
+  margin-bottom: var(--space-5);
+}
+.dash-card {
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  padding: var(--space-3);
+}
+.dash-card h2 {
+  margin-bottom: var(--space-2);
+}
+.dash-card p:last-child {
+  margin-bottom: 0;
+}
+.dash-charts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(32rem, 1fr));
+  gap: var(--space-5);
+}
+@media (max-width: 900px) {
+  .dash-charts {
+    grid-template-columns: 1fr;
+  }
+}
+.pie-with-legend {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+.pie-legend {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  font-size: 0.875rem;
+}
+.pie-legend li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-1);
+}
+.pie-swatch {
+  display: inline-block;
+  width: 0.9em;
+  height: 0.9em;
+  border: 1px solid var(--color-border);
   flex-shrink: 0;
 }
 </style>

@@ -41,7 +41,13 @@
     "kpiSummary": "KPI Summary",
     "trends": "Trends",
     "cpmHealth": "CPM Health",
-    "safeAccess": "Safe Access"
+    "safeAccess": "Safe Access",
+    "groups": {
+      "progress": "Progress",
+      "reconciliation": "Reconciliation and discovery",
+      "risk": "Risk and access",
+      "decommission": "Decommission"
+    }
   },
   "safeAccess": {
     "title": "Safe Access",

@@ -158,6 +158,11 @@ const searchFilter = ref('')
 const deletedFilter = ref('Hide')
 // D-212: a feed account linked to a CyberArk account is hidden unless shown here.
 const linkedFilter = ref('Hide')
+// D-330: those two sit under "More filters", which opens by itself whenever either is in use (from the address too).
+const moreFiltersOpen = ref(false)
+watch([deletedFilter, linkedFilter], ([deleted, linked]) => {
+  if (deleted !== 'Hide' || linked !== 'Hide') moreFiltersOpen.value = true
+}, { immediate: true })
 // UI review W7-1: one of the KPI Summary's counts (D-143), opened from a count there; '' = no KPI filter.
 const KPI_FILTERS = ['total', 'inScope', 'onboarded', 'managed', 'compliant', 'archived']
 const kpiFilter = ref('')
@@ -360,7 +365,7 @@ watch(() => route.query, async (query) => {
 <template>
   <div>
     <h1>{{ t('pages.accountProgressList.title') }}</h1>
-    <p class="filter-row">
+    <div class="filter-row">
       <label class="field-label"><span class="field-label-text">{{ t('pages.accountProgressList.search') }}</span> <input v-model="searchFilter" type="search" :placeholder="t('pages.accountProgressList.searchPlaceholder')" /></label>
       <label class="field-label"><span class="field-label-text">{{ t('pages.accountProgressList.stage') }}</span>
         <select v-model="stageFilter">
@@ -381,24 +386,31 @@ watch(() => route.query, async (query) => {
         </select>
       </label>
       <label class="field-label"><span class="field-label-text">{{ t('pages.accountProgressList.owner') }}</span> <input v-model="ownerFilter" type="text" :placeholder="t('pages.accountProgressList.ownerPlaceholder')" /></label>
-      <label class="field-label"><span class="field-label-text">{{ t('pages.accountProgressList.deletedAccounts') }}</span>
-        <select v-model="deletedFilter">
-          <option value="Hide">{{ t('pages.accountProgressList.hide') }}</option>
-          <option value="Show">{{ t('pages.accountProgressList.show') }}</option>
-          <option value="Only">{{ t('pages.accountProgressList.onlyDeleted') }}</option>
-        </select>
-      </label>
-      <label class="field-label"><span class="field-label-text">{{ t('pages.accountProgressList.linkedFeedAccounts') }}</span>
-        <select v-model="linkedFilter">
-          <option value="Hide">{{ t('pages.accountProgressList.hide') }}</option>
-          <option value="Show">{{ t('pages.accountProgressList.show') }}</option>
-        </select>
-      </label>
       <button v-if="filtersActive" type="button" @click="clearFilters">{{ t('pages.accountProgressList.clearFilters') }}</button>
-    </p>
-    <!-- D-318: the filtered list as a file, and that file read back with changed values. -->
-    <ReportExportButtons path="/api/account-progress/export" :params="exportParams" />
-    <AccountProgressImport v-if="canEdit" @imported="load" />
+    </div>
+    <details class="more-filters" :open="moreFiltersOpen" @toggle="moreFiltersOpen = $event.target.open">
+      <summary>{{ t('pages.accountProgressList.moreFilters') }}</summary>
+      <div class="filter-row">
+        <label class="field-label"><span class="field-label-text">{{ t('pages.accountProgressList.deletedAccounts') }}</span>
+          <select v-model="deletedFilter">
+            <option value="Hide">{{ t('pages.accountProgressList.hide') }}</option>
+            <option value="Show">{{ t('pages.accountProgressList.show') }}</option>
+            <option value="Only">{{ t('pages.accountProgressList.onlyDeleted') }}</option>
+          </select>
+        </label>
+        <label class="field-label"><span class="field-label-text">{{ t('pages.accountProgressList.linkedFeedAccounts') }}</span>
+          <select v-model="linkedFilter">
+            <option value="Hide">{{ t('pages.accountProgressList.hide') }}</option>
+            <option value="Show">{{ t('pages.accountProgressList.show') }}</option>
+          </select>
+        </label>
+      </div>
+    </details>
+    <!-- D-318: the filtered list as a file, and that file read back with changed values. D-330: on one row. -->
+    <div class="list-toolbar">
+      <ReportExportButtons path="/api/account-progress/export" :params="exportParams" />
+      <AccountProgressImport v-if="canEdit" @imported="load" />
+    </div>
     <p v-if="kpiFilter" class="kpi-filter">
       {{ t('pages.accountProgressList.kpiShowing', { name: kpiNames[kpiFilter] }) }}
       <button type="button" @click="kpiFilter = ''">{{ t('pages.accountProgressList.kpiRemove') }}</button>
@@ -505,5 +517,12 @@ watch(() => route.query, async (query) => {
 }
 .deletion-form {
   margin: 0.5rem 0;
+}
+.more-filters {
+  margin-bottom: var(--space-3);
+}
+.more-filters > summary {
+  cursor: pointer;
+  margin-bottom: var(--space-2);
 }
 </style>

@@ -15,16 +15,38 @@ import FlashMessage from './components/FlashMessage.vue'
 import IdleWarning from './components/IdleWarning.vue'
 import { useRightsStore } from './stores/rights'
 import { flashNavigated } from './composables/useFlash'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { formatDate } from './utils/formatDate'
-import { canOpen, canOpenReports as canOpenReportsFor } from './router/routePermissions'
+import { canOpen, canOpenReports as canOpenReportsFor, canOpenAdmin as canOpenAdminFor } from './router/routePermissions'
 
 const { t } = useI18n()
 const rights = useRightsStore()
+const route = useRoute()
 // UI review step 4b: a signed-in user with no permissions gets no menu entries, only the user menu.
 // D-305: the tracked-data pages and Reports need ViewDashboard (or a report's own permission); hide what the user can't open.
+// D-330: nor does anyone before they are known to be signed in (the sign-in page showed Home and Admin). If /api/me
+// failed, the entries still show, as before, and the pages report the failure.
 const canOpenReports = computed(() => canOpenReportsFor(rights))
-const hasAccess = computed(() => !(rights.loaded && rights.authenticated === true && rights.permissionNames.length === 0))
+const canOpenAdmin = computed(() => canOpenAdminFor(rights))
+const hasAccess = computed(() => !!rights.error || (rights.authenticated === true && rights.permissionNames.length > 0))
+const signedIn = computed(() => rights.authenticated === true)
+
+// D-330: the top-nav entry for the area the current page belongs to, by path, so an account's page marks Accounts
+// and a Safe's page marks Accounts too (they are separate routes, so the router's own active class misses them).
+const NAV_SECTIONS = [
+  ['dashboard', /^\/dashboard(\/|$)/],
+  ['access-groups', /^\/access-groups(\/|$)/],
+  ['accounts', /^\/(accounts|safes)(\/|$)/],
+  ['exceptions', /^\/exceptions(\/|$)/],
+  ['targets', /^\/targets(\/|$)/],
+  ['reports', /^\/reports(\/|$)/],
+  ['admin', /^\/admin(\/|$)/]
+]
+const currentSection = computed(() => {
+  if (route.path === '/') return 'home'
+  return NAV_SECTIONS.find(([, pattern]) => pattern.test(route.path))?.[0] ?? null
+})
+const navClass = (section) => ({ 'nav-current': currentSection.value === section })
 // UI review theme 3: a "saved" line set before a navigation shows on the page it lands on, and goes at the next one.
 useRouter().afterEach(() => flashNavigated())
 const { warning: idleWarning, touch: stayActive } = useIdleSignOut() // D-209: sign out after Idle Timeout without activity
@@ -107,24 +129,25 @@ onMounted(async () => {
          Reports, and Admin always last. The user menu (D-206: the signed-in
          user's name, with Profile & Preferences, About and Sign out) stays
          pinned right. -->
-    <nav class="top-nav" :aria-label="t('shell.nav.ariaLabel')">
+    <nav v-if="hasAccess || signedIn" class="top-nav" :aria-label="t('shell.nav.ariaLabel')">
       <template v-if="hasAccess">
-      <router-link :to="{ name: 'home' }">{{ t('shell.nav.home') }}</router-link>
-      <router-link v-if="canOpen(rights, 'dashboard')" :to="{ name: 'dashboard' }">{{ t('shell.nav.dashboard') }}</router-link>
+      <router-link :to="{ name: 'home' }" :class="navClass('home')">{{ t('shell.nav.home') }}</router-link>
+      <router-link v-if="canOpen(rights, 'dashboard')" :to="{ name: 'dashboard' }" :class="navClass('dashboard')">{{ t('shell.nav.dashboard') }}</router-link>
       <!-- D-121: Targets/Access Groups gated per-permission here, same
            hasPermission() pattern AdminHub.vue's own sidebar already uses for
            each of its sections. D-305: Dashboard/Accounts/Exceptions/Reports
-           too, by the router's own map; Admin needs no gate of its own. -->
-      <router-link v-if="rights.hasPermission('ManageAccessGroups')" :to="{ name: 'access-groups' }">{{ t('shell.nav.accessGroups') }}</router-link>
-      <router-link v-if="canOpen(rights, 'account-progress-list')" :to="{ name: 'account-progress-list' }">{{ t('shell.nav.accounts') }}</router-link>
-      <router-link v-if="canOpen(rights, 'risk-exceptions-list')" :to="{ name: 'risk-exceptions-list' }">{{ t('shell.nav.exceptions') }}</router-link>
-      <router-link v-if="rights.hasPermission('ManageTargets')" :to="{ name: 'targets' }">{{ t('shell.nav.targets') }}</router-link>
-      <router-link v-if="canOpenReports" :to="{ name: 'reports' }">{{ t('shell.nav.reports') }}</router-link>
-      <router-link :to="{ name: 'admin' }">{{ t('shell.nav.admin') }}</router-link>
+           too, by the router's own map. D-330: Admin only when it has a section for the user, as on Home. -->
+      <router-link v-if="rights.hasPermission('ManageAccessGroups')" :to="{ name: 'access-groups' }" :class="navClass('access-groups')">{{ t('shell.nav.accessGroups') }}</router-link>
+      <router-link v-if="canOpen(rights, 'account-progress-list')" :to="{ name: 'account-progress-list' }" :class="navClass('accounts')">{{ t('shell.nav.accounts') }}</router-link>
+      <router-link v-if="canOpen(rights, 'risk-exceptions-list')" :to="{ name: 'risk-exceptions-list' }" :class="navClass('exceptions')">{{ t('shell.nav.exceptions') }}</router-link>
+      <router-link v-if="rights.hasPermission('ManageTargets')" :to="{ name: 'targets' }" :class="navClass('targets')">{{ t('shell.nav.targets') }}</router-link>
+      <router-link v-if="canOpenReports" :to="{ name: 'reports' }" :class="navClass('reports')">{{ t('shell.nav.reports') }}</router-link>
+      <router-link v-if="canOpenAdmin" :to="{ name: 'admin' }" :class="navClass('admin')">{{ t('shell.nav.admin') }}</router-link>
       </template>
       <UserMenu v-if="rights.authenticated" />
     </nav>
-    <Breadcrumbs />
+    <!-- D-330: Home's trail would be "Home" alone, and the sign-in page's leads back to it. -->
+    <Breadcrumbs v-if="signedIn && route.name !== 'home'" />
     <FlashMessage />
     <IdleWarning :warning="idleWarning" @stay="stayActive" />
     <p v-if="negotiateDisabled" role="alert" class="dev-fake-auth-warning">{{ t('shell.app.negotiateDisabledWarning') }}</p>
@@ -153,10 +176,17 @@ onMounted(async () => {
    var(--space-*) values used throughout this pass. */
 .top-nav {
   display: flex;
+  flex-wrap: wrap; /* D-330: wraps on a narrow screen instead of running off it */
   align-items: center;
-  gap: var(--space-4);
-  padding: var(--space-3) var(--space-4);
+  gap: var(--space-2) var(--space-4);
+  padding: var(--space-2) var(--space-4);
   border-bottom: 1px solid var(--color-border);
+}
+/* D-330: the area the current page belongs to; a bar as well as bold, so it doesn't rely on weight alone. */
+.top-nav .nav-current {
+  font-weight: bold;
+  text-decoration-thickness: 3px;
+  text-underline-offset: 0.35em;
 }
 #main-content {
   padding: var(--space-4);

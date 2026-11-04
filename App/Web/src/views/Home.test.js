@@ -7,7 +7,8 @@ import { useRightsStore } from '../stores/rights'
 
 // D-307: the landing page offers only the areas the user may open, and the KPI funnel only to those who may see tracked data.
 const stub = { template: '<div />' }
-const NAMES = ['dashboard', 'account-progress-list', 'risk-exceptions-list', 'access-groups', 'targets', 'reports', 'admin', 'my-profile']
+const NAMES = ['dashboard', 'account-progress-list', 'risk-exceptions-list', 'access-groups', 'targets', 'reports', 'admin', 'my-profile',
+  'reports-overdue-worklist', 'risk-exceptions-overdue-worklist', 'risk-exceptions-approval-worklist']
 
 function makeRouter() {
   return createRouter({
@@ -41,6 +42,27 @@ describe('Home.vue', () => {
 
     expect(wrapper.find('h1').text()).toBe('Welcome, Jane Doe')
     expect(wrapper.text()).toContain('Your roles: Viewer, Analyst.')
+  })
+
+  it('puts what needs attention on its card, linking to the worklist, and only counts above zero (D-330)', async () => {
+    const lists = {
+      '/api/reports/overdue-at-risk': [{}, {}, {}],
+      '/api/risk-exceptions/overdue-review': [{}],
+      '/api/risk-exceptions/active': []
+    }
+    globalThis.fetch = vi.fn(url => Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(lists[url] ?? KPIS) }))
+    const wrapper = await mountHome(['ViewDashboard', 'ApproveExceptions'])
+
+    const card = name => wrapper.findAll('.home-area').find(c => c.get('h3').text() === name)
+    expect(card('Accounts').get('.home-area-attention a').text()).toBe('3 accounts overdue or at risk')
+    expect(card('Accounts').get('.home-area-attention a').attributes('href')).toBe('/reports-overdue-worklist')
+    expect(card('Exceptions').findAll('.home-area-attention').map(p => p.text())).toEqual(['1 exception past its review date'])
+  })
+
+  it('does not ask for exceptions awaiting approval without ApproveExceptions (D-330)', async () => {
+    await mountHome(['ViewDashboard'])
+
+    expect(globalThis.fetch).not.toHaveBeenCalledWith('/api/risk-exceptions/active')
   })
 
   it('shows the KPI funnel to a user with ViewDashboard, each count opening Accounts filtered to it', async () => {

@@ -563,24 +563,6 @@ onUnmounted(releaseLock)
         <template v-else-if="detail.isDeletedInSource && detail.isInInternalSafe">{{ ' ' + t('pages.accountProgressDetail.deletedInternalSafe') }}</template>
         <template v-else-if="detail.isDeletedInSource">{{ ' ' + t('pages.accountProgressDetail.deletedInCyberArk') }}</template>
       </div>
-      <div v-if="rights.hasPermission('DeleteAccounts')" class="deletion-controls">
-        <button v-if="!detail.deletedByName" type="button" @click="deletionAction = 'delete'">{{ t('pages.accountProgressDetail.deleteAccount') }}</button>
-        <button v-else type="button" @click="deletionAction = 'undelete'">{{ t('pages.accountProgressDetail.undeleteAccount') }}</button>
-        <form v-if="deletionAction" @submit.prevent="applyDeletion">
-          <label class="field-label"><span class="field-label-text">{{ deletionAction === 'delete' ? t('pages.accountProgressDetail.reasonToDelete') : t('pages.accountProgressDetail.reasonToUndelete') }}</span> <input v-model="deletionReason" size="60" maxlength="1000" required /></label>
-          <button type="submit" class="btn-primary" :disabled="!deletionReason.trim()">{{ deletionAction === 'delete' ? t('common.delete') : t('pages.accountProgressDetail.undelete') }}</button>
-          <button type="button" @click="deletionAction = null">{{ t('common.cancel') }}</button>
-          <p v-if="deletionError" role="alert">{{ deletionError }}</p>
-        </form>
-      </div>
-      <details v-if="deletionHistory.length" class="deletion-history">
-        <summary>{{ t('pages.accountProgressDetail.historyTitle', { count: formatCount(deletionHistory.length) }) }}</summary>
-        <ul>
-          <li v-for="h in deletionHistory" :key="`${h.performedAt}-${h.action}`">
-            {{ t(h.action === 'Delete' ? 'pages.accountProgressDetail.historyDeleted' : 'pages.accountProgressDetail.historyUndeleted', { date: formatDate(h.performedAt), name: h.performedByName, reason: h.reason }) }}
-          </li>
-        </ul>
-      </details>
       <div v-if="applicationExceptions.length > 0">
         <i18n-t v-for="ex in applicationExceptions" :key="ex.exceptionID" keypath="pages.accountProgressDetail.coveredByAppException" tag="p" scope="global">
           <template #id><strong>{{ ex.exceptionID }}</strong></template>
@@ -666,8 +648,10 @@ onUnmounted(releaseLock)
           id="account-progress-panel-details"
           role="tabpanel"
           aria-labelledby="account-progress-tab-details"
+          class="account-field-grid"
         >
-          <p v-for="field in sortedFields" :key="field.fieldName">
+          <!-- D-330: two or three fields to a row on a wide screen; a text area takes a whole row. -->
+          <p v-for="field in sortedFields" :key="field.fieldName" :class="{ 'account-field-wide': field.fieldType === 'TextArea' }">
             <label class="field-label">
               <span class="field-label-text">{{ field.displayLabel }}<span v-if="field.isRequired"> *</span>:</span>
 
@@ -746,11 +730,14 @@ onUnmounted(releaseLock)
           </div>
         </div>
 
-        <p>
+        <!-- D-330: Save and Cancel stay in view at the bottom of the window while the form is scrolled. -->
+        <div class="account-form-actions">
           <label class="field-label"><span class="field-label-text">{{ t('pages.accountProgressDetail.regressionReason') }}</span> <input v-model="reason" type="text" /></label>
-        </p>
-        <button type="submit" class="btn-primary" :disabled="saving || lockLost">{{ t('common.save') }}</button>
-        <button type="button" @click="cancelEdit">{{ t('common.cancel') }}</button>
+          <div>
+            <button type="submit" class="btn-primary" :disabled="saving || lockLost">{{ t('common.save') }}</button>
+            <button type="button" @click="cancelEdit">{{ t('common.cancel') }}</button>
+          </div>
+        </div>
       </form>
 
       <dl v-else>
@@ -771,11 +758,37 @@ onUnmounted(releaseLock)
         </template>
       </dl>
 
-      <!-- D-300/D-301 -->
-      <ComplianceSection :account-key="accountKey" />
+      <!-- D-330: the sections below the form start well clear of its buttons. -->
+      <div class="account-related">
+        <!-- D-300/D-301 -->
+        <ComplianceSection :account-key="accountKey" />
 
-      <!-- D-281/D-282 -->
-      <SafeAccessSection :account-key="accountKey" />
+        <!-- D-281/D-282 -->
+        <SafeAccessSection :account-key="accountKey" />
+      </div>
+
+      <!-- D-330: Delete was the first button on the page; it is at the end now, with its history. -->
+      <section v-if="rights.hasPermission('DeleteAccounts') || deletionHistory.length" class="account-deletion">
+        <h2>{{ t('pages.accountProgressDetail.deletionTitle') }}</h2>
+        <div v-if="rights.hasPermission('DeleteAccounts')" class="deletion-controls">
+          <button v-if="!detail.deletedByName" type="button" @click="deletionAction = 'delete'">{{ t('pages.accountProgressDetail.deleteAccount') }}</button>
+          <button v-else type="button" @click="deletionAction = 'undelete'">{{ t('pages.accountProgressDetail.undeleteAccount') }}</button>
+          <form v-if="deletionAction" @submit.prevent="applyDeletion">
+            <label class="field-label"><span class="field-label-text">{{ deletionAction === 'delete' ? t('pages.accountProgressDetail.reasonToDelete') : t('pages.accountProgressDetail.reasonToUndelete') }}</span> <input v-model="deletionReason" size="60" maxlength="1000" required /></label>
+            <button type="submit" class="btn-primary" :disabled="!deletionReason.trim()">{{ deletionAction === 'delete' ? t('common.delete') : t('pages.accountProgressDetail.undelete') }}</button>
+            <button type="button" @click="deletionAction = null">{{ t('common.cancel') }}</button>
+            <p v-if="deletionError" role="alert">{{ deletionError }}</p>
+          </form>
+        </div>
+        <details v-if="deletionHistory.length" class="deletion-history">
+          <summary>{{ t('pages.accountProgressDetail.historyTitle', { count: formatCount(deletionHistory.length) }) }}</summary>
+          <ul>
+            <li v-for="h in deletionHistory" :key="`${h.performedAt}-${h.action}`">
+              {{ t(h.action === 'Delete' ? 'pages.accountProgressDetail.historyDeleted' : 'pages.accountProgressDetail.historyUndeleted', { date: formatDate(h.performedAt), name: h.performedByName, reason: h.reason }) }}
+            </li>
+          </ul>
+        </details>
+      </section>
     </template>
   </div>
 </template>
@@ -839,5 +852,49 @@ onUnmounted(releaseLock)
 .account-progress-tab--active {
   border-bottom-color: var(--color-link);
   font-weight: 700;
+}
+.account-field-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr));
+  gap: 0 var(--space-4);
+  max-width: 72rem;
+}
+.account-field-grid > p {
+  margin-bottom: 0;
+}
+.account-field-grid > .account-field-wide {
+  grid-column: 1 / -1;
+}
+.account-field-grid :deep(.field-label > input),
+.account-field-grid :deep(.field-label > select),
+.account-field-grid :deep(.field-label > textarea) {
+  max-width: none;
+}
+.account-field-grid > .account-field-wide :deep(.field-label > textarea) {
+  max-width: 48rem;
+}
+.account-form-actions {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-3) var(--space-4);
+  padding: var(--space-3) 0;
+  background: var(--color-bg);
+  border-top: 1px solid var(--color-border);
+}
+.account-form-actions > .field-label {
+  margin-bottom: 0;
+  flex: 0 1 30em;
+}
+.account-related {
+  margin-top: var(--space-5);
+}
+.account-deletion {
+  margin-top: var(--space-5);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--color-border);
 }
 </style>

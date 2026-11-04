@@ -49,8 +49,42 @@ const barWidth = (count) => {
   return total ? `${Math.max(1, Math.round((count / total) * 100))}%` : '0'
 }
 
+// D-330: what needs attention, on the card it belongs to, from the same lists the Dashboard counts (D-99). Only a
+// count above zero is shown, and a failed request shows nothing: the Dashboard and the worklists report failures.
+const attention = ref({ overdueAtRisk: 0, overdueReview: 0, awaitingApproval: 0 })
+async function countOf(url) {
+  try {
+    const response = await fetch(url)
+    if (!response.ok) return 0
+    const rows = await response.json()
+    return Array.isArray(rows) ? rows.length : 0
+  } catch {
+    return 0
+  }
+}
+const ATTENTION = {
+  'account-progress-list': [
+    { key: 'overdueAtRisk', textKey: 'pages.home.attention.overdueAtRisk', route: 'reports-overdue-worklist' }
+  ],
+  'risk-exceptions-list': [
+    { key: 'overdueReview', textKey: 'pages.home.attention.overdueReview', route: 'risk-exceptions-overdue-worklist' },
+    { key: 'awaitingApproval', textKey: 'pages.home.attention.awaitingApproval', route: 'risk-exceptions-approval-worklist' }
+  ]
+}
+const attentionFor = (route) => (ATTENTION[route] ?? []).filter(a => attention.value[a.key] > 0)
+
+async function loadAttention() {
+  const [overdueAtRisk, overdueReview, awaitingApproval] = await Promise.all([
+    countOf('/api/reports/overdue-at-risk'),
+    countOf('/api/risk-exceptions/overdue-review'),
+    rights.hasPermission('ApproveExceptions') ? countOf('/api/risk-exceptions/active') : 0
+  ])
+  attention.value = { overdueAtRisk, overdueReview, awaitingApproval }
+}
+
 onMounted(async () => {
   if (!showKpis.value) return
+  loadAttention()
   try {
     const response = await fetch('/api/reports/kpi-summary')
     if (!response.ok) throw new Error(t('common.requestFailed', { status: response.status }))
@@ -100,6 +134,9 @@ onMounted(async () => {
         <li v-for="area in areas" :key="area.route" class="home-area">
           <h3><router-link :to="{ name: area.route }">{{ t(area.titleKey) }}</router-link></h3>
           <p>{{ t(area.textKey) }}</p>
+          <p v-for="a in attentionFor(area.route)" :key="a.key" class="home-area-attention">
+            <router-link :to="{ name: a.route }">{{ t(a.textKey, { count: formatCount(attention[a.key]) }, attention[a.key]) }}</router-link>
+          </p>
         </li>
       </ul>
     </section>
@@ -128,4 +165,8 @@ onMounted(async () => {
 }
 .home-area h3 { margin: 0 0 var(--space-1); }
 .home-area p { margin: 0; }
+.home-area p.home-area-attention {
+  margin-top: var(--space-2);
+  font-weight: bold;
+}
 </style>

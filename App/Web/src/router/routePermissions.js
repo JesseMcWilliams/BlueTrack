@@ -75,10 +75,10 @@ for (const section of ADMIN_SECTIONS) {
 
 // The reports in ReportsHub.vue's order, so the Reports entry can open the first one the user may see.
 export const REPORT_PAGES = [
-  'reports-overdue-worklist', 'reports-stage-status-summary', 'reports-reconciliation-review', 'reports-possible-matches',
-  'reports-unresolved-entitlement-members', 'reports-cpm-health', 'reports-cyberark-applications', 'reports-risk-score',
-  'reports-risk-exception-sod', 'reports-discovered-accounts', 'reports-dna-accounts', 'reports-decom-safes', 'reports-decom-accounts',
-  'reports-kpi-summary', 'reports-trends', 'reports-safe-access'
+  'reports-overdue-worklist', 'reports-stage-status-summary', 'reports-kpi-summary', 'reports-trends',
+  'reports-reconciliation-review', 'reports-possible-matches', 'reports-unresolved-entitlement-members',
+  'reports-discovered-accounts', 'reports-dna-accounts', 'reports-risk-score', 'reports-risk-exception-sod',
+  'reports-safe-access', 'reports-cyberark-applications', 'reports-cpm-health', 'reports-decom-safes', 'reports-decom-accounts'
 ]
 
 export function canOpen(rights, name) {

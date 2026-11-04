@@ -14,7 +14,9 @@ function makeRouter() {
     routes: [
       { path: '/', name: 'home', component: page },
       { path: '/admin/data-sources', name: 'admin-data-sources', component: page },
-      { path: '/admin/credentials', name: 'admin-credentials', component: page }
+      { path: '/admin/data-sources/cyberark', name: 'admin-cyberark-sources-edit', component: page },
+      { path: '/admin/credentials', name: 'admin-credentials', component: page },
+      { path: '/admin/audit-log', name: 'admin-audit-log', component: page }
     ]
   })
 }
@@ -59,6 +61,28 @@ describe('AdminHub.vue', () => {
 
     expect(globalThis.fetch).not.toHaveBeenCalled()
     expect(wrapper.find('.nav-warning').exists()).toBe(false)
+  })
+
+  it('lists the sections under titled groups, leaving out a group with none (D-330)', async () => {
+    const wrapper = await mountHub(['ManageCredentials', 'ManageDataSources', 'ViewAuditLog'], { enabled: false })
+
+    const groups = wrapper.findAll('[role="group"]')
+    expect(groups.map(g => g.get('.hub-subnav-group-title').text())).toEqual(['Access and identity', 'Data', 'System'])
+    expect(groups.map(g => g.findAll('a').map(a => a.text()))).toEqual([['Credentials & LDAP'], ['Data Sources'], ['Audit Log Viewer']])
+  })
+
+  it("marks a section as current on its own sub-pages too (D-330)", async () => {
+    globalThis.fetch = vi.fn(() => Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({ enabled: false }) }))
+    const router = makeRouter()
+    await router.push('/admin/data-sources/cyberark')
+    const pinia = createPinia()
+    const rights = useRightsStore(pinia)
+    rights.permissionNames = ['ManageDataSources', 'ManageCredentials']
+    rights.loaded = true
+    const wrapper = mount(AdminHub, { global: { plugins: [router, pinia], stubs: { 'router-view': true } } })
+    await flushPromises()
+
+    expect(wrapper.findAll('a.hub-subnav-current').map(a => a.text())).toEqual(['Data Sources'])
   })
 
   it('shows no marker, and no error, when the status request fails', async () => {

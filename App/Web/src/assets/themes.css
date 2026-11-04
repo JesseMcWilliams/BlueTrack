@@ -133,6 +133,14 @@ body {
   color: var(--color-text);
 }
 
+/* D-330 (layout review, 2026-11-04): no typeface was ever set, so every page showed in the browser's default serif.
+   The platform's own UI font (Segoe UI on Windows), with common fallbacks. */
+body {
+  margin: 0;
+  font-family: system-ui, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  line-height: 1.45;
+}
+
 a {
   color: var(--color-link);
 }
@@ -146,6 +154,11 @@ a:visited {
 :focus-visible {
   outline: 3px solid var(--color-focus-ring);
   outline-offset: 2px;
+}
+/* D-330: the router moves focus to <main> after each navigation (D-92) so a screen reader hears the new page; it is
+   not a control, so a ring round the whole page only looked like a fault. */
+#main-content:focus {
+  outline: none;
 }
 
 .visually-hidden {
@@ -242,12 +255,47 @@ tbody tr:hover {
   background: var(--color-row-hover);
 }
 
+/* D-330: a sortable column's heading is a button (D-92, so the keyboard can sort); it now looks like the heading it
+   is, with the sort arrow, instead of a bordered button in every column. The focus ring still shows. */
+thead th > button {
+  padding: 0;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  color: inherit;
+  font-weight: bold;
+  text-align: left;
+}
+thead th > button:hover:not(:disabled) {
+  filter: none;
+  text-decoration: underline;
+}
+
+/* D-330: below 900px a table scrolls sideways inside the page instead of widening it. Its header then stops being
+   sticky, which matters less on a screen that narrow. */
+@media (max-width: 900px) {
+  #main-content table {
+    display: block;
+    max-width: 100%;
+    overflow-x: auto;
+  }
+}
+
 /* General body rhythm (added 2026-09-06, usability pass): paragraphs
    (hint text, loading/error states) get the same spacing below them as
    headings and tables, rather than each page having to add its own. */
 p {
   margin-top: 0;
   margin-bottom: var(--space-3);
+}
+/* D-330: help text ran the full width of a wide screen (1,100px lines on Data Sources); about 75 characters reads
+   more easily. Rows of controls and table cells keep their own width. */
+#main-content p:not(.filter-row):not(.pager) {
+  max-width: 75ch;
+}
+#main-content td p {
+  max-width: none;
 }
 
 /* Form controls and buttons (added 2026-09-06, interaction pass): every
@@ -369,4 +417,68 @@ input[type="checkbox"], input[type="radio"] {
 .status-bad {
   color: var(--color-error-text);
   font-weight: bold;
+}
+
+/* D-330: a list page's file actions (Export, Import changes) on one row instead of one row each. */
+.list-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+.list-toolbar > * {
+  margin-bottom: 0;
+}
+
+/* D-330: a table row's expand control (the Audit Log's field changes): link-coloured text with an arrow. */
+button.row-toggle {
+  padding: 0;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  color: var(--color-link);
+  text-align: left;
+}
+button.row-toggle:hover:not(:disabled) {
+  filter: none;
+  text-decoration: underline;
+}
+.row-toggle-mark {
+  display: inline-block;
+  width: 1em;
+}
+
+/* D-330: the Admin and Reports sidebars, in titled groups, with the current page marked by a bar and bold (so not by
+   weight alone). Below 900px the hub puts them above the page, so the groups sit side by side there. */
+.hub-subnav {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.hub-subnav-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.hub-subnav-group-title {
+  font-size: 0.8rem;
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.hub-subnav-group a {
+  padding-left: var(--space-2);
+  border-left: 3px solid transparent;
+}
+.hub-subnav-group a.hub-subnav-current {
+  border-left-color: var(--color-link);
+  font-weight: bold;
+}
+@media (max-width: 900px) {
+  .hub-subnav {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr));
+  }
 }

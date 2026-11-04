@@ -68,6 +68,11 @@
       "reportsText": "The reports your roles allow.",
       "admin": "Admin",
       "adminText": "The settings your roles allow you to manage."
+    },
+    "attention": {
+      "overdueAtRisk": "{count} account overdue or at risk | {count} accounts overdue or at risk",
+      "overdueReview": "{count} exception past its review date | {count} exceptions past their review date",
+      "awaitingApproval": "{count} exception awaiting approval | {count} exceptions awaiting approval"
     }
   },
   "dashboard": {
@@ -170,7 +175,8 @@
     "linkedTitle": "Linked to CyberArk account {name}",
     "linked": "Linked",
     "linkedHidden": ": to CyberArk account {name}",
-    "sortHint": "Click a column to sort by it; shift-click another column to add it as a secondary sort key."
+    "sortHint": "Click a column to sort by it; shift-click another column to add it as a secondary sort key.",
+    "moreFilters": "More filters"
   },
   "compliance": {
     "title": "Compliance",
@@ -292,7 +298,8 @@
     "cpmLastVerified": "Last verified:",
     "cpmLastReconciled": "Last reconciled:",
     "cpmLastChanged": "Last changed:",
-    "cpmRequiresPsm": "Platform requires PSM:"
+    "cpmRequiresPsm": "Platform requires PSM:",
+    "deletionTitle": "Deletion"
   },
   "accountProgressBulkEdit": {
     "referenceFailed": "The choices for the dropdowns could not be loaded ({status}), so they are empty. Reload the page to try again.",

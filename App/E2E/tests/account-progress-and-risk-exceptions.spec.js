@@ -297,6 +297,7 @@ test.describe('Account delete and undelete (D-185)', () => {
       await page.goto('/accounts')
       await page.getByPlaceholder('username, address or account name...').fill('TestAccount01')
       await expect(page.locator('tbody tr', { hasText: 'TestAccount01' })).toHaveCount(0)
+      await page.getByText('More filters').click()   // D-330: the deleted and linked filters are under it
       await page.getByLabel('Deleted accounts:').selectOption('Only')
       const deletedRow = page.locator('tbody tr', { hasText: 'TestAccount01' })
       await expect(deletedRow.locator('.deleted-badge')).toBeVisible()

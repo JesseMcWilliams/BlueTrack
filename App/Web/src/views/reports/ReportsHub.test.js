@@ -42,11 +42,16 @@ describe('ReportsHub.vue', () => {
     const nav = wrapper.get('nav.reports-subnav')
 
     expect(nav.attributes('aria-label')).toBe('Reports')
+    // D-330: in four titled groups.
     expect(links(wrapper)).toEqual([
-      'Overdue / At-Risk', 'Stage/Status Summary', 'Reconciliation Review', 'Possible Account Matches',
-      'Unresolved Entitlement Members', 'CPM Health', 'CyberArk Applications', 'Risk Score', 'Risk Exception SoD', 'Discovered Accounts', 'DNA Accounts',
-      'Safes Flagged for Deletion', 'Accounts Flagged for Deletion', 'KPI Summary', 'Trends', 'Safe Access'
+      'Overdue / At-Risk', 'Stage/Status Summary', 'KPI Summary', 'Trends',
+      'Reconciliation Review', 'Possible Account Matches', 'Unresolved Entitlement Members', 'Discovered Accounts', 'DNA Accounts',
+      'Risk Score', 'Risk Exception SoD', 'Safe Access', 'CyberArk Applications', 'CPM Health',
+      'Safes Flagged for Deletion', 'Accounts Flagged for Deletion'
     ])
+    const groups = wrapper.findAll('nav [role="group"]')
+    expect(groups.map(g => g.get('.hub-subnav-group-title').text())).toEqual(['Progress', 'Reconciliation and discovery', 'Risk and access', 'Decommission'])
+    expect(groups[0].attributes('aria-labelledby')).toBe(groups[0].get('.hub-subnav-group-title').attributes('id'))
     // The column and the report sit side by side, as on the Admin hub.
     expect(wrapper.get('.reports-layout').element.children[0]).toBe(nav.element)
     expect(wrapper.get('.reports-content').text()).toContain('reports-kpi-summary')
@@ -56,9 +61,15 @@ describe('ReportsHub.vue', () => {
     const wrapper = await mountHub(['ViewDashboard'])
 
     expect(links(wrapper)).toEqual([
-      'Overdue / At-Risk', 'Stage/Status Summary', 'Unresolved Entitlement Members', 'CPM Health', 'CyberArk Applications',
-      'Safes Flagged for Deletion', 'Accounts Flagged for Deletion', 'KPI Summary', 'Trends', 'Safe Access'
+      'Overdue / At-Risk', 'Stage/Status Summary', 'KPI Summary', 'Trends', 'Unresolved Entitlement Members',
+      'Safe Access', 'CyberArk Applications', 'CPM Health', 'Safes Flagged for Deletion', 'Accounts Flagged for Deletion'
     ])
+  })
+
+  it('leaves out a group with no report the user may open (D-330)', async () => {
+    const wrapper = await mountHub(['ViewRiskReport'])
+
+    expect(wrapper.findAll('.hub-subnav-group-title').map(g => g.text())).toEqual(['Risk and access'])
   })
 
   it('shows a user without ViewDashboard only the reports their own permission opens (D-305)', async () => {
