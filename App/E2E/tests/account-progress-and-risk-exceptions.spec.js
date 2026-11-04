@@ -46,6 +46,23 @@ test.describe('Account Progress edit form', () => {
     await expect(page.getByRole('heading', { name: 'Account Progress' })).toBeVisible()
   })
 
+  // D-308: the account's Safe opens the Safe's page, which lists its accounts and links to all of them on Accounts.
+  test('Viewer opens an account Safe, then all of its accounts', async ({ page }) => {
+    await signInAs(page, 'TestUser.Viewer')
+    const accountKey = await getTestAccountKey(page, 'TestAccount03')
+
+    await page.goto(`/accounts/${accountKey}`)
+    await page.locator('.account-safe').getByRole('link', { name: 'TestSafe01' }).click()
+
+    await expect(page).toHaveURL(/\/safes\/\d+$/)
+    await expect(page.getByRole('heading', { level: 1, name: 'TestSafe01' })).toBeVisible()
+    await expect(page.getByRole('link', { name: 'TestAccount03' })).toBeVisible()
+
+    await page.getByRole('link', { name: 'Show all on Accounts' }).click()
+    await expect(page).toHaveURL(/\/accounts\?safe=\d+$/)
+    await expect(page.getByText('Showing the accounts in Safe TestSafe01.')).toBeVisible()
+  })
+
   test('Viewer sees the read-only view, never the edit form', async ({ page }) => {
     await signInAs(page, 'TestUser.Viewer')
     const accountKey = await getTestAccountKey(page, 'TestAccount03')

@@ -621,6 +621,8 @@ onUnmounted(releaseLock)
           <template v-if="detail.lastCPMModifiedDate"><dt>{{ t('pages.accountProgressDetail.cpmLastChanged') }}</dt><dd>{{ formatDate(detail.lastCPMModifiedDate) }}</dd></template>
           <template v-if="detail.requirePsm !== null && detail.requirePsm !== undefined"><dt>{{ t('pages.accountProgressDetail.cpmRequiresPsm') }}</dt><dd>{{ detail.requirePsm ? t('common.yes') : t('common.no') }}</dd></template>
         </dl>
+        <!-- D-308: the account's Safe, linked to its page. -->
+        <p v-if="detail.safeKey" class="account-progress-identity-secondary account-safe"><strong>{{ t('pages.accountProgressDetail.safe') }}</strong> <router-link :to="{ name: 'safe-detail', params: { safeKey: detail.safeKey } }">{{ detail.safeName }}</router-link></p>
         <!-- D-283: which Progress Rule moved the account to its stage. -->
         <p v-if="detail.lastAdvancedByRuleName" class="account-progress-identity-secondary moved-by-rule">{{ t('pages.accountProgressDetail.movedByRule', { rule: detail.lastAdvancedByRuleName, date: formatUtcDateTime(detail.lastAdvancedAt) }) }}</p>
         <!-- D-298: the archive rule that archived it (cleared when the status changes). -->

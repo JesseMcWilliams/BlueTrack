@@ -6,16 +6,12 @@
 - **Privilege Cloud Direct** (requested 2026-10-19, with Self-Hosted Direct, D-248; later, the user, 2026-11-03, and with PSM below): read Privilege Cloud through its API into `stg_pc_*` instead of the export folder, as a fourth option on the CyberArk sources page (already listed there, unavailable). Needs the Privilege Cloud API's logon (an Identity OAuth client, `Platform/Developer` and `PAM/Privilege-Cloud-Standard` in the Idira reference), a lab tenant, and the same change guard.
 
 ## From the user's notes (checked 2026-11-03)
-The user's consolidated notes, checked against the code on 2026-11-03. Built then: 3, 7, 16 and 20 (D-306), the landing page (D-307), 4 (D-309). Already built before: 9 (D-302: Pull now runs the full Import and Load, update tasks included, not the daily snapshot), 17 (Targets and Access Groups pages, their imports and feeds, D-101 to D-104, D-193, D-137), 22 for Self-Hosted (D-270), and the KPIs (D-143). 21, the shadow pull, was removed with the EVD source (D-278). Not built:
+The user's consolidated notes, checked against the code on 2026-11-03. Built then: 3, 7, 16 and 20 (D-306), the landing page (D-307), 4 (D-309), 10 to 13 (D-308). Already built before: 9 (D-302: Pull now runs the full Import and Load, update tasks included, not the daily snapshot), 17 (Targets and Access Groups pages, their imports and feeds, D-101 to D-104, D-193, D-137), 22 for Self-Hosted (D-270), and the KPIs (D-143). 21, the shadow pull, was removed with the EVD source (D-278). Not built:
 - **1. Credential Provider added after install:** Admin > Secrets Store switches backends, but CP support is compiled in only when the CyberArk SDK is present at build time; no doc covers installing the SDK after BlueTrack.
 - **2. Version file** in the release and install folders (the version is already in About, Admin > Deployment, the tag and the SBOM).
 - **5. PVWA behind a load balancer:** one PVWA URL per source, no failover list; each pull logs on once and reuses the token over one HTTP client (which keeps cookies). Never tried behind a real load balancer.
 - **6. Quick Test on Edit CyberArk sources:** Test reads the whole Vault (as a pull does, writing nothing); it should only check sign-in and access.
 - **8. Power BI access page:** how to connect Power BI and which views to use; only the SQL views exist (D-22).
-- **10. The account's Safe** on the account page and as a column on Accounts.
-- **11. Safe details page,** with the account's Safe linking to it.
-- **12. The Safe's BlueTrack application** on the Safe details page (the user, 2026-11-03: the BlueTrack application mapped to the Safe, `dim_safe.ApplicationKey`, D-31, not the CyberArk AppIDs).
-- **13. The Safe's accounts** on the Safe details page (the likely reading of "the account details should show as well").
 - **14. Bulk actions on Reports > Risk Score,** for example the override on several accounts at once.
 - **15. Imports that update:** a Target import doesn't change an existing Target's risk score (`TargetMatchingService`: only missing identifiers are added); there is no import of account overrides.
 - **18. LDAP / AD under Data Sources:** the LDAP domains are on Admin > Credentials & LDAP, and AD account discovery runs on a fixed daily timer with no page to schedule it.

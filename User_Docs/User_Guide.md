@@ -69,6 +69,10 @@ A **⚠** next to a username means the account is flagged for deletion: it's in 
 
 **Accounts from other systems.** An account an administrator imports from another system (an account inventory data feed) is marked **from** and the system's name. When CyberArk has the same account (the same user name and address), BlueTrack links the two: the other system's account moves from **Discovered** to **Onboarded to Vault** and is hidden, so the list and the reports count the account once, as its CyberArk account. Set the **Linked feed accounts** filter to **Show** to see them; each is marked **Linked**, and the mark opens its CyberArk account.
 
+### A Safe's page
+
+The **Safe** column on the list, and the Safe named on an account's page, open the Safe's page: the BlueTrack application mapped to the Safe (its name, code and owner; an administrator maps it on Admin > Application Mapping), its description, source, managing CPM and created date, a note if the decommission or ignore patterns name it, how many accounts it holds, and its first 50 accounts. **Show all on Accounts** opens the list filtered to that Safe; **Show every Safe** there removes the filter.
+
 ### Selecting accounts for bulk actions
 
 Tick **Select accounts for bulk actions** above the list (you need `EditAccountProgress` or `DeleteAccounts`) to add a checkbox to every row. The bar shows how many accounts are selected (and how many of those are on this page), with:

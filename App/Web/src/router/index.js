@@ -63,6 +63,14 @@ const routes = [
     meta: { breadcrumb: 'shell.routes.accountProgressBulkEdit', breadcrumbParent: 'account-progress-list' },
     component: () => import('../views/AccountProgressBulkEdit.vue')
   },
+  // D-308: one Safe's page (its application, flags and accounts).
+  {
+    path: '/safes/:safeKey',
+    name: 'safe-detail',
+    meta: { breadcrumb: 'shell.routes.safeDetail', breadcrumbParent: 'account-progress-list' },
+    component: () => import('../views/SafeDetail.vue'),
+    props: true
+  },
   {
     path: '/accounts/:accountKey',
     name: 'account-progress-detail',

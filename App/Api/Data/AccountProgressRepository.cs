@@ -26,7 +26,8 @@ public sealed class AccountProgressRepository(IDbConnectionFactory connectionFac
         ["targetRemediationDate"] = "fap.TargetRemediationDate",
         ["actualCompletionDate"] = "fap.ActualCompletionDate",
         ["effectiveRiskScore"] = "ars.EffectiveRiskScore",
-        ["riskScoreBandName"] = "band.RiskOrder"
+        ["riskScoreBandName"] = "band.RiskOrder",
+        ["safeName"] = "sf.SafeName"   // D-308
     };
 
     // D-124 Phase 3: shared between GetSummaryListAsync and
@@ -46,6 +47,8 @@ public sealed class AccountProgressRepository(IDbConnectionFactory connectionFac
         JOIN dbo.dim_source_system ss           ON ss.SourceSystemKey = fa.SourceSystemKey
         OUTER APPLY (SELECT TOP (1) l.LinkedAccountKey FROM dbo.vw_linked_feed_account l WHERE l.AccountKey = fa.AccountKey) lnk
         LEFT JOIN dbo.fact_account lfa          ON lfa.AccountKey = lnk.LinkedAccountKey
+        -- D-308: the account's Safe, shown, sortable and a filter (from the Safe's page).
+        LEFT JOIN dbo.dim_safe sf               ON sf.SafeKey = fa.SafeKey
         -- D-185: deleted accounts are hidden unless asked for ("Show" or "Only").
         WHERE (CASE @DeletedFilter WHEN 'Show' THEN 1 WHEN 'Only' THEN fa.IsDeleted ELSE 1 - fa.IsDeleted END) = 1
           -- D-212: a feed account linked to a CyberArk account is hidden (the CyberArk one shows) unless asked for.
@@ -54,6 +57,7 @@ public sealed class AccountProgressRepository(IDbConnectionFactory connectionFac
           AND (@StatusName IS NULL OR sts.StatusName = @StatusName)
           AND (@RiskLevelName IS NULL OR rl.RiskLevelName = @RiskLevelName)
           AND (@OwnerContains IS NULL OR fap.OwnerName LIKE '%' + @OwnerContains + '%')
+          AND (@SafeKey IS NULL OR fa.SafeKey = @SafeKey)
           AND (@SearchPattern IS NULL OR fa.UserName LIKE @SearchPattern OR fa.Address LIKE @SearchPattern OR fa.AccountName LIKE @SearchPattern)
           -- UI review W7-1: the KPI Summary's counts (D-143), so each count can open the accounts behind it.
           AND (@Kpi IS NULL OR @Kpi = 'total'
@@ -92,7 +96,8 @@ public sealed class AccountProgressRepository(IDbConnectionFactory connectionFac
         string? search = null,
         string? deleted = null,
         string? linked = null,
-        string? kpi = null)
+        string? kpi = null,
+        int? safeKey = null)
     {
         using var connection = connectionFactory.Create();
         var (normalizedPage, normalizedPageSize) = PagingParams.Normalize(page, pageSize);
@@ -123,6 +128,7 @@ public sealed class AccountProgressRepository(IDbConnectionFactory connectionFac
                     band.BandName AS RiskScoreBandName,
                     fa.IsDeleted, fa.IsDeletedInSource, adu.DisplayName AS DeletedByName, ad.DeletedAt, ad.Reason AS DeletionReason,
                     ss.SourceSystemCode, ss.SourceSystemName, lnk.LinkedAccountKey AS LinkedToAccountKey, lfa.AccountName AS LinkedToAccountName,
+                    sf.SafeKey, sf.SafeName,
                     ROW_NUMBER() OVER (ORDER BY {orderBy}) AS RowNo
                 {FilterFromSql}
                 ORDER BY {orderBy}
@@ -146,6 +152,7 @@ public sealed class AccountProgressRepository(IDbConnectionFactory connectionFac
             DeletedFilter = NormalizeDeleted(deleted),
             LinkedFilter = NormalizeLinked(linked),
             Kpi = NormalizeKpi(kpi),
+            SafeKey = safeKey,
             Offset = PagingParams.Offset(normalizedPage, normalizedPageSize),
             PageSize = normalizedPageSize
         });
@@ -168,7 +175,8 @@ public sealed class AccountProgressRepository(IDbConnectionFactory connectionFac
         string? search = null,
         string? deleted = null,
         string? linked = null,
-        string? kpi = null)
+        string? kpi = null,
+        int? safeKey = null)
     {
         using var connection = connectionFactory.Create();
         var sql = $"SELECT COUNT(*) {FilterFromSql}";
@@ -181,7 +189,8 @@ public sealed class AccountProgressRepository(IDbConnectionFactory connectionFac
             SearchPattern = ToContainsPattern(search),
             DeletedFilter = NormalizeDeleted(deleted),
             LinkedFilter = NormalizeLinked(linked),
-            Kpi = NormalizeKpi(kpi)
+            Kpi = NormalizeKpi(kpi),
+            SafeKey = safeKey
         });
     }
 
@@ -191,7 +200,7 @@ public sealed class AccountProgressRepository(IDbConnectionFactory connectionFac
     /// the caller compares against GetFilteredCountAsync to know if there were more.
     /// </summary>
     public async Task<IReadOnlyList<long>> GetFilteredKeysAsync(
-        string? stageName, string? statusName, string? riskLevelName, string? ownerContains, string? search, int limit, string? deleted = null, string? linked = null, string? kpi = null)
+        string? stageName, string? statusName, string? riskLevelName, string? ownerContains, string? search, int limit, string? deleted = null, string? linked = null, string? kpi = null, int? safeKey = null)
     {
         using var connection = connectionFactory.Create();
         var sql = $"SELECT TOP (@Limit) fa.AccountKey {FilterFromSql} ORDER BY fa.AccountName, fa.AccountKey";
@@ -205,6 +214,7 @@ public sealed class AccountProgressRepository(IDbConnectionFactory connectionFac
             DeletedFilter = NormalizeDeleted(deleted),
             LinkedFilter = NormalizeLinked(linked),
             Kpi = NormalizeKpi(kpi),
+            SafeKey = safeKey,
             Limit = limit
         })).AsList();
     }
@@ -259,6 +269,7 @@ public sealed class AccountProgressRepository(IDbConnectionFactory connectionFac
                 fap.ProgressKey, fap.AccountKey, fa.AccountName, fa.UserName, fa.Address,
                 fa.CreatedTime, fa.LastCPMAction, fa.LastCPMActionResult, fa.LastCPMActionTime,
                 fa.DeviceType, fa.CreationMethod, fa.LinkedLogonAccount, fa.LinkedReconcileAccount, fa.Folder,
+                isf.SafeKey, isf.SafeName,   -- D-308
                 -- D-288: CPM health, for both sources.
                 fa.CPMStatus, fa.CpmFailureSince, fa.AutoManaged, fa.ManualReason, fa.LastVerifiedDate, fa.LastReconciledDate, fa.LastCPMModifiedDate,
                 (SELECT pl.RequirePsm FROM dbo.dim_platform pl WHERE pl.PlatformKey = fa.PlatformKey) AS RequirePsm,
