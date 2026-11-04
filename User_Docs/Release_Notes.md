@@ -6,6 +6,7 @@ What changed in each BlueTrack release, newest first, for users and administrato
 
 ### New
 
+- **Accounts export and import**: **Export CSV / Excel** on Accounts downloads the filtered list with its editable fields, and **Import changes...** reads such a CSV back, saving each row's changed values with the edit page's rules and reporting any row it couldn't apply. (User Guide)
 - **Active Directory account discovery on Admin > Data Sources**: when it runs (default 04:30), **Run now**, and its recent runs with what each found and any domain it couldn't read. Before, it ran a day after whenever the application last started, and kept no record. (Administrator Data Management)
 - **Bulk override on Reports > Risk Score**: select accounts and set an override score (with a reason) on all of them, or clear it. Needs `EditAccountProgress`, as on one account. (User Guide)
 - **Admin > Power BI** (permission `ViewDeploymentInfo`): the server and database to connect Power BI to, the views and tables to import with their columns, how to relate them, and a script that gives an account read access to just those. (Administrator Operations Guide)

@@ -52,7 +52,7 @@ public sealed class AccountProgressBulkEditService(
         return null;
     }
 
-    private static bool Has(BulkEditAccountProgressRequest request, string field) =>
+    internal static bool Has(BulkEditAccountProgressRequest request, string field) =>
         request.Fields.Contains(field, StringComparer.OrdinalIgnoreCase);
 
     /// <summary>Call ValidateAsync first.</summary>
@@ -116,7 +116,7 @@ public sealed class AccountProgressBulkEditService(
     }
 
     /// <summary>The account's current values, with the chosen fields replaced.</summary>
-    private static SaveAccountProgressRequest BuildRequest(AccountProgressDetail before, BulkEditAccountProgressRequest bulk)
+    internal static SaveAccountProgressRequest BuildRequest(AccountProgressDetail before, BulkEditAccountProgressRequest bulk)
     {
         bool Has(string field) => AccountProgressBulkEditService.Has(bulk, field);
         string? notes = before.Notes;
