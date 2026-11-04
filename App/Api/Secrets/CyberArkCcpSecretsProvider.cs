@@ -63,7 +63,9 @@ public sealed class CyberArkCcpSecretsProvider(
                   $"?AppID={Uri.EscapeDataString(settings.AppId)}" +
                   $"&Safe={Uri.EscapeDataString(query.Safe)}" +
                   $"&Folder={Uri.EscapeDataString(query.Folder)}" +
-                  $"&Object={Uri.EscapeDataString(query.Object)}";
+                  $"&Object={Uri.EscapeDataString(query.Object)}" +
+                  // D-309: the configured reason, audited by the Credential Provider.
+                  (string.IsNullOrWhiteSpace(settings.Reason) ? "" : $"&Reason={Uri.EscapeDataString(settings.Reason.Trim())}");
 
         var client = httpClientFactory.CreateClient(nameof(CyberArkCcpSecretsProvider));
 

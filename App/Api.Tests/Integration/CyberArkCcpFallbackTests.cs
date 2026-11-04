@@ -172,4 +172,34 @@ public class CyberArkCcpFallbackTests : IClassFixture<BlueTrackWebApplicationFac
             await SetCcpSettingsAsync(null);
         }
     }
+    // D-309: the configured reason goes with each request, for the Credential Provider's audit log; none when blank.
+    [Theory]
+    [InlineData("""{"BaseUrl":"https://ccp.integration-test.example","AppId":"TestApp","Reason":" BlueTrack data feed "}""", "&Reason=BlueTrack%20data%20feed")]
+    [InlineData("""{"BaseUrl":"https://ccp.integration-test.example","AppId":"TestApp","Reason":"  "}""", null)]
+    [InlineData("""{"BaseUrl":"https://ccp.integration-test.example","AppId":"TestApp"}""", null)]
+    public async Task TheConfiguredReason_IsSent(string settings, string? expected)
+    {
+        await SetCcpSettingsAsync(settings);
+        try
+        {
+            string? requested = null;
+            var provider = Provider(new StubHandler(request =>
+            {
+                requested = request.RequestUri!.Query;
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent("""{"Content":"pw","UserName":"svc","Address":"host"}""", Encoding.UTF8, "application/json")
+                };
+            }), new SecretFallbackCache(TimeProvider.System));
+
+            await provider.GetSecretAsync(new SecretQuery("Safe", "Root", "Object"));
+
+            if (expected is null) Assert.DoesNotContain("Reason=", requested);
+            else Assert.EndsWith(expected, requested);
+        }
+        finally
+        {
+            await SetCcpSettingsAsync(null);
+        }
+    }
 }

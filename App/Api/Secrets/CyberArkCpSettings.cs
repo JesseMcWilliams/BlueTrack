@@ -7,4 +7,6 @@ namespace BlueTrack.Api.Secrets;
 public sealed class CyberArkCpSettings
 {
     public required string AppId { get; init; }
+    /// <summary>D-309: sent as the request's Reason, which the Credential Provider writes to its audit log; blank sends none.</summary>
+    public string? Reason { get; init; }
 }
