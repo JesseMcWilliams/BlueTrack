@@ -48,9 +48,9 @@ The usual flow looks like this:
 
 ## Signing in and finding your way around
 
-Open the BlueTrack address your administrator gave you, such as `https://<server>/`. Depending on how your organization set it up, you're signed in with your Windows account straight away, or sent to your organization's sign-in page and back. If the **Sign in** page lists several methods, choose yours.
+Open the BlueTrack address your administrator gave you, such as `https://<server>/`. Depending on how your organization set it up, you're signed in with your Windows account straight away, or sent to your organization's sign-in page and back. If the **Sign in** page lists several methods (one box each), choose yours. You start on **Home**, which has a card for each area you can open and, on the Accounts and Exceptions cards, how many items need action.
 
-The top navigation has **Dashboard**, **Access Groups**, **Accounts**, **Exceptions**, **Targets**, **Reports** and **Admin**. Your name is on the right. Its menu has **Profile & Preferences**, **About** (BlueTrack's version) and **Sign out**.
+The top navigation has **Home**, **Dashboard**, **Access Groups**, **Accounts**, **Exceptions**, **Targets**, **Reports** and **Admin**, and marks the area you're in. On a narrow screen it wraps onto more lines. Your name is on the right. Its menu has **Profile & Preferences**, **About** (BlueTrack's version) and **Sign out**.
 
 ### Roles decide what you see
 
@@ -68,7 +68,7 @@ A few things to know:
 
 - **Access Groups** and **Targets** only appear in the top navigation if your role can manage them.
 - The Dashboard, **Accounts**, **Exceptions** and most reports need `ViewDashboard`. Without it, the top nav and **Home** don't offer them, and their addresses show **Access Denied**. The Auditor role doesn't include it.
-- Inside **Admin**, the sidebar lists only the sections you have permission for.
+- Inside **Admin** and **Reports**, the sidebar lists only the pages you may open, in titled groups (for example **Access and identity** or **Data** in Admin; **Progress** or **Risk and access** in Reports). **Admin** is in the top nav only if you can open at least one of its sections. The top nav marks the area you're in.
 - Some work is admin-only out of the box: deleting accounts, the Discovered Accounts report, and data feeds. (Analysts can also see the Risk Score report.) Your administrator can grant these to other roles.
 - To check exactly what you hold, open **Profile & Preferences**. If you've just been added to a group, click **Reload My Rights**; if the page says your groups come from your sign-in, sign out and back in. Otherwise the change can take up to 15 minutes to reach you.
 
@@ -194,13 +194,13 @@ You can't link a risk exception in bulk. Do that on each account. Accounts someo
 
 ### Deleting and undeleting
 
-Sometimes an account shouldn't be tracked at all, for example a test account. With the `DeleteAccounts` permission (admins by default), use **Delete account…** on the account's page, or **Delete…** after selecting accounts on the list.
+Sometimes an account shouldn't be tracked at all, for example a test account. With the `DeleteAccounts` permission (admins by default), use **Delete account…** in the **Deletion** section at the end of the account's page, or **Delete…** after selecting accounts on the list.
 
 - A **reason is always required**, for undelete too.
 - Deleting hides the account but keeps its progress, exceptions and history. A BlueTrack delete stays in place through the nightly import.
 - **Undelete account…** reverses a delete made in BlueTrack. An account deleted in CyberArk comes back only if it reappears in CyberArk.
-- **Delete / undelete history** on the account's page shows who did what, when and why.
-- To see deleted accounts on the list, set the **Deleted accounts** filter to **Show** or **Only deleted**.
+- **Delete / undelete history**, under **Deletion** on the account's page, shows who did what, when and why.
+- To see deleted accounts on the list, open **More filters** and set **Deleted accounts** to **Show** or **Only deleted**.
 
 ### How the Dashboard reflects your work
 

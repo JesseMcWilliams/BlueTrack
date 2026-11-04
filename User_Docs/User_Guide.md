@@ -10,13 +10,15 @@ This is a task-oriented, "how do I use this" guide for BlueTrack administrators 
 
 ## Getting Around
 
-The top navigation reads **Dashboard | Access Groups | Accounts | Exceptions | Targets | Reports | Admin**, with a menu showing your name on the right: **Profile & Preferences**, **About** (shows BlueTrack's version) and **Sign out**. **Access Groups** appears only with `ManageAccessGroups`, and **Targets** only with `ManageTargets`. Inside **Admin**, the sidebar lists only the sections you hold permission for. Every page shows a breadcrumb trail at the top so you always know where you are.
+The top navigation reads **Home | Dashboard | Access Groups | Accounts | Exceptions | Targets | Reports | Admin**, with a menu showing your name on the right: **Profile & Preferences**, **About** (shows BlueTrack's version) and **Sign out**. **Access Groups** appears only with `ManageAccessGroups`, **Targets** only with `ManageTargets`, and **Admin** only if you can open at least one Admin section. The entry for the area you're in is marked; an account's or a Safe's page marks **Accounts**. Inside **Admin** and **Reports**, the sidebar lists only the pages you may open, in titled groups, and marks the one you're on. Every page except Home shows a breadcrumb trail at the top so you always know where you are.
+
+On a narrow screen (under about 900 pixels wide, such as a phone), the top navigation wraps onto more lines, the Admin and Reports sidebars sit above the page instead of beside it, and a wide table scrolls sideways inside the page.
 
 Seeing tracked data (the Dashboard, Accounts, Exceptions and most reports) needs a role with `ViewDashboard`. Without it, those pages show **Access Denied**. An administrator's changes to roles or group mappings apply straight away. A change to your own group membership (for example, being added to an AD group) can take up to 15 minutes; **Reload My Rights** on **Profile & Preferences** picks it up straight away with Windows sign-in; with a single sign-on provider, sign out and back in.
 
-When BlueTrack refuses a save or delete, the page says why: for example, a name, identifier or score range that's already used, something still in use by other records, or a record someone else changed first. A save that takes you back to a list shows a line such as "*name* saved." there. An empty list says whether nothing exists yet or nothing matches your filters.
+When BlueTrack refuses a save or delete, the page says why: for example, a name, identifier or score range that's already used, something still in use by other records, or a record someone else changed first. A save that takes you back to a list shows a line such as "*name* saved." there. An empty list says whether nothing exists yet or nothing matches your filters. A list shows its page controls (and the **Rows per page** choice beside them) only when it has more than one page.
 
-**Home.** Signing in opens **Home**: a greeting, your roles, a card for each area you can open and, if your roles include `ViewDashboard`, the Key Progress Indicators (everything discovered, all accounts, in scope, onboarded, managed, compliant, each with its share of the step before; click a count to see those accounts). The **Dashboard** has its own entry in the top nav.
+**Home.** Signing in opens **Home**: a greeting, your roles, a card for each area you can open (the **Accounts** and **Exceptions** cards also show what needs action, such as the number of accounts overdue or at risk, exceptions past their review date and, with `ApproveExceptions`, exceptions awaiting approval; each count opens its worklist) and, if your roles include `ViewDashboard`, the Key Progress Indicators (everything discovered, all accounts, in scope, onboarded, managed, compliant, each with its share of the step before; click a count to see those accounts). The **Dashboard** has its own entry in the top nav.
 
 **Pages you can't open.** The top nav and Home show only the pages your roles allow. A page your roles don't allow shows **Access Denied**, with **Go to Home** and **See my roles**; an address with no page behind it shows **Page Not Found**. If you're signed in but have no role at all, BlueTrack shows only a "You don't have access to BlueTrack yet" page with your name, what to ask an administrator, and **Check again** (it re-reads your roles once they've been given).
 
@@ -27,7 +29,7 @@ When BlueTrack refuses a save or delete, the page says why: for example, a name,
 **Where**: the **Sign in** page (`/login`), which opens on its own when you aren't signed in.
 
 How it behaves depends on the **Default sign-in method** your administrator sets (Admin > Identity Providers):
-- **Windows** is the default: you're signed in silently and land on the page you asked for (the Dashboard by default). If that doesn't finish, the page lists the methods; choose **Continue** next to Windows. If it still fails, the page says "Windows sign-in didn't complete"; check any credentials your browser asked for and choose **Continue** again.
+- **Windows** is the default: you're signed in silently and land on the page you asked for (**Home** by default). If that doesn't finish, the page lists the methods; choose **Continue** next to Windows. If it still fails, the page says "Windows sign-in didn't complete"; check any credentials your browser asked for and choose **Continue** again.
 - **OIDC or SAML** is the default: you go straight to your organization's identity provider, sign in there, and come back to BlueTrack.
 - **No default**: the page says "Choose a sign-in method:" and lists every enabled method. The default, if there is one, is marked *(default)*.
 - If your administrator turned on **Remember each browser's last method**, the page starts the method you last signed in with on this browser instead of the default. After you sign out, the page lists the methods without starting one, so you can pick another.
@@ -47,13 +49,15 @@ Open the menu with your name at the right of the top nav and choose **Sign out**
 
 ## Dashboard
 
-**Where**: the home page you land on after signing in.
+**Where**: **Dashboard** in the top nav (`/dashboard`).
 
-Four at-a-glance summary cards, each linking into the full report/worklist behind it:
-- **Accounts by Stage** — a table plus a small pie chart of how many accounts sit at each Blueprint stage, with a count of how many are Complete. Each stage's count opens the Accounts list filtered to that stage. Links to the full Stage/Status Summary report.
-- **Key Progress Indicators** — the four KPI Summary ratios (In Scope vs. All Accounts, Onboarded vs. In Scope, Managed vs. Onboarded, Compliant vs. Managed) as percentages, plus a pie chart breaking every account into exactly one of six buckets: Out of Scope, Archived, In Scope-Not Onboarded, Onboarded-Not Managed, Managed-Not Compliant, or Compliant. Links to the full KPI Summary report.
+Four at-a-glance summaries, each linking into the full report/worklist behind it. The two that need someone's attention come first, side by side:
 - **Overdue / At-Risk Accounts** — a count of accounts past their target remediation date. Links to that worklist.
 - **Risk Exceptions Needing Attention** — a count of exceptions past their review date (everyone sees this). If you hold `ApproveExceptions`, you also see a count of Active exceptions awaiting approval.
+
+Below them, the two charts, side by side on a wide screen; each pie has a legend naming its colours:
+- **Accounts by Stage** — a table plus a small pie chart of how many accounts sit at each Blueprint stage, with a count of how many are Complete. Each stage's count opens the Accounts list filtered to that stage. Links to the full Stage/Status Summary report.
+- **Key Progress Indicators** — the four KPI Summary ratios (In Scope vs. All Accounts, Onboarded vs. In Scope, Managed vs. Onboarded, Compliant vs. Managed) as percentages, plus a pie chart breaking every account into exactly one of six buckets: Out of Scope, Archived, In Scope-Not Onboarded, Onboarded-Not Managed, Managed-Not Compliant, or Compliant. Links to the full KPI Summary report.
 
 ## Account Progress
 
@@ -65,9 +69,9 @@ Four at-a-glance summary cards, each linking into the full report/worklist behin
 
 A **⚠** next to a username means the account is flagged for deletion: it's in a safe matching the safe decommission pattern, or its name matches the account pattern. Point at it (or use a screen reader) for the safe's name and any other safe the account is also in; the account's page shows the same as a notice.
 
-**Deleted accounts** are hidden. The **Deleted accounts** filter shows them alongside the others (**Show**) or on their own (**Only deleted**). A deleted account is marked **Deleted**; point at the mark to see who deleted it and why, whether CyberArk deleted it, **Deleted in CyberArk (internal Safe)** for an account in one of CyberArk's own internal Safes (which PVWA doesn't return to the Self-Hosted pull), or **Not imported (ignored safe)** for an account in a safe matching the ignored safe pattern.
+**Deleted accounts** are hidden. The **Deleted accounts** filter, under **More filters** below the other filters (it opens by itself while this filter or **Linked feed accounts** is in use), shows them alongside the others (**Show**) or on their own (**Only deleted**). A deleted account is marked **Deleted**; point at the mark to see who deleted it and why, whether CyberArk deleted it, **Deleted in CyberArk (internal Safe)** for an account in one of CyberArk's own internal Safes (which PVWA doesn't return to the Self-Hosted pull), or **Not imported (ignored safe)** for an account in a safe matching the ignored safe pattern.
 
-**Accounts from other systems.** An account an administrator imports from another system (an account inventory data feed) is marked **from** and the system's name. When CyberArk has the same account (the same user name and address), BlueTrack links the two: the other system's account moves from **Discovered** to **Onboarded to Vault** and is hidden, so the list and the reports count the account once, as its CyberArk account. Set the **Linked feed accounts** filter to **Show** to see them; each is marked **Linked**, and the mark opens its CyberArk account.
+**Accounts from other systems.** An account an administrator imports from another system (an account inventory data feed) is marked **from** and the system's name. When CyberArk has the same account (the same user name and address), BlueTrack links the two: the other system's account moves from **Discovered** to **Onboarded to Vault** and is hidden, so the list and the reports count the account once, as its CyberArk account. Set the **Linked feed accounts** filter (under **More filters**) to **Show** to see them; each is marked **Linked**, and the mark opens its CyberArk account.
 
 ### Exporting and importing the list
 
@@ -91,15 +95,15 @@ The selection stays as you page, sort and filter. After a bulk action, a summary
 
 ### Deleting and undeleting accounts
 
-With `DeleteAccounts`, an account's page has **Delete account…** (or **Undelete account…** if it was deleted in BlueTrack), and the list has the bulk **Delete…** / **Undelete…** buttons above.
-- **A reason is always required**, for undelete as well as delete. Every delete and undelete is kept, with who, when and why: open **Delete / undelete history** on the account's page. Each is also in the Audit Log.
+With `DeleteAccounts`, an account's page has **Delete account…** (or **Undelete account…** if it was deleted in BlueTrack) in its **Deletion** section, at the end of the page, and the list has the bulk **Delete…** / **Undelete…** buttons above.
+- **A reason is always required**, for undelete as well as delete. Every delete and undelete is kept, with who, when and why: open **Delete / undelete history** under **Deletion** on the account's page. Each is also in the Audit Log.
 - A deleted account keeps its progress, risk exceptions and history; it's just hidden from the list, the Dashboard and the reports. A delete made in BlueTrack stays in place through the nightly import.
 - **Undelete** reverses a BlueTrack delete only. An account CyberArk deleted is marked "Deleted in CyberArk" and comes back only if it reappears in CyberArk.
 - An account someone else is editing is skipped, not deleted.
 
 ### Editing an account
 
-Opening an account tries to acquire an edit lock automatically if you hold `EditAccountProgress`. If someone else already has it locked, you see "Currently being edited by" with who and since when, and a **Force Release Lock** button if you need to take over; it asks you to confirm first, since anything they've typed and not saved is lost. Without a lock you get a read-only view; without `EditAccountProgress`, the page says you can view the account but not change it.
+Opening an account tries to acquire an edit lock automatically if you hold `EditAccountProgress`. If someone else already has it locked, you see "Currently being edited by" with who and since when, and a **Force Release Lock** button if you need to take over; it asks you to confirm first, since anything they've typed and not saved is lost. Without a lock you get a read-only view; without `EditAccountProgress`, the page says you can view the account but not change it. The fields are laid out in a grid, and **Save** and **Cancel** (with the **Reason** box) stay in view at the bottom of the window while you scroll the form; the reason box there is needed only when you move the account to an earlier stage.
 - An account you already have open elsewhere (another tab, or a visit you left without saving) opens for editing as usual; your own lock never blocks you.
 - While the page is open it keeps the lock alive. A lock with no activity for the **Account Progress Lock Timeout** (Global Application Configuration; 30 minutes on a new install) is treated as abandoned: the next person to open the account gets the lock, with no force-release needed.
 - If you lose the lock while editing (it expired, or someone forced it), the page says so and who holds it now. What you typed stays on the page, but **Save** is off until you click **Take the lock again**.
@@ -160,7 +164,7 @@ An exception that's no longer Active can't be re-approved or revoked; if someone
 
 ## Reports
 
-**Where**: **Reports** in the top nav (`/reports`). The reports are listed in a column on the left (as in the Admin hub) and the chosen report fills the right. A report marked with a permission below appears only if you hold it; the others are listed for everyone but need `ViewDashboard` to show data.
+**Where**: **Reports** in the top nav (`/reports`). The reports are listed in a column on the left (as in the Admin hub), in four groups: **Progress** (Overdue / At-Risk, Stage/Status Summary, KPI Summary, Trends), **Reconciliation and discovery** (Reconciliation Review, Possible Account Matches, Unresolved Entitlement Members, Discovered Accounts, DNA Accounts), **Risk and access** (Risk Score, Risk Exception SoD, Safe Access, CyberArk Applications, CPM Health) and **Decommission** (Safes Flagged for Deletion, Accounts Flagged for Deletion). The chosen report fills the right. Only the reports you may open are listed: a report marked with a permission below needs it, and the others need `ViewDashboard`. **Reports** in the top nav opens the first report you may see.
 
 **Exporting.** Every report has **Export CSV** and **Export Excel** buttons. The file holds every row that matches the report's current filters and sort, not just the page you see, with the same columns in the same order. Anyone who can view a report can export it. If more rows match than the **Export Max Rows** limit your administrator set (100,000 unless changed), the export is refused with the number of matching rows: narrow the filters and export again. Each export is recorded in the Audit Log (event type `ReportExport`). The file is named `BlueTrack_<Report>_<date-time>`.
 
@@ -225,7 +229,14 @@ Deleting either a Target or an Access Group still referenced by a mapping fails 
 
 ## Admin Hub
 
-**Where**: **Admin** in the top nav (`/admin`) — a single hub page with a sidebar listing only the sections you hold permission for. If you hold none, the sidebar says so plainly rather than showing an empty page.
+**Where**: **Admin** in the top nav (`/admin`) — a single hub page with a sidebar listing only the sections you hold permission for, in five groups:
+- **Access and identity**: Identity Providers, Group → Role Mapping, Roles & Permissions, Credentials & LDAP, API Keys.
+- **Data**: Data Sources, Application ↔ Safe Mapping, Platform Mapping, Target Match Review, Import Mapping Profiles, Account Classification, Field Metadata Management.
+- **Rules and scoring**: Progress Rules, Blueprint Stages, Safe Access Policies, Risk Score Bands.
+- **Integrations**: Secrets Store Configuration, Notifications, SIEM Forwarding, Power BI.
+- **System**: Global Application Configuration, Audit Log Viewer, Deployment.
+
+A group with none of your sections isn't shown. **Admin** appears in the top nav only if you hold at least one section.
 
 ### Identity Providers
 
