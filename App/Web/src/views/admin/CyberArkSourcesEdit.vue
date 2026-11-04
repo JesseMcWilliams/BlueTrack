@@ -86,7 +86,8 @@ onMounted(async () => {
     editing.value = {
       ...body.settings,
       exportFolderPath: body.settings.exportFolderPath ?? '',
-      pvwaBaseUrl: body.settings.pvwaBaseUrl ?? ''
+      pvwaBaseUrl: body.settings.pvwaBaseUrl ?? '',
+      pvwaFallbackUrls: body.settings.pvwaFallbackUrls ?? ''
     }
     // Arriving from a credential ("Use for Self-Hosted Direct", or after creating one): pick Direct with that
     // credential, keeping whatever was typed before leaving this page. Nothing is saved until Save.
@@ -192,6 +193,12 @@ function cancel() {
               <p>
                 <label class="field-label"><span class="field-label-text">{{ t('admin.cyberArkSourcesEdit.pvwaAddressLabel') }}</span> <input v-model="editing.pvwaBaseUrl" maxlength="400" :placeholder="t('admin.cyberArkSourcesEdit.pvwaAddressPlaceholder')" required /></label>
                 <small>{{ t('admin.cyberArkSourcesEdit.pvwaAddressHint') }}</small>
+              </p>
+              <!-- D-320: more PVWAs, tried in order when the ones before can't be reached. -->
+              <p>
+                <label class="field-label"><span class="field-label-text">{{ t('admin.cyberArkSourcesEdit.pvwaFallbackLabel') }}</span>
+                  <textarea v-model="editing.pvwaFallbackUrls" rows="3" cols="50" :placeholder="t('admin.cyberArkSourcesEdit.pvwaFallbackPlaceholder')"></textarea></label>
+                <small>{{ t('admin.cyberArkSourcesEdit.pvwaFallbackHint') }}</small>
               </p>
               <p>
                 <label class="field-label"><span class="field-label-text">{{ t('admin.cyberArkSourcesEdit.credentialLabel') }}</span>

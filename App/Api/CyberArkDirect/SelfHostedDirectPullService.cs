@@ -129,15 +129,41 @@ public sealed class SelfHostedDirectPullService(
         }
     }
 
+    /// <summary>
+    /// D-320: logs on to the first PVWA address that can be reached: the PVWA address, then the other addresses in
+    /// order. It moves on only when one can't be reached (PvwaException.Unreachable), never when one refuses the
+    /// credential, which every PVWA of the Vault would also refuse (and trying again could lock the account).
+    /// Everything after the logon uses the same PVWA. Returns which one, and why any before it were passed over.
+    /// </summary>
+    private async Task<(PvwaClient Client, string Token, string Host, IReadOnlyList<string> Skipped)> LogonAsync(
+        Models.CyberArkSourceSettings s, string userName, string password, CancellationToken ct)
+    {
+        var addresses = new[] { s.PvwaBaseUrl! }.Concat(DataFeeds.CyberArkSourceValidation.FallbackUrls(s.PvwaFallbackUrls))
+            .Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        var skipped = new List<string>();
+        for (var i = 0; ; i++)
+        {
+            var root = PvwaClient.ApiRootFor(addresses[i]);
+            var client = new PvwaClient(httpClientFactory.CreateClient(HttpClientName), root);
+            try
+            {
+                return (client, await client.LogonAsync(s.PvwaLogonMethod, userName, password, ct), root.Host, skipped);
+            }
+            catch (PvwaException ex) when (ex.Unreachable && i < addresses.Count - 1)
+            {
+                skipped.Add($"{root.Host}: {ex.Message}");
+            }
+        }
+    }
+
     /// <summary>Logs on, reads everything and logs off. Refuses a read with no Safes, which would empty staging.</summary>
-    private async Task<PvwaSnapshot> ReadPvwaAsync(Models.CyberArkSourceSettings s, PvwaPullOptions options, CancellationToken ct)
+    private async Task<(PvwaSnapshot Snapshot, string Host)> ReadPvwaAsync(Models.CyberArkSourceSettings s, PvwaPullOptions options, CancellationToken ct)
     {
         var (userName, password) = await credentialRepository.ResolveForUseAsync(s.PvwaCredentialKey
             ?? throw new InvalidOperationException("Self-Hosted Direct has no credential set."));
         if (string.IsNullOrEmpty(userName)) throw new InvalidOperationException("The credential has no user name; PVWA needs one to log on.");
 
-        var client = new PvwaClient(httpClientFactory.CreateClient(HttpClientName), PvwaClient.ApiRootFor(s.PvwaBaseUrl!));
-        var token = await client.LogonAsync(s.PvwaLogonMethod, userName, password, ct);
+        var (client, token, host, skipped) = await LogonAsync(s, userName, password, ct);
         PvwaSnapshot snapshot;
         try
         {
@@ -150,12 +176,13 @@ public sealed class SelfHostedDirectPullService(
 
         if (snapshot.Safes.Count == 0)
             throw new PvwaException("PVWA returned no Safes. The credential may not be a member of any, so nothing was changed.");
-        return snapshot;
+        if (skipped.Count > 0) snapshot.Warnings.Insert(0, $"Read from {host}; couldn't reach {string.Join("; ", skipped)}.");
+        return (snapshot, host);
     }
 
     private async Task<PullOutcome> PullAsync(long pullKey, Models.CyberArkSourceSettings s, bool acceptChange, PvwaPullOptions options, CancellationToken ct)
     {
-        var snapshot = await ReadPvwaAsync(s, options, ct);
+        var (snapshot, host) = await ReadPvwaAsync(s, options, ct);
         var counts = PullCounts.Of(snapshot);
         var baseline = await BaselineAsync();
         var rejection = PullChangeGuard.Evaluate(baseline, counts, s.DirectMaxChangePercent);
@@ -175,7 +202,6 @@ public sealed class SelfHostedDirectPullService(
 
         var batchId = Guid.NewGuid();
         var mapper = new SelfHostedStagingMapper();
-        var host = PvwaClient.ApiRootFor(s.PvwaBaseUrl!).Host;
         var tables = mapper.Map(snapshot, batchId, $"PVWA REST ({host})");
         await repository.StageAsync(tables, ct);
         await repository.PruneAccountDetailCacheAsync();
@@ -256,9 +282,13 @@ public sealed class SelfHostedDirectPullService(
             checks.Add(new Models.CyberArkSourceTestCheck { Item = "Credential", Ok = !string.IsNullOrEmpty(userName), Message = string.IsNullOrEmpty(userName) ? "The credential has no user name." : $"Fetched; user '{userName}'." });
             if (string.IsNullOrEmpty(userName)) return checks;
 
-            var client = new PvwaClient(httpClientFactory.CreateClient(HttpClientName), PvwaClient.ApiRootFor(s.PvwaBaseUrl!));
-            var token = await client.LogonAsync(s.PvwaLogonMethod, userName, password, ct);
-            checks.Add(new Models.CyberArkSourceTestCheck { Item = "PVWA logon", Ok = true, Message = $"Logged on to {PvwaClient.ApiRootFor(s.PvwaBaseUrl!).Host} with {s.PvwaLogonMethod} authentication." });
+            var (client, token, host, skipped) = await LogonAsync(s, userName, password, ct);
+            checks.Add(new Models.CyberArkSourceTestCheck
+            {
+                Item = "PVWA logon", Ok = true,
+                Message = $"Logged on to {host} with {s.PvwaLogonMethod} authentication."
+                    + (skipped.Count == 0 ? "" : $" Couldn't reach {string.Join("; ", skipped)}.")   // D-320
+            });
             try
             {
                 if (!fullRead)

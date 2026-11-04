@@ -28,6 +28,7 @@ public static class CyberArkSourceValidation
         ImportSelfHosted = s.ImportSelfHosted,
         SelfHostedSource = "Direct",
         PvwaBaseUrl = s.ImportSelfHosted ? Blank(s.PvwaBaseUrl?.Trim().TrimEnd('/')) : null,
+        PvwaFallbackUrls = s.ImportSelfHosted ? Blank(string.Join("\n", FallbackUrls(s.PvwaFallbackUrls))) : null,
         PvwaCredentialKey = s.ImportSelfHosted ? s.PvwaCredentialKey : null,
         PvwaLogonMethod = s.PvwaLogonMethod?.Trim() ?? "CyberArk",
         DirectPullTime = s.DirectPullTime?.Trim() ?? "01:30",
@@ -52,6 +53,16 @@ public static class CyberArkSourceValidation
     public const int MaxDetailRefreshDays = 365, MaxDetailRefreshAccounts = 100_000;
 
     /// <summary>Every problem with the (normalized) settings; empty when they can be saved.</summary>
+    /// <summary>D-320: how many other PVWA addresses Self-Hosted Direct may fail over to.</summary>
+    public const int MaxFallbackUrls = 5;
+
+    /// <summary>D-320: the other PVWA addresses, one per line (or comma-separated), trimmed, without a trailing slash or repeats.</summary>
+    public static IReadOnlyList<string> FallbackUrls(string? value) =>
+        (value ?? "").Split(['\n', '\r', ','], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(u => u.TrimEnd('/'))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
     public static IReadOnlyList<string> Validate(CyberArkSourceSettings s, AllowedFileRoots allowedFileRoots)
     {
         var errors = new List<string>();
@@ -91,6 +102,10 @@ public static class CyberArkSourceValidation
             else if (!IsValidPvwaUrl(s.PvwaBaseUrl))
                 errors.Add("PVWA address must be https://host, optionally ending in /PasswordVault (400 characters at most).");
             if (s.PvwaCredentialKey is null) errors.Add("A credential is required for Self-Hosted Direct.");
+            var fallbacks = FallbackUrls(s.PvwaFallbackUrls);
+            if (fallbacks.Count > MaxFallbackUrls) errors.Add($"At most {MaxFallbackUrls} other PVWA addresses.");
+            var bad = fallbacks.Where(u => !IsValidPvwaUrl(u)).ToList();
+            if (bad.Count > 0) errors.Add($"Each other PVWA address must be https://host, optionally ending in /PasswordVault: {string.Join(", ", bad)}.");
         }
         return errors;
     }

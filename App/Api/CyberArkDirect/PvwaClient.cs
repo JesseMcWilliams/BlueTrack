@@ -642,7 +642,7 @@ public sealed class PvwaClient(HttpClient http, Uri apiRoot)
         catch (Exception ex) when (ex is JsonException or InvalidOperationException) { /* not JSON: leave the detail out */ }
         response.Dispose();
         var reason = response.StatusCode == HttpStatusCode.Unauthorized ? "the credential was refused" : detail;
-        throw new PvwaException($"PVWA refused to {what} ({status}){(reason.Length > 0 ? ": " + reason : "")}.");
+        throw new PvwaException($"PVWA refused to {what} ({status}){(reason.Length > 0 ? ": " + reason : "")}.", statusCode: status);
     }
 
     private static string? Str(JsonElement e, string name) =>

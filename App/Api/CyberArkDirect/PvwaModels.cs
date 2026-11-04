@@ -219,4 +219,14 @@ public sealed class PvwaSnapshot
 }
 
 /// <summary>A PVWA call failed in a way the pull can't continue from (the message is safe to show an admin).</summary>
-public sealed class PvwaException(string message, Exception? inner = null) : Exception(message, inner);
+public sealed class PvwaException(string message, Exception? inner = null, int? statusCode = null) : Exception(message, inner)
+{
+    /// <summary>The HTTP status PVWA answered with, when it answered.</summary>
+    public int? StatusCode { get; } = statusCode;
+
+    /// <summary>
+    /// D-320: PVWA couldn't be reached (no connection, no answer in time, or a gateway or load balancer saying it has no
+    /// server: 502, 503, 504), so another PVWA may serve. A refusal (a wrong password, a missing permission) isn't.
+    /// </summary>
+    public bool Unreachable => InnerException is HttpRequestException or TaskCanceledException || StatusCode is 502 or 503 or 504;
+}

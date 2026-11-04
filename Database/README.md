@@ -76,6 +76,7 @@ instead.
 | 58 | `58_BlueTrack_PullNowLoad.sql` | D-302: `cyberark_direct_pull.LoadRequestedAt/LoadStartError`: a Pull now that succeeds starts the Import and Load SQL Agent job, and records it (the grant it needs is `Manual/08`). |
 | 59 | `59_BlueTrack_AdDiscoveryRuns.sql` | D-317: `app_config.AdDiscoveryRunTime` and `web.ad_discovery_run`: AD Account Discovery runs at a set time and records each run (Admin > Data Sources). |
 | 60 | `60_BlueTrack_BuiltInSafes.sql` | D-319: `vw_selfhosted_internal_safe` lists more of CyberArk's built-in Safes (AccountsFeedDiscoveryLogs and others its documentation names). |
+| 61 | `61_BlueTrack_PvwaFailover.sql` | D-320: `cyberark_source_config.PvwaFallbackUrls`: other PVWA addresses for Self-Hosted Direct to fail over to. |
 
 ## The baseline (D-195)
 
@@ -100,7 +101,7 @@ scripts but not up to `51` is refused; upgrade it first from the
 
 ## Adding a script
 
-1. Name it `NN_BlueTrack_<Topic>.sql`, with `NN` the next number (`61` is next).
+1. Name it `NN_BlueTrack_<Topic>.sql`, with `NN` the next number (`62` is next).
 2. Start with a header comment: the file name, `RUN THIS AFTER 01-NN.`, what
    it changes and why (with the `D-n` decision), and whether it's safe to
    re-run.

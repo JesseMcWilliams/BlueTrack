@@ -24,6 +24,11 @@ public sealed class CyberArkSourceSettings
     public string SelfHostedSource { get; init; } = "Direct";
     /// <summary>Direct: the PVWA address, https://host (the /PasswordVault part is optional).</summary>
     public string? PvwaBaseUrl { get; init; }
+    /// <summary>
+    /// D-320: Direct: more PVWA addresses, one per line, tried in order when the ones before can't be reached (never
+    /// when one refuses the credential). Each https://host like PvwaBaseUrl.
+    /// </summary>
+    public string? PvwaFallbackUrls { get; init; }
     /// <summary>Direct: the named credential (web.credential; a CyberArk CP or CCP one fetches it from the Vault at each pull).</summary>
     public int? PvwaCredentialKey { get; init; }
     /// <summary>Direct: "CyberArk" or "LDAP" authentication; both take a user name and password.</summary>
