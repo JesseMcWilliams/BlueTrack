@@ -28,6 +28,7 @@ What changed in each BlueTrack release, newest first, for users and administrato
 
 ### Changed
 
+- **Everything discovered** counts an account that both AD discovery and DNA found once; dismissed AD candidates count, and only duplicates and linked accounts are left out. (User Guide)
 - The KPI funnel now starts with **Everything discovered**: every tracked account plus the AD-discovered and DNA accounts not tracked yet, on Home, the Dashboard and Reports > KPI Summary (and its export). (User Guide)
 - The Accounts import reads Excel files as well as CSV, can clear fields whose cells are blank when you tick that option (off by default), and sets or clears risk score overrides from the export's new **Risk Score Override** and **Override Reason** columns. (User Guide)
 - Re-importing **Target Inventory** also updates a matched Target's name, type and (when the file has one) description, as well as its risk score. (User Guide)
