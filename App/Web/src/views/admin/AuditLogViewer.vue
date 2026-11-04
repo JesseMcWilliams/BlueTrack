@@ -291,12 +291,15 @@ async function toggleFieldChanges(event) {
         <template v-for="event in events" :key="event.auditEventKey">
           <tr>
             <td>
+              <!-- D-330: a disclosure arrow and plain text, not a bordered button in every row. -->
               <button
                 type="button"
+                class="row-toggle"
                 :aria-expanded="expandedEventKey === event.auditEventKey"
                 :aria-controls="`audit-detail-${event.auditEventKey}`"
                 @click="toggleFieldChanges(event)"
               >
+                <span aria-hidden="true" class="row-toggle-mark">{{ expandedEventKey === event.auditEventKey ? '▾' : '▸' }}</span>
                 <!-- UI review W11-4: local date and time (the stored time is UTC); the stored value is the tooltip. -->
                 <time :datetime="event.occurredAt" :title="t('admin.auditLogViewer.storedUtc', { value: event.occurredAt })">{{ formatUtcDateTime(event.occurredAt) }}</time>
               </button>

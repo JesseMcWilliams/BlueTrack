@@ -68,6 +68,24 @@ describe('Dashboard.vue', () => {
     expect(big.attributes('href')).toBe('/accounts?stage=Onboarded+to+Vault')
   })
 
+  it('keys the pie colours with a legend that names each slice (D-330)', async () => {
+    const { wrapper } = await mountDashboard()
+
+    const legend = wrapper.get('.pie-legend')
+    expect(legend.attributes('aria-hidden')).toBe('true')
+    const items = legend.findAll('li')
+    expect(items.map(li => li.text())).toEqual(wrapper.findAll('.stage-funnel-pie title').map(t => t.text()))
+    const slices = wrapper.findAll('.stage-funnel-pie path')
+    expect(items.map(li => li.get('.pie-swatch').attributes('style'))).toEqual(slices.map(p => `background: ${p.attributes('fill')};`))
+  })
+
+  it('shows what needs attention before the charts (D-330)', async () => {
+    const { wrapper } = await mountDashboard()
+
+    const headings = wrapper.findAll('h2').map(h => h.text())
+    expect(headings.indexOf('Overdue / At-Risk Accounts')).toBeLessThan(headings.indexOf('Accounts by Stage'))
+  })
+
   it('shows a stage with no accounts as plain 0, with nothing to open', async () => {
     const { wrapper } = await mountDashboard()
 

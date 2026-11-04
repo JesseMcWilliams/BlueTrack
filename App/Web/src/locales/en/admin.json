@@ -81,7 +81,14 @@
     "platformMapping": "Platform Mapping",
     "progressRules": "Progress Rules",
     "blueprintStages": "Blueprint Stages",
-    "safeAccessPolicies": "Safe Access Policies"
+    "safeAccessPolicies": "Safe Access Policies",
+    "groups": {
+      "access": "Access and identity",
+      "data": "Data",
+      "rules": "Rules and scoring",
+      "integrations": "Integrations",
+      "system": "System"
+    }
   },
   "safeAccessPolicies": {
     "title": "Safe Access Policies",

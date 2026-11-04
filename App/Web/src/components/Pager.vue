@@ -45,12 +45,14 @@ async function onPageSizeChange(event) {
 </script>
 
 <template>
-  <p class="pager">
+  <!-- D-330: nothing to page through on a single page (each list shows it above and below the table); shown again if
+       the page number is past the end, so Prev still gets back. The page size sits on the same line as its label. -->
+  <p v-if="pageCount > 1 || page > 1" class="pager">
     <button type="button" :disabled="isFirstPage" @click="goPrev">{{ t('shell.pager.prev') }}</button>
     <span>{{ t('shell.pager.page', { page: formatCount(page), pageCount: formatCount(pageCount) }) }}</span>
     <button type="button" :disabled="isLastPage" @click="goNext">{{ t('shell.pager.next') }}</button>
-    <label class="field-label">
-      <span class="field-label-text">{{ t('shell.pager.rowsPerPage') }}</span>
+    <label class="pager-size">
+      <span>{{ t('shell.pager.rowsPerPage') }}</span>
       <select :value="pageSizeStore.current" @change="onPageSizeChange">
         <option v-for="size in PAGE_SIZE_OPTIONS" :key="size" :value="size">{{ formatCount(size) }}</option>
       </select>
@@ -61,8 +63,14 @@ async function onPageSizeChange(event) {
 <style scoped>
 .pager {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 0.75rem;
   margin: 0 0 var(--space-3, 0.75rem) 0;
+}
+.pager-size {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
 }
 </style>

@@ -145,15 +145,23 @@ describe('Targets.vue', () => {
     expect(targetsCalls.some(u => u.includes('page=1') && u.includes('pageSize=50'))).toBe(true)
   })
 
-  it('shows the pager and disables Prev/Next appropriately on a single-page result', async () => {
+  it('shows no pager on a single-page result (D-330)', async () => {
     mockInitialLoad({ targets: [sampleTarget], totalCount: 1, filteredCount: 1 })
     const wrapper = mount(Targets, { global: { plugins: [makeRouter()] } })
     await flushPromises()
 
-    expect(wrapper.text()).toContain('Page 1 of 1')
+    expect(wrapper.find('.pager').exists()).toBe(false)
+    expect(wrapper.text()).not.toContain('Page 1 of 1')
+  })
+
+  it('disables Prev on the first of several pages', async () => {
+    mockInitialLoad({ targets: [sampleTarget], totalCount: 120, filteredCount: 120 })
+    const wrapper = mount(Targets, { global: { plugins: [makeRouter()] } })
+    await flushPromises()
+
     const [prevButton, nextButton] = wrapper.findAll('.pager button')
     expect(prevButton.attributes('disabled')).toBeDefined()
-    expect(nextButton.attributes('disabled')).toBeDefined()
+    expect(nextButton.attributes('disabled')).toBeUndefined()
   })
 
   it('clicking Next advances to page 2 and re-fetches with page=2', async () => {

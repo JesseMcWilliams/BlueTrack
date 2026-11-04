@@ -152,21 +152,60 @@ onMounted(load)
       <template v-else-if="providers.length === 0" />
       <template v-else>
         <p>{{ t('shell.login.chooseMethod') }}</p>
-        <ul>
-          <li v-for="provider in providers" :key="provider.providerType">
-            <a v-if="externalRedirectUrl(provider)" :href="externalRedirectUrl(provider)">{{ provider.displayName }}</a>
-            <span v-else-if="signsInAutomatically(provider)">{{ t('shell.login.signsInAutomatically', { name: provider.displayName }) }}</span>
-            <span v-else>{{ provider.displayName }}</span>
-            <span v-if="provider.providerType === defaultProviderType">{{ ' ' + t('shell.login.default') }}</span>
+        <!-- D-330: one boxed row per method, its action (a sign-in link or Continue) a large button at the start. -->
+        <ul class="login-methods">
+          <li v-for="provider in providers" :key="provider.providerType" class="login-method">
+            <a v-if="externalRedirectUrl(provider)" :href="externalRedirectUrl(provider)" class="login-method-action">{{ provider.displayName }}</a>
             <button
-              v-if="provider.providerType === 'WindowsIntegrated'"
+              v-else-if="provider.providerType === 'WindowsIntegrated'"
               type="button"
+              class="btn-primary login-method-action"
               :disabled="signingIn"
               @click="start(provider)"
             >{{ signingIn ? t('shell.login.signingIn') : t('common.continue') }}</button>
+            <template v-if="!externalRedirectUrl(provider)">
+              <span v-if="signsInAutomatically(provider)">{{ t('shell.login.signsInAutomatically', { name: provider.displayName }) }}</span>
+              <span v-else>{{ provider.displayName }}</span>
+            </template>
+            <span v-if="provider.providerType === defaultProviderType" class="login-method-default">{{ t('shell.login.default') }}</span>
           </li>
         </ul>
       </template>
     </template>
   </div>
 </template>
+
+<style scoped>
+.login-methods {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  max-width: 40rem;
+}
+.login-method {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+}
+.login-method-action {
+  margin: 0;
+}
+a.login-method-action {
+  display: inline-block;
+  padding: var(--space-2) var(--space-4);
+  border: 2px solid var(--color-link);
+  border-radius: 0.25rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+.login-method-default {
+  font-size: 0.875rem;
+}
+</style>

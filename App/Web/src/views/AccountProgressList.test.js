@@ -91,6 +91,26 @@ describe('AccountProgressList.vue', () => {
     expect(wrapper.text()).toContain('web01.example.com')
   })
 
+  // D-330
+  it.each([
+    ['/accounts', false],
+    ['/accounts?deleted=Only', true],
+    ['/accounts?linked=Show', true]
+  ])('keeps the deleted and linked filters under More filters, open for %s: %s', async (address, open) => {
+    mockInitialLoad()
+    const router = makeRouter()
+    router.push(address)
+    await router.isReady()
+    const wrapper = mount(AccountProgressList, { global: { plugins: [router] } })
+    await flushPromises()
+
+    const details = wrapper.get('details.more-filters')
+    expect(details.get('summary').text()).toBe('More filters')
+    expect(details.text()).toContain('Deleted accounts')
+    expect(details.text()).toContain('Linked feed accounts')
+    expect(details.element.open).toBe(open)
+  })
+
   // UI review W7-1
   it('sends the kpi filter from the address, says what is shown, and Show all accounts removes it', async () => {
     mockInitialLoad()
