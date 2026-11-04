@@ -20,10 +20,16 @@ const readerName = computed(() => {
   const name = reader.value.trim()
   return name ? `[${name.replaceAll(']', ']]')}]` : '[DOMAIN\\PowerBI-Readers]'
 })
+// D-321: with the BlueTrack_PowerBI_Reader role in place, adding a member is enough; without it, the grants themselves.
 const grantScript = computed(() => {
   if (!access.value) return ''
   const lines = [`USE [${access.value.databaseName.replaceAll(']', ']]')}];`]
-  for (const o of access.value.objects) lines.push(`GRANT SELECT ON [${o.schema}].[${o.name}] TO ${readerName.value};`)
+  if (access.value.readerRoleExists) {
+    lines.push(`CREATE USER ${readerName.value} FOR LOGIN ${readerName.value};   -- if it isn't a user of this database yet`)
+    lines.push(`ALTER ROLE BlueTrack_PowerBI_Reader ADD MEMBER ${readerName.value};`)
+  } else {
+    for (const o of access.value.objects) lines.push(`GRANT SELECT ON [${o.schema}].[${o.name}] TO ${readerName.value};`)
+  }
   return lines.join('\n')
 })
 
@@ -83,6 +89,7 @@ onMounted(async () => {
       </table>
 
       <h3>{{ t('admin.powerBi.accessTitle') }}</h3>
+      <p>{{ access.readerRoleExists ? t('admin.powerBi.roleExists') : t('admin.powerBi.roleMissing') }}</p>
       <p>{{ t('admin.powerBi.accessHint') }}</p>
       <p>
         <label class="field-label"><span class="field-label-text">{{ t('admin.powerBi.reader') }}</span>

@@ -8,6 +8,8 @@ public sealed class PowerBiAccess
 {
     public required string ServerName { get; init; }
     public required string DatabaseName { get; init; }
+    /// <summary>D-321: whether the BlueTrack_PowerBI_Reader role exists (the installer's Db.PowerBiAccess step creates it).</summary>
+    public bool ReaderRoleExists { get; init; }
     public required IReadOnlyList<PowerBiObject> Objects { get; init; }
     public required IReadOnlyList<PowerBiRelationship> Relationships { get; init; }
 }

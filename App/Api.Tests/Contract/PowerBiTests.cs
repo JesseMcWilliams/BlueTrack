@@ -53,4 +53,25 @@ public class PowerBiTests(BlueTrackWebApplicationFactory factory) : IClassFixtur
         var response = await Client("TestUser.Viewer").GetAsync("/api/admin/power-bi");
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
     }
+    // D-321: the reader role grants exactly what the page lists -- no more (it stays read-only to these), no fewer.
+    [Fact]
+    public void TheReaderRoleScript_GrantsExactlyThePagesObjects()
+    {
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "VERSION"))) dir = dir.Parent;
+        var script = File.ReadAllText(Path.Combine(dir!.FullName, "Database", "Manual", "09_BlueTrack_PowerBiReaderRole.sql"));
+        var granted = System.Text.RegularExpressions.Regex.Matches(script, @"GRANT SELECT ON \[(\w+)\]\.\[(\w+)\] TO BlueTrack_PowerBI_Reader")
+            .Select(m => $"{m.Groups[1].Value}.{m.Groups[2].Value}").Order().ToList();
+
+        Assert.Equal(BlueTrack.Api.Data.PowerBiRepository.ObjectNames.Order().ToList(), granted);
+        Assert.DoesNotContain("GRANT INSERT", script);
+        Assert.DoesNotContain("GRANT EXECUTE", script);
+    }
+
+    [Fact]
+    public async Task SaysWhetherTheReaderRoleIsSetUp()
+    {
+        var body = await Client("TestUser.Admin").GetFromJsonAsync<JsonObject>("/api/admin/power-bi");
+        Assert.NotNull(body!["readerRoleExists"]?.GetValue<bool>());
+    }
 }

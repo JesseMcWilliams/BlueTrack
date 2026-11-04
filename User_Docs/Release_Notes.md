@@ -6,6 +6,7 @@ What changed in each BlueTrack release, newest first, for users and administrato
 
 ### New
 
+- **Power BI reader role**: the installer's `Db.PowerBiAccess` step (`-PowerBiReaderAccount DOMAIN\Name`) creates the database role `BlueTrack_PowerBI_Reader`, which may read only the Power BI views and tables, and adds that account or group to it. Admin > Power BI says whether it's set up. (Administrator Operations Guide)
 - **Other PVWA addresses** on Admin > Data Sources > CyberArk sources: Self-Hosted Direct tries them in order when the PVWA address can't be reached, and says when it did. A refused credential is never tried on another. (Administrator Settings Reference)
 - **Accounts export and import**: **Export CSV / Excel** on Accounts downloads the filtered list with its editable fields, and **Import changes...** reads such a CSV back, saving each row's changed values with the edit page's rules and reporting any row it couldn't apply. (User Guide)
 - **Active Directory account discovery on Admin > Data Sources**: when it runs (default 04:30), **Run now**, and its recent runs with what each found and any domain it couldn't read. Before, it ran a day after whenever the application last started, and kept no record. (Administrator Data Management)

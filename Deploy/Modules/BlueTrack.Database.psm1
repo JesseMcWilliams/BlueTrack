@@ -457,6 +457,58 @@ function Grant-BlueTrackAppPoolSqlAccess {
     }
 }
 
+function Grant-BlueTrackPowerBiReaderAccess {
+    <#
+    .SYNOPSIS
+        D-321: gives a Windows account or group read access to what Power BI reports on: CREATE LOGIN if it's
+        missing, then Database/Manual/09_BlueTrack_PowerBiReaderRole.sql (the BlueTrack_PowerBI_Reader role, its
+        SELECT grants, and the account as a member).
+    .DESCRIPTION
+        Like Grant-BlueTrackAppPoolSqlAccess: the tracked file is never modified, only a temp copy with
+        __TARGET_ACCOUNT__ filled in, and it runs via sqlcmd under the installing user's Windows login, which needs
+        securityadmin (for CREATE LOGIN) and rights to manage users and roles in the database.
+    #>
+    [CmdletBinding(SupportsShouldProcess)]
+    param(
+        [Parameter(Mandatory)] [string]$RepoRoot,
+        [Parameter(Mandatory)] [string]$SqlServerInstance,
+        [Parameter(Mandatory)] [string]$DatabaseName,
+        [Parameter(Mandatory)] [string]$Account,
+        [bool]$TrustServerCertificate = $true
+    )
+    [string[]]$trustArgs = if ($TrustServerCertificate) { @("-C") } else { @() }   # D-197
+
+    # Substituted as plain text into N'...' literals and [...] identifiers, so refuse anything that could break out.
+    if ($Account -notmatch '^[^\\''\[\]]+\\[^\\''\[\]]+$') {
+        throw "'$Account' isn't a DOMAIN\Name account or group name this step can safely substitute into SQL."
+    }
+
+    $sourceScript = Join-Path $RepoRoot 'Database\Manual\09_BlueTrack_PowerBiReaderRole.sql'
+    if (-not (Test-Path $sourceScript)) {
+        throw "Could not find '$sourceScript'."
+    }
+    $createLogin = "IF NOT EXISTS (SELECT 1 FROM sys.server_principals WHERE name = N'$Account') CREATE LOGIN [$Account] FROM WINDOWS;"
+    $tempScript = Join-Path $env:TEMP "09_BlueTrack_PowerBiReaderRole.$([guid]::NewGuid()).sql"
+    Set-Content -Path $tempScript -Value ((Get-Content -Path $sourceScript -Raw).Replace('__TARGET_ACCOUNT__', $Account)) -Encoding UTF8
+
+    try {
+        if ($PSCmdlet.ShouldProcess($SqlServerInstance, "CREATE LOGIN [$Account] FROM WINDOWS (if missing)")) {
+            & sqlcmd -S $SqlServerInstance @trustArgs -b -Q $createLogin | Out-Host
+            if ($LASTEXITCODE -ne 0) {
+                throw "sqlcmd failed creating the SQL Server login for '$Account' (exit code $LASTEXITCODE). The installing user needs the securityadmin (or sysadmin) server role."
+            }
+        }
+        if ($PSCmdlet.ShouldProcess("$SqlServerInstance / $DatabaseName", "Run 09_BlueTrack_PowerBiReaderRole.sql for '$Account'")) {
+            & sqlcmd -S $SqlServerInstance @trustArgs -d $DatabaseName -i $tempScript | Out-Host
+            if ($LASTEXITCODE -ne 0) {
+                throw "sqlcmd failed giving '$Account' Power BI read access to '$DatabaseName' (exit code $LASTEXITCODE) -- see the output above."
+            }
+        }
+    } finally {
+        Remove-Item -Path $tempScript -ErrorAction SilentlyContinue -WhatIf:$false
+    }
+}
+
 function Get-BlueTrackSiteUrl {
     <#
     .SYNOPSIS
@@ -644,4 +696,4 @@ function Install-BlueTrackSqlServerAudit {
     }
 }
 
-Export-ModuleMember -Function Format-BlueTrackConnectionString, Test-BlueTrackSqlConnection, Test-BlueTrackSqlInstanceIsThisMachine, Invoke-BlueTrackMigrator, Set-BlueTrackSiteConfig, Install-BlueTrackNightlyJob, Test-BlueTrackEvdSourceInUse, Grant-BlueTrackAppPoolSqlAccess, Get-BlueTrackSiteUrl, Set-BlueTrackSiteUrl, Install-BlueTrackSqlServerAudit
+Export-ModuleMember -Function Format-BlueTrackConnectionString, Test-BlueTrackSqlConnection, Test-BlueTrackSqlInstanceIsThisMachine, Invoke-BlueTrackMigrator, Set-BlueTrackSiteConfig, Install-BlueTrackNightlyJob, Test-BlueTrackEvdSourceInUse, Grant-BlueTrackAppPoolSqlAccess, Grant-BlueTrackPowerBiReaderAccess, Get-BlueTrackSiteUrl, Set-BlueTrackSiteUrl, Install-BlueTrackSqlServerAudit

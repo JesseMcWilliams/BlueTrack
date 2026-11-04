@@ -84,6 +84,8 @@ param(
     [ValidateSet('Both', 'PrivilegeCloud', 'SelfHosted')]
     [string]$ImportSources,
     [bool]$GrantAppPoolSqlAccess,
+    # D-321: a Windows account or group (DOMAIN\Name) to give Power BI read access (Db.PowerBiAccess); blank skips it.
+    [string]$PowerBiReaderAccount,
     # D-295: record changes to the audit log in the Windows Security log (SQL Server Audit).
     [bool]$InstallSqlServerAudit,
     [string]$AppPoolSqlLogin,
@@ -178,6 +180,8 @@ $Steps = @(
     @{ Name = 'Iis.AppPool'; Description = 'Create the Application Pool' }
     @{ Name = 'Db.AppPoolAccess'; Needs = @('Database', 'GrantAppPoolSqlAccess'); Description = 'Give the app pool''s account a SQL login + Database/Manual/02 grants + 08 (msdb SQLAgentOperatorRole, D-302)'
         Condition = { $UseWindowsAuth -and $GrantAppPoolSqlAccess }; SkipReason = 'GrantAppPoolSqlAccess is off, or the API uses SQL authentication' }
+    @{ Name = 'Db.PowerBiAccess'; Needs = @('Database', 'PowerBiReaderAccount'); Description = 'Give a Windows account or group read access to the Power BI views and tables (Database/Manual/09, role BlueTrack_PowerBI_Reader, D-321)'
+        Condition = { [bool]$PowerBiReaderAccount }; SkipReason = 'No PowerBiReaderAccount given' }
     @{ Name = 'Db.SqlServerAudit'; Needs = @('Database', 'InstallSqlServerAudit'); Description = 'Record changes to the audit log in the Windows Security log: Windows audit policy and the SQL Server account''s rights (when SQL Server is this machine), then Database/Manual/07'
         Condition = { $InstallSqlServerAudit }; SkipReason = 'InstallSqlServerAudit is off' }
     @{ Name = 'Iis.Certificate'; Needs = @('Certificate'); Description = 'Resolve or generate the HTTPS certificate' }
@@ -342,6 +346,12 @@ function Resolve-InstallAnswer {
                 Register-InstallAnswer GrantAppPoolSqlAccess $grant
             }
         }
+        'PowerBiReaderAccount' {
+            if (-not $script:Answered.Contains('PowerBiReaderAccount')) {
+                $reader = (Read-Host "Windows account or group Power BI reads BlueTrack's data with (DOMAIN\Name), to add to the BlueTrack_PowerBI_Reader role (Database/Manual/09)? Leave blank to skip").Trim()
+                Register-InstallAnswer PowerBiReaderAccount $reader
+            }
+        }
         'InstallSqlServerAudit' {
             if (-not $script:Answered.Contains('InstallSqlServerAudit')) {
                 $audit = (Read-Host "Record every change to BlueTrack's audit log in the Windows Security log (SQL Server Audit; sets the Windows audit policy and the SQL Server account's rights, which take effect after a SQL Server restart)? (Y/n)") -notmatch '^[Nn]'
@@ -497,6 +507,11 @@ $StepActions = @{
         Install-BlueTrackNightlyJob -RepoRoot $RepoRoot -SqlServerInstance $SqlServerInstance -DatabaseName $DatabaseName `
             -ImportSources $ImportSources -ExportFolderPath $ExportFolderPath `
             -TrustServerCertificate (Get-InstallTrustServerCertificate)
+    }
+    'Db.PowerBiAccess' = {
+        Get-InstallConnectionString | Out-Null
+        Grant-BlueTrackPowerBiReaderAccess -RepoRoot $RepoRoot -SqlServerInstance $SqlServerInstance -DatabaseName $DatabaseName `
+            -Account $PowerBiReaderAccount -TrustServerCertificate (Get-InstallTrustServerCertificate)
     }
     'Db.SqlServerAudit' = {
         Get-InstallConnectionString | Out-Null
