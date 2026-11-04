@@ -11,7 +11,7 @@ import { useRightsStore } from '../../stores/rights'
 const names = [
   'reports-overdue-worklist', 'reports-stage-status-summary', 'reports-reconciliation-review',
   'reports-possible-matches', 'reports-unresolved-entitlement-members', 'reports-cpm-health', 'reports-cyberark-applications', 'reports-risk-score',
-  'reports-risk-exception-sod', 'reports-discovered-accounts', 'reports-decom-safes',
+  'reports-risk-exception-sod', 'reports-discovered-accounts', 'reports-dna-accounts', 'reports-decom-safes',
   'reports-decom-accounts', 'reports-kpi-summary', 'reports-trends', 'reports-safe-access'
 ]
 
@@ -44,7 +44,7 @@ describe('ReportsHub.vue', () => {
     expect(nav.attributes('aria-label')).toBe('Reports')
     expect(links(wrapper)).toEqual([
       'Overdue / At-Risk', 'Stage/Status Summary', 'Reconciliation Review', 'Possible Account Matches',
-      'Unresolved Entitlement Members', 'CPM Health', 'CyberArk Applications', 'Risk Score', 'Risk Exception SoD', 'Discovered Accounts',
+      'Unresolved Entitlement Members', 'CPM Health', 'CyberArk Applications', 'Risk Score', 'Risk Exception SoD', 'Discovered Accounts', 'DNA Accounts',
       'Safes Flagged for Deletion', 'Accounts Flagged for Deletion', 'KPI Summary', 'Trends', 'Safe Access'
     ])
     // The column and the report sit side by side, as on the Admin hub.

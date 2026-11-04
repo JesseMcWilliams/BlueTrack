@@ -28,6 +28,7 @@ const reports = [
   { name: 'reports-risk-score', labelKey: 'reports.reportsHub.riskScore' },
   { name: 'reports-risk-exception-sod', labelKey: 'reports.reportsHub.riskExceptionSod' },
   { name: 'reports-discovered-accounts', labelKey: 'reports.reportsHub.discoveredAccounts' },
+  { name: 'reports-dna-accounts', labelKey: 'reports.reportsHub.dnaAccounts' },   // D-325
   { name: 'reports-decom-safes', labelKey: 'reports.reportsHub.decomSafes' },
   { name: 'reports-decom-accounts', labelKey: 'reports.reportsHub.decomAccounts' },
   { name: 'reports-kpi-summary', labelKey: 'reports.reportsHub.kpiSummary' },

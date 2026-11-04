@@ -201,6 +201,13 @@ const routes = [
         meta: { breadcrumb: 'shell.routes.reportsDiscoveredAccounts', breadcrumbParent: 'reports' },
         component: () => import('../views/reports/DiscoveredAccounts.vue')
       },
+      // D-325: the accounts of the latest DNA workbook.
+      {
+        path: 'dna-accounts',
+        name: 'reports-dna-accounts',
+        meta: { breadcrumb: 'shell.routes.reportsDnaAccounts', breadcrumbParent: 'reports' },
+        component: () => import('../views/reports/DnaAccounts.vue')
+      },
       {
         path: 'kpi-summary',
         name: 'reports-kpi-summary',
