@@ -35,7 +35,7 @@ public sealed class CredentialsController(
     private static string Describe(SaveLdapConfigRequest request) =>
         $"domain '{request.DomainName}', enabled={request.IsEnabled}, DC '{request.DomainController}', "
         + $"SSL={request.UseSsl}, trusted connection={request.UseTrustedConnection}, credential key {request.CredentialKey?.ToString() ?? "none"}, "
-        + $"data source={request.UseAsDataSource}";   // D-324
+        + $"data source={request.UseAsDataSource}, BlueTrack lookups={request.UseForIntegration}";   // D-324, D-328
 
     [HttpGet]
     public async Task<IActionResult> GetAll() => Ok(await repository.GetAllAsync());

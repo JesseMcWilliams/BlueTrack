@@ -96,10 +96,11 @@ onBeforeUnmount(() => clearTimeout(pollTimer))
           <label><input type="checkbox" :checked="domain.useAsDataSource" @change="setDataSource(domain, $event.target.checked)" />
             {{ domain.domainName }}</label>
           <small v-if="!domain.isEnabled">{{ ' ' + t('admin.adDiscovery.domainDisabled') }}</small>
+          <small v-else-if="!domain.useForIntegration">{{ ' ' + t('admin.adDiscovery.discoveryOnly') }}</small>
         </li>
       </ul>
       <p>
-        <router-link :to="{ name: 'admin-credentials', query: { newDomain: '1' } }">{{ t('admin.adDiscovery.addDomain') }}</router-link>
+        <router-link :to="{ name: 'admin-credentials', query: { newDomain: 'discovery' } }">{{ t('admin.adDiscovery.addDomain') }}</router-link>
         |
         <router-link :to="{ name: 'admin-credentials' }">{{ t('admin.adDiscovery.domainsLink') }}</router-link>
       </p>

@@ -14,7 +14,7 @@ public sealed class LdapConfigRepository(IDbConnectionFactory connectionFactory)
 {
     private const string SelectSql = """
         SELECT lc.LdapConfigKey, lc.DomainName, lc.IsEnabled, lc.DomainController, lc.SearchBase, lc.UseSsl,
-               lc.UseTrustedConnection, lc.CredentialKey, c.CredentialName, lc.UseAsDataSource
+               lc.UseTrustedConnection, lc.CredentialKey, c.CredentialName, lc.UseAsDataSource, lc.UseForIntegration
         FROM web.ldap_config lc
         LEFT JOIN web.credential c ON c.CredentialKey = lc.CredentialKey
         """;
@@ -26,11 +26,15 @@ public sealed class LdapConfigRepository(IDbConnectionFactory connectionFactory)
         return rows.AsList();
     }
 
-    /// <summary>Every enabled domain config -- what the discovery job/notification LDAP resolution actually iterate over.</summary>
+    /// <summary>
+    /// Every enabled domain BlueTrack's own lookups use: notification recipients, Reload Rights' AD read and the Safe
+    /// groups' AD members. D-328: not a domain that is a discovery place only (UseForIntegration off); AD Account
+    /// Discovery reads GetDataSourcesAsync instead.
+    /// </summary>
     public async Task<IReadOnlyList<LdapConfig>> GetEnabledAsync()
     {
         using var connection = connectionFactory.Create();
-        var rows = await connection.QueryAsync<LdapConfig>($"{SelectSql} WHERE lc.IsEnabled = 1 ORDER BY lc.DomainName");
+        var rows = await connection.QueryAsync<LdapConfig>($"{SelectSql} WHERE lc.IsEnabled = 1 AND lc.UseForIntegration = 1 ORDER BY lc.DomainName");
         return rows.AsList();
     }
 
@@ -62,9 +66,9 @@ public sealed class LdapConfigRepository(IDbConnectionFactory connectionFactory)
     {
         using var connection = connectionFactory.Create();
         const string sql = """
-            INSERT INTO web.ldap_config (DomainName, IsEnabled, DomainController, SearchBase, UseSsl, UseTrustedConnection, CredentialKey, UseAsDataSource, ModifiedBy, ModifiedDate)
+            INSERT INTO web.ldap_config (DomainName, IsEnabled, DomainController, SearchBase, UseSsl, UseTrustedConnection, CredentialKey, UseAsDataSource, UseForIntegration, ModifiedBy, ModifiedDate)
             OUTPUT INSERTED.LdapConfigKey
-            VALUES (@DomainName, @IsEnabled, @DomainController, @SearchBase, @UseSsl, @UseTrustedConnection, @CredentialKey, @UseAsDataSource, @ModifiedBy, SYSUTCDATETIME())
+            VALUES (@DomainName, @IsEnabled, @DomainController, @SearchBase, @UseSsl, @UseTrustedConnection, @CredentialKey, @UseAsDataSource, @UseForIntegration, @ModifiedBy, SYSUTCDATETIME())
             """;
         return await connection.QuerySingleAsync<int>(sql, new
         {
@@ -76,6 +80,7 @@ public sealed class LdapConfigRepository(IDbConnectionFactory connectionFactory)
             request.UseTrustedConnection,
             request.CredentialKey,
             request.UseAsDataSource,
+            request.UseForIntegration,
             ModifiedBy = createdByUserKey
         });
     }
@@ -87,7 +92,7 @@ public sealed class LdapConfigRepository(IDbConnectionFactory connectionFactory)
             UPDATE web.ldap_config
             SET DomainName = @DomainName, IsEnabled = @IsEnabled, DomainController = @DomainController, SearchBase = @SearchBase,
                 UseSsl = @UseSsl, UseTrustedConnection = @UseTrustedConnection, CredentialKey = @CredentialKey,
-                UseAsDataSource = @UseAsDataSource, ModifiedBy = @ModifiedBy, ModifiedDate = SYSUTCDATETIME()
+                UseAsDataSource = @UseAsDataSource, UseForIntegration = @UseForIntegration, ModifiedBy = @ModifiedBy, ModifiedDate = SYSUTCDATETIME()
             WHERE LdapConfigKey = @LdapConfigKey
             """;
         await connection.ExecuteAsync(sql, new
@@ -101,6 +106,7 @@ public sealed class LdapConfigRepository(IDbConnectionFactory connectionFactory)
             request.UseTrustedConnection,
             request.CredentialKey,
             request.UseAsDataSource,
+            request.UseForIntegration,
             ModifiedBy = modifiedByUserKey
         });
     }

@@ -6,6 +6,7 @@ What changed in each BlueTrack release, newest first, for users and administrato
 
 ### New
 
+- **AD domains for discovery only**: an LDAP domain can be a place AD account discovery looks without BlueTrack's own lookups using it (untick **Use for BlueTrack's own lookups**); Data Sources' **Add a domain for discovery only** opens such a domain. (Administrator Settings Reference)
 - **Include CyberArk's built-in Safes** on Admin > Data Sources > CyberArk sources (off by default): Self-Hosted Direct also reads the Vault's internal Safes and their members, to review whether that data is useful. (Administrator Settings Reference)
 - **CyberArk Discovery & Audit (DNA) as a data source**: upload DNA's account-list workbook on Admin > Data Sources, and see its accounts on **Reports > DNA Accounts**, with whether BlueTrack tracks each. Its hard-coded credentials are never read. (Administrator Data Management)
 - **Use as a data source** on each LDAP domain (Admin > Credentials & LDAP, and listed on Admin > Data Sources with **Add a domain**): AD account discovery reads only the domains ticked. Every existing domain starts ticked, so nothing changes until you untick one. (Administrator Data Management)
@@ -53,6 +54,7 @@ What changed in each BlueTrack release, newest first, for users and administrato
 
 ### Upgrading
 
+- The upgrade adds database script 65 (Use for BlueTrack's own lookups, on for every existing LDAP domain); the installer applies it.
 - The upgrade adds database script 64 (the built-in Safes option, off); the installer applies it.
 - The upgrade adds database script 63 (the DNA accounts and their imports); the installer applies it.
 - The upgrade adds database script 62 (the LDAP domains' Use as a data source, on for every existing domain); the installer applies it.

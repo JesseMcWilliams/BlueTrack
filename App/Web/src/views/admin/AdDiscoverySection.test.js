@@ -65,7 +65,7 @@ describe('AdDiscoverySection.vue', () => {
 
     const put = globalThis.fetch.mock.calls.find(([, o]) => o?.method === 'PUT')
     expect(JSON.parse(put[1].body)).toEqual({ useAsDataSource: false })
-    expect(wrapper.findAll('a').map(a => a.attributes('href'))).toContain('/admin/credentials?newDomain=1')
+    expect(wrapper.findAll('a').map(a => a.attributes('href'))).toContain('/admin/credentials?newDomain=discovery')
   })
 
   it('saves the run time', async () => {

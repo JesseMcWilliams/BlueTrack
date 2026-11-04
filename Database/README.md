@@ -80,6 +80,7 @@ instead.
 | 62 | `62_BlueTrack_LdapDataSource.sql` | D-324: `ldap_config.UseAsDataSource`: which LDAP domains AD Account Discovery reads (default 1). |
 | 63 | `63_BlueTrack_DnaAccounts.sql` | D-325: `web.dna_import`, `web.dna_account`, audit event `DnaImported`: DNA account-list workbooks as a data source. |
 | 64 | `64_BlueTrack_BuiltInSafesOption.sql` | D-327: `cyberark_source_config.IncludeBuiltInSafes`: also read CyberArk's internal Safes (off). |
+| 65 | `65_BlueTrack_LdapIntegrationFlag.sql` | D-328: `ldap_config.UseForIntegration`: an LDAP domain can be a discovery place only (default 1). |
 
 ## The baseline (D-195)
 
@@ -104,7 +105,7 @@ scripts but not up to `51` is refused; upgrade it first from the
 
 ## Adding a script
 
-1. Name it `NN_BlueTrack_<Topic>.sql`, with `NN` the next number (`65` is next).
+1. Name it `NN_BlueTrack_<Topic>.sql`, with `NN` the next number (`66` is next).
 2. Start with a header comment: the file name, `RUN THIS AFTER 01-NN.`, what
    it changes and why (with the `D-n` decision), and whether it's safe to
    re-run.
