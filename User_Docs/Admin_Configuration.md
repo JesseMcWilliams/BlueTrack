@@ -6,7 +6,7 @@
 
 An admin picking up right after [Admin_Installation.md](Admin_Installation.md), working through the settings a real environment normally needs to change before regular users start relying on it day to day. Each step links to the relevant section of `User_Guide.md` for the full field-by-field detail — this guide is the suggested order to work through them in, not a duplicate of that reference.
 
-Everything below lives under **Admin** in the top nav, except where noted.
+Everything below lives under **Admin** in the top nav, except where noted. The Admin sidebar lists its pages in five groups (**Access and identity**, **Data**, **Rules and scoring**, **Integrations**, **System**; the User Guide's "Admin Hub" lists each group's pages), so the order here, the order to set them up in, differs from the sidebar's.
 
 ## 1. Identity Providers
 

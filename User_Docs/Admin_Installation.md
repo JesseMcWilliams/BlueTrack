@@ -33,7 +33,7 @@ This one script builds the API and SPA, creates and migrates the database, write
 
 ### Using an answer file
 
-For a repeatable or unattended install, copy `Deploy/answers.sample.json` to `answers.<env>.json` (git-ignored), edit it, and run `.\Install-BlueTrack.ps1 -ConfigFile .\answers.<env>.json`. Leave a setting out to be prompted for it. Never put a password in it: the SQL login (`SqlCredential`) is always prompted and never saved. Command-line parameters win over the file.
+For a repeatable or unattended install, copy `Deploy/answers.sample.json` to `answers.<env>.json` (git-ignored), edit it, and run `.\Install-BlueTrack.ps1 -ConfigFile .\answers.<env>.json`. Leave a setting out to be prompted for it. A prompt needs a console: run the installer in a PowerShell window. Started where it can't ask (no console input, such as from a scheduled task or an automation tool), it stops before any step on the first setting the file or the command line doesn't give, and names the parameter or file entry to add; nothing is changed. For a fully unattended install (Windows authentication to SQL Server, since a SQL login is always asked for), give every setting in the parameter table below (an empty value, such as `"PowerBiReaderAccount": ""`, where blank means skip). Never put a password in it: the SQL login (`SqlCredential`) is always prompted and never saved. Command-line parameters win over the file.
 
 ### Steps, resuming and re-running
 
