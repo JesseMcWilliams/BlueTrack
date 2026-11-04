@@ -27,7 +27,7 @@ public sealed class VaultSecretProviderResolver(
         if (provider is null)
         {
             throw new SecretRetrievalException(
-                $"'{active.BackendType}' is the active Secrets Storage backend, but no provider implementation exists for it yet.",
+                NotBuiltIn(active.BackendType) ?? $"'{active.BackendType}' is the active Secrets Storage backend, but no provider implementation exists for it yet.",
                 CyberArkErrorCategory.Other);
         }
 
@@ -47,9 +47,18 @@ public sealed class VaultSecretProviderResolver(
         if (provider is null)
         {
             throw new SecretRetrievalException(
-                $"'{backendType}' has no provider implementation registered.", CyberArkErrorCategory.Other);
+                NotBuiltIn(backendType) ?? $"'{backendType}' has no provider implementation registered.", CyberArkErrorCategory.Other);
         }
 
         return provider;
     }
+
+    /// <summary>
+    /// D-310: the CP provider is compiled in only when the CyberArk Application Password SDK was on the server when the
+    /// installer built the API (D-169), so a Credential Provider installed later needs that step run again.
+    /// </summary>
+    private static string? NotBuiltIn(string backendType) => backendType == "CyberArkCP"
+        ? "BlueTrack was built without the CyberArk Application Password SDK, so the CyberArk CP backend isn't available. "
+          + "Install the Credential Provider on this server, then re-run the installer's Build.Api step (Install-BlueTrack.ps1 -Step Build.Api)."
+        : null;
 }

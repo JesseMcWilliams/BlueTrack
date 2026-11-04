@@ -17,6 +17,7 @@ What changed in each BlueTrack release, newest first, for users and administrato
 
 ### Changed
 
+- Choosing the CyberArk CP secrets backend on a server where BlueTrack was built without the CyberArk Application Password SDK now says so, and how to add it (re-run the installer's `Build.Api` step once the Credential Provider is installed). (Administrator Operations Guide)
 - "In scope" on the KPI Summary, Dashboard and Trends now also leaves out Archived accounts.
 - The nightly load now loads Safe members before it applies the Progress Rules, so rules see the same night's Safe access results.
 - **Pull now** on Admin > Data Sources now runs the Import and Load once the pull succeeds (by starting the nightly SQL Agent job), so the accounts change within minutes instead of at the next night. The pull's row shows how the load went. (Administrator Settings, CyberArk sources)
