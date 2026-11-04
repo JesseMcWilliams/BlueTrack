@@ -200,7 +200,7 @@
     "asOf": "Counts read {time}.",
     "definitionsHeading": "What the counts mean",
     "defDiscoveredTerm": "Everything Discovered",
-    "defDiscovered": "All Accounts, plus the accounts found but not tracked yet: AD-discovered candidates (Reports > Discovered Accounts) that aren't accepted and match no tracked account, and DNA accounts (Reports > DNA Accounts) that match none, each counted once.",
+    "defDiscovered": "All Accounts, plus the accounts found but not tracked yet: AD-discovered candidates (Reports > Discovered Accounts), dismissed ones included, that aren't accepted and match no tracked account, and DNA accounts (Reports > DNA Accounts) that match none. Only duplicates and linked accounts are left out: an account found by both AD discovery and DNA, or by DNA more than once, counts once.",
     "defAllTerm": "All Accounts",
     "defAll": "Every inventory account that is not deleted, excluding feed accounts linked to a CyberArk account.",
     "defInScopeTerm": "In Scope",

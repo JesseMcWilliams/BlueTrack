@@ -154,13 +154,20 @@ public sealed class ReportsRepository(IDbConnectionFactory connectionFactory)
                 SUM(CASE WHEN ISNULL(StatusName, '') NOT IN ('Risk Accepted / Excluded', 'Archived') AND StageOrder >= @Managed THEN 1 ELSE 0 END) AS ManagedAccounts,
                 SUM(CASE WHEN StageOrder >= @Compliant AND StatusName = 'Complete' THEN 1 ELSE 0 END) AS CompliantAccounts,
                 SUM(CASE WHEN StatusName = 'Archived' THEN 1 ELSE 0 END) AS ArchivedAccounts,   -- D-298
-                -- D-326: what is discovered but not tracked: AD candidates (not accepted, no possible tracked match) and
-                -- DNA accounts no tracked account matched, each once (a domain account by name; a local or database one
-                -- by machine, instance and name).
+                -- D-326: what is discovered but not tracked: AD candidates (not accepted, no possible tracked match; dismissed
+                -- ones count, D-329) and DNA accounts no tracked account matched, each once (a domain account by name; a
+                -- local or database one by machine, instance and name). D-329: a DNA domain account that is also an
+                -- untracked AD candidate (the same name, a DOMAIN\ prefix ignored) is counted with the AD candidates only.
                 (SELECT COUNT(*) FROM web.discovered_account d
                  WHERE d.Status <> 'Accepted' AND d.ResolvedAccountKey IS NULL AND d.PossibleExistingAccountKey IS NULL) AS UntrackedAdCandidates,
                 (SELECT COUNT(DISTINCT CONCAT(CASE WHEN n.IsDomainAccount = 1 THEN N'' ELSE ISNULL(n.MachineName, N'') END, N'|', ISNULL(n.InstanceName, N''), N'|', n.AccountName))
-                 FROM web.dna_account n WHERE n.TrackedAccountKey IS NULL) AS UntrackedDnaAccounts
+                 FROM web.dna_account n
+                 WHERE n.TrackedAccountKey IS NULL
+                   AND NOT (n.IsDomainAccount = 1 AND EXISTS (
+                       SELECT 1 FROM web.discovered_account d
+                       WHERE d.Status <> 'Accepted' AND d.ResolvedAccountKey IS NULL AND d.PossibleExistingAccountKey IS NULL
+                         AND d.SamAccountName = CASE WHEN CHARINDEX(N'\', n.AccountName) > 0
+                                                     THEN SUBSTRING(n.AccountName, CHARINDEX(N'\', n.AccountName) + 1, 300) ELSE n.AccountName END))) AS UntrackedDnaAccounts
             FROM scope
             """;
 
