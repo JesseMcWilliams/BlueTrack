@@ -167,7 +167,7 @@ public sealed class SelfHostedDirectPullService(
         PvwaSnapshot snapshot;
         try
         {
-            snapshot = await client.PullAsync(token, ct, options);
+            snapshot = await client.PullAsync(token, ct, options, s.IncludeBuiltInSafes);
         }
         finally
         {
@@ -296,7 +296,7 @@ public sealed class SelfHostedDirectPullService(
                     await QuickReadAsync(client, token, s, checks, ct);
                     return checks;
                 }
-                var snapshot = await client.PullAsync(token, ct);
+                var snapshot = await client.PullAsync(token, ct, includeBuiltInSafes: s.IncludeBuiltInSafes);
                 var counts = PullCounts.Of(snapshot);
                 checks.Add(new Models.CyberArkSourceTestCheck
                 {
@@ -333,7 +333,7 @@ public sealed class SelfHostedDirectPullService(
     /// <summary>D-313: the quick Test's read: the first Safe and account, PVWA's totals, and the change check on those totals.</summary>
     private async Task QuickReadAsync(PvwaClient client, string token, Models.CyberArkSourceSettings s, List<Models.CyberArkSourceTestCheck> checks, CancellationToken ct)
     {
-        var probe = await client.ProbeAsync(token, ct);
+        var probe = await client.ProbeAsync(token, ct, s.IncludeBuiltInSafes);
         var totals = probe.SafeCount is { } safeCount && probe.AccountCount is { } accountCount
             ? $" PVWA reports {ServerTextCulture.Count(safeCount)} Safes and {ServerTextCulture.Count(accountCount)} accounts."
             : " PVWA didn't report its totals.";

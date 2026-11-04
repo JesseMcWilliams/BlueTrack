@@ -689,4 +689,22 @@ public class PvwaClientTests
 
         Assert.Equal(new PvwaProbe(0, null, 0, null), await Client(fake).ProbeAsync(Token, CancellationToken.None));
     }
+    // D-327: with the option, the internal Safes the classic list adds (and REST's list leaves out) are read by name; one
+    // that can't be read is a warning.
+    [Fact]
+    public async Task BuiltInSafes_AreReadFromTheClassicList_WhenAsked()
+    {
+        var fake = FullPvwa()
+            .Json("/PasswordVault/WebServices/PIMServices.svc/Safes", "{\"GetSafesResult\":[{\"SafeName\":\"My Safe\"},{\"SafeName\":\"PVWAConfig\"},{\"SafeName\":\"PasswordManager_Info\"}]}")
+            .Json("/PasswordVault/API/Safes/PVWAConfig/", "{\"safeUrlId\":\"PVWAConfig\",\"safeName\":\"PVWAConfig\",\"safeNumber\":5,\"location\":\"\\\\\"}")
+            .Json("/PasswordVault/API/Safes/PVWAConfig/Members", "{\"value\":[]}");
+
+        var without = await Client(fake).PullAsync(Token, CancellationToken.None);
+        Assert.Equal(["My Safe"], without.Safes.Select(s => s.SafeName));
+
+        var with = await Client(fake).PullAsync(Token, CancellationToken.None, includeBuiltInSafes: true);
+        Assert.Equal(["My Safe", "PVWAConfig"], with.Safes.Select(s => s.SafeName));
+        Assert.Equal(5, with.Safes.Single(s => s.SafeName == "PVWAConfig").SafeNumber);
+        Assert.Contains(with.Warnings, w => w.Contains("built-in Safe(s) not read: PasswordManager_Info"));
+    }
 }

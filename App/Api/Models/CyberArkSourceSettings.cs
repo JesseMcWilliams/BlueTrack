@@ -29,6 +29,8 @@ public sealed class CyberArkSourceSettings
     /// when one refuses the credential). Each https://host like PvwaBaseUrl.
     /// </summary>
     public string? PvwaFallbackUrls { get; init; }
+    /// <summary>D-327: Direct: also read CyberArk's built-in (internal) Safes and their members, which REST's Safe list leaves out. Off by default.</summary>
+    public bool IncludeBuiltInSafes { get; init; }
     /// <summary>Direct: the named credential (web.credential; a CyberArk CP or CCP one fetches it from the Vault at each pull).</summary>
     public int? PvwaCredentialKey { get; init; }
     /// <summary>Direct: "CyberArk" or "LDAP" authentication; both take a user name and password.</summary>

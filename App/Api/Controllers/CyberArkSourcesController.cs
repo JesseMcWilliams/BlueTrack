@@ -74,6 +74,7 @@ public sealed class CyberArkSourcesController(
         Track(nameof(settings.ImportSelfHosted), old.ImportSelfHosted.ToString(), settings.ImportSelfHosted.ToString());
         Track(nameof(settings.PvwaBaseUrl), old.PvwaBaseUrl, settings.PvwaBaseUrl);
         Track(nameof(settings.PvwaFallbackUrls), old.PvwaFallbackUrls, settings.PvwaFallbackUrls);   // D-320
+        Track(nameof(settings.IncludeBuiltInSafes), old.IncludeBuiltInSafes.ToString(), settings.IncludeBuiltInSafes.ToString());   // D-327
         Track(nameof(settings.PvwaCredentialKey), old.PvwaCredentialKey?.ToString(), settings.PvwaCredentialKey?.ToString());
         Track(nameof(settings.PvwaLogonMethod), old.PvwaLogonMethod, settings.PvwaLogonMethod);
         Track(nameof(settings.DirectPullTime), old.DirectPullTime, settings.DirectPullTime);
