@@ -21,6 +21,7 @@ const sections = [
   { name: 'admin-audit-log', labelKey: 'admin.adminHub.auditLog', permission: 'ViewAuditLog' },
   { name: 'admin-configuration', labelKey: 'admin.adminHub.configuration', permission: 'ManageApplicationConfiguration' },
   { name: 'admin-deployment', labelKey: 'admin.adminHub.deployment', permission: 'ViewDeploymentInfo' },
+  { name: 'admin-power-bi', labelKey: 'admin.adminHub.powerBi', permission: 'ViewDeploymentInfo' },   // D-314
   { name: 'admin-notifications', labelKey: 'admin.adminHub.notifications', permission: 'ManageNotifications' },
   { name: 'admin-credentials', labelKey: 'admin.adminHub.credentials', permission: 'ManageCredentials' },
   { name: 'admin-target-match-review', labelKey: 'admin.adminHub.targetMatchReview', permission: 'ManageTargets' },

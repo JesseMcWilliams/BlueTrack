@@ -261,6 +261,10 @@ The installer builds BlueTrack on the server, and the CyberArk CP backend is bui
 
 Later upgrades on that server build CP in by themselves, since the SDK is then present.
 
+## Reporting in Power BI
+
+**Admin > Power BI** (permission `ViewDeploymentInfo`) has what a Power BI author needs: the SQL Server and database to connect to, the views and tables to import (`vw_powerbi_accounts`, `vw_powerbi_entitlements`, `fact_account_progress_history` and the dimension tables), each with its columns, the relationships to set between them, and when the data changes. It also writes a `GRANT SELECT` script for exactly those objects, for the account or group you type; a database administrator runs it. Schedule Power BI's refresh after the nightly Import and Load.
+
 ## Replacing the Bootstrap Admin Group
 
 Every fresh install maps `BUILTIN\Administrators` (SID `S-1-5-32-544`) to the Admin role, deliberately, so the environment is usable immediately (`Database/05_BlueTrack_Baseline_WebSeed.sql`) — `Admin_DeploymentRunbook.md` already flags leaving this in place permanently as something a real production environment shouldn't do. Doing the replacement safely, without locking yourself out mid-change:
