@@ -24,6 +24,7 @@ What changed in each BlueTrack release, newest first, for users and administrato
 
 ### Changed
 
+- Re-importing **Target Inventory** also updates a matched Target's name, type and (when the file has one) description, as well as its risk score. (User Guide)
 - More of CyberArk's built-in Safes are recognised as internal (AccountsFeedDiscoveryLogs, AccountsFeedADAccounts, the PasswordManager Safes, PVWAReports and others the CyberArk documentation names), so their accounts and Safe pages say so.
 - Re-importing **Target Inventory** (or its feed) updates an existing Target's **Risk Score** to the file's, and the accounts that reach it are recalculated. Its name, type and description still aren't changed by an import. (User Guide)
 - **Test** on Admin > Data Sources > CyberArk sources is quick for Self-Hosted: it reads one Safe and one account and PVWA's totals, instead of everything a pull reads. **Test with a full read** does the full read. (Administrator Settings Reference)

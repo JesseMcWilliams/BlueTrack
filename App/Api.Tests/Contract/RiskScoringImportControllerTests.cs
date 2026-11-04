@@ -107,6 +107,40 @@ public class RiskScoringImportControllerTests : IClassFixture<BlueTrackWebApplic
         }
     }
 
+    // D-322: a matched Target takes the row's type and description; a blank description leaves the Target's.
+    [Fact]
+    public async Task TargetInventoryReimport_UpdatesTypeAndDescription_AndABlankDescriptionKeepsTheTargets()
+    {
+        var client = AdminClient();
+        var adGuid = Guid.NewGuid().ToString();
+        var createResponse = await client.PostAsJsonAsync("/api/admin/targets", new
+        {
+            targetTypeKey = await GetTargetTypeKeyAsync(client, "Server"),
+            targetName = $"ContractTestType_{Guid.NewGuid():N}",
+            riskScore = 100,
+            description = "Original description",
+            identifiers = new[] { new { identifierType = "ADGuid", identifierValue = adGuid } }
+        });
+        var created = await createResponse.Content.ReadFromJsonAsync<TargetKeyResponse>();
+        try
+        {
+            (await client.PostAsync("/api/admin/risk-scoring/import/target-inventory",
+                BuildCsvUpload($"TargetType,TargetName,RiskScore,Description,DiscoverySource,ADGuid\nDatabase,db-renamed,100,,,{adGuid}\n"))).EnsureSuccessStatusCode();
+            var target = await client.GetFromJsonAsync<TargetResponse>($"/api/admin/targets/{created!.TargetKey}");
+            Assert.Equal(await GetTargetTypeKeyAsync(client, "Database"), target!.TargetTypeKey);
+            Assert.Equal("db-renamed", target.TargetName);
+            Assert.Equal("Original description", target.Description);
+
+            (await client.PostAsync("/api/admin/risk-scoring/import/target-inventory",
+                BuildCsvUpload($"TargetType,TargetName,RiskScore,Description,DiscoverySource,ADGuid\nDatabase,db-renamed,100,New description,,{adGuid}\n"))).EnsureSuccessStatusCode();
+            Assert.Equal("New description", (await client.GetFromJsonAsync<TargetResponse>($"/api/admin/targets/{created.TargetKey}"))!.Description);
+        }
+        finally
+        {
+            await client.DeleteAsync($"/api/admin/targets/{created!.TargetKey}");
+        }
+    }
+
     [Fact]
     public async Task TargetInventoryImport_MatchingStrongIdentifier_MergesIntoExistingTarget()
     {
@@ -134,9 +168,10 @@ public class RiskScoringImportControllerTests : IClassFixture<BlueTrackWebApplic
             Assert.Equal(0, result.CreatedCount);
 
             var targets = await client.GetFromJsonAsync<List<TargetResponse>>("/api/admin/targets");
-            // Still the original Target row (matched, not duplicated) -- its own name untouched by the merge; D-316: the
-            // row's risk score replaces its own, so a re-import updates scores.
-            Assert.Single(targets!, t => t.TargetKey == created!.TargetKey && t.TargetName == originalName && t.RiskScore == 999);
+            // Still the original Target row (matched, not duplicated); D-316/D-322: the row's risk score and name replace
+            // its own, so a re-import updates them.
+            Assert.Single(targets!, t => t.TargetKey == created!.TargetKey && t.TargetName == "IgnoredName" && t.RiskScore == 999);
+            Assert.DoesNotContain(targets!, t => t.TargetName == originalName);
         }
         finally
         {
@@ -293,6 +328,8 @@ public class RiskScoringImportControllerTests : IClassFixture<BlueTrackWebApplic
         public int TargetKey { get; set; }
         public string TargetName { get; set; } = "";
         public int RiskScore { get; set; }
+        public int TargetTypeKey { get; set; }
+        public string? Description { get; set; }
     }
 
     private sealed class TargetTypeResponse
