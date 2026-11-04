@@ -1,18 +1,17 @@
 # BlueTrack: Handoff, 2026-10-21
 
-> **Stage: Reference (point-in-time snapshot).** Written at the end of the 2026-10-21 session for whoever picks the project up next (a person or another Claude session), brought up to date after the session's second batch (D-289 to D-297) and again on 2026-10-23 (release 1.5.1, the dev-site upgrade, SQL Server Audit live, and the customer upgrade questions in section 2a), and on 2026-11-03 (Archived status, Safe Access Policies and compliance review; section 2b, then section 2c), and on 2026-11-04 (Home and the user's notes; section 2d). Supersedes `Archive_Reference_Handoff-2026-10-19.md` and `Archive_Planning_Handoff-2026-10-18.md`. Facts about the code live in the code and the other `Claude_Docs/` files; this note points at them.
+> **Stage: Reference (point-in-time snapshot).** Written at the end of the 2026-10-21 session for whoever picks the project up next (a person or another Claude session), brought up to date after the session's second batch (D-289 to D-297) and again on 2026-10-23 (release 1.5.1, the dev-site upgrade, SQL Server Audit live, and the customer upgrade questions in section 2a), and on 2026-11-03 (Archived status, Safe Access Policies and compliance review; section 2b, then section 2c), and on 2026-11-04 (Home and the user's notes; section 2d), and again later on 2026-11-04 (the layout review, the dev-site install of `main` and the installer fix; section 2e). Supersedes `Archive_Reference_Handoff-2026-10-19.md` and `Archive_Planning_Handoff-2026-10-18.md`. Facts about the code live in the code and the other `Claude_Docs/` files; this note points at them.
 
 ## 1. Where things stand
 
 - **Released: v1.5.1** (2026-10-22; signed tag on `477fd01`, GitHub verified the signature; GitHub release; rebuilt `Published_Docs` and `Sbom/`). It holds everything in section 2 marked 1.5.1. Before it: v1.5.0, v1.4.0 (EVD removal, D-278) and v1.3.4.
 - **Release numbers go up by 0.0.1 only**, whatever a release holds (the user, 2026-10-22). A **v1.6.0** was published first by mistake and withdrawn within minutes: its GitHub release and tag were deleted and PR #232 put `<Version>`, the notes, `Published_Docs` and `Sbom/` back before 1.5.1 was made. No v1.6.0 exists.
-- **`main`** holds PRs #235 to #271 (2026-11-03 and 04; #241 to #245 are section 2c, #246 to #271 section 2d). **Unreleased** lists all of it; the next release is **1.5.2**, not released yet. Its Upgrade Guide section 5 row is written and covers scripts 58 to 65, Home at `/` (the Dashboard moved to `/dashboard`), AD discovery's new run time and domain ticks, and the optional `Db.PowerBiAccess` step.
-- **Dev site** (`https://bluetrack.company.com`) runs **1.5.1**, installed 2026-10-22 from the `v1.5.1` commit with the saved answers, without `-Force`: pre-upgrade backup taken, no new database scripts, app pool kept its gMSA, smoke test healthy, Deployment page `1.5.1`. `Test-BlueTrackHealth.ps1`, `Test-BlueTrackSso.ps1` and `npm run test:live` were **not** re-run on this build.
+- **`main`** holds PRs #235 to #274 (2026-11-03 and 04; #241 to #245 are section 2c, #246 to #271 section 2d, #272 to #274 section 2e). **Unreleased** lists all of it; the next release is **1.5.2**, not released yet. Its Upgrade Guide section 5 row is written and covers scripts 58 to 65, Home at `/` (the Dashboard moved to `/dashboard`), AD discovery's new run time and domain ticks, and the optional `Db.PowerBiAccess` step. #273 and #274 need no upgrade step.
+- **Dev site** (`https://bluetrack.company.com`) runs **`main` at #273** (`1.5.1-dev.93+14a8332`), installed 2026-11-04 with the saved answers, without `-Force`: pre-deployment backup taken and verified, scripts 56 to 65 applied, `Db.AppPoolAccess` re-run (Manual/02 and 08), `Db.PowerBiAccess` run for a lab account (Manual/09; the account is now in the saved answers), `Db.SqlServerAudit` audit `STARTED`, smoke test healthy. `Test-BlueTrackHealth.ps1` 13 pass, 0 fail (the Import and Load job had not run yet since the install); `npm run test:live` 6/6. `Test-BlueTrackSso.ps1` was **not** run. #274 (installer only, and a no-op C# change) is not on the site and doesn't need to be.
 - **SQL Server Audit is live on the dev host** (`Db.SqlServerAudit`, D-295): Windows audit policy set, the SQL Server service account granted *Generate security audits* and the Security-log registry key, SQL Server restarted by the user, audit `STARTED`. Checked with an UPDATE of `web.audit_event` that matched no rows and was rolled back: Security log event 33205 from `MSSQLSERVER$AUDIT`, with the statement and the login. No data or seal changed.
 - **AuditChainBroken** is turned on for the dev site (through the admin API, so it is in the Audit Log); no target role, and nothing is sent without SMTP.
-- **Tests** (last full local run, 2026-11-04, on #271's branch): API 1,468, web 925, E2E 110, all passing. CI green on every PR.
-- **The dev site has none of the 2026-11-03 or 2026-11-04 work** (it runs 1.5.1).
-- **Decision register:** the last row on `main` is **D-329**; next is D-330. **Database scripts:** the last on `main` is `65`; next is `66`. `Database/Manual/09` (the Power BI reader role) is the last manual script.
+- **Tests** (last full local runs, 2026-11-04): web 936 and E2E 110 on #273's branch, API 1,468 on #271's branch (#273 changed no API code; #274 ran only the two `SignInReject` tests), all passing. CI green on every PR.
+- **Decision register:** the last row on `main` is **D-331**; next is D-332. **Database scripts:** the last on `main` is `65`; next is `66`. `Database/Manual/09` (the Power BI reader role) is the last manual script.
 
 ## 2. What the 2026-10-21 session delivered
 
@@ -94,13 +93,25 @@ The user pasted 24 backlog notes and 5 KPIs, asked for them to be worked in orde
 
 The documentation pass after #271 (its own PR) added the new permissions, the Data Sources settings and `-PowerBiReaderAccount` to the admin guides, and a dated note for D-302 to D-329 in each `Design_` doc.
 
+## 2e. Layout review and dev-site install, 2026-11-04 (Unreleased, for 1.5.2)
+
+The user asked for a review of the page layout "for use and visability" (screenshots at 1440px, Dark and 390px), then "Make all suggested changes", then to deploy, merge and fix what the deploy turned up.
+
+| PR | Piece | Decisions |
+|---|---|---|
+| #272 | Handoff and docs for D-302 to D-329 (section 2d's documentation pass) | |
+| #273 | **Page layout**: system font; 75ch paragraphs; no ring round `<main>` after a route change; below 900px tables scroll inside the page, the hub sidebars go above it and the top nav wraps; the current area marked in the top nav (by path, `NAV_SECTIONS`) and in the hub sidebars, sub-pages too (`useSubnavCurrent`); Admin (5) and Reports (4) sidebars in titled groups, `REPORT_PAGES` in the hub's order (Overdue / At-Risk still first); the pager only with more than one page; Accounts' Deleted and Linked filters under **More filters**; Dashboard attention cards first, charts side by side, pie legends; Home cards with counts needing action; Account Detail field grid, sticky Save/Cancel, Delete under **Deletion** at the end; sign-in page without nav, one box per method; Admin in the top nav only with an Admin page. The user wasn't asked about the group names and members, wrapping rather than a menu button, or the 900px breakpoint (listed in D-330) | D-330 |
+| #274 | **Installer prompts**: every `Read-Host` goes through `Read-BlueTrackAnswer`, which stops and names the parameter or `-ConfigFile` entry when `Read-Host` returns `$null` (no console input). Found by the install above: the saved answers predated `PowerBiReaderAccount`, and the run failed with "You cannot call a method on a null-valued expression" before any step. Also `_ =` on `SignInRejectionRecorder`'s fire-and-forget alert (CS4014, there since D-285) | D-331 |
+
+The user-docs backlog has rows for D-330 (User Guide, Getting Started and the admin guides still describe the old layout in places, for example where Delete account sits) and D-331.
+
 ## 3. Open items
 
-1. **Merged 2026-11-04:** #246 to #271 (the user: "Merge"). Nothing is open from the user's notes.
-2. **Release 1.5.2** when the user asks. The Upgrade Guide row is written. Then the release tool with `-Version 1.5.2`, and install it on the dev site (re-run `Db.AppPoolAccess`; optionally `Db.PowerBiAccess`).
-3. **Next round** (the user, 2026-11-03): the suggestions (application-owner emails, least-privilege view, sponsor view) and the nested AD group path on "Via AD group" (`Planning_Backlog.md`).
+1. **Merged 2026-11-04:** #246 to #274. Nothing is open from the user's notes or the layout review.
+2. **Release 1.5.2** when the user asks. The Upgrade Guide row is written. Then the release tool with `-Version 1.5.2`, and install it on the dev site (it already has every database script and `Db.AppPoolAccess` / `Db.PowerBiAccess` from `main`, so expect no new scripts).3. **Next round** (the user, 2026-11-03): the suggestions (application-owner emails, least-privilege view, sponsor view) and the nested AD group path on "Via AD group" (`Planning_Backlog.md`).
 4. **Later** (the user, 2026-11-03): Privilege Cloud Direct, with PSM data for Privilege Cloud in it; the folder-move test in the lab (does moving an account to another folder change its `categoryModificationTime`? The user would move one in PrivateArk Client and run **Pull now**, then check read-only); review what the built-in Safes option reads, for usefulness (notes 22 and 23).
-5. **Not proven live** (`Planning_Backlog.md`, "Built, but never proven"): Azure, AWS and Conjur secrets backends; every email (no SMTP); SIEM forwarding; OAuth2 SMTP; LDAPS from another machine and a real second AD domain; identity provider tokens for API access; the AD group read and CyberArk Applications on a large Vault; Pull now starting the real job (#242) and Reload Rights through the deployed site (#243); PVWA failover and a real load balancer; the CP and CCP Reason in a real audit log; `Db.PowerBiAccess` on a real install; a pull with the built-in Safes option on; a DNA upload of a real workbook.
+5. **Not proven live** (`Planning_Backlog.md`, "Built, but never proven"): Azure, AWS and Conjur secrets backends; every email (no SMTP); SIEM forwarding; OAuth2 SMTP; LDAPS from another machine and a real second AD domain; identity provider tokens for API access; the AD group read and CyberArk Applications on a large Vault; Pull now starting the real job (#242) and Reload Rights through the deployed site (#243); PVWA failover and a real load balancer; the CP and CCP Reason in a real audit log; Power BI actually reading through the `BlueTrack_PowerBI_Reader` role (`Db.PowerBiAccess` itself ran on the dev install, 2026-11-04); a pull with the built-in Safes option on; a DNA upload of a real workbook.
+6. **User docs for D-330 and D-331** (`Planning_User-Docs-Backlog.md`): the User Guide, Getting Started and the admin guides where they describe the old layout or the installer's prompts.
 
 ## 4. Conventions that are easy to get wrong
 
@@ -124,7 +135,7 @@ All are in `CLAUDE.md` or the docs it links; these bit during this work.
 | Apply one script to the local test DB while iterating | replace `$DatabaseName$` with `BlueTrackTest_Local` and run `sqlcmd -S localhost -E -C -I -b -i <file>` with a Windows path (`cygpath -w`); rebuild the DB before committing. |
 | Web / E2E | `npm run test` in `App/Web`; `npm test` in `App/E2E` (not while CI runs, including the run on `main` after a merge). |
 | Live checks of the dev site | `BLUETRACK_LIVE_URL=https://<site> npm run test:live` in `App/E2E` (Windows sign-in as you; Verify adds one audit entry); `Tools/Test-BlueTrackHealth.ps1 -SiteUrl ...`; `Tools/Test-BlueTrackSso.ps1` with the CP parameters in `Live-Testing.local.md`. |
-| Redeploy locally | A wrapper script (written with the Write tool; `printf` turned `\a` in `\answers` into a bell once) running `& .\Deploy\Install-BlueTrack.ps1 -ConfigFile .\Deploy\State\answers.BlueTrack.json`, **without `-Force`**, after CI on `main` has finished. The answers file now saves `InstallSqlServerAudit: true`. |
+| Redeploy locally | A wrapper script (written with the Write tool; `printf` turned `\a` in `\answers` into a bell once) running `& .\Deploy\Install-BlueTrack.ps1 -ConfigFile .\Deploy\State\answers.BlueTrack.json`, **without `-Force`**, after CI on `main` has finished. The answers file now saves `InstallSqlServerAudit: true` and `PowerBiReaderAccount`. Run from this shell the installer has no console: since D-331 a missing answer stops it before any step and names the parameter to add. Auto mode may block the run (and `gh pr merge`) until the user allows it. |
 | SBOMs | `Tools/New-BlueTrackSbom.ps1` (after package changes; the release tool runs it). |
 | Release | Version = newest `v*` tag + 0.0.1. Upgrade Guide row PR first; then `Tools/New-BlueTrackRelease.ps1 -Version X.Y.Z -Push`, merge after CI, `... -Tag -Push`. Signing key (SSH), python-docx and `gh` are set up on this host. |
 | Scripted writes to the API | Windows auth plus the header `X-Requested-With: XMLHttpRequest` (D-197); without it a PUT returns 403. |
@@ -140,6 +151,8 @@ All are in `CLAUDE.md` or the docs it links; these bit during this work.
 7. **Stacked PRs get no CI** (2026-11-03): CI runs on `pull_request` to `main` only, so a PR based on another PR's branch shows no checks. `gh workflow run CI --ref <branch>` runs it by hand. Before merging the base PR, `gh pr edit <next> --base main`.
 8. **A new permission and the rights cache:** after a script grants a role a new permission, a user's cached rights (`web.distributed_cache`, up to 15 minutes) still lack it, so tests got 403. Rebuilding the local test database fixed it.
 9. **Dapper and positional records:** Dapper can't map a positional record that also has `init` properties; `SelfHostedDirectRepository` maps a small class (`CachedDetailRow`) instead.
+10. **`sed -i` in Git Bash turns a CRLF file into LF** (2026-11-04, on `Install-BlueTrack.ps1`); restore CRLF before committing, or use the Edit tool. Appending lines to a CRLF file from the shell leaves it mixed (`themes.css`).
+11. **New installer answers after an upgrade:** an answers file saved before a new prompt existed lacks its answer, so an unattended install asks for it (D-331 now stops with its name). Check `Deploy/README.md`'s parameter table against the saved file's keys before a redeploy.
 
 ## 7. Where to look
 
@@ -149,14 +162,16 @@ All are in `CLAUDE.md` or the docs it links; these bit during this work.
 - Platform Mapping suggestions: `App/Api/Data/PlatformMappingSuggester.cs`.
 - Archived status and archive rules: D-298, D-299; `Database/56_*` (`fn_ArchiveRuleMatch`, `usp_Load_AccountProgressAutoAdvance`). Safe Access Policies: `Claude_Docs/Design_Safe-Access-Policies.md`, `Database/57_*` (`usp_Check_SafeAccessPolicies`), `App/Api/Controllers/SafeAccessPoliciesController.cs`.
 - Home and Safe details: `App/Web/src/views/Home.vue`, `SafeDetail.vue`, `App/Api/Controllers/SafeDetailsController.cs`. Power BI: `PowerBiController.cs`, `Database/Manual/09`. AD discovery and DNA on Data Sources: `AdDiscoveryRunner.cs`, `AdDiscoveryController.cs`, `DnaReportReader.cs`, `DnaController.cs`, `AdDiscoverySection.vue`, `DnaSection.vue`. Accounts import: `AccountProgressImportService.cs`, `XlsxFileReader.cs`. KPI funnel: `KpiSummary` (`DiscoveredAccounts`).
+- Layout (D-330): `App/Web/src/assets/themes.css` (narrow-screen rules, `.hub-subnav*`, `.list-toolbar`, `.row-toggle`), `App/Web/src/App.vue` (`NAV_SECTIONS`, `hasAccess`), `composables/useSubnavCurrent.js`, the `GROUPS` in `AdminHub.vue` and `ReportsHub.vue`, `components/Pager.vue`. Installer prompts (D-331): `Read-BlueTrackAnswer` in `Deploy/Install-BlueTrack.ps1`.
 - Self-Hosted Direct: `Claude_Docs/Design_CyberArk-Direct-Integration.md`. Notifications: `Design_Notifications.md`. Upgrades: `User_Docs/Admin_UpgradeGuide.md`. SBOMs: `Design_Dependencies-And-External-Integrations.md` ("SBOMs").
 
 ## 8. Suggested next steps
 
 The user decides the order.
 
-1. Check the first scheduled nights on 1.5.1 (Admin > Data Sources; Reports > CPM Health) and Verify on the Audit Log page.
-2. Re-run the live checks on 1.5.1: `Tools/Test-BlueTrackHealth.ps1`, `Tools/Test-BlueTrackSso.ps1`, `npm run test:live`.
-3. (Done 2026-11-04: #246 to #271 merged.)
-4. When the user asks: release 1.5.2 and install it on the dev site (with `Db.AppPoolAccess`, and `Db.PowerBiAccess` if wanted); then try Pull now's load, Reload Rights, PVWA failover, AD discovery at its new time, a DNA upload and the built-in Safes option there, and set up a real Safe access policy and an archive rule.
-5. The next round (section 3, item 3).
+1. Check the first scheduled nights on the new dev build (Admin > Data Sources, including AD discovery at 04:30; Reports > CPM Health) and Verify on the Audit Log page.
+2. Run `Tools/Test-BlueTrackSso.ps1` on the new build (the health check and `npm run test:live` passed on 2026-11-04).
+3. (Done 2026-11-04: #246 to #274 merged; `main` at #273 installed on the dev site.)
+4. The dev site has all of 1.5.2's code now, so the "not proven live" items that need only it can be tried there, with the user's go-ahead for data writes: Pull now's load, Reload Rights, PVWA failover, a DNA upload, the built-in Safes option, a real Safe access policy and an archive rule. Release 1.5.2 when the user asks.
+5. The user docs for D-330 and D-331 (section 3, item 6).
+6. The next round (section 3, item 3).
