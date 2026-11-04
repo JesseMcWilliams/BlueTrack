@@ -36,6 +36,16 @@ const loading = ref(true)
 const settingsObjects = ref({})
 const credentialDraft = ref({})
 
+// D-306: only these read the credential (Conjur's API key, Azure's client secret, AWS's secret access key); the
+// others (Windows DPAPI, CP, CCP) never did, so the box isn't shown for them.
+function usesCredential(backend) {
+  const settings = settingsObjects.value[backend.backendType] ?? {}
+  if (backend.backendType === 'CyberArkConjur') return true
+  if (backend.backendType === 'AzureKeyVault') return settings.AuthMethod === 'ServicePrincipal'
+  if (backend.backendType === 'AwsSecretsManager') return settings.AuthMethod === 'AccessKey'
+  return false
+}
+
 const testSafe = ref('')
 const testFolder = ref('Root')
 const testObject = ref('')
@@ -201,7 +211,9 @@ async function testConnection() {
             </template>
           </td>
           <td>
+            <em v-if="!usesCredential(backend)">{{ t('admin.secretsStoreConfiguration.credentialNotUsed') }}</em>
             <input
+              v-else
               v-model="credentialDraft[backend.backendType]"
               type="password"
               :aria-label="t('admin.secretsStoreConfiguration.credentialFor', { backend: backend.backendType })"

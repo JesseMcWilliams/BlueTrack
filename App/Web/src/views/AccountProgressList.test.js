@@ -5,6 +5,12 @@ import { createRouter, createMemoryHistory } from 'vue-router'
 import AccountProgressList from './AccountProgressList.vue'
 import { useListStateStore } from '../stores/listState'
 
+// D-306: the Search and Owner boxes search 400 ms after typing stops.
+const typingPause = async () => {
+  await new Promise(resolve => setTimeout(resolve, 450))
+  await flushPromises()
+}
+
 // D-124 Phase 3: this page had no component-level Vitest coverage before
 // this phase (it predates Targets.test.js/AccessGroups.test.js's own
 // D-121 precedent, the freshest one at the time this file was written) --
@@ -174,7 +180,7 @@ describe('AccountProgressList.vue', () => {
 
     const ownerInput = wrapper.get('input[type="text"]')
     await ownerInput.setValue('jane')
-    await flushPromises()
+    await typingPause()
 
     const calls = globalThis.fetch.mock.calls.map(c => c[0]).filter(u => u.startsWith('/api/account-progress?'))
     expect(calls.at(-1)).toContain('page=1')
@@ -197,7 +203,8 @@ describe('AccountProgressList.vue', () => {
     const wrapper = mount(AccountProgressList, { global: { plugins: [makeRouter()] } })
     await flushPromises()
 
-    await wrapper.get('input[type="search"]').setValue('web')   // slow: not answered yet
+    await wrapper.get('input[type="search"]').setValue('web')
+    await typingPause()   // the search is sent, and is slow: not answered yet
     await wrapper.findAll('select').find(select => select.findAll('option').some(o => o.text() === 'Only deleted')).setValue('Only')
     await flushPromises()
     expect(wrapper.text()).toContain('from-the-deleted-filter')
@@ -220,15 +227,35 @@ describe('AccountProgressList.vue', () => {
 
     const searchInput = wrapper.get('input[type="search"]')
     await searchInput.setValue('  web01  ')
-    await flushPromises()
+    await typingPause()
     let calls = globalThis.fetch.mock.calls.map(c => c[0]).filter(u => u.startsWith('/api/account-progress?'))
     expect(calls.at(-1)).toContain('search=web01&')
     expect(calls.at(-1)).toContain('page=1')
 
     await searchInput.setValue('   ')
-    await flushPromises()
+    await typingPause()
     calls = globalThis.fetch.mock.calls.map(c => c[0]).filter(u => u.startsWith('/api/account-progress?'))
     expect(calls.at(-1)).not.toContain('search=')
+  })
+
+  // D-306: a typed box searches once typing pauses, not on every keystroke.
+  it('waits for a pause in typing before it searches, and searches once', async () => {
+    mockInitialLoad({ accounts: [sampleAccount], totalCount: 1, filteredCount: 1 })
+    const wrapper = mount(AccountProgressList, { global: { plugins: [makeRouter()] } })
+    await flushPromises()
+    const listCalls = () => globalThis.fetch.mock.calls.map(c => c[0]).filter(u => u.startsWith('/api/account-progress?'))
+    const before = listCalls().length
+
+    const searchInput = wrapper.get('input[type="search"]')
+    await searchInput.setValue('w')
+    await searchInput.setValue('we')
+    await searchInput.setValue('web')
+    await flushPromises()
+    expect(listCalls().length).toBe(before)
+
+    await typingPause()
+    expect(listCalls().length).toBe(before + 1)
+    expect(listCalls().at(-1)).toContain('search=web')
   })
 
   it('changing the page size persists the preference and re-fetches with the new pageSize', async () => {
@@ -424,7 +451,7 @@ describe('AccountProgressList.vue', () => {
       expect(router.currentRoute.value.query).toEqual({ sort: 'address:asc', page: '2' })
 
       await wrapper.find('input[type="search"]').setValue('svc')
-      await flushPromises()
+      await typingPause()
       expect(router.currentRoute.value.query).toEqual({ sort: 'address:asc', search: 'svc' })   // back on page 1
     })
 
