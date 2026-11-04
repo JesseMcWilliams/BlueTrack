@@ -7,7 +7,7 @@
 
 ## From the user's notes (checked 2026-11-03)
 The user's consolidated notes, checked against the code on 2026-11-03. Built then: 3, 7, 16 and 20 (D-306), the landing page (D-307), 4 (D-309), 10 to 13 (D-308), 1 (D-310), 2 (D-311). Already built before: 9 (D-302: Pull now runs the full Import and Load, update tasks included, not the daily snapshot), 17 (Targets and Access Groups pages, their imports and feeds, D-101 to D-104, D-193, D-137), 22 for Self-Hosted (D-270), and the KPIs (D-143). 21, the shadow pull, was removed with the EVD source (D-278). Not built:
-- **5. PVWA behind a load balancer:** one PVWA URL per source, no failover list; each pull logs on once and reuses the token over one HTTP client (which keeps cookies). Never tried behind a real load balancer.
+- **5. PVWA behind a load balancer (D-312):** BlueTrack meets CyberArk's sticky-session requirement (one sign-in and one cookie-keeping connection per pull), now documented. **Question for the user:** should BlueTrack also take a list of PVWA addresses and fail over to the next when one doesn't answer? Never tried behind a real load balancer.
 - **6. Quick Test on Edit CyberArk sources:** Test reads the whole Vault (as a pull does, writing nothing); it should only check sign-in and access.
 - **8. Power BI access page:** how to connect Power BI and which views to use; only the SQL views exist (D-22).
 - **14. Bulk actions on Reports > Risk Score,** for example the override on several accounts at once.
