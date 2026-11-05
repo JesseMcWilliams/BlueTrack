@@ -1,6 +1,6 @@
 <script setup>
 // D-325: CyberArk Discovery & Audit (DNA) as a data source on Admin > Data Sources: upload DNA's workbook (it replaces
-// the previous one) and see what the latest upload held. Its hard-coded credentials sheet is never read. The accounts
+// the previous one) and see what the latest upload held. Its hard-coded credentials sheet goes to its own table and report (D-345). The accounts
 // are on Reports > DNA Accounts. D-341: a data feed (type DnaReport) can import it from a folder each night instead.
 // D-342: tracking rules. D-343: Purge, and how long DNA data is kept. D-344: the columns only holders of
 // ViewDnaSensitiveColumns may see.

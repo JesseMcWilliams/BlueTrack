@@ -36,7 +36,7 @@ public class NotificationChecksTests : IClassFixture<BlueTrackWebApplicationFact
 
     private readonly List<long> _pullKeys = [];
 
-    private static readonly string[] NewTypes = [BlueTrack.Api.CyberArkDirect.SelfHostedPullFailedCheck.TypeName, NightlyImportFailedCheck.TypeName, OverdueRiskExceptionsCheck.TypeName, WeeklySummaryCheck.TypeName, ApiKeyExpiringCheck.TypeName, ApiKeyExpiredCheck.TypeName, SamlCertificateExpiringCheck.TypeName, CpmHealthCheck.TypeName, AuditChainBrokenCheck.TypeName];
+    private static readonly string[] NewTypes = [BlueTrack.Api.CyberArkDirect.SelfHostedPullFailedCheck.TypeName, NightlyImportFailedCheck.TypeName, OverdueRiskExceptionsCheck.TypeName, WeeklySummaryCheck.TypeName, ApiKeyExpiringCheck.TypeName, ApiKeyExpiredCheck.TypeName, SamlCertificateExpiringCheck.TypeName, CpmHealthCheck.TypeName, AuditChainBrokenCheck.TypeName, RunStalledCheck.TypeName];
 
     /// <summary>D-287: certificates by thumbprint, in place of the Windows store.</summary>
     private sealed class FakeCertificates : ISamlCertificateLookup
@@ -711,5 +711,30 @@ public class NotificationChecksTests : IClassFixture<BlueTrackWebApplicationFact
         await NewService().RunOnceAsync(CancellationToken.None);
         Assert.Single(MessagesFor(PullMarker(recent)));
         Assert.Empty(MessagesFor(PullMarker(old)));   // 30 hours old, past the 28-hour lookback
+    }
+
+    // ---- D-348: RunStalled ----
+
+    [Fact]
+    public async Task RunStalled_MailsAPullThatReadNothingForTheStallTime_Once_ButNotOneStillReading()
+    {
+        await SetEnabledAsync(true, RunStalledCheck.TypeName);
+        var stalled = await InsertPullAsync("Started", 90, null, null, null);
+        var reading = await InsertPullAsync("Started", 90, null, null, null);
+        await using (var connection = new SqlConnection(TestDatabase.ConnectionString))
+        {
+            await connection.ExecuteAsync("""
+                UPDATE dbo.cyberark_direct_pull SET LastProgressAt = DATEADD(MINUTE, -45, SYSUTCDATETIME()) WHERE PullKey = @stalled;
+                UPDATE dbo.cyberark_direct_pull SET LastProgressAt = DATEADD(MINUTE, -2, SYSUTCDATETIME()) WHERE PullKey = @reading;
+                """, new { stalled, reading });
+        }
+
+        await NewService().RunOnceAsync(CancellationToken.None);
+        await NewService().RunOnceAsync(CancellationToken.None);   // not re-sent
+
+        var message = Assert.Single(MessagesFor($"The Self-Hosted Direct pull {stalled} "));
+        Assert.StartsWith($"BlueTrack: The Self-Hosted Direct pull {stalled} has not moved for 4", message.Subject);   // 45 minutes
+        Assert.Contains("Admin > Data Sources", message.Body);
+        Assert.Empty(MessagesFor($"The Self-Hosted Direct pull {reading} "));
     }
 }

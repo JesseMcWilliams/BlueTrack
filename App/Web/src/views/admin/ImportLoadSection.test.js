@@ -1,5 +1,11 @@
-import { describe, it, expect, vi, afterEach } from 'vitest'
+import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
+
+vi.mock('../../composables/useConfirmDialog', () => ({
+  confirmDelete: vi.fn().mockResolvedValue(true)
+}))
+
+import { confirmDelete } from '../../composables/useConfirmDialog'
 import ImportLoadSection from './ImportLoadSection.vue'
 import { formatSeconds, durationText, procedureName } from './runProgress'
 
@@ -32,6 +38,10 @@ function routeFetch(handlers) {
 }
 
 describe('ImportLoadSection.vue', () => {
+  beforeEach(() => {
+    confirmDelete.mockResolvedValue(true)   // vi.restoreAllMocks resets it
+  })
+
   afterEach(() => {
     vi.restoreAllMocks()
     delete globalThis.fetch
@@ -68,12 +78,12 @@ describe('ImportLoadSection.vue', () => {
     })
     const wrapper = mount(ImportLoadSection)
     await flushPromises()
-    await wrapper.find('button').trigger('click')
+    await wrapper.find('tbody button').trigger('click')
     await flushPromises()
 
     const steps = wrapper.findAll('.run-steps tbody tr').map(r => r.text())
     expect(steps).toEqual(['1usp_Load_DimLocation1 sRolled back', '2usp_Load_DimPlatform1 sFailed'])
-    expect(wrapper.find('button').attributes('aria-expanded')).toBe('true')
+    expect(wrapper.find('tbody button').attributes('aria-expanded')).toBe('true')
   })
 
   it('for a run still going, names its procedure, its wait and the session blocking it', async () => {
@@ -143,5 +153,61 @@ describe('ImportLoadSection.vue', () => {
     expect(durationText('2026-11-05T10:00:00', null, '2026-11-05T10:01:30')).toBe('1 min')
     expect(durationText(null, null, '2026-11-05T10:01:30')).toBe('')
     expect(procedureName('dbo.usp_Load_FactAccount')).toBe('usp_Load_FactAccount')
+  })
+
+  // ---- D-348 ----
+
+  it('shows the stall time and saves a new one', async () => {
+    const calls = []
+    globalThis.fetch = vi.fn((url, options) => {
+      calls.push({ url, options })
+      if (url === '/api/admin/etl-runs') return jsonResponse({ serverTime: '2026-11-05T11:00:00', runs: [], running: [], stallMinutes: 45 })
+      if (url === '/api/admin/etl-runs/settings') return jsonResponse({ stallMinutes: 60 })
+      throw new Error(`Unexpected fetch: ${url}`)
+    })
+    const wrapper = mount(ImportLoadSection)
+    await flushPromises()
+
+    const input = wrapper.find('input[type="number"]')
+    expect(input.element.value).toBe('45')
+    await input.setValue(60)
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+
+    const put = calls.find(c => c.url === '/api/admin/etl-runs/settings')
+    expect(put.options.method).toBe('PUT')
+    expect(JSON.parse(put.options.body)).toEqual({ stallMinutes: 60 })
+    expect(wrapper.text()).toContain('Saved.')
+  })
+
+  it('offers Cancel load only while a run is going, asks first, and shows why the Agent refused', async () => {
+    const calls = []
+    globalThis.fetch = vi.fn((url, options) => {
+      calls.push({ url, options })
+      if (url === '/api/admin/etl-runs') return jsonResponse({ serverTime: '2026-11-05T11:00:00', runs: [], running: [{ activity: activity(), currentStep: null, stepsDone: 0 }], stallMinutes: 30 })
+      if (url === '/api/admin/etl-runs/cancel') return jsonResponse({ detail: 'The job is not currently running.' }, false, 409)
+      throw new Error(`Unexpected fetch: ${url}`)
+    })
+    const wrapper = mount(ImportLoadSection)
+    await flushPromises()
+
+    const cancel = wrapper.findAll('button').find(b => b.text() === 'Cancel load')
+    confirmDelete.mockResolvedValueOnce(false)
+    await cancel.trigger('click')
+    await flushPromises()
+    expect(calls.some(c => c.url === '/api/admin/etl-runs/cancel')).toBe(false)
+
+    await cancel.trigger('click')
+    await flushPromises()
+    expect(calls.find(c => c.url === '/api/admin/etl-runs/cancel').options.method).toBe('POST')
+    expect(wrapper.find('[role="alert"]').text()).toContain('The job is not currently running.')
+    wrapper.unmount()
+  })
+
+  it('has no Cancel load when nothing is running', async () => {
+    routeFetch({ '/api/admin/etl-runs': jsonResponse({ serverTime: '2026-11-05T11:00:00', runs: [], running: [], stallMinutes: 30 }) })
+    const wrapper = mount(ImportLoadSection)
+    await flushPromises()
+    expect(wrapper.findAll('button').some(b => b.text() === 'Cancel load')).toBe(false)
   })
 })

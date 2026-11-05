@@ -338,12 +338,12 @@ No identifier is moved off an existing target.
 | Reports > Reconciliation Review | Which accounts might be the same account in both Privilege Cloud and Self-Hosted? (For review only: no confirm or reject buttons.) |
 | Reports > Possible Account Matches | Which accounts from other systems might be CyberArk accounts we haven't linked yet? |
 | Reports > Risk Exception SoD | Who both approved an exception and linked it to an account? |
-| Reports > Trends | How have stages, % complete and risk levels changed over time, for everything or one application or safe? |
+| Reports > Trends | How have stages, % complete and risk levels changed over time, for everything or one application or safe? Are we keeping up with the target dates? |
 | Exceptions > Overdue Reviews | Which exceptions are past their review date? |
 
 On **Reports**, the reports are listed in a column on the left; choose one to open it on the right. Some reports appear only if your role has the matching permission.
 
-**Trends** is drawn from a snapshot BlueTrack takes every night, so it has one point per night. Choose **From:** and **To:** (the last 90 days by default), **By:** **Day** or **Week**, and optionally an **Application:** or **Safe:**. **Show data table** under each chart lists the numbers.
+**Trends** is drawn from a snapshot BlueTrack takes every night, so it has one point per night. Choose **From:** and **To:** (the last 90 days by default), **By:** **Day** or **Week**, and optionally an **Application:** or **Safe:**. **Show data table** under each chart lists the numbers. The fourth chart, **Progress against target dates**, is for sponsors: **Planned** (accounts in scope whose target remediation date had come by then), **Completed** (accounts compliant that day) and **Overdue** (past their target date and not compliant). It uses each account's target date as it is today.
 
 **Exporting.** Every report has **Export CSV** and **Export Excel**. The file holds every row matching the report's current filters and sort, not just the page on screen. If you can view a report, you can export it. If more rows match than your administrator's **Export Max Rows** limit (100,000 unless changed), the export is refused and tells you how many rows matched, so narrow the filters and try again. Each export is recorded in the Audit Log.
 

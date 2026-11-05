@@ -92,6 +92,8 @@ public sealed class SelfHostedDirectRepository(IDbConnectionFactory connectionFa
             INSERT INTO dbo.cyberark_direct_pull_step (PullKey, StepOrder, StepName, StartedAt, CompletedAt, ItemsDone, ItemsTotal)
             VALUES (@PullKey, @StepOrder, @StepName, @StartedAt, @CompletedAt, @ItemsDone, @ItemsTotal)
             """, steps.Select(s => new { PullKey = pullKey, s.StepOrder, s.StepName, s.StartedAt, s.CompletedAt, s.ItemsDone, s.ItemsTotal }), transaction);
+        // D-348: saved only when the pull read something new, so this is its last progress.
+        await connection.ExecuteAsync("UPDATE dbo.cyberark_direct_pull SET LastProgressAt = SYSUTCDATETIME() WHERE PullKey = @pullKey", new { pullKey }, transaction);
         transaction.Commit();
     }
 

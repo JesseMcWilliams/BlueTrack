@@ -3,8 +3,11 @@
 // Load's procedures one by one, and for a run still going, the procedure it's in and what its SQL Server session is
 // waiting on (dbo.usp_Get_EtlSessionActivity, signed by the installer's Db.SessionActivity). While one runs, the
 // section checks back every few seconds.
+// D-348: Alert after (the stall time for the RunStalled email and the Pull and Load health check), and Cancel load,
+// which stops the Import and Load SQL Agent job.
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { confirmDelete } from '../../composables/useConfirmDialog'
 import { formatRunTime } from './dataFeedFormat'
 import { formatCount } from '../../utils/formatCount'
 import { durationText, formatSeconds, procedureName } from './runProgress'
@@ -16,6 +19,10 @@ const data = ref(null)
 const error = ref(null)
 const openRun = ref(null)
 const steps = ref([])
+const message = ref(null)
+const stallMinutes = ref(30)
+const savingSettings = ref(false)
+const cancelling = ref(false)
 let pollTimer = null
 
 async function load() {
@@ -23,6 +30,7 @@ async function load() {
     const response = await fetch('/api/admin/etl-runs')
     if (!response.ok) throw new Error(t('common.requestFailed', { status: response.status }))
     data.value = await response.json()
+    if (data.value?.stallMinutes && !savingSettings.value) stallMinutes.value = data.value.stallMinutes
     error.value = null
     if (openRun.value) await loadSteps(openRun.value)
   } catch (err) {
@@ -52,6 +60,52 @@ async function toggleSteps(run) {
   }
 }
 
+async function saveSettings() {
+  error.value = null
+  message.value = null
+  savingSettings.value = true
+  try {
+    const response = await fetch('/api/admin/etl-runs/settings', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ stallMinutes: Number(stallMinutes.value) })
+    })
+    if (!response.ok) {
+      const problem = await response.json().catch(() => null)
+      error.value = problem?.detail ?? t('common.requestFailed', { status: response.status })
+      return
+    }
+    message.value = t('admin.runProgress.settingsSaved')
+  } finally {
+    savingSettings.value = false
+  }
+}
+
+async function cancelLoad() {
+  error.value = null
+  message.value = null
+  if (!(await confirmDelete(t('admin.runProgress.confirmCancel'), t('admin.runProgress.cancelLoad')))) return
+  cancelling.value = true
+  let outcome = null
+  let failure = null
+  try {
+    const response = await fetch('/api/admin/etl-runs/cancel', { method: 'POST' })
+    if (response.status === 409) {
+      const problem = await response.json().catch(() => null)
+      failure = t('admin.runProgress.cancelRefused', { reason: problem?.detail ?? '' })
+    } else if (!response.ok) {
+      failure = t('common.requestFailed', { status: response.status })
+    } else {
+      outcome = t('admin.runProgress.cancelDone')
+    }
+  } finally {
+    cancelling.value = false
+  }
+  await load()   // after the reload, which clears the section's error
+  error.value = failure
+  message.value = outcome
+}
+
 onMounted(load)
 onBeforeUnmount(() => clearTimeout(pollTimer))
 
@@ -77,6 +131,20 @@ const running = computed(() => data.value?.running ?? [])
     <h3 id="import-load-heading">{{ t('admin.runProgress.heading') }}</h3>
     <p>{{ t('admin.runProgress.intro') }}</p>
     <p v-if="error" role="alert">{{ error }}</p>
+    <p v-if="message" role="status">{{ message }}</p>
+
+    <form class="stall-settings" @submit.prevent="saveSettings">
+      <label class="field-label">
+        <span class="field-label-text">{{ t('admin.runProgress.stallMinutes') }}</span>
+        <input v-model.number="stallMinutes" type="number" min="5" max="1440" step="1" required />
+      </label>
+      <button type="submit" :disabled="savingSettings">{{ t('common.save') }}</button>
+      <p><small>{{ t('admin.runProgress.stallHelp') }}</small></p>
+    </form>
+
+    <p v-if="running.length">
+      <button type="button" :disabled="cancelling" @click="cancelLoad">{{ t('admin.runProgress.cancelLoad') }}</button>
+    </p>
 
     <div v-for="r in running" :key="r.activity.etlRunKey" class="run-live" role="status">
       <p>
@@ -154,5 +222,8 @@ const running = computed(() => data.value?.running ?? [])
 .run-live p { margin: 0.25rem 0; }
 .warning, .outcome-Failed { color: var(--color-error-text); }
 .run-steps { margin: 0.25rem 0 0.5rem 1rem; }
+.stall-settings { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 0.5rem; margin-bottom: 0.75rem; }
+.stall-settings p { flex-basis: 100%; margin: 0; }
+.stall-settings input { width: 7rem; }
 code { overflow-wrap: anywhere; }
 </style>

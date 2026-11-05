@@ -1,7 +1,7 @@
 {
   "dna": {
     "heading": "CyberArk Discovery & Audit (DNA)",
-    "intro": "Upload DNA's account-list workbook (.xlsx). Its finding sheets' accounts are stored and listed on Reports > DNA Accounts; each upload replaces the one before. The hard-coded credentials sheet (HCC), the raw database scan and any column of credentials are never read.",
+    "intro": "Upload DNA's account-list workbook (.xlsx). Its finding sheets' accounts are stored and listed on Reports > DNA Accounts; each upload replaces the one before. Its hard-coded credentials sheet is listed on Reports > DNA Hard-Coded Credentials (for holders of ViewDnaSensitiveColumns), with DNA's line from the file and the password masked; any other column of credentials is never read.",
     "file": "DNA workbook:",
     "import": "Import",
     "imported": "Imported.",
@@ -680,7 +680,14 @@
     "step_Logoff": "Logging off PVWA",
     "step_ChangeCheck": "Comparing with the last pull",
     "step_AdGroups": "AD members of the Safe groups",
-    "step_Staging": "Saving to staging"
+    "step_Staging": "Saving to staging",
+    "stallMinutes": "Alert after (minutes)",
+    "stallHelp": "A pull that reads nothing, or a Load procedure, Import or Snapshot still running, for this long is stalled: the Run stalled email (Notifications) and the Pull and Load check on the Deployment page report it. 5 to 1,440 minutes.",
+    "settingsSaved": "Saved.",
+    "cancelLoad": "Cancel load",
+    "confirmCancel": "Stop the Import and Load SQL Agent job? The Load is rolled back, so the data stays as it was before it started, and the run is logged as failed. Tonight's job runs as usual.",
+    "cancelDone": "The job was stopped. SQL Server may take a moment to roll the Load back.",
+    "cancelRefused": "SQL Server Agent didn't stop the job: {reason}"
   },
   "deploymentInfo": {
     "backupConfirm": "Back up the application now? This runs a database backup on the server and downloads a zip of the appsettings files.",

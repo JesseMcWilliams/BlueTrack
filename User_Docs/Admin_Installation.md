@@ -46,7 +46,9 @@ The install runs as named steps (`Prereq.*`, `Build.Api`, `Build.Web`, `Db.*`, `
 .\Install-BlueTrack.ps1 -StartAt Iis.AppPool        # re-run that step and every step after it
 ```
 
-`-Resume`, `-Step` and `-StartAt` reuse the saved answers, so they don't prompt again. If `Deploy/State/` holds more than one site, add `-SiteName`. A plain run (none of the three) starts a fresh progress record.
+`-Resume`, `-Step` and `-StartAt` reuse the saved answers, so they don't prompt again. The saved answers include the Power BI reader account (`PowerBiReaderAccount`), so an unattended re-run or an update doesn't stop to ask for it. If `Deploy/State/` holds more than one site, add `-SiteName`. A plain run (none of the three) starts a fresh progress record.
+
+**Run the installer as a SQL Server sysadmin** if you can. The `Db.SessionActivity` step, which runs on every install, lets **Admin > Data Sources** show what a running Import or Load is waiting on: it signs one database procedure with a certificate that holds SQL Server's VIEW SERVER STATE permission, instead of giving that permission to BlueTrack's own login. Without sysadmin it warns and the install goes on; Data Sources then shows the running step without its waits. Run `-Step Db.SessionActivity` later as a sysadmin to add it (Admin_OperationsGuide.md, "A Slow or Stuck Pull or Load").
 
 ### Choices worth making up front
 

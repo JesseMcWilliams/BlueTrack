@@ -83,7 +83,7 @@ One form, one Save button, covering the **Site URL** (the address people open Bl
 If you want email alerts, configure SMTP under **Admin > Notifications**, then:
 
 - **Sign-in:** **Basic (username/password)** with a credential suits an internal relay. For a Microsoft 365 or Google Workspace mailbox where username and password sign-in is off, choose **Microsoft 365 (OAuth2)** or **Google Workspace (OAuth2)** (or **Generic OAuth2 (client credentials)** for another provider). These need setting up at the provider first, and are not yet proven against a live provider; the steps are in [Admin_SettingsReference_Notifications.md](Admin_SettingsReference_Notifications.md), "OAuth2 email sign-in".
-- **Notification Types:** tick **Enabled** for each alert you want. **NightlyImportFailed**, **OverdueRiskExceptions**, **WeeklySummary** and **SelfHostedPullFailed** (among others) start off; turn on NightlyImportFailed at least, and SelfHostedPullFailed if you import Self-Hosted. Give each a **Target Role** if a role's mailbox or AD groups should receive it.
+- **Notification Types:** tick **Enabled** for each alert you want. **NightlyImportFailed**, **OverdueRiskExceptions**, **WeeklySummary** and **SelfHostedPullFailed** (among others) start off; turn on NightlyImportFailed at least, SelfHostedPullFailed if you import Self-Hosted, and RunStalled to hear of a pull or load that stops moving. Give each a **Target Role** if a role's mailbox or AD groups should receive it.
 - **Schedule:** set the **Daily digest time**, **Weekly summary day** and **Weekly summary time** (server local time), then **Save Schedule**.
 - **Recipients:** add at least one monitored mailbox.
 
