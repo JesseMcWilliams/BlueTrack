@@ -16,6 +16,8 @@ import { feedTypeLabel, formatRunTime } from './dataFeedFormat'
 import PullDetailsDialog from './PullDetailsDialog.vue'
 import AdDiscoverySection from './AdDiscoverySection.vue'
 import DnaSection from './DnaSection.vue'
+import ImportLoadSection from './ImportLoadSection.vue'
+import { pullStepLabel, stepCount, durationText } from './runProgress'
 import { useI18n } from 'vue-i18n'
 import { formatCount } from '../../utils/formatCount'
 
@@ -69,6 +71,18 @@ async function loadDirectPulls() {
   if (!response.ok) throw new Error(t('common.requestFailed', { status: response.status }))
   directPulls.value = await response.json()
 }
+
+// D-337: the step the running pull is in (the API sends the newest pull's steps while it is Started).
+const runningStep = computed(() => {
+  const steps = directPulls.value?.steps ?? []
+  if (!directPulls.value?.running || steps.length === 0) return null
+  const step = steps[steps.length - 1]
+  const took = durationText(step.startedAt, null, directPulls.value.serverTime)
+  const count = stepCount(step)
+  return count
+    ? t('admin.runProgress.pullRunningStepCount', { step: pullStepLabel(step.stepName), count, took })
+    : t('admin.runProgress.pullRunningStep', { step: pullStepLabel(step.stepName), took })
+})
 
 // D-302: a Pull now that succeeded starts the Import and Load; the page keeps refreshing until that ends too.
 function directBusy() {
@@ -247,7 +261,7 @@ async function remove(feed) {
       <div v-if="isDirect() && directPulls" class="direct-pulls">
         <h4>{{ t('admin.dataSources.directHeading') }}</h4>
         <p v-if="latestPullProblem" role="alert" class="pull-banner">{{ latestPullProblem.status === 'Rejected' ? t('admin.dataSources.bannerRejected') : t('admin.dataSources.bannerFailed') }}</p>
-        <p v-if="directPulls.running" role="status">{{ t('admin.dataSources.pullRunning') }}</p>
+        <p v-if="directPulls.running" role="status">{{ runningStep ?? t('admin.dataSources.pullRunning') }}</p>
         <p v-if="directPulls.pulls.length === 0">{{ t('admin.dataSources.noPulls') }}</p>
         <table v-else>
           <thead>
@@ -287,6 +301,9 @@ async function remove(feed) {
       <p><button type="button" @click="router.push({ name: 'admin-cyberark-sources-edit' })">{{ t('admin.dataSources.editCyberArk') }}</button></p>
 
       <PullDetailsDialog v-if="selectedPull" :pull="selectedPull" @close="selectedPull = null" />
+
+      <!-- D-337: the nightly job's Import, Load and Snapshot, and what a running one is doing. -->
+      <ImportLoadSection />
 
       <!-- D-317: AD Account Discovery is a data source too. -->
       <AdDiscoverySection />

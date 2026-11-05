@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest'
-import { mount } from '@vue/test-utils'
+import { describe, it, expect, vi, afterEach } from 'vitest'
+import { mount, flushPromises } from '@vue/test-utils'
 import PullDetailsDialog from './PullDetailsDialog.vue'
 import { formatCount } from '../../utils/formatCount'
 
@@ -92,5 +92,29 @@ describe('PullDetailsDialog.vue', () => {
 
     expect(same.text()).not.toContain('(was')
     expect(none.text()).not.toContain('(was')
+  })
+
+  // D-337: the pull's steps; a pull that stopped ends on the step it was in.
+  describe('steps', () => {
+    afterEach(() => {
+      vi.restoreAllMocks()
+      delete globalThis.fetch
+    })
+
+    it('lists each step with what it read and how long it took, and the one a stopped pull was in', async () => {
+      globalThis.fetch = vi.fn(() => Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve([
+          { stepOrder: 1, stepName: 'Logon', startedAt: '2026-10-19T07:30:00', completedAt: '2026-10-19T07:30:02', itemsDone: null, itemsTotal: null },
+          { stepOrder: 2, stepName: 'AccountDetails', startedAt: '2026-10-19T07:30:02', completedAt: null, itemsDone: 1200, itemsTotal: 2454 }
+        ])
+      }))
+      const wrapper = mount(PullDetailsDialog, { props: { pull: pull({ pullKey: 7, status: 'Failed' }) } })
+      await flushPromises()
+
+      expect(globalThis.fetch).toHaveBeenCalledWith('/api/admin/cyberark-sources/direct/pulls/7/steps')
+      const rows = wrapper.findAll('.pull-details-steps tbody tr').map(r => r.text())
+      expect(rows).toEqual(['Logging on to PVWA2 s', `Account details${formatCount(1200)} of ${formatCount(2454)}didn't finish`])
+    })
   })
 })

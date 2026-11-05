@@ -3,6 +3,7 @@
 > **Stage: Planning.** Work that isn't built or proven yet. The user's notes of 2026-11-03 are all built: `Archive_Planning_User-Notes-2026-11-03.md`. Carried forward from the 2026-09-16 survey (`Archive_Planning_Outstanding-Work-Survey-2026-09-16.md`); items that survey listed but the audit tracker records as resolved were left in the archive. Items tagged *(verify)* may already be done; confirm before starting. When an item ships, delete it here and record it in the relevant `Design_` doc.
 
 ## Requested, not started
+- **More on stuck pulls and loads** (requested 2026-11-05, Medium; the rest of that day's six proposals, after D-337 built the pull steps, the Load's procedure log and the load session's waits): (4) an email when a pull or load has made no progress for N minutes, rather than only the 2-hour (pull) and 4-hour (load) totals; (5) a pull/load check on the Deployment page and in `Tools/Test-BlueTrackHealth.ps1`; (6) Cancel for a running load (`sp_stop_job`; its transaction rolls back, but `etl_run_log` then stays Started, so the cancel must also mark it). Also not covered by D-337: the Import step's own sub-steps (`usp_Import_All`), which `etl_run_step` doesn't log.
 - **Privilege Cloud Direct** (requested 2026-10-19, with Self-Hosted Direct, D-248; later, the user, 2026-11-03, and with PSM below): read Privilege Cloud through its API into `stg_pc_*` instead of the export folder, as a fourth option on the CyberArk sources page (already listed there, unavailable). Needs the Privilege Cloud API's logon (an Identity OAuth client, `Platform/Developer` and `PAM/Privilege-Cloud-Standard` in the Idira reference), a lab tenant, and the same change guard.
 
 ## From the requirements review (2026-10-21)
@@ -15,6 +16,7 @@ Gaps against the original design (commit f0561ce) and the Blueprint theme. Built
 ## From Self-Hosted Direct (D-248, 2026-10-19)
 - **Direct is unproven on a large Vault and over time** (Medium): measured on 40 Safes, 2,452 accounts and 43 users (about 8 seconds), through the REST API and through a fake PVWA, and compared once with the EVD. Not yet run as a scheduled night, against thousands of Safes (one call each) or users (one call each), or through the Agent job's Import gate on a real run.
 - **REST doesn't return some EVD properties** (Low): `LastVerified` and `LastReconciled` (the EVD's `CAFLastUsedDate` stood in for the first), `RemoteMachines`, and `LogonDomain` on two PSM accounts (`DeviceType`, `CreationMethod` and the linked accounts come from the classic API since D-280). Checked 2026-10-20 against CPM-processed accounts on the lab's 14.6: `lastReconciledTime` and `status` are returned, `lastVerifiedTime` is not (verify history comes from the account activity call instead); see `Archive_Planning_Self-Hosted-Direct-And-EVD-Retirement.md`.
+- **One account's details are never read** (Low, found 2026-11-04): every pull since then says `60_6` "not found by user name and address", so its device type, creation method and linked accounts keep their earlier values. Check that account in the lab PVWA (a renamed account, or a user name the classic API matches differently).
 - **Windows and SAML logon to PVWA** (Low): Direct supports CyberArk and LDAP authentication only (both take the credential's user name and password).
 
 ## From the audit findings (moved here 2026-10-13, at the user's request)
@@ -42,3 +44,5 @@ Self-Hosted: EVD `CyberArkSH`, loaded 2026-10-13. Privilege Cloud: the export CS
 
 ## Process and tooling
 - Playwright E2E has a known recurring flaky-proxy issue, accepted as a limitation (see `Reference_Lessons-Learned.md`).
+- **CI runner loses its GitHub connection** (found again 2026-11-04): a run sat queued for over 2 hours while the runner showed online and idle; restarting the runner service fixed it. `Test-BlueTrackHealth.ps1` checks only that the service is running; it could also warn when a run has been queued for more than some minutes while the runner is idle.
+- **The dev host's SQL Server TLS certificate has expired** (Low, found 2026-11-04): `sqlcmd` with ODBC Driver 18 refuses to connect unless told to trust it (`-C`). The API is unaffected today, but anything that checks the certificate fails. Renew it (an environment task, not code).

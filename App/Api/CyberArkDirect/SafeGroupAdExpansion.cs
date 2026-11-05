@@ -35,12 +35,14 @@ public sealed class SafeGroupAdExpansionService(
     SelfHostedDirectRepository repository,
     ILogger<SafeGroupAdExpansionService> logger)
 {
-    public async Task<AdGroupExpansion?> ExpandAsync(PvwaSnapshot snapshot, CancellationToken ct)
+    /// <remarks>D-337: <paramref name="progress"/> counts the groups read.</remarks>
+    public async Task<AdGroupExpansion?> ExpandAsync(PvwaSnapshot snapshot, CancellationToken ct, PullProgress? progress = null)
     {
         var configs = await ldapConfigRepository.GetEnabledAsync();
         if (configs.Count == 0) return null;
 
         var groups = SelfHostedGroups(snapshot).Concat((await repository.GetPrivilegeCloudSafeMemberGroupsAsync()).Select(n => new SafeMemberGroup("PRIVCLOUD", n, n, null))).ToList();
+        progress?.SetTotal(groups.Count);
         var expansion = new AdGroupExpansion();
         var sessions = new Dictionary<int, (IAdDirectorySession? Session, string? Problem)>();
         try
@@ -48,6 +50,7 @@ public sealed class SafeGroupAdExpansionService(
             foreach (var group in groups)
             {
                 ct.ThrowIfCancellationRequested();
+                progress?.Advance();
                 var domains = DomainsFor(group, configs);
                 string? problem = null;
                 var found = false;

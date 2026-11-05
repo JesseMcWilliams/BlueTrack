@@ -172,6 +172,7 @@ $Steps = @(
     @{ Name = 'Db.Backup'; Needs = @('Database'); Description = 'Pre-deployment backup, if the database already has a schema'
         Condition = { -not $SkipPreDeployBackup }; SkipReason = '-SkipPreDeployBackup' }
     @{ Name = 'Db.Migrate'; Needs = @('Database'); Description = 'Run App/Migrator against Database/' }
+    @{ Name = 'Db.SessionActivity'; Needs = @('Database'); Description = 'Sign dbo.usp_Get_EtlSessionActivity so Data Sources can show what a running load waits on (Database/Manual/10, D-337); warns if it cannot' }
     @{ Name = 'Db.SeedTestData'; Needs = @('Database', 'SeedTestData'); Description = 'Run App/Migrator against Database/Test'
         Condition = { $SeedTestData }; SkipReason = 'SeedTestData is off' }
     @{ Name = 'Db.AppSettings'; Needs = @('Environment', 'Database', 'ApiInstallPath'); Description = 'Write appsettings.Site.json (connection string, HSTS, allowed folders, environment name); remove the old appsettings.<Environment>.json' }
@@ -500,6 +501,11 @@ $StepActions = @{
     }
     'Db.Migrate'      = {
         Invoke-BlueTrackMigrator -RepoRoot $RepoRoot -ConnectionString (Get-InstallConnectionString) -ScriptsFolder 'Database'
+    }
+    'Db.SessionActivity' = {
+        Get-InstallConnectionString | Out-Null
+        Install-BlueTrackSessionActivity -RepoRoot $RepoRoot -SqlServerInstance $SqlServerInstance -DatabaseName $DatabaseName `
+            -TrustServerCertificate (Get-InstallTrustServerCertificate)
     }
     'Db.SeedTestData' = {
         Invoke-BlueTrackMigrator -RepoRoot $RepoRoot -ConnectionString (Get-InstallConnectionString) -ScriptsFolder 'Database/Test'

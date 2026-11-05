@@ -78,6 +78,9 @@ public sealed class PvwaPullOptions
     public DateTime? RefreshReadBefore { get; init; }
     public int RefreshMaxAccounts { get; init; }
     public System.Collections.Concurrent.ConcurrentBag<PvwaAccountDetail> FreshDetails { get; } = [];
+
+    /// <summary>D-337: where the pull is; null for a read that isn't a pull (Test with a full read).</summary>
+    public PullProgress? Progress { get; init; }
 }
 
 /// <summary>One CPM action from the account's activity log (classic API): its code, name and when it last happened.</summary>

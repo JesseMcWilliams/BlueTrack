@@ -6,11 +6,15 @@ What changed in each BlueTrack release, newest first, for users and administrato
 
 ### New
 
+- **See where a pull or load is.** On Admin > Data Sources, a running Self-Hosted Direct pull shows the step it's on and how far it has got (for example "Account details (1,200 of 2,454), for 12 min"), and **Pull details** lists every step of a pull with what it read and how long it took. A pull stopped by its time limit or by **Cancel pull** says which step it was in. A new **Import and Load** section lists the nightly job's recent runs and the Load's procedures one by one, and for a run still going, the procedure it's in, what its SQL Server session is waiting on and which session is blocking it. (Administrator Data Management)
+
 ### Changed
 
 ### Fixed
 
 ### Upgrading
+
+- The upgrade adds database script 68 (the pull and load progress); the installer applies it. The installer's new step `Db.SessionActivity` lets Data Sources show what a running load waits on: it signs one database procedure with a certificate that holds SQL Server's VIEW SERVER STATE permission, instead of giving that permission to BlueTrack's own login. It needs the installer to run as a SQL Server sysadmin; otherwise it warns and the install goes on, and Data Sources shows the running step without its waits.
 
 ## 1.5.2 (2026-11-05)
 

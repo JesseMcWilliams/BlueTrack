@@ -696,4 +696,42 @@ function Install-BlueTrackSqlServerAudit {
     }
 }
 
-Export-ModuleMember -Function Format-BlueTrackConnectionString, Test-BlueTrackSqlConnection, Test-BlueTrackSqlInstanceIsThisMachine, Invoke-BlueTrackMigrator, Set-BlueTrackSiteConfig, Install-BlueTrackNightlyJob, Test-BlueTrackEvdSourceInUse, Grant-BlueTrackAppPoolSqlAccess, Grant-BlueTrackPowerBiReaderAccess, Get-BlueTrackSiteUrl, Set-BlueTrackSiteUrl, Install-BlueTrackSqlServerAudit
+function Install-BlueTrackSessionActivity {
+    <#
+    .SYNOPSIS
+        D-337: signs dbo.usp_Get_EtlSessionActivity (Database/Manual/10), so
+        Admin > Data Sources can show what a running Import, Load or Snapshot
+        is waiting on and which session blocks it.
+    .DESCRIPTION
+        Reading another session's waits needs VIEW SERVER STATE. The user's
+        choice (2026-11-05) was not to grant it to the app's login: Manual/10
+        signs the one procedure with a certificate whose login holds it. It
+        runs on every install, since a script that alters the procedure drops
+        the signature. It needs a sysadmin (it writes to master). If it can't
+        be done, BlueTrack still works: the page shows the running step
+        without its waits, so this warns rather than stopping the install.
+    #>
+    [CmdletBinding(SupportsShouldProcess)]
+    param(
+        [Parameter(Mandatory)] [string]$RepoRoot,
+        [Parameter(Mandatory)] [string]$SqlServerInstance,
+        [Parameter(Mandatory)] [string]$DatabaseName,
+        [bool]$TrustServerCertificate = $true
+    )
+
+    $scriptPath = Join-Path $RepoRoot 'Database\Manual\10_BlueTrack_SignSessionActivity.sql'
+    if (-not (Test-Path $scriptPath)) { throw "Could not find '$scriptPath'." }
+    [string[]]$trustArgs = if ($TrustServerCertificate) { @('-C') } else { @() }
+
+    if ($PSCmdlet.ShouldProcess("$SqlServerInstance / $DatabaseName", 'Sign dbo.usp_Get_EtlSessionActivity (Database/Manual/10)')) {
+        $output = @(& sqlcmd -S $SqlServerInstance @trustArgs -b -I -v DatabaseName="$DatabaseName" -i $scriptPath 2>&1)
+        if ($LASTEXITCODE -eq 0) {
+            Write-Host "Signed dbo.usp_Get_EtlSessionActivity: Data Sources can show what a running load is waiting on."
+        } else {
+            $output | Out-Host
+            Write-Warning "Couldn't sign dbo.usp_Get_EtlSessionActivity (sqlcmd exit code $LASTEXITCODE; it needs a sysadmin). BlueTrack works without it, but Data Sources won't show what a running load waits on. A SQL Server administrator can run Database/Manual/10_BlueTrack_SignSessionActivity.sql, or run -Step Db.SessionActivity again."
+        }
+    }
+}
+
+Export-ModuleMember -Function Format-BlueTrackConnectionString, Test-BlueTrackSqlConnection, Test-BlueTrackSqlInstanceIsThisMachine, Invoke-BlueTrackMigrator, Set-BlueTrackSiteConfig, Install-BlueTrackNightlyJob, Test-BlueTrackEvdSourceInUse, Grant-BlueTrackAppPoolSqlAccess, Grant-BlueTrackPowerBiReaderAccess, Get-BlueTrackSiteUrl, Set-BlueTrackSiteUrl, Install-BlueTrackSqlServerAudit, Install-BlueTrackSessionActivity

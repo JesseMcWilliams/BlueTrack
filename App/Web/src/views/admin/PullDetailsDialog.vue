@@ -7,6 +7,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { formatRunTime } from './dataFeedFormat'
 import { formatCount } from '../../utils/formatCount'
+import { pullStepLabel, stepCount, durationText } from './runProgress'
 
 const props = defineProps({ pull: { type: Object, required: true } })
 const emit = defineEmits(['close'])
@@ -14,7 +15,17 @@ const emit = defineEmits(['close'])
 const { t } = useI18n()
 const closeButton = ref(null)
 
-onMounted(() => closeButton.value?.focus())
+// D-337: the pull's steps, with what each read and how long it took; a pull that stopped ends on the step it was in.
+const steps = ref([])
+onMounted(async () => {
+  closeButton.value?.focus()
+  try {
+    const response = await fetch(`/api/admin/cyberark-sources/direct/pulls/${props.pull.pullKey}/steps`)
+    if (response.ok) steps.value = await response.json()
+  } catch {
+    // The rest of the dialog doesn't need them.
+  }
+})
 
 const messages = computed(() => (props.pull.message ?? '').split(' | ').map(m => m.trim()).filter(Boolean))
 
@@ -93,6 +104,22 @@ function onKeydown(event) {
             <tr v-for="[label, value] in counts" :key="label">
               <th scope="row">{{ label }}</th>
               <td>{{ value ?? '' }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </template>
+
+      <template v-if="steps.length">
+        <h4>{{ t('admin.runProgress.pullStepsHeading') }}</h4>
+        <table class="pull-details-counts pull-details-steps">
+          <thead>
+            <tr><th>{{ t('admin.runProgress.colStep') }}</th><th>{{ t('admin.runProgress.colRead') }}</th><th>{{ t('admin.runProgress.colTook') }}</th></tr>
+          </thead>
+          <tbody>
+            <tr v-for="s in steps" :key="s.stepOrder">
+              <th scope="row">{{ pullStepLabel(s.stepName) }}</th>
+              <td>{{ stepCount(s) }}</td>
+              <td>{{ s.completedAt ? durationText(s.startedAt, s.completedAt) : t('admin.runProgress.stepNotFinished') }}</td>
             </tr>
           </tbody>
         </table>
