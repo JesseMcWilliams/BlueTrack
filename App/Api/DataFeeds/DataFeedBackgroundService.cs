@@ -44,6 +44,7 @@ public sealed class DataFeedBackgroundService(
                     await runner.RunScheduledAsync(stoppingToken);
                     var purged = await scope.ServiceProvider.GetRequiredService<DataFeedRepository>().PurgeRunsAsync(config.DataFeedRunRetentionDays);
                     logger.LogInformation("Nightly data feed run finished; purged {Count} old run records.", purged);
+                    await PurgeOldDnaAsync(scope.ServiceProvider);
                 }
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
@@ -55,6 +56,21 @@ public sealed class DataFeedBackgroundService(
                 logger.LogError(ex, "Nightly data feed run failed unexpectedly -- will try again tomorrow.");
             }
             lastWake = now;
+        }
+    }
+
+    /// <summary>D-343: deletes the DNA imports older than the retention period (none set: kept), audit-logged as the system user.</summary>
+    private async Task PurgeOldDnaAsync(IServiceProvider services)
+    {
+        var dna = services.GetRequiredService<Dna.DnaRepository>();
+        if ((await dna.GetSettingsAsync()).RetentionDays is not { } days) return;
+        var (imports, accounts) = await dna.PurgeOlderThanAsync(days);
+        if (imports == 0) return;
+        logger.LogInformation("Purged {Imports} DNA import(s) older than {Days} days ({Accounts} accounts).", imports, days, accounts);
+        if (await services.GetRequiredService<DataFeedRepository>().GetSystemUserKeyAsync() is { } systemUser)
+        {
+            await services.GetRequiredService<Audit.AuditLogger>().LogAsync("DnaPurged", systemUser, "dna_import", entityKey: null,
+                detail: $"{imports} DNA import(s) older than {days} days were purged by the retention period ({accounts} DNA account(s)).");
         }
     }
 }

@@ -36,7 +36,7 @@ Gaps against the original design (commit f0561ce) and the Blueprint theme. Built
 - **PVWA failover** (D-320): tested against fake PVWAs only. Check with two real PVWAs (one stopped), and behind a real load balancer with sticky sessions (D-312).
 - **CP and CCP Reason** (D-309): the Reason is sent as the SDK and the CCP API document it; not yet seen in a real Credential Provider's audit log.
 - **Include CyberArk's built-in Safes** (D-327): the classic Safe list and Get Safe details were read from the lab PVWA (49 Safes against REST's 42), but no pull has run with the option on. Its data still needs reviewing for usefulness (notes 22 and 23).
-- **DNA import with a real workbook** (D-325): the user's workbook was read locally for its structure and counts only (9,631 accounts on 12 sheets); it hasn't been uploaded into a BlueTrack database.
+- **DNA import with a real workbook** (D-325, D-341): both of the user's workbooks (the old account-list report and the newer report) were read by the import's reader on the dev host (9,631 and 5,083 accounts), but neither has been uploaded into a BlueTrack database, and no DNA data feed has run from a real folder.
 
 ## Found in the real CyberArk data (checked 2026-10-13)
 Self-Hosted: EVD `CyberArkSH`, loaded 2026-10-13. Privilege Cloud: the export CSVs in the configured folder (loaded since D-228, 2026-10-14).

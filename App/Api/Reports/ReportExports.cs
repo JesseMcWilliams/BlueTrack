@@ -32,6 +32,7 @@ public static class ReportExports
     public static readonly ReportExportInfo Accounts = new("accounts", "Accounts", "Accounts");   // D-318
     public static readonly ReportExportInfo SafeAdministrators = new("safe-administrators", "SafeAdministrators", "Safe Administrators");   // D-335
     public static readonly ReportExportInfo SafeAdministratorsByPerson = new("safe-administrators-by-person", "SafeAdministratorsByPerson", "Safe Administrators by person");   // D-335
+    public static readonly ReportExportInfo DnaHardCodedCredentials = new("dna-hard-coded-credentials", "DnaHardCodedCredentials", "DNA Hard-Coded Credentials");   // D-345
 
     // The pages show every date as yyyy-MM-dd (formatDate), so the exports do too.
     private static DateOnly? Day(DateTime? value) => value is { } v ? DateOnly.FromDateTime(v) : null;
@@ -221,6 +222,24 @@ public static class ReportExports
         new("Application", r => r.ApplicationName),
         new("Accounts not yet deleted", r => r.ActiveAccountCount),
         new("Deleted accounts", r => r.DeletedAccountCount)
+    ];
+
+    /// <summary>D-345: as DnaHardCodedCredentials.vue's grid, with the columns it shows under each one. The credential text is DNA's, masked.</summary>
+    public static readonly IReadOnlyList<ExportColumn<Dna.DnaHardCoded>> DnaHardCodedCredentialsColumns =
+    [
+        new("Machine", r => r.MachineName),
+        new("Machine type", r => r.MachineType),
+        new("OS version", r => r.OsVersion),
+        new("Application server", r => r.ApplicationServer),
+        new("Application", r => r.ApplicationName),
+        new("Site", r => r.SiteName),
+        new("Account", r => r.AccountName),
+        new("File", r => r.HardCodedInFile),
+        new("Where in the file (masked)", r => r.CredentialLocation),
+        new("Password length", r => r.PasswordLength),
+        new("Target system", r => r.TargetSystemAddress),
+        new("Target type", r => r.TargetSystemType),
+        new("Details", r => r.Details)
     ];
 
     /// <summary>D-335: as SafeAdministrators.vue's By Safe grid.</summary>

@@ -1,6 +1,6 @@
 # BlueTrack: Handoff, 2026-10-18
 
-> **Archived 2026-10-21:** superseded by `Reference_Handoff-2026-10-21.md`, which carries what is still open.
+> **Archived 2026-10-21:** superseded by `Archive_Reference_Handoff-2026-10-21.md`, which carries what is still open.
 
 > **Stage: Planning.** Point-in-time snapshot for the next Claude session, written at the end of 2026-10-18 (after release v1.2.0). Supersedes `Archive_Planning_Handoff-2026-10-17.md` (PRs #143 to #177). Once every open item below is closed, rename this to `Archive_Planning_Handoff-2026-10-18.md` with `git mv`.
 

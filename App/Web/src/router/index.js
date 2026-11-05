@@ -215,6 +215,13 @@ const routes = [
         meta: { breadcrumb: 'shell.routes.reportsDnaAccounts', breadcrumbParent: 'reports' },
         component: () => import('../views/reports/DnaAccounts.vue')
       },
+      // D-345: the hard-coded credentials of the latest DNA workbook (ViewDnaSensitiveColumns).
+      {
+        path: 'dna-hard-coded-credentials',
+        name: 'reports-dna-hard-coded-credentials',
+        meta: { breadcrumb: 'shell.routes.reportsDnaHardCoded', breadcrumbParent: 'reports' },
+        component: () => import('../views/reports/DnaHardCodedCredentials.vue')
+      },
       {
         path: 'kpi-summary',
         name: 'reports-kpi-summary',

@@ -43,6 +43,7 @@ const OTHER = {
   'reports-risk-exception-sod': 'ViewRiskExceptionSodReport',
   'reports-discovered-accounts': 'ViewDiscoveredAccounts',
   'reports-dna-accounts': 'ViewDiscoveredAccounts',   // D-325
+  'reports-dna-hard-coded-credentials': 'ViewDnaSensitiveColumns',   // D-345
   // UI review step 4 (D-304): the pages of tracked data, which showed "Request failed: 403" to a signed-in user
   // without the permission their data needs (the API's gate on each page's first request).
   dashboard: 'ViewDashboard',
@@ -78,7 +79,7 @@ for (const section of ADMIN_SECTIONS) {
 export const REPORT_PAGES = [
   'reports-overdue-worklist', 'reports-stage-status-summary', 'reports-kpi-summary', 'reports-trends',
   'reports-reconciliation-review', 'reports-possible-matches', 'reports-unresolved-entitlement-members',
-  'reports-discovered-accounts', 'reports-dna-accounts', 'reports-risk-score', 'reports-risk-exception-sod',
+  'reports-discovered-accounts', 'reports-dna-accounts', 'reports-dna-hard-coded-credentials', 'reports-risk-score', 'reports-risk-exception-sod',
   'reports-safe-access', 'reports-safe-administrators', 'reports-cyberark-applications', 'reports-cpm-health', 'reports-decom-safes', 'reports-decom-accounts'
 ]
 

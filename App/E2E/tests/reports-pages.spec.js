@@ -154,3 +154,24 @@ test.describe('Safe Administrators', () => {
     await expect(page.getByRole('columnheader', { name: 'Safes', exact: true }).or(page.getByText('No one matches these filters.'))).toBeVisible()
   })
 })
+
+// D-345: Reports > DNA Hard-Coded Credentials, for holders of ViewDnaSensitiveColumns only. The test database may hold
+// no DNA import, so the page shows rows or its empty line.
+test.describe('DNA Hard-Coded Credentials', () => {
+  test('Admin opens it from the Reports column', async ({ page }) => {
+    await signInAs(page, 'TestUser.Admin')
+    await page.goto('/reports')
+    const loaded = page.waitForResponse(r => r.url().includes('/api/reports/dna-hard-coded-credentials?') && r.ok())
+    await page.locator('nav.reports-subnav').getByRole('link', { name: 'DNA Hard-Coded Credentials' }).click()
+    await loaded
+    await expect(page).toHaveURL(/\/reports\/dna-hard-coded-credentials$/)
+    await expect(page.getByRole('heading', { name: 'DNA Hard-Coded Credentials', level: 2 })).toBeVisible()
+  })
+
+  test('Viewer, without ViewDnaSensitiveColumns, has no link to it', async ({ page }) => {
+    await signInAs(page, 'TestUser.Viewer')
+    await page.goto('/reports')
+    await expect(page.locator('nav.reports-subnav').getByRole('link', { name: 'DNA Accounts' }).or(page.locator('nav.reports-subnav').getByRole('link', { name: 'Overdue / At-Risk' })).first()).toBeVisible()
+    await expect(page.locator('nav.reports-subnav').getByRole('link', { name: 'DNA Hard-Coded Credentials' })).toHaveCount(0)
+  })
+})

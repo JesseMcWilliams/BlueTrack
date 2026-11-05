@@ -1,7 +1,7 @@
 {
   "dnaAccounts": {
     "title": "DNA Accounts",
-    "hint": "The accounts of the latest CyberArk Discovery & Audit (DNA) workbook imported on Admin > Data Sources, by finding (the workbook's sheet). \"In BlueTrack\" names the tracked account each one matched: by user name, and for a local or database account also by machine.",
+    "hint": "The accounts of the latest CyberArk Discovery & Audit (DNA) workbook imported on Admin > Data Sources, by finding (the workbook's sheet). \"In BlueTrack\" names the BlueTrack account each one is: matched by user name and, for a local account, its machine, or for a domain account, its domain; or tracked from here (one account per machine). Click a heading to sort; shift-click to add a column.",
     "finding": "Finding",
     "allFindings": "All findings",
     "trackedLabel": "In BlueTrack",
@@ -22,7 +22,32 @@
     "inBlueTrack": "In BlueTrack",
     "no": "No",
     "emptyNone": "No DNA workbook has been imported yet (Admin > Data Sources).",
-    "emptyFiltered": "No DNA account matches these filters."
+    "emptyFiltered": "No DNA account matches these filters.",
+    "hiddenNote": "{count} column is hidden: it needs the ViewDnaSensitiveColumns permission. | {count} columns are hidden: they need the ViewDnaSensitiveColumns permission.",
+    "trackSelected": "Track in BlueTrack ({count} chosen)",
+    "trackHint": "Each one becomes a BlueTrack account at the first stage, in Account Progress.",
+    "trackedMessage": "{count} account is now tracked in BlueTrack. | {count} accounts are now tracked in BlueTrack.",
+    "selectAll": "Choose every untracked account on this page",
+    "selectRow": "Choose {account}",
+    "trackedBy": "tracked by {by}",
+    "unresolvedOnly": "Only unresolved SIDs",
+    "unresolvedSid": "Unresolved SID: DNA couldn't name this account (an account in a trusted domain, or a deleted one)."
+  },
+  "dnaHardCoded": {
+    "title": "DNA Hard-Coded Credentials",
+    "hint": "The hard-coded credentials the latest CyberArk Discovery & Audit (DNA) workbook found: the machine, application and file each one is in, the account and the system it reaches, and DNA's line from the file, with the password masked. Only holders of the ViewDnaSensitiveColumns permission see this report.",
+    "search": "Search",
+    "apply": "Apply",
+    "loadFailed": "Couldn't load the hard-coded credentials: {error}",
+    "machine": "Machine",
+    "application": "Application",
+    "account": "Account",
+    "file": "File",
+    "where": "Where in the file (masked)",
+    "passwordLength": "Password length",
+    "target": "Target system",
+    "emptyNone": "The latest DNA workbook has no hard-coded credentials, or none has been imported yet (Admin > Data Sources).",
+    "emptyFiltered": "No hard-coded credential matches the search."
   },
   "reportsHub": {
     "navLabel": "Reports",
@@ -36,6 +61,7 @@
     "riskExceptionSod": "Risk Exception SoD",
     "discoveredAccounts": "Discovered Accounts",
     "dnaAccounts": "DNA Accounts",
+    "dnaHardCoded": "DNA Hard-Coded Credentials",
     "decomSafes": "Safes Flagged for Deletion",
     "decomAccounts": "Accounts Flagged for Deletion",
     "kpiSummary": "KPI Summary",

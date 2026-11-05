@@ -1,7 +1,10 @@
-import { describe, it, expect, vi, afterEach } from 'vitest'
+import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
 import { createRouter, createMemoryHistory } from 'vue-router'
+import { createPinia, setActivePinia } from 'pinia'
 import DnaSection from './DnaSection.vue'
+vi.mock('../../composables/useConfirmDialog', () => ({ confirmDelete: vi.fn().mockResolvedValue(true) }))
+import { confirmDelete } from '../../composables/useConfirmDialog'
 
 // D-325: uploading a DNA workbook on Data Sources, and what the latest one held.
 function jsonResponse(body, ok = true, status = 200) {
@@ -33,6 +36,10 @@ async function chooseAndImport(wrapper) {
 }
 
 describe('DnaSection.vue', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    confirmDelete.mockResolvedValue(true)
+  })
   afterEach(() => {
     vi.restoreAllMocks()
   })
@@ -61,5 +68,42 @@ describe('DnaSection.vue', () => {
     await chooseAndImport(wrapper)
 
     expect(wrapper.find('[role="alert"]').text()).toBe('The workbook has no account sheets.')
+  })
+
+  // D-343, D-344: Purge, and the DNA settings.
+  describe('purge and settings', () => {
+    const SETTINGS = { latest: LATEST, settings: { retentionDays: 90, restrictedColumns: ['OsVersion'] }, restrictableColumns: ['MachineName', 'OsVersion', 'LastLoginDate'] }
+    const handler = (url, init) => {
+      if (url === '/api/admin/dna') return Promise.resolve(jsonResponse(SETTINGS))
+      if (url === '/api/admin/dna/track-rules') return Promise.resolve(jsonResponse({ fields: [], rules: [] }))
+      if (url === '/api/admin/dna/purge') return Promise.resolve(jsonResponse({ deleted: 9 }))
+      if (url === '/api/admin/dna/settings') return Promise.resolve(jsonResponse(JSON.parse(init.body)))
+      return Promise.resolve(jsonResponse(null, false, 404))
+    }
+
+    it('purges after asking, and says how many accounts went', async () => {
+      const wrapper = await mountSection(handler)
+      await wrapper.find('button.purge').trigger('click')
+      await flushPromises()
+      expect(globalThis.fetch.mock.calls.some(([url, init]) => url === '/api/admin/dna/purge' && init?.method === 'POST')).toBe(true)
+      expect(wrapper.text()).toContain('Purged 9 DNA accounts.')
+    })
+
+    it('shows the saved settings, the columns in alphabetical order, and saves a change', async () => {
+      const wrapper = await mountSection(handler)
+      const settings = wrapper.find('form.dna-settings')
+      expect(settings.find('input[type="number"]').element.value).toBe('90')
+      const labels = settings.findAll('.restricted-columns label')
+      expect(labels.map(l => l.text())).toEqual(['Last login', 'Machine', 'OS version'])
+      expect(labels[2].find('input').element.checked).toBe(true)
+
+      await labels[1].find('input').setValue(true)
+      await settings.find('input[type="number"]').setValue('')
+      await settings.trigger('submit')
+      await flushPromises()
+      const put = globalThis.fetch.mock.calls.find(([url]) => url === '/api/admin/dna/settings')
+      expect(JSON.parse(put[1].body)).toEqual({ retentionDays: null, restrictedColumns: ['OsVersion', 'MachineName'] })
+      expect(wrapper.text()).toContain('DNA settings saved.')
+    })
   })
 })

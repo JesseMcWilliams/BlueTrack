@@ -136,6 +136,8 @@ public sealed class DataFeedRunner(
             return Failed($"Could not search the folder: {ex.Message}");
         }
 
+        if (feed.FeedType == Controllers.DataFeedsController.DnaReportFeedType) return await RunDnaAsync(services, feed, file, triggerType, userKey, startedAt, Failed);
+
         try
         {
             IReadOnlyList<IReadOnlyDictionary<string, string>> rows;
@@ -160,6 +162,33 @@ public sealed class DataFeedRunner(
         {
             logger.LogWarning(ex, "Data feed {Feed} failed on {File}.", feed.DisplayName, file.FullName);
             return Failed(ex.Message, Truncate(file.FullName, 500));
+        }
+    }
+
+    /// <summary>D-341: a DNA feed imports the workbook as the upload does (DnaImportService); a workbook it can't read fails the run.</summary>
+    private async Task<NewDataFeedRun> RunDnaAsync(IServiceProvider services, DataFeedSummary feed, FileInfo file, string triggerType, int? userKey,
+        DateTime startedAt, Func<string, string?, NewDataFeedRun> failed)
+    {
+        if (userKey is null)
+            return failed("No user to attribute the import to: the 'BlueTrack Data Feeds (system)' user is missing (it's seeded by Database/05_BlueTrack_Baseline_WebSeed.sql).", null);
+        try
+        {
+            Dna.DnaImportOutcome outcome;
+            await using (var stream = new FileStream(file.FullName, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+            {
+                outcome = await services.GetRequiredService<Dna.DnaImportService>().ImportAsync(stream, file.Name, userKey.Value, $"data feed '{feed.DisplayName}'");
+            }
+            return new NewDataFeedRun
+            {
+                DataFeedKey = feed.DataFeedKey, TriggerType = triggerType, TriggeredBy = userKey,
+                StartedAt = startedAt, FinishedAt = timeProvider.GetUtcNow().UtcDateTime, Outcome = "Succeeded",
+                FileName = Truncate(file.FullName, 500), TotalRows = outcome.AccountCount, ErrorRows = 0,
+                Summary = Truncate(outcome.Summary, 500), ResultJson = JsonSerializer.Serialize(new { outcome.AccountCount, outcome.SheetCounts, outcome.TrackedByRules }, ResultJsonOptions)
+            };
+        }
+        catch (Exception ex) when (ex is Dna.DnaImportException or IOException or UnauthorizedAccessException)
+        {
+            return failed(ex.Message, Truncate(file.FullName, 500));
         }
     }
 

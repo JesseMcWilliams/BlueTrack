@@ -39,6 +39,7 @@ public static class Permissions
     public const string ManageProgressRules = "ManageProgressRules";   // D-283/D-284
     public const string ManageSafeAccessPolicies = "ManageSafeAccessPolicies";   // D-300
     public const string ReviewAccountCompliance = "ReviewAccountCompliance";   // D-301
+    public const string ViewDnaSensitiveColumns = "ViewDnaSensitiveColumns";   // D-344
 
     public static readonly IReadOnlyList<string> All =
     [
@@ -49,6 +50,6 @@ public static class Permissions
         ManageNotifications, ManageCredentials, TriggerBackup,
         ManageTargets, ManageAccessGroups, ViewRiskReport, ManageRiskScoreBands, ViewRiskExceptionSodReport,
         ViewDiscoveredAccounts, ManageDiscoveredAccounts, ManageDataSources, DeleteAccounts, ManageApiKeys, ManageProgressRules,
-        ManageSafeAccessPolicies, ReviewAccountCompliance
+        ManageSafeAccessPolicies, ReviewAccountCompliance, ViewDnaSensitiveColumns
     ];
 }
