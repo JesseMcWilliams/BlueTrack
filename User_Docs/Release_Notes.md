@@ -6,6 +6,16 @@ What changed in each BlueTrack release, newest first, for users and administrato
 
 ### New
 
+### Changed
+
+### Fixed
+
+### Upgrading
+
+## 1.5.2 (2026-11-05)
+
+### New
+
 - **Progress against target dates** on Reports > Trends: planned (target date reached), completed and overdue accounts over time, for sponsors. The Trends export adds two columns at the end. (User Guide)
 - **Reports > Safe Administrators**: who can manage Safes (Manage Safe, Manage Safe Members) and who holds full rights, by Safe or by person, with CyberArk's built-in users hidden unless you ask for them. (User Guide)
 - **Emails to application owners.** With the **OverdueRiskExceptions** notification on, each application's owner (its Owner Email) gets a daily email of their applications' exceptions that are overdue for review. Two options on Admin > Notifications, both off: also list exceptions on single accounts in the application, and remind the owner some days before the review date. (Administrator Settings Reference)
