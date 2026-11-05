@@ -14,3 +14,10 @@
 | 2026-11-05 | The account's folder beside its Safe, "(not read yet)" for a Self-Hosted account | User_Guide, the account page |
 | 2026-11-05 | D-338: Source picked from a list on Progress Rules, alphabetical field list, conditions ignore case; drop-down lists alphabetical | Admin_SettingsReference (Progress Rules) |
 | 2026-11-05 | D-340: rerunning Update-BlueTrack.ps1 reuses the download; the installer saves PowerBiReaderAccount | Admin_UpgradeGuide (running an update again), Admin_Installation (unattended answers) |
+| 2026-11-05 | D-341: the newer DNA report format; a DNA data feed (type DnaReport); sorting on DNA Accounts | Admin_DataManagement (DNA), User_Guide (Reports > DNA Accounts) |
+| 2026-11-05 | D-342: Track in BlueTrack on DNA Accounts; DNA tracking rules | User_Guide (DNA Accounts), Admin_DataManagement (DNA tracking rules) |
+| 2026-11-05 | D-343, D-344: Purge DNA data, Keep DNA data (days), columns needing ViewDnaSensitiveColumns | Admin_DataManagement (DNA), Admin_SettingsReference (permissions) |
+| 2026-11-05 | Accounts: the Search and Owner boxes no longer reload the list while typing | User_Guide (Accounts) |
+| 2026-11-05 | D-345: Reports > DNA Hard-Coded Credentials (ViewDnaSensitiveColumns only; passwords masked) | User_Guide (Reports), Admin_DataManagement (DNA), Admin_SettingsReference (permissions) |
+| 2026-11-05 | D-346: how a DNA account is matched to a BlueTrack account (by Account Type); tracking makes one account per machine | User_Guide (DNA Accounts, the In BlueTrack column) |
+| 2026-11-05 | D-347: unresolved SIDs on DNA Accounts (marked, filter, tracking-rule field; linked by SID) | User_Guide (DNA Accounts), Admin_DataManagement (DNA tracking rules) |

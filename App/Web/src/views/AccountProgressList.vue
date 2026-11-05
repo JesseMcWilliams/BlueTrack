@@ -10,7 +10,7 @@ import { useLatestRequest } from '../composables/useLatestRequest'
 import { usePageSizeStore } from '../stores/pageSize'
 import FilterCountSummary from '../components/FilterCountSummary.vue'
 import Pager from '../components/Pager.vue'
-import { useRoute, useRouter } from 'vue-router'
+import { useRoute, useRouter, onBeforeRouteLeave } from 'vue-router'
 import { useListStateStore } from '../stores/listState'
 import ReportExportButtons from '../components/ReportExportButtons.vue'
 import AccountProgressImport from './AccountProgressImport.vue'
@@ -283,11 +283,19 @@ function currentAddress() {
 applyAddress(route.query)
 listState.remember(LIST_ROUTE, currentAddress())
 
+// The address this page last wrote. Its own router.replace lands a moment later; when typing quickly, an older one
+// can land after a newer keystroke, and must not be taken for Back/Forward (which would put the older text back in the
+// box and reload: the "whole page refreshes" the user saw, 2026-11-05).
+let lastWritten = null
+
 function writeAddress() {
   if (applyingAddress) return
   const query = currentAddress()
   listState.remember(LIST_ROUTE, query)
-  if (!sameQuery(query, route.query)) router.replace({ query })
+  if (!sameQuery(query, route.query)) {
+    lastWritten = query
+    router.replace({ query })
+  }
 }
 
 async function load() {
@@ -342,17 +350,28 @@ watch([ownerFilter, searchFilter], () => {
   if (applyingAddress) return
   clearTimeout(typingTimer)
   typingTimer = setTimeout(() => {
+    typingTimer = null
     page.value = 1
+    writeAddress()   // the typed boxes go into the address after the pause too, not on every keystroke
     load()
   }, TYPING_PAUSE_MS)
 })
-onBeforeUnmount(() => clearTimeout(typingTimer))
+// Leaving the list within the typing pause (into an account, or Bulk edit) still remembers what was typed, for the way
+// back. It's done as the navigation starts: a pause ending mid-navigation would write the list's address and cancel it.
+function settleTyping() {
+  if (typingTimer) listState.remember(LIST_ROUTE, currentAddress())
+  clearTimeout(typingTimer)
+  typingTimer = null
+}
+onBeforeRouteLeave(settleTyping)
+onBeforeUnmount(settleTyping)
 
-watch([stageFilter, statusFilter, riskLevelFilter, ownerFilter, searchFilter, deletedFilter, linkedFilter, kpiFilter, safeFilter, sortQueryParam, page], writeAddress, { flush: 'post' })
+watch([stageFilter, statusFilter, riskLevelFilter, deletedFilter, linkedFilter, kpiFilter, safeFilter, sortQueryParam, page], writeAddress, { flush: 'post' })
 
 // Back and Forward (or a link to this list while it is open) change the address under the page: show what it says.
 watch(() => route.query, async (query) => {
   if (route.name !== LIST_ROUTE || sameQuery(query, currentAddress())) return
+  if (lastWritten && sameQuery(query, lastWritten)) return   // our own write landing late, not Back/Forward
   applyingAddress = true
   applyAddress(query)
   await nextTick()

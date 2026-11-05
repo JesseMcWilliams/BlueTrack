@@ -41,6 +41,7 @@
     "reportsDecomAccounts": "Accounts Flagged for Deletion",
     "reportsUnresolvedEntitlementMembers": "Unresolved Entitlement Members",
     "reportsDnaAccounts": "DNA Accounts",
+    "reportsDnaHardCoded": "DNA Hard-Coded Credentials",
     "reportsCyberArkApplications": "CyberArk Applications",
     "reportsRiskScore": "Risk Score",
     "reportsRiskExceptionSod": "Risk Exception Segregation of Duties",

@@ -33,12 +33,14 @@ public class DnaImportTests(BlueTrackWebApplicationFactory factory) : IClassFixt
         overview.Cell(1, 1).Value = "Name";
         overview.Cell(1, 2).Value = "Count (Entries)";
 
-        // A domain account BlueTrack tracks (TestAccount01, by user name), and one it doesn't. A stray credential column is ignored.
+        // A domain account BlueTrack tracks (dna_linked01 on corp.example, D-346: by user name and its domain), and one it
+        // doesn't. A stray credential column is ignored.
         var domain = workbook.AddWorksheet("NC-DA");
-        string[] domainHeader = ["Machine Name", "Account Name", "Account Display Name", "Account Category", "Password Never Expires", "Password Age", "Password Last Set", "Hard-Coded Credential"];
+        string[] domainHeader = ["Machine Name", "Account Name", "Account Display Name", "Account Category", "Password Never Expires", "Password Age", "Password Last Set", "Hard-Coded Credential", "Account Type"];
         for (var c = 0; c < domainHeader.Length; c++) domain.Cell(1, c + 1).Value = domainHeader[c];
-        domain.Cell(2, 1).Value = "SRV01"; domain.Cell(2, 2).Value = @"CORP\TestAccount01"; domain.Cell(2, 3).Value = "Test 1"; domain.Cell(2, 4).Value = "Privileged";
+        domain.Cell(2, 1).Value = "SRV01"; domain.Cell(2, 2).Value = @"CORP\dna_linked01"; domain.Cell(2, 3).Value = "Test 1"; domain.Cell(2, 4).Value = "Privileged";
         domain.Cell(2, 5).Value = "Yes"; domain.Cell(2, 6).Value = 400; domain.Cell(2, 7).Value = new DateTime(2025, 1, 15); domain.Cell(2, 8).Value = SecretValue;
+        domain.Cell(2, 9).Value = "Domain: corp.example"; domain.Cell(3, 9).Value = "Domain: corp.example";
         domain.Cell(3, 1).Value = "SRV02"; domain.Cell(3, 2).Value = "dna_untracked"; domain.Cell(3, 5).Value = "No"; domain.Cell(3, 6).Value = 120; domain.Cell(3, 7).Value = "Never";
 
         // A database finding whose header sits under a title row.
@@ -53,7 +55,7 @@ public class DnaImportTests(BlueTrackWebApplicationFactory factory) : IClassFixt
         raw.Cell(1, 1).Value = "Account Name"; raw.Cell(2, 1).Value = "raw_should_not_import";
         var hcc = workbook.AddWorksheet("HCC");
         hcc.Cell(1, 1).Value = "Machine Name"; hcc.Cell(1, 2).Value = "Account Name"; hcc.Cell(1, 3).Value = "Hard-Coded Credential";
-        hcc.Cell(2, 1).Value = "APP01"; hcc.Cell(2, 2).Value = "hcc_should_not_import"; hcc.Cell(2, 3).Value = SecretValue;
+        hcc.Cell(2, 1).Value = "APP01"; hcc.Cell(2, 2).Value = "hcc_should_not_import"; hcc.Cell(2, 3).Value = $"Line: 3 - \"Server=db;User Id=sa;Password={SecretValue};\"";   // D-345: unmasked, so the import masks it
 
         using var stream = new MemoryStream();
         workbook.SaveAs(stream);
@@ -72,6 +74,17 @@ public class DnaImportTests(BlueTrackWebApplicationFactory factory) : IClassFixt
     [Fact]
     public async Task Import_StoresTheFindingSheetsAccounts_NeverTheCredentials_AndMatchesTrackedAccounts()
     {
+        await using var setup = new SqlConnection(TestDatabase.ConnectionString);
+        var linkedKey = await setup.QuerySingleAsync<long>("""
+            DELETE p FROM dbo.fact_account_progress p JOIN dbo.fact_account fa ON fa.AccountKey = p.AccountKey WHERE fa.SourceAccountId = 'dna-import-linked01';
+            DELETE FROM dbo.fact_account WHERE SourceAccountId = 'dna-import-linked01';
+            INSERT INTO dbo.fact_account (SourceSystemKey, SourceAccountId, AccountName, UserName, Address, IsDeleted, CreatedDate)
+            OUTPUT inserted.AccountKey
+            SELECT SourceSystemKey, 'dna-import-linked01', 'dna_linked01', 'dna_linked01', 'corp.example', 0, CAST(SYSUTCDATETIME() AS DATE)
+            FROM dbo.dim_source_system WHERE SourceSystemCode = 'SELFHOSTED';
+            """);
+        try
+        {
         var response = await Client("TestUser.Admin").PostAsync("/api/admin/dna/import", Upload(Workbook(), "dna-report.xlsx"));
         response.EnsureSuccessStatusCode();
         var latest = (await response.Content.ReadFromJsonAsync<JsonObject>())!["latest"]!;
@@ -92,8 +105,8 @@ public class DnaImportTests(BlueTrackWebApplicationFactory factory) : IClassFixt
             """, new { secret = SecretValue }));
 
         var tracked = await connection.QuerySingleAsync<(long? Key, int? Age, DateTime? LastSet, bool? NeverExpires)>(
-            "SELECT TrackedAccountKey, PasswordAgeDays, PasswordLastSet, PasswordNeverExpires FROM web.dna_account WHERE AccountName = @name", new { name = @"CORP\TestAccount01" });
-        Assert.Equal(await TestAccounts.GetAccountKeyAsync("TestAccount01"), tracked.Key);
+            "SELECT TrackedAccountKey, PasswordAgeDays, PasswordLastSet, PasswordNeverExpires FROM web.dna_account WHERE AccountName = @name", new { name = @"CORP\dna_linked01" });
+        Assert.Equal(linkedKey, tracked.Key);
         Assert.Equal((400, new DateTime(2025, 1, 15), true), (tracked.Age, tracked.LastSet, tracked.NeverExpires));
         Assert.Null(await connection.QuerySingleAsync<DateTime?>("SELECT PasswordLastSet FROM web.dna_account WHERE AccountName = 'dna_untracked'"));   // "Never"
 
@@ -101,6 +114,14 @@ public class DnaImportTests(BlueTrackWebApplicationFactory factory) : IClassFixt
         var rows = (await page.Content.ReadFromJsonAsync<JsonArray>())!;
         Assert.Equal(["dna_untracked"], rows.Select(r => r!["accountName"]!.GetValue<string>()));
         Assert.Equal("3", page.Headers.GetValues("X-Total-Count").Single());
+        }
+        finally
+        {
+            await setup.ExecuteAsync("""
+                UPDATE web.dna_account SET TrackedAccountKey = NULL WHERE TrackedAccountKey = @linkedKey;
+                DELETE FROM dbo.fact_account WHERE AccountKey = @linkedKey;
+                """, new { linkedKey });
+        }
     }
 
     [Fact]

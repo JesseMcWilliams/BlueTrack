@@ -6,21 +6,25 @@ What changed in each BlueTrack release, newest first, for users and administrato
 
 ### New
 
+- **DNA:** the newer DNA report (its Windows, Unix, Domain and Database scan sheets) is imported, with more of its columns (machine type, OS version, description, threat cause, pass-the-hash, service account, SPN, roles and permissions). A data feed can import the DNA workbook from a folder every night. On Reports > DNA Accounts, click a heading to sort, and tick accounts and **Track in BlueTrack** to make them BlueTrack accounts (one per machine; they appear in Account Progress at the first stage). DNA tracking rules on Admin > Data Sources track matching accounts after each import. Admin > Data Sources can purge the DNA data, delete imports after a number of days, and choose DNA columns that only holders of the new **ViewDnaSensitiveColumns** permission may see. A new report, **Reports > DNA Hard-Coded Credentials**, lists the hard-coded credentials DNA found (machine, application, file, account, target, and DNA's line from the file with the password masked); only holders of ViewDnaSensitiveColumns can open or export it. (Administrator Data Management; User Guide)
 - **See where a pull or load is.** On Admin > Data Sources, a running Self-Hosted Direct pull shows the step it's on and how far it has got (for example "Account details (1,200 of 2,454), for 12 min"), and **Pull details** lists every step of a pull with what it read and how long it took. A pull stopped by its time limit or by **Cancel pull** says which step it was in. A new **Import and Load** section lists the nightly job's recent runs and the Load's procedures one by one, and for a run still going, the procedure it's in, what its SQL Server session is waiting on and which session is blocking it. (Administrator Data Management)
 
 ### Changed
 
+- **DNA accounts are matched to BlueTrack accounts by their Account Type:** a local account (including a SQL login) by user name and machine, a domain account by user name and its domain. Groups aren't matched. An account DNA could only give as a SID (an account in a trusted domain, or a deleted one) is marked as an unresolved SID, can be filtered on, and is matched to a BlueTrack account kept under that SID, such as an accepted discovered account. (Before, a domain account matched any BlueTrack account with its user name.) (User Guide)
 - **Progress Rules:** a **Source** condition's value is picked from the source systems set up here (one for is / is not, any number for is one of), the field list is in alphabetical order, and conditions ignore upper and lower case on any SQL Server. Drop-down lists across BlueTrack are in alphabetical order, except where the order means something (stages, risk levels). (Administrator Settings Reference, Progress Rules)
 - The account's **folder** is shown beside its Safe; for a Self-Hosted account whose details haven't been read yet it says "(not read yet)". (User Guide)
 - **Who can use this account** on an account's page lists each group that is a member of the account's Safe (Vault or AD) as one row with its rights and member count; open it to see the people in it. A group whose AD members weren't read is still listed and says why. (User Guide)
 
 ### Fixed
 
+- Typing in the Search or Owner box on Accounts no longer makes the list reload and lose characters when you type quickly: the address now changes once you pause, with the search.
 - The installer now saves the Power BI reader account answer, so an unattended run (or an update) no longer stops to ask for it each time. Adding `"PowerBiReaderAccount"` to a saved answers file, as the 1.5.2 notes said, didn't work before this fix: the installer ignored it as an unknown setting.
 - Running `Update-BlueTrack.ps1` again for a version it already downloaded no longer stops: it uses that download again and offers its installer, which keeps the answers it saved, so an install that stopped part-way can be picked up.
 
 ### Upgrading
 
+- The upgrade adds database script 70 (DNA: the newer format's columns, tracking, the tracking rules, retention and restricted columns, and the ViewDnaSensitiveColumns permission, given to Admin); the installer applies it. An Admin who was signed in sees the new permission after **Reload My Rights**.
 - The upgrade adds database script 69 (Progress Rule conditions ignore case); the installer applies it.
 - The upgrade adds database script 68 (the pull and load progress); the installer applies it. The installer's new step `Db.SessionActivity` lets Data Sources show what a running load waits on: it signs one database procedure with a certificate that holds SQL Server's VIEW SERVER STATE permission, instead of giving that permission to BlueTrack's own login. It needs the installer to run as a SQL Server sysadmin; otherwise it warns and the install goes on, and Data Sources shows the running step without its waits.
 

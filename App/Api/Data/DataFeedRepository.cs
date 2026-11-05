@@ -158,7 +158,7 @@ public sealed class DataFeedRepository(IDbConnectionFactory connectionFactory)
     }
 
     // D-212: the CyberArk loads' and AD Account Discovery's own sources, never a feed's.
-    public static readonly string[] ReservedSourceSystemCodes = ["PRIVCLOUD", "SELFHOSTED", "DISCOVERY"];
+    public static readonly string[] ReservedSourceSystemCodes = ["PRIVCLOUD", "SELFHOSTED", "DISCOVERY", "DNA"];   // D-342: DNA's tracked accounts
 
     /// <summary>D-212: the source systems an AccountInventory feed can use -- every one but the reserved ones.</summary>
     public async Task<IReadOnlyList<FeedSourceSystem>> GetFeedSourceSystemsAsync()

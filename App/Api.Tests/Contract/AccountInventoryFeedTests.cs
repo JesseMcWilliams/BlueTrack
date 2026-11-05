@@ -173,6 +173,10 @@ public class AccountInventoryFeedTests : IClassFixture<BlueTrackWebApplicationFa
             Assert.Equal("Discovered", root.StageName);
             Assert.Equal("Alice", root.OwnerName);
 
+            // 2026-11-05: accounts from a feed (such as CyberArk's pending accounts export) are in the Account Progress list.
+            var listed = await client.GetFromJsonAsync<System.Text.Json.Nodes.JsonArray>("/api/account-progress?search=svc_app&pageSize=100");
+            Assert.Contains(listed!, r => r!["accountName"]!.GetValue<string>() == "App service");
+
             // A feed account has no safe; D-212's auto-advance leaves it at Discovered (rolled back: other accounts stay as they are).
             await using (var connection = new SqlConnection(TestDatabase.ConnectionString))
             {

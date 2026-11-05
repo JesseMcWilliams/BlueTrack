@@ -37,6 +37,7 @@ const reports = [
   { name: 'reports-unresolved-entitlement-members', labelKey: 'reports.reportsHub.unresolvedEntitlementMembers', group: 'reconciliation' },
   { name: 'reports-discovered-accounts', labelKey: 'reports.reportsHub.discoveredAccounts', group: 'reconciliation' },
   { name: 'reports-dna-accounts', labelKey: 'reports.reportsHub.dnaAccounts', group: 'reconciliation' },   // D-325
+  { name: 'reports-dna-hard-coded-credentials', labelKey: 'reports.reportsHub.dnaHardCoded', group: 'reconciliation' },   // D-345
   { name: 'reports-risk-score', labelKey: 'reports.reportsHub.riskScore', group: 'risk' },
   { name: 'reports-risk-exception-sod', labelKey: 'reports.reportsHub.riskExceptionSod', group: 'risk' },
   { name: 'reports-safe-access', labelKey: 'reports.reportsHub.safeAccess', group: 'risk' },   // D-300

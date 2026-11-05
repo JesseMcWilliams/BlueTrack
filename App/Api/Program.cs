@@ -76,6 +76,8 @@ builder.Services.AddScoped<RiskScoreReportRepository>();
 builder.Services.AddScoped<SafeDetailRepository>();   // D-308
 builder.Services.AddScoped<PowerBiRepository>();   // D-314
 builder.Services.AddScoped<BlueTrack.Api.Dna.DnaRepository>();   // D-325
+builder.Services.AddScoped<BlueTrack.Api.Dna.DnaImportService>();   // D-341
+builder.Services.AddScoped<BlueTrack.Api.Dna.DnaTrackRuleRepository>();   // D-342
 builder.Services.AddScoped<RiskScoreBandRepository>();
 builder.Services.AddScoped<TargetMatchingService>();
 builder.Services.AddScoped<ImportMappingService>();

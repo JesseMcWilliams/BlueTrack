@@ -39,8 +39,12 @@ public sealed class DataFeedsController(
         ["Applications"] = "Applications",
         ["SafeAssignments"] = "Safe → application assignments",
         ["AccountInventory"] = "Account inventory (accounts from another system)",   // D-212
-        ["AccountAssignments"] = "Account → application assignments"   // D-241
+        ["AccountAssignments"] = "Account → application assignments",   // D-241
+        [DnaReportFeedType] = "DNA (Discovery & Audit) workbook (.xlsx)"   // D-341
     };
+
+    /// <summary>D-341: a feed that imports DNA's workbook, as the upload on Data Sources does.</summary>
+    public const string DnaReportFeedType = "DnaReport";
 
     private const string AccountInventoryFeedType = "AccountInventory";
 
@@ -213,6 +217,7 @@ public sealed class DataFeedsController(
 
             var file = matches[0];
             await using var stream = new FileStream(file.FullName, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+            if (request.FeedType == DnaReportFeedType) return Ok(TestDnaWorkbook(stream, file, matches.Count, expanded));
             var columns = await CsvFileReader.ReadHeaderAsync(stream);
             var missing = await FindMissingColumnsAsync(request, columns);
             var columnsNote = missing.Count == 0 ? "" : $" Missing required columns: {string.Join(", ", missing)}.";
@@ -232,6 +237,29 @@ public sealed class DataFeedsController(
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
             return Ok(new DataFeedTestResult { FolderFound = true, Message = $"Could not read the folder or file: {ex.Message}" });
+        }
+    }
+
+    /// <summary>D-341: a DNA feed's Test reads the workbook as the import would and says what it holds; nothing is stored.</summary>
+    private static DataFeedTestResult TestDnaWorkbook(Stream stream, FileInfo file, int matchCount, string expanded)
+    {
+        var lead = matchCount == 1 ? $"Found {file.Name}." : $"{matchCount} files match '{expanded}'; the newest, {file.Name}, would run.";
+        try
+        {
+            var (rows, hardCoded) = Dna.DnaReportReader.ReadWorkbook(stream);
+            var sheets = rows.GroupBy(r => r.SheetCode).Select(g => $"{g.Key}={g.Count()}").ToList();
+            return new DataFeedTestResult
+            {
+                FolderFound = true, MatchedFile = file.Name, MatchedFileModified = file.LastWriteTime, MatchingFileCount = matchCount,
+                Columns = [], MissingColumns = [],
+                Message = rows.Count == 0
+                    ? $"{lead} It has no account sheets (sheets with an \"Account Name\" column), so a run would fail."
+                    : $"{lead} It has {rows.Count:N0} accounts ({string.Join("; ", sheets)})" + (hardCoded.Count > 0 ? $" and {hardCoded.Count:N0} hard-coded credentials." : ".")
+            };
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or InvalidDataException or DocumentFormat.OpenXml.Packaging.OpenXmlPackageException)
+        {
+            return new DataFeedTestResult { FolderFound = true, MatchedFile = file.Name, Message = $"{lead} It couldn't be read as a DNA workbook: {ex.Message}" };
         }
     }
 

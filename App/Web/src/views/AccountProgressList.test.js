@@ -458,12 +458,31 @@ describe('AccountProgressList.vue', () => {
       const { wrapper, router } = await mountAt('/accounts')
 
       await wrapper.find('input[type="search"]').setValue('svc')
-      await flushPromises()
+      await typingPause()
       expect(router.currentRoute.value.query).toEqual({ search: 'svc' })
 
       await wrapper.find('input[type="search"]').setValue('')
-      await flushPromises()
+      await typingPause()
       expect(router.currentRoute.value.query).toEqual({})
+    })
+
+    // 2026-11-05: typing wrote the address on every keystroke; an earlier write landing after a later keystroke was
+    // taken for Back/Forward, put the older text back in the box and reloaded the list.
+    it('writes what is typed to the address only after the pause, and never puts older text back in the box', async () => {
+      mockWithReferenceData()
+      const { wrapper, router } = await mountAt('/accounts')
+      const loadsBefore = listCalls().length
+      const box = wrapper.find('input[type="search"]')
+
+      for (const text of ['s', 'sv', 'svc', 'svc0']) await box.setValue(text)
+      await flushPromises()
+      expect(router.currentRoute.value.query).toEqual({})   // nothing written while typing
+      expect(box.element.value).toBe('svc0')
+
+      await typingPause()
+      expect(router.currentRoute.value.query).toEqual({ search: 'svc0' })
+      expect(box.element.value).toBe('svc0')
+      expect(listCalls().length - loadsBefore).toBe(1)   // one search, after the pause
     })
 
     it('replaces the address entry rather than adding one, so Back leaves the list', async () => {
@@ -475,9 +494,9 @@ describe('AccountProgressList.vue', () => {
       await flushPromises()
 
       await wrapper.find('input[type="search"]').setValue('svc')
-      await flushPromises()
+      await typingPause()
       await wrapper.find('input[type="search"]').setValue('svcx')
-      await flushPromises()
+      await typingPause()
       router.back()
       await flushPromises()
 
@@ -519,9 +538,17 @@ describe('AccountProgressList.vue', () => {
       expect(store.queryFor('account-progress-list')).toEqual({ stage: 'Discovery' })
 
       await wrapper.find('input[type="search"]').setValue('svc')
-      await flushPromises()
+      await typingPause()
 
       expect(store.queryFor('account-progress-list')).toEqual({ stage: 'Discovery', search: 'svc' })
+    })
+
+    it('remembers what was typed when the list is left before the typing pause', async () => {
+      mockWithReferenceData()
+      const { wrapper } = await mountAt('/accounts')
+      await wrapper.find('input[type="search"]').setValue('svc')
+      wrapper.unmount()   // e.g. Bulk edit clicked at once
+      expect(useListStateStore().queryFor('account-progress-list')).toEqual({ search: 'svc' })
     })
 
     it('follows the address when it changes under the page (Back, Forward, a link), keeping the page it names', async () => {

@@ -85,6 +85,7 @@ instead.
 | 67 | `67_BlueTrack_ApplicationOwnerReviewEmails.sql` | D-334: `notification_config.OwnerIncludeAccountExceptions` and `OwnerReminderDays` (0 to 90): the options of the application owners' review emails. |
 | 68 | `68_BlueTrack_RunProgress.sql` | D-337: where a pull or load is while it runs: `cyberark_direct_pull_step` (a pull's steps, saved every few seconds), `etl_run_log.SessionId`, `etl_run_step` (each Load procedure; `usp_RunFullLoad` now logs them, and keeps them after a rollback), and `usp_Get_EtlSessionActivity` (a running step's session waits and blocker; signed by `Manual/10`). |
 | 69 | `69_BlueTrack_ProgressRuleIgnoreCase.sql` | D-338: `fn_ProgressConditionMatches` compares a Progress Rule condition's text with `COLLATE Latin1_General_CI_AS`, so rules ignore case on a case-sensitive server or database. |
+| 70 | `70_BlueTrack_DnaFeedTrackRetention.sql` | D-341 to D-344: the newer DNA format's columns on `web.dna_account`; the `DNA` source system; feed type `DnaReport`; `app_config.DnaRetentionDays`; `web.dna_column_setting`; `web.dna_track_rule` and its conditions; `dna_account.TrackedBy`; D-347 `dna_account.IsUnresolvedSid`; D-345 `web.dna_hard_coded_credential` and `dna_import.HardCodedCount`; permission ViewDnaSensitiveColumns (Admin); audit types DnaPurged, DnaAccountsTracked, DnaSettingsChanged, DnaTrackRuleChanged. |
 
 ## The baseline (D-195)
 
@@ -109,7 +110,7 @@ scripts but not up to `51` is refused; upgrade it first from the
 
 ## Adding a script
 
-1. Name it `NN_BlueTrack_<Topic>.sql`, with `NN` the next number (`70` is next).
+1. Name it `NN_BlueTrack_<Topic>.sql`, with `NN` the next number (`71` is next).
 2. Start with a header comment: the file name, `RUN THIS AFTER 01-NN.`, what
    it changes and why (with the `D-n` decision), and whether it's safe to
    re-run.
