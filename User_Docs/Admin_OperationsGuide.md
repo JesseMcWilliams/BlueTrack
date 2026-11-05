@@ -76,7 +76,8 @@ There are still no down-scripts for the `Database/*.sql` files — full-database
 2. **Signed releases only.** A release's tag must be an annotated tag signed with a key GitHub verifies; otherwise the script refuses it, and it downloads the exact commit the tag points to. A branch is never a signed release, so it needs `-AllowUnsignedBranch` (and shows a warning). Use branches on test environments only.
 3. **Where it goes.** Each download is extracted to its own folder in the download folder (e.g. `BlueTrack-v1.2.0`), with a `download.json` recording the tag or branch and commit. Earlier versions stay for rollback; delete old ones yourself. The download folder is the `UpdateDownloadFolder` setting in this site's saved answers (`Deploy\State\answers.<SiteName>.json`); if it isn't set, pass `-DownloadFolder` or answer the prompt once, and it's saved.
 4. **Redeploy.** The script copies the saved answers into the new copy's `Deploy\State` and asks whether to run that copy's `Install-BlueTrack.ps1` with them: a full install run, including the pre-deployment backup. `-RunInstaller` skips the question; otherwise it prints the command to run later.
-5. **Afterwards**, use the new copy's `Deploy` folder for further installer runs and the next update, since its `State` folder now holds this site's answers and progress.
+5. **Running it again** for a version it already downloaded uses that folder again when it holds the same commit (its `download.json`), skipping the download, and offers its installer again with the answers already saved in that copy, so an install that stopped part-way can be picked up. A folder of that name holding another commit, or without `download.json`, still stops: delete or rename it.
+6. **Afterwards**, use the new copy's `Deploy` folder for further installer runs and the next update, since its `State` folder now holds this site's answers and progress.
 
 Upgrading a database built from older versions of the database scripts needs nothing extra: the installer's migration step recognizes them. A database that wasn't fully up to date with those older scripts is refused; update it from the `pre-sql-baseline` tag first. What to do after an upgrade, such as re-running a step, is in `Admin_DeploymentRunbook.md` ("After upgrading") and the release notes.
 
@@ -187,7 +188,9 @@ If the Import or Load failed, the step still fails afterwards, so SQL Server Age
 
 **Ignored safes:** accounts in a safe matching the *ignored safe pattern* (Global Application Configuration) aren't imported, and ones already imported are flagged deleted. Regex patterns need SQL Server 2025; after upgrading SQL Server (and the database's compatibility level to 170), re-run `Database/02_BlueTrack_Baseline_EtlLoads.sql` once to turn Regex on.
 
-**Checking whether it ran, and how it went:**
+**The API has to stay running overnight.** The Self-Hosted Direct pull (01:30 by default), AD account discovery, the data feeds and the notifications run inside the API, so they run only while IIS keeps BlueTrack loaded. The installer sees to this: its `Prereq.IisAppInit` step installs IIS Application Initialization, `Iis.AppPool` sets the application pool to start with IIS and never stop for being idle (on every run, so an upgrade corrects an existing pool), and `Iis.Site` has the API start straight away, including after the pool's periodic recycle. If a night shows no pull and the Import then fails because the pull is too old, check the Windows System log for the pool being shut down for inactivity, and re-run those three steps (`.\Install-BlueTrack.ps1 -Step Prereq.IisAppInit`, then `-Step Iis.AppPool` and `-Step Iis.Site`).
+
+**Checking whether it ran, and how it went:** **Admin > Data Sources**, **Import and Load**, lists the job's recent runs and their results (see "A Slow or Stuck Pull or Load" below). From SQL Server:
 ```sql
 SELECT TOP 10 j.name, h.step_name, h.run_date, h.run_time, h.run_status, h.message
 FROM msdb.dbo.sysjobhistory h
@@ -214,6 +217,19 @@ Beyond the REST data, a pull reads each new or changed account's device type, ho
 A **rejected** pull read PVWA but wasn't used; a **failed** pull didn't finish (refused credential, PVWA unreachable, wrong address, or the **Pull time limit (minutes)** reached, 45 by default). Either way the staged data is left as it was and the next import fails until a pull succeeds. `Admin_DataManagement.md`, section 1, says what to check and how to accept an expected change. The **SelfHostedPullFailed** notification emails each failed or rejected pull, and one not finished after 2 hours.
 
 A successful pull replaces the Self-Hosted staging tables in one go: the `stg_sh_*` tables the Load has always read, and `stg_shd_*` tables holding everything PVWA returned in its own shape (CPM status, last reconcile, CPM activity, platform policy, every account property, predefined Safe members, user details), which the Load uses for the extra account and entitlement detail. The pull log (`dbo.cyberark_direct_pull`) keeps 30 days of pulls, and always the latest.
+
+## A Slow or Stuck Pull or Load
+
+**Admin > Data Sources** shows where a pull or the nightly job has got to, so you can tell a slow run from a stuck one before cancelling anything.
+
+- **A pull:** its running line names the step and its count, for example "A pull is running: Account details (1,200 of 2,454), for 12 min." **Details** lists every step of a pull with what it read and how long it took. A pull stopped by the **Pull time limit (minutes)**, by **Cancel pull** or by the application stopping says which step it was in ("It stopped during: Account details (1,200 of 2,454)."). A long Account details step is usually the one-time re-read of every account's details after an upgrade: raise the time limit, or let it finish over a few nights.
+- **The Import and Load:** the **Import and Load** section lists the job's recent runs (Import, Load, Snapshot) with their start, duration and result, and **Procedures** lists a Load's procedures one by one, with any error and the procedure and line it came from. For a run still going it shows the procedure it's in, its SQL Server session's state and what it's waiting on, and, when another session blocks it, that session's login, host, program, database, open transactions and command (never its SQL text). "Its SQL Server session ... has ended" means the run will never finish: it was stopped, or SQL Server restarted.
+
+**Alert after (minutes)** in the Import and Load section (30 by default, 5 to 1,440) is how long a pull may read nothing, or a Load procedure, the Import or the Snapshot may run, before BlueTrack calls it stalled: the **RunStalled** email (turn it on under Notifications) says what stalled and what it is waiting on, and the **Pull and Load** check on Admin > Deployment, and `Tools\Test-BlueTrackHealth.ps1`, report it. Set it above the longest a Load procedure normally takes on your vault.
+
+**Cancel load** (shown while a run is going) stops the Import and Load SQL Agent job after you confirm. SQL Server rolls the Load back, so the data stays as it was before that run, and the run is logged as failed with your name; the next scheduled job runs as usual. Cancel only after the section shows the run is stuck, such as blocked by another session for a long time, rather than slow. To stop a pull, use **Cancel pull**.
+
+Reading another session's waits needs SQL Server's VIEW SERVER STATE permission, which BlueTrack's own login doesn't get. Instead, the installer's `Db.SessionActivity` step signs the one procedure that reads them with a certificate whose login holds that permission. It runs on every install, needs the installer to run as a SQL Server sysadmin, and otherwise warns and lets the install go on; the section then says the waits aren't shown and gives the running step only. To add it later, run `.\Install-BlueTrack.ps1 -Step Db.SessionActivity` as a sysadmin. Details: `Deploy/README.md`, "Seeing what a running load waits on".
 
 ## The Audit Log Purge Job
 

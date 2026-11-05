@@ -62,4 +62,42 @@ public sealed class EtlRunRepository(IDbConnectionFactory connectionFactory)
             };
         }).ToList();
     }
+
+    /// <summary>D-348: the stall alert time (5-1440 minutes).</summary>
+    public async Task SaveStallMinutesAsync(int minutes)
+    {
+        using var connection = connectionFactory.Create();
+        await connection.ExecuteAsync("UPDATE web.app_config SET RunStallMinutes = @minutes", new { minutes });
+    }
+
+    /// <summary>
+    /// D-348: stops this database's Import and Load SQL Agent job (sp_stop_job, allowed to the app's login by msdb's
+    /// SQLAgentOperatorRole, Database/Manual/08). Throws SqlException when the Agent refuses, such as when the job
+    /// isn't running. The Load's transaction is rolled back by SQL Server as the job's session ends.
+    /// </summary>
+    public async Task StopImportLoadJobAsync()
+    {
+        using var connection = connectionFactory.Create();
+        await connection.ExecuteAsync("""
+            DECLARE @job SYSNAME = N'BlueTrack (' + DB_NAME() + N') - Import and Load';
+            EXEC msdb.dbo.sp_stop_job @job_name = @job;
+            """);
+    }
+
+    /// <summary>
+    /// D-348: marks the runs the job was running Failed, since a stopped job never gets to its CATCH. Only rows still
+    /// Started; a run that finished meanwhile keeps its outcome.
+    /// </summary>
+    public async Task<int> MarkCancelledAsync(IReadOnlyList<long> etlRunKeys, string message)
+    {
+        if (etlRunKeys.Count == 0) return 0;
+        using var connection = connectionFactory.Create();
+        // A run whose row the stopped session still holds is left for the next look, rather than hanging this request.
+        return await connection.ExecuteAsync("""
+            SET LOCK_TIMEOUT 15000;
+            UPDATE dbo.etl_run_log
+            SET Status = 'Failed', CompletedAt = SYSUTCDATETIME(), ErrorMessage = LEFT(@message, 2000)
+            WHERE EtlRunKey IN @etlRunKeys AND Status = 'Started'
+            """, new { etlRunKeys, message });
+    }
 }

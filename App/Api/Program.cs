@@ -243,6 +243,7 @@ builder.Services.AddScoped<INotificationCheck, ApiKeyExpiredCheck>();           
 builder.Services.AddScoped<INotificationCheck, SamlCertificateExpiringCheck>();  // D-287
 builder.Services.AddScoped<INotificationCheck, CpmHealthCheck>();                // D-288
 builder.Services.AddScoped<INotificationCheck, AuditChainBrokenCheck>();         // D-295
+builder.Services.AddScoped<INotificationCheck, RunStalledCheck>();               // D-348
 builder.Services.AddHostedService<NotificationCheckBackgroundService>();
 
 // AD Account Discovery (2026-09-16): same same-process-BackgroundService
@@ -257,6 +258,7 @@ builder.Services.AddScoped<SafeAccessPolicyRepository>();   // D-300/D-301
 builder.Services.AddScoped<CpmHealthRepository>();      // D-288
 builder.Services.AddScoped<SafeAdministratorsRepository>();   // D-335
 builder.Services.AddScoped<EtlRunRepository>();   // D-337
+builder.Services.AddScoped<RunStallDetector>();   // D-348
 builder.Services.AddScoped<AdAccountDiscoveryService>();
 builder.Services.AddScoped<AdDiscoveryRunRepository>();   // D-317
 builder.Services.AddSingleton<AdDiscoveryRunner>();   // D-317: one run at a time, for the schedule and Run now
@@ -313,7 +315,8 @@ builder.Services.AddHealthChecks()
     .AddCheck<BlueTrack.Api.HealthChecks.SecretsStoreHealthCheck>("Secrets Store")
     .AddCheck<BlueTrack.Api.HealthChecks.IdentityProvidersHealthCheck>("Identity Providers")
     .AddCheck<BlueTrack.Api.HealthChecks.BackupFolderHealthCheck>("Backup Folder")
-    .AddCheck<BlueTrack.Api.HealthChecks.SiemForwardingHealthCheck>("SIEM Forwarding");   // D-234
+    .AddCheck<BlueTrack.Api.HealthChecks.SiemForwardingHealthCheck>("SIEM Forwarding")    // D-234
+    .AddCheck<BlueTrack.Api.HealthChecks.PullAndLoadHealthCheck>("Pull and Load");      // D-348
 
 // One authorization policy per permission (D-05/D-61) -- see
 // AuthorizationExtensions for how [Authorize(Policy = Permissions.X)] maps

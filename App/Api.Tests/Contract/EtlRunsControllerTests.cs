@@ -1,4 +1,5 @@
 using System.Net;
+using System.Net.Http.Json;
 using System.Text.Json.Nodes;
 using BlueTrack.Api.Tests.Integration;
 using Dapper;
@@ -7,7 +8,7 @@ using Xunit;
 
 namespace BlueTrack.Api.Tests.Contract;
 
-/// <summary>D-337: GET /api/admin/etl-runs (Admin > Data Sources, Import and Load) and a run's steps.</summary>
+/// <summary>D-337: GET /api/admin/etl-runs (Admin > Data Sources, Import and Load) and a run's steps. D-348: the stall time and Cancel load.</summary>
 public class EtlRunsControllerTests : IClassFixture<BlueTrackWebApplicationFactory>
 {
     private readonly BlueTrackWebApplicationFactory _factory;
@@ -60,7 +61,46 @@ public class EtlRunsControllerTests : IClassFixture<BlueTrackWebApplicationFacto
     [Fact]
     public async Task NeedsManageDataSources()
     {
-        var response = await Client("TestUser.Viewer").GetAsync("/api/admin/etl-runs");
-        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        var viewer = Client("TestUser.Viewer");
+        Assert.Equal(HttpStatusCode.Forbidden, (await viewer.GetAsync("/api/admin/etl-runs")).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await viewer.PutAsJsonAsync("/api/admin/etl-runs/settings", new { stallMinutes = 45 })).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await viewer.PostAsync("/api/admin/etl-runs/cancel", null)).StatusCode);
+    }
+
+    [Fact]
+    public async Task TheStallTime_IsValidated_SavedAndAudited()
+    {
+        await using var connection = new SqlConnection(TestDatabase.ConnectionString);
+        var original = await connection.QuerySingleAsync<int>("SELECT TOP (1) RunStallMinutes FROM web.app_config");
+        var since = await connection.QuerySingleAsync<DateTime>("SELECT SYSUTCDATETIME()");
+        try
+        {
+            var admin = Client("TestUser.Admin");
+            Assert.Equal(HttpStatusCode.BadRequest, (await admin.PutAsJsonAsync("/api/admin/etl-runs/settings", new { stallMinutes = 4 })).StatusCode);
+            Assert.Equal(HttpStatusCode.BadRequest, (await admin.PutAsJsonAsync("/api/admin/etl-runs/settings", new { stallMinutes = 1441 })).StatusCode);
+            (await admin.PutAsJsonAsync("/api/admin/etl-runs/settings", new { stallMinutes = 45 })).EnsureSuccessStatusCode();
+
+            var body = JsonNode.Parse(await admin.GetStringAsync("/api/admin/etl-runs"))!;
+            Assert.Equal(45, (int)body["stallMinutes"]!);
+            var detail = await connection.QuerySingleAsync<string>("""
+                SELECT TOP (1) e.Detail FROM web.audit_event e JOIN web.dim_audit_event_type t ON t.AuditEventTypeKey = e.AuditEventTypeKey
+                WHERE t.EventTypeName = 'ImportLoadSettingsChanged' AND e.OccurredAt >= @since ORDER BY e.AuditEventKey DESC
+                """, new { since });
+            Assert.EndsWith("-> 45 minutes.", detail);
+        }
+        finally
+        {
+            await connection.ExecuteAsync("UPDATE web.app_config SET RunStallMinutes = @original", new { original });
+        }
+    }
+
+    [Fact]
+    public async Task CancelLoad_Returns409_WithTheAgentsReason_WhenTheJobCantBeStopped()
+    {
+        // The test databases have no Import and Load job, so SQL Server Agent refuses.
+        var response = await Client("TestUser.Admin").PostAsync("/api/admin/etl-runs/cancel", null);
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        var problem = JsonNode.Parse(await response.Content.ReadAsStringAsync())!;
+        Assert.Contains("Import and Load", (string)problem["detail"]!);
     }
 }

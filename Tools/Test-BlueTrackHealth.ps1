@@ -10,7 +10,10 @@
     Checks:
       - Windows services: IIS (W3SVC), SQL Server, SQL Server Agent (running
         and set to start automatically), and a GitHub Actions runner if one
-        is installed (development hosts only).
+        is installed (development hosts only). With a runner and the GitHub
+        CLI (gh) signed in, a CI run queued for -CiQueuedMinutes while no run
+        is in progress is a warning: the runner has usually lost its
+        connection to GitHub and needs its service restarted.
       - The web pages answer at the site root, and the API's About version.
       - Your own sign-in (GET /api/me) and every health check on the
         Deployment page (GET /api/admin/deployment).
@@ -26,6 +29,9 @@
     The SQL Server service (default MSSQLSERVER; a named instance is MSSQL$NAME).
 .PARAMETER SkipServices
     Don't check Windows services (for example when SQL Server is on another machine).
+.PARAMETER CiQueuedMinutes
+    How long a CI run may wait in the queue, with no run in progress, before
+    it is reported (default 10). Development hosts with a runner only.
 .EXAMPLE
     .\Test-BlueTrackHealth.ps1 -SiteUrl https://bluetrack.company.com
 #>
@@ -35,7 +41,8 @@ param(
     [string]$SqlServerInstance = $env:COMPUTERNAME,
     [string]$DatabaseName = 'BlueTrack',
     [string]$SqlServiceName = 'MSSQLSERVER',
-    [switch]$SkipServices
+    [switch]$SkipServices,
+    [ValidateRange(1, 1440)] [int]$CiQueuedMinutes = 10
 )
 
 Set-StrictMode -Version Latest
@@ -64,6 +71,33 @@ if (-not $SkipServices) {
     foreach ($runner in @(Get-Service -Name 'actions.runner.*' -ErrorAction SilentlyContinue)) {
         $status = if ($runner.Status -eq 'Running') { 'Pass' } else { 'Warn' }
         Write-ToolResult -Name "Service $($runner.Name)" -Status $status -Detail "$($runner.Status) (CI runner, development hosts only)"
+    }
+    if (@(Get-Service -Name 'actions.runner.*' -ErrorAction SilentlyContinue).Count -gt 0 -and (Get-Command gh -ErrorAction SilentlyContinue)) {
+        # The repository is this script's checkout. Read-only: lists runs.
+        Push-Location $PSScriptRoot
+        try {
+            $queuedJson = & gh run list --status queued --limit 20 --json databaseId,createdAt,name 2>$null
+            $queuedOk = $LASTEXITCODE -eq 0
+            $busyJson = & gh run list --status in_progress --limit 1 --json databaseId 2>$null
+            if ($queuedOk -and $LASTEXITCODE -eq 0) {
+                # Windows PowerShell returns a JSON array as one object: unroll it.
+                $queued = @(($queuedJson -join "`n") | ConvertFrom-Json | ForEach-Object { $_ })
+                $busy = @(($busyJson -join "`n") | ConvertFrom-Json | ForEach-Object { $_ })
+                $cutoff = (Get-Date).ToUniversalTime().AddMinutes(-$CiQueuedMinutes)
+                $stuck = @($queued | Where-Object { ([datetime]$_.createdAt).ToUniversalTime() -lt $cutoff })
+                if ($stuck.Count -gt 0 -and $busy.Count -eq 0) {
+                    $oldest = ($stuck | Sort-Object { [datetime]$_.createdAt } | Select-Object -First 1)
+                    $waited = [int]((Get-Date).ToUniversalTime() - ([datetime]$oldest.createdAt).ToUniversalTime()).TotalMinutes
+                    Write-ToolResult -Name 'CI queue' -Status Warn -Detail "$($stuck.Count) run(s) queued over $CiQueuedMinutes min (oldest $waited min, run $($oldest.databaseId)) with none in progress: the runner has likely lost its connection to GitHub; restart its service"
+                } else {
+                    Write-ToolResult -Name 'CI queue' -Status Pass -Detail "$($queued.Count) queued, $($busy.Count) in progress"
+                }
+            } else {
+                Write-ToolResult -Name 'CI queue' -Status Warn -Detail "gh couldn't list the runs (not signed in, or no access to the repository)"
+            }
+        } finally {
+            Pop-Location
+        }
     }
 }
 
