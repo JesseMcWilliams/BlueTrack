@@ -11,6 +11,7 @@ import Pager from '../../components/Pager.vue'
 import EmptyListMessage from '../../components/EmptyListMessage.vue'
 import { formatDate } from '../../utils/formatDate'
 import { formatCount } from '../../utils/formatCount'
+import { byLabel } from '../../utils/sortOptions'
 
 const { t } = useI18n()
 const { totalCount, filteredCount, readTotalCount } = useTotalCount()
@@ -18,6 +19,8 @@ const pageSizeStore = usePageSizeStore()
 
 const rows = ref([])
 const sheets = ref([])
+// The API lists sheets in workbook (import) order; the filter is alphabetical.
+const sortedSheets = computed(() => byLabel(sheets.value))
 const sheet = ref('')
 const tracked = ref('')
 const search = ref('')
@@ -72,7 +75,7 @@ onMounted(async () => {
       <label class="field-label"><span class="field-label-text">{{ t('reports.dnaAccounts.finding') }}</span>
         <select v-model="sheet">
           <option value="">{{ t('reports.dnaAccounts.allFindings') }}</option>
-          <option v-for="s in sheets" :key="s" :value="s">{{ s }}</option>
+          <option v-for="s in sortedSheets" :key="s" :value="s">{{ s }}</option>
         </select></label>
       <label class="field-label"><span class="field-label-text">{{ t('reports.dnaAccounts.trackedLabel') }}</span>
         <select v-model="tracked">

@@ -38,6 +38,12 @@ const fields = [
   { fieldName: 'AutoManaged', kind: 'YesNo', operators: ['Equals', 'IsEmpty'] },
   { fieldName: 'LastVerified', kind: 'Date', operators: ['WithinDays', 'IsEmpty'] }
 ]
+// D-338: the source systems, as GET /api/admin/progress-rules/sources returns them (by name).
+const sources = [
+  { sourceSystemKey: 3, sourceSystemCode: 'DISCOVERY', sourceSystemName: 'AD Discovery' },
+  { sourceSystemKey: 1, sourceSystemCode: 'PRIVCLOUD', sourceSystemName: 'Privilege Cloud' },
+  { sourceSystemKey: 2, sourceSystemCode: 'SELFHOSTED', sourceSystemName: 'Self-Hosted' }
+]
 const rule = {
   progressRuleKey: 7, ruleName: 'In the Vault', fromStageKey: 1, fromStageName: 'Discovered', toStageKey: 3, toStageName: 'Onboarded to Vault',
   isEnabled: true, description: null,
@@ -68,6 +74,7 @@ describe('Progress Rules and Blueprint Stages', () => {
     globalThis.fetch = vi.fn((url, init) => {
       if (url === '/api/admin/blueprint-stages') return Promise.resolve(jsonResponse(stages))
       if (url === '/api/admin/progress-rules/fields') return Promise.resolve(jsonResponse(fields))
+      if (url === '/api/admin/progress-rules/sources') return Promise.resolve(jsonResponse(sources))
       if (url === '/api/admin/progress-rules/preview') return Promise.resolve(jsonResponse({ matchCount: 2, accounts: [{ accountKey: 5, accountName: 'root@host', safeName: 'Unix' }] }))
       if (init?.method === 'POST') return Promise.resolve(jsonResponse({ progressRuleKey: 8 }, { status: 201 }))
       return Promise.resolve(jsonResponse(null, { ok: false, status: 404 }))
@@ -105,6 +112,7 @@ describe('Progress Rules and Blueprint Stages', () => {
     globalThis.fetch = vi.fn((url, init) => {
       if (url === '/api/admin/blueprint-stages') return Promise.resolve(jsonResponse(stages))
       if (url === '/api/admin/progress-rules/fields') return Promise.resolve(jsonResponse(fields))
+      if (url === '/api/admin/progress-rules/sources') return Promise.resolve(jsonResponse(sources))
       if (url === '/api/admin/progress-rules/preview') return Promise.resolve(jsonResponse({ matchCount: 3, accounts: [] }))
       if (init?.method === 'POST') return Promise.resolve(jsonResponse({ progressRuleKey: 9 }, { status: 201 }))
       return Promise.resolve(jsonResponse(null, { ok: false, status: 404 }))
@@ -128,6 +136,58 @@ describe('Progress Rules and Blueprint Stages', () => {
     const list = mount(ProgressRules, { global: { plugins: [makeRouter()] } })
     await flushPromises()
     expect(list.findAll('tbody td')[1].text()).toBe('to Archived (any stage)')
+  })
+
+  // D-338: Source picks from the source systems; the field list is alphabetical.
+  it('a Source condition picks from the source systems, one or several, and the fields are in alphabetical order', async () => {
+    const withSource = [{ fieldName: 'Source', kind: 'Text', operators: ['Equals', 'In', 'Contains'] }, ...fields]
+    globalThis.fetch = vi.fn((url, init) => {
+      if (url === '/api/admin/blueprint-stages') return Promise.resolve(jsonResponse(stages))
+      if (url === '/api/admin/progress-rules/fields') return Promise.resolve(jsonResponse(withSource))
+      if (url === '/api/admin/progress-rules/sources') return Promise.resolve(jsonResponse(sources))
+      if (init?.method === 'POST') return Promise.resolve(jsonResponse({ progressRuleKey: 10 }, { status: 201 }))
+      return Promise.resolve(jsonResponse(null, { ok: false, status: 404 }))
+    })
+    const wrapper = mount(ProgressRuleEdit, { global: { plugins: [makeRouter()] } })
+    await flushPromises()
+
+    const [fieldSelect, operatorSelect] = wrapper.findAll('.condition select')
+    const labels = fieldSelect.findAll('option').map(o => o.text())
+    expect(labels).toEqual([...labels].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' })))
+    expect(fieldSelect.element.value).toBe('Source')   // a new condition still starts on Source
+
+    const value = wrapper.find('.condition select.source-value')
+    expect(value.findAll('option').map(o => o.text())).toEqual(['AD Discovery (DISCOVERY)', 'Privilege Cloud (PRIVCLOUD)', 'Self-Hosted (SELFHOSTED)'])
+    await value.setValue('SELFHOSTED')
+
+    await operatorSelect.setValue('In')
+    const boxes = wrapper.findAll('.source-values input[type="checkbox"]')
+    expect(boxes).toHaveLength(3)
+    expect(boxes[2].element.checked).toBe(true)   // the value picked before is kept
+    await boxes[1].setValue(true)
+
+    await operatorSelect.setValue('Contains')
+    expect(wrapper.find('.condition input[list="progress-rule-sources"]').element.value).toBe('SELFHOSTED, PRIVCLOUD')
+    expect(wrapper.findAll('#progress-rule-sources option').map(o => o.attributes('value'))).toEqual(['DISCOVERY', 'PRIVCLOUD', 'SELFHOSTED'])
+  })
+
+  it('keeps a saved Source value that is no longer a source system', async () => {
+    const withSource = [{ fieldName: 'Source', kind: 'Text', operators: ['Equals', 'In'] }, ...fields]
+    const saved = { ...rule, conditions: [{ fieldName: 'Source', operator: 'In', value: 'selfhosted, OLDFEED' }] }
+    globalThis.fetch = vi.fn(url => {
+      if (url === '/api/admin/blueprint-stages') return Promise.resolve(jsonResponse(stages))
+      if (url === '/api/admin/progress-rules/fields') return Promise.resolve(jsonResponse(withSource))
+      if (url === '/api/admin/progress-rules/sources') return Promise.resolve(jsonResponse(sources))
+      if (url === '/api/admin/progress-rules') return Promise.resolve(jsonResponse([saved]))
+      return Promise.resolve(jsonResponse(null, { ok: false, status: 404 }))
+    })
+    const wrapper = mount(ProgressRuleEdit, { props: { ruleKey: 7 }, global: { plugins: [makeRouter()] } })
+    await flushPromises()
+
+    const options = wrapper.findAll('.source-values label').map(l => l.text())
+    expect(options).toEqual(['AD Discovery (DISCOVERY)', 'Privilege Cloud (PRIVCLOUD)', 'Self-Hosted (SELFHOSTED)', 'OLDFEED'])
+    const checked = wrapper.findAll('.source-values input').map(i => i.element.checked)
+    expect(checked).toEqual([false, false, true, true])   // matched ignoring case
   })
 
   it('stages: saves a row, moves one, shows a refusal, and adds one at the end', async () => {

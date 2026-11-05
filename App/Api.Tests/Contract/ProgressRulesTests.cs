@@ -70,6 +70,33 @@ public class ProgressRulesTests : IClassFixture<BlueTrackWebApplicationFactory>,
         Assert.Equal(HttpStatusCode.OK, (await Client("TestUser.Admin").GetAsync("/api/admin/progress-rules")).StatusCode);
     }
 
+    // D-338: a Source condition picks from the source systems, listed by name.
+    [Fact]
+    public async Task Sources_ListEverySourceSystem_ByName()
+    {
+        var sources = (await Client("TestUser.Admin").GetFromJsonAsync<List<FeedSourceSystem>>("/api/admin/progress-rules/sources"))!;
+        Assert.Contains(sources, s => s.SourceSystemCode == "SELFHOSTED");
+        Assert.Contains(sources, s => s.SourceSystemCode == "PRIVCLOUD");
+        Assert.Equal(sources.Select(s => s.SourceSystemName).Order(StringComparer.OrdinalIgnoreCase), sources.Select(s => s.SourceSystemName));
+        Assert.Equal(HttpStatusCode.Forbidden, (await Client("TestUser.Viewer").GetAsync("/api/admin/progress-rules/sources")).StatusCode);
+    }
+
+    // D-338: a condition's value matches whatever its case, whatever the database's collation.
+    [Theory]
+    [InlineData("SELFHOSTED", "Equals", "selfhosted", true)]
+    [InlineData("SELFHOSTED", "NotEquals", "SelfHosted", false)]
+    [InlineData("Root/Windows", "Contains", "WINDOWS", true)]
+    [InlineData("Root/Windows", "StartsWith", "root", true)]
+    [InlineData("PRIVCLOUD", "In", "selfhosted, privcloud", true)]
+    [InlineData("PRIVCLOUD", "NotIn", "SelfHosted", true)]
+    public async Task ConditionValues_IgnoreCase(string text, string op, string value, bool expected)
+    {
+        await using var connection = new SqlConnection(TestDatabase.ConnectionString);
+        Assert.Equal(expected, await connection.QuerySingleAsync<bool>("SELECT dbo.fn_ProgressConditionMatches(@text, NULL, @op, @value)", new { text, op, value }));
+        var definition = await connection.QuerySingleAsync<string>("SELECT OBJECT_DEFINITION(OBJECT_ID('dbo.fn_ProgressConditionMatches'))");
+        Assert.Contains("COLLATE Latin1_General_CI_AS", definition);
+    }
+
     [Fact]
     public async Task TheBuiltInRule_IsSeeded_AndRulesAreValidated()
     {

@@ -14,6 +14,7 @@ import { decomNote } from '../utils/decomNote'
 import { formatCount } from '../utils/formatCount'
 import { useI18n } from 'vue-i18n'
 import { problemMessage } from '../utils/problemText'
+import { byLabel } from '../utils/sortOptions'
 import SafeAccessSection from '../components/SafeAccessSection.vue'
 import ComplianceSection from '../components/ComplianceSection.vue'
 
@@ -187,6 +188,8 @@ function fieldLocked(field) {
 // just gives the form a way to pick or create one before saving.
 const selectedExceptionKey = ref('')
 const linkableExceptions = ref([])
+// The API returns them by review date, which isn't shown; the drop-down is alphabetical by its text.
+const sortedLinkableExceptions = computed(() => byLabel(linkableExceptions.value, ex => `${ex.exceptionID} -- ${ex.justification}`))
 const exceptionError = ref(null)
 const showCreateExceptionForm = ref(false)
 const newException = ref({ justification: '', reviewDate: '', externalTicketReference: '' })
@@ -604,14 +607,17 @@ onUnmounted(releaseLock)
           <template v-if="detail.requirePsm !== null && detail.requirePsm !== undefined"><dt>{{ t('pages.accountProgressDetail.cpmRequiresPsm') }}</dt><dd>{{ detail.requirePsm ? t('common.yes') : t('common.no') }}</dd></template>
         </dl>
         <!-- D-308: the account's Safe, linked to its page. -->
-        <p v-if="detail.safeKey" class="account-progress-identity-secondary account-safe"><strong>{{ t('pages.accountProgressDetail.safe') }}</strong> <router-link :to="{ name: 'safe-detail', params: { safeKey: detail.safeKey } }">{{ detail.safeName }}</router-link></p>
+        <!-- The folder sits beside the Safe (2026-11-05): a Self-Hosted account's says "not read" until a pull reads its details. -->
+        <p v-if="detail.safeKey || detail.folder" class="account-progress-identity-secondary account-safe">
+          <span v-if="detail.safeKey" class="account-progress-identity-item"><strong>{{ t('pages.accountProgressDetail.safe') }}</strong> <router-link :to="{ name: 'safe-detail', params: { safeKey: detail.safeKey } }">{{ detail.safeName }}</router-link></span>
+          <span v-if="detail.folder || detail.isSelfHosted" class="account-progress-identity-item account-folder"><strong>{{ t('pages.accountProgressDetail.folder') }}</strong> {{ detail.folder ?? t('pages.accountProgressDetail.folderNotRead') }}</span>
+        </p>
         <!-- D-283: which Progress Rule moved the account to its stage. -->
         <p v-if="detail.lastAdvancedByRuleName" class="account-progress-identity-secondary moved-by-rule">{{ t('pages.accountProgressDetail.movedByRule', { rule: detail.lastAdvancedByRuleName, date: formatUtcDateTime(detail.lastAdvancedAt) }) }}</p>
         <!-- D-298: the archive rule that archived it (cleared when the status changes). -->
         <p v-if="detail.archivedByRuleName" class="account-progress-identity-secondary archived-by-rule">{{ t('pages.accountProgressDetail.archivedByRule', { rule: detail.archivedByRuleName, date: formatUtcDateTime(detail.archivedAt) }) }}</p>
         <!-- D-280: Self-Hosted Direct only, from PVWA's classic account details (D-299: and the folder). -->
-        <p v-if="detail.deviceType || detail.creationMethod || detail.folder || detail.linkedLogonAccount || detail.linkedReconcileAccount" class="account-progress-identity-secondary classic-facts">
-          <span v-if="detail.folder" class="account-progress-identity-item"><strong>{{ t('pages.accountProgressDetail.folder') }}</strong> {{ detail.folder }}</span>
+        <p v-if="detail.deviceType || detail.creationMethod || detail.linkedLogonAccount || detail.linkedReconcileAccount" class="account-progress-identity-secondary classic-facts">
           <span v-if="detail.deviceType" class="account-progress-identity-item"><strong>{{ t('pages.accountProgressDetail.deviceType') }}</strong> {{ detail.deviceType }}</span>
           <span v-if="detail.creationMethod" class="account-progress-identity-item"><strong>{{ t('pages.accountProgressDetail.creationMethod') }}</strong> {{ detail.creationMethod }}</span>
           <span v-if="detail.linkedLogonAccount" class="account-progress-identity-item"><strong>{{ t('pages.accountProgressDetail.linkedLogonAccount') }}</strong> <router-link v-if="detail.linkedLogonAccountKey" :to="{ name: 'account-progress-detail', params: { accountKey: detail.linkedLogonAccountKey } }">{{ detail.linkedLogonAccount }}</router-link><template v-else>{{ detail.linkedLogonAccount }}</template></span>
@@ -713,7 +719,7 @@ onUnmounted(releaseLock)
               <span class="field-label-text">{{ t('pages.accountProgressDetail.linkedException') }}</span>
               <select v-model="selectedExceptionKey" required>
                 <option value="" disabled>{{ t('pages.accountProgressDetail.selectException') }}</option>
-                <option v-for="ex in linkableExceptions" :key="ex.exceptionKey" :value="ex.exceptionKey">
+                <option v-for="ex in sortedLinkableExceptions" :key="ex.exceptionKey" :value="ex.exceptionKey">
                   {{ ex.exceptionID }} -- {{ ex.justification }}
                 </option>
               </select>

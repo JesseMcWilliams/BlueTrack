@@ -7,6 +7,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { flash } from '../../composables/useFlash'
 import { useI18n } from 'vue-i18n'
+import { byLabel } from '../../utils/sortOptions'
 
 const { t } = useI18n()
 
@@ -21,6 +22,8 @@ const loadError = ref(null)
 const saveError = ref(null)
 const allowedAttributes = ref([])
 const nameAttributes = ref(['sAMAccountName', 'userPrincipalName'])
+// The drop-down is alphabetical; a new Attribute rule still defaults to the server's first (adminCount).
+const sortedAllowedAttributes = computed(() => byLabel(allowedAttributes.value))
 
 const TYPES = ['Attribute', 'Name', 'OU']
 const OPERATORS = {
@@ -126,7 +129,7 @@ function cancel() {
       <p v-if="editing.ruleType === 'Attribute'">
         <label class="field-label"><span class="field-label-text">{{ t('admin.accountClassificationRuleEdit.attribute') }}</span>
           <select v-model="editing.attributeName" required>
-            <option v-for="name in allowedAttributes" :key="name" :value="name">{{ name }}</option>
+            <option v-for="name in sortedAllowedAttributes" :key="name" :value="name">{{ name }}</option>
           </select>
         </label>
       </p>

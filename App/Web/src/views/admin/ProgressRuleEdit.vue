@@ -21,6 +21,7 @@ const loadError = ref(null)
 const saveError = ref(null)
 const stages = ref([])
 const fields = ref([])
+const sources = ref([])   // D-338: the source systems set up here, for a Source condition
 const preview = ref(null)
 const previewError = ref(null)
 const previewing = ref(false)
@@ -39,8 +40,47 @@ function fieldOf(condition) {
   return fields.value.find(f => f.fieldName === condition.fieldName)
 }
 
+// 2026-11-05: the field list in alphabetical order of what it shows.
+const sortedFields = computed(() => [...fields.value].sort((a, b) =>
+  (fieldNames.value[a.fieldName] ?? a.fieldName).localeCompare(fieldNames.value[b.fieldName] ?? b.fieldName, undefined, { sensitivity: 'base' })))
+
+// D-338: a Source condition picks from the source systems: one for Equals / Not equals, any number for In / Not in.
+// A saved value that isn't one of them (a feed's source since removed) is still listed, so it isn't lost.
+function sourcePick(condition) {
+  if (condition.fieldName !== 'Source') return null
+  if (['Equals', 'NotEquals'].includes(condition.operator)) return 'one'
+  if (['In', 'NotIn'].includes(condition.operator)) return 'many'
+  return null
+}
+
+function listValues(condition) {
+  return (condition.value ?? '').split(',').map(v => v.trim()).filter(Boolean)
+}
+
+function sameCode(a, b) {
+  return a.localeCompare(b, undefined, { sensitivity: 'base' }) === 0
+}
+
+function sourceOptions(condition) {
+  const known = sources.value.map(s => ({ code: s.sourceSystemCode, label: `${s.sourceSystemName} (${s.sourceSystemCode})` }))
+  const extra = listValues(condition)
+    .filter(v => !known.some(k => sameCode(k.code, v)))
+    .map(v => ({ code: v, label: v }))
+  return [...known, ...extra]
+}
+
+function hasSource(condition, code) {
+  return listValues(condition).some(v => sameCode(v, code))
+}
+
+function toggleSource(condition, code, on) {
+  const others = listValues(condition).filter(v => !sameCode(v, code))
+  condition.value = (on ? [...others, code] : others).join(', ')
+}
+
 function valueHint(condition) {
   const kind = fieldOf(condition)?.kind
+  if (sourcePick(condition)) return ''
   if (kind === 'Date') return t('admin.progressRuleEdit.daysHint')
   if (condition.operator === 'In' || condition.operator === 'NotIn') return t('admin.progressRuleEdit.listHint')
   if (condition.fieldName === 'Source') return t('admin.progressRuleEdit.sourceHint')
@@ -60,10 +100,13 @@ function onFieldChange(condition) {
   const ops = fieldOf(condition)?.operators ?? []
   if (!ops.includes(condition.operator)) condition.operator = ops[0] ?? ''
   if (fieldOf(condition)?.kind === 'YesNo' && !['Yes', 'No'].includes(condition.value)) condition.value = 'Yes'
+  if (sourcePick(condition) === 'one' && !condition.value) condition.value = sources.value[0]?.sourceSystemCode ?? ''
 }
 
 function addCondition() {
-  const condition = { fieldName: fields.value[0]?.fieldName ?? '', operator: '', value: '' }
+  // A new condition starts on Source, as it always has.
+  const first = fields.value.find(f => f.fieldName === 'Source') ?? sortedFields.value[0]
+  const condition = { fieldName: first?.fieldName ?? '', operator: '', value: '' }
   onFieldChange(condition)
   editing.value.conditions.push(condition)
 }
@@ -74,16 +117,18 @@ function removeCondition(index) {
 
 onMounted(async () => {
   try {
-    const [stagesResponse, fieldsResponse, rulesResponse] = await Promise.all([
+    const [stagesResponse, fieldsResponse, rulesResponse, sourcesResponse] = await Promise.all([
       fetch('/api/admin/blueprint-stages'),
       fetch('/api/admin/progress-rules/fields'),
-      isEditMode.value ? fetch('/api/admin/progress-rules') : Promise.resolve(null)
+      isEditMode.value ? fetch('/api/admin/progress-rules') : Promise.resolve(null),
+      fetch('/api/admin/progress-rules/sources')
     ])
-    for (const r of [stagesResponse, fieldsResponse, rulesResponse]) {
+    for (const r of [stagesResponse, fieldsResponse, rulesResponse, sourcesResponse]) {
       if (r && !r.ok) throw new Error(t('common.requestFailed', { status: r.status }))
     }
     stages.value = await stagesResponse.json()
     fields.value = await fieldsResponse.json()
+    sources.value = await sourcesResponse.json()
     if (rulesResponse) {
       const match = (await rulesResponse.json()).find(r => String(r.progressRuleKey) === String(props.ruleKey))
       if (!match) throw new Error(t('admin.progressRuleEdit.notFound'))
@@ -199,7 +244,7 @@ async function save() {
           <label>
             <span class="visually-hidden">{{ t('admin.progressRuleEdit.field', { n: i + 1 }) }}</span>
             <select v-model="c.fieldName" @change="onFieldChange(c)">
-              <option v-for="f in fields" :key="f.fieldName" :value="f.fieldName">{{ fieldNames[f.fieldName] ?? f.fieldName }}</option>
+              <option v-for="f in sortedFields" :key="f.fieldName" :value="f.fieldName">{{ fieldNames[f.fieldName] ?? f.fieldName }}</option>
             </select>
           </label>
           <label>
@@ -213,15 +258,31 @@ async function save() {
               <span class="visually-hidden">{{ t('admin.progressRuleEdit.value', { n: i + 1 }) }}</span>
               <select v-model="c.value"><option value="Yes">{{ t('common.yes') }}</option><option value="No">{{ t('common.no') }}</option></select>
             </label>
+            <label v-else-if="sourcePick(c) === 'one'">
+              <span class="visually-hidden">{{ t('admin.progressRuleEdit.value', { n: i + 1 }) }}</span>
+              <select v-model="c.value" class="source-value" required>
+                <option v-for="o in sourceOptions(c)" :key="o.code" :value="o.code">{{ o.label }}</option>
+              </select>
+            </label>
+            <fieldset v-else-if="sourcePick(c) === 'many'" class="source-values">
+              <legend class="visually-hidden">{{ t('admin.progressRuleEdit.value', { n: i + 1 }) }}</legend>
+              <label v-for="o in sourceOptions(c)" :key="o.code">
+                <input type="checkbox" :checked="hasSource(c, o.code)" @change="toggleSource(c, o.code, $event.target.checked)" /> {{ o.label }}
+              </label>
+            </fieldset>
             <label v-else>
               <span class="visually-hidden">{{ t('admin.progressRuleEdit.value', { n: i + 1 }) }}</span>
-              <input v-model="c.value" :type="fieldOf(c)?.kind === 'Date' ? 'number' : 'text'" :min="fieldOf(c)?.kind === 'Date' ? 0 : undefined" maxlength="400" required />
+              <input v-model="c.value" :type="fieldOf(c)?.kind === 'Date' ? 'number' : 'text'" :min="fieldOf(c)?.kind === 'Date' ? 0 : undefined" maxlength="400" required
+                     :list="c.fieldName === 'Source' ? 'progress-rule-sources' : undefined" />
             </label>
             <small v-if="valueHint(c)">{{ valueHint(c) }}</small>
           </template>
           <button type="button" :aria-label="t('admin.progressRuleEdit.removeCondition', { n: i + 1 })" @click="removeCondition(i)">{{ t('common.remove') }}</button>
         </div>
         <p><button type="button" @click="addCondition">{{ t('admin.progressRuleEdit.addCondition') }}</button></p>
+        <datalist id="progress-rule-sources">
+          <option v-for="src in sources" :key="src.sourceSystemCode" :value="src.sourceSystemCode">{{ src.sourceSystemName }}</option>
+        </datalist>
       </fieldset>
 
       <p><label class="field-label"><span class="field-label-text">{{ t('admin.progressRuleEdit.description') }}</span> <textarea v-model="editing.description" rows="2" maxlength="1000"></textarea></label></p>

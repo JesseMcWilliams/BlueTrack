@@ -9,6 +9,7 @@ import { useRouter } from 'vue-router'
 import { flash, savedMessage } from '../../composables/useFlash'
 import { formatRunTime } from './dataFeedFormat'
 import { formatCount } from '../../utils/formatCount'
+import { byLabel } from '../../utils/sortOptions'
 import { useI18n } from 'vue-i18n'
 
 const { t } = useI18n()
@@ -45,6 +46,9 @@ const editing = ref({
 })
 
 const selectedType = computed(() => feedTypes.value.find(ft => ft.value === editing.value.feedType))
+// The drop-downs list feed types and mapping profiles alphabetically by the text shown.
+const sortedFeedTypes = computed(() => byLabel(feedTypes.value, ft => ft.label))
+const sortedMappingProfiles = computed(() => byLabel(selectedType.value?.mappingProfiles, p => p.profileName))
 
 const selectedRunErrors = computed(() => {
   if (!selectedRun.value?.resultJson) return []
@@ -193,7 +197,7 @@ function cancel() {
             <span class="field-label-text">{{ t('admin.dataFeedEdit.importLabel') }}</span>
             <select v-model="editing.feedType" required @change="onFeedTypeChanged">
               <option value="" disabled>{{ t('admin.dataFeedEdit.chooseImport') }}</option>
-              <option v-for="ft in feedTypes" :key="ft.value" :value="ft.value">{{ ft.label }}</option>
+              <option v-for="ft in sortedFeedTypes" :key="ft.value" :value="ft.value">{{ ft.label }}</option>
             </select>
           </label>
           <small v-if="selectedType?.usesSourceSystem">{{ t('admin.dataFeedEdit.accountColumnsHint') }}</small>
@@ -204,7 +208,7 @@ function cancel() {
             <span class="field-label-text">{{ t('admin.dataFeedEdit.mappingProfileLabel') }}</span>
             <select v-model="editing.importMappingProfileKey">
               <option :value="null">{{ t('admin.dataFeedEdit.noProfile') }}</option>
-              <option v-for="p in selectedType.mappingProfiles" :key="p.importMappingProfileKey" :value="p.importMappingProfileKey">
+              <option v-for="p in sortedMappingProfiles" :key="p.importMappingProfileKey" :value="p.importMappingProfileKey">
                 {{ p.profileName }}{{ p.isActive ? '' : ' ' + t('admin.dataFeedEdit.inactive') }}
               </option>
             </select>

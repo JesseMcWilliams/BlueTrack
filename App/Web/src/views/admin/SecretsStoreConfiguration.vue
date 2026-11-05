@@ -22,12 +22,13 @@
 import { ref, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { confirmDelete } from '../../composables/useConfirmDialog'
+import { byLabel } from '../../utils/sortOptions'
 
 const { t } = useI18n()
 
 // Auth method identifiers, shown as they are (not translated).
 const AZURE_AUTH_METHODS = ['ManagedIdentity', 'ServicePrincipal']
-const AWS_AUTH_METHODS = ['IamRole', 'AccessKey']
+const AWS_AUTH_METHODS = byLabel(['IamRole', 'AccessKey'])
 
 const backends = ref([])
 const error = ref(null)

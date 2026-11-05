@@ -10,10 +10,18 @@ What changed in each BlueTrack release, newest first, for users and administrato
 
 ### Changed
 
+- **Progress Rules:** a **Source** condition's value is picked from the source systems set up here (one for is / is not, any number for is one of), the field list is in alphabetical order, and conditions ignore upper and lower case on any SQL Server. Drop-down lists across BlueTrack are in alphabetical order, except where the order means something (stages, risk levels). (Administrator Settings Reference, Progress Rules)
+- The account's **folder** is shown beside its Safe; for a Self-Hosted account whose details haven't been read yet it says "(not read yet)". (User Guide)
+- **Who can use this account** on an account's page lists each group that is a member of the account's Safe (Vault or AD) as one row with its rights and member count; open it to see the people in it. A group whose AD members weren't read is still listed and says why. (User Guide)
+
 ### Fixed
+
+- The installer now saves the Power BI reader account answer, so an unattended run (or an update) no longer stops to ask for it each time. Adding `"PowerBiReaderAccount"` to a saved answers file, as the 1.5.2 notes said, didn't work before this fix: the installer ignored it as an unknown setting.
+- Running `Update-BlueTrack.ps1` again for a version it already downloaded no longer stops: it uses that download again and offers its installer, which keeps the answers it saved, so an install that stopped part-way can be picked up.
 
 ### Upgrading
 
+- The upgrade adds database script 69 (Progress Rule conditions ignore case); the installer applies it.
 - The upgrade adds database script 68 (the pull and load progress); the installer applies it. The installer's new step `Db.SessionActivity` lets Data Sources show what a running load waits on: it signs one database procedure with a certificate that holds SQL Server's VIEW SERVER STATE permission, instead of giving that permission to BlueTrack's own login. It needs the installer to run as a SQL Server sysadmin; otherwise it warns and the install goes on, and Data Sources shows the running step without its waits.
 
 ## 1.5.2 (2026-11-05)

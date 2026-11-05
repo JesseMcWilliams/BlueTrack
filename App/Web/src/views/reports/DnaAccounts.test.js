@@ -46,4 +46,13 @@ describe('DnaAccounts.vue', () => {
     expect(last).toContain('sheet=NC-LA')
     expect(last).toContain('tracked=false')
   })
+
+  it('lists the findings alphabetically after All', async () => {
+    globalThis.fetch = vi.fn((url) => Promise.resolve(url === '/api/reports/dna-accounts/sheets' ? jsonResponse(['NC-LA', 'nc-bb', 'NC-DA']) : jsonResponse([], { total: 0 })))
+    const router = createRouter({ history: createMemoryHistory(), routes: [{ path: '/', component: { template: '<div />' } }] })
+    const wrapper = mount(DnaAccounts, { global: { plugins: [router] } })
+    await flushPromises()
+
+    expect(wrapper.findAll('select')[0].findAll('option').map(o => o.element.value)).toEqual(['', 'nc-bb', 'NC-DA', 'NC-LA'])
+  })
 })

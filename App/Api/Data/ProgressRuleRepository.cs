@@ -242,4 +242,12 @@ public sealed class ProgressRuleRepository(IDbConnectionFactory connectionFactor
         var accounts = (await multi.ReadAsync<ProgressRulePreviewAccount>()).ToList();
         return new ProgressRulePreview { MatchCount = count, Accounts = accounts };
     }
+
+    /// <summary>D-338: every source system (Privilege Cloud, Self-Hosted, Discovery, each feed's), the values a Source condition can take.</summary>
+    public async Task<IReadOnlyList<FeedSourceSystem>> GetSourceSystemsAsync()
+    {
+        using var connection = connectionFactory.Create();
+        return (await connection.QueryAsync<FeedSourceSystem>(
+            "SELECT SourceSystemKey, SourceSystemCode, SourceSystemName FROM dbo.dim_source_system ORDER BY SourceSystemName")).ToList();
+    }
 }

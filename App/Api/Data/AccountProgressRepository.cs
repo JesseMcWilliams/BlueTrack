@@ -305,6 +305,8 @@ public sealed class AccountProgressRepository(IDbConnectionFactory connectionFac
                 fap.ProgressKey, fap.AccountKey, fa.AccountName, fa.UserName, fa.Address,
                 fa.CreatedTime, fa.LastCPMAction, fa.LastCPMActionResult, fa.LastCPMActionTime,
                 fa.DeviceType, fa.CreationMethod, fa.LinkedLogonAccount, fa.LinkedReconcileAccount, fa.Folder,
+                -- The folder sits beside the Safe for a Self-Hosted account, "not read" until its details are (2026-11-05).
+                CAST(CASE WHEN EXISTS (SELECT 1 FROM dbo.dim_source_system ss WHERE ss.SourceSystemKey = fa.SourceSystemKey AND ss.SourceSystemCode = 'SELFHOSTED') THEN 1 ELSE 0 END AS BIT) AS IsSelfHosted,
                 isf.SafeKey, isf.SafeName,   -- D-308
                 -- D-288: CPM health, for both sources.
                 fa.CPMStatus, fa.CpmFailureSince, fa.AutoManaged, fa.ManualReason, fa.LastVerifiedDate, fa.LastReconciledDate, fa.LastCPMModifiedDate,

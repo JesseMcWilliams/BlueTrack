@@ -8,6 +8,8 @@ namespace BlueTrack.Api.Models;
 public sealed class AccountSafeAccess
 {
     public required IReadOnlyList<SafeAccessPerson> People { get; init; }
+    /// <summary>D-339: the groups that are members of the Safe; a person reached through one has its GroupKey.</summary>
+    public IReadOnlyList<SafeAccessGroup> Groups { get; init; } = [];
     public required IReadOnlyList<AccountCyberArkApplication> Applications { get; init; }
     public DateTime? AdReadAt { get; init; }
 }
@@ -24,6 +26,24 @@ public sealed class SafeAccessPerson
     public bool CanUse { get; init; }
     public bool CanRetrieve { get; init; }
     public bool CanList { get; init; }
+    /// <summary>D-339: the Vault or AD group the person comes through; null for a direct member.</summary>
+    public int? GroupKey { get; init; }
+}
+
+/// <summary>
+/// D-339: a group that is a member of the Safe, with the rights its membership gives. AdReadStatus is how its AD members
+/// were last read (Found, NotFound, Failed), or null when it was never looked up in AD (a Vault group).
+/// </summary>
+public sealed class SafeAccessGroup
+{
+    public int GroupKey { get; init; }
+    public required string GroupName { get; init; }
+    public bool CanUse { get; init; }
+    public bool CanRetrieve { get; init; }
+    public bool CanList { get; init; }
+    public string? AdReadStatus { get; init; }
+    public string? AdReadMessage { get; init; }
+    public string? AdDomainName { get; init; }
 }
 
 public sealed class AccountCyberArkApplication

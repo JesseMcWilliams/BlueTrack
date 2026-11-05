@@ -14,6 +14,7 @@ import { useRightsStore } from '../../stores/rights'
 import { confirmDelete } from '../../composables/useConfirmDialog'
 import { useI18n } from 'vue-i18n'
 import { problemMessage } from '../../utils/problemText'
+import { byLabel } from '../../utils/sortOptions'
 
 const { t } = useI18n()
 const route = useRoute()
@@ -24,6 +25,7 @@ const rights = useRightsStore()
 const canConfigureSources = computed(() => rights.hasPermission('ManageDataSources'))
 
 const BACKEND_TYPES = ['WindowsDpapi', 'CyberArkCP', 'CyberArkCCP', 'CyberArkConjur', 'AzureKeyVault', 'AwsSecretsManager']
+const SORTED_BACKEND_TYPES = byLabel(BACKEND_TYPES)
 
 const credentials = ref([])
 const editing = ref(null)
@@ -220,7 +222,7 @@ async function removeLdapConfig(config) {
           <label class="field-label">
             <span class="field-label-text">{{ t('admin.credentials.backendLabel') }}</span>
             <select v-model="editing.backendType">
-              <option v-for="type in BACKEND_TYPES" :key="type" :value="type">{{ type }}</option>
+              <option v-for="type in SORTED_BACKEND_TYPES" :key="type" :value="type">{{ type }}</option>
             </select>
           </label>
         </p>

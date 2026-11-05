@@ -11,12 +11,14 @@ import { useRouter } from 'vue-router'
 import { flash, savedMessage } from '../../composables/useFlash'
 import { problemMessage } from '../../utils/problemText'
 import { mergeProviderSettings } from '../../utils/providerSettings'
+import { byLabel } from '../../utils/sortOptions'
 import { useI18n } from 'vue-i18n'
 
 const { t } = useI18n()
 
 // The provider types, by their identifiers (not translated).
 const PROVIDER_TYPES = ['WindowsIntegrated', 'OIDC', 'SAML', 'DevFakeAuth']
+const SORTED_PROVIDER_TYPES = byLabel(PROVIDER_TYPES)
 
 const props = defineProps({ providerKey: { type: [String, Number], required: false, default: null } })
 const router = useRouter()
@@ -123,7 +125,7 @@ function cancel() {
         <label class="field-label">
           <span class="field-label-text">{{ t('admin.identityProviderEdit.providerType') }}</span>
           <select v-model="editing.providerType" @change="onProviderTypeChange">
-            <option v-for="type in PROVIDER_TYPES" :key="type" :value="type">{{ type }}</option>
+            <option v-for="type in SORTED_PROVIDER_TYPES" :key="type" :value="type">{{ type }}</option>
           </select>
         </label>
       </p>

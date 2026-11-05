@@ -20,6 +20,7 @@ $script:AnswerNames = @(
     'Environment', 'SqlServerInstance', 'DatabaseName', 'UseWindowsAuth', 'SeedTestData',
     'InstallNightlyJob', 'ImportSources', 'ExportFolderPath', 'BackupFolder',
     'GrantAppPoolSqlAccess', 'AppPoolSqlLogin', 'ResetIis', 'InstallSqlServerAudit',   # D-295
+    'PowerBiReaderAccount',   # D-321; missing until 2026-11-05, so it was never saved and an unattended rerun stopped on it
     'SiteName', 'ApiInstallPath', 'WebInstallPath', 'Hostname', 'HttpPort', 'HttpsPort',
     'CertificateThumbprint', 'GenerateSelfSignedCert',
     'PrerequisiteSource', 'InstallerSourcePath',
