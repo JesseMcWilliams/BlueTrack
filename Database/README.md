@@ -83,6 +83,7 @@ instead.
 | 65 | `65_BlueTrack_LdapIntegrationFlag.sql` | D-328: `ldap_config.UseForIntegration`: an LDAP domain can be a discovery place only (default 1). |
 | 66 | `66_BlueTrack_AdNestedGroupPath.sql` | D-333: `ad_group_member.NestedPath` (and its staging column): the nested groups between a Safe's AD group and the user; `usp_Apply_AdGroupMembers` and `vw_safe_access_people` copied from 48 with it. |
 | 67 | `67_BlueTrack_ApplicationOwnerReviewEmails.sql` | D-334: `notification_config.OwnerIncludeAccountExceptions` and `OwnerReminderDays` (0 to 90): the options of the application owners' review emails. |
+| 68 | `68_BlueTrack_RunProgress.sql` | D-337: where a pull or load is while it runs: `cyberark_direct_pull_step` (a pull's steps, saved every few seconds), `etl_run_log.SessionId`, `etl_run_step` (each Load procedure; `usp_RunFullLoad` now logs them, and keeps them after a rollback), and `usp_Get_EtlSessionActivity` (a running step's session waits and blocker; signed by `Manual/10`). |
 
 ## The baseline (D-195)
 
@@ -107,7 +108,7 @@ scripts but not up to `51` is refused; upgrade it first from the
 
 ## Adding a script
 
-1. Name it `NN_BlueTrack_<Topic>.sql`, with `NN` the next number (`68` is next).
+1. Name it `NN_BlueTrack_<Topic>.sql`, with `NN` the next number (`69` is next).
 2. Start with a header comment: the file name, `RUN THIS AFTER 01-NN.`, what
    it changes and why (with the `D-n` decision), and whether it's safe to
    re-run.
@@ -148,6 +149,8 @@ Numbered in the order they're run; run only the ones that apply.
 | `06_BlueTrack_DevFakeAuthUserMapping.sql` | Development only: maps your Windows username to Admin through DevFakeAuth. Replace `@DevFakeAuthUsername` first. |
 | `07_BlueTrack_SqlServerAudit.sql` | Real environments (D-295): SQL Server Audit of UPDATE/DELETE on the audit log's tables, to the Windows Security log. `sqlcmd -S <server> -C -v DatabaseName="BlueTrack" -i Database/Manual/07_BlueTrack_SqlServerAudit.sql`, after Windows allows it (see its header); the installer's `Db.SqlServerAudit` step does both. Safe to re-run. |
 | `08_BlueTrack_GrantAppAgentJobStart.sql` | D-302: adds the App Pool's account to msdb's `SQLAgentOperatorRole`, so Pull now can start the Import and Load job. Run by the installer's `Db.AppPoolAccess` step after `02`; by hand, replace `__TARGET_ACCOUNT__` first. `sqlcmd -S <server> -C -i 08_BlueTrack_GrantAppAgentJobStart.sql` |
+| `09_BlueTrack_PowerBiReaderRole.sql` | D-321: the `BlueTrack_PowerBI_Reader` role, which may read only the Power BI views and tables, and a Windows account or group in it. Run by the installer's `Db.PowerBiAccess` step (`-PowerBiReaderAccount`). |
+| `10_BlueTrack_SignSessionActivity.sql` | D-337: signs `dbo.usp_Get_EtlSessionActivity` (script 68) with a certificate whose login in `master` holds VIEW SERVER STATE, so the app sees what a running load waits on without that permission itself. Needs a sysadmin. The installer's `Db.SessionActivity` step runs it on every install (a later ALTER drops the signature); by hand: `sqlcmd -S <server> -C -I -v DatabaseName="BlueTrack" -i Database/Manual/10_BlueTrack_SignSessionActivity.sql`. |
 
 The SQL Agent and backup-status scripts can't run through DbUp: they
 `USE msdb;` and never switch back, so DbUp's journal write after them

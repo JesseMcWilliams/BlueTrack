@@ -236,8 +236,17 @@ public class SelfHostedDirectPullServiceTests : IClassFixture<BlueTrackWebApplic
         Assert.DoesNotContain(_pvwa.Requests, r => r.Contains("DiscoveredAccounts"));
 
         using var scope = _factory.Services.CreateScope();
-        var last = await scope.ServiceProvider.GetRequiredService<SelfHostedDirectRepository>().GetLastSucceededAsync();
+        var repository = scope.ServiceProvider.GetRequiredService<SelfHostedDirectRepository>();
+        var last = await repository.GetLastSucceededAsync();
         Assert.Equal(("tester", 30, 60), (last!.TriggeredBy, last.SafeCount, last.AccountCount));
+
+        // D-337: every step was recorded and ended, with the counted ones' items.
+        var steps = await repository.GetPullStepsAsync(last.PullKey);
+        Assert.Equal(["Credential", "Logon", "Platforms", "Safes", "Accounts", "CpmActivity", "AccountDetails", "SafeMembers", "Users", "Groups",
+            "Applications", "Logoff", "ChangeCheck", "AdGroups", "Staging"], steps.Select(s => s.StepName));
+        Assert.All(steps, s => Assert.NotNull(s.CompletedAt));
+        Assert.Equal((30, 60, 30), (steps.Single(s => s.StepName == "Safes").ItemsDone, steps.Single(s => s.StepName == "Accounts").ItemsDone,
+            steps.Single(s => s.StepName == "SafeMembers").ItemsTotal));
     }
 
     /// <summary>
@@ -524,8 +533,19 @@ public class SelfHostedDirectPullServiceTests : IClassFixture<BlueTrackWebApplic
         var outcome = await scope.ServiceProvider.GetRequiredService<SelfHostedDirectPullService>()
             .RunAsync("tester", acceptChange: true, CancellationToken.None, cancel.Token);
 
-        Assert.Equal(("Failed", "The pull was cancelled on Data Sources. The staged data wasn't changed."), (outcome.Status, outcome.Message));
+        // D-337: the message and the saved steps name the step it was in: the Safe list (PVWA was slow to answer it).
+        Assert.Equal(("Failed", "The pull was cancelled on Data Sources. The staged data wasn't changed. It stopped during: Safes."), (outcome.Status, outcome.Message));
         Assert.Equal(before, await StagedAsync());
+        var steps = await scope.ServiceProvider.GetRequiredService<SelfHostedDirectRepository>().GetPullStepsAsync(await LastPullKeyAsync());
+        Assert.Equal(["Credential", "Logon", "Platforms", "Safes"], steps.Select(s => s.StepName));
+        Assert.All(steps.SkipLast(1), s => Assert.NotNull(s.CompletedAt));
+        Assert.Null(steps[^1].CompletedAt);
+    }
+
+    private static async Task<long> LastPullKeyAsync()
+    {
+        await using var connection = new SqlConnection(TestDatabase.ConnectionString);
+        return await connection.QuerySingleAsync<long>("SELECT MAX(PullKey) FROM dbo.cyberark_direct_pull");
     }
 
     private int ClassicCalls() => _pvwa.Requests.Count(r => r == "GET /PasswordVault/WebServices/PIMServices.svc/Accounts");
@@ -564,7 +584,7 @@ public class SelfHostedDirectPullServiceTests : IClassFixture<BlueTrackWebApplic
             .RunAsync("tester", acceptChange: false, CancellationToken.None, cancel.Token);
 
         Assert.Equal("Failed", outcome.Status);
-        Assert.Matches(@"^The pull was cancelled on Data Sources\. The staged data wasn't changed\. The \d+ account detail\(s\) read before it stopped were kept", outcome.Message);
+        Assert.Matches(@"^The pull was cancelled on Data Sources\. The staged data wasn't changed\. It stopped during: Account details \(\d+ of 60\)\. The \d+ account detail\(s\) read before it stopped were kept", outcome.Message);
         await using var connection = new SqlConnection(TestDatabase.ConnectionString);
         Assert.InRange(await connection.QuerySingleAsync<int>("SELECT COUNT(*) FROM dbo.cyberark_direct_account_detail WHERE AccountId LIKE '9100%'"), 1, 58);
         Assert.Equal(0, await connection.QuerySingleAsync<int>("SELECT COUNT(*) FROM stg_shd_account_details"));

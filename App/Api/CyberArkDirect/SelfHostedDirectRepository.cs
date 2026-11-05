@@ -81,6 +81,31 @@ public sealed class SelfHostedDirectRepository(IDbConnectionFactory connectionFa
         });
     }
 
+    /// <summary>D-337: replaces the pull's recorded steps with <paramref name="steps"/> (a dozen rows at most).</summary>
+    public async Task SavePullStepsAsync(long pullKey, IReadOnlyList<PullStepRecord> steps)
+    {
+        using var connection = connectionFactory.Create();
+        connection.Open();
+        using var transaction = connection.BeginTransaction();
+        await connection.ExecuteAsync("DELETE FROM dbo.cyberark_direct_pull_step WHERE PullKey = @pullKey", new { pullKey }, transaction);
+        await connection.ExecuteAsync("""
+            INSERT INTO dbo.cyberark_direct_pull_step (PullKey, StepOrder, StepName, StartedAt, CompletedAt, ItemsDone, ItemsTotal)
+            VALUES (@PullKey, @StepOrder, @StepName, @StartedAt, @CompletedAt, @ItemsDone, @ItemsTotal)
+            """, steps.Select(s => new { PullKey = pullKey, s.StepOrder, s.StepName, s.StartedAt, s.CompletedAt, s.ItemsDone, s.ItemsTotal }), transaction);
+        transaction.Commit();
+    }
+
+    /// <summary>D-337: a pull's steps, in order (a save holds them for milliseconds only).</summary>
+    public async Task<IReadOnlyList<PullStepRecord>> GetPullStepsAsync(long pullKey)
+    {
+        using var connection = connectionFactory.Create();
+        return (await connection.QueryAsync<PullStepRecord>("""
+            SELECT StepOrder, StepName, StartedAt, CompletedAt, ItemsDone, ItemsTotal
+            FROM dbo.cyberark_direct_pull_step
+            WHERE PullKey = @pullKey ORDER BY StepOrder
+            """, new { pullKey })).ToList();
+    }
+
     /// <summary>The last pull that Succeeded; the next one's counts are compared with it.</summary>
     public async Task<DirectPullRecord?> GetLastSucceededAsync()
     {

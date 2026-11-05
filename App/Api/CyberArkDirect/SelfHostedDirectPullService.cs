@@ -53,28 +53,32 @@ public sealed class SelfHostedDirectPullService(
         try
         {
             var pullKey = await repository.StartPullAsync(triggeredBy, acceptChange);
+            var progress = new PullProgress(timeProvider);   // D-337
             var options = new PvwaPullOptions
             {
                 CachedDetails = await repository.GetAccountDetailCacheAsync(),
                 // D-299: also re-read details read more than DetailRefreshDays ago, at most DetailRefreshMaxAccounts a pull.
                 RefreshReadBefore = s.DetailRefreshEnabled ? timeProvider.GetUtcNow().UtcDateTime.AddDays(-s.DetailRefreshDays) : null,
-                RefreshMaxAccounts = s.DetailRefreshEnabled ? s.DetailRefreshMaxAccounts : 0
+                RefreshMaxAccounts = s.DetailRefreshEnabled ? s.DetailRefreshMaxAccounts : 0,
+                Progress = progress
             };
             using var timeLimit = new CancellationTokenSource(TimeSpan.FromMinutes(s.DirectPullTimeLimitMinutes), timeProvider);
             using var linked = CancellationTokenSource.CreateLinkedTokenSource(ct, timeLimit.Token, cancelRequested);
+            using var stopSaving = new CancellationTokenSource();
+            var saving = SaveProgressEveryFewSecondsAsync(pullKey, progress, stopSaving.Token);
             try
             {
                 return await PullAsync(pullKey, s, acceptChange, options, linked.Token);
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested)
             {
-                await repository.CompleteAsync(pullKey, "Failed", null, "The pull was cancelled (the application is stopping).", null);
+                await repository.CompleteAsync(pullKey, "Failed", null, "The pull was cancelled (the application is stopping)." + progress.StoppedNote(), null);
                 throw;
             }
             catch (OperationCanceledException) when (cancelRequested.IsCancellationRequested)
             {
                 // D-275. Staging is replaced in one transaction, as for the time limit below.
-                var message = "The pull was cancelled on Data Sources. The staged data wasn't changed." + KeptNote(options);
+                var message = "The pull was cancelled on Data Sources. The staged data wasn't changed." + progress.StoppedNote() + KeptNote(options);
                 logger.LogInformation("Self-Hosted Direct pull cancelled.");
                 await repository.CompleteAsync(pullKey, "Failed", null, message, null);
                 return new PullOutcome("Failed", message, null);
@@ -82,7 +86,7 @@ public sealed class SelfHostedDirectPullService(
             catch (OperationCanceledException) when (timeLimit.IsCancellationRequested)
             {
                 // Staging is replaced in one transaction, so a stopped pull leaves what the Load reads as it was.
-                var message = $"The pull was stopped after the {ServerTextCulture.Count(s.DirectPullTimeLimitMinutes)}-minute time limit (Edit CyberArk sources). The staged data wasn't changed." + KeptNote(options);
+                var message = $"The pull was stopped after the {ServerTextCulture.Count(s.DirectPullTimeLimitMinutes)}-minute time limit (Edit CyberArk sources). The staged data wasn't changed." + progress.StoppedNote() + KeptNote(options);
                 logger.LogWarning("Self-Hosted Direct pull stopped: {Message}", message);
                 await repository.CompleteAsync(pullKey, "Failed", null, message, null);
                 return new PullOutcome("Failed", message, null);
@@ -103,12 +107,52 @@ public sealed class SelfHostedDirectPullService(
             }
             finally
             {
+                await stopSaving.CancelAsync();
+                await saving;
+                await SaveProgressAsync(pullKey, progress, -1);   // the last word, whatever the timer last saw
                 await SaveAccountDetailsAsync(options);
             }
         }
         finally
         {
             OnePullAtATime.Release();
+        }
+    }
+
+    /// <summary>D-337: how often a running pull's steps are saved, so the page and, after a restart, the pull's row show where it is.</summary>
+    internal static readonly TimeSpan ProgressSaveInterval = TimeSpan.FromSeconds(5);
+
+    private async Task SaveProgressEveryFewSecondsAsync(long pullKey, PullProgress progress, CancellationToken stop)
+    {
+        long saved = -1;
+        while (!stop.IsCancellationRequested)
+        {
+            try
+            {
+                await Task.Delay(ProgressSaveInterval, timeProvider, stop);
+            }
+            catch (OperationCanceledException)
+            {
+                return;
+            }
+            saved = await SaveProgressAsync(pullKey, progress, saved);
+        }
+    }
+
+    /// <summary>D-337: never fails the pull; returns the version saved (unchanged when nothing new, or when the save failed).</summary>
+    private async Task<long> SaveProgressAsync(long pullKey, PullProgress progress, long saved)
+    {
+        var (version, steps) = progress.Snapshot();
+        if (version == saved) return saved;
+        try
+        {
+            await repository.SavePullStepsAsync(pullKey, steps);
+            return version;
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            logger.LogWarning(ex, "Self-Hosted Direct: the pull's progress couldn't be saved; trying again.");
+            return saved;
         }
     }
 
@@ -159,20 +203,32 @@ public sealed class SelfHostedDirectPullService(
     /// <summary>Logs on, reads everything and logs off. Refuses a read with no Safes, which would empty staging.</summary>
     private async Task<(PvwaSnapshot Snapshot, string Host)> ReadPvwaAsync(Models.CyberArkSourceSettings s, PvwaPullOptions options, CancellationToken ct)
     {
+        options.Progress?.Begin(PullProgress.Steps.Credential);   // D-337: a CP or CCP fetch can wait too
         var (userName, password) = await credentialRepository.ResolveForUseAsync(s.PvwaCredentialKey
             ?? throw new InvalidOperationException("Self-Hosted Direct has no credential set."));
         if (string.IsNullOrEmpty(userName)) throw new InvalidOperationException("The credential has no user name; PVWA needs one to log on.");
 
+        options.Progress?.Begin(PullProgress.Steps.Logon);
         var (client, token, host, skipped) = await LogonAsync(s, userName, password, ct);
         PvwaSnapshot snapshot;
         try
         {
             snapshot = await client.PullAsync(token, ct, options, s.IncludeBuiltInSafes);
         }
-        finally
+        catch (OperationCanceledException)
         {
+            // A stopped pull's message names the step it was in (D-337), so this logoff isn't recorded as a step.
             await client.LogoffAsync(token, CancellationToken.None);
+            throw;
         }
+        catch
+        {
+            options.Progress?.Begin(PullProgress.Steps.Logoff);
+            await client.LogoffAsync(token, CancellationToken.None);
+            throw;
+        }
+        options.Progress?.Begin(PullProgress.Steps.Logoff);
+        await client.LogoffAsync(token, CancellationToken.None);
 
         if (snapshot.Safes.Count == 0)
             throw new PvwaException("PVWA returned no Safes. The credential may not be a member of any, so nothing was changed.");
@@ -184,6 +240,7 @@ public sealed class SelfHostedDirectPullService(
     {
         var (snapshot, host) = await ReadPvwaAsync(s, options, ct);
         var counts = PullCounts.Of(snapshot);
+        options.Progress?.Begin(PullProgress.Steps.ChangeCheck);
         var baseline = await BaselineAsync();
         var rejection = PullChangeGuard.Evaluate(baseline, counts, s.DirectMaxChangePercent);
         IReadOnlyList<string> whichSafes = [];
@@ -193,18 +250,22 @@ public sealed class SelfHostedDirectPullService(
         }
         if (rejection is not null && !acceptChange)
         {
+            options.Progress?.Complete();
             var rejected = string.Join(" | ", new[] { rejection }.Concat(whichSafes));
             await repository.CompleteAsync(pullKey, "Rejected", counts, rejected, null, baseline);
             return new PullOutcome("Rejected", rejected, counts);
         }
 
-        await ReadAdGroupsAsync(snapshot, ct);
+        options.Progress?.Begin(PullProgress.Steps.AdGroups);
+        await ReadAdGroupsAsync(snapshot, options.Progress, ct);
 
+        options.Progress?.Begin(PullProgress.Steps.Staging);
         var batchId = Guid.NewGuid();
         var mapper = new SelfHostedStagingMapper();
         var tables = mapper.Map(snapshot, batchId, $"PVWA REST ({host})");
         await repository.StageAsync(tables, ct);
         await repository.PruneAccountDetailCacheAsync();
+        options.Progress?.Complete();
 
         var notes = new List<string>();
         if (rejection is not null)
@@ -220,11 +281,11 @@ public sealed class SelfHostedDirectPullService(
     }
 
     /// <summary>D-281: the Safe-member groups' AD users. Never fails the pull: a problem is a warning, and the Load keeps what it had.</summary>
-    private async Task ReadAdGroupsAsync(PvwaSnapshot snapshot, CancellationToken ct)
+    private async Task ReadAdGroupsAsync(PvwaSnapshot snapshot, PullProgress? progress, CancellationToken ct)
     {
         try
         {
-            snapshot.AdGroups = await adExpansion.ExpandAsync(snapshot, ct);
+            snapshot.AdGroups = await adExpansion.ExpandAsync(snapshot, ct, progress);
         }
         catch (Exception ex) when (ex is not OperationCanceledException and not OutOfMemoryException)
         {

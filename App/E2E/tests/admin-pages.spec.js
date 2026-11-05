@@ -771,6 +771,16 @@ test.describe('Data Sources admin page (D-181)', () => {
     await expect(page).toHaveURL(/\/admin\/data-sources$/)
   })
 
+  // D-337: the nightly job's runs, against the real API (the test database's Load has run in CI's other tests or not at all).
+  test('Admin sees the Import and Load section with the nightly job\'s runs', async ({ page }) => {
+    await signInAs(page, 'TestUser.Admin')
+    await page.goto('/admin/data-sources')
+    const section = page.locator('section.import-load')
+    await expect(section.getByRole('heading', { name: 'Import and Load' })).toBeVisible()
+    await expect(section.getByText(/^The nightly SQL Agent job's steps/)).toBeVisible()
+    await expect(section.getByRole('alert')).toHaveCount(0)
+  })
+
   test('A user without ManageDataSources is denied with a plain error', async ({ page }) => {
     await signInAs(page, 'TestUser.Viewer')
     await page.goto('/admin/data-sources')

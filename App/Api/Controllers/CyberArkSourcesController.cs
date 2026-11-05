@@ -173,10 +173,22 @@ public sealed class CyberArkSourcesController(
         return Ok(new { enabled = true, latestStatus = latest?.Status, latestMessage = latest?.Message });
     }
 
-    /// <summary>D-248: the latest Self-Hosted Direct pulls, newest first, and whether one is running now.</summary>
+    /// <summary>
+    /// D-248: the latest Self-Hosted Direct pulls, newest first, and whether one is running now. D-337: with the
+    /// steps of the newest pull while it's still Started (running, or stopped without finishing), and the server's
+    /// clock, so the page can say how long the step has taken.
+    /// </summary>
     [HttpGet("direct/pulls")]
-    public async Task<IActionResult> DirectPulls() =>
-        Ok(new { running = directRunner.IsRunning, pulls = await directRepository.GetRecentAsync(15) });
+    public async Task<IActionResult> DirectPulls()
+    {
+        var pulls = await directRepository.GetRecentAsync(15);
+        IReadOnlyList<PullStepRecord> steps = pulls.Count > 0 && pulls[0].Status == "Started" ? await directRepository.GetPullStepsAsync(pulls[0].PullKey) : [];
+        return Ok(new { running = directRunner.IsRunning, serverTime = timeProvider.GetUtcNow().UtcDateTime, pulls, steps });
+    }
+
+    /// <summary>D-337: one pull's steps, for Pull details.</summary>
+    [HttpGet("direct/pulls/{pullKey:long}/steps")]
+    public async Task<IActionResult> DirectPullSteps(long pullKey) => Ok(await directRepository.GetPullStepsAsync(pullKey));
 
     /// <summary>
     /// D-248: Run now for Self-Hosted Direct: starts a pull in the background (the page polls the log). With

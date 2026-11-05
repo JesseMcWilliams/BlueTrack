@@ -57,7 +57,9 @@ public sealed class PvwaClient(HttpClient http, Uri apiRoot)
     public async Task<PvwaSnapshot> PullAsync(string token, CancellationToken ct, PvwaPullOptions? options = null, bool includeBuiltInSafes = false)
     {
         var snapshot = new PvwaSnapshot();
+        var progress = options?.Progress;   // D-337
 
+        progress?.Begin(PullProgress.Steps.Platforms);
         var targets = await GetTargetPlatformsAsync(token, snapshot.Warnings, ct);
         foreach (var item in await GetArrayAsync(token, "Platforms", "Platforms", ct))
         {
@@ -93,14 +95,16 @@ public sealed class PvwaClient(HttpClient http, Uri apiRoot)
             });
         }
 
-        foreach (var item in await GetPagedAsync(token, "Safes?extendedDetails=true", ct))
+        progress?.Begin(PullProgress.Steps.Safes);
+        foreach (var item in await GetPagedAsync(token, "Safes?extendedDetails=true", ct, progress))
         {
             if (SafeFrom(item) is { } safe) snapshot.Safes.Add(safe);
             else snapshot.Warnings.Add("A Safe without a number or name was skipped.");
         }
-        if (includeBuiltInSafes) await ReadBuiltInSafesAsync(token, snapshot, ct);
+        if (includeBuiltInSafes) await ReadBuiltInSafesAsync(token, snapshot, ct, progress);
 
-        foreach (var item in await GetPagedAsync(token, "Accounts", ct))
+        progress?.Begin(PullProgress.Steps.Accounts);
+        foreach (var item in await GetPagedAsync(token, "Accounts", ct, progress))
         {
             var id = Str(item, "id");
             var parts = id?.Split('_');
@@ -138,7 +142,7 @@ public sealed class PvwaClient(HttpClient http, Uri apiRoot)
         // D-270: the CPM's verify, change and reconcile history, from each account's activity log. Only an account
         // with a CPM status has any (the status appears once the CPM first acts on it), so only those are asked:
         // one call each. A failed call loses only that account's history.
-        await ReadCpmActivityAsync(token, snapshot, ct);
+        await ReadCpmActivityAsync(token, snapshot, ct, progress);
 
         if (options?.CachedDetails is not null) await ReadAccountDetailsAsync(token, snapshot, options, ct);
 
@@ -146,8 +150,10 @@ public sealed class PvwaClient(HttpClient http, Uri apiRoot)
         // are missing, so say so rather than stop the pull.
         var members = new ConcurrentBag<PvwaMember>();
         var memberWarnings = new ConcurrentBag<string>();
+        progress?.Begin(PullProgress.Steps.SafeMembers, snapshot.Safes.Count);
         await Parallel.ForEachAsync(snapshot.Safes, new ParallelOptions { MaxDegreeOfParallelism = MemberCallParallelism, CancellationToken = ct }, async (safe, innerCt) =>
         {
+            using var _ = new AdvanceOnExit(progress);
             try
             {
                 // D-270: predefined members (Administrator, Auditors, ...) too; PVWA leaves them out unless asked.
@@ -182,12 +188,15 @@ public sealed class PvwaClient(HttpClient http, Uri apiRoot)
 
         // Users: the list has no email, so each person's details are read too (a failure there loses only that email).
         // Built-in and component users (Master, CPM, PVWA, providers) have no email, so they aren't asked about.
+        progress?.Begin(PullProgress.Steps.Users);
         var (usersJson, usersNote) = await GetUsersAsync(token, ct);
         if (usersNote is not null) snapshot.Warnings.Add(usersNote);
+        progress?.SetTotal(usersJson.Count);
         var users = new ConcurrentBag<PvwaUser>();
         var userWarnings = new ConcurrentBag<string>();
         await Parallel.ForEachAsync(usersJson, new ParallelOptions { MaxDegreeOfParallelism = UserDetailParallelism, CancellationToken = ct }, async (item, innerCt) =>
         {
+            using var _ = new AdvanceOnExit(progress);
             var id = Long(item, "id");
             var name = Str(item, "username");
             if (id is null || name is null) return;
@@ -236,7 +245,8 @@ public sealed class PvwaClient(HttpClient http, Uri apiRoot)
         snapshot.Users.AddRange(users.OrderBy(u => u.Id));
         snapshot.Warnings.AddRange(userWarnings.OrderBy(w => w, StringComparer.Ordinal));
 
-        foreach (var item in await GetPagedAsync(token, "UserGroups?includeMembers=true", ct))
+        progress?.Begin(PullProgress.Steps.Groups);
+        foreach (var item in await GetPagedAsync(token, "UserGroups?includeMembers=true", ct, progress))
         {
             var id = Long(item, "id");
             var name = Str(item, "groupName");
@@ -255,8 +265,14 @@ public sealed class PvwaClient(HttpClient http, Uri apiRoot)
             });
         }
 
-        if (options is not null) await ReadApplicationsAsync(token, snapshot, ct);
+        if (options is not null) await ReadApplicationsAsync(token, snapshot, ct, progress);
         return snapshot;
+    }
+
+    /// <summary>D-337: counts one item of a parallel step when its call ends, however it ends.</summary>
+    private readonly struct AdvanceOnExit(PullProgress? progress) : IDisposable
+    {
+        public void Dispose() => progress?.Advance();
     }
 
     /// <summary>D-282: the authentication types whose value is kept (case-insensitive); a hash and any other type keep only the type.</summary>
@@ -269,8 +285,9 @@ public sealed class PvwaClient(HttpClient http, Uri apiRoot)
     /// then keeps the ones it has), a refused application keeps that one's methods as they were. PVWA refuses + &amp; %
     /// in a URL value, so such an application's methods aren't asked for.
     /// </summary>
-    private async Task ReadApplicationsAsync(string token, PvwaSnapshot snapshot, CancellationToken ct)
+    private async Task ReadApplicationsAsync(string token, PvwaSnapshot snapshot, CancellationToken ct, PullProgress? progress)
     {
+        progress?.Begin(PullProgress.Steps.Applications);
         List<JsonElement> list;
         try
         {
@@ -283,10 +300,12 @@ public sealed class PvwaClient(HttpClient http, Uri apiRoot)
         }
 
         var apps = list.Where(a => !string.IsNullOrWhiteSpace(Str(a, "AppID"))).ToList();
+        progress?.SetTotal(apps.Count);
         var read = new ConcurrentDictionary<string, IReadOnlyList<PvwaApplicationAuthentication>>(StringComparer.Ordinal);
         var problems = new ConcurrentBag<string>();
         await Parallel.ForEachAsync(apps, new ParallelOptions { MaxDegreeOfParallelism = UserDetailParallelism, CancellationToken = ct }, async (app, innerCt) =>
         {
+            using var _ = new AdvanceOnExit(progress);
             var appId = Str(app, "AppID")!;
             if (HasClassicReservedChars(appId)) { problems.Add($"{appId} (its name has + & or %)"); return; }
             try
@@ -356,8 +375,9 @@ public sealed class PvwaClient(HttpClient http, Uri apiRoot)
     /// return is read with Get Safe details, as the others are. Their members follow with the rest. A Safe that can't be
     /// read is a warning, not a failure: the option is there to review whether this data is useful.
     /// </summary>
-    private async Task ReadBuiltInSafesAsync(string token, PvwaSnapshot snapshot, CancellationToken ct)
+    private async Task ReadBuiltInSafesAsync(string token, PvwaSnapshot snapshot, CancellationToken ct, PullProgress? progress)
     {
+        progress?.Begin(PullProgress.Steps.BuiltInSafes);
         List<string> names;
         try
         {
@@ -371,8 +391,11 @@ public sealed class PvwaClient(HttpClient http, Uri apiRoot)
         }
         var known = snapshot.Safes.Select(s => s.SafeName).ToHashSet(StringComparer.OrdinalIgnoreCase);
         var failed = new List<string>();
-        foreach (var name in names.Where(n => !known.Contains(n)))
+        var toRead = names.Where(n => !known.Contains(n)).ToList();
+        progress?.SetTotal(toRead.Count);
+        foreach (var name in toRead)
         {
+            using var _ = new AdvanceOnExit(progress);
             try
             {
                 if (SafeFrom(await GetJsonAsync(token, $"Safes/{Uri.EscapeDataString(name)}/", ct)) is { } safe) snapshot.Safes.Add(safe);
@@ -405,8 +428,11 @@ public sealed class PvwaClient(HttpClient http, Uri apiRoot)
     private static int? CountOf(JsonElement root) =>
         root.ValueKind == JsonValueKind.Object && root.TryGetProperty("count", out var count) && count.TryGetInt32(out var n) ? n : null;
 
-    /// <summary>Safe, account and member lists return <c>{value: [...]}</c>; offset and limit page through them.</summary>
-    private async Task<List<JsonElement>> GetPagedAsync(string token, string path, CancellationToken ct)
+    /// <summary>
+    /// Safe, account and member lists return <c>{value: [...]}</c>; offset and limit page through them. D-337: with
+    /// <paramref name="progress"/>, each page counts toward the step, out of the total PVWA reports (<c>count</c>) if any.
+    /// </summary>
+    private async Task<List<JsonElement>> GetPagedAsync(string token, string path, CancellationToken ct, PullProgress? progress = null)
     {
         var all = new List<JsonElement>();
         var sep = path.Contains('?') ? '&' : '?';
@@ -414,6 +440,8 @@ public sealed class PvwaClient(HttpClient http, Uri apiRoot)
         {
             var root = await GetJsonAsync(token, $"{path}{sep}limit={PageSize}&offset={offset}", ct);
             var page = ArrayOf(root, "value");
+            if (offset == 0 && CountOf(root) is { } total) progress?.SetTotal(total);
+            progress?.Advance(page.Count);
             all.AddRange(page);
             if (page.Count < PageSize) return all;
             if (offset > 10_000_000) throw new PvwaException($"PVWA '{path}' kept returning full pages; stopped after 10 million rows.");
@@ -484,14 +512,16 @@ public sealed class PvwaClient(HttpClient http, Uri apiRoot)
     /// API/Accounts/{id}/Activities answered on the lab's 14.6 but has no documentation, so it isn't used.
     /// Its times are text ("10/20/2026 00:24:45"); on the lab they matched the UTC epoch times of the same events.
     /// </summary>
-    private async Task ReadCpmActivityAsync(string token, PvwaSnapshot snapshot, CancellationToken ct)
+    private async Task ReadCpmActivityAsync(string token, PvwaSnapshot snapshot, CancellationToken ct, PullProgress? progress)
     {
         var indexes = Enumerable.Range(0, snapshot.Accounts.Count).Where(i => snapshot.Accounts[i].CpmStatus is not null).ToList();
+        progress?.Begin(PullProgress.Steps.CpmActivity, indexes.Count);
         var found = new ConcurrentDictionary<int, IReadOnlyList<PvwaCpmActivity>>();
         var warnings = new ConcurrentBag<string>();
         var unreadableTimes = 0;
         await Parallel.ForEachAsync(indexes, new ParallelOptions { MaxDegreeOfParallelism = UserDetailParallelism, CancellationToken = ct }, async (i, innerCt) =>
         {
+            using var _ = new AdvanceOnExit(progress);
             var account = snapshot.Accounts[i];
             try
             {
@@ -544,8 +574,11 @@ public sealed class PvwaClient(HttpClient http, Uri apiRoot)
         var found = new ConcurrentDictionary<int, PvwaAccountDetail>();
         var problems = new ConcurrentBag<string>();
         var failed = new ConcurrentBag<int>();
+        // D-337: a failed call that is tried again below was already counted.
+        options.Progress?.Begin(PullProgress.Steps.AccountDetails, indexes.Count);
         await Parallel.ForEachAsync(indexes, new ParallelOptions { MaxDegreeOfParallelism = UserDetailParallelism, CancellationToken = ct }, async (i, innerCt) =>
         {
+            using var _ = new AdvanceOnExit(options.Progress);
             var account = snapshot.Accounts[i];
             try
             {
