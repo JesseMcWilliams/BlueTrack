@@ -368,3 +368,11 @@ Within a type, the order shown on the page (Up/Down). No match gives the default
 **Not yet verified against a real domain:** `GetUnderlyingSearcher()` binding with LDAPS or explicit credentials, how extensionAttributeN look in the target forest, and the search cost on a large group set.
 
 **Updated 2026-11-04:** risk score overrides can be set or cleared on many accounts at once from Reports > Risk Score (D-315, EditAccountProgress, one audit entry per account) and from the Accounts import's Risk Score Override column (D-323).
+
+## Defaults and findings (D-349, script 72)
+
+Admin > Risk Score has three tabs: **Bands** (D-120), **Defaults** and **Findings**.
+
+- **Default scores** (`web.app_config`): a target the load makes from an account's address (`DefaultAddressTargetRiskScore`, used by `usp_DeriveTargetsFromAccountAddress`), and the Add Target and Add Access Group forms' starting values. All 0 by default. Existing rows keep their scores.
+- **Findings** (`web.risk_finding_type`, `web.risk_finding`): `web.usp_DeriveRiskFindings` rebuilds them from the DNA data after a DNA import, tracking or purge, and at the start of `usp_RecalculateRiskScores`. A hard-coded credential counts on the target it was found on (Machine Name against the target's name and identifiers) and on the BlueTrack account it names (user name at the Target System Address); it is the privileged kind when DNA lists that user as privileged on the target system or machine, or the account's AD account is classed Admin. A linked DNA account's Pass-the-Hash and non-compliant findings count on its BlueTrack account. When the set changes, every score is marked stale.
+- **Scoring:** `ufn_ReachableRiskValues` returns each counted kind once per reachable target and once per kind on the account itself (EntityType `Finding`), so a finding is weighed by the active algorithm like a target with that score, and the Risk Score report's drill-down names it ("Hard-coded secret on SRV01 (3)").

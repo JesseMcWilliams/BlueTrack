@@ -343,7 +343,10 @@
     "noContributors": "No contributing Targets or Access Groups found.",
     "colType": "Type",
     "colRiskValue": "Risk Value",
-    "sortHelp": "Click a column to sort by it; shift-click another column to add it as a secondary sort key."
+    "sortHelp": "Click a column to sort by it; shift-click another column to add it as a secondary sort key.",
+    "entityType_Target": "Target",
+    "entityType_AccessGroup": "Access group",
+    "entityType_Finding": "Finding"
   },
   "stageStatusFunnelSummary": {
     "title": "Stage/Status Funnel Summary",

@@ -24,6 +24,13 @@ import { formatCount } from '../../utils/formatCount'
 
 const { t } = useI18n()
 
+// D-349: a contributor is a target, an access group or a finding.
+const entityTypeLabels = computed(() => ({
+  Target: t('reports.riskScoreReport.entityType_Target'),
+  AccessGroup: t('reports.riskScoreReport.entityType_AccessGroup'),
+  Finding: t('reports.riskScoreReport.entityType_Finding')
+}))
+
 const { totalCount, filteredCount, readTotalCount } = useTotalCount()
 const pageSizeStore = usePageSizeStore()
 
@@ -295,7 +302,7 @@ onMounted(load)
                 </thead>
                 <tbody>
                   <tr v-for="c in contributors" :key="`${c.entityType}-${c.entityKey}`">
-                    <td>{{ c.entityType }}</td>
+                    <td>{{ entityTypeLabels[c.entityType] ?? c.entityType }}</td>
                     <td>{{ c.entityName }}</td>
                     <td>{{ formatCount(c.riskValue) }}</td>
                   </tr>

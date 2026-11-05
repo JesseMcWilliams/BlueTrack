@@ -44,6 +44,14 @@ const sorTypes = ref([])
 const editing = ref({ groupName: '', groupIdentifier: '', groupScope: 'Domain', foundOnTargetKey: null, sorTypeKey: null, sorAddress: '', baseRiskScore: 0, description: '', discoverySource: 'Manual' })
 
 onMounted(async () => {
+  // D-349: a new access group starts at the default on Admin > Risk Score, Defaults.
+  if (!isEditMode.value) {
+    fetch('/api/risk-score/defaults').then(r => (r.ok ? r.json() : null)).then(data => {
+      if (data && !isEditMode.value) editing.value.baseRiskScore = data.defaultAccessGroupRiskScore
+    }).catch(() => {
+      // Non-fatal -- the score just starts at 0.
+    })
+  }
   const referenceDataPromise = Promise.all([
     fetch('/api/admin/access-groups/sor-types').then(r => (r.ok ? r.json() : [])).then(data => { sorTypes.value = data }).catch(() => {
       // Non-fatal -- the SOR Type dropdown just won't have options if this fails.

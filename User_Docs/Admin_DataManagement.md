@@ -46,7 +46,7 @@ Weak import matches (e.g. an identifier that's only an IP address) land in **Adm
 - **New Target** keeps it as a separate target.
 - **Ignore** creates nothing, and later imports skip the same row.
 
-Later imports of a row you've linked or kept go straight to that target, so each row is asked about once. Linked targets are hidden on **Targets** unless **Linked targets** is set to **Show**; open one with **Edit Target** to see what it's linked to, and **Unlink** it if the link was wrong. Check the queue periodically so ambiguous imports don't sit unresolved. Details: `Admin_SettingsReference.md`, "Target Match Review".
+Later imports of a row you've linked or kept go straight to that target, so each row is asked about once. Linked targets are hidden on **Targets** unless **Linked targets** is set to **Show**; open one with **Edit Target** to see what it's linked to, and **Unlink** it if the link was wrong. Check the queue periodically so ambiguous imports don't sit unresolved. Details: `Admin_SettingsReference_Data.md`, "Target Match Review".
 
 ## 3. Review Discovered Accounts
 

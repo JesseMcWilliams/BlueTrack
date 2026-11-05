@@ -79,6 +79,7 @@ builder.Services.AddScoped<BlueTrack.Api.Dna.DnaRepository>();   // D-325
 builder.Services.AddScoped<BlueTrack.Api.Dna.DnaImportService>();   // D-341
 builder.Services.AddScoped<BlueTrack.Api.Dna.DnaTrackRuleRepository>();   // D-342
 builder.Services.AddScoped<RiskScoreBandRepository>();
+builder.Services.AddScoped<RiskDefaultsRepository>();   // D-349
 builder.Services.AddScoped<TargetMatchingService>();
 builder.Services.AddScoped<ImportMappingService>();
 // Data Sources phase 1: the CSV import logic, shared by the Bulk Actions
