@@ -114,8 +114,16 @@ public sealed class DnaRepository(IDbConnectionFactory connectionFactory)
             """, new { importKey }, transaction, commandTimeout: 600);
 
         transaction.Commit();
+        await RefreshRiskFindingsAsync(connection);
         return importKey;
     }
+
+    /// <summary>
+    /// D-349: rebuilds web.risk_finding from the DNA data now (hard-coded credentials, and the BlueTrack accounts DNA
+    /// accounts are linked to); when the findings change, every risk score is marked stale for the next recalculation.
+    /// </summary>
+    private static Task RefreshRiskFindingsAsync(System.Data.IDbConnection connection) =>
+        connection.ExecuteAsync("EXEC web.usp_DeriveRiskFindings", commandTimeout: 600);
 
     private static readonly (string Name, Type Type)[] Columns =
     [
@@ -251,6 +259,7 @@ public sealed class DnaRepository(IDbConnectionFactory connectionFactory)
             SELECT @@ROWCOUNT;
             """, new { trackedBy = trackedBy.Length > 250 ? trackedBy[..250] : trackedBy }, transaction, commandTimeout: 600);
         transaction.Commit();
+        await RefreshRiskFindingsAsync(connection);
         return linked;
     }
 
@@ -280,20 +289,22 @@ public sealed class DnaRepository(IDbConnectionFactory connectionFactory)
     public async Task<int> PurgeAllAsync()
     {
         using var connection = connectionFactory.Create();
-        return await connection.ExecuteScalarAsync<int>("""
+        var deleted = await connection.ExecuteScalarAsync<int>("""
             DECLARE @n INT = (SELECT COUNT(*) FROM web.dna_account);
             DELETE FROM web.dna_account;
             DELETE FROM web.dna_hard_coded_credential;
             DELETE FROM web.dna_import;
             SELECT @n;
             """, commandTimeout: 300);
+        await RefreshRiskFindingsAsync(connection);
+        return deleted;
     }
 
     /// <summary>D-343: deletes the imports (and their accounts) made more than <paramref name="days"/> days ago. Returns (imports, accounts) deleted.</summary>
     public async Task<(int Imports, int Accounts)> PurgeOlderThanAsync(int days)
     {
         using var connection = connectionFactory.Create();
-        return await connection.QuerySingleAsync<(int, int)>("""
+        var purged = await connection.QuerySingleAsync<(int, int)>("""
             DECLARE @before DATETIME2 = DATEADD(DAY, -@days, SYSUTCDATETIME());
             DELETE d FROM web.dna_account d JOIN web.dna_import i ON i.DnaImportKey = d.DnaImportKey WHERE i.ImportedAt < @before;
             DECLARE @accounts INT = @@ROWCOUNT;
@@ -301,6 +312,8 @@ public sealed class DnaRepository(IDbConnectionFactory connectionFactory)
             DELETE FROM web.dna_import WHERE ImportedAt < @before;
             SELECT @@ROWCOUNT, @accounts;
             """, new { days }, commandTimeout: 300);
+        if (purged.Item1 > 0) await RefreshRiskFindingsAsync(connection);
+        return purged;
     }
 
     /// <summary>D-343, D-344: the retention period and the columns only ViewDnaSensitiveColumns may see.</summary>

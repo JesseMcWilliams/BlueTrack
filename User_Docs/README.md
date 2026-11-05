@@ -2,7 +2,7 @@
 
 Short, linear, role-based walkthroughs — "what do I do first, then next" — as opposed to the field-by-field reference material in `Claude_Docs/`, which these guides link out to rather than duplicate.
 
-These guides live in `User_Docs/` (they were in `Guides/` before; update any bookmark or link to the old path). The Word deliverables (the Installation, Development Host Setup, Getting Started and Administrator Settings guides, and the Release Notes) are in `Published_Docs/`. They're built from `Admin_Installation.md`, `Developer_HostSetup.md`, `User_GettingStarted.md`, `Admin_SettingsReference.md` with `Admin_SettingsReference_Notifications.md`, and `Release_Notes.md` when a release is made (`python Published_Docs/build_published_docs.py`, needs python-docx), so between releases the guides here are the more current.
+These guides live in `User_Docs/` (they were in `Guides/` before; update any bookmark or link to the old path). The Word deliverables (the Installation, Development Host Setup, Getting Started and Administrator Settings guides, and the Release Notes) are in `Published_Docs/`. They're built from `Admin_Installation.md`, `Developer_HostSetup.md`, `User_GettingStarted.md`, `Admin_SettingsReference.md` with `Admin_SettingsReference_Data.md` and `Admin_SettingsReference_Notifications.md`, and `Release_Notes.md` when a release is made (`python Published_Docs/build_published_docs.py`, needs python-docx), so between releases the guides here are the more current.
 
 ## New to BlueTrack? Start here
 
@@ -15,8 +15,8 @@ These guides live in `User_Docs/` (they were in `Guides/` before; update any boo
 1. [Admin_Installation.md](Admin_Installation.md) — first-time setup, from prerequisites through first sign-in.
 2. [Admin_Configuration.md](Admin_Configuration.md) — the day-2 settings to review before regular use begins.
 3. [Admin_DataManagement.md](Admin_DataManagement.md) — the recurring operational tasks on a running environment.
-4. [Admin_SettingsReference.md](Admin_SettingsReference.md) — every setting, its default, the recommended value and why. Published as the Administrator Settings Guide.
-5. [Admin_SettingsReference_Notifications.md](Admin_SettingsReference_Notifications.md) — the second part of the settings reference: Secrets Store, credentials, LDAP, email notifications (including OAuth2 sign-in) and SIEM forwarding. Published with part one as the Administrator Settings Guide.
+4. [Admin_SettingsReference.md](Admin_SettingsReference.md), [Admin_SettingsReference_Data.md](Admin_SettingsReference_Data.md) and [Admin_SettingsReference_Notifications.md](Admin_SettingsReference_Notifications.md) — every setting, its default, the recommended value and why. Published together as the Administrator Settings Guide.
+5. [Admin_SettingsReference_Notifications.md](Admin_SettingsReference_Notifications.md) — the third part of the settings reference: Secrets Store, credentials, LDAP, email notifications (including OAuth2 sign-in), SIEM forwarding and API keys. Published with the other parts as the Administrator Settings Guide.
 6. [Admin_ApiAccess.md](Admin_ApiAccess.md) — calling the API from a script: API keys and identity provider tokens, with examples. Published as the API Access Guide at the next release.
 
 ## User guides (by role)

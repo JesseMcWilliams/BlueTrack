@@ -27,7 +27,7 @@ DOCS = [
     ('User_Docs/User_GettingStarted.md', 'Published_Docs/Getting_Started_Guide.docx',
      'Getting Started with BlueTrack', 'BlueTrack: CyberArk PAM Blueprint progress tracking'),
     # A list of sources is one guide: later parts start at their first '## ' heading.
-    (['User_Docs/Admin_SettingsReference.md', 'User_Docs/Admin_SettingsReference_Notifications.md'],
+    (['User_Docs/Admin_SettingsReference.md', 'User_Docs/Admin_SettingsReference_Data.md', 'User_Docs/Admin_SettingsReference_Notifications.md'],
      'Published_Docs/Administrator_Settings_Guide.docx',
      'Administrator Settings Guide', 'BlueTrack: CyberArk PAM Blueprint progress tracking'),
     ('User_Docs/Admin_UpgradeGuide.md', 'Published_Docs/Upgrade_Guide.docx',

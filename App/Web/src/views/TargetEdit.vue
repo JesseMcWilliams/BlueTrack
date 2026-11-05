@@ -67,6 +67,14 @@ function removeIdentifierRow(index) {
 }
 
 onMounted(async () => {
+  // D-349: a new target starts at the default on Admin > Risk Score, Defaults.
+  if (!isEditMode.value) {
+    fetch('/api/risk-score/defaults').then(r => (r.ok ? r.json() : null)).then(data => {
+      if (data && !isEditMode.value) editing.value.riskScore = data.defaultTargetRiskScore
+    }).catch(() => {
+      // Non-fatal -- the score just starts at 0.
+    })
+  }
   const referenceDataPromise = Promise.all([
     fetch('/api/applications').then(r => (r.ok ? r.json() : [])).then(data => { applications.value = data }).catch(() => {
       // Non-fatal -- the Application dropdown just won't have options if this fails.

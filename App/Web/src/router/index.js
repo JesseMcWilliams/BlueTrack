@@ -603,23 +603,25 @@ const routes = [
         props: true
       },
       {
+        // D-349: Admin > Risk Score, with Bands, Defaults and Findings tabs (?tab=); the path stays for links.
         path: 'risk-score-bands',
+        alias: 'risk-score',
         name: 'admin-risk-score-bands',
         meta: { breadcrumb: 'shell.routes.adminRiskScoreBands', breadcrumbParent: 'admin' },
-        component: () => import('../views/admin/RiskScoreBands.vue')
+        component: () => import('../views/admin/RiskScoreAdmin.vue')
       },
       // D-124 Phase 4: Add/Edit moved off RiskScoreBands.vue's own inline
       // form onto its own routed page.
       {
         path: 'risk-score-bands/new',
         name: 'admin-risk-score-band-create',
-        meta: { breadcrumb: 'shell.routes.adminRiskScoreBandCreate', breadcrumbParent: 'admin' },
+        meta: { breadcrumb: 'shell.routes.adminRiskScoreBandCreate', breadcrumbParent: 'admin-risk-score-bands' },
         component: () => import('../views/admin/RiskScoreBandEdit.vue')
       },
       {
         path: 'risk-score-bands/:riskScoreBandKey',
         name: 'admin-risk-score-band-edit',
-        meta: { breadcrumb: 'shell.routes.adminRiskScoreBandEdit', breadcrumbParent: 'admin' },
+        meta: { breadcrumb: 'shell.routes.adminRiskScoreBandEdit', breadcrumbParent: 'admin-risk-score-bands' },
         component: () => import('../views/admin/RiskScoreBandEdit.vue'),
         props: true
       },

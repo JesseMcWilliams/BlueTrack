@@ -39,6 +39,9 @@ public class DnaTrackingTests(BlueTrackWebApplicationFactory factory) : IClassFi
             DELETE FROM web.dna_column_setting; UPDATE web.app_config SET DnaRetentionDays = NULL;
             DELETE p FROM dbo.fact_account_progress p JOIN dbo.fact_account fa ON fa.AccountKey = p.AccountKey
                 JOIN dbo.dim_source_system s ON s.SourceSystemKey = fa.SourceSystemKey WHERE s.SourceSystemCode = 'DNA' AND fa.UserName LIKE @token + '%';
+            -- D-349: a tracked account with a DNA finding gets a risk score row.
+            DELETE r FROM web.account_risk_score r JOIN dbo.fact_account fa ON fa.AccountKey = r.AccountKey
+                JOIN dbo.dim_source_system s ON s.SourceSystemKey = fa.SourceSystemKey WHERE s.SourceSystemCode = 'DNA' AND fa.UserName LIKE @token + '%';
             DELETE fa FROM dbo.fact_account fa JOIN dbo.dim_source_system s ON s.SourceSystemKey = fa.SourceSystemKey
                 WHERE s.SourceSystemCode = 'DNA' AND fa.UserName LIKE @token + '%';
             """, new { token = _token });
@@ -266,6 +269,7 @@ public class DnaTrackingTests(BlueTrackWebApplicationFactory factory) : IClassFi
         {
             await connection.ExecuteAsync("""
                 UPDATE web.dna_account SET TrackedAccountKey = NULL WHERE TrackedAccountKey IN (SELECT AccountKey FROM dbo.fact_account WHERE SourceAccountId LIKE @t + '-%' OR SourceAccountId = @sid);
+                DELETE FROM web.account_risk_score WHERE AccountKey IN (SELECT AccountKey FROM dbo.fact_account WHERE SourceAccountId LIKE @t + '-%' OR SourceAccountId = @sid);
                 DELETE FROM dbo.fact_account WHERE SourceAccountId LIKE @t + '-%' OR SourceAccountId = @sid;
                 """, new { t, sid });
         }

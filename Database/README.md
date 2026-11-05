@@ -87,6 +87,7 @@ instead.
 | 69 | `69_BlueTrack_ProgressRuleIgnoreCase.sql` | D-338: `fn_ProgressConditionMatches` compares a Progress Rule condition's text with `COLLATE Latin1_General_CI_AS`, so rules ignore case on a case-sensitive server or database. |
 | 70 | `70_BlueTrack_DnaFeedTrackRetention.sql` | D-341 to D-344: the newer DNA format's columns on `web.dna_account`; the `DNA` source system; feed type `DnaReport`; `app_config.DnaRetentionDays`; `web.dna_column_setting`; `web.dna_track_rule` and its conditions; `dna_account.TrackedBy`; D-347 `dna_account.IsUnresolvedSid`; D-345 `web.dna_hard_coded_credential` and `dna_import.HardCodedCount`; permission ViewDnaSensitiveColumns (Admin); audit types DnaPurged, DnaAccountsTracked, DnaSettingsChanged, DnaTrackRuleChanged. |
 | 71 | `71_BlueTrack_RunStallAlerts.sql` | D-348: `web.app_config.RunStallMinutes` (5-1440, default 30), `cyberark_direct_pull.LastProgressAt`, notification type RunStalled (off), audit types ImportLoadCancelled and ImportLoadSettingsChanged. |
+| 72 | `72_BlueTrack_RiskDefaultsAndFindings.sql` | D-349: default scores in `web.app_config`; `web.risk_finding_type` and `web.risk_finding` with `web.usp_DeriveRiskFindings` (DNA hard-coded secrets, Pass-the-Hash, non-compliant); `ufn_ReachableRiskValues` and `_ForAccessGroupSet` return findings; `usp_RecalculateRiskScores` derives them first; `usp_DeriveTargetsFromAccountAddress` uses the default; audit type RiskDefaultsChanged. |
 
 ## The baseline (D-195)
 

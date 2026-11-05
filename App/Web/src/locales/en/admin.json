@@ -138,7 +138,7 @@
     "credentials": "Credentials & LDAP",
     "targetMatchReview": "Target Match Review",
     "importMappingProfiles": "Import Mapping Profiles",
-    "riskScoreBands": "Risk Score Bands",
+    "riskScoreBands": "Risk Score",
     "dataSources": "Data Sources",
     "pullProblem": "The latest Self-Hosted Direct pull failed or was rejected.",
     "noSections": "No admin sections available -- you don't hold any admin permission.",
@@ -1148,7 +1148,7 @@
   "riskScoreBands": {
     "emptyNone": "No risk score bands are defined yet.",
     "confirmDelete": "Delete band \"{name}\"? This cannot be undone.",
-    "title": "Risk Score Bands",
+    "title": "Bands",
     "intro": "Named ranges over the computed risk score (0-1000) -- e.g. Low/Medium/High/Critical. The resulting band name shows up on the Account Progress list and the Risk Score report. A new/edited range must not overlap any other existing band.",
     "newBand": "+ New Band",
     "minScore": "Min Score",
@@ -1562,5 +1562,45 @@
     "deleted": "{name} deleted.",
     "reordered": "Order saved.",
     "confirmDelete": "Delete the stage \"{name}\"?"
+  },
+  "riskScoreAdmin": {
+    "title": "Risk Score",
+    "tabBands": "Bands",
+    "tabDefaults": "Defaults",
+    "tabFindings": "Findings"
+  },
+  "riskScoreDefaults": {
+    "intro": "The scores BlueTrack starts with, and how much each kind of finding adds to the risk score of the accounts it affects. Scores are 0 to 1,000.",
+    "scoresHeading": "Default scores",
+    "addressTarget": "Target made from an account's address",
+    "addressTargetHelp": "The nightly load makes a target for each account address that has none, with this score. Targets made before keep theirs.",
+    "newTarget": "New target",
+    "newAccessGroup": "New access group",
+    "newHelp": "The score a new target or access group starts with on its Add form.",
+    "findingsHeading": "Findings",
+    "findingsIntro": "A finding counts like a target the account reaches, with this risk value, in the active risk algorithm: a hard-coded secret found on a system counts for every account that reaches that target, and for the account it names. Changing a value marks every score to recalculate: use Recalculate Now on Reports > Risk Score, or wait for the nightly load.",
+    "colFinding": "Finding",
+    "colRiskValue": "Risk value",
+    "colCounts": "Counts",
+    "riskValueFor": "Risk value for {name}",
+    "countsFor": "{name} counts",
+    "savedRescore": "Saved. Every score is marked to recalculate: use Recalculate Now on Reports > Risk Score, or wait for the nightly load."
+  },
+  "riskFindings": {
+    "intro": "What raises risk scores now, from the latest DNA import: each hard-coded secret on the system it was found on and on the account it names, and Pass-the-Hash and non-compliant DNA accounts on the BlueTrack account they are linked to. Rows is how many DNA rows gave the finding.",
+    "refresh": "Refresh from DNA",
+    "refreshed": "Findings refreshed. Scores change at the next recalculation.",
+    "capped": "Showing the first {shown} of {total}.",
+    "kind": "Finding",
+    "allKinds": "All",
+    "colFinding": "Finding",
+    "colOn": "On",
+    "colRows": "Rows",
+    "colRiskValue": "Risk value",
+    "target": "Target",
+    "account": "Account",
+    "at": "at {address}",
+    "notCounted": "Not counted",
+    "emptyNone": "No findings. Import DNA on Admin > Data Sources to find hard-coded secrets and risky accounts."
   }
 }

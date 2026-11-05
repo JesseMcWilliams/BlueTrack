@@ -2,7 +2,7 @@
 
 **For BlueTrack administrators**
 
-This is the second part of the settings reference. The first part, [Admin_SettingsReference.md](Admin_SettingsReference.md), explains how to read the tables and covers Global Application Configuration, sign-in and access, data and risk scoring, the Deployment page and the installer. This part covers the Secrets Store, the credentials BlueTrack signs in with, LDAP, email notifications and forwarding the audit log to a SIEM. Both parts are published together as the Administrator Settings Guide.
+This is the third part of the settings reference. The first part, [Admin_SettingsReference.md](Admin_SettingsReference.md), explains how to read the tables and covers Global Application Configuration and sign-in and access; the second, [Admin_SettingsReference_Data.md](Admin_SettingsReference_Data.md), covers data and risk scoring, the Deployment page and the installer. This part covers the Secrets Store, the credentials BlueTrack signs in with, LDAP, email notifications, forwarding the audit log to a SIEM and API keys. All three are published together as the Administrator Settings Guide.
 
 ## 6. Secrets Store and Credentials
 

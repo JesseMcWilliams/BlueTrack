@@ -51,7 +51,7 @@ async function remove(item) {
 
 <template>
   <div>
-    <h2>{{ t('admin.riskScoreBands.title') }}</h2>
+    <h3>{{ t('admin.riskScoreBands.title') }}</h3>
     <p>{{ t('admin.riskScoreBands.intro') }}</p>
     <p v-if="error" role="alert">{{ error }}</p>
     <p v-if="loading" role="status">{{ t('common.loading') }}</p>

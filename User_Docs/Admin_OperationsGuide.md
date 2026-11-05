@@ -254,7 +254,7 @@ ORDER BY StartedAt DESC;
 
 **Seals.** The API seals every audit event within seconds (table `web.audit_chain`), with a key it keeps protected under the app pool account; the app's own SQL account can add seals but not change or delete them. After an upgrade the existing log is sealed in the background, oldest first. **Verify** on the Audit Log page (anyone with `ViewAuditLog`) checks every seal; the **AuditChainBroken** notification does it daily. If it reports a problem, the database was changed outside BlueTrack: find who in the SQL Server audit (below) and compare with the SIEM's copy. Don't restore the key table or the seals from another backup: the seals only match the key they were made with.
 
-**SQL Server audit of the audit log.** The installer's `Db.SqlServerAudit` step (Admin_SettingsReference.md, section 5) creates the server audit **BlueTrack (*database*) - Audit Log Changes**, writing to the Windows Security log every UPDATE or DELETE on the audit tables and their seals, by anyone. Check that it's recording:
+**SQL Server audit of the audit log.** The installer's `Db.SqlServerAudit` step (Admin_SettingsReference_Data.md, section 5) creates the server audit **BlueTrack (*database*) - Audit Log Changes**, writing to the Windows Security log every UPDATE or DELETE on the audit tables and their seals, by anyone. Check that it's recording:
 ```sql
 SELECT name, status_desc, status_time FROM sys.dm_server_audit_status;
 ```

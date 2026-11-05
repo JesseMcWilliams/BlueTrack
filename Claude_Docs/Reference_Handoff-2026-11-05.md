@@ -48,7 +48,7 @@ The user's two DNA workbooks are in `C:\Code\References\Data_DNA` and are test d
 1. **Commit the DNA branch** when the user says: PR, merge after CI, deploy (the user's pattern). Then the 1.5.3 Upgrade Guide row covers scripts 68 to 70, `Db.SessionActivity`, the new permission (Admins need Reload My Rights), and the saved `PowerBiReaderAccount`.
 2. **Two merged branches still on GitHub and local**: `2026-10-21-field-permissions-signin` (#220) and `2026-10-21-platform-mapping-suggestions` (#221), both merged. Deleting them was blocked by auto mode (Git Destructive) on 2026-11-05; ask the user to delete them or allow it.
 3. **The dev host's SQL Server TLS certificate has expired**: `sqlcmd` needs `-C`. Environment task (`Planning_Backlog.md`).
-4. **Account `60_6`**: every pull says its classic details weren't found by user name and address (`Planning_Backlog.md`).
+4. **Account `60_6`**: its classic details are never read because the classic search returns only one of the accounts that mention it, and the others link it as their reconcile account (`Planning_Backlog.md`, "A shared linked account's details are never read").
 5. **More on stuck pulls and loads** (`Planning_Backlog.md`): no-progress alerts, a Deployment-page/health-script check, Cancel for a running load. D-337 built the first three of six proposals.
 6. **Not proven live** (`Planning_Backlog.md`, "Built, but never proven"): as before, plus a DNA feed from a real folder and a real upload of the new workbook on the dev site, linking against real CyberArk domain accounts (D-346/347), and the D-337 waits during a real stuck load.
 7. **User docs** (`Planning_User-Docs-Backlog.md`): rows for D-332 to D-347 and the search fix.
