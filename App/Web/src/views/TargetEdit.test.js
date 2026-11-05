@@ -77,6 +77,20 @@ describe('TargetEdit.vue', () => {
     expect(wrapper.get('select').element.value).toBe('1')
   })
 
+  it('lists identifier types alphabetically, and a new row still defaults to the highest-priority type', async () => {
+    mockReferenceData()
+    const byPriority = [{ identifierType: 'Hostname', matchPriority: 10 }, { identifierType: 'dnsName', matchPriority: 20 }, { identifierType: 'IpAddress', matchPriority: 30 }]
+    const fetchReferenceData = globalThis.fetch
+    globalThis.fetch = vi.fn((url) => (url === '/api/admin/targets/identifier-types' ? Promise.resolve(jsonResponse(byPriority)) : fetchReferenceData(url)))
+    const wrapper = mount(TargetEdit, { props: { targetKey: 5 }, global: { plugins: [makeRouter()] } })
+    await flushPromises()
+
+    const typeSelect = () => wrapper.findAll('select').filter(s => s.findAll('option').some(o => o.text() === 'IpAddress'))
+    expect(typeSelect()[0].findAll('option').map(o => o.text())).toEqual(['dnsName', 'Hostname', 'IpAddress'])
+    await wrapper.findAll('button').find(b => b.text() === '+ Add Identifier').trigger('click')
+    expect(typeSelect().at(-1).element.value).toBe('Hostname')
+  })
+
   it('edit mode: fetches the target by key and pre-fills the form, including identifiers', async () => {
     mockReferenceData()
     const wrapper = mount(TargetEdit, { props: { targetKey: 5 }, global: { plugins: [makeRouter()] } })

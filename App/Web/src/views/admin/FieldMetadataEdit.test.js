@@ -25,7 +25,7 @@ describe('FieldMetadataEdit field type and reference table', () => {
     const wrapper = mount(FieldMetadataEdit)
     await flushPromises()
 
-    expect(field(wrapper, 'Field Type').findAll('option').map(o => o.text())).toEqual(['Text', 'TextArea', 'Dropdown', 'Date'])
+    expect(field(wrapper, 'Field Type').findAll('option').map(o => o.text())).toEqual(['Date', 'Dropdown', 'Text', 'TextArea'])
     expect(field(wrapper, 'Reference Table')).toBeUndefined()
 
     await field(wrapper, 'Field Type').find('select').setValue('Dropdown')

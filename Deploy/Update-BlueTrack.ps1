@@ -258,10 +258,21 @@ function Get-DownloadFolderAccess {
 }
 
 $target = Join-Path $DownloadFolder "BlueTrack-$label"
+# A rerun (after an install that stopped part-way, say) reuses the download when it is the same commit, so that copy's
+# saved answers and progress are kept and its installer can pick up where it stopped. A folder holding anything else
+# under the same name is never reused: that stops, as before.
+$reuse = $false
 if (Test-Path $target) {
-    throw "$target already exists -- that version was downloaded before. Delete or rename it to download again."
+    $recordPath = Join-Path $target 'download.json'
+    $record = if (Test-Path $recordPath) { Get-Content -Path $recordPath -Raw | ConvertFrom-Json } else { $null }
+    if ($record -and $record.Commit -eq $commitSha -and (Test-Path (Join-Path $target 'Deploy\Install-BlueTrack.ps1'))) {
+        $reuse = $true
+    } else {
+        $found = if ($record) { "commit $($record.Commit)" } else { 'no download.json' }
+        throw "$target already exists but isn't commit $commitSha of '$ref' ($found). Delete or rename it to download again."
+    }
 }
-if (-not $PSCmdlet.ShouldProcess($target, "Download $Repository at '$ref' and extract it")) { return }
+if (-not $reuse -and -not $PSCmdlet.ShouldProcess($target, "Download $Repository at '$ref' and extract it")) { return }
 
 New-Item -ItemType Directory -Path $DownloadFolder -Force | Out-Null
 # D-197: what's extracted here is later run elevated (the installer), so only
@@ -289,40 +300,49 @@ if ($folderAccess.Restricted) {
     Write-Warning ("The download folder '$DownloadFolder' can be changed by: $($changers -join ', '). The installer in what is downloaded here runs as an administrator, so anyone who can change this folder can run code as one. Its permissions are left as they are; pass -LockDownFolder to limit it to Administrators and SYSTEM (this also resets the permissions of everything inside it).")
 }
 
-$zip = Join-Path $DownloadFolder "BlueTrack-$label.zip"
-$staging = Join-Path $DownloadFolder "BlueTrack-$label.extracting"
-Remove-Item -Path $zip, $staging -Recurse -Force -ErrorAction SilentlyContinue   # D-197: nothing left over is reused
-try {
-    Write-Host "Downloading $Repository at '$ref'..."
-    Invoke-WebRequest -Uri "$ApiRoot/zipball/$commitSha" -Headers $Headers -OutFile $zip -UseBasicParsing
-    Expand-Archive -Path $zip -DestinationPath $staging -Force
-    # GitHub's zip holds one top folder, <owner>-<repo>-<short commit>.
-    $inner = @(Get-ChildItem -Path $staging -Directory)
-    if ($inner.Count -ne 1) { throw "Unexpected zip layout: expected one top-level folder, found $($inner.Count)." }
-    Move-Item -Path $inner[0].FullName -Destination $target
-    [pscustomobject]@{
-        Repository   = $Repository
-        Ref          = $ref
-        Commit       = $commitSha
-        SignedRelease = $isRelease
-        DownloadedAt = (Get-Date).ToString('o')
-        DownloadedBy = "$env:USERDOMAIN\$env:USERNAME"
-    } | ConvertTo-Json | Set-Content -Path (Join-Path $target 'download.json') -Encoding UTF8
-} finally {
-    Remove-Item -Path $zip, $staging -Recurse -Force -ErrorAction SilentlyContinue
+if ($reuse) {
+    Write-Host "$target already holds '$ref' (commit $commitSha); using it again." -ForegroundColor Green
+} else {
+    $zip = Join-Path $DownloadFolder "BlueTrack-$label.zip"
+    $staging = Join-Path $DownloadFolder "BlueTrack-$label.extracting"
+    Remove-Item -Path $zip, $staging -Recurse -Force -ErrorAction SilentlyContinue   # D-197: nothing left over is reused
+    try {
+        Write-Host "Downloading $Repository at '$ref'..."
+        Invoke-WebRequest -Uri "$ApiRoot/zipball/$commitSha" -Headers $Headers -OutFile $zip -UseBasicParsing
+        Expand-Archive -Path $zip -DestinationPath $staging -Force
+        # GitHub's zip holds one top folder, <owner>-<repo>-<short commit>.
+        $inner = @(Get-ChildItem -Path $staging -Directory)
+        if ($inner.Count -ne 1) { throw "Unexpected zip layout: expected one top-level folder, found $($inner.Count)." }
+        Move-Item -Path $inner[0].FullName -Destination $target
+        [pscustomobject]@{
+            Repository   = $Repository
+            Ref          = $ref
+            Commit       = $commitSha
+            SignedRelease = $isRelease
+            DownloadedAt = (Get-Date).ToString('o')
+            DownloadedBy = "$env:USERDOMAIN\$env:USERNAME"
+        } | ConvertTo-Json | Set-Content -Path (Join-Path $target 'download.json') -Encoding UTF8
+    } finally {
+        Remove-Item -Path $zip, $staging -Recurse -Force -ErrorAction SilentlyContinue
+    }
+    if (-not (Test-Path (Join-Path $target 'Deploy\Install-BlueTrack.ps1'))) {
+        throw "$target doesn't contain Deploy\Install-BlueTrack.ps1 -- is '$ref' a BlueTrack version?"
+    }
+    Write-Host "Downloaded '$ref' (commit $commitSha) to $target." -ForegroundColor Green
 }
-if (-not (Test-Path (Join-Path $target 'Deploy\Install-BlueTrack.ps1'))) {
-    throw "$target doesn't contain Deploy\Install-BlueTrack.ps1 -- is '$ref' a BlueTrack version?"
-}
-Write-Host "Downloaded '$ref' (commit $commitSha) to $target." -ForegroundColor Green
 #endregion
 
 #region Offer to redeploy from it
 $newState = Join-Path $target 'Deploy\State'
 New-Item -ItemType Directory -Path $newState -Force | Out-Null
 $newAnswers = Join-Path $newState "answers.$SiteName.json"
-Copy-Item -Path $answersPath -Destination $newAnswers
-Write-Host "Copied this site's saved answers to $newAnswers."
+if ($reuse -and (Test-Path $newAnswers)) {
+    # The installer in that copy may have saved answers since (a new question it asked); they are kept.
+    Write-Host "Keeping the saved answers already in $newAnswers."
+} else {
+    Copy-Item -Path $answersPath -Destination $newAnswers
+    Write-Host "Copied this site's saved answers to $newAnswers."
+}
 
 $installer = Join-Path $target 'Deploy\Install-BlueTrack.ps1'
 $command = "& '$installer' -ConfigFile '$newAnswers' -SiteName '$SiteName'"

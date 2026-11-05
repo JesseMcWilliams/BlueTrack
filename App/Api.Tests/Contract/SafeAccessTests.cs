@@ -52,6 +52,12 @@ public class SafeAccessTests : IClassFixture<BlueTrackWebApplicationFactory>
         INSERT INTO bridge_entitlement_permission (EntitlementKey, PermissionKey, IsGranted) VALUES (SCOPE_IDENTITY(), @retrieve, 1);
         INSERT INTO ad_group_member (GroupKey, DomainName, SamAccountName, DisplayName, IsEnabled) VALUES (@group, 'company.com', 'ann', 'Ann Lee', 1);
         INSERT INTO ad_group_read (GroupKey, MatchedBy, Status, DomainName, MemberCount, LastAttemptAt, LastFoundAt) VALUES (@group, 'Dn', 'Found', 'company.com', 1, '2026-10-21T02:00:00', '2026-10-21T02:00:00');
+        -- D-339: a group not found in AD, with no members: still listed as a group.
+        INSERT INTO dim_group (SourceSystemKey, SourceGroupId, GroupName) VALUES (@sh, @token + '-G2', @token + ' Gone Group');
+        DECLARE @gone INT = SCOPE_IDENTITY();
+        INSERT INTO fact_safe_entitlement (SafeKey, MemberType, GroupKey, SnapshotDate) VALUES (@safe, 'Group', @gone, @today);
+        INSERT INTO bridge_entitlement_permission (EntitlementKey, PermissionKey, IsGranted) VALUES (SCOPE_IDENTITY(), @use, 1);
+        INSERT INTO ad_group_read (GroupKey, MatchedBy, Status, MemberCount, Message, LastAttemptAt) VALUES (@gone, 'Name', 'NotFound', 0, 'Not found in company.com.', '2026-10-21T02:00:00');
         INSERT INTO dim_cyberark_application (SourceSystemKey, AppId, Description) VALUES (@sh, @token + '_APP', 'Payroll');
         INSERT INTO dim_cyberark_application_authentication (CyberArkApplicationKey, AuthId, AuthType, AuthValue) VALUES (SCOPE_IDENTITY(), '1', 'machineAddress', '192.0.2.10');
         SELECT @account;
@@ -60,14 +66,14 @@ public class SafeAccessTests : IClassFixture<BlueTrackWebApplicationFactory>
     private static async Task CleanUpAsync(SqlConnection connection, string token) => await connection.ExecuteAsync("""
         DELETE x FROM dim_cyberark_application_authentication x JOIN dim_cyberark_application a ON a.CyberArkApplicationKey = x.CyberArkApplicationKey WHERE a.AppId = @token + '_APP';
         DELETE FROM dim_cyberark_application WHERE AppId = @token + '_APP';
-        DELETE m FROM ad_group_member m JOIN dim_group g ON g.GroupKey = m.GroupKey WHERE g.SourceGroupId = @token + '-G';
-        DELETE r FROM ad_group_read r JOIN dim_group g ON g.GroupKey = r.GroupKey WHERE g.SourceGroupId = @token + '-G';
+        DELETE m FROM ad_group_member m JOIN dim_group g ON g.GroupKey = m.GroupKey WHERE g.SourceGroupId LIKE @token + '-G%';
+        DELETE r FROM ad_group_read r JOIN dim_group g ON g.GroupKey = r.GroupKey WHERE g.SourceGroupId LIKE @token + '-G%';
         DELETE b FROM bridge_entitlement_permission b JOIN fact_safe_entitlement f ON f.EntitlementKey = b.EntitlementKey JOIN dim_safe s ON s.SafeKey = f.SafeKey WHERE s.SafeUrlId = @token + '_Safe';
         DELETE f FROM fact_safe_entitlement f JOIN dim_safe s ON s.SafeKey = f.SafeKey WHERE s.SafeUrlId = @token + '_Safe';
         DELETE FROM fact_account WHERE SourceAccountId = @token + '_1';
         DELETE FROM dim_safe WHERE SafeUrlId = @token + '_Safe';
         DELETE FROM dim_user WHERE SourceUserId LIKE @token + '-%';
-        DELETE FROM dim_group WHERE SourceGroupId = @token + '-G';
+        DELETE FROM dim_group WHERE SourceGroupId LIKE @token + '-G%';
         """, new { token });
 
     [Fact]
@@ -83,6 +89,11 @@ public class SafeAccessTests : IClassFixture<BlueTrackWebApplicationFactory>
             Assert.Equal([($"{token}.admin", "Direct", true, false), ("company.com\\ann", $"Via AD group: {token} AD Admins", false, true)],
                 access.People.Select(p => (p.PersonName, p.AccessPath, p.CanUse, p.CanRetrieve)));
             Assert.Equal("Pat Lee", access.People[0].DisplayName);
+
+            // D-339: each Safe-member group with its rights and AD read, and each person's group.
+            Assert.Equal([($"{token} AD Admins", false, true, "Found"), ($"{token} Gone Group", true, false, "NotFound")],
+                access.Groups.Select(g => (g.GroupName, g.CanUse, g.CanRetrieve, g.AdReadStatus)));
+            Assert.Equal((null, access.Groups[0].GroupKey), (access.People[0].GroupKey, access.People[1].GroupKey));
             // The application's own Vault user is listed as an application, not a person.
             var app = Assert.Single(access.Applications);
             Assert.Equal(($"{token}_APP", "Payroll", "Direct"), (app.AppId, app.Description, app.AccessPath));

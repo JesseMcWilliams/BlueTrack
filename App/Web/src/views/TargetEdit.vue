@@ -28,6 +28,7 @@ import { useI18n } from 'vue-i18n'
 import Combobox from '../components/Combobox.vue'
 import { confirmDelete } from '../composables/useConfirmDialog'
 import { formatShortDate } from '../utils/formatLocale'
+import { byLabel } from '../utils/sortOptions'
 
 const { t } = useI18n()
 
@@ -44,6 +45,9 @@ const saveError = ref(null)
 const applications = ref([])
 const identifierTypes = ref([])
 const targetTypes = ref([])
+// The API returns identifier types by MatchPriority (the first is the default for a new row);
+// the drop-down lists them alphabetically because the priority isn't shown.
+const sortedIdentifierTypes = computed(() => byLabel(identifierTypes.value, type => type.identifierType))
 
 // D-129: Discovery Source defaults to 'Manual' for a brand-new row created
 // via this Add form (confirmed directly) -- edit mode overwrites this
@@ -209,7 +213,7 @@ function cancel() {
         <label class="field-label">
           <span class="field-label-text">{{ t('pages.targetEdit.type') }}</span>
           <select v-model="identifier.identifierType">
-            <option v-for="type in identifierTypes" :key="type.identifierType" :value="type.identifierType">{{ type.identifierType }}</option>
+            <option v-for="type in sortedIdentifierTypes" :key="type.identifierType" :value="type.identifierType">{{ type.identifierType }}</option>
           </select>
         </label>
         <label class="field-label"><span class="field-label-text">{{ t('pages.targetEdit.value') }}</span> <input v-model="identifier.identifierValue" required /></label>

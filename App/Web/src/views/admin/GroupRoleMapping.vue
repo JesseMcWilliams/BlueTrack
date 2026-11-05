@@ -15,6 +15,7 @@ import { useRouter } from 'vue-router'
 import { confirmDelete } from '../../composables/useConfirmDialog'
 import { useI18n } from 'vue-i18n'
 import EmptyListMessage from '../../components/EmptyListMessage.vue'
+import { byLabel } from '../../utils/sortOptions'
 
 const { t } = useI18n()
 
@@ -30,6 +31,8 @@ const lookupError = ref(null)
 const providers = ref([])
 const lookupProviderKey = ref(null)
 
+// The drop-down lists providers alphabetically by the text shown (the API's order is DisplayOrder).
+const sortedProviders = computed(() => byLabel(providers.value, p => `${p.displayName} (${p.providerType})`))
 const lookupProvider = computed(() => providers.value.find(p => p.providerKey === lookupProviderKey.value) ?? null)
 const lookupIsWindows = computed(() => !lookupProvider.value || lookupProvider.value.providerType === 'WindowsIntegrated')
 
@@ -155,7 +158,7 @@ async function remove(mapping) {
         <label v-if="providers.length > 1" class="field-label">
           <span class="field-label-text">{{ t('admin.groupRoleMapping.provider') }}</span>
           <select v-model="lookupProviderKey" @change="lookupResult = null">
-            <option v-for="provider in providers" :key="provider.providerKey" :value="provider.providerKey">{{ provider.displayName }} ({{ provider.providerType }})</option>
+            <option v-for="provider in sortedProviders" :key="provider.providerKey" :value="provider.providerKey">{{ provider.displayName }} ({{ provider.providerType }})</option>
           </select>
         </label>
         <label class="field-label"><span class="field-label-text">{{ t('admin.groupRoleMapping.groupName') }}</span> <input v-model="lookupGroupName" required /></label>

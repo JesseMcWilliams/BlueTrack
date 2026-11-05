@@ -84,6 +84,7 @@ instead.
 | 66 | `66_BlueTrack_AdNestedGroupPath.sql` | D-333: `ad_group_member.NestedPath` (and its staging column): the nested groups between a Safe's AD group and the user; `usp_Apply_AdGroupMembers` and `vw_safe_access_people` copied from 48 with it. |
 | 67 | `67_BlueTrack_ApplicationOwnerReviewEmails.sql` | D-334: `notification_config.OwnerIncludeAccountExceptions` and `OwnerReminderDays` (0 to 90): the options of the application owners' review emails. |
 | 68 | `68_BlueTrack_RunProgress.sql` | D-337: where a pull or load is while it runs: `cyberark_direct_pull_step` (a pull's steps, saved every few seconds), `etl_run_log.SessionId`, `etl_run_step` (each Load procedure; `usp_RunFullLoad` now logs them, and keeps them after a rollback), and `usp_Get_EtlSessionActivity` (a running step's session waits and blocker; signed by `Manual/10`). |
+| 69 | `69_BlueTrack_ProgressRuleIgnoreCase.sql` | D-338: `fn_ProgressConditionMatches` compares a Progress Rule condition's text with `COLLATE Latin1_General_CI_AS`, so rules ignore case on a case-sensitive server or database. |
 
 ## The baseline (D-195)
 
@@ -108,7 +109,7 @@ scripts but not up to `51` is refused; upgrade it first from the
 
 ## Adding a script
 
-1. Name it `NN_BlueTrack_<Topic>.sql`, with `NN` the next number (`69` is next).
+1. Name it `NN_BlueTrack_<Topic>.sql`, with `NN` the next number (`70` is next).
 2. Start with a header comment: the file name, `RUN THIS AFTER 01-NN.`, what
    it changes and why (with the `D-n` decision), and whether it's safe to
    re-run.

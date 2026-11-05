@@ -19,7 +19,8 @@ function makeRouter() {
     routes: [
       { path: '/', name: 'home', component: { template: '<div />' } },
       { path: '/accounts', name: 'account-progress-list', component: { template: '<div />' } },
-      { path: '/accounts/:accountKey', name: 'account-progress-detail', component: { template: '<div />' } }
+      { path: '/accounts/:accountKey', name: 'account-progress-detail', component: { template: '<div />' } },
+      { path: '/safes/:safeKey', name: 'safe-detail', component: { template: '<div />' } }
     ]
   })
 }
@@ -570,6 +571,22 @@ describe('AccountProgressDetail.vue: an account in a CyberArk internal Safe', ()
     expect(links).toHaveLength(1)
     expect(links[0].text()).toBe('Rec Safe\\rec-acct')
     expect(links[0].attributes('href')).toBe('/accounts/77')
+  })
+
+  // 2026-11-05: the folder sits beside the Safe; a Self-Hosted account whose details weren't read says so.
+  it('shows the folder beside the Safe, and says when a Self-Hosted account folder is not read yet', async () => {
+    mockLoad({ detailOverrides: { safeKey: 5, safeName: 'Win Domain', folder: 'Root', isSelfHosted: true } })
+    let wrapper = await mountEditable()
+    expect(wrapper.find('.account-safe').text()).toContain('Win Domain')
+    expect(wrapper.find('.account-folder').text()).toBe('Folder: Root')
+
+    mockLoad({ detailOverrides: { safeKey: 5, safeName: 'Win Domain', folder: null, isSelfHosted: true } })
+    wrapper = await mountEditable()
+    expect(wrapper.find('.account-folder').text()).toBe('Folder: (not read yet)')
+
+    mockLoad({ detailOverrides: { safeKey: 5, safeName: 'PC Safe', folder: null, isSelfHosted: false } })
+    wrapper = await mountEditable()
+    expect(wrapper.find('.account-folder').exists()).toBe(false)
   })
 })
 

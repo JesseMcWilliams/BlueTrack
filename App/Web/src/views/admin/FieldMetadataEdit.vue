@@ -11,6 +11,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { flash, savedMessage } from '../../composables/useFlash'
 import { problemMessage } from '../../utils/problemText'
+import { byLabel } from '../../utils/sortOptions'
 import { useI18n } from 'vue-i18n'
 
 const { t } = useI18n()
@@ -30,7 +31,9 @@ const permissions = ref([])
 // dropdown from (the keys of /api/account-progress/reference-data). A typo in either used to break that form.
 const FIELD_TYPES = ['Text', 'TextArea', 'Dropdown', 'Date']
 const referenceTables = ref([])
-const typeOptions = computed(() => (FIELD_TYPES.includes(editing.value.fieldType) ? FIELD_TYPES : [editing.value.fieldType, ...FIELD_TYPES]))
+// Alphabetical; a stored type the form doesn't know stays first so it's visible.
+const SORTED_FIELD_TYPES = byLabel(FIELD_TYPES)
+const typeOptions = computed(() => (FIELD_TYPES.includes(editing.value.fieldType) ? SORTED_FIELD_TYPES : [editing.value.fieldType, ...SORTED_FIELD_TYPES]))
 const tableOptions = computed(() => (!editing.value.referenceTable || referenceTables.value.includes(editing.value.referenceTable)
   ? referenceTables.value
   : [editing.value.referenceTable, ...referenceTables.value]))

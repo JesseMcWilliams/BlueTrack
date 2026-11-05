@@ -23,7 +23,9 @@ public class AuditLogPerformersTests(BlueTrackWebApplicationFactory factory) : I
         // Some event was done by someone: the log's own first row names them.
         var events = await viewer.GetFromJsonAsync<JsonArray>("/api/audit-log?page=1&pageSize=50");
         var name = events!.Select(e => e!["performedByName"]?.GetValue<string>()).First(n => !string.IsNullOrWhiteSpace(n))!;
-        var fragment = name[..Math.Min(4, name.Length)];
+        // Most of the name, not its first few letters: the search returns at most 10, and the test database holds many
+        // people whose names start alike, so a short prefix could leave this one out (it did once, 2026-11-05).
+        var fragment = name.Length > 2 ? name[1..^1] : name;
 
         var found = await viewer.GetFromJsonAsync<JsonArray>($"/api/audit-log/performers?q={Uri.EscapeDataString(fragment)}");
 

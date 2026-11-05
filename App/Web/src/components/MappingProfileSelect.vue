@@ -3,8 +3,9 @@
 // default) means the CSV uses the template's own column names; before this,
 // an upload silently used the oldest active profile for its feed type.
 // Shown only when the feed type has an active profile.
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { byLabel } from '../utils/sortOptions'
 
 const { t } = useI18n()
 
@@ -16,6 +17,7 @@ const props = defineProps({
 const model = defineModel({ type: Number, default: null })
 
 const profiles = ref([])
+const sortedProfiles = computed(() => byLabel(profiles.value, p => p.profileName))
 
 onMounted(async () => {
   try {
@@ -32,7 +34,7 @@ onMounted(async () => {
     <span class="field-label-text">{{ t('shell.mappingProfileSelect.label') }}</span>
     <select v-model="model">
       <option :value="null">{{ t('shell.mappingProfileSelect.none') }}</option>
-      <option v-for="p in profiles" :key="p.importMappingProfileKey" :value="p.importMappingProfileKey">{{ p.profileName }}</option>
+      <option v-for="p in sortedProfiles" :key="p.importMappingProfileKey" :value="p.importMappingProfileKey">{{ p.profileName }}</option>
     </select>
   </label>
 </template>

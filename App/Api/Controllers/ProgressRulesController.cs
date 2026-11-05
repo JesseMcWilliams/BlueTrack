@@ -31,6 +31,10 @@ public sealed class ProgressRulesController(
     [HttpGet("fields")]
     public IActionResult GetFields() => Ok(ProgressRuleFields.All);
 
+    /// <summary>D-338: the source systems set up here, by name, for a Source condition's value list.</summary>
+    [HttpGet("sources")]
+    public async Task<IActionResult> GetSources() => Ok(await repository.GetSourceSystemsAsync());
+
     [HttpPost]
     public Task<IActionResult> Create([FromBody] SaveProgressRuleRequest request) => SaveAsync(null, request);
 

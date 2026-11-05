@@ -12,6 +12,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { flash, savedMessage } from '../../composables/useFlash'
 import { useI18n } from 'vue-i18n'
+import { byLabel } from '../../utils/sortOptions'
 
 const { t } = useI18n()
 
@@ -28,6 +29,8 @@ const newRoleName = ref('')
 const providers = ref([])
 const providerKey = ref(null)
 
+// The drop-down lists providers alphabetically by the text shown (the API's order is DisplayOrder).
+const sortedProviders = computed(() => byLabel(providers.value, p => `${p.displayName} (${p.providerType})`))
 const provider = computed(() => providers.value.find(p => p.providerKey === providerKey.value) ?? null)
 const isWindows = computed(() => !provider.value || provider.value.providerType === 'WindowsIntegrated')
 
@@ -90,7 +93,7 @@ function cancel() {
         <label class="field-label">
           <span class="field-label-text">{{ t('admin.groupRoleMappingCreate.providerLabel') }}</span>
           <select v-model="providerKey" required>
-            <option v-for="p in providers" :key="p.providerKey" :value="p.providerKey">{{ p.displayName }} ({{ p.providerType }}){{ p.isEnabled ? '' : ' ' + t('admin.groupRoleMappingCreate.disabled') }}</option>
+            <option v-for="p in sortedProviders" :key="p.providerKey" :value="p.providerKey">{{ p.displayName }} ({{ p.providerType }}){{ p.isEnabled ? '' : ' ' + t('admin.groupRoleMappingCreate.disabled') }}</option>
           </select>
         </label>
       </p>

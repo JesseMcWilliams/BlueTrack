@@ -11,12 +11,15 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { flash, savedMessage } from '../../composables/useFlash'
 import { problemMessage } from '../../utils/problemText'
+import { byLabel } from '../../utils/sortOptions'
 import { readCsvHeaders, matchHeaders, applyMatches, applyConflicts, fieldsFor } from '../../utils/csvHeaderMapping'
 import { useI18n } from 'vue-i18n'
 
 const { t } = useI18n()
 
 const FEED_TYPES = ['TargetInventory', 'AccessGroupInventory', 'AccessGroupTargetMap', 'AccountAccessGroupMembership', 'AccountTargetMap']
+// The drop-down is alphabetical; FEED_TYPES[0] stays the default for a new profile.
+const SORTED_FEED_TYPES = byLabel(FEED_TYPES)
 
 const props = defineProps({ importMappingProfileKey: { type: [String, Number], required: false, default: null } })
 const router = useRouter()
@@ -165,7 +168,7 @@ function cancel() {
         <label class="field-label">
           <span class="field-label-text">{{ t('admin.importMappingProfileEdit.feedType') }}</span>
           <select v-model="editing.feedType">
-            <option v-for="type in FEED_TYPES" :key="type" :value="type">{{ type }}</option>
+            <option v-for="type in SORTED_FEED_TYPES" :key="type" :value="type">{{ type }}</option>
           </select>
         </label>
       </p>

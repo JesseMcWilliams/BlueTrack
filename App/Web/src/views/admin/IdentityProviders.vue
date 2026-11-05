@@ -29,6 +29,7 @@ import { confirmDelete } from '../../composables/useConfirmDialog'
 import BreakGlassAccounts from './BreakGlassAccounts.vue'
 import { useI18n } from 'vue-i18n'
 import EmptyListMessage from '../../components/EmptyListMessage.vue'
+import { byLabel } from '../../utils/sortOptions'
 
 const { t } = useI18n()
 
@@ -44,8 +45,8 @@ const defaultSaved = ref(false)
 
 const SIGN_IN_PATHS = { WindowsIntegrated: 'windows', OIDC: 'oidc', SAML: 'saml' }
 
-// One choice per sign-in type (the enabled provider with the lowest Order wins for its direct address).
-const signInTypes = computed(() => Object.keys(SIGN_IN_PATHS).filter(type => providers.value.some(p => p.providerType === type)))
+// One choice per sign-in type (the enabled provider with the lowest Order wins for its direct address), alphabetical.
+const signInTypes = computed(() => byLabel(Object.keys(SIGN_IN_PATHS).filter(type => providers.value.some(p => p.providerType === type))))
 
 function directAddress(providerType) {
   return `${window.location.origin}/login/${SIGN_IN_PATHS[providerType]}`

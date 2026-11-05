@@ -2,10 +2,11 @@
 // D-243 (phase 2): the API client mappings section of Admin > API Keys. Which role a
 // caller gets when it exchanges a token from an OIDC identity provider for an API token:
 // by the token's client, or by a value in its groups claim. The lowest order wins.
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { confirmDelete } from '../../composables/useConfirmDialog'
 import { formatRunTime } from './dataFeedFormat'
+import { byLabel } from '../../utils/sortOptions'
 
 const { t } = useI18n()
 
@@ -18,6 +19,11 @@ const adding = ref({ providerKey: null, matchType: 'ClientId', matchValue: '', a
 
 // The match types are identifiers the API knows, shown with a translated label.
 const MATCH_LABEL_KEYS = { ClientId: 'admin.apiClientMappings.matchClientId', Group: 'admin.apiClientMappings.matchGroup' }
+
+// The drop-downs list providers and match types alphabetically by the text shown; the
+// defaults for a new mapping still come from the API's order.
+const sortedProviders = computed(() => byLabel(options.value.providers, p => p.displayName))
+const sortedMatchTypes = computed(() => byLabel(options.value.matchTypes, matchLabel))
 
 async function load() {
   error.value = null
@@ -129,14 +135,14 @@ async function remove(mapping) {
       <p>
         <label class="field-label"><span class="field-label-text">{{ t('admin.apiClientMappings.providerLabel') }}</span>
           <select v-model="adding.providerKey" required>
-            <option v-for="p in options.providers" :key="p.providerKey" :value="p.providerKey">{{ p.displayName }}</option>
+            <option v-for="p in sortedProviders" :key="p.providerKey" :value="p.providerKey">{{ p.displayName }}</option>
           </select>
         </label>
       </p>
       <p>
         <label class="field-label"><span class="field-label-text">{{ t('admin.apiClientMappings.matchLabel') }}</span>
           <select v-model="adding.matchType" required>
-            <option v-for="type in options.matchTypes" :key="type" :value="type">{{ matchLabel(type) }}</option>
+            <option v-for="type in sortedMatchTypes" :key="type" :value="type">{{ matchLabel(type) }}</option>
           </select>
         </label>
         <small>{{ t('admin.apiClientMappings.matchHint') }}</small>
