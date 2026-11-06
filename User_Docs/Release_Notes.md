@@ -6,6 +6,16 @@ What changed in each BlueTrack release, newest first, for users and administrato
 
 ### New
 
+### Changed
+
+### Fixed
+
+### Upgrading
+
+## 1.5.3 (2026-11-05)
+
+### New
+
 - **DNA:** the newer DNA report (its Windows, Unix, Domain and Database scan sheets) is imported, with more of its columns (machine type, OS version, description, threat cause, pass-the-hash, service account, SPN, roles and permissions). A data feed can import the DNA workbook from a folder every night. On Reports > DNA Accounts, click a heading to sort, and tick accounts and **Track in BlueTrack** to make them BlueTrack accounts (one per machine; they appear in Account Progress at the first stage). DNA tracking rules on Admin > Data Sources track matching accounts after each import. Admin > Data Sources can purge the DNA data, delete imports after a number of days, and choose DNA columns that only holders of the new **ViewDnaSensitiveColumns** permission may see. A new report, **Reports > DNA Hard-Coded Credentials**, lists the hard-coded credentials DNA found (machine, application, file, account, target, and DNA's line from the file with the password masked); only holders of ViewDnaSensitiveColumns can open or export it. (Administrator Data Management; User Guide)
 - **See where a pull or load is.** On Admin > Data Sources, a running Self-Hosted Direct pull shows the step it's on and how far it has got (for example "Account details (1,200 of 2,454), for 12 min"), and **Pull details** lists every step of a pull with what it read and how long it took. A pull stopped by its time limit or by **Cancel pull** says which step it was in. A new **Import and Load** section lists the nightly job's recent runs and the Load's procedures one by one, and for a run still going, the procedure it's in, what its SQL Server session is waiting on and which session is blocking it. (Administrator Data Management)
 
