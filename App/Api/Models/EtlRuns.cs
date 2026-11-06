@@ -14,6 +14,35 @@ public sealed class EtlRunRow
     public string? StartedBy { get; init; }
     /// <summary>How many procedures the run logged (dbo.etl_run_step): the Load's; 0 for Import and Snapshot.</summary>
     public int StepCount { get; init; }
+    /// <summary>D-351: for an Import, how many export files it imported (dbo.import_log); 0 otherwise.</summary>
+    public int FileCount { get; init; }
+}
+
+/// <summary>D-351: one file an Import imported (dbo.import_log). Status: Started, Succeeded or Failed.</summary>
+public sealed class EtlImportFile
+{
+    public required string SourceFileName { get; init; }
+    public string? SourceSystemName { get; init; }
+    public int? RowsLoaded { get; init; }
+    public DateTime StartedAt { get; init; }
+    public DateTime? CompletedAt { get; init; }
+    public required string Status { get; init; }
+    public string? ErrorMessage { get; init; }
+}
+
+/// <summary>D-351: the Self-Hosted Direct pull an Import checked.</summary>
+public sealed class EtlImportPull
+{
+    public long PullKey { get; init; }
+    public DateTime CompletedAt { get; init; }
+    public required string Status { get; init; }
+}
+
+/// <summary>D-351: what an Import did: its files and the pull it checked.</summary>
+public sealed class EtlImportDetail
+{
+    public IReadOnlyList<EtlImportFile> Files { get; init; } = [];
+    public EtlImportPull? Pull { get; init; }
 }
 
 /// <summary>D-337: one procedure of a Load (dbo.etl_run_step). Status: Started, Succeeded, RolledBack (it finished, then the Load failed) or Failed.</summary>
@@ -65,5 +94,7 @@ public sealed class EtlRunningRun
 {
     public required EtlSessionActivity Activity { get; init; }
     public EtlRunStepRow? CurrentStep { get; init; }
+    /// <summary>D-351: for a running Import, the export file it is on.</summary>
+    public string? CurrentFile { get; init; }
     public int StepsDone { get; init; }
 }
