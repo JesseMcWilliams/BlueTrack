@@ -202,7 +202,7 @@ public class PvwaClientTests
 
     private const string ClassicSearch = "/PasswordVault/WebServices/PIMServices.svc/Accounts";
 
-    /// <summary>D-280: the classic search as the lab answered it (2026-10-21): up to 10 accounts, Properties and InternalProperties as Key/Value lists.</summary>
+    /// <summary>D-280: the classic search's shape as the lab answered it (2026-10-21): Properties and InternalProperties as Key/Value lists. PVWA returns only the first match (D-350); two are here so the AccountID check is tested.</summary>
     private const string ClassicRec = """
         {"Count":2,"accounts":[
           {"AccountID":"60_99","Properties":[{"Key":"DeviceType","Value":"Wrong One"}],"InternalProperties":[]},
@@ -238,6 +238,45 @@ public class PvwaClientTests
         var never = snapshot.Accounts.Single(a => a.Id == "60_7");
         Assert.Equal(("Kept", false), (never.Detail!.DeviceType, never.DetailReadThisPull));
         Assert.Contains("60_7 (not found by user name and address)", Assert.Single(snapshot.Warnings));
+    }
+
+    /// <summary>D-350: as on the lab, 60_6 links 60_7 ("never" in My Safe) as its logon account, so the search for 60_7 finds 60_6.</summary>
+    private const string ClassicLinksNever = """
+        {"Count":2,"accounts":[
+          {"AccountID":"60_6","InternalProperties":[{"Key":"ExtraPass1Safe","Value":"My Safe"},{"Key":"ExtraPass1Folder","Value":"Root\\Shared"},
+             {"Key":"ExtraPass1Name","Value":"never"},{"Key":"CreationMethod","Value":"PVWA"}],
+           "Properties":[{"Key":"DeviceType","Value":"Operating System"},{"Key":"Folder","Value":"Root"}]}]}
+        """;
+
+    [Fact]
+    public async Task ClassicDetails_AnAccountTheSearchCantReturn_TakesItsFolderFromTheAccountThatLinksIt()
+    {
+        var fake = RichPvwa();
+        fake.Routes[ClassicSearch] = _ => Ok(ClassicLinksNever);
+        var options = new PvwaPullOptions { CachedDetails = new Dictionary<string, PvwaAccountDetail>() };
+
+        var snapshot = await Client(fake).PullAsync(Token, CancellationToken.None, options);
+
+        var never = snapshot.Accounts.Single(a => a.Id == "60_7");
+        Assert.True(never.DetailReadThisPull);
+        Assert.Equal(@"Root\Shared", never.Detail!.Folder);
+        Assert.Equal((null, null), (never.Detail.DeviceType, never.Detail.CreationMethod));   // no source for these
+        Assert.Contains(options.FreshDetails, d => d.AccountId == "60_7");
+        Assert.Empty(snapshot.Warnings);   // not "not found" any more
+    }
+
+    [Fact]
+    public void LinkFolders_MatchSafeAndNameIgnoringCase_AndTakeBothLinks()
+    {
+        var folders = PvwaClient.LinkFolders(
+        [
+            new PvwaAccountDetail("1", null, null, null, "Logon Safe", "Root", "logon-acct", "Rec Safe", @"Root\R", "Rec-Acct"),
+            null,
+            new PvwaAccountDetail("2", null, null, null, null, null, null, "rec safe", "Other", "rec-acct"),   // the first one wins
+        ]);
+        Assert.Equal("Root", folders[("logon safe", "LOGON-ACCT")]);
+        Assert.Equal(@"Root\R", folders[("Rec Safe", "rec-acct")]);
+        Assert.Equal(2, folders.Count);
     }
 
     [Fact]

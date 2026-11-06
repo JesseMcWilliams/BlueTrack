@@ -574,6 +574,7 @@ public sealed class PvwaClient(HttpClient http, Uri apiRoot)
         var found = new ConcurrentDictionary<int, PvwaAccountDetail>();
         var problems = new ConcurrentBag<string>();
         var failed = new ConcurrentBag<int>();
+        var notFound = new ConcurrentBag<int>();
         // D-337: a failed call that is tried again below was already counted.
         options.Progress?.Begin(PullProgress.Steps.AccountDetails, indexes.Count);
         await Parallel.ForEachAsync(indexes, new ParallelOptions { MaxDegreeOfParallelism = UserDetailParallelism, CancellationToken = ct }, async (i, innerCt) =>
@@ -583,7 +584,7 @@ public sealed class PvwaClient(HttpClient http, Uri apiRoot)
             try
             {
                 var detail = await ReadAccountDetailAsync(token, account, innerCt);
-                if (detail is null) { problems.Add($"{account.Id} (not found by user name and address)"); return; }
+                if (detail is null) { notFound.Add(i); return; }
                 found[i] = detail;
                 options.FreshDetails.Add(detail);
             }
@@ -600,7 +601,7 @@ public sealed class PvwaClient(HttpClient http, Uri apiRoot)
             try
             {
                 var detail = await ReadAccountDetailAsync(token, account, ct);
-                if (detail is null) { problems.Add($"{account.Id} (not found by user name and address)"); continue; }
+                if (detail is null) { notFound.Add(i); continue; }
                 found[i] = detail;
                 options.FreshDetails.Add(detail);
             }
@@ -615,6 +616,30 @@ public sealed class PvwaClient(HttpClient http, Uri apiRoot)
             if (found.TryGetValue(i, out var fresh)) snapshot.Accounts[i] = a with { Detail = fresh, DetailReadThisPull = true };
             else if (cached.TryGetValue(a.Id, out var old)) snapshot.Accounts[i] = a with { Detail = old };
         }
+
+        // D-350: the classic search returns only the first account it matches (the PVWA docs: "only the first account
+        // will be returned, although the Count output parameter will display the number of accounts that were found"),
+        // and it matches every account whose properties name this one. So a shared logon or reconcile account (on the
+        // lab, 60_6, linked by 60_7 and 60_8) is never returned. Its folder is known all the same: each account that
+        // links it holds the link's Safe, folder and object name. Device type and creation method have no such source.
+        var linkFolders = LinkFolders(snapshot.Accounts.Select(a => a.Detail));
+        foreach (var i in notFound.Distinct().Order())
+        {
+            var a = snapshot.Accounts[i];
+            if (!linkFolders.TryGetValue((a.SafeName, a.Name), out var folder))
+            {
+                problems.Add($"{a.Id} (not found by user name and address)");
+                continue;
+            }
+            if (a.Detail is { } kept)
+            {
+                if (kept.Folder is null) snapshot.Accounts[i] = a with { Detail = kept with { Folder = folder } };
+                continue;
+            }
+            var fromLink = new PvwaAccountDetail(a.Id, a.CategoryModificationTime, null, null, null, null, null, null, null, null) { Folder = folder };
+            snapshot.Accounts[i] = a with { Detail = fromLink, DetailReadThisPull = true };
+            options.FreshDetails.Add(fromLink);
+        }
         if (!problems.IsEmpty)
         {
             var list = problems.OrderBy(p => p, StringComparer.Ordinal).ToList();
@@ -623,9 +648,31 @@ public sealed class PvwaClient(HttpClient http, Uri apiRoot)
         }
     }
 
+    /// <summary>D-350: each linked (logon or reconcile) account's folder, by its Safe and object name, from the details read.</summary>
+    public static Dictionary<(string Safe, string Name), string> LinkFolders(IEnumerable<PvwaAccountDetail?> details)
+    {
+        var folders = new Dictionary<(string, string), string>(SafeAndNameComparer.Instance);
+        foreach (var d in details)
+        {
+            if (d is null) continue;
+            if (d.LogonSafe is { } ls && d.LogonName is { } ln && d.LogonFolder is { } lf) folders.TryAdd((ls, ln), lf);
+            if (d.ReconcileSafe is { } rs && d.ReconcileName is { } rn && d.ReconcileFolder is { } rf) folders.TryAdd((rs, rn), rf);
+        }
+        return folders;
+    }
+
+    private sealed class SafeAndNameComparer : IEqualityComparer<(string Safe, string Name)>
+    {
+        public static readonly SafeAndNameComparer Instance = new();
+        public bool Equals((string Safe, string Name) x, (string Safe, string Name) y) =>
+            StringComparer.OrdinalIgnoreCase.Equals(x.Safe, y.Safe) && StringComparer.OrdinalIgnoreCase.Equals(x.Name, y.Name);
+        public int GetHashCode((string Safe, string Name) v) =>
+            HashCode.Combine(StringComparer.OrdinalIgnoreCase.GetHashCode(v.Safe), StringComparer.OrdinalIgnoreCase.GetHashCode(v.Name));
+    }
+
     /// <summary>
-    /// The classic search takes keywords and a Safe and returns up to 10 accounts; the one whose AccountID is the REST
-    /// id is used. On the lab the user name and address found it every time and the account's name never did, so
+    /// The classic search takes keywords and a Safe and returns only the first account it matches (with Count saying how
+    /// many matched; D-350); it is used only when its AccountID is the REST id. On the lab the user name and address found it every time and the account's name never did, so
     /// those are tried, then each alone. PVWA refuses + &amp; % in these values even encoded, so such a value isn't sent.
     /// </summary>
     private async Task<PvwaAccountDetail?> ReadAccountDetailAsync(string token, PvwaAccount account, CancellationToken ct)
