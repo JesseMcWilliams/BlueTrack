@@ -16,7 +16,9 @@ public sealed class EtlRunRepository(IDbConnectionFactory connectionFactory)
         using var connection = connectionFactory.Create();
         return (await connection.QueryAsync<EtlRunRow>("""
             SELECT TOP (@count) r.EtlRunKey, r.StepName, r.StartedAt, r.CompletedAt, r.Status, r.ErrorMessage, r.ErrorProcedure, r.ErrorLine, r.StartedBy,
-                   (SELECT COUNT(*) FROM dbo.etl_run_step s WITH (NOLOCK) WHERE s.EtlRunKey = r.EtlRunKey) AS StepCount
+                   (SELECT COUNT(*) FROM dbo.etl_run_step s WITH (NOLOCK) WHERE s.EtlRunKey = r.EtlRunKey) AS StepCount,
+                   CASE WHEN r.StepName = 'Import' THEN (SELECT COUNT(*) FROM dbo.import_log il WITH (NOLOCK)
+                        WHERE il.StartedAt >= r.StartedAt AND il.StartedAt <= COALESCE(r.CompletedAt, SYSUTCDATETIME())) ELSE 0 END AS FileCount
             FROM dbo.etl_run_log r WITH (NOLOCK)
             ORDER BY r.EtlRunKey DESC
             """, new { count })).ToList();
@@ -30,6 +32,35 @@ public sealed class EtlRunRepository(IDbConnectionFactory connectionFactory)
             FROM dbo.etl_run_step WITH (NOLOCK)
             WHERE EtlRunKey = @etlRunKey ORDER BY StepOrder
             """, new { etlRunKey })).ToList();
+    }
+
+    /// <summary>
+    /// D-351: an Import run's files (dbo.import_log, one row per Privilege Cloud export file, written as each starts and
+    /// ends), matched to the run by time as the NightlyImportFailed email does; and the Self-Hosted Direct pull it
+    /// checked (the latest one to finish before it started). Null when the run isn't an Import.
+    /// </summary>
+    public async Task<EtlImportDetail?> GetImportDetailAsync(long etlRunKey)
+    {
+        using var connection = connectionFactory.Create();
+        using var grid = await connection.QueryMultipleAsync("""
+            DECLARE @start DATETIME2, @end DATETIME2;
+            SELECT @start = StartedAt, @end = COALESCE(CompletedAt, SYSUTCDATETIME())
+            FROM dbo.etl_run_log WITH (NOLOCK) WHERE EtlRunKey = @etlRunKey AND StepName = 'Import';
+            SELECT CAST(CASE WHEN @start IS NULL THEN 0 ELSE 1 END AS BIT);
+            SELECT il.SourceFileName, ss.SourceSystemName, il.RowsLoaded, il.StartedAt, il.CompletedAt, il.Status, il.ErrorMessage
+            FROM dbo.import_log il WITH (NOLOCK)
+            LEFT JOIN dbo.dim_source_system ss ON ss.SourceSystemKey = il.SourceSystemKey
+            WHERE @start IS NOT NULL AND il.StartedAt >= @start AND il.StartedAt <= @end
+            ORDER BY il.StartedAt;
+            SELECT TOP (1) PullKey, CompletedAt, Status
+            FROM dbo.cyberark_direct_pull
+            WHERE @start IS NOT NULL AND CompletedAt IS NOT NULL AND CompletedAt <= @start
+            ORDER BY PullKey DESC;
+            """, new { etlRunKey });
+        if (!await grid.ReadSingleAsync<bool>()) return null;
+        var files = (await grid.ReadAsync<EtlImportFile>()).ToList();
+        var pull = await grid.ReadFirstOrDefaultAsync<EtlImportPull>();
+        return new EtlImportDetail { Files = files, Pull = pull };
     }
 
     /// <summary>Each run still Started in the last day, with its session's activity and, for a Load, its current procedure.</summary>
@@ -46,6 +77,15 @@ public sealed class EtlRunRepository(IDbConnectionFactory connectionFactory)
             WHERE EtlRunKey IN @keys
             """, new { keys = activity.Select(a => a.EtlRunKey).ToList() })).ToList();
 
+        // D-351: a running Import's latest file still Started.
+        var currentFiles = (await connection.QueryAsync<(long EtlRunKey, string SourceFileName)>("""
+            SELECT r.EtlRunKey, f.SourceFileName
+            FROM dbo.etl_run_log r WITH (NOLOCK)
+            CROSS APPLY (SELECT TOP (1) il.SourceFileName FROM dbo.import_log il WITH (NOLOCK)
+                         WHERE il.StartedAt >= r.StartedAt AND il.Status = 'Started' ORDER BY il.StartedAt DESC) f
+            WHERE r.EtlRunKey IN @keys AND r.StepName = 'Import'
+            """, new { keys = activity.Select(a => a.EtlRunKey).ToList() })).ToList();
+
         return activity.Select(a =>
         {
             var mine = steps.Where(s => s.EtlRunKey == a.EtlRunKey).OrderBy(s => s.StepOrder).ToList();
@@ -53,6 +93,7 @@ public sealed class EtlRunRepository(IDbConnectionFactory connectionFactory)
             return new EtlRunningRun
             {
                 Activity = a,
+                CurrentFile = a.StepName == "Import" ? currentFiles.FirstOrDefault(f => f.EtlRunKey == a.EtlRunKey).SourceFileName : null,
                 StepsDone = mine.Count(s => s.Status == "Succeeded"),
                 CurrentStep = current == default ? null : new EtlRunStepRow
                 {

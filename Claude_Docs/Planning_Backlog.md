@@ -3,7 +3,6 @@
 > **Stage: Planning.** Work that isn't built or proven yet. The user's notes of 2026-11-03 are all built: `Archive_Planning_User-Notes-2026-11-03.md`. Carried forward from the 2026-09-16 survey (`Archive_Planning_Outstanding-Work-Survey-2026-09-16.md`); items that survey listed but the audit tracker records as resolved were left in the archive. Items tagged *(verify)* may already be done; confirm before starting. When an item ships, delete it here and record it in the relevant `Design_` doc.
 
 ## Requested, not started
-- **The Import step's sub-steps** (requested 2026-11-05 with D-337; D-337 and D-348 built the rest): the Import (`usp_Import_All`) logs no steps of its own in `etl_run_step`, so Import and Load shows only that it is running, not which file or table it is on.
 - **Privilege Cloud Direct** (requested 2026-10-19, with Self-Hosted Direct, D-248; later, the user, 2026-11-03, and with PSM below): read Privilege Cloud through its API into `stg_pc_*` instead of the export folder, as a fourth option on the CyberArk sources page (already listed there, unavailable). Needs the Privilege Cloud API's logon (an Identity OAuth client, `Platform/Developer` and `PAM/Privilege-Cloud-Standard` in the Idira reference), a lab tenant, and the same change guard.
 
 ## From the requirements review (2026-10-21)
@@ -25,7 +24,6 @@ Gaps against the original design (commit f0561ce) and the Blueprint theme. Built
 - **Admin-only troubleshooting endpoints return exception text** (Info, kept on purpose): backup, credential test, SMTP test, feed test; that text is how an admin diagnoses the failure. Revisit only if those pages are opened to non-admins.
 
 ## Built, but never proven against a real live service
-- **Nested AD group path** (D-333): tested with a fake directory and the path walk alone; the real LDAP walk (`GetMembers(recursive: false)` per nested group) runs first in the dev site's next Self-Hosted Direct pull.
 - **Azure Key Vault, AWS Secrets Manager, CyberArk Conjur** secrets backends: tested only against unreachable placeholder endpoints (error handling, not a real secret round-trip). CyberArk CP, CCP and Windows DPAPI are verified live. The 2026-10-12 review's hardening is done (D-215: User-scope DPAPI for their stored credentials, explicit Azure/AWS timeouts, Conjur's Base64 token header as CyberArk's own .NET client sends it); each still needs a real round trip before use.
 - **Installer on a fresh server**: `Db.AppPoolAccess` (D-171) and `Iis.Reset` (D-175) have only run by hand or with `-WhatIf`; the new `Iis.SiteRestart` (D-188) ran on the dev host only. DCACYBSQL01's app pool SQL login was granted by hand. Check all three on the next real install, with `Db.PowerBiAccess` (D-321, `-PowerBiReaderAccount`), which has run only against the local test database.
 - **AD Account Discovery multi-domain**: tested with a fake two-domain directory (D-214, `AdAccountDiscoveryMultiDomainTests`); still unproven against a real second domain (DCACYBSQL01's domain could be one, once LDAPS works).
@@ -35,7 +33,7 @@ Gaps against the original design (commit f0561ce) and the Blueprint theme. Built
 - **PVWA failover** (D-320): tested against fake PVWAs only. Check with two real PVWAs (one stopped), and behind a real load balancer with sticky sessions (D-312).
 - **CP and CCP Reason** (D-309): the Reason is sent as the SDK and the CCP API document it; not yet seen in a real Credential Provider's audit log.
 - **Include CyberArk's built-in Safes** (D-327): the classic Safe list and Get Safe details were read from the lab PVWA (49 Safes against REST's 42), but no pull has run with the option on. Its data still needs reviewing for usefulness (notes 22 and 23).
-- **DNA import with a real workbook** (D-325, D-341): both of the user's workbooks (the old account-list report and the newer report) were read by the import's reader on the dev host (9,631 and 5,083 accounts), but neither has been uploaded into a BlueTrack database, and no DNA data feed has run from a real folder.
+- **DNA import with a real workbook** (D-325, D-341): the user uploaded the newer report on the dev site (2026-11-05: 5,083 accounts, 302 hard-coded credentials; 40 risk findings, D-349). Still unproven: a DNA data feed from a real folder, and hard-coded secrets matched to real targets (that workbook comes from another environment than the dev site's CyberArk data, so none match).
 
 ## Found in the real CyberArk data (checked 2026-10-13)
 Self-Hosted: EVD `CyberArkSH`, loaded 2026-10-13. Privilege Cloud: the export CSVs in the configured folder (loaded since D-228, 2026-10-14).
@@ -43,5 +41,3 @@ Self-Hosted: EVD `CyberArkSH`, loaded 2026-10-13. Privilege Cloud: the export CS
 
 ## Process and tooling
 - Playwright E2E has a known recurring flaky-proxy issue, accepted as a limitation (see `Reference_Lessons-Learned.md`).
-- **CI runner loses its GitHub connection** (found again 2026-11-04): a run sat queued for over 2 hours while the runner showed online and idle; restarting the runner service fixed it. `Test-BlueTrackHealth.ps1` checks only that the service is running; it could also warn when a run has been queued for more than some minutes while the runner is idle.
-- **The dev host's SQL Server TLS certificate has expired** (Low, found 2026-11-04): `sqlcmd` with ODBC Driver 18 refuses to connect unless told to trust it (`-C`). The API is unaffected today, but anything that checks the certificate fails. Renew it (an environment task, not code).

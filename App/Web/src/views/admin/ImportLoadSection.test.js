@@ -210,4 +210,38 @@ describe('ImportLoadSection.vue', () => {
     await flushPromises()
     expect(wrapper.findAll('button').some(b => b.text() === 'Cancel load')).toBe(false)
   })
+
+  // ---- D-351 ----
+
+  it('lists the files an Import imported and the pull it checked, and names the file a running Import is on', async () => {
+    routeFetch({
+      '/api/admin/etl-runs': jsonResponse({
+        serverTime: '2026-11-05T11:00:00',
+        runs: [run({ etlRunKey: 9, stepName: 'Import', stepCount: 0, fileCount: 2, completedAt: '2026-11-05T10:01:00' })],
+        running: [{ activity: activity({ etlRunKey: 12, stepName: 'Import', waitType: null, blockingSessionId: null }), currentStep: null, currentFile: '/exports/Accounts.csv', stepsDone: 0 }],
+        stallMinutes: 30
+      }),
+      '/api/admin/etl-runs/9/import': jsonResponse({
+        pull: { pullKey: 14, completedAt: '2026-11-05T09:31:00', status: 'Succeeded' },
+        files: [
+          { sourceFileName: '/exports/Safes.csv', sourceSystemName: 'Privilege Cloud', rowsLoaded: 1200, startedAt: '2026-11-05T10:00:00', completedAt: '2026-11-05T10:00:05', status: 'Succeeded', errorMessage: null },
+          { sourceFileName: '/exports/Accounts.csv', sourceSystemName: 'Privilege Cloud', rowsLoaded: null, startedAt: '2026-11-05T10:00:05', completedAt: '2026-11-05T10:00:06', status: 'Failed', errorMessage: 'Cannot bulk load' }
+        ]
+      })
+    })
+    const wrapper = mount(ImportLoadSection)
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('Importing /exports/Accounts.csv.')
+    const button = wrapper.findAll('tbody button').find(b => b.text() === 'Files (2)')
+    await button.trigger('click')
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('Checked Self-Hosted Direct pull 14 (Succeeded')
+    const rows = wrapper.findAll('.run-steps tbody tr').map(r => r.text())
+    expect(rows[0]).toContain('Safes.csv')
+    expect(rows[0]).toContain('1,200')
+    expect(rows[1]).toContain('Cannot bulk load')
+    wrapper.unmount()
+  })
 })

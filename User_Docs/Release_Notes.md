@@ -6,6 +6,8 @@ What changed in each BlueTrack release, newest first, for users and administrato
 
 ### New
 
+- **See which file an Import is on.** Under Import and Load on Admin > Data Sources, an Import row has **Files**: each Privilege Cloud export file it imported, with its rows, how long it took and its result or error, and the Self-Hosted Direct pull it checked. A running Import names the file it is on. (Administrator Operations Guide)
+
 ### Changed
 
 ### Fixed

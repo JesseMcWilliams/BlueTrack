@@ -3,6 +3,8 @@
 // Load's procedures one by one, and for a run still going, the procedure it's in and what its SQL Server session is
 // waiting on (dbo.usp_Get_EtlSessionActivity, signed by the installer's Db.SessionActivity). While one runs, the
 // section checks back every few seconds.
+// D-351: an Import lists the export files it imported (dbo.import_log) and the Self-Hosted Direct pull it checked;
+// a running Import names the file it is on.
 // D-348: Alert after (the stall time for the RunStalled email and the Pull and Load health check), and Cancel load,
 // which stops the Import and Load SQL Agent job.
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
@@ -19,6 +21,7 @@ const data = ref(null)
 const error = ref(null)
 const openRun = ref(null)
 const steps = ref([])
+const importDetail = ref(null)
 const message = ref(null)
 const stallMinutes = ref(30)
 const savingSettings = ref(false)
@@ -32,7 +35,7 @@ async function load() {
     data.value = await response.json()
     if (data.value?.stallMinutes && !savingSettings.value) stallMinutes.value = data.value.stallMinutes
     error.value = null
-    if (openRun.value) await loadSteps(openRun.value)
+    if (openRun.value) await loadOpen(openRun.value)
   } catch (err) {
     error.value = err.message
   }
@@ -46,14 +49,31 @@ async function loadSteps(etlRunKey) {
   steps.value = await response.json()
 }
 
+async function loadImport(etlRunKey) {
+  const response = await fetch(`/api/admin/etl-runs/${etlRunKey}/import`)
+  if (!response.ok) throw new Error(t('common.requestFailed', { status: response.status }))
+  importDetail.value = await response.json()
+}
+
+// The open row is a Load (its procedures) or an Import (its files).
+async function loadOpen(etlRunKey) {
+  const run = (data.value?.runs ?? []).find(r => r.etlRunKey === etlRunKey)
+  if (run?.stepName === 'Import') await loadImport(etlRunKey)
+  else await loadSteps(etlRunKey)
+}
+
 async function toggleSteps(run) {
   if (openRun.value === run.etlRunKey) {
     openRun.value = null
     steps.value = []
+    importDetail.value = null
     return
   }
   try {
-    await loadSteps(run.etlRunKey)
+    steps.value = []
+    importDetail.value = null
+    if (run.stepName === 'Import') await loadImport(run.etlRunKey)
+    else await loadSteps(run.etlRunKey)
     openRun.value = run.etlRunKey
   } catch (err) {
     error.value = err.message
@@ -150,6 +170,7 @@ const running = computed(() => data.value?.running ?? [])
       <p>
         <strong>{{ t('admin.runProgress.runningSince', { step: stepLabels[r.activity.stepName] ?? r.activity.stepName, when: formatRunTime(r.activity.startedAt), took: durationText(r.activity.startedAt, null, data.serverTime) }) }}</strong>
       </p>
+      <p v-if="r.currentFile">{{ t('admin.runProgress.currentFile', { file: r.currentFile }) }}</p>
       <p v-if="r.currentStep">
         {{ t('admin.runProgress.currentProcedure', { procedure: procedureName(r.currentStep.procName), n: formatCount(r.currentStep.stepOrder), done: formatCount(r.stepsDone), took: durationText(r.currentStep.startedAt, null, data.serverTime) }) }}
       </p>
@@ -192,10 +213,30 @@ const running = computed(() => data.value?.running ?? [])
               <button v-if="run.stepCount > 0" type="button" :aria-expanded="openRun === run.etlRunKey" @click="toggleSteps(run)">
                 {{ openRun === run.etlRunKey ? t('admin.runProgress.hideSteps') : t('admin.runProgress.showSteps', { n: formatCount(run.stepCount) }) }}
               </button>
+              <button v-else-if="run.stepName === 'Import'" type="button" :aria-expanded="openRun === run.etlRunKey" @click="toggleSteps(run)">
+                {{ openRun === run.etlRunKey ? t('admin.runProgress.hideSteps') : t('admin.runProgress.showFiles', { n: formatCount(run.fileCount ?? 0) }) }}
+              </button>
             </td>
           </tr>
           <tr v-if="openRun === run.etlRunKey">
-            <td colspan="5">
+            <td v-if="importDetail" colspan="5">
+              <p v-if="importDetail.pull" class="run-steps">{{ t('admin.runProgress.checkedPull', { pull: importDetail.pull.pullKey, when: formatRunTime(importDetail.pull.completedAt), status: statusLabels[importDetail.pull.status] ?? importDetail.pull.status }) }}</p>
+              <p v-if="importDetail.files.length === 0" class="run-steps">{{ t('admin.runProgress.noFiles') }}</p>
+              <table v-else class="run-steps">
+                <thead>
+                  <tr><th>{{ t('admin.runProgress.colFile') }}</th><th>{{ t('admin.runProgress.colRows') }}</th><th>{{ t('admin.runProgress.colTook') }}</th><th>{{ t('admin.runProgress.colResult') }}</th></tr>
+                </thead>
+                <tbody>
+                  <tr v-for="f in importDetail.files" :key="`${f.sourceFileName}-${f.startedAt}`">
+                    <td><code>{{ f.sourceFileName }}</code><template v-if="f.sourceSystemName"><br /><small>{{ f.sourceSystemName }}</small></template></td>
+                    <td>{{ f.rowsLoaded == null ? '' : formatCount(f.rowsLoaded) }}</td>
+                    <td>{{ durationText(f.startedAt, f.completedAt, data.serverTime) }}</td>
+                    <td :class="`outcome-${f.status}`">{{ statusLabels[f.status] ?? f.status }}<template v-if="f.errorMessage"><br /><small>{{ f.errorMessage }}</small></template></td>
+                  </tr>
+                </tbody>
+              </table>
+            </td>
+            <td v-else colspan="5">
               <table class="run-steps">
                 <thead>
                   <tr><th>#</th><th>{{ t('admin.runProgress.colProcedure') }}</th><th>{{ t('admin.runProgress.colTook') }}</th><th>{{ t('admin.runProgress.colResult') }}</th></tr>

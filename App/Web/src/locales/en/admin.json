@@ -687,7 +687,13 @@
     "cancelLoad": "Cancel load",
     "confirmCancel": "Stop the Import and Load SQL Agent job? The Load is rolled back, so the data stays as it was before it started, and the run is logged as failed. Tonight's job runs as usual.",
     "cancelDone": "The job was stopped. SQL Server may take a moment to roll the Load back.",
-    "cancelRefused": "SQL Server Agent didn't stop the job: {reason}"
+    "cancelRefused": "SQL Server Agent didn't stop the job: {reason}",
+    "showFiles": "Files ({n})",
+    "currentFile": "Importing {file}.",
+    "checkedPull": "Checked Self-Hosted Direct pull {pull} ({status}, finished {when}).",
+    "noFiles": "No export files were imported: Privilege Cloud isn't imported from files, or the run stopped before its first file.",
+    "colFile": "File",
+    "colRows": "Rows"
   },
   "deploymentInfo": {
     "backupConfirm": "Back up the application now? This runs a database backup on the server and downloads a zip of the appsettings files.",

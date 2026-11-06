@@ -37,6 +37,11 @@ public sealed class EtlRunsController(
     [HttpGet("{etlRunKey:long}/steps")]
     public async Task<IActionResult> Steps(long etlRunKey) => Ok(await repository.GetStepsAsync(etlRunKey));
 
+    /// <summary>D-351: an Import's files and the Self-Hosted Direct pull it checked; 404 for a run that isn't an Import.</summary>
+    [HttpGet("{etlRunKey:long}/import")]
+    public async Task<IActionResult> Import(long etlRunKey) =>
+        await repository.GetImportDetailAsync(etlRunKey) is { } detail ? Ok(detail) : NotFound();
+
     public sealed class SaveSettingsRequest
     {
         public int StallMinutes { get; init; }
