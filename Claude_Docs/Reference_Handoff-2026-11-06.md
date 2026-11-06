@@ -5,10 +5,10 @@
 ## 1. Where things stand
 
 - **Released: v1.5.3** (2026-11-05; signed tag on `ea4359f`, the merge of PR #285; GitHub verified the signature; release published; `Published_Docs` and `Sbom/` rebuilt). It holds D-337 to D-349. Release numbers go up by 0.0.1 only.
-- **`main`** is at `5c61c4e` (PR #286). **Unreleased:** D-350 (a shared linked account's folder) and D-351 (an Import's files). The next release is **1.5.4**.
-- **Dev site** (`https://bluetrack.company.com`) runs `main` at `5c61c4e` (`1.5.3-dev.2`), installed 2026-11-06 with the saved answers; every health check OK, including the new Pull and Load check. The nightly pull (01:30) and Import, Load, Snapshot (02:00) ran on 2026-11-06 with all 20 Load procedures logged. A Pull now (PullKey 14) and its load ran at 07:02 local time to prove D-350. The DNA workbook of 2026-11-05 is imported there; it gives 40 risk findings (38 non-compliant, 2 Pass-the-Hash, all on accounts; no hard-coded secret matches the site's targets), already scored.
+- **`main`** is at `7c79666` (PR #287). **Unreleased:** D-350 (a shared linked account's folder) and D-351 (an Import's files). The next release is **1.5.4**.
+- **Dev site** (`https://bluetrack.company.com`) runs `main` at `7c79666` (`1.5.3-dev.4`), installed 2026-11-06 (last at about 08:00 local time) with the saved answers; every health check OK, including the new Pull and Load check. The nightly pull (01:30) and Import, Load, Snapshot (02:00) ran on 2026-11-06 with all 20 Load procedures logged. A Pull now (PullKey 14) and its load ran at 07:02 local time to prove D-350 (60_6 now shows Folder: Root). The dev site imports Privilege Cloud from export files too: that load's Import (run 72) shows seven files under **Files (7)**, all Succeeded, and the pull it checked (14). The DNA workbook of 2026-11-05 is imported there; it gives 40 risk findings (38 non-compliant, 2 Pass-the-Hash, all on accounts; no hard-coded secret matches the site's targets), already scored.
 - **Decision register:** last **D-351**; next **D-352**. **Database scripts:** last `72`; next `73`. Manual scripts: last `10`.
-- **No open branches** on GitHub or locally; no worktrees.
+- **No open branches** on GitHub or locally; no worktrees (this update was merged as PR #288).
 
 ## 2. What the 2026-11-05/06 session delivered
 
@@ -19,6 +19,7 @@
 | #284 | **Admin > Risk Score** (was Risk Score Bands): Bands, Defaults (default scores, each DNA finding's risk value), Findings; `web.risk_finding` from DNA (hard-coded secrets on the system and the account they name, privileged when DNA or BlueTrack says so; Pass-the-Hash and non-compliant linked accounts), scored as values in the active algorithm; `Admin_SettingsReference` split into three parts (script 72) | D-349 |
 | #285 | **Release v1.5.3** | |
 | #286 | A shared logon/reconcile account (the lab's `60_6`) takes its folder from the accounts that link it: the classic search returns only its first match, and no documented 14.6 call reads one account's internal properties by ID | D-350 |
+| #287 | An Import row lists its export files (`dbo.import_log`) and the pull it checked; this handoff; backlog tidy (D-333 proven live) | D-351 |
 
 Also, by request: the CI runner service was restarted once more (2026-11-05, a release run queued with the runner idle; the new health-script warning caught it), and the user renewed the dev host's SQL Server certificate.
 
@@ -26,10 +27,11 @@ Also, by request: the CI runner service was restarted once more (2026-11-05, a r
 
 The backlog (`Planning_Backlog.md`) has the full list. The user's order on 2026-11-06:
 
-1. **Review the first DNA risk scores** on the dev site (Admin > Risk Score > Findings, Reports > Risk Score): are 200 (non-compliant) and 400 (Pass-the-Hash) right?
+1. **The first DNA risk scores** (reviewed 2026-11-06): every target on the dev site scores 0, so the findings are its only risk signal: 37 accounts at 200 (non-compliant, Low), 1 at 400 (Pass-the-Hash, Medium), 1 at 480 (both, Medium). The user kept 300/600/400/200.
 2. **Nested AD group path** (D-333): proven live 2026-11-06. The pull's paths (`dbo.ad_group_member.NestedPath`) for CyberArk Vault Auditors matched Active Directory: Test Nested, and Test Nested > CyberArk Vault Power Users.
 3. **The Import step's sub-steps**: done (D-351): an Import row lists its files from `import_log`.
-4. Then: Privilege Cloud Direct with PSM for Privilege Cloud; the "Built, but never proven" items; the environment items (SMTP, SIEM, second PVWA, remote DC).
+4. **Next: Privilege Cloud Direct with PSM for Privilege Cloud** (backlog, "Requested, not started"). Asked the user on 2026-11-06 whether a Privilege Cloud tenant is available to test against; no answer yet. Building it needs one (Identity OAuth client, `Platform/Developer` and `PAM/Privilege-Cloud-Standard` in the Idira reference).
+5. Then: the "Built, but never proven" items; the environment items (SMTP, SIEM, second PVWA, remote DC).
 
 ## 4. Conventions that are easy to get wrong
 
