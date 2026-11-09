@@ -12,6 +12,9 @@ What changed in each BlueTrack release, newest first, for users and administrato
 
 ### Fixed
 
+- **An upgrade no longer fails its last step because of last night's data.** The installer's smoke test now warns about a health check that reports a problem with the data (for example, Pull and Load when the latest Import failed) instead of failing the install; it still fails when the site doesn't answer or a check is unhealthy. Check the warning on Admin > Data Sources. (Upgrade Guide, Installation Guide)
+- **The installer's "continue" hint shows the full command.** When an install stops, it prints the installer's full path with `-SiteName` and `-Resume`. The short `-Resume` hint didn't work when the install was started by `Update-BlueTrack.ps1`, which has no `-Resume`. (Upgrade Guide)
+
 - A Self-Hosted account that other accounts use as their logon or reconcile account now shows its **folder** (taken from those accounts), and the nightly pull no longer warns that its details weren't found. Its device type and creation method stay blank: CyberArk's search can't return such an account. (User Guide)
 
 ### Upgrading

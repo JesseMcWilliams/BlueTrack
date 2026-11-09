@@ -192,6 +192,9 @@ Whenever a smoke check fails, the output ends with the two URLs it checks, so yo
 | `403` | Signed in, but without `ViewDeploymentInfo`. | Run the installer elevated as a local administrator (the bootstrap Admin role is mapped to `BUILTIN\Administrators`), or map your group to Admin. |
 | `500` | BlueTrack.Api failed; the exception is in the Application event log (`.NET Runtime`, event 1000). | The usual cause is a missing SQL login for the App Pool's account. The smoke test prints SQL Server's matching `Login failed` event if there is one, including the account the connection really arrived as when the message names a different one (see the trap above); run `-Step Db.AppPoolAccess -GrantAppPoolSqlAccess $true`. |
 | No response | DNS, binding or certificate. | Check the hostname resolves here, the HTTPS binding exists, and this machine trusts the certificate. |
+| `[DEGRADED] <check>` (a warning; the step still completes) | The site works, but a health check reports a problem with what it looks after, e.g. Pull and Load when the latest Import or Load failed (D-352). | Follow the check's message (for Pull and Load, Admin > Data Sources). An `[FAILED]` (Unhealthy) check does fail the step. |
+
+When a step fails, the installer prints the command to continue with its full path and site, e.g. `& 'D:\...\BlueTrack-v1.5.4\Deploy\Install-BlueTrack.ps1' -SiteName 'BlueTrack' -Resume`. Use that line as printed: after `Update-BlueTrack.ps1`, the installer and its saved progress are in the new version's folder, and `Update-BlueTrack.ps1` itself has no `-Resume`.
 
 ### Updating to a new version (`Update-BlueTrack.ps1`)
 

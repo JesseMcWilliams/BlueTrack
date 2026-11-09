@@ -600,10 +600,15 @@ $StepActions = @{
     'Smoke'           = {
         Start-Sleep -Seconds 5 # give the app pool a moment to warm up after recycling
         $siteUrl = "https://$($Hostname):$HttpsPort"
-        if (Test-BlueTrackDeployment -SiteUrl $siteUrl) {
+        $smoke = Test-BlueTrackDeployment -SiteUrl $siteUrl
+        if ($smoke.Passed -and $smoke.Degraded.Count -gt 0) {
+            # D-352: Degraded is about the data (e.g. the latest Import failed), not the install.
+            return @{ Status = 'Completed'; Message = "Works at $siteUrl; to look at: $($smoke.Degraded -join ', ') (Degraded)" }
+        }
+        if ($smoke.Passed) {
             return @{ Status = 'Completed'; Message = "Healthy at $siteUrl" }
         }
-        return @{ Status = 'Failed'; Message = 'Did not confirm healthy (health checks or the browser /BlueTrack/api/... path) -- see the warnings above' }
+        return @{ Status = 'Failed'; Message = 'Did not confirm healthy (an Unhealthy health check, or the /BlueTrack/api/... call or the site root failed) -- see the warnings above' }
     }
 }
 #endregion
@@ -706,8 +711,11 @@ try {
         }
     }
     Save-InstallAnswer
+    # The hints name this copy's installer in full: it may have been started by Update-BlueTrack.ps1 from another
+    # version's folder, where -Resume isn't a parameter and the saved progress isn't (D-352).
+    $ResumeCommand = "& '$PSCommandPath' -SiteName '$SiteName'"
     if (-not $WhatIfPreference) {
-        Write-Host "Answers saved to $AnswersPath (re-run with -Resume to pick up from a failed step)."
+        Write-Host "Answers saved to $AnswersPath (to pick up from a failed step: $ResumeCommand -Resume)."
     }
     #endregion
 
@@ -740,7 +748,7 @@ try {
                 }
             } catch {
                 Save-BlueTrackStepStatus -Path $ProgressPath -Progress $Progress -Step $s.Name -Status Failed -Message $_.Exception.Message
-                Write-Host "`nStep $($s.Name) failed. Fix the cause, then re-run with -Resume (or -Step $($s.Name))." -ForegroundColor Yellow
+                Write-Host "`nStep $($s.Name) failed. Fix the cause, then re-run with:`n  $ResumeCommand -Resume`n  (or -Step $($s.Name) in place of -Resume)" -ForegroundColor Yellow
                 throw
             }
         }
@@ -774,7 +782,8 @@ try {
     $outstanding = @($Steps | Where-Object { -not ($Progress.ContainsKey($_.Name) -and $Progress[$_.Name].Status -in 'Completed', 'NotApplicable') })
     if ($outstanding.Count -gt 0) {
         Write-Host "Not yet completed: $(($outstanding | ForEach-Object { $_.Name }) -join ', ')" -ForegroundColor Yellow
-        Write-Host 'Run with -Resume to continue, or -ListSteps to see each step''s status.'
+        Write-Host "To continue:          $ResumeCommand -Resume"
+        Write-Host "To see each step:     $ResumeCommand -ListSteps"
     } else {
         Write-Host "Site:              https://$($Hostname):$HttpsPort  (site '$SiteName', app pool '$SiteName-AppPool')"
         Write-Host "Database:          $DatabaseName on $SqlServerInstance"
