@@ -122,7 +122,7 @@ If a broad group can still read the folder, BlueTrack removes that access before
 
 ### The smoke test
 
-The last step, `Smoke`, makes two checks as the user running the installer: the API's health check at `https://<your-BlueTrack-hostname>/BlueTrack/api/admin/deployment`, which should return JSON, and the site root, which should serve the BlueTrack page. If either fails, the output explains the HTTP status and ends with both addresses, so you can try them in a browser on the server. `Deploy/README.md`, "Smoke test failures", lists each status and what to do. Re-run just this check with `-Step Smoke`.
+The last step, `Smoke`, makes two checks as the user running the installer: the API's health check at `https://<your-BlueTrack-hostname>/BlueTrack/api/admin/deployment`, which should return JSON, and the site root, which should serve the BlueTrack page. If either fails, the output explains the HTTP status and ends with both addresses, so you can try them in a browser on the server. `Deploy/README.md`, "Smoke test failures", lists each status and what to do. A health check marked `[DEGRADED]` is a warning (for example Pull and Load when the latest Import failed) and doesn't fail the step; one marked `[FAILED]` does. Re-run just this check with `-Step Smoke`.
 
 ## 3. Set up a dedicated service account for the App Pool identity (recommended)
 

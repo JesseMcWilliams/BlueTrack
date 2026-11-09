@@ -20,12 +20,17 @@ function Test-BlueTrackDeployment {
         does by default. Failure here is reported, not thrown -- the install
         itself may still be fine; this just means the smoke test couldn't
         confirm it (e.g. a cert trust issue, or the caller isn't a BlueTrack admin).
+        D-352: a Degraded check (a fact about the data, such as the latest
+        Import having failed) is printed and named but doesn't fail the smoke
+        test; an Unhealthy check, a failed call or a site root that doesn't
+        serve the SPA does.
     .OUTPUTS
-        [bool] whether every reported health check came back healthy and the
-        site root served the SPA.
+        [pscustomobject] Passed: the API answered, no health check was
+        Unhealthy and the site root served the SPA. Degraded: the names of
+        the checks that came back Degraded.
     #>
     [CmdletBinding()]
-    [OutputType([bool])]
+    [OutputType([pscustomobject])]
     param(
         [Parameter(Mandatory)] [string]$SiteUrl,   # e.g. https://bluetrack.company.com
         [int]$TimeoutSeconds = 30
@@ -41,21 +46,29 @@ function Test-BlueTrackDeployment {
         Write-Warning "Smoke test failed calling '$endpoint': $($_.Exception.Message)"
         Write-BlueTrackSmokeDiagnosis -ErrorRecord $_
         Write-BlueTrackSmokeTestUrl -AppEndpoint $endpoint -SiteRoot $siteRoot
-        return $false
+        return [pscustomobject]@{ Passed = $false; Degraded = @() }
     }
 
     Write-Host "Environment: $($response.environmentName)  Version: $($response.version)  Built: $($response.buildTimestampUtc)"
 
-    $allHealthy = $true
+    # D-352: Degraded warns (the site works; something it reports on needs a look), anything else not Healthy fails.
+    $unhealthy = New-Object System.Collections.Generic.List[string]
+    $degraded = New-Object System.Collections.Generic.List[string]
     foreach ($check in $response.healthChecks) {
-        $status = if ($check.status -eq 'Healthy') { 'OK' } else { $allHealthy = $false; 'FAILED' }
+        $status = switch ($check.status) {
+            'Healthy' { 'OK' }
+            'Degraded' { $degraded.Add($check.name); 'DEGRADED' }
+            default { $unhealthy.Add($check.name); 'FAILED' }
+        }
         Write-Host "  [$status] $($check.name): $($check.description)"
     }
 
-    if ($allHealthy) {
-        Write-Host 'Smoke test: all reported health checks are healthy.' -ForegroundColor Green
+    if ($unhealthy.Count -gt 0) {
+        Write-Warning "Smoke test: not healthy: $($unhealthy -join ', ') -- review the Deployment Info admin page."
+    } elseif ($degraded.Count -gt 0) {
+        Write-Warning "Smoke test: the site works, but $($degraded -join ', ') reported a problem to look at (Degraded; it doesn't fail the install) -- see the line above and the Deployment Info admin page."
     } else {
-        Write-Warning 'Smoke test: at least one health check is not healthy -- review the Deployment Info admin page.'
+        Write-Host 'Smoke test: all reported health checks are healthy.' -ForegroundColor Green
     }
 
     # D-196: the SPA calls /BlueTrack/api/... itself (checked above); the site
@@ -66,17 +79,17 @@ function Test-BlueTrackDeployment {
         if ($page.Content -notmatch '<div id="app">') {
             Write-Warning "Smoke test: '$siteRoot' answered, but not with the BlueTrack SPA's index.html -- check the site's physical path (-WebInstallPath) and the Build.Web step."
             Write-BlueTrackSmokeTestUrl -AppEndpoint $endpoint -SiteRoot $siteRoot
-            return $false
+            return [pscustomobject]@{ Passed = $false; Degraded = $degraded.ToArray() }
         }
         Write-Host 'Smoke test: the site root serves the SPA.' -ForegroundColor Green
     } catch {
         Write-Warning "Smoke test failed calling '$siteRoot': $($_.Exception.Message)"
         Write-BlueTrackSmokeDiagnosis -ErrorRecord $_
         Write-BlueTrackSmokeTestUrl -AppEndpoint $endpoint -SiteRoot $siteRoot
-        return $false
+        return [pscustomobject]@{ Passed = $false; Degraded = $degraded.ToArray() }
     }
 
-    return $allHealthy
+    return [pscustomobject]@{ Passed = ($unhealthy.Count -eq 0); Degraded = $degraded.ToArray() }
 }
 
 function Write-BlueTrackSmokeTestUrl {

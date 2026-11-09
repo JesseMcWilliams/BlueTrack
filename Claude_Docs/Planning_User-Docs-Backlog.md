@@ -4,3 +4,4 @@
 
 | Date | Change | User doc / section it affects |
 |---|---|---|
+| 2026-11-09 | The installer's smoke test no longer fails an install because a health check is Degraded (e.g. the latest Import failed); it warns and names it. Its "-Resume" hints show the full installer path and site. | Admin_UpgradeGuide.md section 4; Admin_Installation.md "Smoke"; Deploy/README.md "Smoke test failures" |
