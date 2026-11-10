@@ -266,10 +266,11 @@ public class SiemFormattingTests
     }
 
     [Theory]
-    [InlineData(0, 5)]
-    [InlineData(1, 5)]
-    [InlineData(2, 10)]
-    [InlineData(3, 20)]
+    [InlineData(0, 10)]
+    [InlineData(1, 10)]
+    [InlineData(2, 20)]
+    [InlineData(3, 40)]
+    [InlineData(6, 300)]
     [InlineData(7, 300)]
     [InlineData(50, 300)]
     public void Backoff_DoublesUpToFiveMinutes(int failures, int seconds) =>

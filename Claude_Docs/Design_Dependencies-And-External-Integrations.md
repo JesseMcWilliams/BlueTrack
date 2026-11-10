@@ -98,6 +98,7 @@ The audit log can be forwarded to the organisation's SIEM: an outbound connectio
 | Azure.Security.KeyVault.Secrets | 4.11.1 | Azure Key Vault backend (2.3) |
 | ClosedXML | 0.105.1 | Report export as Excel `.xlsx` (D-220, `App/Api/Reports/XlsxReportWriter.cs`). MIT licence. CSV export is written by hand (`CsvReportWriter`), not CsvHelper |
 | CsvHelper | 33.1.0 | Risk Scoring bulk CSV import/parsing (Targets, Access Groups, mapping tables) |
+| DocumentFormat.OpenXml | 3.1.1 | Reading DNA workbooks a row at a time (D-353, `App/Api/Dna/DnaReportReader.cs`); the version ClosedXML resolves, referenced directly since the reader uses it itself. MIT licence |
 | Dapper | 2.1.79 | All SQL data access — no ORM beyond this |
 | ITfoxtec.Identity.Saml2.MvcCore | 4.20.1 | SAML2 authentication (2.4) |
 | MailKit | 4.17.0 | SMTP notification sending (2.6) |

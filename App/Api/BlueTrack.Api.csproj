@@ -12,6 +12,10 @@
     <!-- D-226: the stamp below carries the commit itself, so the SDK's own
          "+<full commit sha>" (SourceLink) isn't appended to InformationalVersion. -->
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+    <!-- D-353: Workstation GC instead of ASP.NET Core's default Server GC. One site on a shared server with few
+         concurrent users: measured on the dev site, peak working set 14% lower and private memory 31% lower after
+         the same report exports, at the same speed. Written to runtimeconfig.json as System.GC.Server = false. -->
+    <ServerGarbageCollection>false</ServerGarbageCollection>
   </PropertyGroup>
 
   <!--
@@ -81,6 +85,7 @@
     <PackageReference Include="ClosedXML" Version="0.105.1" />
     <PackageReference Include="CsvHelper" Version="33.1.0" />
     <PackageReference Include="Dapper" Version="2.1.79" />
+    <PackageReference Include="DocumentFormat.OpenXml" Version="3.1.1" />
     <PackageReference Include="ITfoxtec.Identity.Saml2.MvcCore" Version="4.20.1" />
     <PackageReference Include="MailKit" Version="4.17.0" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.Negotiate" Version="10.0.13" />

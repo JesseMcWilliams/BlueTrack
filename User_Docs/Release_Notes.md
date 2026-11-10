@@ -6,9 +6,15 @@ What changed in each BlueTrack release, newest first, for users and administrato
 
 ### New
 
+- **`Tools\Get-BlueTrackResourceUsage.ps1`** collects what BlueTrack and SQL Server use of the server's memory and CPU (optionally sampled while you run a slow page) and SQL Server's heaviest statements, read-only, into a file to send with a performance question. (Tools README)
+
 - **See which file an Import is on.** Under Import and Load on Admin > Data Sources, an Import row has **Files**: each Privilege Cloud export file it imported, with its rows, how long it took and its result or error, and the Self-Hosted Direct pull it checked. A running Import names the file it is on. (Administrator Operations Guide)
 
 ### Changed
+
+- **A DNA import uses much less memory.** The workbook is read a row at a time instead of being loaded whole; on real DNA reports the import took about a third of the memory and half the time. The accounts read are the same. (Administrator Operations Guide)
+- **The API uses less memory.** It now runs .NET's workstation garbage collector instead of the server one, which kept more memory per CPU core than a single BlueTrack site needs; in testing, the same reports peaked about 14% lower and settled about 30% lower, at the same speed. No setting to change. (Installation Guide)
+- **Audit sealing and SIEM forwarding check every 10 seconds** (was 5), halving their idle load. Audit events reach the SIEM up to 10 seconds after they happen; after a failed send it retries from 10 seconds, up to every 5 minutes. (Administrator Operations Guide)
 
 ### Fixed
 
