@@ -1,19 +1,19 @@
 namespace BlueTrack.Api.Siem;
 
 /// <summary>
-/// D-234: forwards the audit log to the SIEM in near real time. Every PollInterval (5 s) it runs a
+/// D-234: forwards the audit log to the SIEM in near real time. Every PollInterval (10 s, D-353) it runs a
 /// SiemForwarder pass; while full batches come back it goes straight on. After a failed send it waits
-/// 5 s, 10 s, 20 s ... up to 5 minutes before trying again, and the rows stay waiting in the database, so
+/// 10 s, 20 s, 40 s ... up to 5 minutes before trying again, and the rows stay waiting in the database, so
 /// nothing is lost while the collector is down or the API restarts (the watermark is in
 /// web.siem_forwarding_state). On shutdown it gives up its lease so another process can take over at once.
 /// </summary>
 public sealed class SiemForwardingBackgroundService(SiemForwarder forwarder, TimeProvider timeProvider, ILogger<SiemForwardingBackgroundService> logger)
     : BackgroundService
 {
-    public static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(5);
+    public static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(10);
     public static readonly TimeSpan MaxBackoff = TimeSpan.FromMinutes(5);
 
-    /// <summary>5 s doubled per consecutive failure, at most MaxBackoff.</summary>
+    /// <summary>PollInterval doubled per consecutive failure, at most MaxBackoff.</summary>
     public static TimeSpan Backoff(int consecutiveFailures)
     {
         if (consecutiveFailures <= 0) return PollInterval;

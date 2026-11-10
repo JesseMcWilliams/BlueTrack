@@ -7,6 +7,7 @@ Each prints one line per check, `PASS`, `FAIL`, `WARN` (worth a look) or `INFO` 
 | Script | Run it | What it checks |
 |---|---|---|
 | `Test-BlueTrackHealth.ps1` | On the BlueTrack server, as an Admin | Windows services (IIS, SQL Server, SQL Server Agent, a CI runner if present, and with `gh` a warning when a CI run has been queued over `-CiQueuedMinutes` (10) with none in progress, D-348), the web pages, the version (About), your Windows sign-in, every Deployment page health check, and the nightly SQL Agent jobs' last runs. |
+| `Get-BlueTrackResourceUsage.ps1` | On the BlueTrack server, elevated, with VIEW SERVER STATE on SQL Server | Not a check (D-353): what the BlueTrack worker (w3wp) and SQL Server use of memory and CPU, sampled over `-SampleSeconds` while you run the slow page; the app pool's recycling limits and the API's garbage collector mode; SQL Server's memory and parallelism settings; the database's heaviest statements and the ones returning the most rows. Saved to a file (`-OutFile`) to review and send back; `-NoQueryText` leaves the statements' text out. |
 | `Test-BlueTrackSso.ps1` | Anywhere that reaches the site and the IdP, with a test account | SAML and/or OIDC sign-in without a browser, the user's roles, Sign out (SAML Single Logout when set up) and that the session ended. Written for authentik (see below). |
 | `Test-BlueTrackLdaps.ps1` | On the host that will bind, before setting up the domain in BlueTrack | DNS, the LDAPS port, the domain controller's certificate (trusted, right name, not expired), a bind made the way BlueTrack makes it, and reading a group. |
 | `Test-BlueTrackIntegrations.ps1` | As an Admin | BlueTrack's own Test buttons: the Secrets Store lookup, the CyberArk sources, every data feed; and the break-glass setup (accounts, alert recipients, recent BreakGlassLogon events). |
@@ -22,6 +23,9 @@ Each prints one line per check, `PASS`, `FAIL`, `WARN` (worth a look) or `INFO` 
 ```powershell
 # On the server, after an install or an update
 .\Test-BlueTrackHealth.ps1 -SiteUrl https://bluetrack.company.com
+
+# Memory and CPU: five minutes of samples while the slow page or query runs
+.\Get-BlueTrackResourceUsage.ps1 -SampleSeconds 300
 
 # SAML and OIDC with a test account (prompts for the password)
 .\Test-BlueTrackSso.ps1 -SiteUrl https://bluetrack.company.com -Credential (Get-Credential)

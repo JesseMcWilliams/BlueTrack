@@ -3,6 +3,7 @@
 > **Stage: Planning.** Work that isn't built or proven yet. The user's notes of 2026-11-03 are all built: `Archive_Planning_User-Notes-2026-11-03.md`. Carried forward from the 2026-09-16 survey (`Archive_Planning_Outstanding-Work-Survey-2026-09-16.md`); items that survey listed but the audit tracker records as resolved were left in the archive. Items tagged *(verify)* may already be done; confirm before starting. When an item ships, delete it here and record it in the relevant `Design_` doc.
 
 ## Requested, not started
+- **The worker's memory on a query (D-353, 2026-11-10)**: at a customer, w3wp grows "primarily when running a query". Which page or report isn't known yet: get `Tools/Get-BlueTrackResourceUsage.ps1 -SampleSeconds 300` run while it happens. Candidates: report exports (`XlsxReportWriter` builds the whole file with ClosedXML) and Server GC (measured: Workstation GC peaked 14% lower, private memory 31% lower, same speed).
 - **Privilege Cloud Direct** (requested 2026-10-19, with Self-Hosted Direct, D-248; later, the user, 2026-11-03, and with PSM below): read Privilege Cloud through its API into `stg_pc_*` instead of the export folder, as a fourth option on the CyberArk sources page (already listed there, unavailable). Needs the Privilege Cloud API's logon (an Identity OAuth client, `Platform/Developer` and `PAM/Privilege-Cloud-Standard` in the Idira reference), a lab tenant, and the same change guard.
 
 ## From the requirements review (2026-10-21)

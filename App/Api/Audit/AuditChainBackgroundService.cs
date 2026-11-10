@@ -1,7 +1,7 @@
 namespace BlueTrack.Api.Audit;
 
 /// <summary>
-/// D-295: seals new audit events within seconds. Every 5 s it runs a sealing pass; while full batches come back it
+/// D-295: seals new audit events within seconds. Every 10 s (D-353) it runs a sealing pass; while full batches come back it
 /// goes on after a short pause (the first run after the upgrade seals the whole existing log, oldest first, without
 /// crowding out the pages). A failure (the
 /// database briefly unavailable, say) is logged and retried; nothing is lost, since the events wait in the database.
@@ -9,7 +9,7 @@ namespace BlueTrack.Api.Audit;
 public sealed class AuditChainBackgroundService(AuditChainService chain, TimeProvider timeProvider, ILogger<AuditChainBackgroundService> logger)
     : BackgroundService
 {
-    public static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(5);
+    public static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(10);
     public static readonly TimeSpan BacklogPause = TimeSpan.FromMilliseconds(250);
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)

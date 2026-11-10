@@ -3,7 +3,7 @@
   "specVersion": "1.6",
   "version": 1,
   "metadata": {
-    "timestamp": "2026-11-05T23:37:03Z",
+    "timestamp": "2026-11-10T16:45:58Z",
     "tools": {
       "components": [
         {
@@ -2068,6 +2068,7 @@
         "pkg:nuget/ClosedXML@0.105.1",
         "pkg:nuget/CsvHelper@33.1.0",
         "pkg:nuget/Dapper@2.1.79",
+        "pkg:nuget/DocumentFormat.OpenXml@3.1.1",
         "pkg:nuget/ITfoxtec.Identity.Saml2.MvcCore@4.20.1",
         "pkg:nuget/MailKit@4.17.0",
         "pkg:nuget/Microsoft.AspNetCore.Authentication.Negotiate@10.0.13",

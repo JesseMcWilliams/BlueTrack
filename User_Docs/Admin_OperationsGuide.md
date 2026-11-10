@@ -291,7 +291,7 @@ Every fresh install maps `BUILTIN\Administrators` (SID `S-1-5-32-544`) to the Ad
 
 ## Monitoring SIEM Forwarding
 
-When **Admin > SIEM Forwarding** is on, a background task in the API sends new audit events to the SIEM every few seconds. Its progress is kept in the database (`web.siem_forwarding_state`), so nothing is lost while the collector is down or BlueTrack restarts: waiting events go out, oldest first, when it's reachable again. Retries back off from 5 seconds to every 5 minutes. Only one API process sends at a time (a lease in the same table), so an app pool recycle never sends events twice; after a failed send a batch can be sent again, so the SIEM may occasionally see an event twice with the same `externalId`.
+When **Admin > SIEM Forwarding** is on, a background task in the API sends new audit events to the SIEM every few seconds. Its progress is kept in the database (`web.siem_forwarding_state`), so nothing is lost while the collector is down or BlueTrack restarts: waiting events go out, oldest first, when it's reachable again. Retries back off from 10 seconds to every 5 minutes. Only one API process sends at a time (a lease in the same table), so an app pool recycle never sends events twice; after a failed send a batch can be sent again, so the SIEM may occasionally see an event twice with the same `externalId`.
 
 **Where to look:**
 
