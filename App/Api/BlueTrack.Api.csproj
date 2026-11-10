@@ -12,6 +12,10 @@
     <!-- D-226: the stamp below carries the commit itself, so the SDK's own
          "+<full commit sha>" (SourceLink) isn't appended to InformationalVersion. -->
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+    <!-- D-353: Workstation GC instead of ASP.NET Core's default Server GC. One site on a shared server with few
+         concurrent users: measured on the dev site, peak working set 14% lower and private memory 31% lower after
+         the same report exports, at the same speed. Written to runtimeconfig.json as System.GC.Server = false. -->
+    <ServerGarbageCollection>false</ServerGarbageCollection>
   </PropertyGroup>
 
   <!--
