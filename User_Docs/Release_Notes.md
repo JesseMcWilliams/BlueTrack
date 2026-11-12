@@ -13,6 +13,7 @@ What changed in each BlueTrack release, newest first, for users and administrato
 
 ### Fixed
 
+- **A Progress Rule or DNA tracking rule condition on a date field (a number of days) saves again.** Typing the number of days made the rule fail to save or test; it only worked when the number had been typed into another field first. Changing a condition's field to one with another kind of value (Yes/No, a source, a number of days, text) now also clears the old value. (Administrator Settings)
 - **Safe access policies now match the move permission across Privilege Cloud and Self-Hosted.** Self-Hosted reports "Move accounts and folders" as two permissions (move from, move into) where Privilege Cloud has one, so a Safe role naming the one failed on every Self-Hosted Safe, and with Exact match the two counted as extra. They now count as the same permission, both ways; the next check (nightly, or Check now) shows the corrected result. (Administrator Settings)
 
 ### Upgrading

@@ -96,7 +96,18 @@ watch(() => editing.value.fromStageKey, () => {
   }
 })
 
-function onFieldChange(condition) {
+// The kind of box a condition's value goes in. A field of another kind starts its value afresh: a source code or Yes
+// left in a number-of-days box shows as empty but is still the value, and the save is refused.
+function valueBox(condition) {
+  if (fieldOf(condition)?.kind === 'YesNo') return 'YesNo'
+  if (condition.fieldName === 'Source') return 'Source'
+  return fieldOf(condition)?.kind === 'Date' ? 'Days' : 'Text'
+}
+
+function onFieldChange(condition, fieldName = condition.fieldName) {
+  const before = valueBox(condition)
+  condition.fieldName = fieldName
+  if (valueBox(condition) !== before) condition.value = ''
   const ops = fieldOf(condition)?.operators ?? []
   if (!ops.includes(condition.operator)) condition.operator = ops[0] ?? ''
   if (fieldOf(condition)?.kind === 'YesNo' && !['Yes', 'No'].includes(condition.value)) condition.value = 'Yes'
@@ -106,8 +117,8 @@ function onFieldChange(condition) {
 function addCondition() {
   // A new condition starts on Source, as it always has.
   const first = fields.value.find(f => f.fieldName === 'Source') ?? sortedFields.value[0]
-  const condition = { fieldName: first?.fieldName ?? '', operator: '', value: '' }
-  onFieldChange(condition)
+  const condition = { fieldName: '', operator: '', value: '' }
+  onFieldChange(condition, first?.fieldName ?? '')
   editing.value.conditions.push(condition)
 }
 
@@ -156,7 +167,8 @@ function body() {
     toStageKey: isArchive.value ? null : editing.value.toStageKey,
     isEnabled: editing.value.isEnabled,
     description: editing.value.description,
-    conditions: editing.value.conditions.map(c => ({ fieldName: c.fieldName, operator: c.operator, value: NO_VALUE.includes(c.operator) ? null : c.value }))
+    // Always text: v-model makes a number box's value a number, which the API's text Value refuses.
+    conditions: editing.value.conditions.map(c => ({ fieldName: c.fieldName, operator: c.operator, value: NO_VALUE.includes(c.operator) ? null : String(c.value ?? '') }))
   }
 }
 
@@ -243,7 +255,7 @@ async function save() {
         <div v-for="(c, i) in editing.conditions" :key="i" class="condition">
           <label>
             <span class="visually-hidden">{{ t('admin.progressRuleEdit.field', { n: i + 1 }) }}</span>
-            <select v-model="c.fieldName" @change="onFieldChange(c)">
+            <select :value="c.fieldName" @change="onFieldChange(c, $event.target.value)">
               <option v-for="f in sortedFields" :key="f.fieldName" :value="f.fieldName">{{ fieldNames[f.fieldName] ?? f.fieldName }}</option>
             </select>
           </label>

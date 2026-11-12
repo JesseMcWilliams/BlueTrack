@@ -171,6 +171,40 @@ describe('Progress Rules and Blueprint Stages', () => {
     expect(wrapper.findAll('#progress-rule-sources option').map(o => o.attributes('value'))).toEqual(['DISCOVERY', 'PRIVCLOUD', 'SELFHOSTED'])
   })
 
+  // A value from another kind of box (a source code, Yes) isn't carried into a number-of-days box.
+  it('changing the field to one with another kind of value box starts the value afresh', async () => {
+    const withSource = [{ fieldName: 'Source', kind: 'Text', operators: ['Equals', 'In'] }, ...fields]
+    globalThis.fetch = vi.fn((url, init) => {
+      if (url === '/api/admin/blueprint-stages') return Promise.resolve(jsonResponse(stages))
+      if (url === '/api/admin/progress-rules/fields') return Promise.resolve(jsonResponse(withSource))
+      if (url === '/api/admin/progress-rules/sources') return Promise.resolve(jsonResponse(sources))
+      if (url === '/api/admin/progress-rules/preview') return Promise.resolve(jsonResponse({ matchCount: 0, accounts: [] }))
+      return Promise.resolve(jsonResponse(null, { ok: false, status: 404 }))
+    })
+    const wrapper = mount(ProgressRuleEdit, { global: { plugins: [makeRouter()] } })
+    await flushPromises()
+
+    const fieldSelect = wrapper.find('.condition select')
+    expect(wrapper.find('.condition select.source-value').element.value).toBe('DISCOVERY')
+    await fieldSelect.setValue('LastVerified')
+    await wrapper.findAll('.condition select')[1].setValue('WithinDays')
+    const days = wrapper.find('.condition input[type="number"]')
+    expect(days.element.value).toBe('')
+    await days.setValue('30')
+
+    await fieldSelect.setValue('AutoManaged')
+    expect(wrapper.findAll('.condition select')[2].element.value).toBe('Yes')
+    await fieldSelect.setValue('LastVerified')
+    await wrapper.findAll('.condition select')[1].setValue('WithinDays')
+    expect(wrapper.find('.condition input[type="number"]').element.value).toBe('')
+    await wrapper.find('.condition input[type="number"]').setValue('7')
+
+    await wrapper.findAll('button').find(b => b.text() === 'Test').trigger('click')
+    await flushPromises()
+    const preview = JSON.parse(globalThis.fetch.mock.calls.find(([url]) => url === '/api/admin/progress-rules/preview')[1].body)
+    expect(preview.conditions).toEqual([{ fieldName: 'LastVerified', operator: 'WithinDays', value: '7' }])
+  })
+
   it('keeps a saved Source value that is no longer a source system', async () => {
     const withSource = [{ fieldName: 'Source', kind: 'Text', operators: ['Equals', 'In'] }, ...fields]
     const saved = { ...rule, conditions: [{ fieldName: 'Source', operator: 'In', value: 'selfhosted, OLDFEED' }] }

@@ -45,15 +45,21 @@ async function load() {
   rules.value = body.rules ?? []
 }
 
-function onFieldChange(condition) {
+// A field with another kind of value box (Yes/No, a number of days, text) starts its value afresh, as on Progress Rules.
+const valueBox = condition => fieldOf(condition)?.kind ?? 'Text'
+
+function onFieldChange(condition, fieldName = condition.fieldName) {
+  const before = valueBox(condition)
+  condition.fieldName = fieldName
+  if (valueBox(condition) !== before) condition.value = ''
   const ops = fieldOf(condition)?.operators ?? []
   if (!ops.includes(condition.operator)) condition.operator = ops[0] ?? ''
   if (fieldOf(condition)?.kind === 'YesNo' && !['Yes', 'No'].includes(condition.value)) condition.value = 'Yes'
 }
 
 function addCondition() {
-  const condition = { fieldName: 'Finding', operator: '', value: '' }
-  onFieldChange(condition)
+  const condition = { fieldName: '', operator: '', value: '' }
+  onFieldChange(condition, 'Finding')
   editing.value.conditions.push(condition)
 }
 
@@ -74,7 +80,9 @@ async function save() {
   error.value = null
   notice.value = null
   try {
-    const { key, ...body } = editing.value
+    const { key, ...rest } = editing.value
+    // Values are text: v-model makes a number box's value a number, which the API's text Value refuses.
+    const body = { ...rest, conditions: rest.conditions.map(c => ({ ...c, value: c.value == null ? c.value : String(c.value) })) }
     const response = await fetch(key ? `/api/admin/dna/track-rules/${key}` : '/api/admin/dna/track-rules', {
       method: key ? 'PUT' : 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -156,7 +164,7 @@ onMounted(load)
         <div v-for="(c, i) in editing.conditions" :key="i" class="condition">
           <label>
             <span class="visually-hidden">{{ t('admin.dna.conditionField', { n: i + 1 }) }}</span>
-            <select v-model="c.fieldName" @change="onFieldChange(c)">
+            <select :value="c.fieldName" @change="onFieldChange(c, $event.target.value)">
               <option v-for="f in sortedFields" :key="f.fieldName" :value="f.fieldName">{{ fieldNames[f.fieldName] ?? f.fieldName }}</option>
             </select>
           </label>
