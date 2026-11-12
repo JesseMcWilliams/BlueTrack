@@ -55,4 +55,40 @@ public class AccountProgressSearchTests : IClassFixture<BlueTrackWebApplicationF
                 """, new { id = $"search-{tag}" });
         }
     }
+
+    // D-358: the list carries CPM status and Managed by the CPM, and sorts by either.
+    [Fact]
+    public async Task TheList_ShowsAndSortsByCpmStatusAndManagedByTheCpm()
+    {
+        var tag = Guid.NewGuid().ToString("N")[..8];
+        await using var connection = new SqlConnection(TestDatabase.ConnectionString);
+        await connection.ExecuteAsync("""
+            DECLARE @src INT = (SELECT SourceSystemKey FROM dim_source_system WHERE SourceSystemCode = 'DISCOVERY');
+            INSERT INTO fact_account (SourceSystemKey, SourceAccountId, AccountName, UserName, IsDeleted, CPMStatus, AutoManaged)
+            VALUES (@src, @tag + '-1', @tag + '-1', @tag + '-a', 0, N'success', 1),
+                   (@src, @tag + '-2', @tag + '-2', @tag + '-b', 0, N'failure', 0);
+            INSERT INTO fact_account_progress (AccountKey, CurrentStageKey, CurrentStatusKey)
+            SELECT AccountKey,
+                   (SELECT StageKey FROM dim_blueprint_stage WHERE StageName = 'Discovered'),
+                   (SELECT StatusKey FROM dim_progress_status WHERE StatusName = 'Not Started')
+            FROM fact_account WHERE SourceAccountId LIKE @tag + '-%';
+            """, new { tag });
+        try
+        {
+            var client = _factory.CreateClient();
+            client.DefaultRequestHeaders.Add(TestAuthHandler.TestUserHeaderName, "TestUser.Viewer");
+            async Task<List<(string? Status, bool? Managed)>> List(string sort) =>
+                (await client.GetFromJsonAsync<JsonArray>($"/api/account-progress?search={tag}&sort={sort}"))!
+                    .Select(r => (r!["cpmStatus"]?.GetValue<string>(), r["autoManaged"]?.GetValue<bool>())).ToList();
+            Assert.Equal([("failure", false), ("success", true)], await List("cpmStatus:asc"));
+            Assert.Equal([("success", true), ("failure", false)], await List("autoManaged:desc"));
+        }
+        finally
+        {
+            await connection.ExecuteAsync("""
+                DELETE FROM fact_account_progress WHERE AccountKey IN (SELECT AccountKey FROM fact_account WHERE SourceAccountId LIKE @tag + '-%');
+                DELETE FROM fact_account WHERE SourceAccountId LIKE @tag + '-%';
+                """, new { tag });
+        }
+    }
 }

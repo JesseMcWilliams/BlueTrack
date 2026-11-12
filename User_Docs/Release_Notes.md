@@ -6,6 +6,7 @@ What changed in each BlueTrack release, newest first, for users and administrato
 
 ### New
 
+- **CPM Status and Managed by the CPM on Account Progress.** The account list has both as columns, sortable like the others; a failing CPM status is highlighted. (User Guide)
 - **Duplicate a Safe access policy or Safe role.** On Admin > Safe Access Policies, **Duplicate** opens a new policy or role filled in from the one you picked, to change and save. A copied policy starts disabled. (Administrator Settings)
 ### Changed
 

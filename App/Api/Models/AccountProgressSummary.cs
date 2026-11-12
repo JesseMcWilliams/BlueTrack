@@ -29,6 +29,9 @@ public sealed class AccountProgressSummary
 
     public required string StageName { get; init; }
     public required string StatusName { get; init; }
+    /// <summary>D-358: fact_account.CPMStatus (success, failure, ...) and AutoManaged (managed by the CPM); null when not known.</summary>
+    public string? CPMStatus { get; init; }
+    public bool? AutoManaged { get; init; }
     public string? RiskLevelName { get; init; }
     public string? OwnerName { get; init; }
     public DateTime? TargetRemediationDate { get; init; }

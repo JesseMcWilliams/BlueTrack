@@ -134,6 +134,8 @@
     "colSafe": "Safe",
     "colStage": "Stage",
     "colStatus": "Status",
+    "colCpmStatus": "CPM Status",
+    "colAutoManaged": "Managed by the CPM",
     "colRiskLevel": "Risk Level",
     "colOwner": "Owner",
     "colTargetRemediationDate": "Target Remediation Date",

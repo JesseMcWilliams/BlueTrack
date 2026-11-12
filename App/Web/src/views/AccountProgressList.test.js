@@ -91,6 +91,26 @@ describe('AccountProgressList.vue', () => {
     expect(wrapper.text()).toContain('web01.example.com')
   })
 
+  // D-358
+  it('shows CPM Status and Managed by the CPM, sortable, with a failure marked', async () => {
+    mockInitialLoad({ accounts: [{ ...sampleAccount, cpmStatus: 'failure', autoManaged: false }, { ...sampleAccount, accountKey: 2, cpmStatus: null, autoManaged: null }] })
+    const wrapper = mount(AccountProgressList, { global: { plugins: [makeRouter()] } })
+    await flushPromises()
+
+    const headers = wrapper.findAll('thead th').map(th => th.text())
+    const cpm = headers.findIndex(h => h.startsWith('CPM Status'))
+    expect(headers[cpm + 1]).toMatch(/^Managed by the CPM/)
+    const [first, second] = wrapper.findAll('tbody tr').map(tr => tr.findAll('td'))
+    expect(first[cpm].text()).toBe('failure')
+    expect(first[cpm].classes()).toContain('cpm-failing')
+    expect(first[cpm + 1].text()).toBe('No')
+    expect(second[cpm + 1].text()).toBe('')
+
+    await wrapper.findAll('thead th')[cpm].find('button').trigger('click')
+    await flushPromises()
+    expect(globalThis.fetch.mock.calls.at(-1)[0]).toContain('sort=cpmStatus')
+  })
+
   // D-330
   it.each([
     ['/accounts', false],

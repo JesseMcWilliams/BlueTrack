@@ -4,6 +4,7 @@
 
 | Date | Change | User doc / section it affects |
 |---|---|---|
+| 2026-11-12 | Account Progress list: CPM Status and Managed by the CPM columns (sortable; failure highlighted) | User_Guide.md (Account Progress list columns) |
 | 2026-11-12 | Safe Access Policies: Duplicate on each policy and Safe role (opens a filled-in new form; a policy copy starts disabled) | Admin_SettingsReference_Data.md (Safe Access Policies) |
 | 2026-11-12 | Progress Rules and DNA tracking rules: a days condition saves; changing a condition's field to another kind clears its value | None (a fix; behaves as documented) |
 | 2026-11-12 | Safe access check: Self-Hosted's Move accounts from + into equals Privilege Cloud's Move accounts and folders, both ways (roles hold and exact-match across sources) | Admin_SettingsReference_Data.md (Safe Access Policies: Safe roles) |

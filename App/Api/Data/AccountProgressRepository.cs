@@ -27,7 +27,9 @@ public sealed class AccountProgressRepository(IDbConnectionFactory connectionFac
         ["actualCompletionDate"] = "fap.ActualCompletionDate",
         ["effectiveRiskScore"] = "ars.EffectiveRiskScore",
         ["riskScoreBandName"] = "band.RiskOrder",
-        ["safeName"] = "sf.SafeName"   // D-308
+        ["safeName"] = "sf.SafeName",   // D-308
+        ["cpmStatus"] = "fa.CPMStatus",   // D-358
+        ["autoManaged"] = "fa.AutoManaged"
     };
 
     // D-124 Phase 3: shared between GetSummaryListAsync and
@@ -120,6 +122,7 @@ public sealed class AccountProgressRepository(IDbConnectionFactory connectionFac
                     fa.Address,
                     stg.StageName,
                     sts.StatusName,
+                    fa.CPMStatus, fa.AutoManaged,
                     rl.RiskLevelName,
                     fap.OwnerName,
                     fap.TargetRemediationDate,
