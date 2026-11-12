@@ -1,6 +1,6 @@
 # BlueTrack: Handoff, 2026-11-06
 
-> **Stage: Reference (point-in-time snapshot).** Written on 2026-11-06 for whoever picks the project up next (a person or another Claude session). Supersedes `Archive_Reference_Handoff-2026-11-05.md` (1.5.2, D-332 to D-347, the DNA work) and `Archive_Reference_Handoff-2026-10-21.md` (everything up to 1.5.1); both stay the place for that history. Facts about the code live in the code and the other `Claude_Docs/` files; this note points at them.
+> **Stage: Archive (superseded by `Reference_Handoff-2026-11-10.md`).** Was the point-in-time snapshot of 2026-11-06. Written on 2026-11-06 for whoever picks the project up next (a person or another Claude session). Supersedes `Archive_Reference_Handoff-2026-11-05.md` (1.5.2, D-332 to D-347, the DNA work) and `Archive_Reference_Handoff-2026-10-21.md` (everything up to 1.5.1); both stay the place for that history. Facts about the code live in the code and the other `Claude_Docs/` files; this note points at them.
 
 ## 1. Where things stand
 
