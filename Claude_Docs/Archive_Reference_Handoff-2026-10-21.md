@@ -1,6 +1,6 @@
 # BlueTrack: Handoff, 2026-10-21
 
-> **Stage: Archive (superseded by `Archive_Reference_Handoff-2026-11-05.md`, then `Reference_Handoff-2026-11-06.md`).** Kept for the history up to 1.5.1 and the 2026-11-03/04 rounds.
+> **Stage: Archive (superseded by `Archive_Reference_Handoff-2026-11-05.md`, then `Archive_Reference_Handoff-2026-11-06.md`, then `Reference_Handoff-2026-11-10.md`).** Kept for the history up to 1.5.1 and the 2026-11-03/04 rounds.
 >
 > **Stage: Reference (point-in-time snapshot).** Written at the end of the 2026-10-21 session for whoever picks the project up next (a person or another Claude session), brought up to date after the session's second batch (D-289 to D-297) and again on 2026-10-23 (release 1.5.1, the dev-site upgrade, SQL Server Audit live, and the customer upgrade questions in section 2a), and on 2026-11-03 (Archived status, Safe Access Policies and compliance review; section 2b, then section 2c), and on 2026-11-04 (Home and the user's notes; section 2d), and again later on 2026-11-04 (the layout review, the dev-site install of `main` and the installer fix; section 2e). Supersedes `Archive_Reference_Handoff-2026-10-19.md` and `Archive_Planning_Handoff-2026-10-18.md`. Facts about the code live in the code and the other `Claude_Docs/` files; this note points at them.
 
