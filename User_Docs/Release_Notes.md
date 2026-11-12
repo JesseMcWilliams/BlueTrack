@@ -8,6 +8,7 @@ What changed in each BlueTrack release, newest first, for users and administrato
 
 ### Changed
 
+- **The DNA reports and DNA imports use less memory.** Reports > DNA Accounts and DNA Hard-Coded Credentials ask SQL Server for a small fraction of the memory they did for each page (in testing, 6 MB instead of 98 MB), with the same rows in the same order; a DNA import keeps its accounts in memory once instead of twice. (Administrator Operations Guide)
 - **`Get-BlueTrackResourceUsage.ps1` explains more.** It shows where the server's memory is (processes, Windows' own use, the file cache) and when the server started, and warns when SQL Server is short of memory or has kept less than an hour of statement history, so a report that can't name the slow query says why. Without `-SampleSeconds` it reminds you to sample while using the slow page. (Tools README)
 
 ### Fixed

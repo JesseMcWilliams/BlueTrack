@@ -429,6 +429,32 @@ public class DnaTrackingTests(BlueTrackWebApplicationFactory factory) : IClassFi
         Assert.Equal(sorted.OrderByDescending(n => n, StringComparer.OrdinalIgnoreCase).ToList(), sorted);
     }
 
+    // D-355: the pages (keys sorted and paged first, then their columns read) are the full sorted list cut into pieces.
+    [Theory]
+    [InlineData("AccountName:desc")]
+    [InlineData("LastLoginDate:desc")]
+    [InlineData("")]
+    public async Task DnaAccountPages_AreTheSortedListInPieces_WithEveryColumn(string sort)
+    {
+        await ImportAsync();
+        var admin = Client("TestUser.Admin");
+        var all = (await admin.GetFromJsonAsync<JsonArray>($"/api/reports/dna-accounts?search={_token}&sort={sort}&pageSize=100"))!;
+        Assert.True(all.Count >= 4, $"expected at least 4 rows, got {all.Count}");
+        var paged = new List<JsonNode?>();
+        for (var page = 1; page <= (all.Count + 1) / 2; page++)
+        {
+            paged.AddRange((await admin.GetFromJsonAsync<JsonArray>($"/api/reports/dna-accounts?search={_token}&sort={sort}&page={page}&pageSize=2"))!
+                .Select(n => n?.DeepClone()));
+        }
+        Assert.Equal(all.Select(n => n!.ToJsonString()), paged.Select(n => n!.ToJsonString()));
+        Assert.Contains(all, r => r!["machineType"]?.GetValue<string>() == "Server");   // the wide columns come back too
+
+        var hcc = (await admin.GetFromJsonAsync<JsonArray>("/api/reports/dna-hard-coded-credentials?sort=AccountName:asc&pageSize=100"))!
+            .Select(r => r!["accountName"]!.GetValue<string>()).ToList();
+        var second = (await admin.GetFromJsonAsync<JsonArray>("/api/reports/dna-hard-coded-credentials?sort=AccountName:asc&page=2&pageSize=1"))!;
+        Assert.Equal(hcc[1], second.Single()!["accountName"]!.GetValue<string>());
+    }
+
     [Fact]
     public async Task ADnaFeed_ImportsTheWorkbookFromAFolder()
     {
