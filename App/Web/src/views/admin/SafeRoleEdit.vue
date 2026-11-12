@@ -1,14 +1,17 @@
 <script setup>
 // D-300: add or edit a Safe role: the Safe permissions a member must hold (and, with "exactly", no others).
-// POST/PUT /api/admin/safe-access/roles; the permissions from GET /api/admin/safe-access/permissions.
+// POST/PUT /api/admin/safe-access/roles; the permissions from GET /api/admin/safe-access/permissions. Duplicate
+// (?copyOf=key) opens a new role filled from that one.
 import { ref, computed, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { flash, savedMessage } from '../../composables/useFlash'
 import { useI18n } from 'vue-i18n'
 
 const { t } = useI18n()
 const props = defineProps({ roleKey: { type: [String, Number], required: false, default: null } })
 const router = useRouter()
+const copyOf = useRoute().query.copyOf ?? null
+const copiedFrom = ref(null)
 const isEditMode = computed(() => props.roleKey !== null && props.roleKey !== undefined)
 
 const loading = ref(true)
@@ -22,16 +25,21 @@ onMounted(async () => {
   try {
     const [permissionsResponse, rolesResponse] = await Promise.all([
       fetch('/api/admin/safe-access/permissions'),
-      isEditMode.value ? fetch('/api/admin/safe-access/roles') : Promise.resolve(null)
+      isEditMode.value || copyOf !== null ? fetch('/api/admin/safe-access/roles') : Promise.resolve(null)
     ])
     for (const r of [permissionsResponse, rolesResponse]) {
       if (r && !r.ok) throw new Error(t('common.requestFailed', { status: r.status }))
     }
     permissionNames.value = await permissionsResponse.json()
     if (rolesResponse) {
-      const match = (await rolesResponse.json()).find(r => String(r.safeRoleKey) === String(props.roleKey))
+      const wanted = isEditMode.value ? props.roleKey : copyOf
+      const match = (await rolesResponse.json()).find(r => String(r.safeRoleKey) === String(wanted))
       if (!match) throw new Error(t('admin.safeRoleEdit.notFound'))
-      editing.value = { roleName: match.roleName, description: match.description ?? '', exactMatch: match.exactMatch, permissions: [...match.permissions] }
+      if (!isEditMode.value) copiedFrom.value = match.roleName
+      editing.value = {
+        roleName: isEditMode.value ? match.roleName : t('admin.safeRoleEdit.copyName', { name: match.roleName }),
+        description: match.description ?? '', exactMatch: match.exactMatch, permissions: [...match.permissions]
+      }
     }
   } catch (err) {
     loadError.value = err.message
@@ -63,6 +71,7 @@ async function save() {
 <template>
   <div>
     <h2>{{ isEditMode ? t('admin.safeRoleEdit.editTitle') : t('admin.safeRoleEdit.newTitle') }}</h2>
+    <p v-if="copiedFrom" class="hint copied-from">{{ t('admin.safeRoleEdit.copiedFrom', { name: copiedFrom }) }}</p>
     <p v-if="loading" role="status">{{ t('common.loading') }}</p>
     <p v-else-if="loadError" role="alert">{{ loadError }}</p>
     <form v-else @submit.prevent="save">

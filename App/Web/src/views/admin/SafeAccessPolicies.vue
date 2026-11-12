@@ -103,7 +103,10 @@ async function checkNow() {
               </ul>
             </td>
             <td>{{ p.isEnabled ? t('common.yes') : t('common.no') }}</td>
-            <td><button type="button" @click="remove(`/api/admin/safe-access/policies/${p.safeAccessPolicyKey}`, p.policyName)">{{ t('common.delete') }}</button></td>
+            <td class="row-actions">
+              <button type="button" @click="router.push({ name: 'admin-safe-access-policy-create', query: { copyOf: p.safeAccessPolicyKey } })">{{ t('admin.safeAccessPolicies.duplicate') }}</button>
+              <button type="button" @click="remove(`/api/admin/safe-access/policies/${p.safeAccessPolicyKey}`, p.policyName)">{{ t('common.delete') }}</button>
+            </td>
           </tr>
         </tbody>
       </table>
@@ -126,7 +129,10 @@ async function checkNow() {
             <td><router-link :to="{ name: 'admin-safe-role-edit', params: { roleKey: r.safeRoleKey } }">{{ r.roleName }}</router-link></td>
             <td>{{ r.permissions.join(', ') }}<template v-if="r.exactMatch">{{ ' ' + t('admin.safeAccessPolicies.exactly') }}</template></td>
             <td>{{ t('admin.safeAccessPolicies.ruleCount', { count: r.ruleCount }, r.ruleCount) }}</td>
-            <td><button type="button" @click="remove(`/api/admin/safe-access/roles/${r.safeRoleKey}`, r.roleName)">{{ t('common.delete') }}</button></td>
+            <td class="row-actions">
+              <button type="button" @click="router.push({ name: 'admin-safe-role-create', query: { copyOf: r.safeRoleKey } })">{{ t('admin.safeAccessPolicies.duplicate') }}</button>
+              <button type="button" @click="remove(`/api/admin/safe-access/roles/${r.safeRoleKey}`, r.roleName)">{{ t('common.delete') }}</button>
+            </td>
           </tr>
         </tbody>
       </table>

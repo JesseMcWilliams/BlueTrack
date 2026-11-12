@@ -163,6 +163,7 @@
     "reportLink": "Results: Reports > Safe Access",
     "policiesHeading": "Policies",
     "newPolicy": "New policy",
+    "duplicate": "Duplicate",
     "checkNow": "Check now",
     "checked": "Every Safe was checked. The results are on Reports > Safe Access.",
     "colOrder": "Order",
@@ -187,6 +188,8 @@
   },
   "safeRoleEdit": {
     "newTitle": "New Safe Role",
+    "copyName": "{name} (copy)",
+    "copiedFrom": "A copy of {name}. Nothing is saved until you click Save.",
     "editTitle": "Edit Safe Role",
     "notFound": "That Safe role no longer exists.",
     "name": "Name",
@@ -197,6 +200,8 @@
   },
   "safeAccessPolicyEdit": {
     "newTitle": "New Safe Access Policy",
+    "copyName": "{name} (copy)",
+    "copiedFrom": "A copy of {name}. It starts disabled; nothing is saved until you click Save.",
     "editTitle": "Edit Safe Access Policy",
     "notFound": "That policy no longer exists.",
     "name": "Name",

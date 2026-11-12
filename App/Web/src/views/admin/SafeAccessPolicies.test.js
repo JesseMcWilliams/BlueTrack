@@ -93,6 +93,44 @@ describe('Safe access policies', () => {
     })
   })
 
+  it('Duplicate opens a new policy or role filled from the one copied; a policy copy starts disabled', async () => {
+    globalThis.fetch = vi.fn((url, init) => {
+      if (init?.method === 'POST') return Promise.resolve(jsonResponse({ safeAccessPolicyKey: 3, safeRoleKey: 5 }, { status: 201 }))
+      if (url.endsWith('/permissions')) return Promise.resolve(jsonResponse(['UseAccounts', 'RetrieveAccounts', 'ListAccounts']))
+      return Promise.resolve(jsonResponse(url.endsWith('/roles') ? roles : policies))
+    })
+    const router = makeRouter()
+    const list = mount(SafeAccessPolicies, { global: { plugins: [router] } })
+    await flushPromises()
+    const duplicates = list.findAll('button').filter(b => b.text() === 'Duplicate')
+    expect(duplicates).toHaveLength(2)   // one policy, one role
+    await duplicates[0].trigger('click')
+    await flushPromises()
+    expect(router.currentRoute.value).toMatchObject({ name: 'admin-safe-access-policy-create', query: { copyOf: '2' } })
+
+    const policy = mount(SafeAccessPolicyEdit, { global: { plugins: [router] } })
+    await flushPromises()
+    expect(policy.find('.copied-from').text()).toContain('A copy of Apps')
+    await policy.find('form').trigger('submit')
+    await flushPromises()
+    const savedPolicy = globalThis.fetch.mock.calls.find(([url, init]) => url === '/api/admin/safe-access/policies' && init?.method === 'POST')
+    expect(JSON.parse(savedPolicy[1].body)).toEqual({
+      policyName: 'Apps (copy)', safeNamePattern: 'APP_*', sortOrder: 2, isEnabled: false, description: '',
+      rules: [
+        { ruleType: 'Required', memberPattern: '{SafeName}_Users', safeRoleKey: 4, requirePeople: true },
+        { ruleType: 'Forbidden', memberPattern: 'Vault Admins', safeRoleKey: null, requirePeople: false }
+      ]
+    })
+
+    await router.push({ name: 'admin-safe-role-create', query: { copyOf: '4' } })
+    const role = mount(SafeRoleEdit, { global: { plugins: [router] } })
+    await flushPromises()
+    await role.find('form').trigger('submit')
+    await flushPromises()
+    const savedRole = globalThis.fetch.mock.calls.find(([url, init]) => url === '/api/admin/safe-access/roles' && init?.method === 'POST')
+    expect(JSON.parse(savedRole[1].body)).toEqual({ roleName: 'End user (copy)', description: '', exactMatch: false, permissions: ['ListAccounts', 'UseAccounts', 'RetrieveAccounts'] })
+  })
+
   it('a Safe role saves the ticked permissions', async () => {
     globalThis.fetch = vi.fn((url, init) => {
       if (init?.method === 'POST') return Promise.resolve(jsonResponse({ safeRoleKey: 5 }, { status: 201 }))

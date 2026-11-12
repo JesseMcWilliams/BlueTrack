@@ -3,15 +3,17 @@
 // order (the first enabled policy whose pattern matches a Safe applies), and its rules: Required (a member whose name
 // matches, {SafeName} being the Safe's own name, holds a Safe role, optionally with people in it) or Forbidden (no
 // member matching, or none holding the role named). POST/PUT /api/admin/safe-access/policies; the roles from
-// GET /api/admin/safe-access/roles.
+// GET /api/admin/safe-access/roles. Duplicate (?copyOf=key) opens a new policy filled from that one, disabled.
 import { ref, computed, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { flash, savedMessage } from '../../composables/useFlash'
 import { useI18n } from 'vue-i18n'
 
 const { t } = useI18n()
 const props = defineProps({ policyKey: { type: [String, Number], required: false, default: null } })
 const router = useRouter()
+const copyOf = useRoute().query.copyOf ?? null
+const copiedFrom = ref(null)
 const isEditMode = computed(() => props.policyKey !== null && props.policyKey !== undefined)
 
 const loading = ref(true)
@@ -43,7 +45,18 @@ onMounted(async () => {
       editing.value = { ...match, description: match.description ?? '', rules: match.rules.map(r => ({ ...r })) }
     } else {
       editing.value.sortOrder = policies.reduce((max, p) => Math.max(max, p.sortOrder), 0) + 1
-      addRule('Required')
+      const source = copyOf === null ? null : policies.find(p => String(p.safeAccessPolicyKey) === String(copyOf))
+      if (copyOf !== null && !source) throw new Error(t('admin.safeAccessPolicyEdit.notFound'))
+      if (source) {
+        // Disabled, so the copy can't change which policy a Safe gets until it is turned on.
+        copiedFrom.value = source.policyName
+        editing.value = {
+          policyName: t('admin.safeAccessPolicyEdit.copyName', { name: source.policyName }), safeNamePattern: source.safeNamePattern,
+          sortOrder: editing.value.sortOrder, isEnabled: false, description: source.description ?? '', rules: source.rules.map(r => ({ ...r }))
+        }
+      } else {
+        addRule('Required')
+      }
     }
   } catch (err) {
     loadError.value = err.message
@@ -81,6 +94,7 @@ async function save() {
 <template>
   <div>
     <h2>{{ isEditMode ? t('admin.safeAccessPolicyEdit.editTitle') : t('admin.safeAccessPolicyEdit.newTitle') }}</h2>
+    <p v-if="copiedFrom" class="hint copied-from">{{ t('admin.safeAccessPolicyEdit.copiedFrom', { name: copiedFrom }) }}</p>
     <p v-if="loading" role="status">{{ t('common.loading') }}</p>
     <p v-else-if="loadError" role="alert">{{ loadError }}</p>
     <form v-else @submit.prevent="save">

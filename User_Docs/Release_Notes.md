@@ -6,6 +6,7 @@ What changed in each BlueTrack release, newest first, for users and administrato
 
 ### New
 
+- **Duplicate a Safe access policy or Safe role.** On Admin > Safe Access Policies, **Duplicate** opens a new policy or role filled in from the one you picked, to change and save. A copied policy starts disabled. (Administrator Settings)
 ### Changed
 
 - **The DNA reports and DNA imports use less memory.** Reports > DNA Accounts and DNA Hard-Coded Credentials ask SQL Server for a small fraction of the memory they did for each page (in testing, 6 MB instead of 98 MB), with the same rows in the same order; a DNA import keeps its accounts in memory once instead of twice. (Administrator Operations Guide)
