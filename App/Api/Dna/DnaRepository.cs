@@ -26,44 +26,9 @@ public sealed class DnaRepository(IDbConnectionFactory connectionFactory)
             VALUES (@fileName, @userKey, @count, @sheetCounts, @hardCodedCount)
             """, new { fileName, userKey, count = rows.Count, sheetCounts, hardCodedCount = hardCoded.Count }, transaction);
 
-        // D-345: the hard-coded credentials, as read (their credential text masked).
-        var hcc = new DataTable();
-        foreach (var (name, type) in HardCodedColumns) hcc.Columns.Add(name, type);
-        foreach (var h in hardCoded)
-        {
-            hcc.Rows.Add(importKey, h.SheetCode, (object?)h.MachineName ?? DBNull.Value, (object?)h.MachineType ?? DBNull.Value,
-                (object?)h.ApplicationServer ?? DBNull.Value, (object?)h.ApplicationName ?? DBNull.Value, (object?)h.SiteName ?? DBNull.Value,
-                (object?)h.AccountName ?? DBNull.Value, (object?)h.HardCodedInFile ?? DBNull.Value, (object?)h.CredentialLocation ?? DBNull.Value,
-                (object?)h.PasswordLength ?? DBNull.Value, (object?)h.TargetSystemAddress ?? DBNull.Value, (object?)h.TargetSystemType ?? DBNull.Value,
-                (object?)h.OsVersion ?? DBNull.Value, (object?)h.Details ?? DBNull.Value);
-        }
-        using (var bulk = new SqlBulkCopy(connection, SqlBulkCopyOptions.Default, transaction) { DestinationTableName = "web.dna_hard_coded_credential", BulkCopyTimeout = 600 })
-        {
-            foreach (var (name, _) in HardCodedColumns) bulk.ColumnMappings.Add(name, name);
-            await bulk.WriteToServerAsync(hcc);
-        }
-
-        var table = new DataTable();
-        foreach (var (name, type) in Columns) table.Columns.Add(name, type);
-        foreach (var r in rows)
-        {
-            table.Rows.Add(importKey, r.SheetCode, r.IsDomainAccount, (object?)r.MachineName ?? DBNull.Value, r.AccountName,
-                (object?)r.DisplayName ?? DBNull.Value, (object?)r.AccountType ?? DBNull.Value, (object?)r.AccountCategory ?? DBNull.Value,
-                (object?)r.AccountGroup ?? DBNull.Value, (object?)r.PrivilegedDomainGroup ?? DBNull.Value, (object?)r.InstanceName ?? DBNull.Value,
-                (object?)r.DatabaseName ?? DBNull.Value, (object?)r.ComplianceStatus ?? DBNull.Value, (object?)r.AccountState ?? DBNull.Value,
-                (object?)r.PasswordNeverExpires ?? DBNull.Value, (object?)r.PasswordAgeDays ?? DBNull.Value, (object?)r.PasswordLastSet ?? DBNull.Value,
-                (object?)r.LastLoginDate ?? DBNull.Value, (object?)r.AccountExpirationDate ?? DBNull.Value,
-                (object?)r.MachineType ?? DBNull.Value, (object?)r.OsVersion ?? DBNull.Value, (object?)r.AccountDescription ?? DBNull.Value,
-                (object?)r.ThreatCause ?? DBNull.Value, (object?)r.PassTheHashVulnerable ?? DBNull.Value, (object?)r.PassTheHashHashFound ?? DBNull.Value,
-                (object?)r.ServiceAccountType ?? DBNull.Value, (object?)r.ServiceAccountDescription ?? DBNull.Value, (object?)r.SpnDescription ?? DBNull.Value,
-                (object?)r.Roles ?? DBNull.Value, (object?)r.DbPermissions ?? DBNull.Value, (object?)r.Details ?? DBNull.Value,
-                (object?)r.LocalMappedAccount ?? DBNull.Value, r.IsUnresolvedSid);
-        }
-        using (var bulk = new SqlBulkCopy(connection, SqlBulkCopyOptions.Default, transaction) { DestinationTableName = "web.dna_account", BulkCopyTimeout = 600 })
-        {
-            foreach (var (name, _) in Columns) bulk.ColumnMappings.Add(name, name);
-            await bulk.WriteToServerAsync(table);
-        }
+        // D-345: the hard-coded credentials, as read (their credential text masked). D-355: read straight from the list.
+        await BulkInsertAsync(connection, transaction, "web.dna_hard_coded_credential", hardCoded, HardCodedColumns(importKey));
+        await BulkInsertAsync(connection, transaction, "web.dna_account", rows, AccountColumns(importKey));
 
         // An account tracked from DNA before (D-342: source DNA, the same DNA identity, so the same machine) keeps its link;
         // otherwise, D-346 (the user's rules, 2026-11-05), by its Account Type, to a BlueTrack account from another source
@@ -125,25 +90,46 @@ public sealed class DnaRepository(IDbConnectionFactory connectionFactory)
     private static Task RefreshRiskFindingsAsync(System.Data.IDbConnection connection) =>
         connection.ExecuteAsync("EXEC web.usp_DeriveRiskFindings", commandTimeout: 600);
 
-    private static readonly (string Name, Type Type)[] Columns =
+    private static async Task BulkInsertAsync<T>(SqlConnection connection, SqlTransaction transaction, string table,
+        IReadOnlyList<T> rows, IReadOnlyList<ListDataColumn<T>> columns)
+    {
+        using var bulk = new SqlBulkCopy(connection, SqlBulkCopyOptions.Default, transaction) { DestinationTableName = table, BulkCopyTimeout = 600 };
+        foreach (var column in columns) bulk.ColumnMappings.Add(column.Name, column.Name);
+        await using var reader = new ListDataReader<T>(rows, columns);
+        await bulk.WriteToServerAsync(reader);
+    }
+
+    private static ListDataColumn<DnaAccountRow>[] AccountColumns(int importKey) =>
     [
-        ("DnaImportKey", typeof(int)), ("SheetCode", typeof(string)), ("IsDomainAccount", typeof(bool)), ("MachineName", typeof(string)),
-        ("AccountName", typeof(string)), ("DisplayName", typeof(string)), ("AccountType", typeof(string)), ("AccountCategory", typeof(string)),
-        ("AccountGroup", typeof(string)), ("PrivilegedDomainGroup", typeof(string)), ("InstanceName", typeof(string)), ("DatabaseName", typeof(string)),
-        ("ComplianceStatus", typeof(string)), ("AccountState", typeof(string)), ("PasswordNeverExpires", typeof(bool)), ("PasswordAgeDays", typeof(int)),
-        ("PasswordLastSet", typeof(DateTime)), ("LastLoginDate", typeof(DateTime)), ("AccountExpirationDate", typeof(DateTime)),
-        ("MachineType", typeof(string)), ("OsVersion", typeof(string)), ("AccountDescription", typeof(string)), ("ThreatCause", typeof(string)),
-        ("PassTheHashVulnerable", typeof(string)), ("PassTheHashHashFound", typeof(string)), ("ServiceAccountType", typeof(string)),
-        ("ServiceAccountDescription", typeof(string)), ("SpnDescription", typeof(string)), ("Roles", typeof(string)), ("DbPermissions", typeof(string)),
-        ("Details", typeof(string)), ("LocalMappedAccount", typeof(string)), ("IsUnresolvedSid", typeof(bool))
+        new("DnaImportKey", typeof(int), _ => importKey), new("SheetCode", typeof(string), r => r.SheetCode),
+        new("IsDomainAccount", typeof(bool), r => r.IsDomainAccount), new("MachineName", typeof(string), r => r.MachineName),
+        new("AccountName", typeof(string), r => r.AccountName), new("DisplayName", typeof(string), r => r.DisplayName),
+        new("AccountType", typeof(string), r => r.AccountType), new("AccountCategory", typeof(string), r => r.AccountCategory),
+        new("AccountGroup", typeof(string), r => r.AccountGroup), new("PrivilegedDomainGroup", typeof(string), r => r.PrivilegedDomainGroup),
+        new("InstanceName", typeof(string), r => r.InstanceName), new("DatabaseName", typeof(string), r => r.DatabaseName),
+        new("ComplianceStatus", typeof(string), r => r.ComplianceStatus), new("AccountState", typeof(string), r => r.AccountState),
+        new("PasswordNeverExpires", typeof(bool), r => r.PasswordNeverExpires), new("PasswordAgeDays", typeof(int), r => r.PasswordAgeDays),
+        new("PasswordLastSet", typeof(DateTime), r => r.PasswordLastSet), new("LastLoginDate", typeof(DateTime), r => r.LastLoginDate),
+        new("AccountExpirationDate", typeof(DateTime), r => r.AccountExpirationDate), new("MachineType", typeof(string), r => r.MachineType),
+        new("OsVersion", typeof(string), r => r.OsVersion), new("AccountDescription", typeof(string), r => r.AccountDescription),
+        new("ThreatCause", typeof(string), r => r.ThreatCause), new("PassTheHashVulnerable", typeof(string), r => r.PassTheHashVulnerable),
+        new("PassTheHashHashFound", typeof(string), r => r.PassTheHashHashFound), new("ServiceAccountType", typeof(string), r => r.ServiceAccountType),
+        new("ServiceAccountDescription", typeof(string), r => r.ServiceAccountDescription), new("SpnDescription", typeof(string), r => r.SpnDescription),
+        new("Roles", typeof(string), r => r.Roles), new("DbPermissions", typeof(string), r => r.DbPermissions),
+        new("Details", typeof(string), r => r.Details), new("LocalMappedAccount", typeof(string), r => r.LocalMappedAccount),
+        new("IsUnresolvedSid", typeof(bool), r => r.IsUnresolvedSid)
     ];
 
-    private static readonly (string Name, Type Type)[] HardCodedColumns =
+    private static ListDataColumn<DnaHardCodedRow>[] HardCodedColumns(int importKey) =>
     [
-        ("DnaImportKey", typeof(int)), ("SheetCode", typeof(string)), ("MachineName", typeof(string)), ("MachineType", typeof(string)),
-        ("ApplicationServer", typeof(string)), ("ApplicationName", typeof(string)), ("SiteName", typeof(string)), ("AccountName", typeof(string)),
-        ("HardCodedInFile", typeof(string)), ("CredentialLocation", typeof(string)), ("PasswordLength", typeof(int)),
-        ("TargetSystemAddress", typeof(string)), ("TargetSystemType", typeof(string)), ("OsVersion", typeof(string)), ("Details", typeof(string))
+        new("DnaImportKey", typeof(int), _ => importKey), new("SheetCode", typeof(string), h => h.SheetCode),
+        new("MachineName", typeof(string), h => h.MachineName), new("MachineType", typeof(string), h => h.MachineType),
+        new("ApplicationServer", typeof(string), h => h.ApplicationServer), new("ApplicationName", typeof(string), h => h.ApplicationName),
+        new("SiteName", typeof(string), h => h.SiteName), new("AccountName", typeof(string), h => h.AccountName),
+        new("HardCodedInFile", typeof(string), h => h.HardCodedInFile), new("CredentialLocation", typeof(string), h => h.CredentialLocation),
+        new("PasswordLength", typeof(int), h => h.PasswordLength), new("TargetSystemAddress", typeof(string), h => h.TargetSystemAddress),
+        new("TargetSystemType", typeof(string), h => h.TargetSystemType), new("OsVersion", typeof(string), h => h.OsVersion),
+        new("Details", typeof(string), h => h.Details)
     ];
 
     /// <summary>D-345: the page's sortable columns of the hard-coded credentials.</summary>
@@ -173,13 +159,19 @@ public sealed class DnaRepository(IDbConnectionFactory connectionFactory)
             WHERE @search IS NULL OR h.MachineName LIKE @search OR h.ApplicationName LIKE @search OR h.AccountName LIKE @search
                OR h.HardCodedInFile LIKE @search OR h.TargetSystemAddress LIKE @search
             """;
-        var paging = pageSize is null ? "" : "OFFSET @offset ROWS FETCH NEXT @pageSize ROWS ONLY";
+        // D-355: sort and page the keys only, then read the page's wide columns, so SQL Server's memory grant is sized for
+        // the sort columns, not every column's declared width.
+        var paging = pageSize is null ? "" : $"ORDER BY {order} OFFSET @offset ROWS FETCH NEXT @pageSize ROWS ONLY";
         using var multi = await connection.QueryMultipleAsync($"""
             SELECT h.DnaHardCodedKey, h.SheetCode, h.MachineName, h.MachineType, h.ApplicationServer, h.ApplicationName, h.SiteName, h.AccountName,
                    h.HardCodedInFile, h.CredentialLocation, h.PasswordLength, h.TargetSystemAddress, h.TargetSystemType, h.OsVersion, h.Details
-            {filter}
-            ORDER BY {order}
-            {paging};
+            FROM (
+                SELECT h.DnaHardCodedKey, ROW_NUMBER() OVER (ORDER BY {order}) AS Seq
+                {filter}
+                {paging}
+            ) k
+            JOIN web.dna_hard_coded_credential h ON h.DnaHardCodedKey = k.DnaHardCodedKey
+            ORDER BY k.Seq;
             SELECT COUNT(*) {filter};
             SELECT COUNT(*) FROM web.dna_hard_coded_credential;
             """, new
@@ -389,6 +381,8 @@ public sealed class DnaRepository(IDbConnectionFactory connectionFactory)
             .ToList();
         var order = string.Join(", ", chosen.Select(s => s.Sql + (s.Descending ? " DESC" : " ASC"))
             .Concat(new[] { "d.SheetCode", "d.MachineName", "d.AccountName", "d.DnaAccountKey" }.Where(c => chosen.All(s => s.Sql != c))));
+        // D-355: sort and page the keys only, then read the page's wide columns, so SQL Server's memory grant is sized for
+        // the sort columns, not every column's declared width.
         using var multi = await connection.QueryMultipleAsync($"""
             SELECT d.DnaAccountKey, d.SheetCode, d.IsDomainAccount, d.MachineName, d.AccountName, d.DisplayName, d.AccountType, d.AccountCategory,
                    d.AccountGroup, d.PrivilegedDomainGroup, d.InstanceName, d.DatabaseName, d.ComplianceStatus, d.AccountState,
@@ -396,9 +390,15 @@ public sealed class DnaRepository(IDbConnectionFactory connectionFactory)
                    d.MachineType, d.OsVersion, d.AccountDescription, d.ThreatCause, d.PassTheHashVulnerable, d.PassTheHashHashFound,
                    d.ServiceAccountType, d.ServiceAccountDescription, d.SpnDescription, d.Roles, d.DbPermissions, d.Details, d.LocalMappedAccount,
                    d.TrackedAccountKey, fa.AccountName AS TrackedAccountName, d.TrackedBy, d.IsUnresolvedSid
-            {filter}
-            ORDER BY {order}
-            OFFSET @offset ROWS FETCH NEXT @pageSize ROWS ONLY;
+            FROM (
+                SELECT d.DnaAccountKey, ROW_NUMBER() OVER (ORDER BY {order}) AS Seq
+                {filter}
+                ORDER BY {order}
+                OFFSET @offset ROWS FETCH NEXT @pageSize ROWS ONLY
+            ) k
+            JOIN web.dna_account d ON d.DnaAccountKey = k.DnaAccountKey
+            LEFT JOIN dbo.fact_account fa ON fa.AccountKey = d.TrackedAccountKey
+            ORDER BY k.Seq;
             SELECT COUNT(*) {filter};
             SELECT COUNT(*) FROM web.dna_account;
             """, parameters);
