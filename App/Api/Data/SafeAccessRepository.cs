@@ -18,6 +18,7 @@ public sealed class SafeAccessRepository(IDbConnectionFactory connectionFactory)
 
             SELECT p.PersonName, MAX(p.DisplayName) AS DisplayName, p.DomainName, p.SamAccountName, CAST(MAX(CAST(p.IsEnabled AS INT)) AS BIT) AS IsEnabled,
                    p.AccessPath, fse.GroupKey,   -- D-339: the group they come through, null for a direct member
+                   src.UserSource,
                    CAST(MAX(CASE WHEN dp.PermissionName = 'UseAccounts' AND bep.IsGranted = 1 THEN 1 ELSE 0 END) AS BIT) AS CanUse,
                    CAST(MAX(CASE WHEN dp.PermissionName = 'RetrieveAccounts' AND bep.IsGranted = 1 THEN 1 ELSE 0 END) AS BIT) AS CanRetrieve,
                    CAST(MAX(CASE WHEN dp.PermissionName = 'ListAccounts' AND bep.IsGranted = 1 THEN 1 ELSE 0 END) AS BIT) AS CanList
@@ -26,8 +27,15 @@ public sealed class SafeAccessRepository(IDbConnectionFactory connectionFactory)
             JOIN dbo.fact_safe_entitlement fse ON fse.EntitlementKey = p.EntitlementKey
             LEFT JOIN dbo.bridge_entitlement_permission bep ON bep.EntitlementKey = p.EntitlementKey
             LEFT JOIN dbo.dim_permission dp ON dp.PermissionKey = bep.PermissionKey
+            -- D-360: the user's source: the PVWA API says CyberArk or LDAP, the Self-Hosted export Internal or External.
+            LEFT JOIN dbo.dim_user vu ON vu.UserKey = p.VaultUserKey
+            CROSS APPLY (SELECT CASE
+                WHEN p.VaultUserKey IS NULL AND p.SamAccountName IS NOT NULL THEN N'LDAP'
+                WHEN vu.UserSource IN (N'CyberArk', N'Internal') THEN N'Vault'
+                WHEN vu.UserSource IN (N'LDAP', N'External') THEN N'LDAP'
+                ELSE NULLIF(LTRIM(RTRIM(vu.UserSource)), N'') END AS UserSource) src
             WHERE fa.AccountKey = @accountKey AND ISNULL(p.UserType, N'') <> N'35'
-            GROUP BY p.PersonName, p.DomainName, p.SamAccountName, p.AccessPath, fse.GroupKey
+            GROUP BY p.PersonName, p.DomainName, p.SamAccountName, p.AccessPath, fse.GroupKey, src.UserSource
             ORDER BY CASE WHEN p.AccessPath = N'Direct' THEN 0 ELSE 1 END, p.AccessPath, p.PersonName;
 
             -- D-339: each group that is a member of the Safe, with its rights and how its AD members were last read, also

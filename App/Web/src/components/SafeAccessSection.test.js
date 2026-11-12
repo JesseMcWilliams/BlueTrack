@@ -28,9 +28,9 @@ describe('SafeAccessSection.vue', () => {
   it('lists direct members, then each group with its rights, opening to its members, and the applications', async () => {
     globalThis.fetch = vi.fn(() => Promise.resolve(jsonResponse({
       people: [
-        { personName: 'pat.lee', displayName: 'Pat Lee', isEnabled: true, accessPath: 'Direct', canUse: true, canRetrieve: false, canList: true, groupKey: null },
-        { personName: 'company.com\\ann', displayName: 'Ann Lee', isEnabled: false, accessPath: 'Via AD group: AD Admins', canUse: false, canRetrieve: true, canList: true, groupKey: 7 },
-        { personName: 'company.com\\bob', displayName: 'Bob Ray', isEnabled: true, accessPath: 'Via AD group: AD Admins > Team A', canUse: false, canRetrieve: true, canList: true, groupKey: 7 }
+        { personName: 'pat.lee', displayName: 'Pat Lee', isEnabled: true, accessPath: 'Direct', canUse: true, canRetrieve: false, canList: true, groupKey: null, userSource: 'Vault' },
+        { personName: 'company.com\\ann', displayName: 'Ann Lee', isEnabled: false, accessPath: 'Via AD group: AD Admins', canUse: false, canRetrieve: true, canList: true, groupKey: 7, userSource: 'LDAP' },
+        { personName: 'company.com\\bob', displayName: 'Bob Ray', isEnabled: true, accessPath: 'Via AD group: AD Admins > Team A', canUse: false, canRetrieve: true, canList: true, groupKey: 7, userSource: 'LDAP' }
       ],
       groups: [{ groupKey: 7, groupName: 'AD Admins', canUse: false, canRetrieve: true, canList: true, adReadStatus: 'Found', adReadMessage: null, adDomainName: 'company.com' }],
       applications: [{ cyberArkApplicationKey: 5, appId: 'APP_Pay', description: 'Payroll', disabled: false, accessPath: 'Direct' }],
@@ -42,7 +42,7 @@ describe('SafeAccessSection.vue', () => {
     expect(globalThis.fetch).toHaveBeenCalledWith('/api/account-progress/42/safe-access')
     expect(wrapper.find('summary').text()).toBe('1 direct member(s) and 1 group(s) (show)')
     const cells = row => row.findAll('td').map(td => td.text())
-    expect(cells(wrapper.find('tr.direct-member'))).toEqual(['pat.lee', 'Pat Lee', 'Direct', 'Yes', 'No', 'Yes'])
+    expect(cells(wrapper.find('tr.direct-member'))).toEqual(['pat.lee', 'Pat Lee', 'Vault', 'Direct', 'Yes', 'No', 'Yes'])
     const group = wrapper.find('tr.group-row')
     expect(cells(group)).toEqual(['\u25b8 AD Admins (2 members)', 'AD group', 'No', 'Yes', 'Yes'])
     expect(wrapper.findAll('tr.group-member')).toHaveLength(0)
@@ -53,8 +53,8 @@ describe('SafeAccessSection.vue', () => {
     expect(toggle.attributes('aria-expanded')).toBe('true')
     const members = wrapper.findAll('tr.group-member').map(cells)
     expect(members).toEqual([
-      ['company.com\\ann (disabled in AD)', 'Ann Lee', '', 'No', 'Yes', 'Yes'],
-      ['company.com\\bob', 'Bob Ray', 'through Team A', 'No', 'Yes', 'Yes']
+      ['company.com\\ann (disabled in AD)', 'Ann Lee', 'LDAP', '', 'No', 'Yes', 'Yes'],
+      ['company.com\\bob', 'Bob Ray', 'LDAP', 'through Team A', 'No', 'Yes', 'Yes']
     ])
     await toggle.trigger('click')
     expect(wrapper.findAll('tr.group-member')).toHaveLength(0)

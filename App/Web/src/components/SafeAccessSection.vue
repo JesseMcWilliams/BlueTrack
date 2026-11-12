@@ -38,6 +38,13 @@ function nestedPath(person, group) {
   return rest.startsWith(group.groupName + ' > ') ? rest.slice(group.groupName.length + 3) : ''
 }
 
+// D-360: where the person's user is defined, Vault or LDAP (the API says which; another value is shown as it is).
+function userSource(person) {
+  if (person.userSource === 'Vault') return t('pages.safeAccess.sourceVault')
+  if (person.userSource === 'LDAP') return t('pages.safeAccess.sourceLdap')
+  return person.userSource ?? ''
+}
+
 function groupKind(group) {
   return group.adReadStatus ? t('pages.safeAccess.adGroup') : t('pages.safeAccess.vaultGroup')
 }
@@ -77,6 +84,7 @@ onMounted(async () => {
             <tr>
               <th>{{ t('pages.safeAccess.colPerson') }}</th>
               <th>{{ t('pages.safeAccess.colName') }}</th>
+              <th>{{ t('pages.safeAccess.colSource') }}</th>
               <th>{{ t('pages.safeAccess.colAccess') }}</th>
               <th>{{ t('pages.safeAccess.colUse') }}</th>
               <th>{{ t('pages.safeAccess.colRetrieve') }}</th>
@@ -87,6 +95,7 @@ onMounted(async () => {
             <tr v-for="person in direct" :key="person.personName + '|' + person.accessPath" class="direct-member">
               <td>{{ person.personName }}<small v-if="!person.isEnabled">{{ ' ' + t('pages.safeAccess.disabled') }}</small></td>
               <td>{{ person.displayName ?? '' }}</td>
+              <td class="user-source">{{ userSource(person) }}</td>
               <td>{{ t('pages.safeAccess.direct') }}</td>
               <td>{{ yesNo(person.canUse) }}</td>
               <td>{{ yesNo(person.canRetrieve) }}</td>
@@ -95,7 +104,7 @@ onMounted(async () => {
           </tbody>
           <tbody v-for="group in groups" :key="group.groupKey" class="group">
             <tr class="group-row">
-              <td colspan="2">
+              <td colspan="3">
                 <button v-if="membersOf(group).length" type="button" class="group-toggle" :aria-expanded="open.has(group.groupKey)" @click="toggle(group)">
                   <span aria-hidden="true">{{ open.has(group.groupKey) ? '▾' : '▸' }}</span> {{ group.groupName }}
                 </button>
@@ -112,6 +121,7 @@ onMounted(async () => {
               <tr v-for="person in membersOf(group)" :key="person.personName + '|' + person.accessPath" class="group-member">
                 <td>{{ person.personName }}<small v-if="!person.isEnabled">{{ ' ' + t('pages.safeAccess.disabled') }}</small></td>
                 <td>{{ person.displayName ?? '' }}</td>
+              <td class="user-source">{{ userSource(person) }}</td>
                 <td>{{ nestedPath(person, group) ? t('pages.safeAccess.through', { path: nestedPath(person, group) }) : '' }}</td>
                 <td>{{ yesNo(person.canUse) }}</td>
                 <td>{{ yesNo(person.canRetrieve) }}</td>

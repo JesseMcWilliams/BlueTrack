@@ -107,6 +107,29 @@ public class SafeAccessTests : IClassFixture<BlueTrackWebApplicationFactory>
         }
     }
 
+    // D-360: each person's user source, Vault or LDAP, from the PVWA API's CyberArk/LDAP or the export's Internal/External;
+    // a person reached through an AD group is LDAP.
+    [Fact]
+    public async Task SafeAccess_SaysWhetherEachPersonIsAVaultOrLdapUser()
+    {
+        var token = $"sa{Guid.NewGuid():N}"[..12];
+        await using var connection = new SqlConnection(TestDatabase.ConnectionString);
+        var accountKey = await SeedAsync(connection, token);
+        try
+        {
+            foreach (var (stored, shown) in new (string?, string?)[] { ("Internal", "Vault"), ("CyberArk", "Vault"), ("External", "LDAP"), ("LDAP", "LDAP"), (null, null), ("Identity", "Identity") })
+            {
+                await connection.ExecuteAsync("UPDATE dim_user SET UserSource = @stored WHERE SourceUserId = @id", new { stored, id = token + "-U" });
+                var people = (await Client("TestUser.Viewer").GetFromJsonAsync<AccountSafeAccess>($"/api/account-progress/{accountKey}/safe-access"))!.People;
+                Assert.Equal([shown, "LDAP"], people.Select(p => p.UserSource));
+            }
+        }
+        finally
+        {
+            await CleanUpAsync(connection, token);
+        }
+    }
+
     [Fact]
     public async Task CyberArkApplications_ListsEachWithItsMethods_AndWhatItCanRetrieve()
     {
