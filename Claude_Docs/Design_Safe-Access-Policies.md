@@ -22,7 +22,9 @@ Patterns become `LIKE` patterns through `dbo.fn_SafeAccessLike`: `[ % _` are esc
 
 `dbo.usp_Check_SafeAccessPolicies` runs in `usp_RunFullLoad` **after `usp_Load_FactSafeEntitlement`, which moved before the Progress Rules** (it reads only staging and the dims), so tonight's rules see tonight's result; and on **Check now** (Admin page). It first deletes the review of any account whose Safe changed since it was reviewed (D-301), then rebuilds the result and problem tables. Problem texts: "No member matches X (needs R).", "X: doesn't hold R.", "X: has no people in it (Vault or AD).", "X: must not be a member.", "X: must not hold R."
 
-Caveats: `ExactMatch` compares the permission rows as loaded, so a source difference counts (Self-Hosted Direct loads `MoveAccountsAndFolders` as MoveAccountsFrom and MoveAccountsInto; `Design_CyberArk-Direct-Integration.md`); built-in members such as Vault Admins are loaded for Self-Hosted Direct (`IsPredefinedUser`), so a Forbidden rule can find them.
+**Move permissions (D-356, script 73):** Privilege Cloud reports moving accounts as `MoveAccountsAndFolders`; Self-Hosted reports `MoveAccountsFrom` and `MoveAccountsInto`. The check treats them as one: a member's granted permissions (`dbo.fn_SafeAccessGranted`) and a role's permissions for `ExactMatch` (`dbo.fn_SafeRolePermissions`) each gain the other form (both of the pair from the combined one; the combined one from both of the pair). A role naming only one of the pair is held by a member with the combined permission, but not exactly.
+
+Caveats: `ExactMatch` otherwise compares the permission rows as loaded, so any other source difference counts; built-in members such as Vault Admins are loaded for Self-Hosted Direct (`IsPredefinedUser`), so a Forbidden rule can find them.
 
 ## Reviews (D-301)
 

@@ -14,6 +14,8 @@ Each prints one line per check, `PASS`, `FAIL`, `WARN` (worth a look) or `INFO` 
 
 `Reset-BlueTrackLocalTestDb.ps1` isn't a check: it drops and rebuilds a developer's own test database, `BlueTrackTest_Local` by default (D-240), so local test runs don't collide with CI's `BlueTrackTest`. It refuses any name that doesn't start with `BlueTrackTest_`.
 
+`Sql\SafeAccessPolicyCheck.sql` (D-356) is a read-only query to run in the BlueTrack database (SSMS or `sqlcmd -d BlueTrack`): set a Safe's name and it shows why the Safe passes or fails its Safe access policy, member by member and rule by rule, the way the check sees it (the name it compares, the role's permissions a member lacks, the ones it holds outside the role). Send its output back with a Safe access question.
+
 `New-BlueTrackRelease.ps1` makes a release; see [Making a release](#making-a-release-new-bluetrackreleaseps1).
 
 `BlueTrackTools.psm1` holds the shared parts (result lines, an HTTP session that follows redirects itself and keeps its own cookies).
