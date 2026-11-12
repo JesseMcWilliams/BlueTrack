@@ -88,6 +88,7 @@ instead.
 | 70 | `70_BlueTrack_DnaFeedTrackRetention.sql` | D-341 to D-344: the newer DNA format's columns on `web.dna_account`; the `DNA` source system; feed type `DnaReport`; `app_config.DnaRetentionDays`; `web.dna_column_setting`; `web.dna_track_rule` and its conditions; `dna_account.TrackedBy`; D-347 `dna_account.IsUnresolvedSid`; D-345 `web.dna_hard_coded_credential` and `dna_import.HardCodedCount`; permission ViewDnaSensitiveColumns (Admin); audit types DnaPurged, DnaAccountsTracked, DnaSettingsChanged, DnaTrackRuleChanged. |
 | 71 | `71_BlueTrack_RunStallAlerts.sql` | D-348: `web.app_config.RunStallMinutes` (5-1440, default 30), `cyberark_direct_pull.LastProgressAt`, notification type RunStalled (off), audit types ImportLoadCancelled and ImportLoadSettingsChanged. |
 | 72 | `72_BlueTrack_RiskDefaultsAndFindings.sql` | D-349: default scores in `web.app_config`; `web.risk_finding_type` and `web.risk_finding` with `web.usp_DeriveRiskFindings` (DNA hard-coded secrets, Pass-the-Hash, non-compliant); `ufn_ReachableRiskValues` and `_ForAccessGroupSet` return findings; `usp_RecalculateRiskScores` derives them first; `usp_DeriveTargetsFromAccountAddress` uses the default; audit type RiskDefaultsChanged. |
+| 73 | `73_BlueTrack_SafeAccessMovePermissions.sql` | D-356: `fn_SafeAccessGranted` and `fn_SafeRolePermissions`; `usp_Check_SafeAccessPolicies` treats Self-Hosted's MoveAccountsFrom plus MoveAccountsInto as Privilege Cloud's MoveAccountsAndFolders. |
 
 ## The baseline (D-195)
 
@@ -112,7 +113,7 @@ scripts but not up to `51` is refused; upgrade it first from the
 
 ## Adding a script
 
-1. Name it `NN_BlueTrack_<Topic>.sql`, with `NN` the next number (`71` is next).
+1. Name it `NN_BlueTrack_<Topic>.sql`, with `NN` the next number (`74` is next).
 2. Start with a header comment: the file name, `RUN THIS AFTER 01-NN.`, what
    it changes and why (with the `D-n` decision), and whether it's safe to
    re-run.

@@ -13,6 +13,8 @@ What changed in each BlueTrack release, newest first, for users and administrato
 
 ### Fixed
 
+- **Safe access policies now match the move permission across Privilege Cloud and Self-Hosted.** Self-Hosted reports "Move accounts and folders" as two permissions (move from, move into) where Privilege Cloud has one, so a Safe role naming the one failed on every Self-Hosted Safe, and with Exact match the two counted as extra. They now count as the same permission, both ways; the next check (nightly, or Check now) shows the corrected result. (Administrator Settings)
+
 ### Upgrading
 
 ## 1.5.4 (2026-11-12)

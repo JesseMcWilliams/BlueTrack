@@ -198,6 +198,83 @@ public class SafeAccessPoliciesTests : IClassFixture<BlueTrackWebApplicationFact
         }
     }
 
+    /// <summary>
+    /// D-356: Self-Hosted's MoveAccountsFrom and MoveAccountsInto together are Privilege Cloud's MoveAccountsAndFolders,
+    /// both ways, for holding a role and for an exact match; a role naming only one of the two is held, not exactly.
+    /// </summary>
+    [Fact]
+    public async Task TheMovePermissions_MatchAcrossSources()
+    {
+        var admin = Client("TestUser.Admin");
+        await using var connection = new SqlConnection(TestDatabase.ConnectionString);
+        var token = $"sam{Guid.NewGuid():N}"[..11];
+        var ids = await connection.QuerySingleAsync<MoveIds>("""
+            INSERT INTO dim_safe (SourceSystemKey, SafeUrlId, SafeName) VALUES (1, @token, @token);
+            DECLARE @safe INT = SCOPE_IDENTITY();
+            INSERT INTO dim_group (SourceSystemKey, SourceGroupId, GroupName) VALUES (1, @token + 'g1', @token + '_SH');
+            DECLARE @sh INT = SCOPE_IDENTITY();
+            INSERT INTO dim_group (SourceSystemKey, SourceGroupId, GroupName) VALUES (1, @token + 'g2', @token + '_PC');
+            DECLARE @pc INT = SCOPE_IDENTITY();
+            INSERT INTO fact_account (SourceSystemKey, SourceAccountId, AccountName, IsDeleted, SafeKey) VALUES (1, @token, @token, 0, @safe);
+            DECLARE @account BIGINT = SCOPE_IDENTITY();
+            INSERT INTO fact_safe_entitlement (SafeKey, MemberType, GroupKey, SnapshotDate) VALUES (@safe, 'Group', @sh, CAST(GETDATE() AS DATE));
+            INSERT INTO bridge_entitlement_permission (EntitlementKey, PermissionKey, IsGranted)
+            SELECT SCOPE_IDENTITY(), PermissionKey, 1 FROM dim_permission WHERE PermissionName IN ('ListAccounts', 'MoveAccountsFrom', 'MoveAccountsInto');
+            INSERT INTO fact_safe_entitlement (SafeKey, MemberType, GroupKey, SnapshotDate) VALUES (@safe, 'Group', @pc, CAST(GETDATE() AS DATE));
+            INSERT INTO bridge_entitlement_permission (EntitlementKey, PermissionKey, IsGranted)
+            SELECT SCOPE_IDENTITY(), PermissionKey, 1 FROM dim_permission WHERE PermissionName IN ('ListAccounts', 'MoveAccountsAndFolders');
+            SELECT @safe AS Safe, @sh AS SelfHosted, @pc AS PrivilegeCloud, @account AS Account;
+            """, new { token });
+        try
+        {
+            await connection.ExecuteAsync("UPDATE web.safe_access_policy SET IsEnabled = 0");
+            async Task<int> Role(string name, bool exact, params string[] permissions) =>
+                (await (await admin.PostAsJsonAsync("/api/admin/safe-access/roles", new { RoleName = $"{token} {name}", ExactMatch = exact, Permissions = permissions }))
+                    .Content.ReadFromJsonAsync<RoleKeyResponse>())!.SafeRoleKey;
+            var combined = await Role("combined", true, "ListAccounts", "MoveAccountsAndFolders");
+            var split = await Role("split", true, "ListAccounts", "MoveAccountsFrom", "MoveAccountsInto");
+            var fromOnly = await Role("from only", false, "ListAccounts", "MoveAccountsFrom");
+            var fromOnlyExact = await Role("from only exact", true, "ListAccounts", "MoveAccountsFrom");
+            object Required(string member, int role) => new { RuleType = "Required", MemberPattern = $"{token}_{member}", SafeRoleKey = role };
+            Assert.Equal(HttpStatusCode.Created, (await admin.PostAsJsonAsync("/api/admin/safe-access/policies", new
+            {
+                PolicyName = $"{token} moves", SafeNamePattern = token, SortOrder = 0,
+                Rules = new[]
+                {
+                    Required("SH", combined), Required("PC", combined), Required("SH", split), Required("PC", split),
+                    Required("PC", fromOnly), Required("PC", fromOnlyExact), Required("SH", fromOnlyExact)
+                }
+            })).StatusCode);
+
+            Assert.Equal(HttpStatusCode.NoContent, (await admin.PostAsync("/api/admin/safe-access/check", null)).StatusCode);
+            var row = Assert.Single((await admin.GetFromJsonAsync<List<SafeAccessReportRow>>("/api/reports/safe-access"))!, r => r.SafeKey == ids.Safe);
+            // Only the exact "from only" role fails: each member also holds Into (Self-Hosted) or the combined move (Privilege Cloud).
+            Assert.Equal(
+                new[] { $"{token}_PC: doesn't hold {token} from only exact (exactly).", $"{token}_SH: doesn't hold {token} from only exact (exactly)." },
+                row.Problems.Order(StringComparer.Ordinal));
+        }
+        finally
+        {
+            await connection.ExecuteAsync("""
+                DELETE FROM dbo.safe_access_problem WHERE SafeKey = @Safe;
+                DELETE FROM dbo.safe_access_result WHERE SafeKey = @Safe;
+                DELETE FROM bridge_entitlement_permission WHERE EntitlementKey IN (SELECT EntitlementKey FROM fact_safe_entitlement WHERE SafeKey = @Safe);
+                DELETE FROM fact_safe_entitlement WHERE SafeKey = @Safe;
+                DELETE FROM fact_account WHERE AccountKey = @Account;
+                DELETE FROM dim_group WHERE GroupKey IN (@SelfHosted, @PrivilegeCloud);
+                DELETE FROM dim_safe WHERE SafeKey = @Safe;
+                """, ids);
+        }
+    }
+
+    private sealed class MoveIds
+    {
+        public int Safe { get; init; }
+        public int SelfHosted { get; init; }
+        public int PrivilegeCloud { get; init; }
+        public long Account { get; init; }
+    }
+
     private sealed class Ids
     {
         public int Safe { get; init; }
