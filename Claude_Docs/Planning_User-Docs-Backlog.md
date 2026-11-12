@@ -4,6 +4,7 @@
 
 | Date | Change | User doc / section it affects |
 |---|---|---|
+| 2026-11-12 | Progress Rules: last run, each rule's Last applied, a rule's Applied to list; Global Application Configuration: Keep the Progress Rules log (days), 1-3650, default 90 | Admin_SettingsReference_Data.md (Progress Rules); Admin_SettingsReference.md (Global Application Configuration) |
 | 2026-11-12 | Account Progress list: CPM Status and Managed by the CPM columns (sortable; failure highlighted) | User_Guide.md (Account Progress list columns) |
 | 2026-11-12 | Safe Access Policies: Duplicate on each policy and Safe role (opens a filled-in new form; a policy copy starts disabled) | Admin_SettingsReference_Data.md (Safe Access Policies) |
 | 2026-11-12 | Progress Rules and DNA tracking rules: a days condition saves; changing a condition's field to another kind clears its value | None (a fix; behaves as documented) |

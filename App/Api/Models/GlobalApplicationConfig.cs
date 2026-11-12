@@ -63,6 +63,9 @@ public sealed class GlobalApplicationConfig
     /// <summary>D-243: how many days an expired API key is kept before it is deleted (0 = never).</summary>
     public int ApiKeyExpiredRetentionDays { get; init; }
 
+    /// <summary>D-359: how many days the Progress Rules log (each run and each account a rule changed) is kept, 1 to 3650.</summary>
+    public int ProgressRuleLogDays { get; init; }
+
     /// <summary>D-294: the number and date format of emails and run summaries (a culture name, e.g. en-US).</summary>
     public string FormatCulture { get; init; } = Formatting.ServerTextCulture.DefaultName;
 
@@ -125,6 +128,9 @@ public sealed class SaveGlobalApplicationConfigRequest
 
     /// <summary>D-243: null = unchanged.</summary>
     public int? ApiKeyExpiredRetentionDays { get; init; }
+
+    /// <summary>D-359: null = unchanged.</summary>
+    public int? ProgressRuleLogDays { get; init; }
 
     /// <summary>D-294: null = unchanged; the controller stores the culture's own spelling of the name.</summary>
     public string? FormatCulture { get; set; }

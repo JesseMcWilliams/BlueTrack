@@ -111,6 +111,10 @@ public sealed class GlobalApplicationConfigController(
         {
             return Problem(title: "Invalid API key retention", detail: "ApiKeyExpiredRetentionDays must be between 0 and 3650.", statusCode: StatusCodes.Status400BadRequest);
         }
+        if (request.ProgressRuleLogDays is < 1 or > 3650)
+        {
+            return Problem(title: "Invalid Progress Rules log retention", detail: "ProgressRuleLogDays must be between 1 and 3650.", statusCode: StatusCodes.Status400BadRequest);
+        }
         // D-294: a specific culture .NET knows, stored by its own name ("de-de" is saved as "de-DE").
         if (request.FormatCulture is not null)
         {
@@ -198,6 +202,7 @@ public sealed class GlobalApplicationConfigController(
         TrackIfSent("ApiRateLimitPerMinute", before.ApiRateLimitPerMinute.ToString(), request.ApiRateLimitPerMinute?.ToString());   // D-243
         TrackIfSent("ApiKeyReminderLeadDays", before.ApiKeyReminderLeadDays.ToString(), request.ApiKeyReminderLeadDays?.ToString());   // D-243
         TrackIfSent("ApiKeyExpiredRetentionDays", before.ApiKeyExpiredRetentionDays.ToString(), request.ApiKeyExpiredRetentionDays?.ToString());   // D-243
+        TrackIfSent("ProgressRuleLogDays", before.ProgressRuleLogDays.ToString(), request.ProgressRuleLogDays?.ToString());   // D-359
         TrackIfSent("SiteUrl", before.SiteUrl ?? "", request.SiteUrl);   // D-224
         TrackIfSent("FormatCulture", before.FormatCulture, request.FormatCulture);   // D-294
         static string? Pattern(string? mode, string? value) => mode is null ? null : mode == "Off" ? "Off" : $"{mode}: {value}";

@@ -840,7 +840,9 @@
     "apiKeyReminderLabel": "API key expiry reminder lead time (days):",
     "apiKeyReminderHint": "How many days before an API key expires its owner is emailed, from 1 to 90. The owner is emailed again on the day it expires, and the administrators on that day (the ApiKeyExpiring and ApiKeyExpired notification types on Notifications).",
     "apiKeyRetentionLabel": "Delete expired API keys after (days):",
-    "apiKeyRetentionHint": "How many days an expired API key stays on the API Keys list before it is deleted automatically, from 1 to 3,650 (365 by default). 0 keeps them for ever. A key that is only disabled is never deleted automatically. Each deletion is in the Audit Log."
+    "apiKeyRetentionHint": "How many days an expired API key stays on the API Keys list before it is deleted automatically, from 1 to 3,650 (365 by default). 0 keeps them for ever. A key that is only disabled is never deleted automatically. Each deletion is in the Audit Log.",
+    "progressRuleLogLabel": "Keep the Progress Rules log (days):",
+    "progressRuleLogHint": "How long the record of each Progress Rules run and each account a rule moved or archived is kept, from 1 to 3,650 days (90 by default). Older entries are removed the next time the rules run."
   },
   "groupRoleMapping": {
     "emptyNone": "No group-to-role mappings yet. Until one is added, only users with direct roles can sign in with a role.",
@@ -1469,6 +1471,10 @@
     "colWhen": "When all of these match",
     "colEnabled": "Enabled",
     "colActions": "Actions",
+    "colLastApplied": "Last applied",
+    "lastApplied": "{when}, {count} account | {when}, {count} accounts",
+    "lastRun": "The rules last ran {when} and changed {count} account. | The rules last ran {when} and changed {count} accounts.",
+    "notRunYet": "The rules haven't run since this log began; the nightly load runs them.",
     "move": "from {from} to {to}",
     "archive": "to Archived (any stage)",
     "confirmDelete": "Delete the rule \"{name}\"? Accounts it already moved stay where they are.",
@@ -1545,7 +1551,15 @@
     "previewCount": "{count} account at the From stage would move now. | {count} accounts at the From stage would move now (up to 50 are listed).",
     "previewArchiveCount": "{count} account would be archived now. | {count} accounts would be archived now (up to 50 are listed).",
     "folderHint": "Root is the top of the Safe; read from PVWA's account details (Self-Hosted Direct).",
-    "cpmDisabledReasonHint": "The reason given when automatic management was turned off, for example ADArchive."
+    "cpmDisabledReasonHint": "The reason given when automatic management was turned off, for example ADArchive.",
+    "appliedHeading": "Applied to",
+    "appliedHint": "The accounts this rule changed, newest first. The log is kept for the days set on Admin > Global Application Configuration.",
+    "appliedNone": "This rule hasn't changed any account in that time.",
+    "appliedMove": "{from} to {to}",
+    "appliedArchived": "Archived (was at {from})",
+    "colAccount": "Account",
+    "colChange": "Change",
+    "colWhen": "When"
   },
   "blueprintStages": {
     "title": "Blueprint Stages",

@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text.Json.Nodes;
 using BlueTrack.Api.Models;
 using BlueTrack.Api.Tests.Integration;
 using Dapper;
@@ -174,6 +175,22 @@ public class ProgressRulesTests : IClassFixture<BlueTrackWebApplicationFactory>,
                 """, new { accountKey });
             Assert.Equal((Stage("Managed / Rotation Enabled"), "In Progress", (string?)"test: managed"), after);
 
+            // D-359: the run and each change are logged; each rule shows when it last applied, and to what.
+            var lastRun = (await admin.GetFromJsonAsync<ProgressRuleRun>("/api/admin/progress-rules/last-run"))!;
+            Assert.Equal(2, lastRun.ChangeCount);
+            Assert.NotNull(lastRun.FinishedAt);
+            var rules = (await admin.GetFromJsonAsync<List<ProgressRule>>("/api/admin/progress-rules"))!;
+            Assert.Equal(1, rules.Single(r => r.RuleName == "test: in the Vault").LastAppliedCount);
+            var managed = rules.Single(r => r.RuleName == "test: managed");
+            Assert.Equal(1, managed.LastAppliedCount);
+            Assert.NotNull(managed.LastAppliedAt);
+            Assert.Null(rules.Single(r => r.RuleName == "test: compliant").LastAppliedAt);
+            var applied = await admin.GetAsync($"/api/admin/progress-rules/{managed.ProgressRuleKey}/applications");
+            Assert.Equal("1", applied.Headers.GetValues("X-Total-Count").Single());
+            var row = Assert.Single((await applied.Content.ReadFromJsonAsync<List<ProgressRuleApplication>>())!);
+            Assert.Equal((accountKey, "Onboarded to Vault", (string?)"Managed / Rotation Enabled", false), (row.AccountKey, row.FromStageName, row.ToStageName, row.IsArchive));
+            Assert.Equal(HttpStatusCode.Forbidden, (await Client("TestUser.Viewer").GetAsync($"/api/admin/progress-rules/{managed.ProgressRuleKey}/applications")).StatusCode);
+
             // Risk Accepted / Excluded is never moved.
             await connection.ExecuteAsync("""
                 UPDATE fact_account_progress SET CurrentStageKey = @start, CurrentStatusKey = (SELECT StatusKey FROM dim_progress_status WHERE StatusName = 'Risk Accepted / Excluded')
@@ -184,7 +201,47 @@ public class ProgressRulesTests : IClassFixture<BlueTrackWebApplicationFactory>,
         }
         finally
         {
-            await connection.ExecuteAsync("DELETE FROM fact_account_progress WHERE AccountKey = @accountKey; DELETE FROM fact_account WHERE AccountKey = @accountKey;", new { accountKey });
+            await connection.ExecuteAsync("""
+                DELETE FROM web.progress_rule_application WHERE AccountKey = @accountKey;
+                DELETE FROM fact_account_progress WHERE AccountKey = @accountKey; DELETE FROM fact_account WHERE AccountKey = @accountKey;
+                """, new { accountKey });
+        }
+    }
+
+    // D-359: the log is kept ProgressRuleLogDays (a setting, 1 to 3650); older rows go at the next run.
+    [Fact]
+    public async Task TheRuleLog_IsKeptForTheDaysSet()
+    {
+        var admin = Client("TestUser.Admin");
+        var original = (await admin.GetFromJsonAsync<JsonObject>("/api/admin/configuration"))!;
+        Assert.Equal(90, original["progressRuleLogDays"]!.GetValue<int>());
+        JsonObject With(int days)
+        {
+            var body = JsonNode.Parse(original.ToJsonString())!.AsObject();
+            body["progressRuleLogDays"] = days;
+            return body;
+        }
+        await using var connection = new SqlConnection(TestDatabase.ConnectionString);
+        try
+        {
+            Assert.Equal(HttpStatusCode.BadRequest, (await admin.PutAsJsonAsync("/api/admin/configuration", With(0))).StatusCode);
+            Assert.Equal(HttpStatusCode.BadRequest, (await admin.PutAsJsonAsync("/api/admin/configuration", With(3651))).StatusCode);
+            Assert.Equal(HttpStatusCode.NoContent, (await admin.PutAsJsonAsync("/api/admin/configuration", With(30))).StatusCode);
+
+            var recent = await connection.QuerySingleAsync<long>("""
+                INSERT INTO web.progress_rule_application (ProgressRuleRunKey, ProgressRuleKey, AccountKey, FromStageKey, ToStageKey, IsArchive, AppliedAt)
+                VALUES (-1, -1, -1, NULL, NULL, 0, DATEADD(DAY, -31, SYSUTCDATETIME()));
+                INSERT INTO web.progress_rule_application (ProgressRuleRunKey, ProgressRuleKey, AccountKey, FromStageKey, ToStageKey, IsArchive, AppliedAt)
+                VALUES (-1, -1, -1, NULL, NULL, 0, DATEADD(DAY, -29, SYSUTCDATETIME()));
+                SELECT CAST(SCOPE_IDENTITY() AS BIGINT);
+                """);
+            await connection.ExecuteAsync("EXEC usp_Load_AccountProgressAutoAdvance");
+            Assert.Equal([recent], await connection.QueryAsync<long>("SELECT ProgressRuleApplicationKey FROM web.progress_rule_application WHERE ProgressRuleKey = -1"));
+        }
+        finally
+        {
+            await connection.ExecuteAsync("DELETE FROM web.progress_rule_application WHERE ProgressRuleKey = -1");
+            Assert.Equal(HttpStatusCode.NoContent, (await admin.PutAsJsonAsync("/api/admin/configuration", With(90))).StatusCode);
         }
     }
 

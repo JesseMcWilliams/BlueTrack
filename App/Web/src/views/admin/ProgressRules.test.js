@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
 import { createRouter, createMemoryHistory } from 'vue-router'
+import { createPinia, setActivePinia } from 'pinia'
 import ProgressRules from './ProgressRules.vue'
 import ProgressRuleEdit from './ProgressRuleEdit.vue'
 import BlueprintStages from './BlueprintStages.vue'
@@ -51,7 +52,10 @@ const rule = {
 }
 
 describe('Progress Rules and Blueprint Stages', () => {
-  beforeEach(() => confirmDelete.mockResolvedValue(true))
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    confirmDelete.mockResolvedValue(true)
+  })
   afterEach(() => vi.restoreAllMocks())
 
   it('lists each rule with its stages and conditions, and deletes after asking', async () => {
@@ -203,6 +207,44 @@ describe('Progress Rules and Blueprint Stages', () => {
     await flushPromises()
     const preview = JSON.parse(globalThis.fetch.mock.calls.find(([url]) => url === '/api/admin/progress-rules/preview')[1].body)
     expect(preview.conditions).toEqual([{ fieldName: 'LastVerified', operator: 'WithinDays', value: '7' }])
+  })
+
+  // D-359: when the rules last ran, when each last applied, and what it applied to.
+  it('shows when the rules last ran and when each rule last applied', async () => {
+    globalThis.fetch = vi.fn(url => {
+      if (url === '/api/admin/progress-rules/last-run') return Promise.resolve(jsonResponse({ startedAt: '2026-11-12T02:00:00Z', finishedAt: '2026-11-12T02:00:05Z', changeCount: 5 }))
+      return Promise.resolve(jsonResponse([{ ...rule, lastAppliedAt: '2026-11-12T02:00:04Z', lastAppliedCount: 3 }, { ...rule, progressRuleKey: 8, ruleName: 'Never' }]))
+    })
+    const wrapper = mount(ProgressRules, { global: { plugins: [makeRouter()] } })
+    await flushPromises()
+    expect(wrapper.find('.last-run').text()).toMatch(/^The rules last ran .+ and changed 5 accounts\.$/)
+    const lastApplied = wrapper.findAll('td.last-applied').map(td => td.text())
+    expect(lastApplied[0]).toMatch(/, 3 accounts$/)
+    expect(lastApplied[1]).toBe('—')
+  })
+
+  it('a rule\'s page lists the accounts it changed, linked', async () => {
+    const applications = [
+      { accountKey: 5, userName: 'root', address: 'host1', accountName: 'root@host1', fromStageName: 'Discovered', toStageName: 'Onboarded to Vault', isArchive: false, appliedAt: '2026-11-12T02:00:04Z' },
+      { accountKey: 6, userName: null, address: null, accountName: 'old-key', fromStageName: 'Discovered', toStageName: null, isArchive: true, appliedAt: '2026-11-11T02:00:04Z' }
+    ]
+    globalThis.fetch = vi.fn(url => {
+      if (url === '/api/admin/blueprint-stages') return Promise.resolve(jsonResponse(stages))
+      if (url === '/api/admin/progress-rules/fields') return Promise.resolve(jsonResponse(fields))
+      if (url === '/api/admin/progress-rules/sources') return Promise.resolve(jsonResponse(sources))
+      if (url === '/api/admin/progress-rules') return Promise.resolve(jsonResponse([rule]))
+      if (url.startsWith('/api/admin/progress-rules/7/applications')) {
+        return Promise.resolve({ ok: true, status: 200, headers: { get: name => (name === 'X-Total-Count' ? '2' : null) }, json: () => Promise.resolve(applications) })
+      }
+      return Promise.resolve(jsonResponse(null, { ok: false, status: 404 }))
+    })
+    const wrapper = mount(ProgressRuleEdit, { props: { ruleKey: 7 }, global: { plugins: [makeRouter()] } })
+    await flushPromises()
+
+    expect(globalThis.fetch.mock.calls.some(([url]) => url.startsWith('/api/admin/progress-rules/7/applications?page=1&pageSize='))).toBe(true)
+    const rows = wrapper.findAll('.applied tbody tr').map(tr => tr.findAll('td').map(td => td.text()))
+    expect(rows.map(r => r.slice(0, 2))).toEqual([['root host1', 'Discovered to Onboarded to Vault'], ['old-key', 'Archived (was at Discovered)']])
+    expect(wrapper.find('.applied a').attributes('href')).toBe('/accounts/5')
   })
 
   it('keeps a saved Source value that is no longer a source system', async () => {

@@ -56,7 +56,31 @@ public sealed class ProgressRule
     public string? Description { get; init; }
     public string? ModifiedByName { get; init; }
     public DateTime ModifiedDate { get; init; }
+    /// <summary>D-359: the last run in which this rule changed accounts (UTC), and how many; null when none in the log.</summary>
+    public DateTime? LastAppliedAt { get; init; }
+    public int? LastAppliedCount { get; init; }
     public IReadOnlyList<ProgressRuleCondition> Conditions { get; set; } = [];
+}
+
+/// <summary>D-359: one run of the Load's rule step (web.progress_rule_run); FinishedAt null while it runs.</summary>
+public sealed class ProgressRuleRun
+{
+    public DateTime StartedAt { get; init; }
+    public DateTime? FinishedAt { get; init; }
+    public int? ChangeCount { get; init; }
+}
+
+/// <summary>D-359: one account a rule changed (web.progress_rule_application): moved FromStage to ToStage, or archived.</summary>
+public sealed class ProgressRuleApplication
+{
+    public long AccountKey { get; init; }
+    public string? AccountName { get; init; }
+    public string? UserName { get; init; }
+    public string? Address { get; init; }
+    public string? FromStageName { get; init; }
+    public string? ToStageName { get; init; }
+    public bool IsArchive { get; init; }
+    public DateTime AppliedAt { get; init; }
 }
 
 public sealed class SaveProgressRuleRequest

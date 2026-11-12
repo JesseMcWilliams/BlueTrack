@@ -9,11 +9,38 @@ import { flash, savedMessage } from '../../composables/useFlash'
 import { useI18n } from 'vue-i18n'
 import { fieldLabels, operatorLabels, NO_VALUE } from './progressRuleLabels'
 import { formatCount } from '../../utils/formatCount'
+import { formatUtcDateTime } from '../../utils/formatLocale'
+import { usePageSizeStore } from '../../stores/pageSize'
+import Pager from '../../components/Pager.vue'
 
 const { t } = useI18n()
 const props = defineProps({ ruleKey: { type: [String, Number], required: false, default: null } })
 const router = useRouter()
 const isEditMode = computed(() => props.ruleKey !== null && props.ruleKey !== undefined)
+
+// D-359: Applied to -- the accounts this rule changed, newest first, from the Progress Rules log (edit only).
+const pageSizeStore = usePageSizeStore()
+const applied = ref([])
+const appliedTotal = ref(0)
+const appliedPage = ref(1)
+const appliedPageCount = computed(() => Math.max(1, Math.ceil(appliedTotal.value / pageSizeStore.current)))
+
+async function loadApplied() {
+  const response = await fetch(`/api/admin/progress-rules/${props.ruleKey}/applications?page=${appliedPage.value}&pageSize=${pageSizeStore.current}`)
+  if (!response.ok) return
+  appliedTotal.value = Number(response.headers?.get?.('X-Total-Count') ?? 0)
+  applied.value = await response.json()
+}
+
+function onAppliedPage(page) {
+  appliedPage.value = page
+  loadApplied()
+}
+
+function onAppliedPageSize() {
+  appliedPage.value = 1
+  loadApplied()
+}
 
 const loading = ref(true)
 const saving = ref(false)
@@ -157,6 +184,7 @@ onMounted(async () => {
     loadError.value = err.message
   }
   loading.value = false
+  if (isEditMode.value && !loadError.value) await loadApplied()
 })
 
 function body() {
@@ -319,6 +347,29 @@ async function save() {
       <button type="submit" class="btn-primary" :disabled="saving">{{ t('common.save') }}</button>
       <button type="button" @click="router.push({ name: 'admin-progress-rules' })">{{ t('common.cancel') }}</button>
     </form>
+
+    <section v-if="isEditMode && !loading && !loadError" class="applied">
+      <h3>{{ t('admin.progressRuleEdit.appliedHeading') }}</h3>
+      <p class="hint">{{ t('admin.progressRuleEdit.appliedHint') }}</p>
+      <table v-if="applied.length">
+        <thead>
+          <tr>
+            <th>{{ t('admin.progressRuleEdit.colAccount') }}</th>
+            <th>{{ t('admin.progressRuleEdit.colChange') }}</th>
+            <th>{{ t('admin.progressRuleEdit.colWhen') }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="(a, i) in applied" :key="i">
+            <td><router-link :to="{ name: 'account-progress-detail', params: { accountKey: a.accountKey } }">{{ a.userName || a.accountName || a.accountKey }}</router-link><small v-if="a.address">{{ ' ' + a.address }}</small></td>
+            <td>{{ a.isArchive ? t('admin.progressRuleEdit.appliedArchived', { from: a.fromStageName }) : t('admin.progressRuleEdit.appliedMove', { from: a.fromStageName, to: a.toStageName }) }}</td>
+            <td>{{ formatUtcDateTime(a.appliedAt) }}</td>
+          </tr>
+        </tbody>
+      </table>
+      <p v-else class="applied-none">{{ t('admin.progressRuleEdit.appliedNone') }}</p>
+      <Pager v-if="appliedTotal > applied.length" :page="appliedPage" :page-count="appliedPageCount" @update:page="onAppliedPage" @page-size-change="onAppliedPageSize" />
+    </section>
   </div>
 </template>
 

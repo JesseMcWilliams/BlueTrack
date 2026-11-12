@@ -31,6 +31,7 @@ const baseConfig = {
   apiRateLimitPerMinute: 600,
   apiKeyReminderLeadDays: 7,
   apiKeyExpiredRetentionDays: 365,
+  progressRuleLogDays: 90,
   safeDecomMode: 'Off',
   safeDecomValue: null,
   accountDecomMode: 'Off',

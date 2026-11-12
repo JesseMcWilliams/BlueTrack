@@ -6,6 +6,7 @@ What changed in each BlueTrack release, newest first, for users and administrato
 
 ### New
 
+- **See what the Progress Rules did.** Admin > Progress Rules shows when the rules last ran and how many accounts they changed, and each rule's **Last applied** (when, and how many accounts). A rule's page lists the accounts it moved or archived, newest first. The record is kept for 90 days by default; change it with **Keep the Progress Rules log (days)** on Admin > Global Application Configuration. (Administrator Settings)
 - **CPM Status and Managed by the CPM on Account Progress.** The account list has both as columns, sortable like the others; a failing CPM status is highlighted. (User Guide)
 - **Duplicate a Safe access policy or Safe role.** On Admin > Safe Access Policies, **Duplicate** opens a new policy or role filled in from the one you picked, to change and save. A copied policy starts disabled. (Administrator Settings)
 ### Changed
