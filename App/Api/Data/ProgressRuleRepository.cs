@@ -161,11 +161,16 @@ public sealed class ProgressRuleRepository(IDbConnectionFactory connectionFactor
         using var connection = connectionFactory.Create();
         using var multi = await connection.QueryMultipleAsync("""
             SELECT r.ProgressRuleKey, r.RuleName, r.RuleAction, r.FromStageKey, fs.StageName AS FromStageName, r.ToStageKey, ts.StageName AS ToStageName,
-                   r.IsEnabled, r.Description, u.DisplayName AS ModifiedByName, r.ModifiedDate
+                   r.IsEnabled, r.Description, u.DisplayName AS ModifiedByName, r.ModifiedDate,
+                   la.LastAppliedAt, la.LastAppliedCount
             FROM web.progress_rule r
             LEFT JOIN dbo.dim_blueprint_stage fs ON fs.StageKey = r.FromStageKey
             LEFT JOIN dbo.dim_blueprint_stage ts ON ts.StageKey = r.ToStageKey
             LEFT JOIN web.app_user u ON u.UserKey = r.ModifiedBy
+            -- D-359: the latest run in which the rule changed accounts.
+            OUTER APPLY (SELECT TOP (1) MAX(a.AppliedAt) AS LastAppliedAt, COUNT(*) AS LastAppliedCount
+                         FROM web.progress_rule_application a WHERE a.ProgressRuleKey = r.ProgressRuleKey
+                         GROUP BY a.ProgressRuleRunKey ORDER BY a.ProgressRuleRunKey DESC) la
             -- D-298: archive rules first, as the Load applies them first.
             ORDER BY CASE r.RuleAction WHEN 'Archive' THEN 0 ELSE 1 END, fs.StageOrder, r.ProgressRuleKey;
 
@@ -178,6 +183,34 @@ public sealed class ProgressRuleRepository(IDbConnectionFactory connectionFactor
             rule.Conditions = conditions[rule.ProgressRuleKey].Select(c => new ProgressRuleCondition { FieldName = c.FieldName, Operator = c.Operator, Value = c.Value }).ToList();
         }
         return rules;
+    }
+
+    /// <summary>D-359: the latest run of the Load's rule step; null when the log holds none.</summary>
+    public async Task<ProgressRuleRun?> GetLastRunAsync()
+    {
+        using var connection = connectionFactory.Create();
+        return await connection.QuerySingleOrDefaultAsync<ProgressRuleRun>(
+            "SELECT TOP (1) StartedAt, FinishedAt, ChangeCount FROM web.progress_rule_run ORDER BY ProgressRuleRunKey DESC");
+    }
+
+    /// <summary>D-359: one page of the accounts the rule changed, newest first, and how many there are in the log.</summary>
+    public async Task<(IReadOnlyList<ProgressRuleApplication> Rows, int Total)> GetApplicationsAsync(int ruleKey, int page, int pageSize)
+    {
+        using var connection = connectionFactory.Create();
+        using var multi = await connection.QueryMultipleAsync("""
+            SELECT a.AccountKey, fa.AccountName, fa.UserName, fa.Address, fs.StageName AS FromStageName, ts.StageName AS ToStageName,
+                   a.IsArchive, a.AppliedAt
+            FROM web.progress_rule_application a
+            LEFT JOIN dbo.fact_account fa ON fa.AccountKey = a.AccountKey
+            LEFT JOIN dbo.dim_blueprint_stage fs ON fs.StageKey = a.FromStageKey
+            LEFT JOIN dbo.dim_blueprint_stage ts ON ts.StageKey = a.ToStageKey
+            WHERE a.ProgressRuleKey = @ruleKey
+            ORDER BY a.ProgressRuleApplicationKey DESC
+            OFFSET @offset ROWS FETCH NEXT @pageSize ROWS ONLY;
+            SELECT COUNT(*) FROM web.progress_rule_application WHERE ProgressRuleKey = @ruleKey;
+            """, new { ruleKey, offset = (page - 1) * pageSize, pageSize });
+        var rows = (await multi.ReadAsync<ProgressRuleApplication>()).AsList();
+        return (rows, await multi.ReadSingleAsync<int>());
     }
 
     /// <summary>The stage's position, or null when there's no such stage.</summary>

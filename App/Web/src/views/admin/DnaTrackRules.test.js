@@ -62,12 +62,22 @@ describe('DnaTrackRules.vue', () => {
     await second.find('select').trigger('change')
     expect(second.findAll('select')[2].findAll('option').map(o => o.text())).toEqual(['Yes', 'No'])
 
+    // A Yes/No condition changed to Last login: the days box starts empty, and its number is sent as text.
+    await wrapper.findAll('button').find(b => b.text() === 'Add condition').trigger('click')
+    const third = wrapper.findAll('.condition')[2]
+    await third.find('select').setValue('DomainAccount')
+    await third.find('select').setValue('LastLogin')
+    const days = third.find('input[type="number"]')
+    expect(days.element.value).toBe('')
+    await days.setValue('90')
+
     await form.trigger('submit')
     await flushPromises()
     const post = globalThis.fetch.mock.calls.find(([url, init]) => url === '/api/admin/dna/track-rules' && init?.method === 'POST')
     expect(JSON.parse(post[1].body)).toEqual({
       ruleName: 'Domain scan accounts', isEnabled: true, description: '',
-      conditions: [{ fieldName: 'Finding', operator: 'Equals', value: 'Domain Scan' }, { fieldName: 'DomainAccount', operator: 'Equals', value: 'Yes' }]
+      conditions: [{ fieldName: 'Finding', operator: 'Equals', value: 'Domain Scan' }, { fieldName: 'DomainAccount', operator: 'Equals', value: 'Yes' },
+        { fieldName: 'LastLogin', operator: 'WithinDays', value: '90' }]
     })
     expect(wrapper.text()).toContain('Tracking rule saved.')
   })

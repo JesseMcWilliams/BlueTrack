@@ -6,6 +6,9 @@ What changed in each BlueTrack release, newest first, for users and administrato
 
 ### New
 
+- **See what the Progress Rules did.** Admin > Progress Rules shows when the rules last ran and how many accounts they changed, and each rule's **Last applied** (when, and how many accounts). A rule's page lists the accounts it moved or archived, newest first. The record is kept for 90 days by default; change it with **Keep the Progress Rules log (days)** on Admin > Global Application Configuration. (Administrator Settings)
+- **CPM Status and Managed by the CPM on Account Progress.** The account list has both as columns, sortable like the others; a failing CPM status is highlighted. (User Guide)
+- **Duplicate a Safe access policy or Safe role.** On Admin > Safe Access Policies, **Duplicate** opens a new policy or role filled in from the one you picked, to change and save. A copied policy starts disabled. (Administrator Settings)
 ### Changed
 
 - **The DNA reports and DNA imports use less memory.** Reports > DNA Accounts and DNA Hard-Coded Credentials ask SQL Server for a small fraction of the memory they did for each page (in testing, 6 MB instead of 98 MB), with the same rows in the same order; a DNA import keeps its accounts in memory once instead of twice. (Administrator Operations Guide)
@@ -13,6 +16,7 @@ What changed in each BlueTrack release, newest first, for users and administrato
 
 ### Fixed
 
+- **A Progress Rule or DNA tracking rule condition on a date field (a number of days) saves again.** Typing the number of days made the rule fail to save or test; it only worked when the number had been typed into another field first. Changing a condition's field to one with another kind of value (Yes/No, a source, a number of days, text) now also clears the old value. (Administrator Settings)
 - **Safe access policies now match the move permission across Privilege Cloud and Self-Hosted.** Self-Hosted reports "Move accounts and folders" as two permissions (move from, move into) where Privilege Cloud has one, so a Safe role naming the one failed on every Self-Hosted Safe, and with Exact match the two counted as extra. They now count as the same permission, both ways; the next check (nightly, or Check now) shows the corrected result. (Administrator Settings)
 
 ### Upgrading

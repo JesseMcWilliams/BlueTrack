@@ -27,6 +27,20 @@ public sealed class ProgressRulesController(
     [HttpGet]
     public async Task<IActionResult> GetAll() => Ok(await repository.GetRulesAsync());
 
+    /// <summary>D-359: when the Load's rule step last ran and how many changes the rules made (204 when the log holds none).</summary>
+    [HttpGet("last-run")]
+    public async Task<IActionResult> GetLastRun() => await repository.GetLastRunAsync() is { } run ? Ok(run) : NoContent();
+
+    /// <summary>D-359: the accounts the rule changed, newest first, over the log's retention (Settings).</summary>
+    [HttpGet("{ruleKey:int}/applications")]
+    public async Task<IActionResult> GetApplications(int ruleKey, [FromQuery] int? page = null, [FromQuery] int? pageSize = null)
+    {
+        var (normalizedPage, normalizedPageSize) = PagingParams.Normalize(page, pageSize);
+        var (rows, total) = await repository.GetApplicationsAsync(ruleKey, normalizedPage, normalizedPageSize);
+        Response.Headers["X-Total-Count"] = total.ToString();
+        return Ok(rows);
+    }
+
     /// <summary>The fields a condition can test and the operators each takes.</summary>
     [HttpGet("fields")]
     public IActionResult GetFields() => Ok(ProgressRuleFields.All);

@@ -187,6 +187,8 @@ const columns = [
   { field: 'safeName', labelKey: 'pages.accountProgressList.colSafe' },   // D-308
   { field: 'stageName', labelKey: 'pages.accountProgressList.colStage' },
   { field: 'statusName', labelKey: 'pages.accountProgressList.colStatus' },
+  { field: 'cpmStatus', labelKey: 'pages.accountProgressList.colCpmStatus' },   // D-358
+  { field: 'autoManaged', labelKey: 'pages.accountProgressList.colAutoManaged' },
   { field: 'riskLevelName', labelKey: 'pages.accountProgressList.colRiskLevel' },
   { field: 'ownerName', labelKey: 'pages.accountProgressList.colOwner' },
   { field: 'targetRemediationDate', labelKey: 'pages.accountProgressList.colTargetRemediationDate' },
@@ -497,6 +499,8 @@ watch(() => route.query, async (query) => {
             <td><router-link v-if="account.safeKey" :to="{ name: 'safe-detail', params: { safeKey: account.safeKey } }">{{ account.safeName }}</router-link></td>
             <td>{{ account.stageName }}</td>
             <td>{{ account.statusName }}</td>
+            <td :class="{ 'cpm-failing': account.cpmStatus === 'failure' }">{{ account.cpmStatus }}</td>
+            <td>{{ account.autoManaged === true ? t('common.yes') : account.autoManaged === false ? t('common.no') : '' }}</td>
             <td>{{ account.riskLevelName }}</td>
             <td>{{ account.ownerName }}</td>
             <td>{{ formatDate(account.targetRemediationDate) }}</td>
@@ -533,6 +537,10 @@ watch(() => route.query, async (query) => {
   margin-left: 0.5rem;
   font-size: 0.85em;
   opacity: 0.8;
+}
+.cpm-failing {
+  color: var(--color-error-text);
+  font-weight: bold;
 }
 .deletion-form {
   margin: 0.5rem 0;
