@@ -28,6 +28,11 @@ public sealed class SafeAccessPerson
     public bool CanList { get; init; }
     /// <summary>D-339: the Vault or AD group the person comes through; null for a direct member.</summary>
     public int? GroupKey { get; init; }
+    /// <summary>
+    /// D-360: where the person's user is defined: Vault (a Vault user: CyberArk or Internal) or LDAP (an LDAP user: LDAP or
+    /// External, or a person reached through an AD group); another value as the source reported it; null when not known.
+    /// </summary>
+    public string? UserSource { get; init; }
 }
 
 /// <summary>
