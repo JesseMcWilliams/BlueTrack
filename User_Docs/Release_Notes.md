@@ -6,6 +6,16 @@ What changed in each BlueTrack release, newest first, for users and administrato
 
 ### New
 
+### Changed
+
+### Fixed
+
+### Upgrading
+
+## 1.5.4 (2026-11-12)
+
+### New
+
 - **`Tools\Get-BlueTrackResourceUsage.ps1`** collects what BlueTrack and SQL Server use of the server's memory and CPU (optionally sampled while you run a slow page) and SQL Server's heaviest statements, read-only, into a file to send with a performance question. (Tools README)
 
 - **See which file an Import is on.** Under Import and Load on Admin > Data Sources, an Import row has **Files**: each Privilege Cloud export file it imported, with its rows, how long it took and its result or error, and the Self-Hosted Direct pull it checked. A running Import names the file it is on. (Administrator Operations Guide)
@@ -22,8 +32,6 @@ What changed in each BlueTrack release, newest first, for users and administrato
 - **The installer's "continue" hint shows the full command.** When an install stops, it prints the installer's full path with `-SiteName` and `-Resume`. The short `-Resume` hint didn't work when the install was started by `Update-BlueTrack.ps1`, which has no `-Resume`. (Upgrade Guide)
 
 - A Self-Hosted account that other accounts use as their logon or reconcile account now shows its **folder** (taken from those accounts), and the nightly pull no longer warns that its details weren't found. Its device type and creation method stay blank: CyberArk's search can't return such an account. (User Guide)
-
-### Upgrading
 
 ## 1.5.3 (2026-11-05)
 
