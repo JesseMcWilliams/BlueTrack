@@ -8,6 +8,8 @@ What changed in each BlueTrack release, newest first, for users and administrato
 
 ### Changed
 
+- **`Get-BlueTrackResourceUsage.ps1` explains more.** It shows where the server's memory is (processes, Windows' own use, the file cache) and when the server started, and warns when SQL Server is short of memory or has kept less than an hour of statement history, so a report that can't name the slow query says why. Without `-SampleSeconds` it reminds you to sample while using the slow page. (Tools README)
+
 ### Fixed
 
 ### Upgrading
