@@ -4,5 +4,6 @@
 
 | Date | Change | User doc / section it affects |
 |---|---|---|
+| 2026-11-12 | `Get-BlueTrackResourceUsage.ps1` shows where the server's memory is, when it started, and warns when SQL Server is short of memory or its statement statistics cover under an hour | Tools README; Admin_OperationsGuide.md (the "Performance" note) |
 | 2026-11-10 | DNA import reads the workbook a row at a time (less memory); audit sealing and SIEM forwarding every 10 s (was 5); the API runs the workstation garbage collector (less memory); new `Tools/Get-BlueTrackResourceUsage.ps1` | Admin_OperationsGuide.md (DNA import, SIEM forwarding; a "Performance" note pointing at the tool) |
 | 2026-11-09 | The installer's smoke test no longer fails an install because a health check is Degraded (e.g. the latest Import failed); it warns and names it. Its "-Resume" hints show the full installer path and site. | Admin_UpgradeGuide.md section 4; Admin_Installation.md "Smoke"; Deploy/README.md "Smoke test failures" |

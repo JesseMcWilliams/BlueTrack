@@ -8,19 +8,25 @@
     sysadmin can). Everything printed is also saved to -OutFile.
 
     Reports:
-      - The server: logical CPUs, memory in use and free.
+      - The server: logical CPUs, memory in use and available, when it
+        started; where the memory in use is (all processes, the kernel's
+        pools, the system cache, modified pages, and the rest) and how much
+        is committed.
       - The BlueTrack app pool's worker process (w3wp) and SQL Server
         (sqlservr): working set, private memory, peak working set, CPU time,
-        threads, handles and when each started; the top processes by memory.
+        threads, handles and when each started; the top 15 processes by memory.
       - The app pool's recycling limits, and the .NET garbage collector mode
         the API runs with (Server or Workstation, from its runtimeconfig.json
         and web.config).
       - With -SampleSeconds, the worker's and SQL Server's CPU and memory
         every -IntervalSeconds for that long: start it, then run the page or
         query that makes the worker grow, and the samples show by how much.
-      - SQL Server's memory and parallelism settings, and the memory it uses.
-      - The BlueTrack database's statements since SQL Server last started (or
-        since their plans were cached): the heaviest by CPU, and the ones
+      - SQL Server's memory and parallelism settings, and the memory it uses;
+        a warning when it is short of memory (its target far below max server
+        memory, or Windows reporting physical memory low).
+      - How far back SQL Server's statement statistics reach (a warning when
+        they cover under an hour: memory pressure drops them), then the
+        BlueTrack database's statements: the heaviest by CPU, and the ones
         returning the most rows (large results are what grow the worker).
         Each statement's first 200 characters are shown; -NoQueryText leaves
         the text out. Statements are parameterized, so values typed into
@@ -97,7 +103,31 @@ try {
     $os = Get-CimInstance Win32_OperatingSystem
     $totalMb = $os.TotalVisibleMemorySize / 1KB
     $freeMb = $os.FreePhysicalMemory / 1KB
-    Write-ToolResult -Name 'Server' -Status Info -Detail ('{0}; {1} logical CPUs; memory {2:N0} MB, {3:N0} MB in use, {4:N0} MB free' -f $os.Caption, $cpuCount, $totalMb, ($totalMb - $freeMb), $freeMb)
+    $inUseMb = $totalMb - $freeMb
+    $boot = $os.LastBootUpTime
+    Write-ToolResult -Name 'Server' -Status Info -Detail ('{0}; {1} logical CPUs; memory {2:N0} MB, {3:N0} MB in use, {4:N0} MB available; started {5:g} ({6:N1} days ago)' -f `
+        $os.Caption, $cpuCount, $totalMb, $inUseMb, $freeMb, $boot, ((Get-Date) - $boot).TotalDays)
+
+    # Where the memory in use is: processes' working sets, the kernel's pools, the system file cache, modified pages
+    # waiting to be written, and what's left (drivers, locked pages such as SQL Server's with Lock Pages in Memory,
+    # or a virtual machine's balloon driver).
+    $allProcesses = @(Get-Process)
+    $processWsMb = ($allProcesses | Measure-Object WorkingSet64 -Sum).Sum / $MB
+    $processPrivateMb = ($allProcesses | Measure-Object PrivateMemorySize64 -Sum).Sum / $MB
+    try {
+        $perf = Get-CimInstance Win32_PerfFormattedData_PerfOS_Memory -ErrorAction Stop
+        $pagedMb = $perf.PoolPagedBytes / $MB
+        $nonPagedMb = $perf.PoolNonpagedBytes / $MB
+        $cacheMb = $perf.CacheBytes / $MB
+        $modifiedMb = $perf.ModifiedPageListBytes / $MB
+        $otherMb = [math]::Max(0, $inUseMb - $processWsMb - $pagedMb - $nonPagedMb - $cacheMb - $modifiedMb)
+        Write-ToolResult -Name 'Memory in use' -Status Info -Detail ('processes {0:N0} MB ({1:N0} processes; shared pages count once per process); kernel pools {2:N0} MB paged, {3:N0} MB nonpaged; system cache {4:N0} MB; modified {5:N0} MB; other {6:N0} MB (drivers, locked pages, a VM balloon driver)' -f `
+            $processWsMb, $allProcesses.Count, $pagedMb, $nonPagedMb, $cacheMb, $modifiedMb, $otherMb)
+        Write-ToolResult -Name 'Memory committed' -Status Info -Detail ('{0:N0} MB of a {1:N0} MB limit (memory plus page files); processes'' private memory {2:N0} MB' -f `
+            ($perf.CommittedBytes / $MB), ($perf.CommitLimit / $MB), $processPrivateMb)
+    } catch {
+        Write-ToolResult -Name 'Memory in use' -Status Info -Detail ("processes {0:N0} MB ({1:N0} processes); couldn't read the memory counters: {2}" -f $processWsMb, $allProcesses.Count, $_.Exception.Message)
+    }
     #endregion
 
     #region Processes
@@ -114,7 +144,7 @@ try {
     if ($sqlProcesses.Count -eq 0) {
         Write-ToolResult -Name 'SQL Server (sqlservr)' -Status Info -Detail 'not on this computer'
     }
-    $top = Get-Process | Sort-Object WorkingSet64 -Descending | Select-Object -First 8
+    $top = $allProcesses | Sort-Object WorkingSet64 -Descending | Select-Object -First 15
     Write-Host ''
     Write-Host 'Top processes by working set:'
     $top | Format-Table Id, ProcessName,
@@ -202,6 +232,8 @@ try {
             Write-ToolResult -Name "Samples $($group.Name)" -Status Info -Detail ('CPU peak {0}% of the server; working set {1:N0} to {2:N0} MB; private {3:N0} to {4:N0} MB' -f `
                 $peakCpu, $ws.Minimum, $ws.Maximum, $private.Minimum, $private.Maximum)
         }
+    } else {
+        Write-ToolResult -Name 'Samples' -Status Info -Detail 'one reading only. To see what a page does to the worker, run again with -SampleSeconds 300 and use that page while it runs.'
     }
     #endregion
 
@@ -237,10 +269,18 @@ try {
             Write-ToolResult -Name 'SQL Server memory settings' -Status $status -Detail $detail
             Write-ToolResult -Name 'SQL Server parallelism' -Status Info -Detail ('cost threshold for parallelism {0}; max degree of parallelism {1} (0 = all CPUs)' -f $setting['cost threshold for parallelism'], $setting['max degree of parallelism'])
 
-            $memory = Invoke-ToolQuery -Sql 'SELECT physical_memory_in_use_kb / 1024 AS in_use_mb, memory_utilization_percentage AS pct FROM sys.dm_os_process_memory'
+            $memory = Invoke-ToolQuery -Sql 'SELECT physical_memory_in_use_kb / 1024 AS in_use_mb, locked_page_allocations_kb / 1024 AS locked_mb, process_physical_memory_low AS low FROM sys.dm_os_process_memory'
             $info = Invoke-ToolQuery -Sql 'SELECT committed_kb / 1024 AS committed_mb, committed_target_kb / 1024 AS target_mb, sqlserver_start_time FROM sys.dm_os_sys_info'
-            Write-ToolResult -Name 'SQL Server memory' -Status Info -Detail ('in use {0:N0} MB; committed {1:N0} MB, target {2:N0} MB; started {3:g}' -f `
-                $memory.Rows[0].in_use_mb, $info.Rows[0].committed_mb, $info.Rows[0].target_mb, $info.Rows[0].sqlserver_start_time)
+            $system = Invoke-ToolQuery -Sql 'SELECT system_memory_state_desc AS state FROM sys.dm_os_sys_memory'
+            $targetMb = [long]$info.Rows[0].target_mb
+            $physicalLow = [bool]$memory.Rows[0].low
+            $detail = 'in use {0:N0} MB ({1:N0} MB in locked pages); committed {2:N0} MB, target {3:N0} MB; Windows reports "{4}"; started {5:g}' -f `
+                $memory.Rows[0].in_use_mb, $memory.Rows[0].locked_mb, $info.Rows[0].committed_mb, $targetMb, $system.Rows[0].state, $info.Rows[0].sqlserver_start_time
+            $squeezed = $maxMemory -lt 2147483647 -and $targetMb -lt $maxMemory / 2
+            if ($squeezed -or $physicalLow) {
+                $detail += '. SQL Server is short of memory: its target is far below its max server memory, or Windows has told it physical memory is low, so it gives up its cache and reads more from disk. See "Memory in use" for what else holds the server''s memory.'
+            }
+            Write-ToolResult -Name 'SQL Server memory' -Status $(if ($squeezed -or $physicalLow) { 'Warn' } else { 'Info' }) -Detail $detail
 
             $buffer = Invoke-ToolQuery -Sql 'SELECT COUNT_BIG(*) * 8 / 1024 AS mb FROM sys.dm_os_buffer_descriptors WHERE database_id = DB_ID(@db)' -Parameters @{ '@db' = $DatabaseName }
             Write-ToolResult -Name "SQL Server cache for $DatabaseName" -Status Info -Detail ('{0:N0} MB of data pages held in memory' -f $buffer.Rows[0].mb)
@@ -267,6 +307,30 @@ CROSS APPLY (SELECT CONVERT(int, pa.value) AS dbid FROM sys.dm_exec_plan_attribu
 WHERE d.dbid = DB_ID(@db)
 ORDER BY {0} DESC
 '@
+            # How far back the statistics reach: SQL Server drops a statement's statistics with its cached plan,
+            # which happens early when memory is short.
+            $coverage = Invoke-ToolQuery -Parameters @{ '@db' = $DatabaseName } -Sql @'
+SELECT COUNT(*) AS statements,
+       MIN(qs.creation_time) AS oldest,
+       DATEDIFF(MINUTE, MIN(qs.creation_time), SYSDATETIME()) AS oldest_minutes,
+       DATEDIFF(MINUTE, (SELECT sqlserver_start_time FROM sys.dm_os_sys_info), SYSDATETIME()) AS started_minutes
+FROM sys.dm_exec_query_stats qs
+CROSS APPLY (SELECT CONVERT(int, pa.value) AS dbid FROM sys.dm_exec_plan_attributes(qs.plan_handle) pa WHERE pa.attribute = N'dbid') d
+WHERE d.dbid = DB_ID(@db)
+'@
+            $cover = $coverage.Rows[0]
+            if ([int]$cover.statements -eq 0) {
+                Write-ToolResult -Name 'Statement statistics' -Status Warn -Detail "none held for $DatabaseName. SQL Server has dropped them (memory is short) or BlueTrack hasn't run a query since it started."
+            } else {
+                $oldestMinutes = [int]$cover.oldest_minutes
+                $detail = '{0:N0} statements, the oldest cached {1:g} ({2:N0} minutes ago)' -f [int]$cover.statements, $cover.oldest, $oldestMinutes
+                $short = $oldestMinutes -lt 60 -and [int]$cover.started_minutes -ge 60
+                if ($short) {
+                    $detail += ". SQL Server dropped older statistics, usually because memory is short, so the lists below cover only that time. Run with -SampleSeconds and use the slow page while it runs, so its statements are still there."
+                }
+                Write-ToolResult -Name 'Statement statistics' -Status $(if ($short) { 'Warn' } else { 'Info' }) -Detail $detail
+            }
+
             foreach ($list in @(
                     @{ Title = "Heaviest $DatabaseName statements by total CPU"; Order = 'qs.total_worker_time' },
                     @{ Title = "$DatabaseName statements returning the most rows in one run (large results grow the worker)"; Order = 'qs.max_rows' })) {
