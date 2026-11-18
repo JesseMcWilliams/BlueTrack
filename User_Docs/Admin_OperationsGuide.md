@@ -247,7 +247,7 @@ A successful pull replaces the Self-Hosted staging tables in one go: the `stg_sh
    ```
 
    5074 is the regular recycle, 5186 an idle shutdown, 5079 a recycle someone asked for, and 5009 or 5011 a worker process that ended unexpectedly. After a 5074 or 5186, **API starts** should show a new start within a minute or so; if it doesn't, preload isn't working.
-6. **Look for errors:** the Application event log's warnings and errors that mention BlueTrack, around the pull time.
+6. **Read the Application event log** (source ".NET Runtime"): each pull logs a line when it starts and one with its outcome ("Self-Hosted Direct pull (schedule): Succeeded"), each start of BlueTrack logs "BlueTrack API started", and errors and warnings mention BlueTrack. No pull lines around the pull time means the pull never started.
 
 `Tools\Get-BlueTrackResourceUsage.ps1` checks all four settings, lists the pool's IIS events for the last 7 days, and shows the latest API starts, pulls and Import and Load runs in one file; send that file when you ask for help.
 
