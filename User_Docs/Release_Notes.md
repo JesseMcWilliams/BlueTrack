@@ -15,6 +15,7 @@ What changed in each BlueTrack release, newest first, for users and administrato
 - **Duplicate a Safe access policy or Safe role.** On Admin > Safe Access Policies, **Duplicate** opens a new policy or role filled in from the one you picked, to change and save. A copied policy starts disabled. (Administrator Settings)
 ### Changed
 
+- **The nightly Import's "pull more than 20 hours old" error says why.** It now adds that no pull has started since, that BlueTrack starts the pull and so must be running at the pull time, whether it's running now, and where to look. You see it in the SQL Agent job history and the NightlyImportFailed email. (Administrator Operations Guide)
 - **The DNA reports and DNA imports use less memory.** Reports > DNA Accounts and DNA Hard-Coded Credentials ask SQL Server for a small fraction of the memory they did for each page (in testing, 6 MB instead of 98 MB), with the same rows in the same order; a DNA import keeps its accounts in memory once instead of twice. (Administrator Operations Guide)
 - **`Get-BlueTrackResourceUsage.ps1` explains more.** It shows where the server's memory is (processes, Windows' own use, the file cache) and when the server started, and warns when SQL Server is short of memory or has kept less than an hour of statement history, so a report that can't name the slow query says why. Without `-SampleSeconds` it reminds you to sample while using the slow page. (Tools README)
 
