@@ -12,6 +12,7 @@ public class PerformanceIndexesTests
 {
     [Theory]
     [InlineData("dbo.stg_shd_accounts", "IX_stg_shd_accounts_AccountId", "AccountId")]   // D-368
+    [InlineData("dbo.stg_sh_objectproperties", "IX_stg_sh_objectproperties_SafeFile", "CAOPSafeId,CAOPFileId")]   // D-369
     public async Task TheIndexExists_OnTheJoinColumns(string table, string index, string keyColumns)
     {
         await using var connection = new SqlConnection(TestDatabase.ConnectionString);

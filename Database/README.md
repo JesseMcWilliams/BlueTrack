@@ -95,6 +95,7 @@ instead.
 | 77 | `77_BlueTrack_PullMissedNotification.sql` | D-363: notification type `SelfHostedPullMissed` (off): the nightly pull time passed with no pull. |
 | 78 | `78_BlueTrack_ImportPullAgeReason.sql` | D-364: `usp_Import_Configured`'s "pull more than 20 hours old" error says no pull has started since, whether the API's pull scheduler is checking now, and where to look. |
 | 79 | `79_BlueTrack_StagingAccountIdIndex.sql` | D-368: index on `dbo.stg_shd_accounts (AccountId)`, for the account-detail cache prune after each pull and the Load's joins. |
+| 80 | `80_BlueTrack_ObjectPropertiesIndex.sql` | D-369: index on `dbo.stg_sh_objectproperties (CAOPSafeId, CAOPFileId)` including name and value, for `usp_Load_FactAccount`'s Self-Hosted pivot. |
 
 ## The baseline (D-195)
 
@@ -119,7 +120,7 @@ scripts but not up to `51` is refused; upgrade it first from the
 
 ## Adding a script
 
-1. Name it `NN_BlueTrack_<Topic>.sql`, with `NN` the next number (`80` is next).
+1. Name it `NN_BlueTrack_<Topic>.sql`, with `NN` the next number (`81` is next).
 2. Start with a header comment: the file name, `RUN THIS AFTER 01-NN.`, what
    it changes and why (with the `D-n` decision), and whether it's safe to
    re-run.

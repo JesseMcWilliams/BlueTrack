@@ -16,6 +16,7 @@ What changed in each BlueTrack release, newest first, for users and administrato
 - **Duplicate a Safe access policy or Safe role.** On Admin > Safe Access Policies, **Duplicate** opens a new policy or role filled in from the one you picked, to change and save. A copied policy starts disabled. (Administrator Settings)
 ### Changed
 
+- **The nightly Load reads Self-Hosted accounts faster.** At one site the step that reads each account's user name, address and platform took 31 seconds of database CPU; a new index lets it look each account up instead of reading the whole table every time. (Release notes only)
 - **The Self-Hosted Direct pull finishes its clean-up faster.** Forgetting the details of accounts deleted in CyberArk took about 10 seconds of database CPU after each pull on a large vault; a new index makes it a quick lookup. (Release notes only)
 - **`Get-BlueTrackResourceUsage.ps1` checks what keeps BlueTrack running.** It warns when the application pool isn't AlwaysRunning, has an idle time-out, the API has preload off, or IIS Application Initialization is missing; lists the pool's IIS events (recycles, idle shutdowns, crashes) for the last 7 days; and shows the latest API starts, Self-Hosted Direct pulls and Import and Load runs. (Tools README)
 - **New troubleshooting section: "A Nightly Pull Didn't Run"** in the Administrator Operations Guide: the signs, why the pull depends on BlueTrack running in IIS, how to catch up, and the IIS settings and events to check.
