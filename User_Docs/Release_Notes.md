@@ -6,6 +6,16 @@ What changed in each BlueTrack release, newest first, for users and administrato
 
 ### New
 
+### Changed
+
+### Fixed
+
+### Upgrading
+
+## 1.5.5 (2026-11-18)
+
+### New
+
 - **A missed nightly pull runs when BlueTrack starts again, if it still can.** If BlueTrack wasn't running at the Self-Hosted Direct pull time and starts again within 12 hours, before the nightly Import has run, it runs the pull straight away. The pull log shows it as "schedule (catch-up)". (Administrator Operations Guide)
 - **A nightly pull that never started is reported.** If the Self-Hosted Direct pull time passes and no pull starts, the **Pull and Load** health check on Admin > Deployment says so, and whether BlueTrack was running then. A new notification, **SelfHostedPullMissed** (off until you turn it on in Admin > Notifications), emails it once per night. (Administrator Settings, Notifications)
 - **Data Sources shows when the next pull runs and whether the scheduler is awake.** Under Self-Hosted Direct pulls: the next pull time, how long the API has been running, and when its pull scheduler last checked (every minute). If it hasn't checked for 5 minutes, the page warns that the next pull won't start and says what to do. (Administrator Operations Guide)
