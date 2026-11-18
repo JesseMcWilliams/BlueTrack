@@ -32,11 +32,16 @@ public sealed class DeploymentController(
     AppConfigRepository appConfigRepository,
     Security.AllowedFileRoots allowedFileRoots,
     BackupRunRepository backupRunRepository,
+    ApiRunRepository apiRunRepository,
     CurrentUserResolver currentUserResolver) : ControllerBase
 {
     /// <summary>D-200: the latest backups, scheduled and manual, newest first.</summary>
     [HttpGet("backups")]
     public async Task<IActionResult> GetRecentBackups() => Ok(await backupRunRepository.GetRecentAsync(10));
+
+    /// <summary>D-361: the latest API starts, newest first, each with the end of the run before it.</summary>
+    [HttpGet("api-runs")]
+    public async Task<IActionResult> GetRecentApiRuns() => Ok(await apiRunRepository.GetRecentAsync(20));
 
     [HttpGet]
     public async Task<IActionResult> Get()

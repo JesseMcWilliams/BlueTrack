@@ -23,6 +23,31 @@ const backingUp = ref(false)
 const backupNotice = ref(null) // UI review W9-7: names the file that was downloaded
 // D-200: the latest backups (scheduled and manual), from web.backup_run.
 const recentBackups = ref([])
+// D-361: the API's latest starts (web.api_run). A gap before a start is time nothing scheduled could run.
+const apiRuns = ref([])
+const GAP_WORTH_SHOWING_MS = 5 * 60 * 1000
+
+function asUtc(value) {
+  return new Date(/Z|[+-]\d\d:\d\d$/.test(value) ? value : `${value}Z`)
+}
+
+function formatGap(ms) {
+  const minutes = Math.round(ms / 60000)
+  if (minutes < 60) return t('admin.deploymentInfo.gapMinutes', { minutes })
+  const hours = Math.floor(minutes / 60)
+  if (hours < 48) return t('admin.deploymentInfo.gapHours', { hours, minutes: minutes % 60 })
+  return t('admin.deploymentInfo.gapDays', { days: Math.floor(hours / 24), hours: hours % 24 })
+}
+
+// What to say about the time before a start: nothing for a quick restart (an IIS recycle overlaps the old and new
+// process), the length of a longer gap, and a note when the run before never stopped cleanly.
+function notRunningBefore(run) {
+  if (!run.previousStoppedAt) return ''
+  const gap = asUtc(run.startedAt) - asUtc(run.previousStoppedAt)
+  const text = gap >= GAP_WORTH_SHOWING_MS ? formatGap(gap) : ''
+  if (run.previousStoppedCleanly) return text
+  return text ? `${text}; ${t('admin.deploymentInfo.previousNotStopped')}` : t('admin.deploymentInfo.previousNotStopped')
+}
 
 async function load() {
   loading.value = true
@@ -30,8 +55,9 @@ async function load() {
     const response = await fetch('/api/admin/deployment')
     if (!response.ok) throw new Error(t('common.requestFailed', { status: response.status }))
     info.value = await response.json()
-    const backups = await fetch('/api/admin/deployment/backups')
+    const [backups, runs] = await Promise.all([fetch('/api/admin/deployment/backups'), fetch('/api/admin/deployment/api-runs')])
     recentBackups.value = backups.ok ? await backups.json() : []
+    apiRuns.value = runs.ok ? await runs.json() : []
   } catch (err) {
     error.value = err.message
   } finally {
@@ -92,6 +118,27 @@ async function backupApp() {
           <dt>{{ t('admin.deploymentInfo.buildTimestamp') }}</dt>
           <dd>{{ info.buildTimestampUtc ?? t('admin.deploymentInfo.unknown') }}</dd>
         </dl>
+      </section>
+
+      <section>
+        <h3>{{ t('admin.deploymentInfo.apiRuns') }}</h3>
+        <p class="hint">{{ t('admin.deploymentInfo.apiRunsHint') }}</p>
+        <p v-if="apiRuns.length === 0">{{ t('admin.deploymentInfo.noneRecorded') }}</p>
+        <table v-else>
+          <thead>
+            <tr><th>{{ t('admin.deploymentInfo.started') }}</th><th>{{ t('admin.deploymentInfo.stopped') }}</th><th>{{ t('admin.deploymentInfo.notRunningBefore') }}</th><th>{{ t('admin.deploymentInfo.version') }}</th><th>{{ t('admin.deploymentInfo.server') }}</th><th>{{ t('admin.deploymentInfo.processId') }}</th></tr>
+          </thead>
+          <tbody>
+            <tr v-for="(run, index) in apiRuns" :key="run.apiRunKey">
+              <td>{{ formatUtcDateTime(run.startedAt) }}</td>
+              <td>{{ run.stoppedAt ? formatUtcDateTime(run.stoppedAt) : (index === 0 ? t('admin.deploymentInfo.running') : t('admin.deploymentInfo.notRecorded')) }}</td>
+              <td :class="{ 'status-bad': notRunningBefore(run) }"><span v-if="notRunningBefore(run)" aria-hidden="true">⚠ </span>{{ notRunningBefore(run) }}</td>
+              <td>{{ run.version }}</td>
+              <td>{{ run.machineName }}</td>
+              <td>{{ run.processId }}</td>
+            </tr>
+          </tbody>
+        </table>
       </section>
 
       <section>
