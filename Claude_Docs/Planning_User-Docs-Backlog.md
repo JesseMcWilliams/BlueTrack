@@ -4,6 +4,7 @@
 
 | Date | Change | User doc / section it affects |
 |---|---|---|
+| 2026-11-18 | Index on staged Self-Hosted Direct accounts: faster clean-up after each pull | Release notes only (no user-visible behavior change) |
 | 2026-11-18 | A missed pull runs when the API starts within 12 hours of the pull time and before the Import ("schedule (catch-up)") | Admin_OperationsGuide.md "A Nightly Pull Didn't Run" (done); Admin_DataManagement.md (Self-Hosted pulls) |
 | 2026-11-18 | `Get-BlueTrackResourceUsage.ps1`: checks IIS keeps the API loaded (start mode, idle time-out, preload, Application Initialization), the pool's IIS events (7 days), and lists API starts, pulls and Import and Load runs | Tools README (done); Admin_OperationsGuide.md "A Nightly Pull Didn't Run" (done) |
 | 2026-11-18 | Operations Guide: new "A Nightly Pull Didn't Run" section (signs, why, catch up, API starts, IIS settings and events) | Done: Admin_OperationsGuide.md |
