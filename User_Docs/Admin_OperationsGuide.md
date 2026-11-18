@@ -226,7 +226,7 @@ A successful pull replaces the Self-Hosted staging tables in one go: the `stg_sh
 
 **What to do.**
 
-1. **Catch up now:** **Pull now** on **Admin > Data Sources**. A successful Pull now starts the Import and Load straight after it.
+1. **Catch up now:** **Pull now** on **Admin > Data Sources**. A successful Pull now starts the Import and Load straight after it. (When BlueTrack starts within 12 hours after the pull time and the nightly Import hasn't run yet, it runs the missed pull itself, shown as "schedule (catch-up)".)
 2. **See when the API was running:** **Admin > Deployment**, **API starts**. A start with a long **Not running before this start** that covers the pull time means IIS had stopped the API. "The run before didn't stop cleanly" means the worker process crashed or was killed.
 3. **See whether the scheduler is awake now:** **Admin > Data Sources** shows the next pull time and when the pull scheduler last checked (every minute). It warns when the scheduler hasn't checked for 5 minutes.
 4. **Check IIS's settings** on the BlueTrack server, in an elevated PowerShell (the pool is `<site name>-AppPool`, for example `BlueTrack-AppPool`):

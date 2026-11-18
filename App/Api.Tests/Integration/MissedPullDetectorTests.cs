@@ -90,6 +90,36 @@ public class MissedPullDetectorTests : IClassFixture<BlueTrackWebApplicationFact
         }
     }
 
+    // D-367: catch up a missed pull when the API starts, only while tonight's Import hasn't run and within 12 hours.
+    [Theory]
+    [InlineData("2031-03-02 01:20", "2031-03-02 01:00")]   // started 20 minutes after the pull time
+    [InlineData("2031-03-02 12:59", "2031-03-02 01:00")]   // just inside 12 hours
+    [InlineData("2031-03-02 13:01", null)]                 // too long after
+    [InlineData("2031-03-02 00:30", null)]                 // before today's time: yesterday's is 23.5 hours ago
+    public async Task CatchUpDue_OnlyWithin12HoursOfThePullTime(string now, string? expected)
+    {
+        var due = await Detector().CatchUpDueAsync(PullTime, DateTime.Parse(now), TimeZoneInfo.Utc);
+        Assert.Equal(expected is null ? null : DateTime.Parse(expected), due);
+    }
+
+    [Fact]
+    public async Task CatchUpDue_NotOnceTheImportHasStartedSinceThePullTime()
+    {
+        await using var connection = new SqlConnection(TestDatabase.ConnectionString);
+        var runKey = await connection.QuerySingleAsync<long>("""
+            INSERT INTO dbo.etl_run_log (StepName, StartedAt, CompletedAt, Status) OUTPUT inserted.EtlRunKey
+            VALUES (N'Import', '2031-03-02T01:30:00', '2031-03-02T01:31:00', N'Succeeded')
+            """);
+        try
+        {
+            Assert.Null(await Detector().CatchUpDueAsync(PullTime, new DateTime(2031, 3, 2, 2, 0, 0), TimeZoneInfo.Utc));
+        }
+        finally
+        {
+            await connection.ExecuteAsync("DELETE FROM dbo.etl_run_log WHERE EtlRunKey = @runKey", new { runKey });
+        }
+    }
+
     [Fact]
     public void Describe_WithNoRecordFromBefore_PointsAtApiStarts()
     {
