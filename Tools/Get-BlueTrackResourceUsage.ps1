@@ -38,7 +38,9 @@
         BlueTrack database's statements: the heaviest by CPU, and the ones
         returning the most rows (large results are what grow the worker).
         Each statement's first 200 characters are shown; -NoQueryText leaves
-        the text out. Statements are parameterized, so values typed into
+        the text out. D-373: each listed statement's query plan is saved as
+        a .sqlplan file in the folder <OutFile>-plans (not with -NoPlans or
+        -NoQueryText). Statements are parameterized, so values typed into
         BlueTrack rarely appear, but review the file before sending it.
 
     Nothing is changed: no setting, no process, no table.
@@ -55,7 +57,13 @@
 .PARAMETER TopQueries
     How many statements to list in each SQL Server list (default 15).
 .PARAMETER NoQueryText
-    Leave the statements' text out of the report.
+    Leave the statements' text out of the report (and save no query plans).
+.PARAMETER NoPlans
+    Don't save the listed statements' query plans (D-373). By default each
+    is saved as a .sqlplan file in a folder beside -OutFile, to open in SQL
+    Server Management Studio: a plan shows why a statement is slow (a scan
+    per row, a missing index, a large memory grant). A plan holds the
+    statement's text and the values it was compiled for.
 .PARAMETER SkipSql
     Don't query SQL Server (for example without VIEW SERVER STATE).
 .PARAMETER OutFile
@@ -76,6 +84,7 @@ param(
     [ValidateRange(1, 3600)] [int]$IntervalSeconds = 5,
     [ValidateRange(1, 100)] [int]$TopQueries = 15,
     [switch]$NoQueryText,
+    [switch]$NoPlans,
     [switch]$SkipSql,
     [string]$OutFile = (Join-Path (Get-Location) ("BlueTrack-ResourceUsage-{0}-{1}.txt" -f $env:COMPUTERNAME, (Get-Date -Format 'yyyyMMdd-HHmm')))
 )
@@ -359,6 +368,7 @@ SELECT TOP (@top)
     qs.max_rows,
     qs.max_grant_kb / 1024 AS max_grant_mb,
     qs.last_execution_time,
+    qs.plan_handle, qs.statement_start_offset, qs.statement_end_offset,
     OBJECT_NAME(st.objectid, st.dbid) AS [procedure],
     LEFT(REPLACE(REPLACE(REPLACE(SUBSTRING(st.text, qs.statement_start_offset / 2 + 1,
         (CASE qs.statement_end_offset WHEN -1 THEN DATALENGTH(st.text) ELSE qs.statement_end_offset END - qs.statement_start_offset) / 2 + 1),
@@ -393,9 +403,13 @@ WHERE d.dbid = DB_ID(@db)
                 Write-ToolResult -Name 'Statement statistics' -Status $(if ($short) { 'Warn' } else { 'Info' }) -Detail $detail
             }
 
+            # D-373: the listed statements' plans, as .sqlplan files beside the report.
+            $savePlans = -not ($NoPlans -or $NoQueryText)
+            $planFolder = [IO.Path]::ChangeExtension($OutFile, $null).TrimEnd('.') + '-plans'
+            $plansSaved = 0
             foreach ($list in @(
-                    @{ Title = "Heaviest $DatabaseName statements by total CPU"; Order = 'qs.total_worker_time' },
-                    @{ Title = "$DatabaseName statements returning the most rows in one run (large results grow the worker)"; Order = 'qs.max_rows' })) {
+                    @{ Title = "Heaviest $DatabaseName statements by total CPU"; Order = 'qs.total_worker_time'; Prefix = 'cpu' },
+                    @{ Title = "$DatabaseName statements returning the most rows in one run (large results grow the worker)"; Order = 'qs.max_rows'; Prefix = 'rows' })) {
                 $rows = Invoke-ToolQuery -Sql ($statements -f $list.Order) -Parameters @{ '@db' = $DatabaseName; '@top' = $TopQueries }
                 Write-Host ''
                 Write-Host "$($list.Title):"
@@ -406,7 +420,24 @@ WHERE d.dbid = DB_ID(@db)
                     Write-Host ('{0,3}. CPU {1:N0} ms over {2:N0} runs (avg {3} ms CPU, {4} ms elapsed, {5:N0} reads, {6:N0} rows; max {7:N0} rows, max grant {8:N0} MB), last {9:g}{10}' -f `
                         $rank, $row.total_cpu_ms, $row.runs, $row.avg_cpu_ms, $row.avg_ms, $row.avg_reads, $row.avg_rows, $row.max_rows, $row.max_grant_mb, $row.last_execution_time, $procedure)
                     if (-not $NoQueryText) { Write-Host "     $($row.statement_text)" }
+                    if ($savePlans) {
+                        try {
+                            $plan = Invoke-ToolQuery -Sql 'SELECT query_plan FROM sys.dm_exec_text_query_plan(@handle, @start, @end)' `
+                                -Parameters @{ '@handle' = [byte[]]$row.plan_handle; '@start' = [int]$row.statement_start_offset; '@end' = [int]$row.statement_end_offset }
+                            if ($plan.Rows.Count -gt 0 -and -not ($plan.Rows[0].query_plan -is [DBNull])) {
+                                if (-not (Test-Path $planFolder)) { New-Item -ItemType Directory -Path $planFolder | Out-Null }
+                                $planFile = Join-Path $planFolder ('{0}-{1:D2}.sqlplan' -f $list.Prefix, $rank)
+                                Set-Content -Path $planFile -Value ([string]$plan.Rows[0].query_plan) -Encoding UTF8
+                                $plansSaved++
+                            }
+                        } catch {
+                            Write-Host "     (its query plan couldn't be read: $($_.Exception.Message))"
+                        }
+                    }
                 }
+            }
+            if ($savePlans) {
+                Write-ToolResult -Name 'Query plans' -Status Info -Detail $(if ($plansSaved -gt 0) { "$plansSaved saved in $planFolder (cpu-NN and rows-NN match the numbers above; open them in SQL Server Management Studio)" } else { 'none saved (SQL Server no longer holds them)' })
             }
 
             # D-366: when the API ran, the latest pulls and the Import and Load job's latest runs, so one report shows
@@ -445,7 +476,7 @@ ORDER BY h.instance_id DESC
     #endregion
 
     $exitCode = Complete-ToolRun
-    Write-Host "Saved to $OutFile. Review it before sending: it names this server, its processes and (unless -NoQueryText) the start of BlueTrack's SQL statements."
+    Write-Host "Saved to $OutFile. Review it before sending: it names this server, its processes and (unless -NoQueryText) the start of BlueTrack's SQL statements; the query plans (unless -NoPlans) hold the statements' text and the values they were compiled for."
 } finally {
     Stop-Transcript | Out-Null
 }
