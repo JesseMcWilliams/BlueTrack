@@ -237,6 +237,7 @@ builder.Services.AddSingleton<ISamlCertificateLookup, StoreSamlCertificateLookup
 builder.Services.AddScoped<INotificationCheck, DevFakeAuthEnabledCheck>();
 builder.Services.AddScoped<INotificationCheck, NightlyImportFailedCheck>();     // D-222
 builder.Services.AddScoped<INotificationCheck, BlueTrack.Api.CyberArkDirect.SelfHostedPullFailedCheck>();   // D-250
+builder.Services.AddScoped<INotificationCheck, BlueTrack.Api.CyberArkDirect.SelfHostedPullMissedCheck>();   // D-363
 builder.Services.AddScoped<INotificationCheck, OverdueRiskExceptionsCheck>();   // D-222
 builder.Services.AddScoped<INotificationCheck, WeeklySummaryCheck>();           // D-222
 builder.Services.AddScoped<INotificationCheck, ApiKeyExpiringCheck>();          // D-243
@@ -260,6 +261,7 @@ builder.Services.AddScoped<CpmHealthRepository>();      // D-288
 builder.Services.AddScoped<SafeAdministratorsRepository>();   // D-335
 builder.Services.AddScoped<EtlRunRepository>();   // D-337
 builder.Services.AddScoped<RunStallDetector>();   // D-348
+builder.Services.AddScoped<BlueTrack.Api.CyberArkDirect.MissedPullDetector>();   // D-363
 builder.Services.AddScoped<AdAccountDiscoveryService>();
 builder.Services.AddScoped<AdDiscoveryRunRepository>();   // D-317
 builder.Services.AddSingleton<AdDiscoveryRunner>();   // D-317: one run at a time, for the schedule and Run now
