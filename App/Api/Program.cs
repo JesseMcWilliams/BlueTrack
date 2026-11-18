@@ -293,6 +293,11 @@ builder.Services.AddSingleton<BlueTrack.Api.DataFeeds.DataFeedRunner>();
 builder.Services.AddHostedService<BlueTrack.Api.DataFeeds.DataFeedBackgroundService>();
 // D-200: scheduled database backups.
 builder.Services.AddScoped<BackupRunRepository>();
+// D-361: each start and clean stop of the API, for the Deployment page. A Singleton hosted service, so the scheduled
+// services can find this process's row (CurrentRunKey).
+builder.Services.AddScoped<ApiRunRepository>();
+builder.Services.AddSingleton<BlueTrack.Api.HealthChecks.ApiRunRecorder>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<BlueTrack.Api.HealthChecks.ApiRunRecorder>());
 builder.Services.AddHostedService<BlueTrack.Api.Backups.ScheduledBackupService>();
 // D-234: SIEM forwarding (audit log as CEF over syslog, TCP or TLS). The forwarder is a Singleton so its
 // owner ID (the lease) is one per process; it makes its own short-lived connections.

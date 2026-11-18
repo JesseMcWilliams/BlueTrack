@@ -729,7 +729,19 @@
     "note": "Note",
     "scheduled": "Scheduled",
     "manual": "Manual",
-    "manualBy": "Manual ({name})"
+    "manualBy": "Manual ({name})",
+    "apiRuns": "API starts",
+    "apiRunsHint": "Each time the API started and stopped. While the API isn't running, nothing it schedules runs: the Self-Hosted Direct pull, AD discovery, data feeds, notifications and backups. A long gap before a start, or a run that didn't stop cleanly, is the first thing to check when a nightly run is missing.",
+    "stopped": "Stopped",
+    "notRunningBefore": "Not running before this start",
+    "server": "Server",
+    "processId": "Process ID",
+    "running": "Running",
+    "notRecorded": "Not recorded",
+    "previousNotStopped": "the run before didn't stop cleanly",
+    "gapMinutes": "{minutes} min",
+    "gapHours": "{hours} h {minutes} min",
+    "gapDays": "{days} days {hours} h"
   },
   "fieldMetadataEdit": {
     "notFound": "Field not found.",

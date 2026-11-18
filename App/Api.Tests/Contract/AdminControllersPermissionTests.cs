@@ -45,6 +45,7 @@ public class AdminControllersPermissionTests : IClassFixture<BlueTrackWebApplica
             new object[] { "/api/admin/identity-providers" },
             new object[] { "/api/admin/secrets-store" },
             new object[] { "/api/admin/deployment" },
+            new object[] { "/api/admin/deployment/api-runs" },
             new object[] { "/api/admin/credentials" },
             new object[] { "/api/admin/credentials/ldap-config" },
             new object[] { "/api/admin/notifications/config" },

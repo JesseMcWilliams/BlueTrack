@@ -6,6 +6,7 @@ What changed in each BlueTrack release, newest first, for users and administrato
 
 ### New
 
+- **See when BlueTrack was running.** Admin > Deployment has a new **API starts** table: each time the API started and stopped, its version, and how long it wasn't running before each start. While it isn't running, nothing it schedules runs (the nightly pull, AD discovery, data feeds, notifications, backups), so this is the first place to look when a nightly run is missing. (Administrator Operations Guide)
 - **Who can use this account shows each person's user source.** A new **User source** column says whether the person is a Vault user or an LDAP user (people reached through an AD group are LDAP). (User Guide)
 - **See what the Progress Rules did.** Admin > Progress Rules shows when the rules last ran and how many accounts they changed, and each rule's **Last applied** (when, and how many accounts). A rule's page lists the accounts it moved or archived, newest first. The record is kept for 90 days by default; change it with **Keep the Progress Rules log (days)** on Admin > Global Application Configuration. (Administrator Settings)
 - **CPM Status and Managed by the CPM on Account Progress.** The account list has both as columns, sortable like the others; a failing CPM status is highlighted. (User Guide)

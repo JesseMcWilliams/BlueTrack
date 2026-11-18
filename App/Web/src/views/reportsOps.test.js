@@ -68,7 +68,7 @@ describe('reports and operations fixes', () => {
       if (init?.method === 'POST') {
         return Promise.resolve({ ok: true, status: 200, blob: () => Promise.resolve(new Blob(['x'])), headers: { get: () => 'attachment; filename="BlueTrack_ConfigBackup_1.zip"' } })
       }
-      return Promise.resolve(answer(url.endsWith('/backups') ? [] : { environment: 'Development', version: '1', healthChecks: [], backupStatus: { available: true, entries: [] } }))
+      return Promise.resolve(answer(url.endsWith('/backups') || url.endsWith('/api-runs') ? [] : { environment: 'Development', version: '1', healthChecks: [], backupStatus: { available: true, entries: [] } }))
     })
     const wrapper = mount(DeploymentInfo, { global: { plugins: [makeRouter()] } })
     await flushPromises()
@@ -87,7 +87,7 @@ describe('reports and operations fixes', () => {
   })
 
   it('marks a failed backup and a health check that is not Healthy (W9-4)', async () => {
-    globalThis.fetch = vi.fn((url) => Promise.resolve(answer(url.endsWith('/backups')
+    globalThis.fetch = vi.fn((url) => Promise.resolve(answer(url.endsWith('/api-runs') ? [] : url.endsWith('/backups')
       ? [{ backupRunKey: 1, startedAt: '2026-10-19T10:00:00', triggerType: 'Schedule', outcome: 'Failed', filePath: null, filesDeleted: 0, errorMessage: 'disk full' },
         { backupRunKey: 2, startedAt: '2026-10-18T10:00:00', triggerType: 'Schedule', outcome: 'Succeeded', filePath: 'x.bak', filesDeleted: 0, errorMessage: null }]
       : { environment: 'Development', version: '1', healthChecks: [{ name: 'SQL Server', status: 'Healthy', description: 'ok' }, { name: 'Secrets', status: 'Unhealthy', description: 'down' }], backupStatus: { available: true, entries: [] } })))
@@ -96,6 +96,23 @@ describe('reports and operations fixes', () => {
 
     const bad = wrapper.findAll('td.status-bad').map(td => td.text().replace('⚠', '').trim())
     expect(bad).toEqual(['Unhealthy', 'Failed'])
+  })
+
+  it('API starts: a long gap and a run that did not stop cleanly stand out (D-361)', async () => {
+    globalThis.fetch = vi.fn((url) => Promise.resolve(answer(url.endsWith('/api-runs')
+      ? [{ apiRunKey: 3, startedAt: '2026-11-17T09:00:00', stoppedAt: null, previousStoppedAt: '2026-11-13T17:36:00', previousStoppedCleanly: true, machineName: 'WEB1', processId: 30, version: '1.5.5' },
+        { apiRunKey: 2, startedAt: '2026-11-12T12:36:00', stoppedAt: '2026-11-13T17:36:00', previousStoppedAt: '2026-11-12T12:35:30', previousStoppedCleanly: true, machineName: 'WEB1', processId: 20, version: '1.5.4' },
+        { apiRunKey: 1, startedAt: '2026-11-10T08:00:00', stoppedAt: null, previousStoppedAt: '2026-11-10T07:00:00', previousStoppedCleanly: false, machineName: 'WEB1', processId: 10, version: '1.5.3' }]
+      : url.endsWith('/backups') ? [] : { environment: 'Development', version: '1', healthChecks: [], backupStatus: { available: true, entries: [] } })))
+    const wrapper = mount(DeploymentInfo, { global: { plugins: [makeRouter()] } })
+    await flushPromises()
+
+    const rows = wrapper.findAll('section')[1].findAll('tbody tr').map(tr => tr.findAll('td').map(td => td.text().replace('\u26a0', '').trim()))
+    expect(rows[0][1]).toBe('Running')
+    expect(rows[0][2]).toBe('3 days 15 h')
+    expect(rows[1][2]).toBe('')
+    expect(rows[2][1]).toBe('Not recorded')
+    expect(rows[2][2]).toBe("1 h 0 min; the run before didn't stop cleanly")
   })
 
   it('Application email fields are email inputs (W8-4)', async () => {
