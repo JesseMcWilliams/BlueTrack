@@ -77,7 +77,8 @@ public class RunStallDetectorTests : IAsyncLifetime
         Assert.Contains("will never finish", stall.Detail);
 
         var factory = new TestDbConnectionFactory();
-        var result = await new PullAndLoadHealthCheck(Detector(), factory).CheckHealthAsync(new HealthCheckContext());
+        var result = await new PullAndLoadHealthCheck(Detector(), factory,
+            new BlueTrack.Api.CyberArkDirect.MissedPullDetector(factory, new CyberArkSourceConfigRepository(factory), TimeProvider.System), TimeProvider.System).CheckHealthAsync(new HealthCheckContext());
         Assert.Equal(HealthStatus.Unhealthy, result.Status);
         Assert.Contains($"run {runKey}", result.Description);
     }

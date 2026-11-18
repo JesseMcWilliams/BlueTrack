@@ -7,9 +7,11 @@ namespace BlueTrack.Api.HealthChecks;
 /// <summary>
 /// D-348: Unhealthy while a pull or a step of the Import and Load has stopped moving (RunStallDetector); Degraded when
 /// the latest pull, Import or Load failed; otherwise Healthy. Shown on the Deployment page, so Tools/Test-BlueTrackHealth.ps1
-/// reports it too.
+/// reports it too. D-363: Degraded too when the latest nightly pull time passed with no pull starting
+/// (<see cref="CyberArkDirect.MissedPullDetector"/>), saying whether the API was running then.
 /// </summary>
-public sealed class PullAndLoadHealthCheck(RunStallDetector detector, IDbConnectionFactory connectionFactory) : IHealthCheck
+public sealed class PullAndLoadHealthCheck(RunStallDetector detector, IDbConnectionFactory connectionFactory,
+    CyberArkDirect.MissedPullDetector missedPullDetector, TimeProvider timeProvider) : IHealthCheck
 {
     public async Task<HealthCheckResult> CheckHealthAsync(HealthCheckContext context, CancellationToken cancellationToken = default)
     {
@@ -28,8 +30,9 @@ public sealed class PullAndLoadHealthCheck(RunStallDetector detector, IDbConnect
                   FROM dbo.etl_run_log WITH (NOLOCK) WHERE StepName IN (N'Import', N'Load')) r
             WHERE r.n = 1 AND r.Status = N'Failed'
             """)).ToList();
+        if (await missedPullDetector.DetectAsync() is { } missed) failed.Insert(0, missed.Describe(timeProvider.LocalTimeZone));
         return failed.Count > 0
             ? HealthCheckResult.Degraded(string.Join(" ", failed) + " See Admin > Data Sources.")
-            : HealthCheckResult.Healthy($"Nothing has stopped moving for {report.StallMinutes} minutes, and the latest pull and load didn't fail.");
+            : HealthCheckResult.Healthy($"Nothing has stopped moving for {report.StallMinutes} minutes, the latest pull and load didn't fail, and no nightly pull was missed.");
     }
 }
