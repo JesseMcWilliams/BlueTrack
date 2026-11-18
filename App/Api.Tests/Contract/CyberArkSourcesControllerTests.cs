@@ -340,6 +340,19 @@ public class CyberArkSourcesControllerTests : IClassFixture<BlueTrackWebApplicat
         }
     }
 
+    // D-362: the pull log carries the scheduler's state: this API process's start, its last check, and the stale limit.
+    [Fact]
+    public async Task DirectPulls_IncludeThePullSchedulerState()
+    {
+        var body = (await Client("TestUser.Admin").GetFromJsonAsync<JsonObject>("/api/admin/cyberark-sources/direct/pulls"))!;
+
+        var scheduler = body["scheduler"]!;
+        Assert.True(scheduler["apiStartedAt"]!.GetValue<DateTime>() > DateTime.UtcNow.AddHours(-1));
+        Assert.Equal(5, scheduler["staleAfterMinutes"]!.GetValue<int>());
+        Assert.True(scheduler.AsObject().ContainsKey("checkedAt"));
+        Assert.True(scheduler.AsObject().ContainsKey("nextPullAt"));
+    }
+
     [Fact]
     public async Task DirectPull_WhenSelfHostedIsOff_IsRefused_AndNothingStarts()
     {

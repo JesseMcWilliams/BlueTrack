@@ -17,7 +17,7 @@ import PullDetailsDialog from './PullDetailsDialog.vue'
 import AdDiscoverySection from './AdDiscoverySection.vue'
 import DnaSection from './DnaSection.vue'
 import ImportLoadSection from './ImportLoadSection.vue'
-import { pullStepLabel, stepCount, durationText } from './runProgress'
+import { pullStepLabel, stepCount, durationText, toDate } from './runProgress'
 import { useI18n } from 'vue-i18n'
 import { formatCount } from '../../utils/formatCount'
 
@@ -82,6 +82,23 @@ const runningStep = computed(() => {
   return count
     ? t('admin.runProgress.pullRunningStepCount', { step: pullStepLabel(step.stepName), count, took })
     : t('admin.runProgress.pullRunningStep', { step: pullStepLabel(step.stepName), took })
+})
+
+// D-362: when the pull scheduler (in the API, waking every minute) last checked, and the next pull. A scheduler that
+// hasn't checked for staleAfterMinutes won't start tonight's pull; a running pull holds it, so that isn't a warning.
+const scheduler = computed(() => {
+  const state = directPulls.value?.scheduler
+  if (!state) return null
+  const now = toDate(directPulls.value.serverTime)
+  const since = toDate(state.checkedAt) ?? toDate(state.apiStartedAt)
+  const stale = !directPulls.value.running && !!now && !!since && (now - since) / 60000 >= state.staleAfterMinutes
+  return {
+    nextPullAt: state.nextPullAt ? formatRunTime(state.nextPullAt) : null,
+    apiStartedAt: state.apiStartedAt ? formatRunTime(state.apiStartedAt) : null,
+    checkedAgo: state.checkedAt ? durationText(state.checkedAt, null, directPulls.value.serverTime) : null,
+    stale,
+    staleFor: stale ? durationText(since.toISOString(), null, directPulls.value.serverTime) : null
+  }
 })
 
 // D-302: a Pull now that succeeded starts the Import and Load; the page keeps refreshing until that ends too.
@@ -260,6 +277,12 @@ async function remove(feed) {
       </template>
       <div v-if="isDirect() && directPulls" class="direct-pulls">
         <h4>{{ t('admin.dataSources.directHeading') }}</h4>
+        <p v-if="scheduler" class="hint">
+          <template v-if="scheduler.nextPullAt">{{ t('admin.dataSources.nextPull', { time: scheduler.nextPullAt }) }} </template>
+          <template v-if="scheduler.apiStartedAt">{{ t('admin.dataSources.apiRunningSince', { time: scheduler.apiStartedAt }) }} </template>
+          {{ scheduler.checkedAgo ? t('admin.dataSources.schedulerChecked', { ago: scheduler.checkedAgo }) : t('admin.dataSources.schedulerNotYet') }}
+        </p>
+        <p v-if="scheduler?.stale" role="alert" class="pull-banner">{{ t('admin.dataSources.schedulerStale', { ago: scheduler.staleFor }) }}</p>
         <p v-if="latestPullProblem" role="alert" class="pull-banner">{{ latestPullProblem.status === 'Rejected' ? t('admin.dataSources.bannerRejected') : t('admin.dataSources.bannerFailed') }}</p>
         <p v-if="directPulls.running" role="status">{{ runningStep ?? t('admin.dataSources.pullRunning') }}</p>
         <p v-if="directPulls.pulls.length === 0">{{ t('admin.dataSources.noPulls') }}</p>

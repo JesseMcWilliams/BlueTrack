@@ -192,6 +192,23 @@ describe('DataSources.vue', () => {
     expect(wrapper.text()).toContain('Safes went from 40 to 10')
   })
 
+  // D-362: the scheduler's state, and a warning when it has stopped checking.
+  it('shows the next pull and when the scheduler last checked, and warns when it has stopped', async () => {
+    const scheduler = { apiStartedAt: '2026-11-18T08:00:00', checkedAt: '2026-11-18T13:59:00', nextPullAt: '2026-11-19T09:00:00', staleAfterMinutes: 5 }
+    routeFetch(directHandlers([pull()], false, { 'GET /api/admin/cyberark-sources/direct/pulls': jsonResponse({ running: false, serverTime: '2026-11-18T14:00:00', pulls: [pull()], scheduler }) }))
+    let wrapper = mount(DataSources, { global: { plugins: [makeRouter()], stubs: { AdDiscoverySection: true, DnaSection: true, ImportLoadSection: true } } })
+    await flushPromises()
+    expect(wrapper.text()).toContain(`Next pull: ${formatRunTime('2026-11-19T09:00:00')}.`)
+    expect(wrapper.text()).toContain(`The API has been running since ${formatRunTime('2026-11-18T08:00:00')}.`)
+    expect(wrapper.text()).toContain('Its pull scheduler last checked 1 min ago.')
+    expect(wrapper.text()).not.toContain("hasn't checked for")
+
+    routeFetch(directHandlers([pull()], false, { 'GET /api/admin/cyberark-sources/direct/pulls': jsonResponse({ running: false, serverTime: '2026-11-18T14:20:00', pulls: [pull()], scheduler }) }))
+    wrapper = mount(DataSources, { global: { plugins: [makeRouter()], stubs: { AdDiscoverySection: true, DnaSection: true, ImportLoadSection: true } } })
+    await flushPromises()
+    expect(wrapper.find('.pull-banner').text()).toContain("The pull scheduler hasn't checked for 21 min, so the next pull won't start.")
+  })
+
   // D-302: a Pull now's Import and Load result shows under the pull.
   it('shows the Import and Load that a Pull now started', async () => {
     routeFetch(directHandlers([

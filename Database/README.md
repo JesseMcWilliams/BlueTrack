@@ -91,6 +91,7 @@ instead.
 | 73 | `73_BlueTrack_SafeAccessMovePermissions.sql` | D-356: `fn_SafeAccessGranted` and `fn_SafeRolePermissions`; `usp_Check_SafeAccessPolicies` treats Self-Hosted's MoveAccountsFrom plus MoveAccountsInto as Privilege Cloud's MoveAccountsAndFolders. |
 | 74 | `74_BlueTrack_ProgressRuleLog.sql` | D-359: `web.app_config.ProgressRuleLogDays` (1-3650, default 90); `web.progress_rule_run` and `web.progress_rule_application` (no foreign keys: written with OUTPUT INTO); `usp_Load_AccountProgressAutoAdvance` logs each run and change and purges past the retention. |
 | 75 | `75_BlueTrack_ApiRunLog.sql` | D-361: `web.api_run`, one row per start of the API (machine, process ID, version, clean stop), for Admin > Deployment's **API starts**; the API deletes rows over 180 days old when it starts. |
+| 76 | `76_BlueTrack_PullSchedulerCheck.sql` | D-362: `web.api_run.PullSchedulerCheckedAt`, when this run's pull scheduler last woke (every minute), for Admin > Data Sources. |
 
 ## The baseline (D-195)
 
@@ -115,7 +116,7 @@ scripts but not up to `51` is refused; upgrade it first from the
 
 ## Adding a script
 
-1. Name it `NN_BlueTrack_<Topic>.sql`, with `NN` the next number (`76` is next).
+1. Name it `NN_BlueTrack_<Topic>.sql`, with `NN` the next number (`77` is next).
 2. Start with a header comment: the file name, `RUN THIS AFTER 01-NN.`, what
    it changes and why (with the `D-n` decision), and whether it's safe to
    re-run.
