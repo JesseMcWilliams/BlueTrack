@@ -96,22 +96,23 @@ public sealed class PvwaClient(HttpClient http, Uri apiRoot)
         }
 
         progress?.Begin(PullProgress.Steps.Safes);
-        foreach (var item in await GetPagedAsync(token, "Safes?extendedDetails=true", ct, progress))
+        await ForEachPagedAsync(token, "Safes?extendedDetails=true", item =>
         {
             if (SafeFrom(item) is { } safe) snapshot.Safes.Add(safe);
             else snapshot.Warnings.Add("A Safe without a number or name was skipped.");
-        }
+        }, ct, progress);
         if (includeBuiltInSafes) await ReadBuiltInSafesAsync(token, snapshot, ct, progress);
 
         progress?.Begin(PullProgress.Steps.Accounts);
-        foreach (var item in await GetPagedAsync(token, "Accounts", ct, progress))
+        // D-372: each page is mapped while it is parsed, so no page is kept.
+        await ForEachPagedAsync(token, "Accounts", item =>
         {
             var id = Str(item, "id");
             var parts = id?.Split('_');
             if (parts is not { Length: 2 } || !long.TryParse(parts[0], out var safeNumber) || !long.TryParse(parts[1], out var fileId))
             {
                 snapshot.Warnings.Add($"An account with the id '{id}' was skipped: the id isn't SafeNumber_FileId.");
-                continue;
+                return;
             }
             var properties = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             if (item.TryGetProperty("platformAccountProperties", out var props) && props.ValueKind == JsonValueKind.Object)
@@ -137,7 +138,7 @@ public sealed class PvwaClient(HttpClient http, Uri apiRoot)
                 RemoteMachines = Str(remote, "remoteMachines") is { Length: > 0 } machines ? machines : null,
                 AccessRestrictedToRemoteMachines = Bool(remote, "accessRestrictedToRemoteMachines")
             });
-        }
+        }, ct, progress);
 
         // D-270: the CPM's verify, change and reconcile history, from each account's activity log. Only an account
         // with a CPM status has any (the status appears once the CPM first acts on it), so only those are asked:
@@ -157,11 +158,11 @@ public sealed class PvwaClient(HttpClient http, Uri apiRoot)
             try
             {
                 // D-270: predefined members (Administrator, Auditors, ...) too; PVWA leaves them out unless asked.
-                foreach (var item in await GetPagedAsync(token, $"Safes/{safe.SafeUrlId}/Members?filter=includePredefinedUsers%20eq%20true", innerCt))
+                await ForEachPagedAsync(token, $"Safes/{safe.SafeUrlId}/Members?filter=includePredefinedUsers%20eq%20true", item =>
                 {
                     var memberId = Long(item, "memberId");
                     var memberName = Str(item, "memberName");
-                    if (memberId is null || memberName is null) continue;
+                    if (memberId is null || memberName is null) return;
                     var permissions = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
                     if (item.TryGetProperty("permissions", out var perms) && perms.ValueKind == JsonValueKind.Object)
                     {
@@ -176,7 +177,7 @@ public sealed class PvwaClient(HttpClient http, Uri apiRoot)
                         SafeUrlId = safe.SafeUrlId, MemberType = Str(item, "memberType"), IsExpiredMembershipEnable = Bool(item, "isExpiredMembershipEnable"),
                         IsPredefinedUser = Bool(item, "isPredefinedUser"), IsReadOnly = Bool(item, "isReadOnly")
                     });
-                }
+                }, innerCt);
             }
             catch (PvwaException ex) when (ex.Message.Contains("(403)"))
             {
@@ -310,8 +311,7 @@ public sealed class PvwaClient(HttpClient http, Uri apiRoot)
             if (HasClassicReservedChars(appId)) { problems.Add($"{appId} (its name has + & or %)"); return; }
             try
             {
-                var root = await GetJsonAsync(token, $"../WebServices/PIMServices.svc/Applications/{Uri.EscapeDataString(appId)}/Authentications/", innerCt);
-                read[appId] = ArrayOf(root, "authentication").Select(a =>
+                read[appId] = await ReadJsonAsync(token, $"../WebServices/PIMServices.svc/Applications/{Uri.EscapeDataString(appId)}/Authentications/", root => ArrayOf(root, "authentication").Select(a =>
                 {
                     var type = Str(a, "AuthType") ?? "";
                     return new PvwaApplicationAuthentication(Str(a, "authID") ?? Long(a, "authID")?.ToString(CultureInfo.InvariantCulture), type,
@@ -320,7 +320,7 @@ public sealed class PvwaClient(HttpClient http, Uri apiRoot)
                         IsFolder = Bool(a, "IsFolder"), AllowInternalScripts = Bool(a, "AllowInternalScripts"),
                         Subject = Str(a, "Subject"), Issuer = Str(a, "Issuer"), SubjectAlternativeName = Str(a, "SubjectAlternativeName")
                     };
-                }).ToList();
+                }).ToList(), innerCt);
             }
             catch (PvwaException ex)
             {
@@ -435,15 +435,29 @@ public sealed class PvwaClient(HttpClient http, Uri apiRoot)
     private async Task<List<JsonElement>> GetPagedAsync(string token, string path, CancellationToken ct, PullProgress? progress = null)
     {
         var all = new List<JsonElement>();
+        await ForEachPagedAsync(token, path, item => all.Add(item.Clone()), ct, progress);
+        return all;
+    }
+
+    /// <summary>
+    /// D-372: as <see cref="GetPagedAsync"/>, but hands each item to <paramref name="each"/> while its page is parsed,
+    /// so no page is kept once it has been read. <paramref name="each"/> must copy what it needs out of the element.
+    /// </summary>
+    private async Task ForEachPagedAsync(string token, string path, Action<JsonElement> each, CancellationToken ct, PullProgress? progress = null)
+    {
         var sep = path.Contains('?') ? '&' : '?';
         for (var offset = 0; ; offset += PageSize)
         {
-            var root = await GetJsonAsync(token, $"{path}{sep}limit={PageSize}&offset={offset}", ct);
-            var page = ArrayOf(root, "value");
-            if (offset == 0 && CountOf(root) is { } total) progress?.SetTotal(total);
-            progress?.Advance(page.Count);
-            all.AddRange(page);
-            if (page.Count < PageSize) return all;
+            var first = offset == 0;
+            var count = await ReadJsonAsync(token, $"{path}{sep}limit={PageSize}&offset={offset}", root =>
+            {
+                var page = ArrayOf(root, "value");
+                if (first && CountOf(root) is { } total) progress?.SetTotal(total);
+                progress?.Advance(page.Count);
+                foreach (var item in page) each(item);
+                return page.Count;
+            }, ct);
+            if (count < PageSize) return;
             if (offset > 10_000_000) throw new PvwaException($"PVWA '{path}' kept returning full pages; stopped after 10 million rows.");
         }
     }
@@ -525,15 +539,19 @@ public sealed class PvwaClient(HttpClient http, Uri apiRoot)
             var account = snapshot.Accounts[i];
             try
             {
-                var root = await GetJsonAsync(token, $"../WebServices/PIMServices.svc/Accounts/{account.Id}/Activities/", innerCt);
-                var activities = new List<PvwaCpmActivity>();
-                foreach (var a in ArrayOf(root, "GetAccountActivitiesSlashResult"))
+                // D-372: an account's whole activity history comes back; only the CPM codes are kept, read while parsed.
+                var activities = await ReadJsonAsync(token, $"../WebServices/PIMServices.svc/Accounts/{account.Id}/Activities/", root =>
                 {
-                    if (Long(a, "ActivityCode") is not { } code || !CpmActivityCodes.Contains((int)code)) continue;
-                    var time = ClassicTime(Str(a, "Time"));
-                    if (time is null && Str(a, "Time") is not null) Interlocked.Increment(ref unreadableTimes);
-                    activities.Add(new PvwaCpmActivity((int)code, Str(a, "Activity"), time, Str(a, "UserName"), Str(a, "Reason"), Str(a, "MoreInfo")));
-                }
+                    var list = new List<PvwaCpmActivity>();
+                    foreach (var a in ArrayOf(root, "GetAccountActivitiesSlashResult"))
+                    {
+                        if (Long(a, "ActivityCode") is not { } code || !CpmActivityCodes.Contains((int)code)) continue;
+                        var time = ClassicTime(Str(a, "Time"));
+                        if (time is null && Str(a, "Time") is not null) Interlocked.Increment(ref unreadableTimes);
+                        list.Add(new PvwaCpmActivity((int)code, Str(a, "Activity"), time, Str(a, "UserName"), Str(a, "Reason"), Str(a, "MoreInfo")));
+                    }
+                    return list;
+                }, innerCt);
                 // The latest of each code: what the stage rules need, and what "last verified" means.
                 found[i] = activities.GroupBy(a => a.Code).Select(g => g.OrderByDescending(a => a.Time ?? DateTime.MinValue).First()).OrderBy(a => a.Code).ToList();
             }
@@ -682,25 +700,32 @@ public sealed class PvwaClient(HttpClient http, Uri apiRoot)
             .Where(k => !string.IsNullOrEmpty(k) && !HasClassicReservedChars(k)).Distinct(StringComparer.OrdinalIgnoreCase);
         foreach (var keywords in attempts)
         {
-            var root = await GetJsonAsync(token,
-                $"../WebServices/PIMServices.svc/Accounts?Keywords={Uri.EscapeDataString(keywords!)}&Safe={Uri.EscapeDataString(account.SafeName)}", ct);
-            foreach (var item in ArrayOf(root, "accounts"))
+            var detail = await ReadJsonAsync(token,
+                $"../WebServices/PIMServices.svc/Accounts?Keywords={Uri.EscapeDataString(keywords!)}&Safe={Uri.EscapeDataString(account.SafeName)}",
+                root => DetailFrom(root, account), ct);
+            if (detail is not null) return detail;
+        }
+        return null;
+    }
+
+    private static PvwaAccountDetail? DetailFrom(JsonElement root, PvwaAccount account)
+    {
+        foreach (var item in ArrayOf(root, "accounts"))
+        {
+            if (!string.Equals(Str(item, "AccountID"), account.Id, StringComparison.Ordinal)) continue;
+            var values = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            // The documentation's example spells it "Internal Properties"; the lab sends InternalProperties.
+            foreach (var list in new[] { "Properties", "InternalProperties", "Internal Properties" })
             {
-                if (!string.Equals(Str(item, "AccountID"), account.Id, StringComparison.Ordinal)) continue;
-                var values = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-                // The documentation's example spells it "Internal Properties"; the lab sends InternalProperties.
-                foreach (var list in new[] { "Properties", "InternalProperties", "Internal Properties" })
+                foreach (var pair in Arr(item, list))
                 {
-                    foreach (var pair in Arr(item, list))
-                    {
-                        if (Str(pair, "Key") is { } key && Str(pair, "Value") is { Length: > 0 } value) values.TryAdd(key, value);
-                    }
+                    if (Str(pair, "Key") is { } key && Str(pair, "Value") is { Length: > 0 } value) values.TryAdd(key, value);
                 }
-                string? V(string key) => values.GetValueOrDefault(key);
-                return new PvwaAccountDetail(account.Id, account.CategoryModificationTime, V("DeviceType"), V("CreationMethod"),
-                    V("ExtraPass1Safe"), V("ExtraPass1Folder"), V("ExtraPass1Name"), V("ExtraPass3Safe"), V("ExtraPass3Folder"), V("ExtraPass3Name"))
-                    { Folder = V("Folder") };
             }
+            string? V(string key) => values.GetValueOrDefault(key);
+            return new PvwaAccountDetail(account.Id, account.CategoryModificationTime, V("DeviceType"), V("CreationMethod"),
+                V("ExtraPass1Safe"), V("ExtraPass1Folder"), V("ExtraPass1Name"), V("ExtraPass3Safe"), V("ExtraPass3Folder"), V("ExtraPass3Name"))
+                { Folder = V("Folder") };
         }
         return null;
     }
@@ -726,15 +751,25 @@ public sealed class PvwaClient(HttpClient http, Uri apiRoot)
         return [];
     }
 
-    private async Task<JsonElement> GetJsonAsync(string token, string relative, CancellationToken ct)
+    private Task<JsonElement> GetJsonAsync(string token, string relative, CancellationToken ct) =>
+        ReadJsonAsync(token, relative, root => root.Clone(), ct);
+
+    /// <summary>
+    /// D-372: reads one response and maps it while it is parsed. The body is streamed (SendAsync asks for headers only,
+    /// so HttpClient doesn't buffer it first), parsed into pooled memory, and <paramref name="map"/> copies what it
+    /// needs before the document is disposed, so nothing else is allocated per call: a pull makes one call per
+    /// account for its activity history and one for its classic details.
+    /// </summary>
+    private async Task<T> ReadJsonAsync<T>(string token, string relative, Func<JsonElement, T> map, CancellationToken ct)
     {
         using var request = new HttpRequestMessage(HttpMethod.Get, new Uri(apiRoot, relative));
         request.Headers.TryAddWithoutValidation("Authorization", token);
         using var response = await SendAsync(request, $"read '{relative.Split('?')[0]}'", ct);
         try
         {
-            using var doc = await JsonDocument.ParseAsync(await response.Content.ReadAsStreamAsync(ct), cancellationToken: ct);
-            return doc.RootElement.Clone();
+            await using var body = await response.Content.ReadAsStreamAsync(ct);
+            using var doc = await JsonDocument.ParseAsync(body, cancellationToken: ct);
+            return map(doc.RootElement);
         }
         catch (JsonException ex)
         {
@@ -747,7 +782,8 @@ public sealed class PvwaClient(HttpClient http, Uri apiRoot)
         HttpResponseMessage response;
         try
         {
-            response = await http.SendAsync(request, ct);
+            // D-372: headers only, so the body is streamed to the parser rather than buffered whole first.
+            response = await http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct);
         }
         catch (HttpRequestException ex)
         {

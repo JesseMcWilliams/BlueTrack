@@ -4,6 +4,7 @@
 
 | Date | Change | User doc / section it affects |
 |---|---|---|
+| 2026-11-18 | Self-Hosted Direct pull streams PVWA answers (much less memory while it runs) | Release notes only (no user-visible behavior change) |
 | 2026-11-18 | The API returns memory to Windows a few seconds after a pull or DNA import (logged) | Admin_OperationsGuide.md (the "Performance" note) |
 | 2026-11-18 | Risk findings: privileged hard-coded credentials worked out faster (same results) | Release notes only (no user-visible behavior change) |
 | 2026-11-18 | Index on staged Self-Hosted object properties: faster nightly Load | Release notes only (no user-visible behavior change) |
