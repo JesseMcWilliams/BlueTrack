@@ -68,6 +68,31 @@ public sealed class MissedPullDetector(IDbConnectionFactory connectionFactory, C
         return new MissedPull(scheduledLocal, scheduledUtc, api, row.StartedAfter);
     }
 
+    /// <summary>
+    /// D-367: whether the API, just started, should run the pull it missed: the latest pull time has passed (at most
+    /// <see cref="CatchUpWithin"/> ago), no pull has started since, and the nightly Import hasn't started since either,
+    /// so a pull now still reaches tonight's Import. A pull time already past when the API starts otherwise waits a day.
+    /// </summary>
+    public async Task<DateTime?> CatchUpDueAsync(TimeOnly pullTime, DateTime nowLocal, TimeZoneInfo zone)
+    {
+        var candidate = nowLocal.Date + pullTime.ToTimeSpan();
+        var scheduledLocal = candidate <= nowLocal ? candidate : candidate.AddDays(-1);
+        if (nowLocal - scheduledLocal > CatchUpWithin) return null;
+        var forUtc = zone.IsInvalidTime(scheduledLocal) ? scheduledLocal.AddHours(1) : scheduledLocal;
+        var scheduledUtc = TimeZoneInfo.ConvertTimeToUtc(DateTime.SpecifyKind(forUtc, DateTimeKind.Unspecified), zone);
+
+        using var connection = connectionFactory.Create();
+        var due = await connection.QuerySingleAsync<bool>("""
+            SELECT CAST(CASE WHEN NOT EXISTS (SELECT 1 FROM dbo.cyberark_direct_pull WHERE StartedAt >= DATEADD(MINUTE, -2, @scheduledUtc))
+                              AND NOT EXISTS (SELECT 1 FROM dbo.etl_run_log WITH (NOLOCK) WHERE StepName = N'Import' AND StartedAt >= @scheduledUtc)
+                        THEN 1 ELSE 0 END AS BIT)
+            """, new { scheduledUtc });
+        return due ? scheduledLocal : null;
+    }
+
+    /// <summary>D-367: how long after the pull time a starting API still catches it up (the Import refuses a pull over 20 hours old).</summary>
+    public static readonly TimeSpan CatchUpWithin = TimeSpan.FromHours(12);
+
     /// <summary>The latest moment at pull time that is at least <see cref="Grace"/> before now.</summary>
     public static DateTime LatestPassed(TimeOnly pullTime, DateTime nowLocal)
     {

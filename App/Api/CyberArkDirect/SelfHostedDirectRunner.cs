@@ -55,13 +55,13 @@ public sealed class SelfHostedDirectRunner(IServiceScopeFactory scopeFactory, IH
         return true;
     }
 
-    /// <summary>The nightly pull. Skips quietly if a Run now is going.</summary>
-    public async Task RunScheduledAsync(CancellationToken ct)
+    /// <summary>The nightly pull. Skips quietly if a Run now is going. D-367: <paramref name="triggeredBy"/> is "schedule (catch-up)" for a missed one.</summary>
+    public async Task RunScheduledAsync(CancellationToken ct, string triggeredBy = "schedule")
     {
         if (Interlocked.CompareExchange(ref _running, 1, 0) != 0) return;
         try
         {
-            await RunCoreAsync("schedule", acceptChange: false, ct, startLoad: false);
+            await RunCoreAsync(triggeredBy, acceptChange: false, ct, startLoad: false);
         }
         finally
         {
@@ -97,6 +97,8 @@ public sealed class SelfHostedDirectRunner(IServiceScopeFactory scopeFactory, IH
 /// the Import job's time (usp_Import_Configured rejects a pull older than 20 hours). Same shape as
 /// DataFeedBackgroundService: wakes every minute and re-reads the setting, so a change on Admin > Data Sources
 /// applies without a restart, and a time already past when the app starts doesn't fire until the next day.
+/// D-367: except at the first wake, when a pull missed within the last 12 hours, with no Import since, is run then
+/// (<see cref="MissedPullDetector.CatchUpDueAsync"/>).
 /// </summary>
 public sealed class SelfHostedDirectBackgroundService(
     IServiceScopeFactory scopeFactory,
@@ -111,6 +113,7 @@ public sealed class SelfHostedDirectBackgroundService(
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         var lastWake = timeProvider.GetLocalNow().DateTime;
+        var catchUpChecked = false;
         while (!stoppingToken.IsCancellationRequested)
         {
             try
@@ -135,6 +138,13 @@ public sealed class SelfHostedDirectBackgroundService(
                     await runner.RunScheduledAsync(stoppingToken);
                     await scope.ServiceProvider.GetRequiredService<SelfHostedDirectRepository>().PurgeAsync(KeepLogDays);
                 }
+                else if (!catchUpChecked && SelfHostedDirectPullService.IsOn(settings) && FeedSchedule.TryParseTime(settings.DirectPullTime, out var missedTime)
+                         && await scope.ServiceProvider.GetRequiredService<MissedPullDetector>().CatchUpDueAsync(missedTime, now, timeProvider.LocalTimeZone) is { } missedAt)
+                {
+                    // D-367: the API started after tonight's pull time, which then waits a day, and the Import hasn't run yet.
+                    logger.LogWarning("The Self-Hosted Direct pull due at {PullTime:yyyy-MM-dd HH:mm} didn't run (the API wasn't running then); starting it now.", missedAt);
+                    await runner.RunScheduledAsync(stoppingToken, CatchUpTriggeredBy);
+                }
                 else if (due && settings.ImportPrivilegeCloud)
                 {
                     // D-281: no pull to carry it, so Privilege Cloud's Safe groups are read from AD on their own.
@@ -154,9 +164,13 @@ public sealed class SelfHostedDirectBackgroundService(
             {
                 logger.LogError(ex, "Nightly Self-Hosted Direct pull failed unexpectedly -- will try again tomorrow.");
             }
+            catchUpChecked = true;
             lastWake = now;
         }
     }
+
+    /// <summary>D-367: how a caught-up pull is shown in the pull log's By column.</summary>
+    public const string CatchUpTriggeredBy = "schedule (catch-up)";
 
     /// <summary>
     /// D-362: records that the scheduler woke, on this run's web.api_run row, for Admin > Data Sources. Before the
