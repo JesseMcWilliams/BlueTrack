@@ -15,6 +15,8 @@ public sealed class ApiRunRepository(IDbConnectionFactory connectionFactory)
         public string MachineName { get; init; } = "";
         public int ProcessId { get; init; }
         public string Version { get; init; } = "";
+        /// <summary>D-362: when this run's pull scheduler last woke and checked whether the pull was due.</summary>
+        public DateTime? PullSchedulerCheckedAt { get; init; }
         /// <summary>The previous run's StoppedAt (or StartedAt, if it never stopped cleanly): the API wasn't running between it and StartedAt.</summary>
         public DateTime? PreviousStoppedAt { get; init; }
         public bool PreviousStoppedCleanly { get; init; }
@@ -31,6 +33,23 @@ public sealed class ApiRunRepository(IDbConnectionFactory connectionFactory)
             """, new { KeepDays, machineName, processId, version });
     }
 
+    /// <summary>D-362: the pull scheduler woke and checked; a single-row update, once a minute.</summary>
+    public async Task MarkPullSchedulerCheckedAsync(long apiRunKey)
+    {
+        using var connection = connectionFactory.Create();
+        await connection.ExecuteAsync("UPDATE web.api_run SET PullSchedulerCheckedAt = SYSUTCDATETIME() WHERE ApiRunKey = @apiRunKey", new { apiRunKey });
+    }
+
+    /// <summary>D-362: one run (this process's, for Data Sources), or null.</summary>
+    public async Task<ApiRun?> GetAsync(long apiRunKey)
+    {
+        using var connection = connectionFactory.Create();
+        return await connection.QuerySingleOrDefaultAsync<ApiRun>("""
+            SELECT ApiRunKey, StartedAt, StoppedAt, MachineName, ProcessId, Version, PullSchedulerCheckedAt
+            FROM web.api_run WHERE ApiRunKey = @apiRunKey
+            """, new { apiRunKey });
+    }
+
     public async Task RecordStopAsync(long apiRunKey)
     {
         using var connection = connectionFactory.Create();
@@ -42,7 +61,7 @@ public sealed class ApiRunRepository(IDbConnectionFactory connectionFactory)
     {
         using var connection = connectionFactory.Create();
         var rows = await connection.QueryAsync<ApiRun>("""
-            SELECT TOP (@count) r.ApiRunKey, r.StartedAt, r.StoppedAt, r.MachineName, r.ProcessId, r.Version,
+            SELECT TOP (@count) r.ApiRunKey, r.StartedAt, r.StoppedAt, r.MachineName, r.ProcessId, r.Version, r.PullSchedulerCheckedAt,
                    COALESCE(p.StoppedAt, p.StartedAt) AS PreviousStoppedAt,
                    CAST(CASE WHEN p.StoppedAt IS NOT NULL OR p.ApiRunKey IS NULL THEN 1 ELSE 0 END AS BIT) AS PreviousStoppedCleanly
             FROM web.api_run r

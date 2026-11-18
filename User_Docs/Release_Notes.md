@@ -6,6 +6,7 @@ What changed in each BlueTrack release, newest first, for users and administrato
 
 ### New
 
+- **Data Sources shows when the next pull runs and whether the scheduler is awake.** Under Self-Hosted Direct pulls: the next pull time, how long the API has been running, and when its pull scheduler last checked (every minute). If it hasn't checked for 5 minutes, the page warns that the next pull won't start and says what to do. (Administrator Operations Guide)
 - **See when BlueTrack was running.** Admin > Deployment has a new **API starts** table: each time the API started and stopped, its version, and how long it wasn't running before each start. While it isn't running, nothing it schedules runs (the nightly pull, AD discovery, data feeds, notifications, backups), so this is the first place to look when a nightly run is missing. (Administrator Operations Guide)
 - **Who can use this account shows each person's user source.** A new **User source** column says whether the person is a Vault user or an LDAP user (people reached through an AD group are LDAP). (User Guide)
 - **See what the Progress Rules did.** Admin > Progress Rules shows when the rules last ran and how many accounts they changed, and each rule's **Last applied** (when, and how many accounts). A rule's page lists the accounts it moved or archived, newest first. The record is kept for 90 days by default; change it with **Keep the Progress Rules log (days)** on Admin > Global Application Configuration. (Administrator Settings)

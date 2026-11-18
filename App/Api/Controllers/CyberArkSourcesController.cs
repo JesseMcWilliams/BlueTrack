@@ -33,7 +33,9 @@ public sealed class CyberArkSourcesController(
     SelfHostedDirectRunner directRunner,
     SelfHostedDirectPullService directPullService,
     CredentialRepository credentialRepository,
-    SecretsStoreRepository secretsStoreRepository) : ControllerBase
+    SecretsStoreRepository secretsStoreRepository,
+    HealthChecks.ApiRunRecorder apiRunRecorder,
+    ApiRunRepository apiRunRepository) : ControllerBase
 {
     [HttpGet]
     public async Task<IActionResult> Get() => Ok(await repository.GetAsync());
@@ -183,8 +185,31 @@ public sealed class CyberArkSourcesController(
     {
         var pulls = await directRepository.GetRecentAsync(15);
         IReadOnlyList<PullStepRecord> steps = pulls.Count > 0 && pulls[0].Status == "Started" ? await directRepository.GetPullStepsAsync(pulls[0].PullKey) : [];
-        return Ok(new { running = directRunner.IsRunning, serverTime = timeProvider.GetUtcNow().UtcDateTime, pulls, steps });
+        return Ok(new { running = directRunner.IsRunning, serverTime = timeProvider.GetUtcNow().UtcDateTime, pulls, steps, scheduler = await PullSchedulerStateAsync() });
     }
+
+    /// <summary>
+    /// D-362: when this API process started, when its pull scheduler last woke (every minute), and the next pull time
+    /// (UTC; DirectPullTime is server local time). A scheduler that hasn't woken for minutes won't start the pull.
+    /// </summary>
+    private async Task<object> PullSchedulerStateAsync()
+    {
+        var run = apiRunRecorder.CurrentRunKey is { } key ? await apiRunRepository.GetAsync(key) : null;
+        var settings = (await repository.GetAsync()).Settings;
+        DateTime? nextPullAt = null;
+        if (FeedSchedule.TryParseTime(settings.DirectPullTime, out var pullTime))
+        {
+            var next = FeedSchedule.NextRun(timeProvider.GetLocalNow().DateTime, pullTime);
+            var zone = timeProvider.LocalTimeZone;
+            // A time skipped by a daylight-saving change has no UTC equivalent; the scheduler fires on the next wake.
+            if (zone.IsInvalidTime(next)) next = next.AddHours(1);
+            nextPullAt = TimeZoneInfo.ConvertTimeToUtc(DateTime.SpecifyKind(next, DateTimeKind.Unspecified), zone);
+        }
+        return new { apiStartedAt = run?.StartedAt, checkedAt = run?.PullSchedulerCheckedAt, nextPullAt, staleAfterMinutes = PullSchedulerStaleMinutes };
+    }
+
+    /// <summary>D-362: the scheduler wakes every minute; this long without a wake means it has stopped (or a pull is running).</summary>
+    public const int PullSchedulerStaleMinutes = 5;
 
     /// <summary>D-337: one pull's steps, for Pull details.</summary>
     [HttpGet("direct/pulls/{pullKey:long}/steps")]

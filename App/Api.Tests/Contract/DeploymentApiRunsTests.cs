@@ -35,6 +35,28 @@ public class DeploymentApiRunsTests : IClassFixture<BlueTrackWebApplicationFacto
         Assert.Equal(runs.OrderByDescending(r => r.ApiRunKey).Select(r => r.ApiRunKey), runs.Select(r => r.ApiRunKey));
     }
 
+    // D-362: the pull scheduler's check is a single-row update on this run.
+    [Fact]
+    public async Task Repository_MarkPullSchedulerChecked_SetsTheTimeOnThatRunOnly()
+    {
+        var repository = new ApiRunRepository(new TestDbConnectionFactory());
+        var key = await repository.RecordStartAsync("TEST-CHECK", 1, "test");
+        try
+        {
+            Assert.Null((await repository.GetAsync(key))!.PullSchedulerCheckedAt);
+            await repository.MarkPullSchedulerCheckedAsync(key);
+            var checkedAt = (await repository.GetAsync(key))!.PullSchedulerCheckedAt;
+            Assert.NotNull(checkedAt);
+            Assert.InRange(checkedAt!.Value, DateTime.UtcNow.AddMinutes(-5), DateTime.UtcNow.AddMinutes(5));
+            Assert.Null(await repository.GetAsync(-1));
+        }
+        finally
+        {
+            using var connection = new SqlConnection(TestDatabase.ConnectionString);
+            await connection.ExecuteAsync("DELETE FROM web.api_run WHERE MachineName = N'TEST-CHECK'");
+        }
+    }
+
     [Fact]
     public async Task Repository_GapBeforeAStart_IsThePreviousStop_OrItsStartWhenItNeverStopped()
     {

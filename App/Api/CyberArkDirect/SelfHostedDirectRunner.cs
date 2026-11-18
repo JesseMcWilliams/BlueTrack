@@ -101,6 +101,7 @@ public sealed class SelfHostedDirectRunner(IServiceScopeFactory scopeFactory, IH
 public sealed class SelfHostedDirectBackgroundService(
     IServiceScopeFactory scopeFactory,
     SelfHostedDirectRunner runner,
+    HealthChecks.ApiRunRecorder apiRunRecorder,
     TimeProvider timeProvider,
     ILogger<SelfHostedDirectBackgroundService> logger) : BackgroundService
 {
@@ -122,6 +123,7 @@ public sealed class SelfHostedDirectBackgroundService(
             }
 
             var now = timeProvider.GetLocalNow().DateTime;
+            await MarkCheckedAsync();
             try
             {
                 using var scope = scopeFactory.CreateScope();
@@ -153,6 +155,25 @@ public sealed class SelfHostedDirectBackgroundService(
                 logger.LogError(ex, "Nightly Self-Hosted Direct pull failed unexpectedly -- will try again tomorrow.");
             }
             lastWake = now;
+        }
+    }
+
+    /// <summary>
+    /// D-362: records that the scheduler woke, on this run's web.api_run row, for Admin > Data Sources. Before the
+    /// pull, so a long pull doesn't look like a stopped scheduler until it has run for a while. A failure is logged at
+    /// Debug and never keeps the pull from running.
+    /// </summary>
+    private async Task MarkCheckedAsync()
+    {
+        if (apiRunRecorder.CurrentRunKey is not { } runKey) return;
+        try
+        {
+            using var scope = scopeFactory.CreateScope();
+            await scope.ServiceProvider.GetRequiredService<ApiRunRepository>().MarkPullSchedulerCheckedAsync(runKey);
+        }
+        catch (Exception ex)
+        {
+            logger.LogDebug(ex, "Couldn't record that the pull scheduler checked.");
         }
     }
 }
