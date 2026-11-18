@@ -74,6 +74,31 @@ public class SelfHostedDirectTests
         await transaction.RollbackAsync();
     }
 
+    // D-364: a pull more than 20 hours old says whether the API's pull scheduler is checking now, and where to look.
+    [Theory]
+    [InlineData(25, "so the API is not running now.")]
+    [InlineData(0, "The API is running now (it started at ")]
+    public async Task ImportConfigured_Direct_PullTooOld_SaysWhetherTheApiIsRunning(int checkedHoursAgo, string expected)
+    {
+        var (connection, transaction) = await BeginAsync();
+        await using var _ = connection;
+        await SetSourceAsync(connection, transaction, "Direct");
+        await AddPullAsync(connection, transaction, "Succeeded", 30);
+        await connection.ExecuteAsync("""
+            DELETE FROM web.api_run;
+            INSERT INTO web.api_run (StartedAt, PullSchedulerCheckedAt, MachineName, ProcessId, Version)
+            VALUES (DATEADD(HOUR, -40, SYSUTCDATETIME()), DATEADD(HOUR, -@checkedHoursAgo, SYSUTCDATETIME()), N'TEST', 1, N'test');
+            """, new { checkedHoursAgo }, transaction);
+
+        var error = await Assert.ThrowsAsync<SqlException>(() => connection.ExecuteAsync("EXEC dbo.usp_Import_Configured", transaction: transaction));
+
+        Assert.Contains("more than 20 hours old", error.Message);
+        Assert.Contains("and no pull has started since. The BlueTrack API starts the pull", error.Message);
+        Assert.Contains(expected, error.Message);
+        Assert.EndsWith("(Admin Operations Guide, \"A nightly pull didn't run\").", error.Message);
+        await transaction.RollbackAsync();
+    }
+
     [Fact]
     public async Task ImportConfigured_Direct_AfterARecentSuccess_Succeeds_AndLeavesThePulledStagingAlone()
     {

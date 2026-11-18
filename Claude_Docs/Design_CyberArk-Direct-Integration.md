@@ -53,7 +53,7 @@ The Load (`usp_RunFullLoad`) and everything after it are unchanged: they read `s
 
 **Scheduler state (D-362).** The nightly pull starts only while the API is loaded (D-332, D-361). Each minute `SelfHostedDirectBackgroundService` wakes, sets `web.api_run.PullSchedulerCheckedAt` on its process's row (script 76), then checks whether `DirectPullTime` fell since its last wake. `GET .../direct/pulls` returns `scheduler` (`apiStartedAt`, `checkedAt`, `nextPullAt` in UTC, `staleAfterMinutes` 5), and Data Sources shows the next pull, how long the API has been running, and when the scheduler last checked, with an alert when it hasn't checked for 5 minutes while no pull runs.
 
-**A missed pull (D-363).** `MissedPullDetector` reports the latest pull time that passed (by 10 minutes) with no pull started since, and whether the API was running then (from `web.api_run`). The Pull and Load health check is Degraded with it, and the `SelfHostedPullMissed` notification mails it once per pull time.
+**A missed pull (D-363).** `MissedPullDetector` reports the latest pull time that passed (by 10 minutes) with no pull started since, and whether the API was running then (from `web.api_run`). The Pull and Load health check is Degraded with it, and the `SelfHostedPullMissed` notification mails it once per pull time. **D-364:** the Import's "more than 20 hours old" error (script 78) also says no pull has started since, whether the API's pull scheduler is checking now, and where to look.
 
 ## What it reads, and what each becomes
 

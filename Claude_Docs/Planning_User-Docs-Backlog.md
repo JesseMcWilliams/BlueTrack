@@ -4,6 +4,7 @@
 
 | Date | Change | User doc / section it affects |
 |---|---|---|
+| 2026-11-18 | Nightly Import's "pull more than 20 hours old" error says no pull started since, whether the API is running now, and where to look | Admin_OperationsGuide.md (troubleshooting a missing nightly run) |
 | 2026-11-18 | A missed nightly pull: Pull and Load health check Degraded with whether the API was running; new notification type SelfHostedPullMissed (off by default) | Admin_SettingsReference_Notifications.md (types); Admin_OperationsGuide.md (troubleshooting) |
 | 2026-11-18 | Admin > Data Sources: next pull time, how long the API has been running, when the pull scheduler last checked; an alert when it has stopped checking | Admin_OperationsGuide.md (troubleshooting a missing nightly run) |
 | 2026-11-18 | Admin > Deployment: **API starts** table (each start and stop of the API, version, the time it wasn't running before each start; a run that didn't stop cleanly is noted) | Admin_OperationsGuide.md (troubleshooting a missing nightly run) |

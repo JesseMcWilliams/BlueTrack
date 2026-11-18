@@ -93,6 +93,7 @@ instead.
 | 75 | `75_BlueTrack_ApiRunLog.sql` | D-361: `web.api_run`, one row per start of the API (machine, process ID, version, clean stop), for Admin > Deployment's **API starts**; the API deletes rows over 180 days old when it starts. |
 | 76 | `76_BlueTrack_PullSchedulerCheck.sql` | D-362: `web.api_run.PullSchedulerCheckedAt`, when this run's pull scheduler last woke (every minute), for Admin > Data Sources. |
 | 77 | `77_BlueTrack_PullMissedNotification.sql` | D-363: notification type `SelfHostedPullMissed` (off): the nightly pull time passed with no pull. |
+| 78 | `78_BlueTrack_ImportPullAgeReason.sql` | D-364: `usp_Import_Configured`'s "pull more than 20 hours old" error says no pull has started since, whether the API's pull scheduler is checking now, and where to look. |
 
 ## The baseline (D-195)
 
@@ -117,7 +118,7 @@ scripts but not up to `51` is refused; upgrade it first from the
 
 ## Adding a script
 
-1. Name it `NN_BlueTrack_<Topic>.sql`, with `NN` the next number (`78` is next).
+1. Name it `NN_BlueTrack_<Topic>.sql`, with `NN` the next number (`79` is next).
 2. Start with a header comment: the file name, `RUN THIS AFTER 01-NN.`, what
    it changes and why (with the `D-n` decision), and whether it's safe to
    re-run.
