@@ -298,6 +298,8 @@ builder.Services.AddScoped<BackupRunRepository>();
 // D-361: each start and clean stop of the API, for the Deployment page. A Singleton hosted service, so the scheduled
 // services can find this process's row (CurrentRunKey).
 builder.Services.AddScoped<ApiRunRepository>();
+// D-371: gives memory back to Windows after a pull or a DNA import.
+builder.Services.AddSingleton<MemoryReleaser>();
 builder.Services.AddSingleton<BlueTrack.Api.HealthChecks.ApiRunRecorder>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<BlueTrack.Api.HealthChecks.ApiRunRecorder>());
 builder.Services.AddHostedService<BlueTrack.Api.Backups.ScheduledBackupService>();
