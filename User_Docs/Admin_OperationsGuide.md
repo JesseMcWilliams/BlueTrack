@@ -218,6 +218,39 @@ A **rejected** pull read PVWA but wasn't used; a **failed** pull didn't finish (
 
 A successful pull replaces the Self-Hosted staging tables in one go: the `stg_sh_*` tables the Load has always read, and `stg_shd_*` tables holding everything PVWA returned in its own shape (CPM status, last reconcile, CPM activity, platform policy, every account property, predefined Safe members, user details), which the Load uses for the extra account and entitlement detail. The pull log (`dbo.cyberark_direct_pull`) keeps 30 days of pulls, and always the latest.
 
+## A Nightly Pull Didn't Run
+
+**The signs.** The nightly Import fails with "the latest successful PVWA pull is more than 20 hours old ... and no pull has started since"; the **Pull and Load** check on **Admin > Deployment** says "No Self-Hosted Direct pull started at ..."; the **SelfHostedPullMissed** email arrives (turn it on under Notifications); or **Admin > Data Sources** has no pull for that night.
+
+**Why it happens.** The pull isn't a SQL Agent job: the BlueTrack API starts it, inside the IIS worker process, at the pull time. So do AD discovery, the data feeds, notifications and scheduled backups. They run only while IIS has the API loaded. The installer sets this up: the application pool starts AlwaysRunning with no idle time-out, the `/BlueTrack` application has preload on, and IIS Application Initialization (`Web-AppInit`) is installed. If any of these is missing, IIS can stop the API when it's idle, or after its regular recycle (every 29 hours by default), and not start it again until someone opens the site. No pull runs in the meantime.
+
+**What to do.**
+
+1. **Catch up now:** **Pull now** on **Admin > Data Sources**. A successful Pull now starts the Import and Load straight after it.
+2. **See when the API was running:** **Admin > Deployment**, **API starts**. A start with a long **Not running before this start** that covers the pull time means IIS had stopped the API. "The run before didn't stop cleanly" means the worker process crashed or was killed.
+3. **See whether the scheduler is awake now:** **Admin > Data Sources** shows the next pull time and when the pull scheduler last checked (every minute). It warns when the scheduler hasn't checked for 5 minutes.
+4. **Check IIS's settings** on the BlueTrack server, in an elevated PowerShell (the pool is `<site name>-AppPool`, for example `BlueTrack-AppPool`):
+
+   ```powershell
+   Import-Module WebAdministration
+   Get-Item IIS:\AppPools\BlueTrack-AppPool | Select-Object name, startMode, @{n='idleTimeout';e={$_.processModel.idleTimeout}}
+   Get-WebApplication -Site 'BlueTrack' -Name 'BlueTrack' | Select-Object path, preloadEnabled
+   Get-WindowsFeature Web-AppInit
+   ```
+
+   You want `AlwaysRunning`, `00:00:00`, `True` and `Installed`. Re-running the installer's `-Step Iis.AppPool` sets the first two. Or set them by hand: `Set-ItemProperty IIS:\AppPools\BlueTrack-AppPool -Name startMode -Value AlwaysRunning`, `Set-ItemProperty IIS:\AppPools\BlueTrack-AppPool -Name processModel.idleTimeout -Value ([TimeSpan]::Zero)`, `Set-ItemProperty 'IIS:\Sites\BlueTrack\BlueTrack' -Name preloadEnabled -Value $true` and `Install-WindowsFeature Web-AppInit`.
+5. **See what IIS did:** the System event log's **WAS** events for the pool:
+
+   ```powershell
+   Get-WinEvent -FilterHashtable @{LogName='System'; ProviderName='Microsoft-Windows-WAS'; StartTime=(Get-Date).AddDays(-7)} |
+     Where-Object Message -match 'BlueTrack' | Format-List TimeCreated, Id, Message
+   ```
+
+   5074 is the regular recycle, 5186 an idle shutdown, 5079 a recycle someone asked for, and 5009 or 5011 a worker process that ended unexpectedly. After a 5074 or 5186, **API starts** should show a new start within a minute or so; if it doesn't, preload isn't working.
+6. **Look for errors:** the Application event log's warnings and errors that mention BlueTrack, around the pull time.
+
+`Tools\Get-BlueTrackResourceUsage.ps1` reports the pool's recycling and idle settings too; send its file when you ask for help.
+
 ## A Slow or Stuck Pull or Load
 
 **Admin > Data Sources** shows where a pull or the nightly job has got to, so you can tell a slow run from a stuck one before cancelling anything.
