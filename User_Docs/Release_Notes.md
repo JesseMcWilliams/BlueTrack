@@ -16,6 +16,7 @@ What changed in each BlueTrack release, newest first, for users and administrato
 - **Duplicate a Safe access policy or Safe role.** On Admin > Safe Access Policies, **Duplicate** opens a new policy or role filled in from the one you picked, to change and save. A copied policy starts disabled. (Administrator Settings)
 ### Changed
 
+- **The pull and BlueTrack's starts are in the Windows Application log.** Each Self-Hosted Direct pull now logs when it starts and how it ended, BlueTrack logs each start, and the memory given back after a pull; before, only warnings and errors reached that log. The source is ".NET Runtime". (Administrator Operations Guide)
 - **`Get-BlueTrackResourceUsage.ps1` saves query plans.** Each statement it lists has its query plan saved as a `.sqlplan` file in a folder beside the report, to open in SQL Server Management Studio; send the folder with the report. `-NoPlans` leaves them out. (Tools README)
 - **The Self-Hosted Direct pull uses much less memory while it runs.** It reads each PVWA answer as it arrives, keeping only what it needs, instead of holding whole copies; in testing, a pull with long CPM activity histories allocated a third as much. (Release notes only)
 - **BlueTrack gives memory back after a pull or a DNA import.** At one site a Self-Hosted Direct pull left the BlueTrack worker holding 3.6 GB while idle. A few seconds after a pull or DNA import ends, BlueTrack now frees what it no longer needs and returns it to Windows; the application log shows how much. (Administrator Operations Guide)
