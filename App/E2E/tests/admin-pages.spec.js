@@ -412,7 +412,11 @@ test.describe('Deployment admin page', () => {
     await expect(page.getByText('Loading...')).toHaveCount(0)
     await expect(page.getByRole('heading', { name: 'Environment' })).toBeVisible()
     await expect(page.getByText('Environment name')).toBeVisible()
-    await expect(page.getByText('Version')).toBeVisible()
+    await expect(page.locator('dt', { hasText: 'Version' })).toBeVisible()
+
+    // D-361: the API's own start is listed (this test host started it).
+    await expect(page.getByRole('heading', { name: 'API starts' })).toBeVisible()
+    await expect(page.getByRole('columnheader', { name: 'Not running before this start' })).toBeVisible()
 
     await expect(page.getByRole('heading', { name: 'Health Checks' })).toBeVisible()
     await expect(page.getByRole('cell', { name: 'SQL Server', exact: true })).toBeVisible()
