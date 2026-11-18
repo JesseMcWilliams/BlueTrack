@@ -96,6 +96,7 @@ instead.
 | 78 | `78_BlueTrack_ImportPullAgeReason.sql` | D-364: `usp_Import_Configured`'s "pull more than 20 hours old" error says no pull has started since, whether the API's pull scheduler is checking now, and where to look. |
 | 79 | `79_BlueTrack_StagingAccountIdIndex.sql` | D-368: index on `dbo.stg_shd_accounts (AccountId)`, for the account-detail cache prune after each pull and the Load's joins. |
 | 80 | `80_BlueTrack_ObjectPropertiesIndex.sql` | D-369: index on `dbo.stg_sh_objectproperties (CAOPSafeId, CAOPFileId)` including name and value, for `usp_Load_FactAccount`'s Self-Hosted pivot. |
+| 81 | `81_BlueTrack_RiskFindingsPrivilegedLookup.sql` | D-370: `web.usp_DeriveRiskFindings` as in 72, with the privileged-DNA lookup worked out once into an indexed temporary table. |
 
 ## The baseline (D-195)
 
@@ -120,7 +121,7 @@ scripts but not up to `51` is refused; upgrade it first from the
 
 ## Adding a script
 
-1. Name it `NN_BlueTrack_<Topic>.sql`, with `NN` the next number (`81` is next).
+1. Name it `NN_BlueTrack_<Topic>.sql`, with `NN` the next number (`82` is next).
 2. Start with a header comment: the file name, `RUN THIS AFTER 01-NN.`, what
    it changes and why (with the `D-n` decision), and whether it's safe to
    re-run.
