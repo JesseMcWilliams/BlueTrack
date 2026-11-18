@@ -18,6 +18,15 @@
       - The app pool's recycling limits, and the .NET garbage collector mode
         the API runs with (Server or Workstation, from its runtimeconfig.json
         and web.config).
+      - Whether IIS keeps the API loaded (D-366): the pool's start mode
+        (AlwaysRunning) and idle time-out (0), preload on the API's
+        application, and IIS Application Initialization; a warning for each
+        one missing. The System log's IIS (WAS) events for the pool over the
+        last 7 days: recycles, idle shutdowns, workers that ended.
+      - From the database: the latest API starts (web.api_run), the latest
+        Self-Hosted Direct pulls and the Import and Load job's latest runs
+        with their step message, to show whether a missing night was the
+        API not running.
       - With -SampleSeconds, the worker's and SQL Server's CPU and memory
         every -IntervalSeconds for that long: start it, then run the page or
         query that makes the worker grow, and the samples show by how much.
@@ -188,6 +197,59 @@ try {
     }
     #endregion
 
+    #region Keeping the API loaded (D-366)
+    # The nightly pull and everything else the API schedules run only while IIS has the API loaded (D-332): the pool
+    # AlwaysRunning with no idle time-out, preload on the API's application, and IIS Application Initialization.
+    try {
+        Import-Module WebAdministration -ErrorAction Stop
+        $pool = Get-Item "IIS:\AppPools\$AppPoolName" -ErrorAction Stop
+        $problems = @()
+        if ($pool.startMode -ne 'AlwaysRunning') { $problems += "start mode is $($pool.startMode), not AlwaysRunning" }
+        if ($pool.processModel.idleTimeout -ne [TimeSpan]::Zero) { $problems += "idle time-out is $($pool.processModel.idleTimeout), not 0" }
+        $apiApps = @(Get-WebApplication | Where-Object {
+                $_.applicationPool -eq $AppPoolName -and (Test-Path (Join-Path ([Environment]::ExpandEnvironmentVariables($_.PhysicalPath)) 'BlueTrack.Api.dll'))
+            })
+        foreach ($app in $apiApps) {
+            if (-not $app.preloadEnabled) { $problems += "preload is off on $($app.path)" }
+        }
+        if ($apiApps.Count -eq 0) { $problems += "no application in the pool holds BlueTrack.Api.dll" }
+        try {
+            $appInit = Get-WindowsFeature -Name Web-AppInit -ErrorAction Stop
+            if ($appInit.InstallState -ne 'Installed') { $problems += 'IIS Application Initialization (Web-AppInit) is not installed' }
+        } catch {
+            $problems += "couldn't check IIS Application Initialization: $($_.Exception.Message)"
+        }
+        $detail = 'start mode {0}; idle time-out {1}; preload {2}; Application Initialization checked' -f $pool.startMode, $pool.processModel.idleTimeout,
+            (($apiApps | ForEach-Object { "$($_.path) $($_.preloadEnabled)" }) -join ', ')
+        if ($problems.Count -gt 0) {
+            $detail = ($problems -join '; ') + '. Until fixed, IIS can stop the API and not start it again until someone opens the site, so the nightly pull and the other scheduled work don''t run. Re-run the installer''s -Step Iis.AppPool and see the Operations Guide, "A Nightly Pull Didn''t Run".'
+        }
+        Write-ToolResult -Name 'API kept loaded' -Status $(if ($problems.Count -gt 0) { 'Warn' } else { 'Pass' }) -Detail $detail
+    } catch {
+        Write-ToolResult -Name 'API kept loaded' -Status Info -Detail "couldn't read IIS's settings: $($_.Exception.Message)"
+    }
+
+    # What IIS did to the pool's worker processes in the last 7 days (the System log's WAS events).
+    $wasEvents = @()
+    $wasError = $null
+    try {
+        $wasEvents = @(Get-WinEvent -FilterHashtable @{ LogName = 'System'; ProviderName = 'Microsoft-Windows-WAS'; StartTime = (Get-Date).AddDays(-7) } -ErrorAction Stop |
+                Where-Object { $_.Message -match [regex]::Escape("'$AppPoolName'") })
+    } catch {
+        # Get-WinEvent throws "No events were found" when nothing matches; anything else is worth saying.
+        if ($_.FullyQualifiedErrorId -notmatch 'NoMatchingEventsFound') { $wasError = $_.Exception.Message }
+    }
+    # Only the IDs seen on BlueTrack servers are named; others are listed by number.
+    $meaning = @{ 5074 = 'regular recycle'; 5186 = 'idle shutdown'; 5079 = 'recycle asked for'; 5078 = 'an ISAPI reported an unhealthy condition'; 5009 = 'worker ended unexpectedly'; 5011 = 'worker lost contact with IIS' }
+    $bad = @($wasEvents | Where-Object { $_.Id -in 5186, 5009, 5011 })
+    $summary = if ($wasError) { "couldn't read the System log: $wasError" } elseif ($wasEvents.Count -eq 0) { 'none' } else { (($wasEvents | Group-Object Id | ForEach-Object { '{0} x {1}{2}' -f $_.Count, $_.Name, $(if ($meaning.ContainsKey([int]$_.Name)) { " ($($meaning[[int]$_.Name]))" } else { '' }) }) -join '; ') }
+    Write-ToolResult -Name 'IIS events for the pool (7 days)' -Status $(if ($bad.Count -gt 0) { 'Warn' } else { 'Info' }) -Detail $summary
+    if ($wasEvents.Count -gt 0) {
+        $wasEvents | Select-Object -First 20 | Format-Table TimeCreated, Id, @{ n = 'Message'; e = { $text = $_.Message -replace '\s+', ' '; $text.Substring(0, [Math]::Min(140, $text.Length)) } } -AutoSize |
+            Out-String -Width 220 | Write-Host
+    }
+    #endregion
+
     #region Samples
     if ($SampleSeconds -gt 0) {
         Write-Host ''
@@ -344,6 +406,34 @@ WHERE d.dbid = DB_ID(@db)
                     Write-Host ('{0,3}. CPU {1:N0} ms over {2:N0} runs (avg {3} ms CPU, {4} ms elapsed, {5:N0} reads, {6:N0} rows; max {7:N0} rows, max grant {8:N0} MB), last {9:g}{10}' -f `
                         $rank, $row.total_cpu_ms, $row.runs, $row.avg_cpu_ms, $row.avg_ms, $row.avg_reads, $row.avg_rows, $row.max_rows, $row.max_grant_mb, $row.last_execution_time, $procedure)
                     if (-not $NoQueryText) { Write-Host "     $($row.statement_text)" }
+                }
+            }
+
+            # D-366: when the API ran, the latest pulls and the Import and Load job's latest runs, so one report shows
+            # whether a missing night was the API not running (Operations Guide, "A Nightly Pull Didn't Run").
+            # Times in the BlueTrack tables are UTC. A table missing (an older version) or no msdb access is noted, not fatal.
+            $db = '[' + $DatabaseName.Replace(']', ']]') + ']'
+            foreach ($history in @(
+                    @{ Name = 'API starts (UTC)'; Sql = "SELECT TOP (10) StartedAt, StoppedAt, ProcessId, Version, PullSchedulerCheckedAt FROM $db.web.api_run ORDER BY ApiRunKey DESC" },
+                    @{ Name = 'Self-Hosted Direct pulls (UTC)'; Sql = "SELECT TOP (7) StartedAt, CompletedAt, Status, TriggeredBy FROM $db.dbo.cyberark_direct_pull ORDER BY PullKey DESC" },
+                    @{ Name = 'Import and Load job runs (server time)'; Sql = @"
+SELECT TOP (7) CONVERT(datetime, CONVERT(char(8), h.run_date) + ' ' + STUFF(STUFF(RIGHT('000000' + CONVERT(varchar(6), h.run_time), 6), 5, 0, ':'), 3, 0, ':')) AS started,
+       CASE h.run_status WHEN 0 THEN 'Failed' WHEN 1 THEN 'Succeeded' WHEN 3 THEN 'Cancelled' ELSE CONVERT(varchar(10), h.run_status) END AS outcome,
+       LEFT(REPLACE(REPLACE(s.message, CHAR(13), ' '), CHAR(10), ' '), 300) AS step_message
+FROM msdb.dbo.sysjobhistory h
+JOIN msdb.dbo.sysjobs j ON j.job_id = h.job_id
+OUTER APPLY (SELECT TOP (1) message FROM msdb.dbo.sysjobhistory x
+             WHERE x.job_id = h.job_id AND x.step_id = 1 AND x.instance_id < h.instance_id ORDER BY x.instance_id DESC) s
+WHERE j.name = 'BlueTrack (' + @db + ') - Import and Load' AND h.step_id = 0
+ORDER BY h.instance_id DESC
+"@ })) {
+                try {
+                    $table = Invoke-ToolQuery -Sql $history.Sql -Parameters @{ '@db' = $DatabaseName }
+                    Write-Host ''
+                    Write-Host "$($history.Name):"
+                    if ($table.Rows.Count -eq 0) { Write-Host '  none' } else { $table | Format-Table -AutoSize -Wrap | Out-String -Width 220 | Write-Host }
+                } catch {
+                    Write-ToolResult -Name $history.Name -Status Info -Detail "couldn't read it: $($_.Exception.Message)"
                 }
             }
         } catch {
