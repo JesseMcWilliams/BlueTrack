@@ -35,6 +35,10 @@ What changed in each BlueTrack release, newest first, for users and administrato
 
 ### Upgrading
 
+- The upgrade adds database scripts 73 to 81; the installer applies them, and nothing needs doing by hand. 73: Safe access treats Self-Hosted's two move permissions as Privilege Cloud's one. 74: the Progress Rules log and its retention setting. 75 and 76: the API starts record and the pull scheduler's last check. 77: the SelfHostedPullMissed notification type. 78: the nightly Import's clearer "pull more than 20 hours old" error. 79 and 80: two indexes for the pull's clean-up and the nightly Load. 81: the faster risk findings. The indexes are built during the upgrade, in seconds on a large vault.
+- **Turn on the new SelfHostedPullMissed notification** (Admin > Notifications) if you use Self-Hosted Direct: it emails you when the nightly pull time passes and no pull started. It starts off, like the other notification types.
+- After the upgrade, check **Admin > Deployment**: **API starts** lists the new start, and the **Pull and Load** check should be Healthy. `Tools\Get-BlueTrackResourceUsage.ps1` now also checks that IIS keeps BlueTrack loaded (start mode, idle time-out, preload, Application Initialization); a Warn there is worth fixing, as the Operations Guide's "A Nightly Pull Didn't Run" explains.
+
 ## 1.5.4 (2026-11-12)
 
 ### New
