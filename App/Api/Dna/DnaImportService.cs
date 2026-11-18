@@ -18,9 +18,23 @@ public sealed record DnaImportOutcome(int AccountCount, string SheetCounts, int 
 /// D-325, D-341, D-342: one DNA import, from an upload or a data feed: read the workbook, replace the stored DNA
 /// accounts, then let the enabled tracking rules track what they match, and audit it (the file name and counts, never a cell).
 /// </summary>
-public sealed class DnaImportService(DnaRepository repository, AuditLogger auditLogger, ILogger<DnaImportService> logger)
+public sealed class DnaImportService(DnaRepository repository, AuditLogger auditLogger, ILogger<DnaImportService> logger,
+    Data.MemoryReleaser? memoryReleaser = null)
 {
     public async Task<DnaImportOutcome> ImportAsync(Stream workbook, string fileName, int userKey, string how)
+    {
+        try
+        {
+            return await ImportCoreAsync(workbook, fileName, userKey, how);
+        }
+        finally
+        {
+            // D-371: the workbook's rows are garbage once this returns; give their memory back to Windows.
+            memoryReleaser?.ReleaseSoon("a DNA import");
+        }
+    }
+
+    private async Task<DnaImportOutcome> ImportCoreAsync(Stream workbook, string fileName, int userKey, string how)
     {
         IReadOnlyList<DnaAccountRow> rows;
         IReadOnlyList<DnaHardCodedRow> hardCoded;

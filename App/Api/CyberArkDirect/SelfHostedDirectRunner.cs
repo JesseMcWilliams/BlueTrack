@@ -10,7 +10,8 @@ namespace BlueTrack.Api.CyberArkDirect;
 /// D-302: a Pull now that succeeds then starts the Import and Load SQL Agent job; the nightly pull doesn't, since the
 /// job's own schedule follows it.
 /// </summary>
-public sealed class SelfHostedDirectRunner(IServiceScopeFactory scopeFactory, IHostApplicationLifetime lifetime, ILogger<SelfHostedDirectRunner> logger)
+public sealed class SelfHostedDirectRunner(IServiceScopeFactory scopeFactory, IHostApplicationLifetime lifetime, ILogger<SelfHostedDirectRunner> logger,
+    MemoryReleaser? memoryReleaser = null)
 {
     private int _running;
     private CancellationTokenSource? _cancel;
@@ -50,6 +51,7 @@ public sealed class SelfHostedDirectRunner(IServiceScopeFactory scopeFactory, IH
             finally
             {
                 Volatile.Write(ref _running, 0);
+                memoryReleaser?.ReleaseSoon("a Self-Hosted Direct pull");   // D-371
             }
         });
         return true;
@@ -66,6 +68,7 @@ public sealed class SelfHostedDirectRunner(IServiceScopeFactory scopeFactory, IH
         finally
         {
             Volatile.Write(ref _running, 0);
+            memoryReleaser?.ReleaseSoon("a Self-Hosted Direct pull");   // D-371
         }
     }
 
